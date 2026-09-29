@@ -32,7 +32,7 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { reportApiError, toast } from "@/lib/toast";
-import { formatDateTime } from "@/lib/date";
+import { formatDateTime, toISODate } from "@/lib/date";
 import { ApiError } from "@/services/api-client";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import type { MessageKey } from "@/i18n/translate";
@@ -397,9 +397,10 @@ function OrderCostTraceTab({ initialStoreOrderId }: { initialStoreOrderId: strin
   );
 }
 
+/** The calendar day the picker selected, as "YYYY-MM-DD" — never UTC-shifted (the API reads it as an Africa/Cairo business day). */
 function dateToIso(date: Date | null): string | undefined {
   if (!date) return undefined;
-  return date.toISOString().slice(0, 10);
+  return toISODate(date);
 }
 
 const COST_STATE_COVERAGE_TONE: Record<CostState, "success" | "warning" | "neutral"> = {
@@ -441,6 +442,7 @@ function ManagementPnlTab() {
   // (presentation only; every figure is the API's own).
   const lines = useMemo<FinancialReportLine[]>(() => {
     if (!pnl) return [];
+    const reconciliation = pnl.incomeStatementReconciliation;
     const row = (
       id: string,
       labelKey: MessageKey,
@@ -494,6 +496,37 @@ function ManagementPnlTab() {
         opexAccounts,
       ),
       row("operatingProfit", "costExplorer.pnl.operatingProfit", pnl.operatingProfit, "result"),
+      // Bridge to the Income Statement for the same period: management OP +
+      // difference = Income Statement OP (each bridge row is its effect).
+      ...(reconciliation
+        ? [
+            row(
+              "isDifference",
+              "costExplorer.pnl.differenceToIncomeStatement",
+              -reconciliation.difference,
+              "group",
+              reconciliation.bridge
+                .filter((item) => item.effect !== 0)
+                .map((item): FinancialReportLine => ({
+                  id: `pnl:bridge:${item.key}`,
+                  parentId: "pnl:isDifference",
+                  kind: "posting",
+                  level: 1,
+                  label: t(`costExplorer.pnl.bridge.${item.key}` as MessageKey),
+                  labelEn: t(`costExplorer.pnl.bridge.${item.key}` as MessageKey),
+                  expandable: false,
+                  values: { amount: -item.effect },
+                  children: [],
+                })),
+            ),
+            row(
+              "isOperatingProfit",
+              "costExplorer.pnl.incomeStatementOperatingProfit",
+              reconciliation.incomeStatementOperatingProfit,
+              "subtotal",
+            ),
+          ]
+        : []),
     ];
   }, [pnl, t]);
 

@@ -1,3 +1,8 @@
+import {
+  businessDateOf,
+  calendarDaysBetween,
+} from '../../common/time/business-date';
+
 export const AGING_BUCKETS = [
   'current',
   'days31to60',
@@ -7,9 +12,16 @@ export const AGING_BUCKETS = [
 
 export type AgingBucket = (typeof AGING_BUCKETS)[number];
 
+/**
+ * Whole business days (Africa/Cairo calendar days) from the invoice date to
+ * the as-of date — an invoice confirmed at 00:30 Cairo on 1 Oct is 0 days
+ * old on 1 Oct and 30 days old on 31 Oct, whatever the UTC clock says.
+ */
 export function daysOutstanding(asOf: Date, invoiceDate: Date): number {
-  const ms = asOf.getTime() - invoiceDate.getTime();
-  return Math.max(Math.floor(ms / 86_400_000), 0);
+  return Math.max(
+    calendarDaysBetween(businessDateOf(invoiceDate), businessDateOf(asOf)),
+    0,
+  );
 }
 
 export function agingBucket(days: number): AgingBucket {

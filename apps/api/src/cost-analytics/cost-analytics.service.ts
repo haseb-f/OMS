@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { buildDateRangeFilter } from '../sales/shared/sales-list-query.util';
+import {
+  businessDateOf,
+  businessDateRangeFilter,
+} from '../common/time/business-date';
 import { round2 } from '../sales/shared/sales-totals.util';
 import { OrderEconomicsService } from '../store-orders/order-economics/order-economics.service';
 import type {
@@ -79,15 +82,17 @@ type StoreOrderDimensionRow = Prisma.StoreOrderGetPayload<{
  * pass-through) are three distinct figures returned separately — never
  * merged into one number.
  *
- * Architectural note (documented, not silently papered over): a Store
- * Order carries no Cost Center, and GL Expense Payments for the same
- * underlying shipping/payment-fee/fulfillment costs already captured
- * order-side are not tagged in any way that lets this service exclude them
- * from "Operating Expenses" — only the one guaranteed overlap (the GL COGS
- * account, via `PostingSettings.costOfGoodsSoldAccountId`) is excluded.
- * Finance should code carrier/gateway invoice GL postings deliberately with
- * this in mind; the two figures are shown side by side for reconciliation,
- * never silently merged past that one guaranteed exclusion.
+ * Counted once (owner decision P2, round 3): Contribution Profit already
+ * deducts COGS, carrier shipping, gateway commissions and fulfilment at
+ * order level, so the GL accounts on those Income Statement lines (cost of
+ * sales and the Shipping / Payment gateway / Fulfillment selling lines) are
+ * NOT subtracted again — "Operating Expenses" are only the Income
+ * Statement's other selling + general & administrative lines. The result is
+ * bridged to the Income Statement's operating profit for the same
+ * Africa/Cairo business-day period (`incomeStatementReconciliation`): the
+ * difference is order-level vs GL on each attributed line (orders by order
+ * date vs postings by posting date, company orders only, estimated vs
+ * posted costs) plus contribution the orders could not compute.
  */
 @Injectable()
 export class CostAnalyticsService {
@@ -108,7 +113,7 @@ export class CostAnalyticsService {
       // income is posted to the GL as commission / fulfillment revenue).
       agentId: null,
       ...(scope.dateFrom || scope.dateTo
-        ? { orderDate: buildDateRangeFilter(scope.dateFrom, scope.dateTo) }
+        ? { orderDate: businessDateRangeFilter(scope.dateFrom, scope.dateTo) }
         : {}),
       ...(scope.partnerId && { partnerId: scope.partnerId }),
       ...(scope.employeeId && { employeeId: scope.employeeId }),
@@ -224,9 +229,36 @@ export class CostAnalyticsService {
       this.postingSettingsService.get(),
     ]);
 
+    // Each cost is counted exactly once. Cost of sales, carrier shipping,
+    // gateway commissions and fulfilment are ATTRIBUTED at order level (in
+    // Contribution Profit above), so their GL accounts are not subtracted
+    // again; only the operating expenses the orders do not carry (other
+    // selling + general & administrative — the Income Statement's own lines)
+    // are. Other income / expenses, finance costs and FX sit below operating
+    // profit, as in the Income Statement.
     const cogsAccountId = postingSettings.costOfGoodsSoldAccountId;
-    const operatingExpenseRows = incomeStatement.expense.filter(
-      (row) => row.accountId !== cogsAccountId,
+    const accountLines = incomeStatement.accountLines ?? {};
+    const isUnattributedOperating = (accountId: string) => {
+      const entry = accountLines[accountId];
+      if (!entry) return false;
+      return (
+        entry.line === 'ADMINISTRATIVE' ||
+        (entry.line === 'SELLING_DISTRIBUTION' &&
+          entry.sellingLine === 'OTHER_SELLING')
+      );
+    };
+    const operatingExpenseRows = [
+      ...incomeStatement.expense,
+      // A revenue-type account on an expense line (e.g. purchase discounts)
+      // reduces that line: shown as a negative expense.
+      ...incomeStatement.revenue.map((row) => ({
+        ...row,
+        balance: round2(-row.balance),
+      })),
+    ].filter(
+      (row) =>
+        row.accountId !== cogsAccountId &&
+        isUnattributedOperating(row.accountId),
     );
     const operatingExpenses = round2(
       operatingExpenseRows.reduce((sum, row) => sum + row.balance, 0),
@@ -234,6 +266,70 @@ export class CostAnalyticsService {
     const operatingProfit = round2(
       contribution.contributionProfit - operatingExpenses,
     );
+
+    // Bridge to the Income Statement's operating profit for the same
+    // business-day period: management OP − IS OP = (order-level − GL) on the
+    // attributed lines, plus contribution the orders could not compute.
+    const is = incomeStatement.totals;
+    const gl = {
+      netRevenue: is.netRevenue ?? 0,
+      costOfSales: is.costOfSales ?? 0,
+      shipping: is.shippingDelivery ?? 0,
+      paymentFees: is.paymentGatewayFees ?? 0,
+      fulfillment: is.fulfillment ?? 0,
+    };
+    const bridgeItem = (
+      key: string,
+      orderLevel: number,
+      glAmount: number,
+      nature: 'income' | 'cost',
+    ) => ({
+      key,
+      orderLevel: round2(orderLevel),
+      gl: round2(glAmount),
+      /** Effect on management operating profit vs the Income Statement. */
+      effect: round2(
+        nature === 'income' ? orderLevel - glAmount : glAmount - orderLevel,
+      ),
+    });
+    const computedContribution = round2(
+      contribution.netRevenue -
+        contribution.cogs -
+        contribution.shippingCost -
+        contribution.paymentFeeCost -
+        contribution.fulfillmentCost,
+    );
+    const bridge = [
+      bridgeItem(
+        'NET_REVENUE',
+        contribution.netRevenue,
+        gl.netRevenue,
+        'income',
+      ),
+      bridgeItem('COST_OF_SALES', contribution.cogs, gl.costOfSales, 'cost'),
+      bridgeItem('SHIPPING', contribution.shippingCost, gl.shipping, 'cost'),
+      bridgeItem(
+        'PAYMENT_FEES',
+        contribution.paymentFeeCost,
+        gl.paymentFees,
+        'cost',
+      ),
+      bridgeItem(
+        'FULFILLMENT',
+        contribution.fulfillmentCost,
+        gl.fulfillment,
+        'cost',
+      ),
+      {
+        key: 'CONTRIBUTION_NOT_COMPUTED',
+        orderLevel: contribution.contributionProfit,
+        gl: computedContribution,
+        effect: round2(contribution.contributionProfit - computedContribution),
+      },
+    ];
+    const incomeStatementOperatingProfit = round2(is.operatingProfit ?? 0);
+    const difference = round2(operatingProfit - incomeStatementOperatingProfit);
+    const bridgeTotal = round2(bridge.reduce((sum, b) => sum + b.effect, 0));
 
     return {
       scope: {
@@ -263,8 +359,25 @@ export class CostAnalyticsService {
       operatingExpenses: {
         total: operatingExpenses,
         accounts: operatingExpenseRows,
+        /** GL operating expenses the orders do not carry (other selling + G&A). */
+        basis: 'NOT_ATTRIBUTED_AT_ORDER_LEVEL' as const,
+      },
+      /** The GL side of the costs attributed at order level — not subtracted again. */
+      attributedCostsInGl: {
+        costOfSales: round2(gl.costOfSales),
+        shipping: round2(gl.shipping),
+        paymentFees: round2(gl.paymentFees),
+        fulfillment: round2(gl.fulfillment),
       },
       operatingProfit,
+      incomeStatementReconciliation: {
+        managementOperatingProfit: operatingProfit,
+        incomeStatementOperatingProfit,
+        difference,
+        bridge,
+        /** Σ bridge effects = difference (always, by construction). */
+        balanced: Math.abs(bridgeTotal - difference) < 0.01,
+      },
       glReconciliation: {
         revenueFromGl: round2(
           incomeStatement.revenue.reduce((sum, row) => sum + row.balance, 0),
@@ -305,23 +418,25 @@ export class CostAnalyticsService {
             }
           : { value: 'UNASSIGNED', label: 'Unknown' };
       case 'PERIOD': {
-        const date = new Date(meta.orderDate);
-        if (granularity === 'day') {
-          const value = date.toISOString().slice(0, 10);
-          return { value, label: value };
-        }
+        // Buckets are Africa/Cairo business days (the same day the date
+        // filter and every financial report use), never server-local / UTC.
+        const day = businessDateOf(new Date(meta.orderDate));
+        if (granularity === 'day') return { value: day, label: day };
+        const year = Number(day.slice(0, 4));
         if (granularity === 'week') {
-          const onejan = new Date(date.getFullYear(), 0, 1);
-          const week = Math.ceil(
-            ((date.getTime() - onejan.getTime()) / 86400000 +
-              onejan.getDay() +
-              1) /
-              7,
+          const date = Date.UTC(
+            year,
+            Number(day.slice(5, 7)) - 1,
+            Number(day.slice(8, 10)),
           );
-          const value = `${date.getFullYear()}-W${String(week).padStart(2, '0')}`;
+          const onejan = new Date(Date.UTC(year, 0, 1));
+          const week = Math.ceil(
+            ((date - onejan.getTime()) / 86400000 + onejan.getUTCDay() + 1) / 7,
+          );
+          const value = `${year}-W${String(week).padStart(2, '0')}`;
           return { value, label: value };
         }
-        const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const value = day.slice(0, 7);
         return { value, label: value };
       }
       default:

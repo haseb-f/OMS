@@ -12,8 +12,10 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   candidateRangeQuery,
-  coversInstant,
   exclusiveEnd,
+  pickCovering,
+  rangeDateOf,
+  rangeStart,
 } from './period-bounds';
 
 const MONTH_ABBR = [
@@ -30,6 +32,36 @@ const MONTH_ABBR = [
   'Nov',
   'Dec',
 ];
+
+/**
+ * A fiscal year's opening is established by its own go-live Opening
+ * Balance entry, or — every later year — by posted history before it
+ * starts (the ledger is continuous, so that history IS the opening).
+ * Shared by the posting gate and the foundation bootstrap.
+ */
+export async function hasEstablishedOpening(
+  fiscalYear: { id: string; startDate: Date },
+  client: Pick<Prisma.TransactionClient, 'journalEntry'>,
+): Promise<boolean> {
+  const openingEntry = await client.journalEntry.findFirst({
+    where: {
+      sourceType: 'OPENING_BALANCE',
+      sourceId: fiscalYear.id,
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+  if (openingEntry) return true;
+  const priorHistory = await client.journalEntry.findFirst({
+    where: {
+      entryDate: { lt: rangeStart(fiscalYear) },
+      status: { in: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] },
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+  return priorHistory != null;
+}
 
 const INCLUDE = { periods: { orderBy: { startDate: 'asc' as const } } };
 
@@ -115,7 +147,10 @@ export class FiscalYearsService {
     const draftCount = await this.prisma.journalEntry.count({
       where: {
         status: JournalEntryStatus.DRAFT,
-        entryDate: { gte: fiscalYear.startDate, lt: exclusiveEnd(fiscalYear) },
+        entryDate: {
+          gte: rangeStart(fiscalYear),
+          lt: exclusiveEnd(fiscalYear),
+        },
         deletedAt: null,
       },
     });
@@ -143,8 +178,27 @@ export class FiscalYearsService {
     });
   }
 
+  /**
+   * Reopening lets documents post into the year again, which would move
+   * every figure a Year Closing already transferred to retained earnings —
+   * of this year and of every later year (their closings sweep all P&L up
+   * to their own end). So the year cannot be reopened while it, or any
+   * later year, has an active Year Closing: reverse those first (latest
+   * year first, Year Closing > Reverse).
+   */
   async reopen(id: string, userId?: string) {
-    await this.findOne(id);
+    const fiscalYear = await this.findOne(id);
+    const blocking = await this.activeClosingsFrom(fiscalYear.startDate);
+    if (blocking.length > 0) {
+      throw new BadRequestException({
+        code: 'FISCAL_YEAR_HAS_ACTIVE_CLOSING',
+        message: `Cannot reopen Fiscal Year "${fiscalYear.name}" — Year Closing ${blocking
+          .map((row) => `${row.entryNumber} (${row.fiscalYearName})`)
+          .join(
+            ', ',
+          )} is still active. Reverse it first (Year Closing > Reverse closing), latest year first.`,
+      });
+    }
     return this.prisma.fiscalYear.update({
       where: { id },
       data: { status: FiscalYearStatus.OPEN, updatedBy: userId ?? null },
@@ -196,15 +250,8 @@ export class FiscalYearsService {
     entryDate: Date,
     client: Prisma.TransactionClient | PrismaService = this.prisma,
   ): Promise<string | null> {
-    const { where, orderBy } = candidateRangeQuery(entryDate);
-    const fiscalYear = await client.fiscalYear.findFirst({
-      where: { ...where, deletedAt: null },
-      orderBy,
-      select: { id: true, endDate: true },
-    });
-    return fiscalYear && coversInstant(fiscalYear, entryDate)
-      ? fiscalYear.id
-      : null;
+    const fiscalYear = await this.findCovering(entryDate, client);
+    return fiscalYear?.id ?? null;
   }
 
   /**
@@ -215,58 +262,134 @@ export class FiscalYearsService {
    * what opts an admin into this discipline. The Opening Balance entry and
    * the Year Closing entry are themselves exempt from the "needs an Opening
    * Balance first" check (they ARE that setup step); every other sourceType,
-   * including manual entries (`sourceType` undefined), is checked.
+   * including manual entries (`sourceType` undefined), is checked. A year
+   * after the first one needs no Opening entry: its opening is derived from
+   * the posted history before it (`hasEstablishedOpening`). Year Closing is
+   * the inverse case: it may only be dated inside a CLOSED year.
    */
   async assertPostingAllowed(
     entryDate: Date,
     sourceType: string | undefined,
     client: Prisma.TransactionClient | PrismaService = this.prisma,
   ) {
-    const { where, orderBy } = candidateRangeQuery(entryDate);
-    const candidate = await client.fiscalYear.findFirst({
-      where: { ...where, deletedAt: null },
-      orderBy,
-    });
-    const fiscalYear =
-      candidate && coversInstant(candidate, entryDate) ? candidate : null;
+    const fiscalYear = await this.findCovering(entryDate, client);
+    if (sourceType === 'YEAR_CLOSING') {
+      // The closing ceremony is the one entry that belongs INSIDE a closed
+      // year — and only there.
+      if (!fiscalYear || fiscalYear.status !== FiscalYearStatus.CLOSED) {
+        throw new BadRequestException(
+          'Year Closing entries can only be dated inside a closed Fiscal Year.',
+        );
+      }
+      return;
+    }
     if (!fiscalYear) return;
     if (fiscalYear.status === FiscalYearStatus.CLOSED) {
       throw new BadRequestException(
         `Cannot post — Fiscal Year "${fiscalYear.name}" is closed.`,
       );
     }
-    if (sourceType === 'OPENING_BALANCE' || sourceType === 'YEAR_CLOSING') {
-      return;
-    }
-    const openingEntry = await client.journalEntry.findFirst({
-      where: {
-        sourceType: 'OPENING_BALANCE',
-        sourceId: fiscalYear.id,
-        deletedAt: null,
-      },
-      select: { id: true },
-    });
-    if (!openingEntry) {
+    if (sourceType === 'OPENING_BALANCE') return;
+    if (!(await this.hasEstablishedOpening(fiscalYear, client))) {
       throw new BadRequestException(
         `Cannot post — Fiscal Year "${fiscalYear.name}" has no Opening Balance yet.`,
       );
     }
   }
 
+  /**
+   * Active (POSTED, not a reversal) Year Closing entries of every fiscal
+   * year starting on or after `from`, latest first.
+   */
+  async activeClosingsFrom(
+    from: Date,
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ) {
+    const years = await client.fiscalYear.findMany({
+      where: { deletedAt: null, startDate: { gte: from } },
+      select: { id: true, name: true, startDate: true },
+    });
+    if (years.length === 0) return [];
+    const entries = await client.journalEntry.findMany({
+      where: {
+        sourceType: 'YEAR_CLOSING',
+        sourceId: { in: years.map((year) => year.id) },
+        status: JournalEntryStatus.POSTED,
+        reversalOfEntryId: null,
+        deletedAt: null,
+      },
+      select: { id: true, entryNumber: true, sourceId: true, entryDate: true },
+      orderBy: { entryDate: 'desc' },
+    });
+    const byId = new Map(years.map((year) => [year.id, year]));
+    return entries.map((entry) => ({
+      ...entry,
+      fiscalYearId: entry.sourceId!,
+      fiscalYearName: byId.get(entry.sourceId!)?.name ?? '',
+    }));
+  }
+
+  /**
+   * The year's opening is established when it has its own go-live Opening
+   * Balance entry, or — every later year — when posted history exists
+   * before it starts: the ledger is continuous, so that history IS the
+   * opening (derived, never re-posted; see YearClosingService).
+   */
+  hasEstablishedOpening(
+    fiscalYear: { id: string; startDate: Date },
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ) {
+    return hasEstablishedOpening(fiscalYear, client);
+  }
+
+  /**
+   * The fiscal year whose calendar dates contain the instant's business
+   * (Africa/Cairo) date — see period-bounds.ts.
+   */
+  async findCovering(
+    instant: Date,
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ) {
+    const { where, orderBy, take } = candidateRangeQuery(instant);
+    return pickCovering(
+      await client.fiscalYear.findMany({
+        where: { ...where, deletedAt: null },
+        orderBy,
+        take,
+      }),
+      instant,
+    );
+  }
+
   /** Splits [start, end] into one period per calendar month it touches — the last period is clipped to `end` if the range doesn't land on a month boundary. */
   private buildMonthlyPeriods(start: Date, end: Date) {
+    // Date-only bounds (00:00Z of each calendar date) — the storage rule for
+    // date-only values; membership is by business date (period-bounds.ts).
     const periods: { name: string; startDate: Date; endDate: Date }[] = [];
-    let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
-    while (cursor <= end) {
-      const periodStart = cursor < start ? start : cursor;
-      const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
-      const periodEnd = monthEnd > end ? end : monthEnd;
+    const first = rangeDateOf(start);
+    const last = rangeDateOf(end);
+    const dateOnly = (y: number, m: number, d: number) =>
+      new Date(Date.UTC(y, m, d));
+    const [startY, startM] = first.split('-').map(Number);
+    let year = startY;
+    let month = startM - 1;
+    while (dateOnly(year, month, 1).toISOString().slice(0, 10) <= last) {
+      const monthStart = dateOnly(year, month, 1).toISOString().slice(0, 10);
+      const monthEnd = dateOnly(year, month + 1, 0)
+        .toISOString()
+        .slice(0, 10);
+      const periodStart = monthStart < first ? first : monthStart;
+      const periodEnd = monthEnd > last ? last : monthEnd;
       periods.push({
-        name: `${MONTH_ABBR[cursor.getMonth()]} ${cursor.getFullYear()}`,
-        startDate: periodStart,
-        endDate: periodEnd,
+        name: `${MONTH_ABBR[month]} ${year}`,
+        startDate: new Date(`${periodStart}T00:00:00.000Z`),
+        endDate: new Date(`${periodEnd}T00:00:00.000Z`),
       });
-      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+      month += 1;
+      if (month === 12) {
+        month = 0;
+        year += 1;
+      }
     }
     return periods;
   }

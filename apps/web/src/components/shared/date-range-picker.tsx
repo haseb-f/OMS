@@ -14,13 +14,8 @@ import {
 } from "@/components/ui/select";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
-import {
-  DATE_RANGE_PRESETS,
-  formatDate,
-  formatDateRange,
-  getPresetRange,
-  type DateRangePreset,
-} from "@/lib/date";
+import { DATE_RANGE_PRESETS, formatDate, formatDateRange, type DateRangePreset } from "@/lib/date";
+import { businessPresetRange, businessToday } from "@/lib/business-date";
 import type { MessageKey } from "@/i18n/translate";
 
 export interface DateRangeValue {
@@ -85,7 +80,7 @@ export function EnterpriseDateRangePicker({
   const [selectedPreset, setSelectedPreset] = useState<DateRangePreset | null>(null);
   const [clickStart, setClickStart] = useState<Date | null>(null);
   const [hoverDate, setHoverDate] = useState<Date | null>(null);
-  const [viewMonth, setViewMonth] = useState<Date>(value.from ?? new Date());
+  const [viewMonth, setViewMonth] = useState<Date>(value.from ?? businessToday());
 
   useEffect(() => {
     if (!open) return;
@@ -94,11 +89,13 @@ export function EnterpriseDateRangePicker({
     setSelectedPreset(null);
     setClickStart(null);
     setHoverDate(null);
-    setViewMonth(value.from ?? new Date());
+    setViewMonth(value.from ?? businessToday());
   }, [open, value]);
 
   const applyPreset = (preset: DateRangePreset) => {
-    const range = getPresetRange(preset);
+    // Presets are anchored on the Africa/Cairo business day, not the browser
+    // clock, so "Today" / "This month" select the same days as every report.
+    const range = businessPresetRange(preset);
     setPending(range);
     setSelectedPreset(preset);
     setClickStart(null);

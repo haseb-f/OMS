@@ -692,6 +692,11 @@ export const STANDARD_CHART_OF_ACCOUNTS: StandardAccountDef[] = [
     allowsPosting: true,
     role: 'DEDUCTION',
   },
+  // 551 is kept (and keeps its EXPENSE type) only for history: activation
+  // re-applies `accountType` to existing rows, so re-typing it would
+  // silently restate every period it was ever posted in. It no longer
+  // carries the CAPITAL_RETURN role — a Capital Return repays principal
+  // against Investor Funding (241), never an expense (Round 2, P3).
   {
     code: '551',
     name: 'رد رأس المال',
@@ -699,7 +704,6 @@ export const STANDARD_CHART_OF_ACCOUNTS: StandardAccountDef[] = [
     accountType: AccountType.EXPENSE,
     parentCode: '54',
     allowsPosting: true,
-    role: 'CAPITAL_RETURN',
   },
   {
     code: '552',

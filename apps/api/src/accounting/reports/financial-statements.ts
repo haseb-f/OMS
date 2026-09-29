@@ -11,13 +11,16 @@ import {
 import {
   classifyBsAccount,
   classifyCashFlowAccount,
+  classifySellingSubLine,
   isCashFlowCounterpartUnclassified,
   classifyPnlAccount,
   PNL_LINE_NATURE,
+  SELLING_SUB_LINE_ORDER,
   type BsGroup,
   type ClassificationContext,
   type PnlLine,
   type ReportRole,
+  type SellingSubLine,
 } from './statement-classification';
 
 /**
@@ -46,7 +49,16 @@ export interface ReportWarning {
     roles?: ReportRole[];
   }>;
   entries?: Array<{ id: string; entryNumber: string; difference: number }>;
+  /**
+   * CAPITAL_RETURN_IN_PROFIT_OR_LOSS: where the affected legacy postings are
+   * listed and corrected (capital-returns corrections, stream Y).
+   */
+  correctionsEndpoint?: string;
 }
+
+/** Lists legacy capital returns posted to P&L (e.g. 551) and corrects them. */
+export const CAPITAL_RETURN_CORRECTIONS_ENDPOINT =
+  '/capital-returns/corrections/affected';
 
 const VALUE_KEYS = ['balance'];
 const OPENING_BALANCE_SOURCE = 'OPENING_BALANCE';
@@ -174,6 +186,41 @@ const PNL_SECTIONS: Array<{
   },
 ];
 
+/** Visible lines inside "Selling and distribution expenses" (owner decision P2). */
+const SELLING_SUB_SECTIONS: Record<
+  SellingSubLine,
+  { id: string; label: string; totalLabel: string }
+> = {
+  SHIPPING_DELIVERY: {
+    id: 'is-selling-shipping',
+    label: 'Shipping and delivery',
+    totalLabel: 'Net shipping and delivery',
+  },
+  PAYMENT_GATEWAY_FEES: {
+    id: 'is-selling-gateway',
+    label: 'Payment gateway commissions',
+    totalLabel: 'Net payment gateway commissions',
+  },
+  FULFILLMENT: {
+    id: 'is-selling-fulfillment',
+    label: 'Fulfillment',
+    totalLabel: 'Net fulfillment',
+  },
+  OTHER_SELLING: {
+    id: 'is-selling-other',
+    label: 'Other selling and distribution expenses',
+    totalLabel: 'Total other selling and distribution expenses',
+  },
+};
+
+/** Per selling line: gross company-incurred cost, amount recovered from agents, net. */
+export interface SellingLineTotals {
+  gross: number;
+  /** Recovered from agents (positive) — shown as a contra row, never expense. */
+  recoveredFromAgents: number;
+  net: number;
+}
+
 export interface IncomeStatementTotals {
   /** Legacy (by account type) — Year Closing and period-profit read these. */
   totalRevenue: number;
@@ -186,6 +233,14 @@ export interface IncomeStatementTotals {
   costOfSales: number;
   grossProfit: number;
   sellingDistribution: number;
+  /** Net of each visible selling line; the four add up to `sellingDistribution`. */
+  shippingDelivery: number;
+  paymentGatewayFees: number;
+  fulfillment: number;
+  otherSelling: number;
+  /** Selling expense recovered from agents (positive), all selling lines. */
+  recoveredFromAgents: number;
+  sellingBreakdown: Record<SellingSubLine, SellingLineTotals>;
   administrative: number;
   operatingProfit: number;
   otherIncome: number;
@@ -201,14 +256,28 @@ export function buildIncomeStatement(input: {
   accounts: CoaNode[];
   sums: AccountSums;
   ctx: ClassificationContext;
+  /**
+   * The part of `sums` posted by agent-recovery entries
+   * (AGENT_RECOVERY_SOURCE_TYPES, same scope). On a selling account it is
+   * shown as "Less: recovered from agents" beside the gross company cost,
+   * so net = gross − recovered and nothing is counted twice.
+   */
+  recoverySums?: AccountSums;
 }) {
   const byId = new Map(input.accounts.map((a) => [a.id, a]));
   const headerLine = (accountId: string): PnlLine | null => {
     const account = byId.get(accountId);
     return account ? classifyPnlAccount(account, input.ctx).line : null;
   };
+  const sellingSubOf = (accountId: string): SellingSubLine | null => {
+    const account = byId.get(accountId);
+    return account ? classifySellingSubLine(account, input.ctx) : null;
+  };
   const lineAmounts = new Map<PnlLine, AccountAmounts>();
   const lineOfAccount = new Map<string, PnlLine>();
+  const sellingGross = new Map<SellingSubLine, AccountAmounts>();
+  const sellingLineOfAccount = new Map<string, SellingSubLine>();
+  const sellingRecovered = new Map<SellingSubLine, number>();
   const unclassified: NonNullable<ReportWarning['accounts']> = [];
   const conflicts: NonNullable<ReportWarning['accounts']> = [];
   const capitalReturn: NonNullable<ReportWarning['accounts']> = [];
@@ -236,6 +305,17 @@ export function buildIncomeStatement(input: {
     const bucket = lineAmounts.get(line) ?? {};
     bucket[accountId] = { balance: money(shown) };
     lineAmounts.set(line, bucket);
+    if (line === 'SELLING_DISTRIBUTION') {
+      const sub = classifySellingSubLine(account, input.ctx);
+      sellingLineOfAccount.set(accountId, sub);
+      const recovery = input.recoverySums?.get(accountId);
+      // Credit − debit of the recovery lines = expense recovered from agents.
+      const recovered = recovery ? recovery.credit - recovery.debit : 0;
+      const gross = sellingGross.get(sub) ?? {};
+      gross[accountId] = { balance: money(shown + recovered) };
+      sellingGross.set(sub, gross);
+      sellingRecovered.set(sub, (sellingRecovered.get(sub) ?? 0) + recovered);
+    }
 
     if (line === 'UNCLASSIFIED' && isNonZero(effect)) {
       unclassified.push(accountRow(account, effect));
@@ -267,6 +347,19 @@ export function buildIncomeStatement(input: {
     fxDifferences: lineTotal('FX_DIFFERENCES'),
     unclassified: lineTotal('UNCLASSIFIED'),
   };
+  const sellingBreakdown = Object.fromEntries(
+    SELLING_SUB_LINE_ORDER.map((sub) => {
+      const gross = sumBy(
+        Object.values(sellingGross.get(sub) ?? {}),
+        (v) => v.balance,
+      );
+      const recoveredFromAgents = money(sellingRecovered.get(sub) ?? 0);
+      return [
+        sub,
+        { gross, recoveredFromAgents, net: money(gross - recoveredFromAgents) },
+      ];
+    }),
+  ) as Record<SellingSubLine, SellingLineTotals>;
   const netRevenue = money(t.grossRevenue + t.revenueDeductions);
   const grossProfit = money(netRevenue - t.costOfSales);
   const operatingProfit = money(
@@ -311,6 +404,62 @@ export function buildIncomeStatement(input: {
       values: { balance: value },
     });
 
+  // Selling and distribution: one visible group per selling line (shipping,
+  // gateway commissions, fulfilment, other), each gross of agent recoveries
+  // with a contra row, so the effect on operating profit is explicit.
+  const sellingSection = (): HierarchicalReportLine[] => {
+    const def = PNL_SECTIONS.find((s) => s.line === 'SELLING_DISTRIBUTION')!;
+    const groups = SELLING_SUB_LINE_ORDER.flatMap((sub) => {
+      const subDef = SELLING_SUB_SECTIONS[sub];
+      const accountRows = statementForest(
+        input.accounts,
+        sellingGross.get(sub) ?? {},
+        `${subDef.id}/`,
+        (id) =>
+          headerLine(id) === 'SELLING_DISTRIBUTION' && sellingSubOf(id) === sub,
+        2,
+      );
+      const recovered = sellingBreakdown[sub].recoveredFromAgents;
+      if (accountRows.length === 0 && !isNonZero(recovered)) return [];
+      const children = isNonZero(recovered)
+        ? [
+            ...accountRows,
+            {
+              ...leafLine({
+                id: `${subDef.id}:recovered`,
+                kind: 'result',
+                label: 'Less: recovered from agents',
+                labelEn: 'Less: recovered from agents',
+                values: { balance: money(-recovered) },
+                level: 2,
+              }),
+              parentId: subDef.id,
+            },
+          ]
+        : accountRows;
+      return [
+        wrapGroup({
+          id: subDef.id,
+          label: subDef.label,
+          children,
+          totalLabel: subDef.totalLabel,
+        }),
+      ];
+    });
+    if (groups.length === 0) return [];
+    return [
+      wrapSection({
+        id: def.id,
+        label: def.label,
+        labelEn: def.label,
+        children: groups,
+        valueKeys: VALUE_KEYS,
+        totalLabel: def.totalLabel,
+        totalLabelEn: def.totalLabel,
+      }),
+    ];
+  };
+
   const deductionsSection = section('REVENUE_DEDUCTIONS');
   const unclassifiedChildren = statementForest(
     input.accounts,
@@ -327,7 +476,7 @@ export function buildIncomeStatement(input: {
       : []),
     ...section('COST_OF_SALES'),
     subtotal('is-gross-profit', 'Gross profit', grossProfit),
-    ...section('SELLING_DISTRIBUTION'),
+    ...sellingSection(),
     ...section('ADMINISTRATIVE'),
     subtotal('is-operating-profit', 'Operating profit', operatingProfit),
     ...section('OTHER_INCOME'),
@@ -365,6 +514,7 @@ export function buildIncomeStatement(input: {
     warnings.push({
       code: 'CAPITAL_RETURN_IN_PROFIT_OR_LOSS',
       accounts: capitalReturn,
+      correctionsEndpoint: CAPITAL_RETURN_CORRECTIONS_ENDPOINT,
     });
 
   const totals: IncomeStatementTotals = {
@@ -372,6 +522,15 @@ export function buildIncomeStatement(input: {
     totalExpense: money(totalExpense),
     netIncome,
     ...t,
+    shippingDelivery: sellingBreakdown.SHIPPING_DELIVERY.net,
+    paymentGatewayFees: sellingBreakdown.PAYMENT_GATEWAY_FEES.net,
+    fulfillment: sellingBreakdown.FULFILLMENT.net,
+    otherSelling: sellingBreakdown.OTHER_SELLING.net,
+    recoveredFromAgents: sumBy(
+      SELLING_SUB_LINE_ORDER,
+      (sub) => sellingBreakdown[sub].recoveredFromAgents,
+    ),
+    sellingBreakdown,
     netRevenue,
     grossProfit,
     operatingProfit,
@@ -381,6 +540,7 @@ export function buildIncomeStatement(input: {
     lines,
     totals,
     lineOfAccount,
+    sellingLineOfAccount,
     warnings,
     /** Net income by lines − net income by account type; 0 unless an account was dropped. */
     partitionDifference: money(netIncome - money(profitEffect)),

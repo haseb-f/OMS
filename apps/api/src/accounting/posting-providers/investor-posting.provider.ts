@@ -15,7 +15,16 @@ import type {
  * Capital Contribution confirmed:  Dr Bank/Financial Account   Cr Investor Funding
  * Profit Distribution approved:    Dr Investor Profit Distribution   Cr Investor Profit Payable (one credit line per Investor, Partner-dimensioned)
  * Distribution Payment confirmed:  Dr Investor Profit Payable (Partner-dimensioned)   Cr Bank/Financial Account
- * Capital Return paid:             Dr Investor Funding / Capital Return   Cr Bank/Financial Account
+ * Capital Return paid:             Dr Investor Funding (Partner-dimensioned)   Cr Bank/Financial Account
+ *
+ * A Capital Return repays principal: it debits the SAME liability the
+ * Capital Contribution credited (`resolveInvestorFundingAccount`), so the
+ * investor's funding balance falls by exactly the repaid amount and profit
+ * is never touched. `PostingSettings.capitalReturnAccountId` is no longer
+ * read — the standard COA had mapped it to 551 "Capital Return", an
+ * EXPENSE account, which turned every repayment into an expense. Entries
+ * posted that way are corrected by CapitalReturnCorrectionService
+ * (reverse + re-post, audited), never edited.
  *
  * Every account id comes from AccountMappingService — never hardcoded.
  * Every Investor-side line carries `partnerId` (the Investor's canonical
@@ -195,7 +204,7 @@ export class InvestorPostingProvider implements PostingProvider, OnModuleInit {
       );
     }
     const returnAccountId =
-      await this.accountMapping.resolveCapitalReturnAccount(tx);
+      await this.accountMapping.resolveInvestorFundingAccount(tx);
     const bankAccountId = capitalReturn.financialAccountId;
 
     return {
@@ -203,7 +212,7 @@ export class InvestorPostingProvider implements PostingProvider, OnModuleInit {
         {
           accountId: returnAccountId,
           debit: amount,
-          description: `Capital Return ${capitalReturn.code}`,
+          description: `Capital Return ${capitalReturn.code} — principal repaid`,
           partnerId: capitalReturn.investor.partnerId,
         },
         {

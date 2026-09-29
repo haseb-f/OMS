@@ -1,6 +1,11 @@
 import { JournalEntryStatus, Prisma } from '@prisma/client';
-import { buildDateRangeFilter } from '../../sales/shared/sales-list-query.util';
+import {
+  beforeBusinessDay,
+  businessDateRangeFilter,
+  endOfBusinessDay,
+} from '../../common/time/business-date';
 import type { ReportQueryBaseDto } from './dto/report-query-base.dto';
+import { AGENT_RECOVERY_SOURCE_TYPES } from './statement-classification';
 
 /**
  * The ONE entry filter every financial report uses (accounting review §7):
@@ -10,19 +15,18 @@ import type { ReportQueryBaseDto } from './dto/report-query-base.dto';
  *   both included so they net to zero — excluding either would count the
  *   other alone.
  * - Soft-deleted entries are never included.
- * - Dates are calendar days in UTC, inclusive on both ends: `dateFrom`
- *   00:00:00.000Z ≤ entryDate ≤ `dateTo` 23:59:59.999Z (the posting-date
- *   semantics of `buildDateRangeFilter`, shared with every list/report).
- *   "Opening" = everything strictly before `dateFrom`; "as of" = everything
- *   up to the end of `dateTo`.
+ * - Dates are BUSINESS days in Africa/Cairo (owner decision P9,
+ *   common/time/business-date.ts), inclusive on both ends: start of the
+ *   Cairo day `dateFrom` ≤ entryDate < start of the Cairo day after
+ *   `dateTo` (DST-aware; date-only values stored at 00:00Z stay on their
+ *   own date). "Opening" = everything strictly before the start of
+ *   `dateFrom`; "as of" = everything up to the end of the `dateTo` day.
  * - Company / branch / cost center / project / transaction-currency scope
  *   filter the entry header; amounts are always the functional-currency
  *   figures stored on the lines.
  */
 export const YEAR_CLOSING_SOURCE_TYPE = 'YEAR_CLOSING';
 export const OPENING_BALANCE_SOURCE_TYPE = 'OPENING_BALANCE';
-
-const END_OF_DAY_MS = 24 * 60 * 60 * 1000 - 1;
 
 export function reportStatusFilter(
   postedOnly?: boolean,
@@ -59,7 +63,7 @@ export function periodScope(
 ): Prisma.JournalEntryWhereInput {
   return {
     ...reportEntryScope(filters),
-    entryDate: buildDateRangeFilter(filters.dateFrom, filters.dateTo),
+    entryDate: businessDateRangeFilter(filters.dateFrom, filters.dateTo),
   };
 }
 
@@ -70,15 +74,13 @@ export function openingScope(
   if (!filters.dateFrom) return null;
   return {
     ...reportEntryScope(filters),
-    entryDate: { lt: new Date(filters.dateFrom) },
+    entryDate: beforeBusinessDay(filters.dateFrom),
   };
 }
 
-/** End of the `dateTo` UTC day (or now) — the Balance Sheet / aging "as of". */
+/** End of the `dateTo` business (Africa/Cairo) day, or now — the Balance Sheet / aging "as of". */
 export function asOfEndOfDay(dateTo?: string): Date {
-  return dateTo
-    ? new Date(new Date(dateTo).getTime() + END_OF_DAY_MS)
-    : new Date();
+  return dateTo ? endOfBusinessDay(dateTo) : new Date();
 }
 
 /**
@@ -146,3 +148,27 @@ export function journalReportOrder(
 /** Lines inside one entry: `lineOrder`, then `id` (lineOrder is not unique). */
 export const ENTRY_LINE_ORDER: Prisma.JournalEntryLineOrderByWithRelationInput[] =
   [{ lineOrder: 'asc' }, { id: 'asc' }];
+
+/**
+ * Narrow an entry scope to agent-recovery entries (AGENT_RECOVERY_SOURCE_TYPES)
+ * and their reversals — a MANUAL reversal is judged by the entry it reverses.
+ */
+export function agentRecoveriesOf(
+  where: Prisma.JournalEntryWhereInput,
+): Prisma.JournalEntryWhereInput {
+  const recovery: Prisma.JournalEntryWhereInput = {
+    sourceType: { in: [...AGENT_RECOVERY_SOURCE_TYPES] },
+  };
+  const existing = where.AND
+    ? Array.isArray(where.AND)
+      ? where.AND
+      : [where.AND]
+    : [];
+  return {
+    ...where,
+    AND: [
+      ...existing,
+      { OR: [recovery, { reversalOfEntry: { is: recovery } }] },
+    ],
+  };
+}

@@ -158,6 +158,8 @@ export interface ReportWarning {
     | "UNBALANCED_ENTRIES";
   accounts?: Array<{ accountId: string; code: string; name: string; amount: number }>;
   entries?: Array<{ id: string; entryNumber: string; difference: number }>;
+  /** CAPITAL_RETURN_IN_PROFIT_OR_LOSS: API list of the affected legacy postings. */
+  correctionsEndpoint?: string;
 }
 
 export interface JournalReportLine {
@@ -205,6 +207,9 @@ export interface BalanceSheetResult {
   equity: StatementRow[];
   currentEarnings: number;
   fiscalYearStart?: string;
+  /** Africa/Cairo business dates of the as-of instant and the fiscal-year start. */
+  asOfBusinessDate?: string;
+  fiscalYearStartDate?: string;
   totals: {
     totalAssets: number;
     totalLiabilities: number;
@@ -246,6 +251,13 @@ export interface IncomeStatementResult {
     costOfSales?: number;
     grossProfit?: number;
     sellingDistribution?: number;
+    /** Net of each visible selling line (they add up to sellingDistribution). */
+    shippingDelivery?: number;
+    paymentGatewayFees?: number;
+    fulfillment?: number;
+    otherSelling?: number;
+    /** Selling expense recovered from agents (positive) — a contra line, never expense. */
+    recoveredFromAgents?: number;
     administrative?: number;
     operatingProfit?: number;
     otherIncome?: number;

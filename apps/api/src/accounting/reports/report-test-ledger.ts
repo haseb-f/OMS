@@ -58,7 +58,7 @@ interface Where {
   deletedAt?: null;
   status?: string | { in: string[] };
   entryDate?: DateFilter;
-  sourceType?: string | null | { not: string };
+  sourceType?: string | null | { not: string } | { in: string[] };
   sourceId?: string;
   reversalOfEntryId?: null;
   reversalOfEntry?: { is: Where };
@@ -107,7 +107,15 @@ function matchEntry(entry: EntryRow, where?: Where): boolean {
   if (
     sourceType &&
     typeof sourceType === 'object' &&
+    'not' in sourceType &&
     (entry.sourceType === null || entry.sourceType === sourceType.not)
+  )
+    return false;
+  if (
+    sourceType &&
+    typeof sourceType === 'object' &&
+    'in' in sourceType &&
+    (entry.sourceType === null || !sourceType.in.includes(entry.sourceType))
   )
     return false;
   if (AND && !AND.every((w) => matchEntry(entry, w))) return false;
@@ -181,6 +189,52 @@ export function createTestLedger(config: TestLedgerConfig) {
           })),
         );
       },
+      /** Ledger lines in LEDGER_LINE_ORDER with the LEDGER_LINE_INCLUDE shape. */
+      findMany: ({ where }: { where: LineWhere }) =>
+        ok(
+          lineRows(where)
+            .map((row, index) => ({ row, index }))
+            .sort(
+              (a, b) =>
+                a.row.entry.entryDate.getTime() -
+                  b.row.entry.entryDate.getTime() ||
+                a.row.entry.entryNumber.localeCompare(
+                  b.row.entry.entryNumber,
+                ) ||
+                a.index - b.index,
+            )
+            .map(({ row, index }) => {
+              const account = config.accounts.find(
+                (a) => a.id === row.accountId,
+              );
+              return {
+                id: `${row.entry.id}:${index}`,
+                accountId: row.accountId,
+                description: null,
+                debit: row.debit,
+                credit: row.credit,
+                account: {
+                  id: row.accountId,
+                  code: account?.code ?? row.accountId,
+                  name: account?.name ?? row.accountId,
+                  nameEn: account?.nameEn ?? null,
+                  partnerControlType: null,
+                },
+                partner: null,
+                journalEntry: {
+                  id: row.entry.id,
+                  entryNumber: row.entry.entryNumber,
+                  entryDate: row.entry.entryDate,
+                  description: null,
+                  sourceType: row.entry.sourceType,
+                  sourceId: row.entry.sourceId ?? null,
+                  referenceNumber: null,
+                  status: row.entry.status,
+                  journal: null,
+                },
+              };
+            }),
+        ),
       aggregate: ({ where }: { where: LineWhere }) => {
         const rows = lineRows(where);
         return ok({
@@ -233,6 +287,8 @@ export function createTestLedger(config: TestLedgerConfig) {
         ),
     },
     chartOfAccount: {
+      findUnique: ({ where }: { where: { id: string } }) =>
+        ok(config.accounts.find((a) => a.id === where.id) ?? null),
       findMany: ({
         where,
       }: {
@@ -267,6 +323,24 @@ export function createTestLedger(config: TestLedgerConfig) {
     supplierGroup: { findMany: () => ok([]) },
     supplierProfile: { findMany: () => ok([]) },
     fiscalYear: {
+      findMany: ({
+        where,
+        take,
+      }: {
+        where?: { startDate?: DateFilter };
+        take?: number;
+      } = {}) =>
+        ok(
+          (config.fiscalYears ?? [])
+            .map((fy) => ({
+              id: fy.id ?? `fy-${fy.startDate}`,
+              startDate: new Date(fy.startDate),
+              endDate: new Date(fy.endDate),
+            }))
+            .filter((fy) => inDate(fy.startDate, where?.startDate))
+            .sort((a, b) => b.startDate.getTime() - a.startDate.getTime())
+            .slice(0, take ?? Infinity),
+        ),
       findFirst: ({
         where,
       }: {

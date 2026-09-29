@@ -14,7 +14,7 @@ import { journalSourceHref, journalSourceLabelKey } from "@/config/accounting/jo
 import type { AccountLedgerMovement } from "@/services/accounting-reports-service";
 import type { TraceKind } from "@/services/traceability-service";
 import type { MessageKey } from "@/i18n/translate";
-import { formatDate } from "@/lib/date";
+import { formatBusinessDate } from "@/components/accounting/financial-report/business-date";
 
 /**
  * The ONE builder for ledger-style report rows — General Ledger, Account
@@ -119,7 +119,7 @@ export function buildLedgerBlock(
         balance: movement.runningBalance,
       },
       text: {
-        date: formatDate(movement.entryDate),
+        date: formatBusinessDate(movement.entryDate),
         journal: movement.journal ? movement.journal.name : "",
         entry: movement.entryNumber,
         source: sourceText(t, movement),

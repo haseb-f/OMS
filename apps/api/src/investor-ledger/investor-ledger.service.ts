@@ -6,6 +6,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { businessDateRangeFilter } from '../common/time/business-date';
 import { round2 } from '../investment-opportunities/shared/opportunity-totals.util';
 import { FindLedgerStatementQueryDto } from './dto/find-ledger-statement-query.dto';
 import { CreateLedgerAdjustmentDto } from './dto/create-ledger-adjustment.dto';
@@ -111,12 +112,11 @@ export class InvestorLedgerService {
       investorId,
       opportunityId: query.opportunityId,
       type: query.type?.length ? { in: query.type } : undefined,
+      // Business days in Africa/Cairo, `dateTo` inclusive (it used to stop
+      // at 00:00Z of `dateTo`, dropping that day's entries).
       entryDate:
         query.dateFrom || query.dateTo
-          ? {
-              gte: query.dateFrom ? new Date(query.dateFrom) : undefined,
-              lte: query.dateTo ? new Date(query.dateTo) : undefined,
-            }
+          ? businessDateRangeFilter(query.dateFrom, query.dateTo)
           : undefined,
     };
     const [items, total] = await Promise.all([

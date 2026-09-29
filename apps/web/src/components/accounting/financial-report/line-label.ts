@@ -38,6 +38,14 @@ export const SECTION_LABELS: Record<string, MessageKey> = {
   "is-gross-profit": "reports.finance.statementLines.grossProfit",
   "is-selling": "reports.finance.statementLines.selling",
   "is-selling:total": "reports.finance.statementLines.sellingTotal",
+  "is-selling-shipping": "reports.finance.statementLines.sellingShipping",
+  "is-selling-shipping:total": "reports.finance.statementLines.sellingShippingTotal",
+  "is-selling-gateway": "reports.finance.statementLines.sellingGateway",
+  "is-selling-gateway:total": "reports.finance.statementLines.sellingGatewayTotal",
+  "is-selling-fulfillment": "reports.finance.statementLines.sellingFulfillment",
+  "is-selling-fulfillment:total": "reports.finance.statementLines.sellingFulfillmentTotal",
+  "is-selling-other": "reports.finance.statementLines.sellingOther",
+  "is-selling-other:total": "reports.finance.statementLines.sellingOtherTotal",
   "is-admin": "reports.finance.statementLines.admin",
   "is-admin:total": "reports.finance.statementLines.adminTotal",
   "is-operating-profit": "reports.finance.statementLines.operatingProfit",
@@ -88,7 +96,11 @@ export function resolveFinancialLineLabel(
       ? net < 0
         ? "reports.finance.fields.netLoss"
         : "reports.finance.fields.netProfit"
-      : SECTION_LABELS[line.id];
+      : // The contra row of any selling line ("Less: recovered from agents") —
+        // rendered by the API only when an agent recovery hit that line.
+        line.id.startsWith("is-selling-") && line.id.endsWith(":recovered")
+        ? "reports.finance.statementLines.recoveredFromAgents"
+        : SECTION_LABELS[line.id];
   if (translated) return t(translated);
   // Cash-flow activity rows ("cf:SECTION:SOURCE_TYPE") carry a journal
   // source type, not prose — use its localized name when one exists.

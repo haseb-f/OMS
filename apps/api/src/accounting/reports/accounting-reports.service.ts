@@ -9,8 +9,20 @@ import {
   SalesDocumentStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { buildDateRangeFilter } from '../../sales/shared/sales-list-query.util';
+import {
+  beforeBusinessDay,
+  BUSINESS_TIME_ZONE,
+  businessDateOf,
+  businessDateRangeFilter,
+  businessDayStart,
+  endOfBusinessDay,
+} from '../../common/time/business-date';
 import { POSTING_ROLE_SETTINGS } from '../foundation/standard-chart-of-accounts';
+import {
+  candidateRangeQuery,
+  pickCovering,
+  rangeStart,
+} from '../fiscal-periods/period-bounds';
 import { ReportQueryBaseDto } from './dto/report-query-base.dto';
 import { GeneralLedgerQueryDto } from './dto/general-ledger-query.dto';
 import { TrialBalanceQueryDto } from './dto/trial-balance-query.dto';
@@ -49,6 +61,7 @@ import {
   type RoleAssignment,
 } from './statement-classification';
 import {
+  agentRecoveriesOf,
   asOfEndOfDay,
   ENTRY_LINE_ORDER,
   journalReportOrder,
@@ -191,12 +204,12 @@ export class AccountingReportsService {
     const [periodAgg, openingAgg] = await Promise.all([
       this.aggregateAccountDebitCredit({
         ...scopeWhere,
-        entryDate: buildDateRangeFilter(query.dateFrom, query.dateTo),
+        entryDate: businessDateRangeFilter(query.dateFrom, query.dateTo),
       }),
       query.dateFrom
         ? this.aggregateAccountDebitCredit({
             ...scopeWhere,
-            entryDate: { lt: new Date(query.dateFrom) },
+            entryDate: beforeBusinessDay(query.dateFrom),
           })
         : Promise.resolve(new Map<string, { debit: number; credit: number }>()),
     ]);
@@ -291,7 +304,7 @@ export class AccountingReportsService {
               accountId: { in: accountIds },
               journalEntry: {
                 ...scopeWhere,
-                entryDate: { lt: new Date(filters.dateFrom) },
+                entryDate: beforeBusinessDay(filters.dateFrom),
               },
             },
             _sum: { debit: true, credit: true },
@@ -302,7 +315,10 @@ export class AccountingReportsService {
           accountId: { in: accountIds },
           journalEntry: {
             ...scopeWhere,
-            entryDate: buildDateRangeFilter(filters.dateFrom, filters.dateTo),
+            entryDate: businessDateRangeFilter(
+              filters.dateFrom,
+              filters.dateTo,
+            ),
           },
         },
         include: LEDGER_LINE_INCLUDE,
@@ -357,11 +373,11 @@ export class AccountingReportsService {
     const scopeWhere = this.buildEntryScopeWhere(query);
     const periodWhere: Prisma.JournalEntryWhereInput = {
       ...scopeWhere,
-      entryDate: buildDateRangeFilter(query.dateFrom, query.dateTo),
+      entryDate: businessDateRangeFilter(query.dateFrom, query.dateTo),
     };
     const openingWhere: Prisma.JournalEntryWhereInput | null =
       includeOpening && query.dateFrom
-        ? { ...scopeWhere, entryDate: { lt: new Date(query.dateFrom) } }
+        ? { ...scopeWhere, entryDate: beforeBusinessDay(query.dateFrom) }
         : null;
 
     const [periodAgg, openingAgg, accounts] = await Promise.all([
@@ -479,6 +495,7 @@ export class AccountingReportsService {
       period: {
         dateFrom: query.dateFrom ?? null,
         dateTo: query.dateTo ?? null,
+        timeZone: BUSINESS_TIME_ZONE,
       },
       warnings,
       lines,
@@ -492,7 +509,7 @@ export class AccountingReportsService {
 
     const where: Prisma.JournalEntryWhereInput = {
       ...this.buildEntryScopeWhere(query),
-      entryDate: buildDateRangeFilter(query.dateFrom, query.dateTo),
+      entryDate: businessDateRangeFilter(query.dateFrom, query.dateTo),
       ...(query.search && {
         OR: [
           { entryNumber: { contains: query.search, mode: 'insensitive' } },
@@ -612,6 +629,10 @@ export class AccountingReportsService {
     return {
       asOfDate,
       fiscalYearStart,
+      /** Business (Africa/Cairo) dates of the two bounds above. */
+      asOfBusinessDate: businessDateOf(asOfDate),
+      fiscalYearStartDate: businessDateOf(fiscalYearStart),
+      timeZone: BUSINESS_TIME_ZONE,
       assets: rowsByType.ASSET,
       liabilities: rowsByType.LIABILITY,
       equity: rowsByType.EQUITY,
@@ -636,13 +657,21 @@ export class AccountingReportsService {
    */
   async incomeStatement(query: IncomeStatementQueryDto) {
     const where = withoutYearClosing(periodScope(query));
-    const [sums, rowsByType, accounts, ctx] = await Promise.all([
+    const [sums, recoverySums, rowsByType, accounts, ctx] = await Promise.all([
       this.aggregateAccountDebitCredit(where),
+      // Agent recoveries inside the same scope: shown as a contra to the
+      // selling expense they reduce (not company expense, not revenue).
+      this.aggregateAccountDebitCredit(agentRecoveriesOf(where)),
       this.groupBalancesByAccountType(where),
       this.loadCoaNodes(),
       this.loadClassificationContext(),
     ]);
-    const statement = buildIncomeStatement({ accounts, sums, ctx });
+    const statement = buildIncomeStatement({
+      accounts,
+      sums,
+      recoverySums,
+      ctx,
+    });
     const warnings = [
       ...statement.warnings,
       ...(await this.integrityWarnings(query)),
@@ -652,10 +681,25 @@ export class AccountingReportsService {
       revenue: rowsByType.REVENUE,
       expense: rowsByType.EXPENSE,
       totals: statement.totals,
+      /**
+       * Statement line of every P&L account in scope (and its visible
+       * selling line) — lets Cost Analytics tell the GL costs already
+       * attributed at order level from the rest, without re-classifying.
+       */
+      accountLines: Object.fromEntries(
+        [...statement.lineOfAccount].map(([accountId, line]) => [
+          accountId,
+          {
+            line,
+            sellingLine: statement.sellingLineOfAccount.get(accountId) ?? null,
+          },
+        ]),
+      ),
       partitionDifference: statement.partitionDifference,
       period: {
         dateFrom: query.dateFrom ?? null,
         dateTo: query.dateTo ?? null,
+        timeZone: BUSINESS_TIME_ZONE,
       },
       warnings,
       lines: statement.lines,
@@ -1014,26 +1058,31 @@ export class AccountingReportsService {
   }
 
   /**
-   * The fiscal year containing `asOf` (FiscalYear table); without one,
-   * 1 January (UTC) of the as-of year and no id.
+   * The fiscal year containing the business (Africa/Cairo) date of `asOf`
+   * — picked exactly as the posting locks pick it (fiscal-periods/
+   * period-bounds.ts: stored bounds in any of their historical shapes,
+   * membership by business date); without one, 1 January of that business
+   * year and no id. `startDate` is the first instant of the fiscal year's
+   * first business day, the lower bound of the current-year profit query.
    */
   private async currentFiscalYear(
     asOf: Date,
   ): Promise<{ id: string | null; startDate: Date }> {
-    const dayStart = new Date(
-      Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), asOf.getUTCDate()),
-    );
-    const fiscalYear = await this.prisma.fiscalYear.findFirst({
-      where: { startDate: { lte: asOf }, endDate: { gte: dayStart } },
-      orderBy: { startDate: 'desc' },
-      select: { id: true, startDate: true },
+    const query = candidateRangeQuery(asOf);
+    const candidates = await this.prisma.fiscalYear.findMany({
+      ...query,
+      where: { ...query.where, deletedAt: null },
+      select: { id: true, startDate: true, endDate: true },
     });
-    return (
-      fiscalYear ?? {
-        id: null,
-        startDate: new Date(Date.UTC(asOf.getUTCFullYear(), 0, 1)),
-      }
-    );
+    const fiscalYear = pickCovering(candidates, asOf);
+    return fiscalYear
+      ? { id: fiscalYear.id, startDate: rangeStart(fiscalYear) }
+      : {
+          id: null,
+          startDate: businessDayStart(
+            `${businessDateOf(asOf).slice(0, 4)}-01-01`,
+          ),
+        };
   }
 
   /**
@@ -1186,7 +1235,7 @@ export class AccountingReportsService {
               ...accountFilter,
               journalEntry: {
                 ...scopeWhere,
-                entryDate: { lt: new Date(query.dateFrom) },
+                entryDate: beforeBusinessDay(query.dateFrom),
               },
             },
             _sum: { debit: true, credit: true },
@@ -1198,7 +1247,7 @@ export class AccountingReportsService {
           ...accountFilter,
           journalEntry: {
             ...scopeWhere,
-            entryDate: buildDateRangeFilter(query.dateFrom, query.dateTo),
+            entryDate: businessDateRangeFilter(query.dateFrom, query.dateTo),
           },
         },
         include: LEDGER_LINE_INCLUDE,
@@ -1227,9 +1276,7 @@ export class AccountingReportsService {
   }
 
   private async invoiceAging(side: 'AR' | 'AP', query: AgingQueryDto) {
-    const asOf = query.dateTo
-      ? new Date(new Date(query.dateTo).getTime() + (24 * 60 * 60 * 1000 - 1))
-      : new Date();
+    const asOf = asOfEndOfDay(query.dateTo);
     const invoiceKey = side === 'AR' ? 'salesInvoiceId' : 'purchaseInvoiceId';
     const openStatuses =
       side === 'AR'
@@ -1417,7 +1464,14 @@ export class AccountingReportsService {
     currencyId?: string;
     accountId?: string;
   }) {
-    const asOf = query.asOf ? new Date(query.asOf) : new Date();
+    // A plain date is the whole business day (it used to stop at 00:00Z,
+    // leaving that day's postings out); a full timestamp is kept as given.
+    const asOf = !query.asOf
+      ? new Date()
+      : /^\d{4}-\d{2}-\d{2}$/.test(query.asOf.trim())
+        ? endOfBusinessDay(query.asOf)
+        : new Date(query.asOf);
+    const asOfBusinessDate = businessDateOf(asOf);
     const receiving = await this.prisma.receivingAccount.findMany({
       where: {
         deletedAt: null,
@@ -1557,7 +1611,7 @@ export class AccountingReportsService {
         chartOfAccountName: ra.chartOfAccount.name,
         currencyId,
         currencyCode,
-        asOfDate: asOf.toISOString().slice(0, 10),
+        asOfDate: asOfBusinessDate,
         bookBalance,
         recordedHolds,
         committedOutgoing,
@@ -1578,7 +1632,8 @@ export class AccountingReportsService {
     }
 
     return {
-      asOfDate: asOf.toISOString().slice(0, 10),
+      asOfDate: asOfBusinessDate,
+      timeZone: BUSINESS_TIME_ZONE,
       formula:
         'availableToSpend = bookBalance − recordedHolds − committedOutgoing (DRAFT cash-out FTs)',
       limitations: [
@@ -1611,7 +1666,9 @@ export class AccountingReportsService {
       dateTo: query.dateTo,
     });
     const netProfitEgp = income.totals.netIncome;
-    const asOf = query.dateTo ? new Date(query.dateTo) : new Date();
+    // Period-end rate: the rate effective on the business date `dateTo`.
+    const asOf = query.dateTo ? endOfBusinessDay(query.dateTo) : new Date();
+    const asOfBusinessDate = businessDateOf(asOf);
     const functionalId = (
       await this.prisma.postingSettings.findFirst({
         select: { functionalCurrencyId: true },
@@ -1643,7 +1700,7 @@ export class AccountingReportsService {
           currencyCode: currency.code,
           amount: netProfitEgp,
           rate: 1,
-          rateEffectiveDate: asOf.toISOString().slice(0, 10),
+          rateEffectiveDate: asOfBusinessDate,
           source: 'IDENTITY',
           convention: '1 EGP = 1 EGP',
           presentationOnly: true,
@@ -1690,7 +1747,7 @@ export class AccountingReportsService {
     return {
       netProfitEgp,
       functionalCurrencyCode: functional?.code ?? 'EGP',
-      asOfDate: asOf.toISOString().slice(0, 10),
+      asOfDate: asOfBusinessDate,
       income,
       equivalents,
       note: 'Equivalents are presentation values using the period-end directed rate. They are not additional profit or accounting postings, and are not available cash.',

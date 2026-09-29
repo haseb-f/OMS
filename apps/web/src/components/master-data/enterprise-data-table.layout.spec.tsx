@@ -61,8 +61,13 @@ afterEach(cleanup);
 describe("EnterpriseDataTable layout", () => {
   it("sorts with one header click: ascending → descending → unsorted", () => {
     const { container } = renderTable("layout-spec-sort");
-    // Re-query each time: the header re-renders after every sort change.
-    const clickHeader = () => fireEvent.click(screen.getByRole("button", { name: "name" }));
+    // Re-query each time: the header re-renders after every sort change. A
+    // direct header query instead of `getByRole`, whose full accessibility-tree
+    // walk made this test time out on a loaded machine.
+    const clickHeader = () =>
+      fireEvent.click(
+        container.querySelector<HTMLButtonElement>('th[data-column-id="name"] button')!,
+      );
     const ariaSort = () =>
       container.querySelector('th[data-column-id="name"]')!.getAttribute("aria-sort");
 

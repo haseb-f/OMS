@@ -62,7 +62,43 @@ const SOURCE_TYPE_JOURNAL: Record<string, JournalType> = {
   ACCRUED_EXPENSE: JournalType.GENERAL,
   ACCRUED_EXPENSE_SETTLEMENT: JournalType.CASH,
   FX_REVALUATION: JournalType.GENERAL,
+  YEAR_CLOSING: JournalType.GENERAL,
 };
+
+/**
+ * Year Closing is the one posting allowed INTO a closed fiscal year: it is
+ * the closing ceremony itself, dated the year's last day, and requires the
+ * year (and so every period in it) to be closed first
+ * (`FiscalYearsService.assertPostingAllowed`). Its reversal (controlled
+ * reopening) is dated on the closing entry's own date, so the next year's
+ * figures never move. It may also zero an account that is archived or a
+ * header carrying legacy postings — a closing that skipped one would leave
+ * a P&L balance behind.
+ */
+export const YEAR_CLOSING_SOURCE_TYPE = 'YEAR_CLOSING';
+
+/**
+ * At most one active entry per source: posting / reversing these takes a
+ * transaction-scoped advisory lock on (sourceType, sourceId), so concurrent
+ * requests serialize and the loser sees the winner's entry through the
+ * idempotency check below (backed by the partial unique index
+ * `journal_entries_active_fiscal_singleton_key`).
+ */
+const SINGLETON_SOURCE_TYPES = new Set([YEAR_CLOSING_SOURCE_TYPE]);
+
+export interface PostingOptions {
+  /** Books the entry (or reversal) on this date instead of the provider's date / now — e.g. an audited correction restating a still-open period. Every period / fiscal-year guard still applies to that date. */
+  entryDate?: Date;
+}
+
+/** Serializes posting of one source inside the caller's transaction (released at commit / rollback). */
+export async function lockPostingSource(
+  client: Prisma.TransactionClient,
+  sourceType: string,
+  sourceId: string,
+) {
+  await client.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${sourceType}), hashtext(${sourceId}))::text AS locked`;
+}
 
 @Injectable()
 export class PostingEngineService {
@@ -93,6 +129,7 @@ export class PostingEngineService {
     sourceId: string,
     userId?: string,
     tx?: Prisma.TransactionClient,
+    options: PostingOptions = {},
   ) {
     const provider = this.providers.get(sourceType);
     if (!provider) {
@@ -102,6 +139,9 @@ export class PostingEngineService {
     }
 
     const run = async (client: Prisma.TransactionClient) => {
+      if (SINGLETON_SOURCE_TYPES.has(sourceType)) {
+        await lockPostingSource(client, sourceType, sourceId);
+      }
       const existingPosted = await client.journalEntry.findFirst({
         where: {
           sourceType,
@@ -135,16 +175,15 @@ export class PostingEngineService {
         ? result.lines
         : this.applyExchangeRate(result.lines, result.exchangeRate);
       this.assertBalanced(lines);
-      await this.assertPostableAccounts(lines, client);
+      await this.assertPostableAccounts(
+        lines,
+        client,
+        sourceType === YEAR_CLOSING_SOURCE_TYPE,
+      );
       await this.assertPartnersRequired(lines, client);
 
-      const entryDate = result.entryDate ?? new Date();
-      await this.accountingPeriods.assertPeriodOpen(entryDate, client);
-      await this.fiscalYears.assertPostingAllowed(
-        entryDate,
-        sourceType,
-        client,
-      );
+      const entryDate = options.entryDate ?? result.entryDate ?? new Date();
+      await this.assertPostingWindow(entryDate, sourceType, client);
 
       const entryNumber = await this.numberingEngine.generateNumber(
         'JOURNAL_ENTRY',
@@ -225,26 +264,32 @@ export class PostingEngineService {
     sourceId: string,
     userId?: string,
     tx?: Prisma.TransactionClient,
+    options: PostingOptions = {},
   ) {
     const run = async (client: Prisma.TransactionClient) => {
+      if (SINGLETON_SOURCE_TYPES.has(sourceType)) {
+        await lockPostingSource(client, sourceType, sourceId);
+      }
+      // The document's CURRENT posting — never an earlier reversal entry,
+      // which shares the same sourceType/sourceId once a document has been
+      // reversed and re-posted.
       const existing = await client.journalEntry.findFirst({
         where: {
           sourceType,
           sourceId,
           status: JournalEntryStatus.POSTED,
+          reversalOfEntryId: null,
           deletedAt: null,
         },
         include: { lines: true },
       });
       if (!existing) return null;
 
-      const reversalDate = new Date();
-      await this.accountingPeriods.assertPeriodOpen(reversalDate, client);
-      await this.fiscalYears.assertPostingAllowed(
-        reversalDate,
-        sourceType,
-        client,
-      );
+      const reversalDate =
+        sourceType === YEAR_CLOSING_SOURCE_TYPE
+          ? existing.entryDate
+          : (options.entryDate ?? new Date());
+      await this.assertPostingWindow(reversalDate, sourceType, client);
       const entryNumber = await this.numberingEngine.generateNumber(
         'JOURNAL_ENTRY',
         undefined,
@@ -320,6 +365,23 @@ export class PostingEngineService {
     };
 
     return tx ? run(tx) : this.prisma.$transaction(run);
+  }
+
+  /**
+   * Closed/locked periods and closed fiscal years block every posting
+   * (TASK-052/055). Year Closing is checked the other way round by
+   * `assertPostingAllowed` (its year must be closed), and its period is
+   * closed by definition, so the period check is skipped for it only.
+   */
+  private async assertPostingWindow(
+    entryDate: Date,
+    sourceType: string,
+    client: Prisma.TransactionClient,
+  ) {
+    if (sourceType !== YEAR_CLOSING_SOURCE_TYPE) {
+      await this.accountingPeriods.assertPeriodOpen(entryDate, client);
+    }
+    await this.fiscalYears.assertPostingAllowed(entryDate, sourceType, client);
   }
 
   /** TASK-053 — best-effort Journal classification; never blocks posting when unconfigured. */
@@ -409,6 +471,7 @@ export class PostingEngineService {
   private async assertPostableAccounts(
     lines: PostingLine[],
     client: Prisma.TransactionClient,
+    closingEntry = false,
   ) {
     const accountIds = [...new Set(lines.map((line) => line.accountId))];
     const accounts = await client.chartOfAccount.findMany({
@@ -424,12 +487,12 @@ export class PostingEngineService {
     const byId = new Map(accounts.map((account) => [account.id, account]));
     for (const accountId of accountIds) {
       const account = byId.get(accountId);
-      if (!account || account.deletedAt) {
+      if (!account || (account.deletedAt && !closingEntry)) {
         throw new BadRequestException(
           'A posting rule points to an account that no longer exists — review Accounting Settings mappings.',
         );
       }
-      if (!account.allowsPosting) {
+      if (!account.allowsPosting && !closingEntry) {
         throw new BadRequestException(
           `Account ${account.code} ${account.name} is a group (header) account and cannot receive postings — map a posting account under it in Accounting Settings.`,
         );

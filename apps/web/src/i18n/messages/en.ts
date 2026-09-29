@@ -1747,6 +1747,15 @@ const en = {
         grossProfit: "Gross profit",
         selling: "Selling and distribution expenses",
         sellingTotal: "Total selling and distribution expenses",
+        sellingShipping: "Shipping and delivery",
+        sellingShippingTotal: "Net shipping and delivery",
+        sellingGateway: "Payment gateway commissions",
+        sellingGatewayTotal: "Net payment gateway commissions",
+        sellingFulfillment: "Fulfillment",
+        sellingFulfillmentTotal: "Net fulfillment",
+        sellingOther: "Other selling and distribution expenses",
+        sellingOtherTotal: "Total other selling and distribution expenses",
+        recoveredFromAgents: "Less: recovered from agents",
         admin: "General and administrative expenses",
         adminTotal: "Total general and administrative expenses",
         operatingProfit: "Operating profit",
@@ -1784,7 +1793,8 @@ const en = {
         grossProfit: "Gross profit",
         grossProfitHint: "Net revenue minus cost of sales",
         operatingProfit: "Operating profit",
-        operatingProfitHint: "Gross profit minus selling and administrative expenses",
+        operatingProfitHint:
+          "Gross profit minus selling (incl. shipping, gateway commissions, fulfillment) and administrative expenses",
         netHint: "Operating profit after other items, finance costs and FX",
         currentYearProfit: "Current-year profit",
         currentYearProfitHint: "Equals the income statement from the fiscal-year start",
@@ -1811,7 +1821,7 @@ const en = {
         unclassified: "{count} account(s) have no statement line — shown under Unclassified.",
         roleConflict: "{count} account(s) are mapped to conflicting statement lines.",
         capitalReturn:
-          "Capital returns are posted to a profit-or-loss account — review the Capital Return account mapping.",
+          "Legacy capital returns were posted to a profit-or-loss account and are shown under finance costs. Review and correct the affected entries in the capital-return corrections list (GET /capital-returns/corrections/affected).",
         drafts: "Includes draft entries — not final figures.",
         carryForward:
           "A year-end carry-forward opening entry repeats balances already in the ledger ({entries}).",
@@ -4564,8 +4574,18 @@ const en = {
       directCostsPaymentFees: "Payment Fees",
       directCostsFulfillment: "Fulfillment",
       contributionProfit: "Contribution Profit",
-      operatingExpenses: "Operating Expenses",
+      operatingExpenses: "Operating Expenses (not attributed to orders)",
       operatingProfit: "Operating Profit",
+      differenceToIncomeStatement: "Difference to Income Statement",
+      incomeStatementOperatingProfit: "Operating Profit per Income Statement",
+      bridge: {
+        NET_REVENUE: "Revenue: orders vs posted",
+        COST_OF_SALES: "Cost of sales: orders vs posted",
+        SHIPPING: "Shipping: orders vs posted",
+        PAYMENT_FEES: "Payment fees: orders vs posted",
+        FULFILLMENT: "Fulfillment: orders vs posted",
+        CONTRIBUTION_NOT_COMPUTED: "Orders without computed contribution",
+      },
       glReconciliation: "GL Reconciliation",
       revenueFromGl: "Revenue (GL)",
       expenseFromGl: "Total Expense (GL)",
@@ -5022,15 +5042,38 @@ const en = {
       fields: {
         fiscalYear: "Fiscal Year",
       },
-      carryForwardDisabled:
-        "No opening entry is created for the next year: balances already carry forward automatically in every report.",
+      derivedOpeningExplained:
+        "The next year's opening balances are derived from the ledger, not posted: balance-sheet accounts carry their year-end balance forward once, and revenue and expense accounts open at zero after the closing entry.",
       mustBeClosedFirst:
         "Close this Fiscal Year first (Finance > Fiscal Years) before running Year Closing.",
-      alreadyClosed: "This Fiscal Year already has a Closing entry ({entryNumber}).",
+      alreadyClosed: "This Fiscal Year is closed by entry {entryNumber}.",
       viewClosingEntry: "View Closing Entry",
       run: "Run Year Closing",
+      confirmRunTitle: "Post the closing entry?",
+      confirmRunDescription:
+        "Every revenue and expense balance at year end is transferred to Retained Earnings in one entry dated on the year's last day. Only one closing can exist per year.",
+      reverse: "Reverse closing",
+      reverseReason: "Reason (required)",
+      reverseBlocked:
+        "A later fiscal year is closed — reverse that closing first, latest year first.",
+      confirmReverseTitle: "Reverse this Year Closing?",
+      confirmReverseDescription:
+        "A reversal entry dated on the closing date cancels the transfer to Retained Earnings. You can then reopen the year, post adjustments, close it and run Year Closing again.",
+      history: "Closing history",
+      historyReversal: "Reversal",
+      nextOpeningTitle: "Opening balances of {name}",
+      nextOpeningAfterClosing:
+        "Derived from everything posted before the year starts, including this closing entry.",
+      nextOpeningBeforeClosing:
+        "Until this year is closed, revenue and expense balances still appear in the opening position.",
+      openingAccounts: "Accounts with a balance",
+      openingTotals: "Debit / Credit",
+      openingProfitAndLoss: "Revenue & expense opening (should be 0)",
+      viewOpeningBalances: "View in Trial Balance (opening at {date})",
       toasts: {
         completed: "Year Closing completed.",
+        alreadyClosed: "This year was already closed ({entryNumber}) — nothing new was posted.",
+        reversed: "Year Closing reversed by {entryNumber}.",
       },
     },
     prepaid: {
@@ -5161,7 +5204,8 @@ const en = {
         investorFunding: "Investor Funding Account",
         investorProfitDistribution: "Investor Profit Distribution Account",
         investorProfitPayable: "Investor Profit Payable Account",
-        capitalReturn: "Capital Return Account",
+        capitalReturnNote:
+          "Capital returns repay principal against the Investor Funding account — there is no separate Capital Return account, and they never reduce profit.",
         shippingExpense: "Shipping / Carrier Expense",
         accruedShipping: "Accrued Shipping",
         paymentGatewayFee: "Payment Gateway Fees",

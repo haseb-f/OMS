@@ -135,6 +135,69 @@ const PNL_RULE: ClassificationRule<PnlLine> = {
   unmapped: 'UNCLASSIFIED',
 };
 
+// --- Selling & distribution breakdown (owner decision P2) -----------------
+
+/**
+ * Carrier shipping, payment-gateway commissions and fulfilment are selling /
+ * operating expenses below gross profit (never cost of sales), each shown on
+ * its own visible line inside "Selling and distribution expenses"; every
+ * other selling account (sales commissions, marketing under header 52 …)
+ * stays on "Other selling and distribution expenses".
+ */
+export type SellingSubLine =
+  | 'SHIPPING_DELIVERY'
+  | 'PAYMENT_GATEWAY_FEES'
+  | 'FULFILLMENT'
+  | 'OTHER_SELLING';
+
+export const SELLING_SUB_LINE_ORDER: SellingSubLine[] = [
+  'SHIPPING_DELIVERY',
+  'PAYMENT_GATEWAY_FEES',
+  'FULFILLMENT',
+  'OTHER_SELLING',
+];
+
+export const SELLING_ROLE_SUB_LINES: ReadonlyArray<
+  readonly [ReportRole, SellingSubLine]
+> = [
+  ['SHIPPING_EXPENSE', 'SHIPPING_DELIVERY'],
+  ['GATEWAY_FEES', 'PAYMENT_GATEWAY_FEES'],
+  ['FULFILLMENT_EXPENSE', 'FULFILLMENT'],
+];
+
+const SELLING_SUB_RULE: ClassificationRule<SellingSubLine> = {
+  roleLines: SELLING_ROLE_SUB_LINES,
+  headerLines: {},
+  unmapped: 'OTHER_SELLING',
+};
+
+/**
+ * Journal source types whose lines on a selling expense account are
+ * recoveries from agents, not company expense. On main only the agent
+ * ledger's gateway-fee recovery exists
+ * (posting-providers/agent-ledger-posting.provider.ts:106-117, 150-155):
+ * AGENT_PROVIDER_FEE credits Payment Gateway Fees (the fee already expensed
+ * at settlement is recovered from the agent: Dr Agent funds payable), and
+ * AGENT_ADJUSTMENT with `basis.counterAccount = PAYMENT_GATEWAY_FEE` posts to
+ * the same account (a provider-fee reversal). MANUAL reversals of either are
+ * matched through the entry they reverse. Carrier shipping is never
+ * recovered from agents (owner correction): the agent's shipping charge is a
+ * fixed agreement fee posted as service revenue, so carrier cost stays
+ * company Shipping Expense.
+ */
+export const AGENT_RECOVERY_SOURCE_TYPES: readonly string[] = [
+  'AGENT_PROVIDER_FEE',
+  'AGENT_ADJUSTMENT',
+];
+
+/** Visible selling sub-line of an account already on SELLING_DISTRIBUTION. */
+export function classifySellingSubLine(
+  account: CoaNode,
+  ctx: ClassificationContext,
+): SellingSubLine {
+  return classifyWith(account, ctx, SELLING_SUB_RULE).line;
+}
+
 // --- Statement of Financial Position (IAS 1.60-76) ------------------------
 
 export type BsGroup = 'CURRENT' | 'NON_CURRENT' | 'UNCLASSIFIED';

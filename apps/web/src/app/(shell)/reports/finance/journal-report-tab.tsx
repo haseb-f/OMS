@@ -23,7 +23,7 @@ import {
 import { journalSourceLabelKey } from "@/config/accounting/journal-source";
 import { useLocale } from "@/providers/locale-provider";
 import { reportApiError } from "@/lib/toast";
-import { formatDate } from "@/lib/date";
+import { formatBusinessDate } from "@/components/accounting/financial-report/business-date";
 import type { ReportFilterValue } from "@/components/accounting/report-filter-bar";
 import { isZeroAmount } from "@/lib/money";
 import { useReportQuery } from "./use-report-query";
@@ -99,7 +99,7 @@ export function JournalReportTab() {
             credit: Number(entry.totalCredit),
           },
           text: {
-            date: formatDate(entry.entryDate),
+            date: formatBusinessDate(entry.entryDate),
             source: entry.referenceNumber ? `${source} ${entry.referenceNumber}` : source,
           },
           children: [],

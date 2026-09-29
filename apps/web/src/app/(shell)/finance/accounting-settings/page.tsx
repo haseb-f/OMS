@@ -266,10 +266,9 @@ const INVESTOR_FIELDS: InvestorFieldConfig[] = [
     key: "investorProfitPayableAccountId",
     labelKey: "accounting.settings.fields.investorProfitPayable",
   },
-  {
-    key: "capitalReturnAccountId",
-    labelKey: "accounting.settings.fields.capitalReturn",
-  },
+  // No Capital Return account: a principal repayment debits the Investor
+  // Funding account above (the balance contributions were credited to), so
+  // `capitalReturnAccountId` is no longer read — decisions-round2.md §Y4.
 ];
 
 function toChartRow(ref: AccountRef | null): ChartOfAccountRow | null {
@@ -539,6 +538,9 @@ export default function AccountingSettingsPage() {
                   />
                 </div>
               ))}
+              <p className="text-caption text-muted-foreground">
+                {t("accounting.settings.fields.capitalReturnNote")}
+              </p>
             </EnterpriseCardContent>
           </EnterpriseCard>
         </div>

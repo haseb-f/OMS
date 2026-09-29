@@ -1,6 +1,5 @@
 import {
   AccountType,
-  JournalEntryStatus,
   JournalType,
   PartnerControlAccountType,
   PrismaClient,
@@ -12,7 +11,12 @@ import {
   STANDARD_CHART_OF_ACCOUNTS,
   type PostingRole,
 } from './standard-chart-of-accounts';
-import { coversInstant } from '../fiscal-periods/period-bounds';
+import {
+  candidateRangeQuery,
+  pickCovering,
+} from '../fiscal-periods/period-bounds';
+import { businessDateOf } from '../../common/time/business-date';
+import { hasEstablishedOpening } from '../fiscal-periods/fiscal-years.service';
 
 type PrismaLike = PrismaClient;
 
@@ -24,6 +28,8 @@ export interface FoundationActivationResult {
   paymentSources: string[];
   journals: string[];
   fiscalYear: string | null;
+  /** True when the current fiscal year has no go-live Opening entry and no posted history before it — enter one with the Opening Balance wizard before posting. Never auto-posted. */
+  openingBalanceRequired: boolean;
   taxes: string[];
 }
 
@@ -95,6 +101,26 @@ function levelOf(parentLevel: number | null): number {
  * Never deletes accounts. Reuses existing rows by preferred code or alias.
  * Fills only null Posting Settings fields (does not overwrite a live mapping).
  */
+/**
+ * The fiscal year containing `instant`'s business date — the same
+ * membership rule posting locks use (period-bounds.ts `pickCovering`).
+ */
+export async function findCoveringFiscalYear(
+  prisma: Pick<PrismaLike, 'fiscalYear'>,
+  instant: Date,
+) {
+  const { where, orderBy, take } = candidateRangeQuery(instant);
+  return pickCovering(
+    await prisma.fiscalYear.findMany({
+      where: { ...where, deletedAt: null },
+      orderBy,
+      take,
+      select: { id: true, name: true, startDate: true, endDate: true },
+    }),
+    instant,
+  );
+}
+
 export async function activateAccountingFoundation(
   prisma: PrismaLike,
   userId?: string,
@@ -388,15 +414,10 @@ export async function activateAccountingFoundation(
   }
 
   const now = new Date();
-  const year = now.getUTCFullYear();
-  const candidateYear = await prisma.fiscalYear.findFirst({
-    where: { deletedAt: null, startDate: { lte: now } },
-    orderBy: { startDate: 'desc' },
-    select: { id: true, name: true, startDate: true, endDate: true },
-  });
-  // Same last-day rule as posting checks (period-bounds.ts).
-  const covering =
-    candidateYear && coversInstant(candidateYear, now) ? candidateYear : null;
+  // The business (Africa/Cairo) year — 00:30 Cairo on 1 Jan is already the
+  // new year although UTC is still 31 Dec.
+  const year = Number(businessDateOf(now).slice(0, 4));
+  const covering = await findCoveringFiscalYear(prisma, now);
   let fiscalYear: string | null = covering?.name ?? null;
   let fiscalYearId = covering?.id ?? null;
   let fiscalYearStart = covering?.startDate ?? null;
@@ -429,61 +450,21 @@ export async function activateAccountingFoundation(
     fiscalYearStart = createdYear.startDate;
   }
 
-  const cashAccountId = roleIds.get('CASH');
-  const equityAccountId =
-    roleIds.get('RETAINED_EARNINGS') ?? roleIds.get('CAPITAL');
-  if (fiscalYearId && cashAccountId && equityAccountId) {
-    const existingOpening = await prisma.journalEntry.findFirst({
-      where: {
-        sourceType: 'OPENING_BALANCE',
-        sourceId: fiscalYearId,
-        deletedAt: null,
-      },
-      select: { id: true },
-    });
-    if (!existingOpening) {
-      const generalJournal = await prisma.journal.findFirst({
-        where: { type: JournalType.GENERAL, isActive: true, deletedAt: null },
-        select: { id: true },
-      });
-      await prisma.journalEntry.create({
-        data: {
-          entryNumber: `OB-${year}`,
-          entryDate: fiscalYearStart ?? new Date(Date.UTC(year, 0, 1)),
-          description: `Opening Balance — ${fiscalYear}`,
-          status: JournalEntryStatus.POSTED,
-          sourceType: 'OPENING_BALANCE',
-          sourceId: fiscalYearId,
-          fiscalYearId,
-          journalId: generalJournal?.id,
-          totalDebit: 1,
-          totalCredit: 1,
-          postedAt: new Date(),
-          postedBy: userId ?? null,
-          createdBy: userId ?? null,
-          updatedBy: userId ?? null,
-          lines: {
-            create: [
-              {
-                accountId: cashAccountId,
-                description: 'Opening cash',
-                debit: 1,
-                credit: 0,
-                lineOrder: 0,
-              },
-              {
-                accountId: equityAccountId,
-                description: 'Opening equity',
-                debit: 0,
-                credit: 1,
-                lineOrder: 1,
-              },
-            ],
-          },
-        },
-      });
-    }
-  }
+  // No opening entry is ever auto-posted here. This used to write a
+  // phantom "OB-<year>" (Dr Cash 1 / Cr Retained Earnings 1) with a raw
+  // insert on every activation — i.e. every Vercel build — whenever the
+  // current year had none, bypassing the Posting Engine, period locks and
+  // the go-live-only rule, and adding 1 to cash every new year. Openings
+  // are derived from the ledger; a first-ever (go-live) opening is entered
+  // through the Opening Balance wizard. The result only reports whether
+  // the current year still needs one (decisions-round2.md §Y10).
+  const openingBalanceRequired =
+    fiscalYearId && fiscalYearStart
+      ? !(await hasEstablishedOpening(
+          { id: fiscalYearId, startDate: fiscalYearStart },
+          prisma,
+        ))
+      : false;
 
   const followUpTypes = [
     { code: 'PHONE', name: 'اتصال هاتفي', nameEn: 'Phone Call' },
@@ -612,6 +593,7 @@ export async function activateAccountingFoundation(
     paymentSources,
     journals,
     fiscalYear,
+    openingBalanceRequired,
     taxes: taxCodes,
   };
 }

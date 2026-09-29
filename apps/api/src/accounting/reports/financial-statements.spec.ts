@@ -277,6 +277,102 @@ describe('Income Statement builder', () => {
   });
 });
 
+describe('Income Statement — shipping, gateway commissions and fulfilment (owner decision P2)', () => {
+  const accounts = [...ACCOUNTS, coa('523', 'EXPENSE', '52')];
+  const ctx = buildClassificationContext(accounts, [
+    ...ROLES,
+    { accountId: '523', role: 'FULFILLMENT_EXPENSE' },
+  ]);
+
+  it('are selling expenses below gross profit, each on its own visible line', () => {
+    const result = buildIncomeStatement({ accounts, sums: PNL_SUMS, ctx });
+    // Gross profit is untouched by shipping / gateway fees (cost of sales = COGS only).
+    expect(result.totals).toMatchObject({
+      costOfSales: 340,
+      grossProfit: 610,
+      shippingDelivery: 50,
+      paymentGatewayFees: 20,
+      fulfillment: 0,
+      otherSelling: 55, // 529 marketing 30 + 534 commissions 25
+      sellingDistribution: 125,
+      recoveredFromAgents: 0,
+      operatingProfit: 315,
+      netIncome: 305,
+    });
+    const selling = find(result.lines, 'is-selling')!;
+    expect(selling.children.map((c) => c.id)).toEqual([
+      'is-selling-shipping',
+      'is-selling-gateway',
+      'is-selling-other',
+      'is-selling:total',
+    ]);
+    expect(find(result.lines, 'is-selling-shipping/521')?.values.balance).toBe(
+      50,
+    );
+    expect(find(result.lines, 'is-selling-gateway/522')?.values.balance).toBe(
+      20,
+    );
+    expect(
+      find(result.lines, 'is-selling-shipping:total')?.values.balance,
+    ).toBe(50);
+    expect(find(result.lines, 'is-selling:total')?.values.balance).toBe(125);
+    // nothing of 52x is in cost of sales
+    const cos = collectPostingLeaves(
+      find(result.lines, 'is-cost-of-sales')!.children,
+    );
+    expect(cos.map((l) => l.accountId)).toEqual(['511']);
+  });
+
+  it('gateway fees recovered from agents are a contra line; carrier shipping stays company expense', () => {
+    // Carrier shipping 50 (company expense only — never recovered from
+    // agents); gateway fee 20 of which 8 recovered (AGENT_PROVIDER_FEE:
+    // Dr Agent funds payable / Cr 522); fulfilment 40.
+    const ledgerSums = new Map(PNL_SUMS);
+    ledgerSums.set('522', { debit: 20, credit: 8 });
+    ledgerSums.set('523', { debit: 40, credit: 0 });
+    const result = buildIncomeStatement({
+      accounts,
+      sums: ledgerSums,
+      recoverySums: sums([['522', 0, 8]]),
+      ctx,
+    });
+    expect(result.totals.sellingBreakdown).toEqual({
+      SHIPPING_DELIVERY: { gross: 50, recoveredFromAgents: 0, net: 50 },
+      PAYMENT_GATEWAY_FEES: { gross: 20, recoveredFromAgents: 8, net: 12 },
+      FULFILLMENT: { gross: 40, recoveredFromAgents: 0, net: 40 },
+      OTHER_SELLING: { gross: 55, recoveredFromAgents: 0, net: 55 },
+    });
+    expect(result.totals).toMatchObject({
+      grossRevenue: 1200, // recoveries never become revenue
+      grossProfit: 610,
+      sellingDistribution: 157, // 50 + 12 + 40 + 55
+      recoveredFromAgents: 8,
+      operatingProfit: 283, // 610 − 157 − 170
+      netIncome: 273,
+      totalRevenue: 965,
+      totalExpense: 692, // 660 − 8 + 40
+    });
+    expect(result.partitionDifference).toBe(0);
+    expect(find(result.lines, 'is-selling-gateway/522')?.values.balance).toBe(
+      20,
+    );
+    expect(find(result.lines, 'is-selling-gateway:recovered')).toMatchObject({
+      kind: 'result',
+      values: { balance: -8 },
+    });
+    expect(find(result.lines, 'is-selling-gateway:total')?.values.balance).toBe(
+      12,
+    );
+    // the contra row renders only when something was recovered
+    expect(find(result.lines, 'is-selling-shipping:recovered')).toBeNull();
+    expect(find(result.lines, 'is-selling-fulfillment:recovered')).toBeNull();
+    expect(
+      find(result.lines, 'is-selling-shipping:total')?.values.balance,
+    ).toBe(50);
+    expect(find(result.lines, 'is-selling:total')?.values.balance).toBe(157);
+  });
+});
+
 describe('Balance Sheet builder', () => {
   const ctx = buildClassificationContext(ACCOUNTS, ROLES);
   // Cumulative sums as of the report date (fixture in accounting-review.md).
@@ -437,14 +533,16 @@ describe('Income Statement — headers of another line are not shown inside a li
   });
 
   it('534 (role Selling, under header 53 Admin) sits directly in Selling, not under "53"', () => {
-    expect(find(result.lines, 'is-selling/53')).toBeNull();
-    expect(find(result.lines, 'is-selling/534')).toMatchObject({
+    expect(find(result.lines, 'is-selling-other/53')).toBeNull();
+    expect(find(result.lines, 'is-selling-other/534')).toMatchObject({
       parentId: null,
-      level: 1,
+      level: 2,
       values: { balance: 25 },
     });
-    // header 52 is Selling's own header and keeps its 3 accounts = 100
-    expect(find(result.lines, 'is-selling/52')?.values.balance).toBe(100);
+    // header 52 stays with the one account that has no own selling line
+    // (529 marketing = 30); 521 / 522 moved to their own visible lines
+    expect(find(result.lines, 'is-selling-other/52')?.values.balance).toBe(30);
+    expect(find(result.lines, 'is-selling-shipping/52')).toBeNull();
     // header 53 inside Admin shows only admin accounts (531 + 532)
     expect(find(result.lines, 'is-admin/53')?.values.balance).toBe(170);
     // header 54 (Other expenses) is not shown inside Finance costs
@@ -1174,6 +1272,371 @@ describe('AccountingReportsService — statements reconcile with each other', ()
       priorPeriodsUnclosedProfit: 300,
       equityAccounts: 5000,
       balanced: true,
+    });
+  });
+});
+
+describe('AccountingReportsService — agent recoveries in the Income Statement', () => {
+  const entries: TestEntry[] = [
+    // Carrier shipping: company expense only.
+    {
+      id: 'ship',
+      entryDate: '2026-05-10',
+      sourceType: 'SHIPMENT_COST',
+      lines: [
+        ['521', 50, 0],
+        ['211', 0, 50],
+      ],
+    },
+    // Gateway fee expensed at settlement, then recovered from the agent.
+    {
+      id: 'fee',
+      entryDate: '2026-05-14',
+      sourceType: 'PAYMENT_SETTLEMENT',
+      lines: [
+        ['522', 20, 0],
+        ['CLR', 0, 20],
+      ],
+    },
+    {
+      id: 'feeRec',
+      entryDate: '2026-05-15',
+      sourceType: 'AGENT_PROVIDER_FEE',
+      lines: [
+        ['211', 8, 0],
+        ['522', 0, 8],
+      ],
+    },
+    // A provider-fee recovery reversed on the Journal Entries screen (MANUAL).
+    {
+      id: 'feeRec2',
+      entryDate: '2026-05-16',
+      sourceType: 'AGENT_PROVIDER_FEE',
+      status: 'REVERSED',
+      lines: [
+        ['211', 3, 0],
+        ['522', 0, 3],
+      ],
+    },
+    {
+      id: 'feeRec2r',
+      entryDate: '2026-05-17',
+      sourceType: 'MANUAL',
+      reversalOf: 'feeRec2',
+      lines: [
+        ['522', 3, 0],
+        ['211', 0, 3],
+      ],
+    },
+    // AGENT_ADJUSTMENT crediting the agent back for a provider fee (Dr 522).
+    {
+      id: 'adj',
+      entryDate: '2026-05-18',
+      sourceType: 'AGENT_ADJUSTMENT',
+      lines: [
+        ['522', 2, 0],
+        ['211', 0, 2],
+      ],
+    },
+    // Any other source type on a selling account is ordinary expense.
+    {
+      id: 'odd',
+      entryDate: '2026-05-19',
+      sourceType: 'SOMETHING_NEW',
+      lines: [
+        ['521', 4, 0],
+        ['211', 0, 4],
+      ],
+    },
+  ];
+  const service = new AccountingReportsService(
+    createTestLedger({
+      accounts: ACCOUNTS,
+      entries,
+      postingSettings: SETTINGS,
+      receivingAccountIds: ['111', '112'],
+      paymentMethodAccountIds: ['CLR'],
+    }) as never,
+  );
+
+  it('gateway fees are shown gross less recovered from agents; shipping has no contra; TB net per account unchanged', async () => {
+    const period = { dateFrom: '2026-05-01', dateTo: '2026-05-31' };
+    const is = await service.incomeStatement(period);
+    expect(is.totals.sellingBreakdown.SHIPPING_DELIVERY).toEqual({
+      gross: 54, // 50 carrier + 4 other
+      recoveredFromAgents: 0,
+      net: 54,
+    });
+    expect(is.totals.sellingBreakdown.PAYMENT_GATEWAY_FEES).toEqual({
+      gross: 20,
+      recoveredFromAgents: 6, // 8 − 2 adjustment; the reversed 3 nets to 0
+      net: 14,
+    });
+    expect(is.totals).toMatchObject({
+      sellingDistribution: 68,
+      recoveredFromAgents: 6,
+      grossRevenue: 0,
+      netIncome: -68,
+    });
+    expect(is.partitionDifference).toBe(0);
+    expect(find(is.lines, 'is-selling-shipping:recovered')).toBeNull();
+    expect(find(is.lines, 'is-selling-gateway:recovered')?.values.balance).toBe(
+      -6,
+    );
+    const tb = await service.trialBalance(period);
+    const row = (id: string) => tb.items.find((r) => r.accountId === id)!;
+    // Ledger: 521 = 50 + 4 = 54; 522 = 20 − 8 − 3 + 3 + 2 = 14 = IS net.
+    expect(row('521').closingBalance).toBe(54);
+    expect(row('522').closingBalance).toBe(14);
+  });
+});
+
+describe('AccountingReportsService — Africa/Cairo business-day boundaries (owner decision P9)', () => {
+  // Timestamped entries are UTC instants; date-only entries are 00:00Z.
+  const sale = (id: string, entryDate: string, amount: number): TestEntry => ({
+    id,
+    entryNumber: `JV-${id}`,
+    entryDate,
+    sourceType: 'SALES_INVOICE',
+    lines: [
+      ['121', amount, 0],
+      ['411', 0, amount],
+    ],
+  });
+  const receipt = (
+    id: string,
+    entryDate: string,
+    amount: number,
+  ): TestEntry => ({
+    id,
+    entryNumber: `JV-${id}`,
+    entryDate,
+    sourceType: 'CUSTOMER_RECEIPT',
+    lines: [
+      ['111', amount, 0],
+      ['121', 0, amount],
+    ],
+  });
+  const entries: TestEntry[] = [
+    {
+      id: 'cap',
+      entryDate: '2026-01-01',
+      sourceType: 'CAPITAL_CONTRIBUTION',
+      lines: [
+        ['111', 10000, 0],
+        ['311', 0, 10000],
+      ],
+    },
+    // DST starts 24 Apr 2026 (last Friday of April) at 22:00Z on the 23rd.
+    sale('d1', '2026-04-23T21:30:00Z', 1), // 23:30 (+2) on 23 Apr
+    sale('d2', '2026-04-23T22:30:00Z', 2), // 01:30 (+3) on 24 Apr
+    // Month end (UTC+3): 21:00Z on 30 Sep is 00:00 on 1 Oct.
+    sale('m2', '2026-09-30T20:30:00Z', 20), // 23:30 on 30 Sep
+    receipt('c2', '2026-09-30T20:45:00Z', 7), // 23:45 on 30 Sep
+    sale('m1', '2026-09-30T21:30:00Z', 10), // 00:30 on 1 Oct
+    receipt('c1', '2026-09-30T21:40:00Z', 5), // 00:40 on 1 Oct
+    sale('m3', '2026-10-01', 40), // date-only 1 Oct (00:00Z)
+    // DST ends at the end of 29 Oct 2026 (last Thursday), 21:00Z.
+    sale('d3', '2026-10-29T21:30:00Z', 4), // 23:30 (+2, repeated hour) on 29 Oct
+    sale('d4', '2026-10-29T22:00:00Z', 8), // 00:00 (+2) on 30 Oct
+    // Year end (UTC+2): 22:00Z on 31 Dec is 00:00 on 1 Jan.
+    sale('y1', '2026-12-31T21:30:00Z', 100), // 23:30 on 31 Dec
+    sale('y2', '2026-12-31T22:30:00Z', 200), // 00:30 on 1 Jan 2027
+    sale('y3', '2027-01-01', 400), // date-only 1 Jan 2027
+  ];
+  const service = new AccountingReportsService(
+    createTestLedger({
+      accounts: ACCOUNTS,
+      entries,
+      postingSettings: SETTINGS,
+      receivingAccountIds: ['111', '112'],
+      fiscalYears: [
+        { id: 'fy2026', startDate: '2026-01-01', endDate: '2026-12-31' },
+      ],
+    }) as never,
+  );
+  const revenue = async (dateFrom: string, dateTo: string) =>
+    (await service.incomeStatement({ dateFrom, dateTo })).totals.grossRevenue;
+
+  it('Income Statement: local midnight, month end, DST days and year end', async () => {
+    expect(await revenue('2026-09-01', '2026-09-30')).toBe(20); // m2 only
+    expect(await revenue('2026-10-01', '2026-10-01')).toBe(50); // m1 00:30 + m3 date-only
+    expect(await revenue('2026-10-01', '2026-10-31')).toBe(62); // 10 + 40 + 4 + 8
+    expect(await revenue('2026-04-23', '2026-04-23')).toBe(1);
+    expect(await revenue('2026-04-24', '2026-04-24')).toBe(2);
+    expect(await revenue('2026-10-29', '2026-10-29')).toBe(4); // 25-hour day
+    expect(await revenue('2026-10-30', '2026-10-30')).toBe(8);
+    expect(await revenue('2026-01-01', '2026-12-31')).toBe(185);
+    expect(await revenue('2026-12-31', '2026-12-31')).toBe(100);
+    expect(await revenue('2027-01-01', '2027-01-31')).toBe(600); // 200 at 00:30 + 400 date-only
+  });
+
+  it('Trial Balance: opening before the Cairo day, period inside it, balanced', async () => {
+    const tb = await service.trialBalance({
+      dateFrom: '2026-10-01',
+      dateTo: '2026-10-31',
+    });
+    const ar = tb.items.find((r) => r.accountId === '121')!;
+    // opening = 1 + 2 + 20 − 7 = 16; Oct Dr 10 + 40 + 4 + 8 = 62, Cr 5 → 73
+    expect(ar).toMatchObject({
+      openingBalance: 16,
+      debitTotal: 62,
+      creditTotal: 5,
+      closingBalance: 73,
+    });
+    expect(tb.checks.balanced).toBe(true);
+  });
+
+  it('Balance Sheet as of month end and across the year end (fiscal year by business date)', async () => {
+    const sep = await service.balanceSheet({ dateTo: '2026-09-30' });
+    expect(sep.totals).toMatchObject({
+      currentYearProfit: 23, // 1 + 2 + 20
+      cashAndCashEquivalents: 10007,
+      balanced: true,
+    });
+    const dec = await service.balanceSheet({ dateTo: '2026-12-31' });
+    expect(dec.totals.currentYearProfit).toBe(185);
+    expect(dec.fiscalYearStart.toISOString()).toBe('2025-12-31T22:00:00.000Z');
+    // No FY2027 row: the year starts 1 Jan 2027 Cairo (22:00Z on 31 Dec).
+    const jan = await service.balanceSheet({ dateTo: '2027-01-01' });
+    expect(jan.fiscalYearStart.toISOString()).toBe('2026-12-31T22:00:00.000Z');
+    expect(jan.totals).toMatchObject({
+      currentYearProfit: 600,
+      priorPeriodsUnclosedProfit: 185,
+      balanced: true,
+    });
+  });
+
+  it('Cash Flow: the receipt at 00:40 Cairo on 1 Oct is October cash; closing = ledger', async () => {
+    const sep = await service.cashFlowStatement({
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-30',
+      view: 'activities',
+    });
+    expect('reconciliation' in sep && sep.reconciliation).toMatchObject({
+      openingCash: 10000,
+      operating: 7,
+      closingCash: 10007,
+      ledgerClosingCash: 10007,
+    });
+    const oct = await service.cashFlowStatement({
+      dateFrom: '2026-10-01',
+      dateTo: '2026-10-31',
+      view: 'activities',
+    });
+    expect('reconciliation' in oct && oct.reconciliation).toMatchObject({
+      openingCash: 10007,
+      operating: 5,
+      closingCash: 10012,
+      ledgerClosingCash: 10012,
+    });
+  });
+
+  it('General Ledger (account statement) and Journal Report use the same Cairo day', async () => {
+    const statement = await service.accountStatement({
+      accountId: '121',
+      dateFrom: '2026-10-01',
+      dateTo: '2026-10-01',
+    });
+    expect(statement.openingBalance).toBe(16);
+    expect(statement.movements.map((m) => m.journalEntryId)).toEqual([
+      'm1',
+      'c1',
+      'm3',
+    ]);
+    expect(statement.closingBalance).toBe(61); // 16 + 10 − 5 + 40
+    const lastDay = await service.journalReport({
+      dateFrom: '2026-12-31',
+      dateTo: '2026-12-31',
+      pageSize: 50,
+      sortOrder: 'asc',
+    });
+    expect(lastDay.items.map((e) => e.id)).toEqual(['y1']);
+    const newYear = await service.journalReport({
+      dateFrom: '2027-01-01',
+      dateTo: '2027-01-01',
+      pageSize: 50,
+      sortOrder: 'asc',
+    });
+    expect(newYear.items.map((e) => e.id)).toEqual(['y2', 'y3']);
+  });
+});
+
+describe('Balance Sheet — current fiscal year picked like the posting locks (period-bounds)', () => {
+  const sale = (id: string, entryDate: string, amount: number): TestEntry => ({
+    id,
+    entryDate,
+    sourceType: 'SALES_INVOICE',
+    lines: [
+      ['121', amount, 0],
+      ['411', 0, amount],
+    ],
+  });
+  const entries = [
+    sale('dec31', '2025-12-31T21:30:00Z', 5), // 23:30 Cairo on 31 Dec 2025
+    sale('jan1', '2025-12-31T22:30:00Z', 7), // 00:30 Cairo on 1 Jan 2026
+  ];
+  const bsFor = (startDate: string, endDate: string) =>
+    new AccountingReportsService(
+      createTestLedger({
+        accounts: ACCOUNTS,
+        entries,
+        postingSettings: SETTINGS,
+        fiscalYears: [
+          { id: 'fy2025', startDate: '2025-01-01', endDate: '2025-12-31' },
+          { id: 'fy2026', startDate, endDate },
+        ],
+      }) as never,
+    ).balanceSheet({ dateTo: '2026-01-01' });
+
+  it.each([
+    [
+      'date-only 00:00Z bounds',
+      '2026-01-01T00:00:00.000Z',
+      '2026-12-31T00:00:00.000Z',
+    ],
+    [
+      'server-local midnight start, end-of-day marker end',
+      '2025-12-31T21:00:00.000Z',
+      '2026-12-31T23:59:59.999Z',
+    ],
+  ])(
+    'as of 1 Jan 2026 with %s → FY2026 from 1 Jan Cairo',
+    async (_, start, end) => {
+      const bs = await bsFor(start, end);
+      expect(bs.fiscalYearStartDate).toBe('2026-01-01');
+      expect(bs.fiscalYearStart.toISOString()).toBe('2025-12-31T22:00:00.000Z');
+      // Only the 00:30-Cairo sale is FY2026; the 23:30 one stays in prior periods.
+      expect(bs.totals).toMatchObject({
+        currentYearProfit: 7,
+        priorPeriodsUnclosedProfit: 5,
+        balanced: true,
+      });
+    },
+  );
+});
+
+describe('Income Statement — legacy capital returns in profit or loss', () => {
+  it('stay under finance costs with a warning that points at the corrections list', () => {
+    const accounts = [...ACCOUNTS, coa('551', 'EXPENSE', '5')];
+    const ctx = buildClassificationContext(accounts, [
+      ...ROLES,
+      { accountId: '551', role: 'CAPITAL_RETURN' },
+    ]);
+    const result = buildIncomeStatement({
+      accounts,
+      sums: new Map([...PNL_SUMS, ['551', { debit: 100, credit: 0 }]]),
+      ctx,
+    });
+    expect(result.totals.financeCosts).toBe(112); // 12 distribution + 100 legacy capital return
+    expect(result.totals.operatingProfit).toBe(315); // below operating profit
+    expect(find(result.lines, 'is-finance-costs/551')?.values.balance).toBe(
+      100,
+    );
+    expect(result.warnings).toContainEqual({
+      code: 'CAPITAL_RETURN_IN_PROFIT_OR_LOSS',
+      accounts: [expect.objectContaining({ accountId: '551', amount: 100 })],
+      correctionsEndpoint: '/capital-returns/corrections/affected',
     });
   });
 });

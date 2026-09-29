@@ -10,6 +10,7 @@ import {
   JournalEntryStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { rangeDateOf } from '../accounting/fiscal-periods/period-bounds';
 import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
 import { round2 } from '../sales/shared/sales-totals.util';
 import {
@@ -205,8 +206,8 @@ export class CostAllocationRunsService {
     const analytics = await this.costAnalyticsService.getProfitabilityAnalytics(
       {
         dimension: dimension,
-        dateFrom: periodStart.toISOString().slice(0, 10),
-        dateTo: periodEnd.toISOString().slice(0, 10),
+        dateFrom: rangeDateOf(periodStart),
+        dateTo: rangeDateOf(periodEnd),
         page: 1,
         pageSize: 10_000,
       },
