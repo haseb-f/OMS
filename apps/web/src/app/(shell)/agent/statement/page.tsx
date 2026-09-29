@@ -26,7 +26,10 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { StatusBadge } from "@/components/business/status-badge";
 import { entryTypeLabelKey } from "@/config/agent-portal/labels";
-import { agentLedgerDescription } from "@/config/agents/agent-ledger-description";
+import {
+  agentLedgerDescription,
+  type LedgerTranslate,
+} from "@/config/agents/agent-ledger-description";
 import {
   buildPortalStatementPrintPayload,
   portalLineHref,
@@ -115,7 +118,12 @@ function buildLedgerColumns(): ColumnDef<PortalStatementLine, unknown>[] {
     },
     {
       id: "description",
-      meta: { titleKey: "agentPortal.statement.fields.description", type: "description" },
+      meta: {
+        titleKey: "agentPortal.statement.fields.description",
+        type: "description",
+        // Print / preview use the localized text, never the stored English audit text.
+        displayValue: (row, t) => agentLedgerDescription(row, t as LedgerTranslate),
+      },
       accessorFn: (row) => row.description,
       cell: ({ row }) => (
         <StackedCell

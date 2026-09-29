@@ -1,6 +1,8 @@
 "use client";
 
+import { useMemo } from "react";
 import { PrintPage } from "../print-page";
+import { autoPrintColumnWidths } from "../print-column-widths";
 import { PrintTable } from "../print-table";
 import { PrintDocumentHeader, PrintMetaStrip } from "../print-blocks";
 import { usePrintIdentity } from "../print-brand";
@@ -32,6 +34,10 @@ function ListPrintTemplate({ payload }: { payload: GenericListPrintPayload }) {
       )
     : t("printDocument.rowCount", { count });
   const notes = payload.notes ?? [];
+  const columns = useMemo(
+    () => autoPrintColumnWidths(payload.columns, payload.rows),
+    [payload.columns, payload.rows],
+  );
 
   return (
     <PrintPage
@@ -63,7 +69,7 @@ function ListPrintTemplate({ payload }: { payload: GenericListPrintPayload }) {
       ) : null}
       <div style={{ marginTop: "3mm" }}>
         <PrintTable
-          columns={payload.columns}
+          columns={columns}
           rows={payload.rows}
           density={density}
           rowKinds={payload.rowKinds}

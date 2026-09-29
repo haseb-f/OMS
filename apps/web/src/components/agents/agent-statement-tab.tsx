@@ -26,7 +26,10 @@ import {
   lineReference,
 } from "@/config/agents/agent-finance";
 import { buildAgentStatementPrintPayload } from "@/config/agents/agent-statement-print";
-import { agentLedgerDescription } from "@/config/agents/agent-ledger-description";
+import {
+  agentLedgerDescription,
+  type LedgerTranslate,
+} from "@/config/agents/agent-ledger-description";
 import {
   agentFinanceService,
   type AgentStatement,
@@ -209,6 +212,8 @@ function buildColumns(
         importance: "critical",
         minWidth: 200,
         grow: 2,
+        // Print / preview use the localized text, never the stored English audit text.
+        displayValue: (row, t) => agentLedgerDescription(row, t as LedgerTranslate),
       },
       enableSorting: false,
       accessorFn: (row) => row.description,

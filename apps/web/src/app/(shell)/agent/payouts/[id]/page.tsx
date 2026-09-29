@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { agentLedgerDescription } from "@/config/agents/agent-ledger-description";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -62,7 +63,14 @@ export default function AgentPayoutDetailPage() {
       header: t("agentPortal.payouts.detail.entry"),
       cell: (a) => (
         <StackedCell
-          primary={t(entryTypeLabelKey(a.entryType))}
+          primary={agentLedgerDescription(
+            {
+              entryType: a.entryType,
+              description: t(entryTypeLabelKey(a.entryType)),
+              references: { orderNumber: a.orderNumber },
+            },
+            t,
+          )}
           secondary={<SemanticValue kind="id">{a.entryNumber}</SemanticValue>}
         />
       ),

@@ -180,7 +180,36 @@ function friendlyMessage(
   if (label && (code === "VALIDATION_ERROR" || code === "DUPLICATE")) {
     return translate(dict, `errors.${code}_FIELD` as MessageKey, { field: label });
   }
-  return translate(dict, `errors.${code}` as MessageKey);
+  const key = `errors.${code}` as MessageKey;
+  const translated = translate(dict, key);
+  if (translated !== key) return translated;
+  // No UI text for this code (e.g. the Agents module's business codes): the
+  // server's own «عربي — English» message is the clear explanation — show
+  // the half in the UI language, never the raw key.
+  const serverText = uiLanguagePart(rawMessage, locale);
+  if (serverText) return serverText;
+  return translate(dict, `errors.${codeForStatus(status ?? 500)}` as MessageKey);
+}
+
+/**
+ * Picks the UI-language half of a bilingual «عربي — English» server message
+ * (or the whole message when it is already in the UI language). Returns
+ * undefined when neither applies.
+ */
+export function uiLanguagePart(rawMessage: string | undefined | null, locale: Locale) {
+  const text = rawMessage?.trim();
+  if (!text) return undefined;
+  const separator = " — ";
+  let index = text.indexOf(separator);
+  while (index > 0) {
+    const arabic = text.slice(0, index).trim();
+    const english = text.slice(index + separator.length).trim();
+    if (ARABIC_LETTERS.test(arabic) && english && !ARABIC_LETTERS.test(english)) {
+      return locale === "ar" ? arabic : english;
+    }
+    index = text.indexOf(separator, index + separator.length);
+  }
+  return isInUiLanguage(text, locale) ? text : undefined;
 }
 
 export class ApiError extends Error {

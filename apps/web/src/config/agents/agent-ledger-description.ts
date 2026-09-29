@@ -19,7 +19,8 @@ export interface DescribableLedgerLine {
   };
 }
 
-type Translate = (key: MessageKey, params?: Record<string, string | number>) => string;
+export type LedgerTranslate = (key: MessageKey, params?: Record<string, string | number>) => string;
+type Translate = LedgerTranslate;
 type Params = Record<string, string | number | null | undefined>;
 
 function basisOf(line: DescribableLedgerLine): Record<string, unknown> {
