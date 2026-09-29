@@ -283,8 +283,22 @@ export default function CustomerProfilePage() {
             content: (
               <DetailSection>
                 <DetailFieldGrid>
-                  <DetailField label={t("sales.customers.fields.phone")} value={customer.phone} />
-                  <DetailField label={t("sales.customers.fields.mobile")} value={customer.mobile} />
+                  <DetailField
+                    label={t("sales.customers.fields.phone")}
+                    value={
+                      customer.phone ? (
+                        <SemanticValue kind="phone">{customer.phone}</SemanticValue>
+                      ) : null
+                    }
+                  />
+                  <DetailField
+                    label={t("sales.customers.fields.mobile")}
+                    value={
+                      customer.mobile ? (
+                        <SemanticValue kind="phone">{customer.mobile}</SemanticValue>
+                      ) : null
+                    }
+                  />
                   <DetailField label={t("sales.customers.fields.email")} value={customer.email} />
                   <DetailField
                     label={t("sales.customers.fields.website")}

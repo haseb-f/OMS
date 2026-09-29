@@ -491,6 +491,13 @@ function InventoryMovementsPageContent() {
         getRowId={(row) => row.id}
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
+        selectionResetKey={{
+          dateRange,
+          products: productFilter.map((product) => product.id),
+          warehouses: warehouseFilter.map((warehouse) => warehouse.id),
+          typeFilter,
+          referenceFilter,
+        }}
         bulkActions={
           <SalesListBulkActions
             onPrint={handleBulkPrint}

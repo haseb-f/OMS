@@ -402,6 +402,7 @@ export function AgentOrderForm({
                     value={state.mobile}
                     onChange={(mobile) => set({ mobile })}
                     countryCode={countryCode}
+                    forceValidation={showErrors}
                     aria-invalid={has("mobile") || undefined}
                   />
                   <FieldMessage announce={false}>

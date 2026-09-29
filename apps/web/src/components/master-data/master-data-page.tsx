@@ -37,6 +37,8 @@ import type { PhoneCountryOption } from "@/components/shared/phone-country-selec
 import {
   getColumnDisplayValue,
   RowActionsMenu,
+  toRowSelection,
+  useMatchingSelection,
   type RowAction,
   type SelectCustomCountCopy,
 } from "@/components/shared/data-table";
@@ -228,15 +230,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   const [includeArchived, setIncludeArchived] = usePathRestorableState("includeArchived", false);
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const [isSelectingAllMatching, setIsSelectingAllMatching] = useState(false);
   const [isSelectingCustomCount, setIsSelectingCustomCount] = useState(false);
-  // Smart Selection Safety — set only by "select all matching"/"select a
-  // specific number" (the two query-derived selections), never by
-  // individual checkbox clicks. If the underlying filters/sort change
-  // afterward, the effect below drops the now-stale selection instead of
-  // silently keeping rows selected that no longer match anything visible
-  // (mirrors the Store Orders Smart Selection page exactly).
-  const [bulkSelectionQuery, setBulkSelectionQuery] = useState<string | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEntity, setEditingEntity] = useState<TEntity | null>(null);
@@ -356,34 +350,12 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
     void load();
   }, [load]);
 
-  /** Identifies "the query a Smart Selection was built from" — same filters+sort `listIds` was called with. */
-  const querySignature = useCallback(
-    () =>
-      JSON.stringify({
-        search: search || undefined,
-        sortBy,
-        sortOrder,
-        includeArchived,
-        ...extraListParams,
-      }),
-    [search, sortBy, sortOrder, includeArchived, extraKey],
-  );
-
-  useEffect(() => {
-    if (Object.keys(rowSelection).length === 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (bulkSelectionQuery !== null) setBulkSelectionQuery(null);
-      return;
-    }
-    if (bulkSelectionQuery === null) return;
-    const currentSignature = querySignature();
-    if (currentSignature !== bulkSelectionQuery) {
-      setRowSelection({});
-      setBulkSelectionQuery(null);
-      toast.info(t("masterData.bulkSelection.selectionCleared"));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [querySignature, rowSelection]);
+  // Smart Selection Safety (tables-selection.md) — a selection belongs to the
+  // query it was made under: the table clears ANY selection when the
+  // filters, search or sort change (`selectionResetKey`), "select all"/
+  // "first N" ids that arrive after the query changed are dropped, and "All N
+  // matching" is claimed only for a complete result of the current query.
+  const matching = useMatchingSelection(listFilters);
 
   useEffect(() => {
     if (!activityEntity) {
@@ -535,8 +507,15 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
           toast.success(t("common.archive"));
         }
       } else {
-        await Promise.all(ids.map((id) => service.archive(id).catch(() => undefined)));
-        toast.success(t("common.archive"));
+        // Success only for what the server confirmed — a swallowed rejection
+        // must never turn into a green toast (usability-financial-reports §5).
+        const results = await Promise.allSettled(ids.map((id) => service.archive(id)));
+        const failed = results.filter((result) => result.status === "rejected").length;
+        if (failed > 0) {
+          toast.error(t("masterData.actions.bulkArchivePartialFailure", { count: failed }));
+        } else {
+          toast.success(t("common.archive"));
+        }
       }
       setRowSelection({});
       onRecordsChanged?.();
@@ -548,23 +527,9 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
 
   /** "Select all matching filters" (Part 8) — fetches just the IDs matching the current search/filters (never full records) and merges them into the cross-page selection. */
   const handleSelectAllMatching = async () => {
-    if (!service.listIds) return;
-    setIsSelectingAllMatching(true);
-    try {
-      const result = await service.listIds({
-        search: search || undefined,
-        sortBy,
-        sortOrder,
-        includeArchived,
-        ...extraListParams,
-      });
-      setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
-      setBulkSelectionQuery(querySignature());
-    } catch (error) {
-      reportApiError(error, "errors.selectFailed");
-    } finally {
-      setIsSelectingAllMatching(false);
-    }
+    const listIds = service.listIds;
+    if (!listIds) return;
+    await matching.selectAllMatching(() => listIds(listFilters), setRowSelection);
   };
 
   /** "Select a specific number" (Smart Selection) — the first `count` rows by the current filter AND current sort, never an arbitrary subset. Reports when fewer than requested were available. */
@@ -572,16 +537,12 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
     if (!service.listIds) return;
     setIsSelectingCustomCount(true);
     try {
-      const result = await service.listIds({
-        search: search || undefined,
-        sortBy,
-        sortOrder,
-        includeArchived,
-        pageSize: count,
-        ...extraListParams,
-      });
-      setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
-      setBulkSelectionQuery(querySignature());
+      const listIds = service.listIds;
+      const result = await matching.fetchForCurrentQuery(() =>
+        listIds({ ...listFilters, pageSize: count }),
+      );
+      if (!result) return;
+      setRowSelection(toRowSelection(result.ids));
       if (result.ids.length < count) {
         toast.info(t("masterData.bulkSelection.customCountPartial", { count: result.ids.length }));
       }
@@ -779,10 +740,12 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
           isLoading={isLoading}
           rowSelection={rowSelection}
           onRowSelectionChange={setRowSelection}
+          selectionResetKey={matching.queryKey}
+          matchingSelection={matching.matchingSelection}
           onSelectAllMatching={
             supportsSelectAllMatching && service.listIds ? handleSelectAllMatching : undefined
           }
-          isSelectingAllMatching={isSelectingAllMatching}
+          isSelectingAllMatching={matching.isSelectingAllMatching}
           selectCustomCount={
             supportsSelectAllMatching && service.listIds && selectCustomCountCopy
               ? {

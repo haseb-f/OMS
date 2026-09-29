@@ -135,7 +135,29 @@ export interface TrialBalanceResult {
   };
   includeOpeningBalance?: boolean;
   balanced?: boolean;
+  /** Opening, period and closing each net to zero (debit-positive); not meaningful while `filtered`. */
+  checks?: {
+    filtered: boolean;
+    periodDifference: number;
+    openingDifference: number;
+    closingDifference: number;
+    balanced: boolean;
+  };
+  warnings?: ReportWarning[];
   lines: HierarchicalReportLine[];
+}
+
+/** Statement integrity / classification warnings returned with a report. */
+export interface ReportWarning {
+  code:
+    | "UNCLASSIFIED_ACCOUNTS"
+    | "ROLE_CONFLICT"
+    | "CAPITAL_RETURN_IN_PROFIT_OR_LOSS"
+    | "DRAFTS_INCLUDED"
+    | "CARRY_FORWARD_OPENING_ENTRY"
+    | "UNBALANCED_ENTRIES";
+  accounts?: Array<{ accountId: string; code: string; name: string; amount: number }>;
+  entries?: Array<{ id: string; entryNumber: string; difference: number }>;
 }
 
 export interface JournalReportLine {
@@ -182,14 +204,58 @@ export interface BalanceSheetResult {
   liabilities: StatementRow[];
   equity: StatementRow[];
   currentEarnings: number;
-  totals: { totalAssets: number; totalLiabilities: number; totalEquity: number; balanced: boolean };
+  fiscalYearStart?: string;
+  totals: {
+    totalAssets: number;
+    totalLiabilities: number;
+    totalEquity: number;
+    balanced: boolean;
+    nonCurrentAssets?: number;
+    currentAssets?: number;
+    unclassifiedAssets?: number;
+    nonCurrentLiabilities?: number;
+    currentLiabilities?: number;
+    unclassifiedLiabilities?: number;
+    equityAccounts?: number;
+    priorPeriodsUnclosedProfit?: number;
+    currentYearProfit?: number;
+    currentYearClosedToRetainedEarnings?: number;
+    totalLiabilitiesAndEquity?: number;
+    difference?: number;
+    cashAndCashEquivalents?: number;
+  };
+  /** Only when unbalanced: the difference and the entries whose lines do not net to zero. */
+  discrepancy?: {
+    difference: number;
+    unbalancedEntries: Array<{ id: string; entryNumber: string; difference: number }>;
+  } | null;
+  warnings?: ReportWarning[];
   lines: HierarchicalReportLine[];
 }
 
 export interface IncomeStatementResult {
   revenue: StatementRow[];
   expense: StatementRow[];
-  totals: { totalRevenue: number; totalExpense: number; netIncome: number };
+  totals: {
+    totalRevenue: number;
+    totalExpense: number;
+    netIncome: number;
+    grossRevenue?: number;
+    revenueDeductions?: number;
+    netRevenue?: number;
+    costOfSales?: number;
+    grossProfit?: number;
+    sellingDistribution?: number;
+    administrative?: number;
+    operatingProfit?: number;
+    otherIncome?: number;
+    otherExpenses?: number;
+    financeCosts?: number;
+    fxDifferences?: number;
+    unclassified?: number;
+  };
+  partitionDifference?: number;
+  warnings?: ReportWarning[];
   lines: HierarchicalReportLine[];
 }
 
@@ -214,6 +280,24 @@ export interface CashFlowResult {
   };
   lines: HierarchicalReportLine[];
   sections?: Array<{ section: string; netChange: number }>;
+  /** Activities view: opening + operating + investing + financing + FX effect = closing = ledger. */
+  reconciliation?: {
+    openingCash: number;
+    operating: number;
+    investing: number;
+    financing: number;
+    fxEffect: number;
+    netChange: number;
+    /** Cash brought in by OPENING_BALANCE entries in the period (outside the activities). */
+    openingBalanceEntries: number;
+    closingCash: number;
+    /** Independent: cash accounts' as-of balance at period end (same source as the Balance Sheet). */
+    ledgerClosingCash: number;
+    difference: number;
+    balanced: boolean;
+    internalTransfers: number;
+  };
+  warnings?: ReportWarning[];
 }
 
 export type AgingBucket = "current" | "days31to60" | "days61to90" | "over90";

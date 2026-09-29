@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { formatPhoneForDisplay } from "@/services/phone-service";
 
 export type SemanticValueKind = "email" | "phone" | "id" | "url" | "number" | "money" | "date";
 
@@ -19,6 +20,8 @@ const TABULAR_KINDS: ReadonlySet<SemanticValueKind> = new Set([
  * Values that must stay LTR inside an Arabic UI: emails, phones, IDs,
  * tracking numbers, URLs, figures, and dates. Labels remain RTL around them.
  * Digits use the `num` utility (tabular, isolated LTR) per design-system §2.
+ * A stored E.164 phone is shown in readable international form
+ * (`+966 50 123 4567`); anything unparseable is shown exactly as stored.
  */
 export function SemanticValue({
   kind,
@@ -43,7 +46,9 @@ export function SemanticValue({
         UNTRUNCATED_KINDS.has(kind) ? "whitespace-nowrap" : "max-w-full truncate",
       )}
     >
-      {children}
+      {kind === "phone" && typeof children === "string"
+        ? formatPhoneForDisplay(children) || children
+        : children}
     </span>
   );
 }

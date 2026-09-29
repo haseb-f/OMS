@@ -120,6 +120,7 @@ function PhoneFormField<TFieldValues extends FieldValues>({
     ? (form.watch(field.countryFieldName as never) as unknown as string | undefined)
     : undefined;
   const countryCode = countries.find((c) => c.id === countryId)?.code ?? null;
+  const countryFieldName = field.countryFieldName;
 
   return (
     <OMSPhoneInput
@@ -128,6 +129,22 @@ function PhoneFormField<TFieldValues extends FieldValues>({
       onBlur={rhfField.onBlur}
       countryCode={countryCode}
       placeholder={field.placeholder}
+      forceValidation={form.formState.isSubmitted}
+      // The form owns the country: a calling-code conflict offers an explicit
+      // switch to the number's own country (never an automatic one).
+      availableCountryCodes={countries.map((c) => c.code)}
+      onCountryChange={
+        countryFieldName
+          ? (iso2) => {
+              const match = countries.find((c) => c.code === iso2);
+              if (!match) return;
+              form.setValue(countryFieldName as never, match.id as never, {
+                shouldDirty: true,
+                shouldValidate: form.formState.isSubmitted,
+              });
+            }
+          : undefined
+      }
     />
   );
 }

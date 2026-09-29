@@ -1,3 +1,4 @@
+import { BULK_LIMITS } from '../../common/bulk/bulk-limits';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   Prisma,
@@ -540,7 +541,7 @@ export class StoreOrderShipmentsService {
       this.prisma.shipment.findMany({
         where,
         select: { id: true },
-        take: 10_000,
+        take: BULK_LIMITS.selectIdsMax,
       }),
       this.prisma.shipment.count({ where }),
     ]);

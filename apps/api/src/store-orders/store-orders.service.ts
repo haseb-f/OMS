@@ -87,6 +87,7 @@ import {
   STORE_ORDER_OWNER_ERRORS,
 } from '../agents/common/agent-affiliation';
 import { assertCompanyOwnedProduct } from '../products/assert-company-owned-products.util';
+import { BULK_LIMITS } from '../common/bulk/bulk-limits';
 import {
   agentOrderActivityDetails,
   agentOrderColumns,
@@ -717,17 +718,9 @@ export class StoreOrdersService {
     const where = await this.buildScopedFindWhere(query, userId);
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
-    const sortField = query.sortBy || 'createdAt';
-    const sortDir = query.sortOrder ?? 'desc';
-    const orderBy =
-      sortField === 'id'
-        ? [{ id: sortDir }]
-        : [{ [sortField]: sortDir }, { id: 'desc' as const }];
+    const orderBy = this.buildFindOrderBy(query);
 
-    if (
-      includeProfitability &&
-      ((query.costState && query.costState.length > 0) || query.lossMaking)
-    ) {
+    if (this.usesProfitabilityFilter(query, includeProfitability)) {
       return this.findAllFilteredByProfitability(
         where,
         orderBy,
@@ -787,12 +780,40 @@ export class StoreOrdersService {
    */
   private readonly PROFITABILITY_FILTER_CAP = 500;
 
-  private async findAllFilteredByProfitability(
+  /** Same list order for `findAll` and `findAllIds` (stable `id` tiebreak). */
+  private buildFindOrderBy(
+    query: Pick<FindStoreOrdersQueryDto, 'sortBy' | 'sortOrder'>,
+  ): Prisma.StoreOrderOrderByWithRelationInput[] {
+    const sortField = query.sortBy || 'createdAt';
+    const sortDir = query.sortOrder ?? 'desc';
+    return sortField === 'id'
+      ? [{ id: sortDir }]
+      : [{ [sortField]: sortDir }, { id: 'desc' as const }];
+  }
+
+  /** Cost State / Loss-Making filters apply only for a caller already authorized for profitability. */
+  private usesProfitabilityFilter(
+    query: Pick<FindStoreOrdersQueryDto, 'costState' | 'lossMaking'>,
+    includeProfitability: boolean,
+  ): boolean {
+    return (
+      includeProfitability &&
+      ((query.costState?.length ?? 0) > 0 || !!query.lossMaking)
+    );
+  }
+
+  /**
+   * The ONE Cost State / Loss-Making filter — shared by the list
+   * (`findAllFilteredByProfitability`) and "select all matching"
+   * (`findAllIds`), so both always describe the same set: the first
+   * `PROFITABILITY_FILTER_CAP` candidates by the caller's filters/sort,
+   * narrowed by Order Economics. `capped` = the candidate window was full,
+   * so the result may be incomplete.
+   */
+  private async profitabilityFilteredIds(
     where: Prisma.StoreOrderWhereInput,
     orderBy: Prisma.StoreOrderOrderByWithRelationInput[],
-    page: number,
-    pageSize: number,
-    query: FindStoreOrdersQueryDto,
+    query: Pick<FindStoreOrdersQueryDto, 'costState' | 'lossMaking'>,
   ) {
     const candidates = await this.prisma.storeOrder.findMany({
       where,
@@ -819,6 +840,22 @@ export class StoreOrdersService {
         }
         return true;
       });
+    return {
+      filteredIds,
+      economicsById,
+      capped: candidates.length >= this.PROFITABILITY_FILTER_CAP,
+    };
+  }
+
+  private async findAllFilteredByProfitability(
+    where: Prisma.StoreOrderWhereInput,
+    orderBy: Prisma.StoreOrderOrderByWithRelationInput[],
+    page: number,
+    pageSize: number,
+    query: FindStoreOrdersQueryDto,
+  ) {
+    const { filteredIds, economicsById, capped } =
+      await this.profitabilityFilteredIds(where, orderBy, query);
 
     const total = filteredIds.length;
     const pageIds = filteredIds.slice((page - 1) * pageSize, page * pageSize);
@@ -844,8 +881,7 @@ export class StoreOrdersService {
       total,
       page,
       pageSize,
-      profitabilityFilterCapped:
-        candidates.length >= this.PROFITABILITY_FILTER_CAP,
+      profitabilityFilterCapped: capped,
     };
   }
 
@@ -854,8 +890,14 @@ export class StoreOrdersService {
    * same filter/search as `findAll`, ordered the same way (`sortBy`/
    * `sortOrder`) so a caller-supplied `limit` deterministically means "the
    * first N by the current sort," never an arbitrary DB-order subset.
-   * Uncapped selection still stops at 10,000 rows — plain id strings, not
-   * full records, so this stays cheap even at that ceiling.
+   * Uncapped selection still stops at `BULK_LIMITS.selectIdsMax` rows —
+   * plain id strings, not full records — and `total` is always the full
+   * match count, so a caller can tell a truncated selection from "all".
+   *
+   * Cost State / Loss-Making: applied exactly as `findAll` applies them
+   * (same `includeProfitability` gate, same bounded filter), so "select all"
+   * under a loss-making filter selects only the loss-making orders the list
+   * shows. `profitabilityFilterCapped` is passed through, as in `findAll`.
    */
   async findAllIds(
     query: Pick<
@@ -873,24 +915,41 @@ export class StoreOrdersService {
       | 'sortBy'
       | 'sortOrder'
       | 'limit'
+      | 'costState'
+      | 'lossMaking'
     >,
     userId?: string,
-  ) {
+    includeProfitability = false,
+  ): Promise<{
+    ids: string[];
+    total: number;
+    profitabilityFilterCapped?: boolean;
+  }> {
     const where = await this.buildScopedFindWhere(query, userId);
-    const take = Math.min(query.limit ?? 10_000, 10_000);
+    const orderBy = this.buildFindOrderBy(query);
+    const take = Math.min(
+      query.limit ?? BULK_LIMITS.selectIdsMax,
+      BULK_LIMITS.selectIdsMax,
+    );
+
+    if (this.usesProfitabilityFilter(query, includeProfitability)) {
+      const { filteredIds, capped } = await this.profitabilityFilteredIds(
+        where,
+        orderBy,
+        query,
+      );
+      return {
+        ids: filteredIds.slice(0, take),
+        total: filteredIds.length,
+        profitabilityFilterCapped: capped,
+      };
+    }
+
     const [rows, total] = await Promise.all([
       this.prisma.storeOrder.findMany({
         where,
         select: { id: true },
-        orderBy:
-          query.sortBy === 'id'
-            ? [{ id: query.sortOrder ?? 'desc' }]
-            : [
-                {
-                  [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc',
-                },
-                { id: 'desc' as const },
-              ],
+        orderBy,
         take,
       }),
       this.prisma.storeOrder.count({ where }),

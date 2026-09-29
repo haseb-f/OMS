@@ -1,3 +1,4 @@
+import { BULK_LIMITS } from '../../../common/bulk/bulk-limits';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -17,7 +18,7 @@ import { ShipmentStatus } from '@prisma/client';
 export class BulkUpdateShipmentsDto {
   @IsArray()
   @ArrayMinSize(1)
-  @ArrayMaxSize(1000)
+  @ArrayMaxSize(BULK_LIMITS.shipmentBulkUpdateMax)
   @IsUUID('4', { each: true })
   shipmentIds!: string[];
 

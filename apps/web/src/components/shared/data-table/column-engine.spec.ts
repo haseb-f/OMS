@@ -114,13 +114,13 @@ describe("column engine — fitColumnWidths", () => {
     const widths = fitColumnWidths(columns, 1000);
     expect(sum(widths)).toBeGreaterThan(995);
     expect(sum(widths)).toBeLessThanOrEqual(1000);
-    expect(widths.select).toBe(52);
+    expect(widths.select).toBe(60);
     expect(widths.__actions).toBe(88);
     expect(widths.leadNumber).toBeGreaterThanOrEqual(164);
   });
 
   it("shrinks low-importance columns first when space is tight, never the identity", () => {
-    // Floors: 52 + 164 + 160 + 160 + 110 + 88 = 734.
+    // Floors: 60 + 164 + 160 + 160 + 110 + 88 = 742.
     const widths = fitColumnWidths(columns, 640);
     expect(widths.leadNumber).toBe(164);
     // The low column gives way first (down to its floor), then names.
@@ -148,7 +148,7 @@ describe("column engine — planColumnWidths", () => {
 
   it("hides low, then medium columns before it lets the table overflow", () => {
     const floors = { country: 120, classification: 130, customerName: 110 };
-    // Rigid: 52 + 164 + 110 + 110 + 88 = 524 (+120 country, +130 classification).
+    // Rigid: 60 + 164 + 110 + 110 + 88 = 532 (+120 country, +130 classification).
     expect(planColumnWidths(columns, 800, {}, floors).hidden).toEqual([]);
     expect(planColumnWidths(columns, 700, {}, floors).hidden).toEqual(["country"]);
     const tight = planColumnWidths(columns, 560, {}, floors);

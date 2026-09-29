@@ -7,7 +7,24 @@ export {
 export { OverflowTooltipRegion, isElementOverflowing } from "./overflow-tooltip";
 export { useReportFilterBarState, type FilterBarState } from "./filter-bar-context";
 export { EnterpriseTableViewOptions } from "./data-table-view-options";
-export { createSelectionColumn, type SelectionMenuConfig } from "./data-table-selection-column";
+export {
+  createSelectionColumn,
+  getTableSelectionScope,
+  SelectionScopeSummary,
+  type SelectionMenuConfig,
+} from "./data-table-selection-column";
+export {
+  resolveSelectionScope,
+  selectionQuerySignature,
+  selectionScopeMessageKey,
+  createMatchingSelectionSnapshot,
+  matchingSelectionShortfall,
+  toRowSelection,
+  type MatchingIdsResult,
+  type MatchingSelectionSnapshot,
+  type SelectionScope,
+} from "./bulk-selection";
+export { useMatchingSelection, useBulkLimitGuard } from "./use-matching-selection";
 export { SelectCustomCountDialog, type SelectCustomCountCopy } from "./select-custom-count-dialog";
 export { RowActionsMenu, type RowAction } from "./row-actions-menu";
 export { RowIdentityLink } from "./row-identity-link";

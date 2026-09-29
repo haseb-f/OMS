@@ -83,3 +83,103 @@ describe('StoreOrdersService.findAll — profitability summary', () => {
     });
   });
 });
+
+/**
+ * Bulk selection review (HIGH) — "select all matching" must select exactly
+ * the set the list shows. Under a Cost State / Loss-Making filter the ids
+ * come from the same bounded profitability filter as `findAll`, never the
+ * unfiltered scoped set.
+ */
+describe('StoreOrdersService.findAllIds — profitability filters', () => {
+  const economics = new Map([
+    ['loss-1', { contributionProfit: -10, costState: 'COMPLETE' }],
+    ['profit-1', { contributionProfit: 25, costState: 'COMPLETE' }],
+    ['loss-2', { contributionProfit: -1, costState: 'PARTIAL' }],
+  ]);
+
+  function makeService(candidateIds: string[]) {
+    const prisma = {
+      storeOrder: {
+        findMany: jest.fn().mockResolvedValue(
+          candidateIds.map((id) => ({
+            id,
+            shippingStage: 'NOT_READY',
+            items: [],
+            shipments: [],
+            payments: [],
+          })),
+        ),
+        count: jest.fn().mockResolvedValue(candidateIds.length),
+      },
+    };
+    const orderEconomicsService = {
+      getSummaryForOrders: jest.fn().mockResolvedValue(economics),
+    };
+    const service = new StoreOrdersService(
+      prisma as unknown as PrismaService,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      orderEconomicsService as never,
+      {} as never,
+    );
+    return { service, prisma, orderEconomicsService };
+  }
+
+  const candidates = ['loss-1', 'profit-1', 'loss-2'];
+
+  it('applies lossMaking exactly like findAll: only loss-making ids, total = filtered count', async () => {
+    const { service } = makeService(candidates);
+
+    const ids = await service.findAllIds({ lossMaking: true }, undefined, true);
+    const list = await service.findAll(
+      { lossMaking: true, page: 1, pageSize: 20 },
+      undefined,
+      true,
+    );
+
+    expect(ids).toEqual({
+      ids: ['loss-1', 'loss-2'],
+      total: 2,
+      profitabilityFilterCapped: false,
+    });
+    expect(list.total).toBe(ids.total);
+  });
+
+  it('applies costState and honours limit (first N of the filtered set)', async () => {
+    const { service } = makeService(candidates);
+
+    const result = await service.findAllIds(
+      { costState: ['COMPLETE'], limit: 1 },
+      undefined,
+      true,
+    );
+
+    expect(result.ids).toEqual(['loss-1']);
+    expect(result.total).toBe(2);
+  });
+
+  it('ignores profitability params for a caller without the permission (same as findAll)', async () => {
+    const { service, orderEconomicsService } = makeService(candidates);
+
+    const result = await service.findAllIds(
+      { lossMaking: true },
+      undefined,
+      false,
+    );
+
+    expect(orderEconomicsService.getSummaryForOrders).not.toHaveBeenCalled();
+    expect(result).toEqual({ ids: candidates, total: 3 });
+  });
+});

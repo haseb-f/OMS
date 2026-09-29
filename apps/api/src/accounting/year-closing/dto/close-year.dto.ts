@@ -5,7 +5,7 @@ export class CloseYearDto {
   @IsUUID()
   fiscalYearId!: string;
 
-  /** Optional — when supplied, also generates that year's Opening Entry carrying forward this year's ending Balance Sheet. */
+  /** Refused when supplied (YEAR_CLOSING_CARRY_FORWARD_DISABLED): a next-year opening entry would double balances in the cumulative ledger. Kept so old clients get a clear error instead of a silent ignore. */
   @IsOptionalUuid()
   nextFiscalYearId?: string;
 }

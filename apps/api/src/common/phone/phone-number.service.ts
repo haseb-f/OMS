@@ -27,8 +27,16 @@ export interface PhoneParseResult {
   detectedRegion: CountryCode | null;
   /** `MOBILE` / `FIXED_LINE` / `FIXED_LINE_OR_MOBILE` / etc. — null when the region's metadata can't distinguish types. */
   type: string | null;
-  /** True only when a `defaultRegion` was supplied AND the number parsed as belonging to a different region. */
+  /**
+   * True only when a `defaultRegion` was supplied AND the number belongs to a
+   * DIFFERENT calling code (+20 while Saudi Arabia/+966 is selected). A
+   * number of another region sharing the selected region's calling code
+   * (+1 US/CA, +7 RU/KZ, +44 GB/GG/JE/IM) is not a mismatch — see
+   * `sharedCallingCode`.
+   */
   regionMismatch: boolean;
+  /** Valid for a different region that shares the selected region's calling code — accepted, as the library's own determination from the leading digits. */
+  sharedCallingCode: boolean;
   errorReason: PhoneErrorReason | null;
 }
 
@@ -56,14 +64,39 @@ function isSaudiRegionHint(regionHint: string | null | undefined): boolean {
   return normalized === 'SA' || normalized === 'SAU';
 }
 
+const ARABIC_INDIC_ZERO = 0x0660;
+const EXTENDED_ARABIC_INDIC_ZERO = 0x06f0;
+
 /**
- * Strip separators operators commonly type into spreadsheets, then turn a
- * leading "00" international prefix into "+". Does not invent a country
- * calling code — `parse()` still uses `defaultRegion` (or an embedded "+")
- * to decide the actual region.
+ * Arabic-Indic (U+0660–U+0669) and Extended Arabic-Indic / Persian
+ * (U+06F0–U+06F9) digits → ASCII, full-width "＋" → "+", and bidi/format
+ * marks (LRM/RLM, LRE…RLO, LRI…PDI, NBSP, ZWSP) turned into spaces. Mirrors
+ * `normalizePhoneDigits` in apps/web/src/services/phone-service.ts so the
+ * server accepts exactly what the form accepted.
+ */
+export function normalizePhoneDigits(rawInput: string): string {
+  return rawInput
+    .replace(/[\u0660-\u0669]/g, (d) =>
+      String(d.charCodeAt(0) - ARABIC_INDIC_ZERO),
+    )
+    .replace(/[\u06f0-\u06f9]/g, (d) =>
+      String(d.charCodeAt(0) - EXTENDED_ARABIC_INDIC_ZERO),
+    )
+    .replace(/\uff0b/g, '+')
+    .replace(/[\u200b\u200e\u200f\u202a-\u202e\u2066-\u2069\u00a0]/g, ' ');
+}
+
+/**
+ * Normalize digits, strip separators operators commonly type or paste
+ * (spaces, hyphens, dashes, parentheses, dots, slashes), then turn a leading
+ * "00" international prefix into "+". Does not invent a country calling
+ * code — `parse()` still uses `defaultRegion` (or an embedded "+") to decide
+ * the actual region.
  */
 export function preparePhoneInput(rawInput: string): string {
-  const stripped = rawInput.trim().replace(/[\s\-\u2010-\u2015().]/g, '');
+  const stripped = normalizePhoneDigits(rawInput)
+    .trim()
+    .replace(/[\s\-\u2010-\u2015()./]/g, '');
   if (stripped.startsWith('00')) return `+${stripped.slice(2)}`;
   return stripped;
 }
@@ -127,12 +160,14 @@ export class PhoneNumberService {
       detectedRegion: null,
       type: null,
       regionMismatch: false,
+      sharedCallingCode: false,
       errorReason: 'EMPTY',
     };
     const trimmed = rawInput?.trim();
     if (!trimmed) return empty;
 
     const prepared = preparePhoneInput(trimmed);
+    if (!prepared) return empty;
     // Trim/uppercase absorbs whitespace or casing drift from upstream data
     // (" sa", "sa") — `isSupportedRegion` itself normalizes the same way,
     // this just keeps the value used for every call below in sync with it.
@@ -150,10 +185,15 @@ export class PhoneNumberService {
     // Saudi check itself only ever fires when the caller's region hint
     // clearly means Saudi Arabia, so this never changes behavior for any
     // other country.
+    // A region parse that is structurally fine but invalid still gets the
+    // same-calling-code retry (`966501234567` with SA) before it is reported
+    // as the (invalid) result — same order as the web `parsePhone`.
+    const regionParsed = parsePhoneNumberFromString(prepared, region);
     const parsed =
       this.parseSaudiNationalFallback(prepared, defaultRegion, region) ??
-      parsePhoneNumberFromString(prepared, region) ??
-      this.parseInternationalWithoutPlus(prepared, region);
+      (regionParsed?.isValid() ? regionParsed : undefined) ??
+      this.parseInternationalWithoutPlus(prepared, region) ??
+      regionParsed;
 
     if (!parsed) {
       return {
@@ -164,8 +204,12 @@ export class PhoneNumberService {
 
     const isValid = parsed.isValid();
     const detectedRegion = parsed.country ?? null;
-    const regionMismatch =
-      !!region && !!detectedRegion && detectedRegion !== region;
+    const regionCallingCode = region ? this.getCallingCode(region) : null;
+    const sameCode =
+      !!regionCallingCode && parsed.countryCallingCode === regionCallingCode;
+    const regionMismatch = !!region && !!parsed.countryCallingCode && !sameCode;
+    const sharedCallingCode =
+      !!region && !!detectedRegion && detectedRegion !== region && sameCode;
 
     if (!isValid) {
       return {
@@ -175,7 +219,8 @@ export class PhoneNumberService {
         callingCode: parsed.countryCallingCode ?? null,
         detectedRegion,
         type: null,
-        regionMismatch,
+        regionMismatch: regionMismatch && !!detectedRegion,
+        sharedCallingCode: false,
         errorReason:
           this.lengthErrorReason(prepared, detectedRegion ?? region) ??
           'INVALID_PATTERN',
@@ -190,6 +235,7 @@ export class PhoneNumberService {
       detectedRegion,
       type: parsed.getType() ?? null,
       regionMismatch,
+      sharedCallingCode,
       errorReason: null,
     };
   }
@@ -232,7 +278,11 @@ export class PhoneNumberService {
    * Spreadsheet values often omit "+" but include the country calling code
    * (`966501234567`). Retry as an explicit international number only when
    * the digits already start with a real calling code — never by prepending
-   * the selected region's code onto a local number.
+   * the selected region's code onto a local number. With a region the
+   * candidate must carry THAT region's calling code: a bare digit string is
+   * never reinterpreted as a foreign number (a mistyped Saudi "5012345678"
+   * must not become Belize "+501…"). Without a region any calling code is
+   * accepted.
    */
   private parseInternationalWithoutPlus(
     prepared: string,
@@ -240,7 +290,11 @@ export class PhoneNumberService {
   ) {
     if (prepared.startsWith('+') || !/^\d{8,15}$/.test(prepared))
       return undefined;
-    return parsePhoneNumberFromString(`+${prepared}`, region);
+    const candidate = parsePhoneNumberFromString(`+${prepared}`, region);
+    if (!candidate?.isValid()) return undefined;
+    if (region && candidate.countryCallingCode !== this.getCallingCode(region))
+      return undefined;
+    return candidate;
   }
 
   /**

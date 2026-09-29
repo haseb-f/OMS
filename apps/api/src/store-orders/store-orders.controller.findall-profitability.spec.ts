@@ -84,3 +84,41 @@ describe('StoreOrdersController.findAll — profitability authorization', () => 
     );
   });
 });
+
+describe('StoreOrdersController.findAllIds — same profitability decision as findAll', () => {
+  function makeController(hasPermission: boolean) {
+    const storeOrdersService = {
+      findAllIds: jest.fn().mockResolvedValue({ ids: [], total: 0 }),
+    };
+    const permissionsResolver = {
+      hasPermission: jest.fn().mockResolvedValue(hasPermission),
+    };
+    const controller = new StoreOrdersController(
+      storeOrdersService as never,
+      permissionsResolver as never,
+      {} as never,
+    );
+    return { controller, storeOrdersService };
+  }
+
+  it.each([
+    [true, true],
+    [false, false],
+  ])(
+    'authorized=%s → passes includeProfitability=%s so lossMaking/costState narrow the ids exactly as the list',
+    async (authorized, expected) => {
+      const { controller, storeOrdersService } = makeController(authorized);
+
+      await controller.findAllIds(
+        { includeProfitability: true, lossMaking: true },
+        { sub: 'user-1', email: 'a@b.com' },
+      );
+
+      expect(storeOrdersService.findAllIds).toHaveBeenCalledWith(
+        expect.objectContaining({ lossMaking: true }),
+        'user-1',
+        expected,
+      );
+    },
+  );
+});

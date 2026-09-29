@@ -3,7 +3,6 @@ import type { JournalEntryRow } from "./journal-entries-service";
 
 export interface CloseYearPayload {
   fiscalYearId: string;
-  nextFiscalYearId?: string;
 }
 
 export interface CloseYearResult {

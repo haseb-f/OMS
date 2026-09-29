@@ -17,7 +17,12 @@ import {
   exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
-import { MultiSelectFilter } from "@/components/shared/data-table";
+import {
+  MultiSelectFilter,
+  useBulkLimitGuard,
+  useMatchingSelection,
+} from "@/components/shared/data-table";
+import { BULK_LIMITS } from "@/lib/bulk-limits";
 import { ShippingBulkActions } from "@/components/shipping/shipping-bulk-actions";
 import { ShipmentManageDialog } from "@/components/shipping/shipment-manage-dialog";
 import { buildShipmentColumns, shipmentExportColumns } from "@/config/shipping/shipment-columns";
@@ -81,7 +86,6 @@ function ShippingPageContent() {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const [isSelectingAllMatching, setIsSelectingAllMatching] = useState(false);
   const [manageTarget, setManageTarget] = useState<ShipmentListRow | null>(null);
 
   useEffect(() => {
@@ -135,6 +139,8 @@ function ShippingPageContent() {
     }),
     [listParams, sortBy, sortOrder],
   );
+  const matching = useMatchingSelection(listFilters);
+  const withinBulkLimit = useBulkLimitGuard();
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -196,20 +202,14 @@ function ShippingPageContent() {
 
   const selectedIds = Object.keys(rowSelection);
 
-  const handleSelectAllMatching = async () => {
-    setIsSelectingAllMatching(true);
-    try {
-      const result = await shippingService.listIds(listParams());
-      setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
-    } catch (error) {
-      reportApiError(error, "errors.selectFailed");
-    } finally {
-      setIsSelectingAllMatching(false);
-    }
-  };
+  // Shared select-all rules (tables-selection.md): stale results dropped,
+  // "All N matching" only for a complete result of the current query.
+  const handleSelectAllMatching = () =>
+    matching.selectAllMatching(() => shippingService.listIds(listParams()), setRowSelection);
 
   const handleBulkStatusUpdate = async (status: ShipmentStatusValue) => {
     if (selectedIds.length === 0) return;
+    if (!withinBulkLimit(selectedIds.length, BULK_LIMITS.shipmentBulkUpdateMax)) return;
     try {
       const result = await shippingService.bulkUpdate(selectedIds, status);
       if (result.failed.length === 0) {
@@ -387,8 +387,10 @@ function ShippingPageContent() {
         isLoading={isLoading}
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
+        selectionResetKey={matching.queryKey}
+        matchingSelection={matching.matchingSelection}
         onSelectAllMatching={handleSelectAllMatching}
-        isSelectingAllMatching={isSelectingAllMatching}
+        isSelectingAllMatching={matching.isSelectingAllMatching}
         bulkActions={
           <ShippingBulkActions
             selectedCount={selectedIds.length}

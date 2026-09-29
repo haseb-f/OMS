@@ -11,7 +11,7 @@ import {
   FormCardStack,
 } from "@/components/shared/form-card/form-card";
 import { SearchableSelect } from "@/components/shared/searchable-select";
-import { OMSPhoneInput } from "@/components/shared/phone-input";
+import { OMSPhoneInput, isPhoneValidForCountry } from "@/components/shared/phone-input";
 import { SegmentedRadioGroup } from "@/components/documents/segmented-radio-group";
 import { FieldMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -78,7 +78,9 @@ export function LeadCreateDialog({
   const countryCode = countries.find((country) => country.id === countryId)?.code ?? null;
   const quantityValue = Number(quantity);
   const quantityValid = !productId || (Number.isInteger(quantityValue) && quantityValue > 0);
-  const valid = !!customerName.trim() && !!mobile.trim() && !!countryId && quantityValid;
+  const mobileValid = !mobile.trim() || isPhoneValidForCountry(mobile, countryCode);
+  const valid =
+    !!customerName.trim() && !!mobile.trim() && mobileValid && !!countryId && quantityValid;
   const required = t("agentPortal.leads.errors.required");
 
   const productOptions = useMemo(
@@ -159,6 +161,19 @@ export function LeadCreateDialog({
             </FormCardField>
             <FormCardField
               size="md"
+              label={t("agentPortal.leads.fields.city")}
+              htmlFor={`${fieldId}-city`}
+            >
+              <Input
+                id={`${fieldId}-city`}
+                value={city}
+                onChange={(event) => setCity(event.target.value)}
+              />
+            </FormCardField>
+          </FormCardRow>
+          <FormCardRow>
+            <FormCardField
+              size="md"
               required
               label={t("agentPortal.leads.fields.country")}
               htmlFor={`${fieldId}-country`}
@@ -187,8 +202,6 @@ export function LeadCreateDialog({
                 }))}
               />
             </FormCardField>
-          </FormCardRow>
-          <FormCardRow>
             <FormCardField
               size="md"
               required
@@ -205,18 +218,13 @@ export function LeadCreateDialog({
                 value={mobile}
                 onChange={setMobile}
                 countryCode={countryCode}
+                forceValidation={showErrors}
+                availableCountryCodes={countries.map((country) => country.code)}
+                onCountryChange={(iso2) => {
+                  const match = countries.find((country) => country.code === iso2);
+                  if (match) setCountryId(match.id);
+                }}
                 aria-invalid={(showErrors && !mobile.trim()) || undefined}
-              />
-            </FormCardField>
-            <FormCardField
-              size="md"
-              label={t("agentPortal.leads.fields.city")}
-              htmlFor={`${fieldId}-city`}
-            >
-              <Input
-                id={`${fieldId}-city`}
-                value={city}
-                onChange={(event) => setCity(event.target.value)}
               />
             </FormCardField>
           </FormCardRow>

@@ -111,7 +111,9 @@ function buildAccountLine(
   hideZero: boolean,
   parentLineId: string | null,
   leafAmounts: AccountAmounts,
+  idPrefix = '',
 ): HierarchicalReportLine | null {
+  const lineId = `${idPrefix}${account.id}`;
   const childAccounts = childrenOf(accounts, account.id);
   const childLines = childAccounts
     .map((child) =>
@@ -121,8 +123,9 @@ function buildAccountLine(
         rolled,
         valueKeys,
         hideZero,
-        account.id,
+        lineId,
         leafAmounts,
+        idPrefix,
       ),
     )
     .filter((line): line is HierarchicalReportLine => line !== null);
@@ -136,8 +139,8 @@ function buildAccountLine(
     !isZero(sumValueMaps(valueKeys, direct))
   ) {
     childLines.unshift({
-      id: `${account.id}:direct`,
-      parentId: account.id,
+      id: `${lineId}:direct`,
+      parentId: lineId,
       kind: 'posting',
       level: Math.max(account.level, 1) + 1,
       code: account.code,
@@ -156,7 +159,7 @@ function buildAccountLine(
 
   const kind: ReportLineKind = account.allowsPosting ? 'posting' : 'group';
   return {
-    id: account.id,
+    id: lineId,
     parentId: parentLineId,
     kind,
     level: Math.max(account.level, 1),
@@ -180,6 +183,12 @@ export function buildAccountForest(
     hideZero?: boolean;
     accountType?: string;
     parentId?: string | null;
+    /**
+     * Prefixes every line id (never `accountId`) so the same COA header can
+     * appear under two statement lines (e.g. header 54 under "Other
+     * expenses" and "Finance costs") without duplicate row ids.
+     */
+    idPrefix?: string;
   },
 ): HierarchicalReportLine[] {
   const hideZero = options?.hideZero ?? true;
@@ -226,9 +235,59 @@ export function buildAccountForest(
         hideZero,
         null,
         leafAmounts,
+        options?.idPrefix ?? '',
       ),
     )
     .filter((line): line is HierarchicalReportLine => line !== null);
+}
+
+/**
+ * Statement-line presentation of a COA forest built from ONE statement
+ * line's accounts: a header row is kept only when it belongs to that line
+ * (`keepHeader`); any other header ("4 Revenue" roots, or "53 General &
+ * administrative" above a commission account shown under Selling) is
+ * dropped and its rows move up, so every header shown inside a line is that
+ * line's own and its amount is only that line's accounts. Levels are
+ * recomputed by depth from `topLevel`. Amounts are untouched.
+ */
+export function keepLineHeaders(
+  lines: HierarchicalReportLine[],
+  keepHeader: (accountId: string) => boolean,
+  topLevel = 1,
+): HierarchicalReportLine[] {
+  const walk = (
+    nodes: HierarchicalReportLine[],
+    parentId: string | null,
+    level: number,
+  ): HierarchicalReportLine[] =>
+    nodes.flatMap((node) => {
+      if (
+        node.kind === 'group' &&
+        node.accountId &&
+        !keepHeader(node.accountId)
+      )
+        return walk(node.children, parentId, level);
+      const children = walk(node.children, node.id, level + 1);
+      return [
+        { ...node, parentId, level, children, expandable: children.length > 0 },
+      ];
+    });
+  return walk(lines, null, topLevel);
+}
+
+/** Every posting-bearing leaf (account rows and `:direct` rows) under a line list. */
+export function collectPostingLeaves(
+  lines: HierarchicalReportLine[],
+): HierarchicalReportLine[] {
+  const out: HierarchicalReportLine[] = [];
+  const walk = (nodes: HierarchicalReportLine[]) => {
+    for (const node of nodes) {
+      if (node.kind === 'posting' && node.accountId) out.push(node);
+      walk(node.children);
+    }
+  };
+  walk(lines);
+  return out;
 }
 
 export function wrapSection(input: {

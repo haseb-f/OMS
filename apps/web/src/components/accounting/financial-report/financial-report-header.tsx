@@ -1,25 +1,16 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import {
   ChevronDown,
   ChevronsDownUp,
   ChevronsUpDown,
   Download,
-  LayoutList,
   MoreHorizontal,
   Printer,
 } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
-import { Popover, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Command,
-  CommandGroup,
-  CommandItem,
-  CommandList,
-  CommandPopoverContent,
-} from "@/components/ui/command";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -111,76 +102,8 @@ export function FinancialReportHeader({
 /* Report switcher                                                      */
 /* ------------------------------------------------------------------ */
 
-export interface ReportSwitcherOption {
-  value: string;
-  label: string;
-  group?: string;
-}
-
-/**
- * Switches to another report of the same family. The trigger never repeats
- * the current report's name (the h1 already says it); the menu marks it
- * with the trailing check.
- */
-export function ReportSwitcher({
-  value,
-  options,
-  onChange,
-}: {
-  value: string;
-  options: ReportSwitcherOption[];
-  onChange: (value: string) => void;
-}) {
-  const { t } = useLocale();
-  const [open, setOpen] = useState(false);
-  const groups: Array<{ heading?: string; items: ReportSwitcherOption[] }> = [];
-  for (const option of options) {
-    const last = groups[groups.length - 1];
-    if (last && last.heading === option.group) last.items.push(option);
-    else groups.push({ heading: option.group, items: [option] });
-  }
-  const label = t("reports.finance.header.switchReport");
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <EnterpriseButton
-          type="button"
-          variant="outline"
-          aria-label={label}
-          aria-haspopup="listbox"
-          className="max-md:size-(--control-height-md) max-md:px-0"
-        >
-          <LayoutList data-icon="inline-start" />
-          <span className="max-md:sr-only">{label}</span>
-          <ChevronDown className="size-3.5 text-muted-foreground max-md:hidden" />
-        </EnterpriseButton>
-      </PopoverTrigger>
-      <CommandPopoverContent align="end" className="min-w-60">
-        <Command>
-          <CommandList className="max-h-[min(24rem,var(--radix-popover-content-available-height))]">
-            {groups.map((group) => (
-              <CommandGroup key={group.heading ?? "all"} heading={group.heading}>
-                {group.items.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    value={option.value}
-                    data-checked={option.value === value}
-                    onSelect={() => {
-                      onChange(option.value);
-                      setOpen(false);
-                    }}
-                  >
-                    <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            ))}
-          </CommandList>
-        </Command>
-      </CommandPopoverContent>
-    </Popover>
-  );
-}
+// Owned by UI-C (usability-financial-reports §3) — lives in its own file.
+export { ReportSwitcher, type ReportSwitcherOption } from "./report-switcher";
 
 /* ------------------------------------------------------------------ */
 /* Actions                                                              */

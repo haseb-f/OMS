@@ -267,7 +267,11 @@ export default function SupplierProfilePage() {
                   />
                   <DetailField
                     label={t("purchasing.suppliers.fields.phone")}
-                    value={supplier.phone}
+                    value={
+                      supplier.phone ? (
+                        <SemanticValue kind="phone">{supplier.phone}</SemanticValue>
+                      ) : null
+                    }
                   />
                   <DetailField
                     label={t("purchasing.suppliers.fields.mobile")}

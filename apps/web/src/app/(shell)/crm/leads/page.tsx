@@ -12,7 +12,8 @@ import { EmployeePicker } from "@/components/business/employee-picker";
 import { SelectFilter } from "@/components/shared/data-table/select-filter";
 import { cachedLookup, invalidateLookups } from "@/lib/lookup-cache";
 import { exportRowsToCsv } from "@/components/master-data/enterprise-data-table";
-import type { RowAction } from "@/components/shared/data-table";
+import { useBulkLimitGuard, type RowAction } from "@/components/shared/data-table";
+import { BULK_LIMITS } from "@/lib/bulk-limits";
 import { leadsService, type LeadRow } from "@/services/leads-service";
 import { type MasterDataActivityEntry } from "@/services/master-data-service";
 import {
@@ -43,6 +44,7 @@ import { useUserContext } from "@/providers/user-context";
 
 function CrmLeadsPageContent() {
   const { t } = useLocale();
+  const withinBulkLimit = useBulkLimitGuard();
   const router = useRouter();
   const { hasPermission } = useUserContext();
   const classifications = useCustomerClassifications();
@@ -359,6 +361,8 @@ function CrmLeadsPageContent() {
               size="sm"
               variant="outline"
               onClick={() => {
+                // POST /leads/bulk-status accepts at most leadStatusChangeMax ids.
+                if (!withinBulkLimit(ids.length, BULK_LIMITS.leadStatusChangeMax)) return;
                 setBulkStatusIds(ids);
                 setBulkStatusOpen(true);
               }}

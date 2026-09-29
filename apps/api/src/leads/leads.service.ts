@@ -45,6 +45,7 @@ import {
   type SalesScope,
 } from '../sales-scope/sales-scope.service';
 import { findArabicNormalizedIds } from '../common/text/arabic-search.query';
+import { BULK_LIMITS } from '../common/bulk/bulk-limits';
 
 const SEARCH_FIELDS = [
   'leadNumber',
@@ -418,7 +419,10 @@ export class LeadsService {
    */
   async findAllIds(query: FindLeadsQueryDto, scope: SalesScope) {
     const where = await this.buildLeadWhere(query, scope);
-    const take = Math.min(query.pageSize ?? 10_000, 10_000);
+    const take = Math.min(
+      query.pageSize ?? BULK_LIMITS.selectIdsMax,
+      BULK_LIMITS.selectIdsMax,
+    );
     const [rows, total] = await Promise.all([
       this.prisma.lead.findMany({
         where,

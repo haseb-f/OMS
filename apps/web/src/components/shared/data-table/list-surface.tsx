@@ -58,7 +58,7 @@ export function ListSurface({
       className={cn(
         // Contained data area: stronger edge than page chrome so tables read
         // as one card (toolbar + grid + footer), not floating rows on bg.
-        "relative flex min-w-0 flex-col overflow-hidden rounded-md border border-border bg-card",
+        "relative flex min-w-0 flex-col overflow-hidden rounded-md border border-border bg-table-surface",
         fill && "lg:min-h-0 lg:flex-1",
         className,
       )}

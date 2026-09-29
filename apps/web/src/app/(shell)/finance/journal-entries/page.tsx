@@ -26,7 +26,7 @@ import {
   exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
-import { MultiSelectFilter } from "@/components/shared/data-table";
+import { MultiSelectFilter, useMatchingSelection } from "@/components/shared/data-table";
 import {
   journalEntriesService,
   type JournalEntryRow,
@@ -80,7 +80,6 @@ function JournalEntriesPageContent() {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const [isSelectingAllMatching, setIsSelectingAllMatching] = useState(false);
   // Cross-page selection (Part 7) — see the identical comment in
   // sales/orders/page.tsx: `items` only ever holds the current page, so
   // every page fetched is merged into this cache instead of discarded.
@@ -111,6 +110,7 @@ function JournalEntriesPageContent() {
     }),
     [search, statusFilter, journalFilter, dateRange, sortBy, sortOrder],
   );
+  const matching = useMatchingSelection(listFilters);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -411,23 +411,20 @@ function JournalEntriesPageContent() {
     );
   };
 
-  const handleSelectAllMatching = async () => {
-    setIsSelectingAllMatching(true);
-    try {
-      const result = await journalEntriesService.listIds({
-        search: search || undefined,
-        status: statusFilter as JournalEntryStatusValue[],
-        journalId: journalFilter,
-        dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
-        dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
-      });
-      setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
-    } catch (error) {
-      reportApiError(error, "errors.selectFailed");
-    } finally {
-      setIsSelectingAllMatching(false);
-    }
-  };
+  // Shared select-all rules (tables-selection.md): stale results dropped,
+  // "All N matching" only for a complete result of the current query.
+  const handleSelectAllMatching = () =>
+    matching.selectAllMatching(
+      () =>
+        journalEntriesService.listIds({
+          search: search || undefined,
+          status: statusFilter as JournalEntryStatusValue[],
+          journalId: journalFilter,
+          dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
+          dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
+        }),
+      setRowSelection,
+    );
 
   const handleBulkArchiveConfirmed = async () => {
     setBulkArchiveOpen(false);
@@ -548,8 +545,10 @@ function JournalEntriesPageContent() {
         isLoading={isLoading}
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
+        selectionResetKey={matching.queryKey}
+        matchingSelection={matching.matchingSelection}
         onSelectAllMatching={handleSelectAllMatching}
-        isSelectingAllMatching={isSelectingAllMatching}
+        isSelectingAllMatching={matching.isSelectingAllMatching}
         bulkActions={
           <SalesListBulkActions
             onPrint={handleBulkPrint}

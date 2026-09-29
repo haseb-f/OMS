@@ -95,12 +95,32 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
   );
 }
 
-function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
+/**
+ * Row states (fills live in `theme/recipes.css` → "Tables", painted on the
+ * cells so pinned/sticky cells always match their row):
+ *
+ * - hover: only on `interactive` rows (the row itself navigates or expands —
+ *   defaults to "has an onClick"), together with `cursor-pointer`. A row that
+ *   does nothing on click never looks clickable.
+ * - selected: `data-state="selected"` — brand tint, distinct from hover.
+ * - keyboard focus: any focus-visible control inside the row draws an inset
+ *   focus outline on the row, independent of hover/selected.
+ *
+ * Nothing changes border width or size, so states never shift layout.
+ */
+function TableRow({
+  className,
+  interactive,
+  ...props
+}: React.ComponentProps<"tr"> & { interactive?: boolean }) {
+  const isInteractive = interactive ?? Boolean(props.onClick);
   return (
     <tr
       data-slot="table-row"
+      data-interactive={isInteractive ? "" : undefined}
       className={cn(
-        "group/row border-b border-border transition-colors duration-(--duration-base) motion-reduce:transition-none hover:bg-table-row-hover has-aria-expanded:bg-table-row-hover data-[state=selected]:bg-table-row-selected",
+        "group/row border-b border-table-divider",
+        isInteractive && "cursor-pointer",
         className,
       )}
       {...props}

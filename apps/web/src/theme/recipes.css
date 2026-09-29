@@ -568,3 +568,36 @@ html[dir="ltr"] :is(h1, h2) {
   border-color: var(--brand-navy);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand-navy) 20%, transparent);
 }
+
+/* ── Tables: row states (tables-selection.md) ─────────────────────────────
+   Fills paint the CELLS, not the <tr>, so sticky/pinned cells (which carry
+   their own surface fill) always match their row. Colour, shadow and outline
+   only — no border-width or size change, so no state shifts layout.
+   - hover: interactive rows only (`data-interactive`: the row navigates or
+     expands) or while a control in the row has its menu open;
+   - selected: brand tint + a 2px start-edge marker (reads without colour);
+   - keyboard focus: an inset focus outline around the row, separate from
+     both of the above. */
+[data-slot="table-row"]:is([data-interactive]:hover, :has([aria-expanded="true"])) > td {
+  background-color: var(--table-row-hover);
+}
+[data-slot="table-row"][data-state="selected"] > td {
+  background-color: var(--table-row-selected);
+}
+[data-slot="table-row"][data-state="selected"]:is(
+    [data-interactive]:hover,
+    :has([aria-expanded="true"])
+  )
+  > td {
+  background-color: var(--table-row-selected-hover);
+}
+[data-slot="table-row"][data-state="selected"] > td:first-child {
+  box-shadow: inset 2px 0 0 var(--focus-ring);
+}
+[dir="rtl"] [data-slot="table-row"][data-state="selected"] > td:first-child {
+  box-shadow: inset -2px 0 0 var(--focus-ring);
+}
+[data-slot="table-row"]:has(:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}

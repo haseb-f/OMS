@@ -32,7 +32,7 @@ export function normalizeTablePageSize(size: number): number {
  * Renders a translated template ("{range} of {total}") with each figure in
  * its own isolated `num` run, so "1–20" never reorders inside Arabic text.
  */
-function renderFigures(template: string, figures: Record<string, string>) {
+export function renderFigures(template: string, figures: Record<string, string>) {
   return template.split(/(\{\w+\})/g).map((part, index) => {
     const token = /^\{(\w+)\}$/.exec(part)?.[1];
     if (token && token in figures) {

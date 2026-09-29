@@ -150,7 +150,9 @@ export function LeadDistributionModal({
         toast.success(t("common.saved"));
       }
       onChanged?.();
-      requestClose();
+      // Saved — close directly (requestClose would ask to discard the draft
+      // that was just persisted, since `dirty` refreshes only after reload).
+      onOpenChange(false);
     } catch (error) {
       reportApiError(error, "common.failedToSave");
     } finally {
@@ -158,28 +160,20 @@ export function LeadDistributionModal({
     }
   };
 
-  const handleClose = (requestClose: () => void) => {
-    if (dirty) {
-      toast.info(t("crm.leads.distribution.unsavedDiscarded"));
-    }
-    requestClose();
-  };
-
+  // Closing never toasts (usability-financial-reports §5): unchanged → just
+  // closes; unsaved policy change → the shared discard confirmation.
   return (
     <EnterpriseModal
       open={open}
       onOpenChange={onOpenChange}
+      isDirty={dirty}
       size="lg"
       icon={Shuffle}
       title={t("crm.leads.distribution.title")}
       description={t("crm.leads.distribution.description")}
       footer={(requestClose) => (
         <>
-          <EnterpriseButton
-            variant="outline"
-            disabled={busy}
-            onClick={() => handleClose(requestClose)}
-          >
+          <EnterpriseButton variant="outline" disabled={busy} onClick={requestClose}>
             {t("common.close")}
           </EnterpriseButton>
           <EnterpriseButton disabled={busy} onClick={() => void handleDone(requestClose)}>

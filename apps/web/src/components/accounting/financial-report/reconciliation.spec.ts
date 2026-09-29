@@ -49,6 +49,28 @@ describe("resolveReconciliationState", () => {
 describe("reconciliation export text", () => {
   const drcrLabels = { debit: "Dr", credit: "Cr" };
 
+  it("writes report caveats (e.g. unclassified accounts) into print/export after the verdict", () => {
+    const text = summaryToText(
+      {
+        items: [{ id: "net", label: "Net profit", value: 305 }],
+        notes: [
+          {
+            id: "UNCLASSIFIED_ACCOUNTS",
+            label: "Caveat",
+            text: "1 account(s) have no statement line — shown under Unclassified. XE (-5.00)",
+          },
+        ],
+      },
+      { currency: "EGP", drcrLabels, t },
+    );
+    expect(text.at(-1)).toEqual({
+      id: "summary:note:UNCLASSIFIED_ACCOUNTS",
+      label: "Caveat",
+      value: "1 account(s) have no statement line — shown under Unclassified. XE (-5.00)",
+    });
+    expect(text).toHaveLength(2);
+  });
+
   it("exports the compared totals unchanged (same formatAmount) and the verdict", () => {
     const debit = 10258224.64;
     const credit = 10258224.64;

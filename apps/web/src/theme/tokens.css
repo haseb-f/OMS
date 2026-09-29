@@ -116,6 +116,13 @@
   --shell-gutter: 1rem; /* 16px phone */
   --shell-gutter-lg: 1.5rem; /* 24px tablet+ */
 
+  /* Toasts (usability-financial-reports §5) — a slightly larger card, placed
+     just below the 48px top bar (never over it, never over bottom action
+     bars / sticky modal footers), with the notch safe area on phones. */
+  --toast-width: 24rem; /* 384px */
+  --toast-offset-top: calc(var(--shell-topbar-height) + env(safe-area-inset-top, 0px) + 0.5rem);
+  --toast-offset-inline: 1rem;
+
   /* Tables (enterprise-ui-overhaul) — density is a single lever. */
   --table-head-height: 2.125rem; /* 34px */
   --table-row-height: 2.25rem; /* 36px compact (default) */

@@ -7,7 +7,7 @@ import { Banknote, ChevronDown, Globe, Loader2, UserCheck } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
-import { ModalFieldFullWidth, ModalFieldSpan } from "@/components/shared/modal-section";
+import { ModalFieldFullWidth } from "@/components/shared/modal-section";
 import { FormSection } from "@/components/documents/form-section";
 import {
   FormErrorSummary,
@@ -40,6 +40,8 @@ import {
 } from "@/components/sales/product-line-items-grid";
 import { FieldLabel, FieldMessage, Form } from "@/components/ui/form";
 import { PartnerPicker } from "@/components/business/partner-picker";
+import { PhoneCountrySelector } from "@/components/shared/phone-country-selector";
+import { parsePhone, preferredPhoneCountry, rememberPhoneCountry } from "@/services/phone-service";
 import { storeOrdersService, type StoreOrderRow } from "@/services/store-orders-service";
 import {
   PaymentDeclarationFields,
@@ -146,7 +148,16 @@ export function StoreOrderCreateDialog({
   const bodyRef = useRef<HTMLDivElement>(null);
   const focusFirstInvalid = useFocusFirstInvalid(bodyRef);
 
-  const schema = useMemo(() => buildStoreOrderCreateSchema(t), [t]);
+  // Phone country ≠ shipping destination (phone-field.md): the phone country
+  // follows the shipping country until the user picks one explicitly
+  // (`phoneCountryOverride`), and a legitimate difference is kept. Not a form
+  // field — the committed E.164 value already carries its country.
+  const [phoneCountryOverride, setPhoneCountryOverride] = useState<string | null>(null);
+  const phoneCountryCodeRef = useRef<string | null>(null);
+  const schema = useMemo(
+    () => buildStoreOrderCreateSchema(t, () => phoneCountryCodeRef.current),
+    [t],
+  );
 
   const form = useForm<StoreOrderCreateFormValues>({
     resolver: zodResolver(schema),
@@ -160,6 +171,11 @@ export function StoreOrderCreateDialog({
     setExistingCustomer(null);
     setExistingCustomerStatus("idle");
     setExistingCustomerApplied(false);
+    setPhoneCountryOverride(
+      prefillCustomer
+        ? phoneCountryOverrideFor(prefillCustomer.phone, prefillCustomer.countryId)
+        : null,
+    );
     if (prefillCustomer) {
       form.setValue("customerName", prefillCustomer.name, { shouldDirty: true });
       form.setValue("customerPhone", prefillCustomer.phone || "", { shouldDirty: true });
@@ -186,7 +202,36 @@ export function StoreOrderCreateDialog({
   const customerName = useWatch({ control: form.control, name: "customerName" });
   const customerPhone = useWatch({ control: form.control, name: "customerPhone" });
   const paymentType = useWatch({ control: form.control, name: "paymentType" });
-  const countryCode = countries.find((country) => country.id === countryId)?.code ?? null;
+  // Smart default (last-used phone country, else the browser region) — used
+  // only until the user picks a phone or shipping country, and never marks
+  // the form dirty, so closing an untouched dialog stays silent.
+  const defaultPhoneCountryId = useMemo(() => {
+    const code = preferredPhoneCountry(countries.map((country) => country.code));
+    return code ? (countries.find((country) => country.code === code)?.id ?? "") : "";
+  }, [countries]);
+  const phoneCountryId = phoneCountryOverride ?? (countryId || defaultPhoneCountryId);
+  const phoneCountryCode = countries.find((country) => country.id === phoneCountryId)?.code ?? null;
+  useEffect(() => {
+    phoneCountryCodeRef.current = phoneCountryCode;
+  }, [phoneCountryCode]);
+
+  /** The phone's own country (from a stored E.164) when it differs from the customer's shipping country — otherwise follow the shipping country. */
+  function phoneCountryOverrideFor(
+    phone: string | null | undefined,
+    shippingCountryId?: string | null,
+  ) {
+    const region = parsePhone(phone, null).detectedRegion;
+    const match = region ? countries.find((country) => country.code === region) : undefined;
+    return match && match.id !== shippingCountryId ? match.id : null;
+  }
+
+  const selectPhoneCountry = (id: string) => {
+    setPhoneCountryOverride(id || null);
+    // Vice versa: an empty shipping country defaults to the phone country.
+    if (id && !form.getValues("countryId")) {
+      form.setValue("countryId", id, { shouldDirty: true });
+    }
+  };
   const defaultCurrencyId =
     currencies.find((currency) => currency.code === "SAR")?.id ?? currencies[0]?.id ?? "";
 
@@ -222,6 +267,9 @@ export function StoreOrderCreateDialog({
     form.setValue("countryId", customer.countryId || "", { shouldDirty: true });
     form.setValue("city", customer.city || "", { shouldDirty: true });
     form.setValue("address", customer.address || "", { shouldDirty: true });
+    setPhoneCountryOverride(
+      phoneCountryOverrideFor(customer.phone || customer.mobile, customer.countryId),
+    );
     setExistingCustomer(null);
     setExistingCustomerStatus("idle");
   };
@@ -235,6 +283,9 @@ export function StoreOrderCreateDialog({
     form.setValue("countryId", customer.countryId || "", { shouldDirty: true });
     form.setValue("city", customer.city || "", { shouldDirty: true });
     form.setValue("address", customer.address || "", { shouldDirty: true });
+    setPhoneCountryOverride(
+      phoneCountryOverrideFor(customer.phone || customer.mobile, customer.countryId),
+    );
     setExistingCustomerApplied(true);
     toast.success(t("storeOrders.createDialog.existingCustomer.applied"));
   };
@@ -389,6 +440,7 @@ export function StoreOrderCreateDialog({
         href: `/store-orders/${created.id}`,
       });
       onOpenChange(false);
+      rememberPhoneCountry(phoneCountryCode);
       onCreated(created);
     } catch (error) {
       setServerErrors(
@@ -430,8 +482,8 @@ export function StoreOrderCreateDialog({
       <Form {...form}>
         <div ref={bodyRef} className="flex flex-col gap-4">
           <FormSection title={t("storeOrders.createDialog.sections.customer")}>
-            <div className="grid grid-cols-1 gap-x-3 gap-y-2 @md:grid-cols-2 @2xl:grid-cols-3">
-              <ModalFieldSpan span={2}>
+            <div className="grid grid-cols-1 gap-x-3 gap-y-2 @md:grid-cols-2 @2xl:grid-cols-3 items-start">
+              <ModalFieldFullWidth>
                 <div className="flex flex-col gap-1">
                   <FieldLabel>{t("storeOrders.createDialog.fields.customer")}</FieldLabel>
                   <PartnerPicker
@@ -441,19 +493,32 @@ export function StoreOrderCreateDialog({
                     className="max-w-none"
                   />
                 </div>
-              </ModalFieldSpan>
+              </ModalFieldFullWidth>
               <TextFormField
                 control={form.control}
                 name="customerName"
                 label={t("storeOrders.createDialog.fields.customerName")}
                 required
               />
+              <div className="flex flex-col gap-1">
+                <FieldLabel>{t("phone.phoneCountryLabel")}</FieldLabel>
+                <PhoneCountrySelector
+                  value={phoneCountryId}
+                  onChange={selectPhoneCountry}
+                  countries={countries}
+                />
+              </div>
               <PhoneFormField
                 control={form.control}
                 name="customerPhone"
                 label={t("storeOrders.fields.phone")}
                 required
-                countryCode={countryCode}
+                countryCode={phoneCountryCode}
+                availableCountryCodes={countries.map((country) => country.code)}
+                onCountryChange={(iso2) => {
+                  const match = countries.find((country) => country.code === iso2);
+                  if (match) selectPhoneCountry(match.id);
+                }}
               />
               {existingCustomerStatus === "not-found" && (
                 <ModalFieldFullWidth>

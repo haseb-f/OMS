@@ -5,12 +5,17 @@ import { toISODate } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
 
 /**
- * Manual "New Store Order" schema. Phone stays international-format (same
- * fallback OMSPhoneInput uses without a country) so existing validation is
- * unchanged. Line items stay a separate non-RHF array the dialog validates
+ * Manual "New Store Order" schema. The phone is validated against the
+ * PHONE country (`getPhoneCountryCode` — the dialog's own phone-country
+ * picker, which follows the shipping country until chosen explicitly), not
+ * the shipping destination; without one it falls back to international
+ * format. Line items stay a separate non-RHF array the dialog validates
  * itself — same shape ProductLineItemsGrid already uses.
  */
-export function buildStoreOrderCreateSchema(t: (key: MessageKey) => string) {
+export function buildStoreOrderCreateSchema(
+  t: (key: MessageKey) => string,
+  getPhoneCountryCode: () => string | null | undefined = () => undefined,
+) {
   return z
     .object({
       externalOrderId: z.string().optional().or(z.literal("")),
@@ -28,12 +33,13 @@ export function buildStoreOrderCreateSchema(t: (key: MessageKey) => string) {
       receiptUrl: z.string().optional().or(z.literal("")),
     })
     .superRefine((values, ctx) => {
-      if (!isPhoneValidForCountry(values.customerPhone, undefined)) {
-        const reason = parsePhone(values.customerPhone, undefined).errorReason;
+      const phoneCountryCode = getPhoneCountryCode();
+      if (!isPhoneValidForCountry(values.customerPhone, phoneCountryCode)) {
+        const reason = parsePhone(values.customerPhone, phoneCountryCode).errorReason;
         ctx.addIssue({
           code: "custom",
           path: ["customerPhone"],
-          message: phoneErrorMessage(reason, undefined, t),
+          message: phoneErrorMessage(reason, phoneCountryCode, t),
         });
       }
     });

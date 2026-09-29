@@ -6,8 +6,14 @@ import {
   type FinancialReportColumn,
 } from "@/components/accounting/financial-report";
 import {
+  ReportWarnings,
+  reportWarningNotes,
+} from "@/components/accounting/financial-report/report-warnings";
+import {
   accountingReportsService,
   type HierarchicalReportLine,
+  type ReportWarning,
+  type TrialBalanceResult,
 } from "@/services/accounting-reports-service";
 import { useLocale } from "@/providers/locale-provider";
 import { reportApiError } from "@/lib/toast";
@@ -26,6 +32,8 @@ export function TrialBalanceTab() {
     closingBalance: 0,
   });
   const [balanced, setBalanced] = useState(true);
+  const [checks, setChecks] = useState<TrialBalanceResult["checks"]>(undefined);
+  const [warnings, setWarnings] = useState<ReportWarning[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -42,9 +50,16 @@ export function TrialBalanceTab() {
         openingBalance: result.totals.openingBalance ?? 0,
         closingBalance: result.totals.closingBalance ?? 0,
       });
+      // Debits = credits for the period AND opening / closing balances each
+      // net to zero — a TB whose period balances but whose opening does not
+      // is still wrong.
       setBalanced(
-        result.balanced ?? Math.abs(result.totals.debitTotal - result.totals.creditTotal) < 0.01,
+        result.checks?.balanced ??
+          result.balanced ??
+          Math.abs(result.totals.debitTotal - result.totals.creditTotal) < 0.01,
       );
+      setChecks(result.checks);
+      setWarnings(result.warnings ?? []);
     } catch (error) {
       reportApiError(error, "common.noResults");
     } finally {
@@ -94,15 +109,22 @@ export function TrialBalanceTab() {
       }
       printTitle={t("reports.finance.trialBalance")}
       exportFileName="trial-balance.csv"
+      notice={warnings.length > 0 ? <ReportWarnings warnings={warnings} /> : undefined}
       summary={{
         // Period debits and credits are the figures that count — shown once,
         // in the reconciliation card; the net closing balance of all
         // accounts is ~0 by construction (footer).
         items: [],
+        notes: reportWarningNotes(warnings, t),
         check: {
           balanced,
-          difference: totals.debitTotal - totals.creditTotal,
-          label: t("docFlow.reports.debitsEqualCredits"),
+          difference:
+            Math.abs(totals.debitTotal - totals.creditTotal) >= 0.01
+              ? totals.debitTotal - totals.creditTotal
+              : checks?.openingDifference || checks?.closingDifference || 0,
+          label: includeOpeningBalance
+            ? `${t("docFlow.reports.debitsEqualCredits")} · ${t("reports.finance.statementSummary.tbAllChecks")}`
+            : t("docFlow.reports.debitsEqualCredits"),
           scope: "period",
           sides: [
             {

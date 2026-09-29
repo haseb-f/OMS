@@ -220,6 +220,7 @@ function PhysicalCountPageContent() {
         getRowId={(row) => row.id}
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
+        selectionResetKey={dateRange}
         bulkActions={
           <SalesListBulkActions
             onPrint={handleBulkPrint}

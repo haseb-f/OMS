@@ -77,6 +77,10 @@ import {
   EnterprisePagination,
   EnterpriseTableViewOptions,
   createSelectionColumn,
+  getTableSelectionScope,
+  SelectionScopeSummary,
+  selectionQuerySignature,
+  type MatchingSelectionSnapshot,
   getColumnDisplayValue,
   resolveColumnLayout,
   columnGeometryWidth,
@@ -233,6 +237,8 @@ export function EnterpriseDataTable<TData>({
   footerRow,
   activeFilterCount,
   onClearFilters,
+  selectionResetKey,
+  matchingSelection,
 }: {
   columns: ColumnDef<TData, unknown>[];
   data: TData[];
@@ -342,6 +348,22 @@ export function EnterpriseDataTable<TData>({
   activeFilterCount?: number;
   /** Resets every filter in `filterBar` — the filter sheet's Clear action. Same automatic fallback as `activeFilterCount`. */
   onClearFilters?: () => void;
+  /**
+   * The caller's filters (anything outside the table that changes WHICH
+   * records match) as a plain serializable value. When the query changes, any
+   * row selection is cleared and the user is told (tables-selection.md): a
+   * selection always belongs to the query it was made under. The table's own
+   * search box, column filters and sort are included automatically;
+   * pagination and page size never clear.
+   */
+  selectionResetKey?: unknown;
+  /**
+   * Server mode: the last complete "select all matching" result for the
+   * current query (`useMatchingSelection().matchingSelection`). "All N
+   * matching results selected" is shown only while the selection equals it —
+   * never inferred from the selected count reaching `totalCount`.
+   */
+  matchingSelection?: MatchingSelectionSnapshot | null;
 }) {
   const { t, direction, locale } = useLocale();
   const router = useRouter();
@@ -563,6 +585,26 @@ export function EnterpriseDataTable<TData>({
   const effectiveRowSelection = rowSelection ?? internalRowSelection;
   const handleRowSelectionChange = onRowSelectionChange ?? setInternalRowSelection;
 
+  // Filter/search/sort change → clear the selection (all scopes). A kept
+  // selection would either describe records the user can no longer see or
+  // silently stop meaning "all matching" — clearing is the only safe reading.
+  const selectionQueryKey = selectionQuerySignature({
+    caller: selectionResetKey,
+    search: effectiveSearch,
+    columnFilters,
+    sorting: isServerMode ? { sortBy, sortOrder } : internalSorting,
+  });
+  const lastSelectionQueryKey = useRef(selectionQueryKey);
+  useEffect(() => {
+    if (lastSelectionQueryKey.current === selectionQueryKey) return;
+    lastSelectionQueryKey.current = selectionQueryKey;
+    if (!Object.values(effectiveRowSelection).some(Boolean)) return;
+    handleRowSelectionChange({});
+    toast.info(t("table.selectionClearedOnQueryChange"));
+    // Only a query change may clear — never a selection change itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectionQueryKey]);
+
   const sorting: SortingState = useMemo(
     () =>
       isServerMode ? (sortBy ? [{ id: sortBy, desc: sortOrder === "desc" }] : []) : internalSorting,
@@ -587,9 +629,17 @@ export function EnterpriseDataTable<TData>({
             ? () => setCustomCountDialogOpen(true)
             : undefined,
           onClearSelection: () => handleRowSelectionChange({}),
+          matchingSelection,
         },
       ),
-    [t, onSelectAllMatching, isSelectingAllMatching, selectCustomCount, handleRowSelectionChange],
+    [
+      t,
+      onSelectAllMatching,
+      isSelectingAllMatching,
+      selectCustomCount,
+      handleRowSelectionChange,
+      matchingSelection,
+    ],
   );
 
   // Injects the translated header (via the shared EnterpriseTableColumnHeader) from
@@ -783,13 +833,16 @@ export function EnterpriseDataTable<TData>({
     getPaginationRowModel: getPaginationRowModel(),
   });
 
-  const selectedCount = Object.keys(effectiveRowSelection).length;
-  // Once every matching row (server mode) is selected, the bar swaps to a
-  // "use just this page" down-scope action instead of the usual
-  // clear-selection-only state — the up-scope action itself now lives in
-  // the header's own selection-scope menu (TASK-064).
-  const isAllMatchingSelected =
-    isServerMode && (totalCount ?? 0) > 0 && selectedCount >= (totalCount ?? 0);
+  // Scope of the current selection (page / across pages / all matching) —
+  // derived from the actual ids against this page and the matching total, so
+  // the strip never claims "all matching" when only the page is selected.
+  // Once everything matching is selected the strip offers the "use just this
+  // page" down-scope; the up-scope lives in the header's scope menu (TASK-064).
+  const { scope: selectionScope, count: selectedCount } = getTableSelectionScope(
+    table,
+    matchingSelection,
+  );
+  const isAllMatchingSelected = selectionScope === "allMatching";
   // Density is ONE lever: `<Table density>` re-points the row-height and
   // cell-padding tokens (ui/table). Neither density shrinks type; line
   // height belongs to the type scale, so tightening a row never clips Arabic.
@@ -960,7 +1013,9 @@ export function EnterpriseDataTable<TData>({
           // A boundary on whichever side faces the scrollable data.
           pinned === "left" ? "border-e border-e-border" : "border-s border-s-border",
           section === "body"
-            ? "z-(--z-pinned) bg-card group-hover/row:bg-table-row-hover group-data-[state=selected]/row:bg-table-row-selected"
+            ? // Row-state fills (hover/selected) are painted on every cell by
+              // the table recipe (theme/recipes.css), overriding this surface.
+              "z-(--z-pinned) bg-table-surface"
             : "z-(--z-sticky-corner)",
           section === "foot" && "bg-surface-sunken",
         ),
@@ -1290,21 +1345,19 @@ export function EnterpriseDataTable<TData>({
           {bulkStripOpen ? (
             <div className="absolute inset-0 z-(--z-sticky) flex items-center gap-x-3 overflow-x-auto bg-table-row-selected px-3 whitespace-nowrap sm:px-4">
               <div className="flex shrink-0 items-center gap-2">{bulkActions}</div>
-              <span className="text-caption font-medium" aria-live="polite">
-                {isAllMatchingSelected ? (
-                  t("table.allFilteredSelected", { count: selectedCount })
-                ) : (
-                  <>
-                    <span className="num">{selectedCount}</span> {t("table.rowsSelected")}
-                  </>
-                )}
+              <span
+                className="text-caption font-medium"
+                aria-live="polite"
+                data-selection-scope={selectionScope}
+              >
+                <SelectionScopeSummary scope={selectionScope} count={selectedCount} />
               </span>
 
               {/* "Select all matching filters" lives in the header's own
                   selection-scope menu (TASK-064) — this strip only offers the
                   down-scope action once everything is already selected, plus
                   clear-selection, so it never duplicates that menu's items. */}
-              {isAllMatchingSelected ? (
+              {isAllMatchingSelected && pageRows.length < selectedCount ? (
                 <EnterpriseButton
                   type="button"
                   variant="link"
@@ -1609,7 +1662,7 @@ export function EnterpriseDataTable<TData>({
                           key={column.id}
                           data-column-id={column.id}
                           className={cn(
-                            "min-w-0 px-0 border-b border-border",
+                            "min-w-0 px-0 border-b border-table-divider",
                             tableColumnInsetClass(
                               index,
                               visibleLeafColumns.length,
@@ -1655,12 +1708,11 @@ export function EnterpriseDataTable<TData>({
                     <Fragment key={row.id}>
                       <TableRow
                         data-state={row.getIsSelected() ? "selected" : undefined}
-                        className={cn(
-                          // Hover/selected fills come from the shared
-                          // TableRow (bg-table-row-hover / -selected); the
-                          // hairline separator is a per-cell border (below).
-                          rowHref && !identityOnlyNavigation && "cursor-pointer",
-                        )}
+                        // Hover/selected/focus states come from the shared
+                        // TableRow recipe; only a row that navigates on click
+                        // is interactive (pointer + hover). The hairline
+                        // separator is a per-cell border (below).
+                        interactive={Boolean(rowHref && !identityOnlyNavigation)}
                         onClick={
                           rowHref && !identityOnlyNavigation
                             ? (event) => {

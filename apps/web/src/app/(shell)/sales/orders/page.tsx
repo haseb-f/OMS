@@ -24,6 +24,7 @@ import {
   buildDocumentDetailRegions,
   documentDetailLabels,
   toDocumentLineItems,
+  useMatchingSelection,
 } from "@/components/shared/data-table";
 import { ClearFiltersButton } from "@/components/shared/data-table/clear-filters-button";
 import {
@@ -46,7 +47,7 @@ import { useCompany } from "@/providers/company-provider";
 import { usePrintCompany } from "@/components/print/print-brand";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { reportApiError, toast } from "@/lib/toast";
+import { reportApiError, reportDestructiveDone, toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
@@ -79,7 +80,6 @@ function SalesOrdersPageContent() {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const [isSelectingAllMatching, setIsSelectingAllMatching] = useState(false);
   // Cross-page selection (Part 7) — `rowSelection` itself is already ID-keyed
   // and survives pagination (see `EnterpriseDataTable`'s `getRowId`), but
   // `items` only ever holds the CURRENT page. Bulk print/export need the
@@ -104,6 +104,7 @@ function SalesOrdersPageContent() {
     }),
     [search, statusFilter, customerFilter, dateRange, sortBy, sortOrder],
   );
+  const matching = useMatchingSelection(listFilters);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -200,7 +201,7 @@ function SalesOrdersPageContent() {
     if (!cancelTarget) return;
     try {
       await salesOrdersService.cancel(cancelTarget.id);
-      toast.success(t("sales.orders.toasts.cancelled"));
+      reportDestructiveDone(t("sales.orders.toasts.cancelled"));
       void load();
     } catch (error) {
       reportApiError(error, "errors.cancelFailed");
@@ -272,23 +273,20 @@ function SalesOrdersPageContent() {
     );
   };
 
-  const handleSelectAllMatching = async () => {
-    setIsSelectingAllMatching(true);
-    try {
-      const result = await salesOrdersService.listIds({
-        search: search || undefined,
-        status: statusFilter as SalesDocumentStatusValue[],
-        partnerId: customerFilter.map((customer) => customer.id),
-        dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
-        dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
-      });
-      setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
-    } catch (error) {
-      reportApiError(error, "errors.selectFailed");
-    } finally {
-      setIsSelectingAllMatching(false);
-    }
-  };
+  // Shared select-all rules (tables-selection.md): stale results dropped,
+  // "All N matching" only for a complete result of the current query.
+  const handleSelectAllMatching = () =>
+    matching.selectAllMatching(
+      () =>
+        salesOrdersService.listIds({
+          search: search || undefined,
+          status: statusFilter as SalesDocumentStatusValue[],
+          partnerId: customerFilter.map((customer) => customer.id),
+          dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
+          dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
+        }),
+      setRowSelection,
+    );
 
   const handleBulkArchiveConfirmed = async () => {
     setBulkArchiveOpen(false);
@@ -404,8 +402,10 @@ function SalesOrdersPageContent() {
         isLoading={isLoading}
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
+        selectionResetKey={matching.queryKey}
+        matchingSelection={matching.matchingSelection}
         onSelectAllMatching={handleSelectAllMatching}
-        isSelectingAllMatching={isSelectingAllMatching}
+        isSelectingAllMatching={matching.isSelectingAllMatching}
         bulkActions={
           <SalesListBulkActions
             onPrint={handleBulkPrint}

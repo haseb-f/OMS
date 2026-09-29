@@ -110,10 +110,13 @@
   --color-border-strong: var(--border-strong);
   --color-focus-ring: var(--focus-ring);
   --color-surface-sunken: var(--surface-sunken);
+  --color-table-surface: var(--table-surface);
+  --color-table-divider: var(--table-divider);
   --color-table-header: var(--table-header);
   --color-table-header-foreground: var(--table-header-foreground);
   --color-table-row-hover: var(--table-row-hover);
   --color-table-row-selected: var(--table-row-selected);
+  --color-table-row-selected-hover: var(--table-row-selected-hover);
   --color-sidebar-muted-foreground: var(--sidebar-muted-foreground);
   --color-sidebar-active: var(--sidebar-active);
   --color-selector: var(--selector);
@@ -195,6 +198,16 @@
   --destructive-soft: hsl(0 100% 97%);
   --destructive-soft-foreground: hsl(358 66% 44%);
   --destructive-border: hsl(0 85% 90%);
+  /* Toast tones (usability-financial-reports §5): tinted surface, a stronger
+     ring and a 3px start-edge accent so success / failure read at a glance. */
+  --toast-success-surface: var(--success-soft);
+  --toast-success-border: color-mix(in oklab, var(--success) 38%, var(--success-soft));
+  --toast-success-edge: var(--success);
+  --toast-success-title: var(--success-soft-foreground);
+  --toast-destructive-surface: var(--destructive-soft);
+  --toast-destructive-border: color-mix(in oklab, var(--destructive) 38%, var(--destructive-soft));
+  --toast-destructive-edge: var(--destructive);
+  --toast-destructive-title: var(--destructive-soft-foreground);
   --neutral-soft: #f2f2f2;
   --neutral-soft-foreground: #4c4c4c;
   --neutral-border: #e5e5e5;
@@ -231,11 +244,17 @@
   --sidebar-rail: #3c78d0;
   --sidebar-rail-glow: color-mix(in oklab, #3c78d0 22%, transparent);
 
-  /* Tables */
-  --table-header: #fafafa;
-  --table-header-foreground: #666666;
-  --table-row-hover: #fafafa;
-  --table-row-selected: color-mix(in oklab, #0072f5 6%, white);
+  /* Tables (tables-selection.md): a pure white body, hairline row dividers
+     a step firmer than surface borders, a restrained grey header band.
+     Hover (interactive rows only) is neutral grey; selection is a brand tint
+     — the two never read alike, and selected+hover deepens the tint. */
+  --table-surface: var(--card);
+  --table-divider: #e8e8e8;
+  --table-header: #f7f7f7;
+  --table-header-foreground: #5c5c5c;
+  --table-row-hover: #f4f4f4;
+  --table-row-selected: color-mix(in oklab, #0072f5 7%, white);
+  --table-row-selected-hover: color-mix(in oklab, #0072f5 11%, white);
 
   --chart-1: #04203c;
   --chart-2: #3c78d0;
@@ -355,6 +374,22 @@
   --destructive-soft: hsl(357 37% 12%);
   --destructive-soft-foreground: #ff6166;
   --destructive-border: hsl(357 50% 28%);
+  --toast-success-surface: var(--success-soft);
+  --toast-success-border: color-mix(
+    in oklab,
+    var(--success-soft-foreground) 40%,
+    var(--success-soft)
+  );
+  --toast-success-edge: var(--success-soft-foreground);
+  --toast-success-title: var(--success-soft-foreground);
+  --toast-destructive-surface: var(--destructive-soft);
+  --toast-destructive-border: color-mix(
+    in oklab,
+    var(--destructive-soft-foreground) 40%,
+    var(--destructive-soft)
+  );
+  --toast-destructive-edge: var(--destructive-soft-foreground);
+  --toast-destructive-title: var(--destructive-soft-foreground);
   --neutral-soft: #1a1a1a;
   --neutral-soft-foreground: #c7c7c7;
   --neutral-border: #2e2e2e;
@@ -382,10 +417,15 @@
   --sidebar-rail: #52a8ff;
   --sidebar-rail-glow: color-mix(in oklab, #52a8ff 25%, transparent);
 
-  --table-header: #0d0d0d;
+  /* Dark tables: the body stays the #111 card (never white), dividers a
+     visible step above it, the header band recessed below it. */
+  --table-surface: var(--card);
+  --table-divider: #242424;
+  --table-header: #0c0c0c;
   --table-header-foreground: #a1a1a1;
-  --table-row-hover: #161616;
-  --table-row-selected: color-mix(in oklab, #52a8ff 12%, #111111);
+  --table-row-hover: #1b1b1b;
+  --table-row-selected: color-mix(in oklab, #52a8ff 13%, #111111);
+  --table-row-selected-hover: color-mix(in oklab, #52a8ff 18%, #111111);
 
   --chart-1: #3c78d0;
   --chart-2: #3cb8c0;
@@ -584,11 +624,63 @@
   --normal-bg: var(--popover);
   --normal-text: var(--popover-foreground);
 }
+/* Success and failure (usability-financial-reports §5) get the full tinted
+   treatment — soft surface, stronger ring, 3px start-edge accent and a
+   tone-colored title — so the outcome reads at a glance. A confirmed
+   destructive operation (`reportDestructiveDone`) shares the red treatment
+   without being announced as an error. Warning / info stay the quiet
+   solid-body pattern. */
 [data-sonner-toast][data-type="success"] {
-  --normal-border: var(--success-border);
+  --normal-bg: var(--toast-success-surface);
+  --normal-border: var(--toast-success-border);
+  --toast-edge: var(--toast-success-edge);
+  --toast-title: var(--toast-success-title);
 }
-[data-sonner-toast][data-type="error"] {
-  --normal-border: var(--destructive-border);
+[data-sonner-toast][data-type="error"],
+[data-sonner-toast].oms-toast-destructive {
+  --normal-bg: var(--toast-destructive-surface);
+  --normal-text: var(--popover-foreground);
+  --normal-border: var(--toast-destructive-border);
+  --toast-edge: var(--toast-destructive-edge);
+  --toast-title: var(--toast-destructive-title);
+}
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"] {
+  gap: calc(var(--spacing) * 2.5);
+  padding-block: calc(var(--spacing) * 3.5);
+  padding-inline: calc(var(--spacing) * 4);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+}
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-title] {
+  font-weight: 600;
+  color: var(--toast-title, var(--normal-text));
+}
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-description] {
+  font-size: var(--text-caption);
+  line-height: var(--text-caption--line-height);
+  color: var(--normal-text);
+}
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-icon] {
+  width: 1.25rem;
+  height: 1.25rem;
+  align-self: flex-start;
+}
+[data-sonner-toaster] [data-sonner-toast][data-type="success"],
+[data-sonner-toaster] [data-sonner-toast][data-type="error"],
+[data-sonner-toaster] [data-sonner-toast].oms-toast-destructive {
+  box-shadow:
+    inset 3px 0 0 var(--toast-edge),
+    var(--shadow-floating);
+}
+[data-sonner-toaster][dir="rtl"] [data-sonner-toast][data-type="success"],
+[data-sonner-toaster][dir="rtl"] [data-sonner-toast][data-type="error"],
+[data-sonner-toaster][dir="rtl"] [data-sonner-toast].oms-toast-destructive {
+  box-shadow:
+    inset -3px 0 0 var(--toast-edge),
+    var(--shadow-floating);
+}
+[data-sonner-toast].oms-toast-destructive [data-icon] {
+  color: var(--toast-destructive-title);
 }
 [data-sonner-toast][data-type="warning"] {
   --normal-border: var(--warning-border);
@@ -609,7 +701,7 @@
 [data-sonner-toast][data-type="info"] [data-icon] {
   color: var(--info-soft-foreground);
 }
-[data-sonner-toast] {
+[data-sonner-toaster] [data-sonner-toast] {
   box-shadow: var(--shadow-floating);
 }
 

@@ -46,7 +46,7 @@ import { useCompany } from "@/providers/company-provider";
 import { usePrintCompany } from "@/components/print/print-brand";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { reportApiError, toast } from "@/lib/toast";
+import { reportApiError, reportDestructiveDone, toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
 import { CreateReturnDialog } from "./create-return-dialog";
 import { PermissionGate } from "@/components/shared/permission-gate";
@@ -191,7 +191,7 @@ function PurchaseInvoicesPageContent() {
     if (!cancelTarget) return;
     try {
       await purchaseInvoicesService.cancel(cancelTarget.id);
-      toast.success(t("purchasing.invoices.toasts.cancelled"));
+      reportDestructiveDone(t("purchasing.invoices.toasts.cancelled"));
       void load();
     } catch (error) {
       reportApiError(error, "errors.cancelFailed");
@@ -380,6 +380,7 @@ function PurchaseInvoicesPageContent() {
         isLoading={isLoading}
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
+        selectionResetKey={listFilters}
         bulkActions={
           <SalesListBulkActions
             onPrint={handleBulkPrint}

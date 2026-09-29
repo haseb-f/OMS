@@ -367,4 +367,89 @@ describe('PhoneNumberService', () => {
       expect(service.isSupportedRegion('SA')).toBe(true);
     });
   });
+
+  // Mirrors apps/web/src/services/phone-service.spec.ts — the form and the
+  // server must agree on every one of these (usability-financial-reports
+  // phone-field.md).
+  describe('web/API parity — normalization and country rules', () => {
+    it('normalizes Arabic-Indic and Extended (Persian) digits', () => {
+      expect(service.normalizeToE164('٠٥٠١٢٣٤٥٦٧', 'SA')).toBe('+966501234567');
+      expect(service.normalizeToE164('۰۵۰۱۲۳۴۵۶۷', 'SA')).toBe('+966501234567');
+      expect(service.normalizeToE164('+٢٠١٠١٢٣٤٥٦٧٨', 'EG')).toBe(
+        '+201012345678',
+      );
+    });
+
+    it('strips separators and bidi marks', () => {
+      expect(service.normalizeToE164('(050) 123-45.67', 'SA')).toBe(
+        '+966501234567',
+      );
+      expect(
+        service.normalizeToE164('\u200e+966 50-123 4567\u200f', 'SA'),
+      ).toBe('+966501234567');
+    });
+
+    it('treats a leading 00 as the international prefix', () => {
+      expect(service.normalizeToE164('00201012345678', 'EG')).toBe(
+        '+201012345678',
+      );
+    });
+
+    it('never duplicates the calling code of the selected region', () => {
+      expect(service.normalizeToE164('966501234567', 'SA')).toBe(
+        '+966501234567',
+      );
+      expect(service.normalizeToE164('201012345678', 'EG')).toBe(
+        '+201012345678',
+      );
+      expect(service.normalizeToE164('447400123456', 'GB')).toBe(
+        '+447400123456',
+      );
+    });
+
+    it('handles national trunk prefixes (EG 010, SA 05, GB 07)', () => {
+      expect(service.normalizeToE164('01012345678', 'EG')).toBe(
+        '+201012345678',
+      );
+      expect(service.normalizeToE164('0501234567', 'SA')).toBe('+966501234567');
+      expect(service.normalizeToE164('07400123456', 'GB')).toBe(
+        '+447400123456',
+      );
+    });
+
+    it('never reinterprets a bare national digit string as a foreign number', () => {
+      const result = service.parse('5012345678', 'SA');
+      expect(result.isValid).toBe(false);
+      expect(result.e164).toBeNull();
+      expect(result.regionMismatch).toBe(false);
+    });
+
+    it('accepts a foreign "+" number but reports the calling-code mismatch', () => {
+      const result = service.parse('+201012345678', 'SA');
+      expect(result.e164).toBe('+201012345678');
+      expect(result.detectedRegion).toBe('EG');
+      expect(result.regionMismatch).toBe(true);
+      expect(result.sharedCallingCode).toBe(false);
+    });
+
+    it('accepts shared calling codes without a mismatch (US/CA, RU/KZ, GB/GG)', () => {
+      const us = service.parse('2025550123', 'CA');
+      expect(us.e164).toBe('+12025550123');
+      expect(us.detectedRegion).toBe('US');
+      expect(us.regionMismatch).toBe(false);
+      expect(us.sharedCallingCode).toBe(true);
+      const kz = service.parse('+77012345678', 'RU');
+      expect(kz.e164).toBe('+77012345678');
+      expect(kz.regionMismatch).toBe(false);
+      const gg = service.parse('07781123456', 'GB');
+      expect(gg.e164).toBe('+447781123456');
+      expect(gg.regionMismatch).toBe(false);
+    });
+
+    it('keeps a stored E.164 value unchanged when parsed against another country', () => {
+      const result = service.parse('+966501234567', 'EG');
+      expect(result.e164).toBe('+966501234567');
+      expect(result.regionMismatch).toBe(true);
+    });
+  });
 });

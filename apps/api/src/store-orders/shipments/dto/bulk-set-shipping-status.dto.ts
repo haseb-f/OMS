@@ -6,6 +6,7 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import { BULK_LIMITS } from '../../../common/bulk/bulk-limits';
 
 /**
  * Bulk "change to any status" from the Store Orders list — the exact same
@@ -20,7 +21,7 @@ import {
 export class BulkSetShippingStatusDto {
   @IsArray()
   @ArrayMinSize(1)
-  @ArrayMaxSize(1000)
+  @ArrayMaxSize(BULK_LIMITS.storeOrderShippingStatusMax)
   @IsUUID('4', { each: true })
   storeOrderIds!: string[];
 

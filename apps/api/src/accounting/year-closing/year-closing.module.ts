@@ -5,7 +5,6 @@ import { NumberingModule } from '../../numbering/numbering.module';
 import { JournalEntriesModule } from '../../journal-entries/journal-entries.module';
 import { FiscalPeriodsModule } from '../fiscal-periods/fiscal-periods.module';
 import { AccountingReportsModule } from '../reports/accounting-reports.module';
-import { OpeningBalancesModule } from '../opening-balances/opening-balances.module';
 
 @Module({
   imports: [
@@ -13,7 +12,6 @@ import { OpeningBalancesModule } from '../opening-balances/opening-balances.modu
     JournalEntriesModule,
     FiscalPeriodsModule,
     AccountingReportsModule,
-    OpeningBalancesModule,
   ],
   controllers: [YearClosingController],
   providers: [YearClosingService],

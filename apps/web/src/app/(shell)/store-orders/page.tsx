@@ -13,7 +13,13 @@ import {
   EnterpriseDateRangePicker,
   type DateRangeValue,
 } from "@/components/shared/date-range-picker";
-import { MultiSelectFilter } from "@/components/shared/data-table";
+import {
+  MultiSelectFilter,
+  toRowSelection,
+  useBulkLimitGuard,
+  useMatchingSelection,
+} from "@/components/shared/data-table";
+import { BULK_LIMITS } from "@/lib/bulk-limits";
 import { SelectFilter } from "@/components/shared/data-table/select-filter";
 import {
   DECLARED_STATUS_VALUES,
@@ -73,7 +79,7 @@ function StoreOrdersPageContent() {
   const router = useRouter();
   const { user, hasPermission } = useUserContext();
   const printCompany = usePrintCompany();
-  const { printList } = usePrintEngine();
+  const { runPrint } = usePrintEngine();
   const canCreate = hasPermission("store-orders.create");
   const canBulkShipping = hasPermission("shipping.manage");
   const canGlobalLookup =
@@ -113,15 +119,7 @@ function StoreOrdersPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const [isSelectingAllMatching, setIsSelectingAllMatching] = useState(false);
   const [isSelectingCustomCount, setIsSelectingCustomCount] = useState(false);
-  // Advanced Bulk Selection (TASK-064) — set only by "select all filtered"
-  // and "select a specific number" (the two "virtual"/query-derived
-  // selections), never by individual checkbox clicks or "select current
-  // page". When the underlying query changes after one of those runs, the
-  // effect below drops the now-stale selection instead of silently keeping
-  // orders selected that no longer match anything the user can see.
-  const [bulkSelectionQuery, setBulkSelectionQuery] = useState<string | null>(null);
   const [bulkShippingDialogOpen, setBulkShippingDialogOpen] = useState(false);
   const [isBulkUpdatingShipping, setIsBulkUpdatingShipping] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -222,35 +220,13 @@ function StoreOrdersPageContent() {
     void load();
   }, [load]);
 
-  /** Identifies "the query a virtual bulk selection was built from" — same filters+sort `listIds` was called with. */
-  const querySignature = useCallback(
-    () => JSON.stringify({ ...listParams(), sortBy, sortOrder }),
-    [listParams, sortBy, sortOrder],
-  );
-
-  // Selection Snapshot Safety (TASK-064) — a "select all filtered"/"select
-  // first N" selection means "the set matching THIS query", not "whatever
-  // these ids resolve to later". If the filters or sort change afterward,
-  // drop the now-stale selection and say so, rather than leaving orders
-  // selected that the user can no longer see or that the count no longer
-  // describes. Selections built by hand (checkbox clicks, "select current
-  // page") never set `bulkSelectionQuery`, so they're untouched here and
-  // survive filter/sort changes, same as pagination.
-  useEffect(() => {
-    if (Object.keys(rowSelection).length === 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (bulkSelectionQuery !== null) setBulkSelectionQuery(null);
-      return;
-    }
-    if (bulkSelectionQuery === null) return;
-    const currentSignature = querySignature();
-    if (currentSignature !== bulkSelectionQuery) {
-      setRowSelection({});
-      setBulkSelectionQuery(null);
-      toast.info(t("storeOrders.bulkSelection.selectionCleared"));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [querySignature, rowSelection]);
+  // Selection Snapshot Safety (tables-selection.md) — a selection belongs to
+  // the query it was made under: the table clears ANY selection when the
+  // filters, search or sort change (`selectionResetKey`), in-flight
+  // "select all"/"first N" results for an old query are dropped, and "All N
+  // matching" is claimed only for a complete result of the current query.
+  const matching = useMatchingSelection(listFilters);
+  const withinBulkLimit = useBulkLimitGuard();
 
   const toPrintRow = useCallback(
     (item: StoreOrderRow): Record<string, string> => storeOrderPrintRow(item, t),
@@ -271,23 +247,63 @@ function StoreOrdersPageContent() {
   const selectedIds = Object.keys(rowSelection);
   const selectedItems = selectedIds.map((id) => itemsCache[id]).filter((item) => !!item);
 
+  // Bulk print/export must cover EVERY selected id, not only rows this
+  // browser has loaded — an "all matching" / "first N" selection holds ids
+  // from pages never visited. Missing rows are fetched with the current
+  // query; if some still can't be resolved (row cap, or the query moved on),
+  // the job stops with a reason instead of printing fewer rows than stated.
+  const resolveSelectedItems = async (): Promise<StoreOrderRow[] | null> => {
+    if (selectedIds.length === 0) return null;
+    if (selectedItems.length === selectedIds.length) return selectedItems;
+    try {
+      const selected = new Set(selectedIds);
+      const { rows } = await fetchAllPages(async (nextPage, nextPageSize) =>
+        storeOrdersService.list({ ...listFilters, page: nextPage, pageSize: nextPageSize }),
+      );
+      const matched = rows.filter((row) => selected.has(row.id));
+      setItemsCache((cache) => ({
+        ...cache,
+        ...Object.fromEntries(matched.map((item) => [item.id, item])),
+      }));
+      if (matched.length !== selectedIds.length) {
+        toast.error(t("table.bulkRowsUnavailable"), {
+          description: t("table.bulkRowsUnavailableDetail", {
+            resolved: matched.length,
+            selected: selectedIds.length,
+          }),
+        });
+        return null;
+      }
+      return matched;
+    } catch (error) {
+      reportApiError(error, "table.loadFailed");
+      return null;
+    }
+  };
+
+  // `runPrint` opens the preview tab inside the click, before the await.
   const handleBulkPrint = () => {
-    if (selectedItems.length === 0) return;
-    printList({
-      variant: "list",
-      title: t("storeOrders.title"),
-      company: {
-        name: printCompany.name,
-        logoUrl: printCompany.logoUrl ?? null,
-      },
-      printedByName: user?.fullName ?? null,
-      columns: storeOrderExportColumnList(t),
-      rows: selectedItems.map(toPrintRow),
+    if (selectedIds.length === 0) return;
+    void runPrint("list", async () => {
+      const selectedItems = await resolveSelectedItems();
+      if (!selectedItems) return null;
+      return {
+        variant: "list" as const,
+        title: t("storeOrders.title"),
+        company: {
+          name: printCompany.name,
+          logoUrl: printCompany.logoUrl ?? null,
+        },
+        printedByName: user?.fullName ?? null,
+        columns: storeOrderExportColumnList(t),
+        rows: selectedItems.map(toPrintRow),
+      };
     });
   };
 
-  const handleBulkExport = () => {
-    if (selectedItems.length === 0) return;
+  const handleBulkExport = async () => {
+    const selectedItems = await resolveSelectedItems();
+    if (!selectedItems) return;
     exportRowsToCsv(
       selectedItems.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
       storeOrderExportColumns,
@@ -310,31 +326,20 @@ function StoreOrdersPageContent() {
     }
   };
 
-  const handleSelectAllMatching = async () => {
-    setIsSelectingAllMatching(true);
-    try {
-      const result = await storeOrdersService.listIds({ ...listParams(), sortBy, sortOrder });
-      setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
-      setBulkSelectionQuery(querySignature());
-    } catch (error) {
-      reportApiError(error, "errors.selectFailed");
-    } finally {
-      setIsSelectingAllMatching(false);
-    }
-  };
+  // Same filters as the list — including Cost State / Loss-Making, which the
+  // server applies to `/ids` exactly as it does to the list.
+  const handleSelectAllMatching = () =>
+    matching.selectAllMatching(() => storeOrdersService.listIds(listFilters), setRowSelection);
 
   /** "Select a specific number" — the first `count` orders by the current filter AND current sort (never an arbitrary subset). Reports when fewer than requested were available. */
   const handleSelectCustomCount = async (count: number) => {
     setIsSelectingCustomCount(true);
     try {
-      const result = await storeOrdersService.listIds({
-        ...listParams(),
-        sortBy,
-        sortOrder,
-        limit: count,
-      });
-      setRowSelection(Object.fromEntries(result.ids.map((id) => [id, true])));
-      setBulkSelectionQuery(querySignature());
+      const result = await matching.fetchForCurrentQuery(() =>
+        storeOrdersService.listIds({ ...listFilters, limit: count }),
+      );
+      if (!result) return;
+      setRowSelection(toRowSelection(result.ids));
       if (result.ids.length < count) {
         toast.info(t("storeOrders.bulkSelection.customCountPartial", { count: result.ids.length }));
       }
@@ -353,6 +358,7 @@ function StoreOrdersPageContent() {
    * actionable instead of a bare count.
    */
   const handleBulkShippingStatusChange = async (shippingStatusId: string) => {
+    if (!withinBulkLimit(selectedIds.length, BULK_LIMITS.storeOrderShippingStatusMax)) return;
     setIsBulkUpdatingShipping(true);
     try {
       const results = await shippingService.bulkSetStatus(selectedIds, shippingStatusId);
@@ -599,8 +605,10 @@ function StoreOrdersPageContent() {
         }
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
+        selectionResetKey={matching.queryKey}
+        matchingSelection={matching.matchingSelection}
         onSelectAllMatching={handleSelectAllMatching}
-        isSelectingAllMatching={isSelectingAllMatching}
+        isSelectingAllMatching={matching.isSelectingAllMatching}
         selectCustomCount={{
           onSelect: handleSelectCustomCount,
           isSelecting: isSelectingCustomCount,
@@ -616,7 +624,11 @@ function StoreOrdersPageContent() {
           <StoreOrdersBulkActions
             onPrint={handleBulkPrint}
             onExport={handleBulkExport}
-            onChangeShippingStatus={() => setBulkShippingDialogOpen(true)}
+            onChangeShippingStatus={() => {
+              if (withinBulkLimit(selectedIds.length, BULK_LIMITS.storeOrderShippingStatusMax)) {
+                setBulkShippingDialogOpen(true);
+              }
+            }}
             canChangeShippingStatus={canBulkShipping}
             labels={{
               print: t("table.print"),

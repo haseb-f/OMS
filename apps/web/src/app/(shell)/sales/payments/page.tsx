@@ -50,7 +50,7 @@ import { useCompany } from "@/providers/company-provider";
 import { usePrintCompany } from "@/components/print/print-brand";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { reportApiError, toast } from "@/lib/toast";
+import { reportApiError, reportDestructiveDone, toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
@@ -186,7 +186,7 @@ function CustomerReceiptsPageContent() {
     if (!cancelTarget) return;
     try {
       await service.cancel(cancelTarget.id);
-      toast.success(t("financialTransactions.toasts.cancelled"));
+      reportDestructiveDone(t("financialTransactions.toasts.cancelled"));
       void load();
     } catch (error) {
       reportApiError(error, "errors.cancelFailed");
@@ -529,6 +529,7 @@ function CustomerReceiptsPageContent() {
         isLoading={isLoading}
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
+        selectionResetKey={listFilters}
         bulkActions={
           <SalesListBulkActions
             onPrint={handleBulkPrint}

@@ -10,6 +10,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildDateRangeFilter } from '../../sales/shared/sales-list-query.util';
+import { POSTING_ROLE_SETTINGS } from '../foundation/standard-chart-of-accounts';
 import { ReportQueryBaseDto } from './dto/report-query-base.dto';
 import { GeneralLedgerQueryDto } from './dto/general-ledger-query.dto';
 import { TrialBalanceQueryDto } from './dto/trial-balance-query.dto';
@@ -30,14 +31,36 @@ import {
 import {
   buildAccountForest,
   buildCashMovementReport,
-  classifyCashFlowSource,
-  leafLine,
   roundReportMoney,
-  wrapSection,
   type AccountAmounts,
   type CoaNode,
   type HierarchicalReportLine,
 } from './financial-report-tree';
+import {
+  buildBalanceSheet,
+  buildCashFlowActivities,
+  buildIncomeStatement,
+  effectiveSourceType,
+  type ReportWarning,
+} from './financial-statements';
+import {
+  buildClassificationContext,
+  type ReportRole,
+  type RoleAssignment,
+} from './statement-classification';
+import {
+  asOfEndOfDay,
+  ENTRY_LINE_ORDER,
+  journalReportOrder,
+  OPENING_BALANCE_SOURCE_TYPE,
+  openingScope,
+  periodScope,
+  reportEntryScope,
+  reportStatusFilter,
+  withoutYearClosing,
+  YEAR_CLOSING_SOURCE_TYPE,
+  yearClosingOf,
+} from './report-scope';
 import {
   buildLedgerMovements,
   LEDGER_LINE_INCLUDE,
@@ -114,30 +137,13 @@ export class AccountingReportsService {
   private buildStatusFilter(
     postedOnly?: boolean,
   ): Prisma.EnumJournalEntryStatusFilter {
-    if (postedOnly === false) {
-      return {
-        in: [
-          JournalEntryStatus.DRAFT,
-          JournalEntryStatus.POSTED,
-          JournalEntryStatus.REVERSED,
-        ],
-      };
-    }
-    return { in: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] };
+    return reportStatusFilter(postedOnly);
   }
 
   private buildEntryScopeWhere(
     filters: ReportQueryBaseDto,
   ): Prisma.JournalEntryWhereInput {
-    return {
-      deletedAt: null,
-      status: this.buildStatusFilter(filters.postedOnly),
-      ...(filters.companyId && { companyId: filters.companyId }),
-      ...(filters.branchId && { branchId: filters.branchId }),
-      ...(filters.costCenterId && { costCenterId: filters.costCenterId }),
-      ...(filters.projectId && { projectId: filters.projectId }),
-      ...(filters.currencyId && { currencyId: filters.currencyId }),
-    };
+    return reportEntryScope(filters);
   }
 
   /**
@@ -422,23 +428,59 @@ export class AccountingReportsService {
         debitTotal: acc.debitTotal + r.debitTotal,
         creditTotal: acc.creditTotal + r.creditTotal,
         closingBalance: acc.closingBalance + r.closingBalance,
+        closingDebit: acc.closingDebit + Math.max(r.closingBalance, 0),
+        closingCredit: acc.closingCredit + Math.max(-r.closingBalance, 0),
       }),
-      { openingBalance: 0, debitTotal: 0, creditTotal: 0, closingBalance: 0 },
+      {
+        openingBalance: 0,
+        debitTotal: 0,
+        creditTotal: 0,
+        closingBalance: 0,
+        closingDebit: 0,
+        closingCredit: 0,
+      },
     );
+    const rounded = {
+      debitTotal: roundReportMoney(totals.debitTotal),
+      creditTotal: roundReportMoney(totals.creditTotal),
+      openingBalance: roundReportMoney(totals.openingBalance),
+      closingBalance: roundReportMoney(totals.closingBalance),
+      closingDebit: roundReportMoney(totals.closingDebit),
+      closingCredit: roundReportMoney(totals.closingCredit),
+    };
+    const periodDifference = roundReportMoney(
+      rounded.debitTotal - rounded.creditTotal,
+    );
+    const warnings = await this.integrityWarnings(query);
 
     return {
       items: filteredRows,
       total: filteredRows.length,
       page: 1,
       pageSize: filteredRows.length,
-      totals: {
-        debitTotal: totals.debitTotal,
-        creditTotal: totals.creditTotal,
-        openingBalance: totals.openingBalance,
-        closingBalance: totals.closingBalance,
-      },
+      totals: rounded,
       includeOpeningBalance: includeOpening,
-      balanced: Math.abs(totals.debitTotal - totals.creditTotal) < 0.01,
+      balanced: Math.abs(periodDifference) < 0.01,
+      /**
+       * Opening, period and closing must each net to zero over the whole
+       * ledger (debit-positive). Not meaningful while `search` narrows the
+       * accounts — `filtered` says so.
+       */
+      checks: {
+        filtered: Boolean(search),
+        periodDifference,
+        openingDifference: rounded.openingBalance,
+        closingDifference: rounded.closingBalance,
+        balanced:
+          Math.abs(periodDifference) < 0.01 &&
+          Math.abs(rounded.openingBalance) < 0.01 &&
+          Math.abs(rounded.closingBalance) < 0.01,
+      },
+      period: {
+        dateFrom: query.dateFrom ?? null,
+        dateTo: query.dateTo ?? null,
+      },
+      warnings,
       lines,
     };
   }
@@ -467,9 +509,9 @@ export class AccountingReportsService {
       this.prisma.journalEntry.findMany({
         where,
         include: {
-          lines: { include: { account: true }, orderBy: { lineOrder: 'asc' } },
+          lines: { include: { account: true }, orderBy: ENTRY_LINE_ORDER },
         },
-        orderBy: { entryDate: sortOrder },
+        orderBy: journalReportOrder(sortOrder),
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -484,397 +526,253 @@ export class AccountingReportsService {
   }
 
   /**
-   * TASK-051 Phase 3 — a point-in-time report: every account's balance as
-   * of `dateTo` (read as "as of"; `dateFrom` is ignored — a Balance Sheet
-   * has no start date). Since this system never posts period-close
-   * ("zero out Revenue/Expense into Retained Earnings") entries, current
-   * Revenue/Expense activity is rolled into `currentEarnings` and added to
-   * Equity so the statement balances — the same "current year earnings"
-   * line every real Balance Sheet shows before formal year-end closing.
+   * Statement of Financial Position as of `dateTo` (`dateFrom` ignored).
+   * Assets / liabilities are split current / non-current by the report-layer
+   * classification (statement-classification.ts); anything unresolved is
+   * shown as its own group with a warning. Unclosed profit is split into
+   * prior periods (before the fiscal year containing the as-of date) and the
+   * current fiscal year: current-year profit equals the Income Statement for
+   * [fiscal-year start, as-of] while that year is not closed. Year Closing
+   * entries are included here — they move profit into Retained Earnings and
+   * keep the equation intact.
+   *
+   * `assets` / `liabilities` / `equity` rows and `currentEarnings` keep
+   * their original meaning (by account type; cumulative unclosed P&L) for
+   * Year Closing's next-year opening entry.
    */
   async balanceSheet(query: BalanceSheetQueryDto) {
-    const asOfDate = query.dateTo
-      ? new Date(new Date(query.dateTo).getTime() + (24 * 60 * 60 * 1000 - 1))
-      : new Date();
+    const asOfDate = asOfEndOfDay(query.dateTo);
     const scopeWhere = this.buildEntryScopeWhere(query);
+    const fiscalYear = await this.currentFiscalYear(asOfDate);
+    const fiscalYearStart = fiscalYear.startDate;
 
-    const [rowsByType, accounts] = await Promise.all([
+    const [
+      sums,
+      currentYearSums,
+      currentYearClosingSums,
+      rowsByType,
+      accounts,
+      ctx,
+      cashIds,
+    ] = await Promise.all([
+      this.aggregateAccountDebitCredit({
+        ...scopeWhere,
+        entryDate: { lte: asOfDate },
+      }),
+      // Exactly the Income Statement's scope for [FY start, as-of].
+      this.aggregateAccountDebitCredit(
+        withoutYearClosing({
+          ...scopeWhere,
+          entryDate: { gte: fiscalYearStart, lte: asOfDate },
+        }),
+      ),
+      // This fiscal year's own Year Closing and its reversals, whenever
+      // dated (without a FiscalYear row: closings inside the year).
+      this.aggregateAccountDebitCredit(
+        fiscalYear.id
+          ? {
+              ...scopeWhere,
+              entryDate: { lte: asOfDate },
+              AND: [yearClosingOf(fiscalYear.id)],
+            }
+          : {
+              ...scopeWhere,
+              sourceType: YEAR_CLOSING_SOURCE_TYPE,
+              entryDate: { gte: fiscalYearStart, lte: asOfDate },
+            },
+      ),
       this.groupBalancesByAccountType({
         ...scopeWhere,
         entryDate: { lte: asOfDate },
       }),
       this.loadCoaNodes(),
+      this.loadClassificationContext(),
+      this.resolveCashAccountIds(),
     ]);
 
-    const totalAssets = this.sumRows(rowsByType.ASSET);
-    const totalLiabilities = this.sumRows(rowsByType.LIABILITY);
-    const totalEquityAccounts = this.sumRows(rowsByType.EQUITY);
-    const currentEarnings =
-      this.sumRows(rowsByType.REVENUE) - this.sumRows(rowsByType.EXPENSE);
-    const totalEquity = totalEquityAccounts + currentEarnings;
-    const valueKeys = ['balance'];
-
-    const assetsForest = buildAccountForest(
+    const statement = buildBalanceSheet({
       accounts,
-      this.statementRowsToAmounts(rowsByType.ASSET),
-      valueKeys,
-      { accountType: AccountType.ASSET },
-    );
-    const liabilitiesForest = buildAccountForest(
-      accounts,
-      this.statementRowsToAmounts(rowsByType.LIABILITY),
-      valueKeys,
-      { accountType: AccountType.LIABILITY },
-    );
-    const equityForest = buildAccountForest(
-      accounts,
-      this.statementRowsToAmounts(rowsByType.EQUITY),
-      valueKeys,
-      { accountType: AccountType.EQUITY },
-    );
-    if (Math.abs(currentEarnings) >= 0.005) {
-      equityForest.push(
-        leafLine({
-          id: 'current-earnings',
-          kind: 'result',
-          label: 'Current Earnings (unclosed)',
-          labelEn: 'Current Earnings (unclosed)',
-          values: { balance: roundReportMoney(currentEarnings) },
-          level: 1,
-        }),
-      );
-    }
-
-    const lines = [
-      wrapSection({
-        id: 'assets',
-        label: 'Assets',
-        labelEn: 'Assets',
-        children: assetsForest,
-        valueKeys,
-        totalLabel: 'Total Assets',
-        totalLabelEn: 'Total Assets',
-      }),
-      wrapSection({
-        id: 'liabilities',
-        label: 'Liabilities',
-        labelEn: 'Liabilities',
-        children: liabilitiesForest,
-        valueKeys,
-        totalLabel: 'Total Liabilities',
-        totalLabelEn: 'Total Liabilities',
-      }),
-      wrapSection({
-        id: 'equity',
-        label: 'Equity',
-        labelEn: 'Equity',
-        children: equityForest,
-        valueKeys,
-        totalLabel: 'Total Equity',
-        totalLabelEn: 'Total Equity',
-      }),
-      leafLine({
-        id: 'liabilities-equity',
-        kind: 'grand_total',
-        label: 'Total Liabilities and Equity',
-        labelEn: 'Total Liabilities and Equity',
-        values: { balance: roundReportMoney(totalLiabilities + totalEquity) },
-      }),
+      sums,
+      currentYearSums,
+      currentYearClosingSums,
+      ctx,
+      cashAccountIds: new Set(cashIds),
+    });
+    const warnings = [
+      ...statement.warnings,
+      ...(await this.integrityWarnings(query)),
     ];
+    const discrepancy = statement.totals.balanced
+      ? null
+      : {
+          difference: statement.totals.difference,
+          unbalancedEntries: await this.unbalancedEntries(asOfDate),
+        };
 
     return {
       asOfDate,
+      fiscalYearStart,
       assets: rowsByType.ASSET,
       liabilities: rowsByType.LIABILITY,
       equity: rowsByType.EQUITY,
-      currentEarnings,
-      totals: {
-        totalAssets,
-        totalLiabilities,
-        totalEquity,
-        balanced:
-          Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01,
-      },
-      lines,
+      currentEarnings: statement.currentEarnings,
+      totals: statement.totals,
+      discrepancy,
+      warnings,
+      lines: statement.lines,
     };
   }
 
-  /** TASK-051 Phase 3 — Revenue and Expense activity over [dateFrom, dateTo]. */
+  /**
+   * Income Statement over [dateFrom, dateTo] — function-of-expense analysis
+   * (IAS 1.99/103): revenue less returns/discounts, cost of sales, gross
+   * profit, selling & distribution, general & administrative, operating
+   * profit, then other income/expenses, finance costs, FX differences and
+   * any unclassified accounts to net profit. Year Closing entries are
+   * excluded (transfers to Retained Earnings, not income or expense).
+   * `revenue` / `expense` rows and `totals.totalRevenue/totalExpense/
+   * netIncome` keep their by-account-type meaning for Year Closing and
+   * period-profit.
+   */
   async incomeStatement(query: IncomeStatementQueryDto) {
-    const scopeWhere = this.buildEntryScopeWhere(query);
-    const [rowsByType, accounts] = await Promise.all([
-      this.groupBalancesByAccountType({
-        ...scopeWhere,
-        entryDate: buildDateRangeFilter(query.dateFrom, query.dateTo),
-      }),
+    const where = withoutYearClosing(periodScope(query));
+    const [sums, rowsByType, accounts, ctx] = await Promise.all([
+      this.aggregateAccountDebitCredit(where),
+      this.groupBalancesByAccountType(where),
       this.loadCoaNodes(),
+      this.loadClassificationContext(),
     ]);
-
-    const totalRevenue = this.sumRows(rowsByType.REVENUE);
-    const totalExpense = this.sumRows(rowsByType.EXPENSE);
-    const netIncome = totalRevenue - totalExpense;
-    const valueKeys = ['balance'];
-
-    const lines = [
-      wrapSection({
-        id: 'revenue',
-        label: 'Revenue',
-        labelEn: 'Revenue',
-        children: buildAccountForest(
-          accounts,
-          this.statementRowsToAmounts(rowsByType.REVENUE),
-          valueKeys,
-          { accountType: AccountType.REVENUE },
-        ),
-        valueKeys,
-        totalLabel: 'Total Revenue',
-        totalLabelEn: 'Total Revenue',
-      }),
-      wrapSection({
-        id: 'expense',
-        label: 'Expenses',
-        labelEn: 'Expenses',
-        children: buildAccountForest(
-          accounts,
-          this.statementRowsToAmounts(rowsByType.EXPENSE),
-          valueKeys,
-          { accountType: AccountType.EXPENSE },
-        ),
-        valueKeys,
-        totalLabel: 'Total Expenses',
-        totalLabelEn: 'Total Expenses',
-      }),
-      leafLine({
-        id: 'net-income',
-        kind: 'result',
-        label: netIncome >= 0 ? 'Net Profit' : 'Net Loss',
-        labelEn: netIncome >= 0 ? 'Net Profit' : 'Net Loss',
-        values: { balance: roundReportMoney(netIncome) },
-      }),
+    const statement = buildIncomeStatement({ accounts, sums, ctx });
+    const warnings = [
+      ...statement.warnings,
+      ...(await this.integrityWarnings(query)),
     ];
 
     return {
       revenue: rowsByType.REVENUE,
       expense: rowsByType.EXPENSE,
-      totals: {
-        totalRevenue,
-        totalExpense,
-        netIncome,
+      totals: statement.totals,
+      partitionDifference: statement.partitionDifference,
+      period: {
+        dateFrom: query.dateFrom ?? null,
+        dateTo: query.dateTo ?? null,
       },
-      lines,
+      warnings,
+      lines: statement.lines,
     };
   }
 
   /**
-   * TASK-051 Phase 3 — a direct-method Cash Flow Statement over
-   * [dateFrom, dateTo]. "Cash" accounts are exactly the Chart of Accounts
-   * rows already designated as a `ReceivingAccount.chartOfAccountId` — the
-   * one existing "this account is real cash/bank" signal in the schema
-   * (the same account the Financial Transaction Posting Provider debits/
-   * credits for every Receipt/Payment) — no new account-classification
-   * field was added for this. Movements are grouped by the source
-   * document's `sourceType` rather than split into Operating/Investing/
-   * Financing sections: every source type this ERP currently posts
-   * (Sales/Purchase Invoices and Returns, Customer Receipts, Supplier
-   * Payments, Inventory Adjustments) is genuinely an operating activity —
-   * there is no fixed-asset purchase, loan, or equity-financing posting
-   * path yet, so inventing those section headers would misrepresent data
-   * that doesn't exist rather than reflect it.
+   * Cash Flow Statement over [dateFrom, dateTo], direct method (IAS 7.18(a)).
+   * Cash and cash equivalents = the ledger accounts behind Receiving
+   * Accounts plus the configured Cash / Bank accounts
+   * (`resolveCashAccountIds` — the same set the Balance Sheet's
+   * `cashAndCashEquivalents` sums). Each entry's net cash movement is
+   * attributed to its counterpart accounts and classified by them
+   * (buildCashFlowActivities): operating / investing / financing, the
+   * IAS 7.28 FX effect on cash, and transfers between cash accounts
+   * excluded (IAS 7.9). `reconciliation` proves opening + activities + FX
+   * effect = closing = opening + every cash-account line in the ledger.
    */
   async cashFlowStatement(query: CashFlowQueryDto) {
-    const cashAccounts = await this.prisma.receivingAccount.findMany({
-      select: { chartOfAccountId: true },
-    });
-    const cashAccountIds = [
-      ...new Set(cashAccounts.map((a) => a.chartOfAccountId)),
-    ];
+    const cashAccountIds = await this.resolveCashAccountIds();
     if (query.view === 'movement') {
       return this.cashMovement(query, cashAccountIds);
     }
-    if (cashAccountIds.length === 0) {
-      return {
-        view: 'activities' as const,
-        openingBalance: 0,
-        movements: [],
-        totals: { netCashChange: 0, closingBalance: 0 },
-        lines: [
-          leafLine({
-            id: 'cf-opening',
-            kind: 'opening',
-            label: 'Opening cash',
-            values: { balance: 0 },
-          }),
-          wrapSection({
-            id: 'cf-operating',
-            label: 'Operating Activities',
-            children: [],
-            valueKeys: ['balance'],
-            totalLabel: 'Net cash from operating activities',
-          }),
-          wrapSection({
-            id: 'cf-investing',
-            label: 'Investing Activities',
-            children: [],
-            valueKeys: ['balance'],
-            totalLabel: 'Net cash from investing activities',
-          }),
-          wrapSection({
-            id: 'cf-financing',
-            label: 'Financing Activities',
-            children: [],
-            valueKeys: ['balance'],
-            totalLabel: 'Net cash from financing activities',
-          }),
-          leafLine({
-            id: 'cf-closing',
-            kind: 'closing',
-            label: 'Closing cash',
-            values: { balance: 0 },
-          }),
-        ],
-        sections: [
-          { section: 'OPERATING', netChange: 0 },
-          { section: 'INVESTING', netChange: 0 },
-          { section: 'FINANCING', netChange: 0 },
-        ],
-      };
-    }
 
-    const scopeWhere = this.buildEntryScopeWhere(query);
-
-    const openingBalance = query.dateFrom
-      ? await this.prisma.journalEntryLine
-          .aggregate({
-            where: {
-              accountId: { in: cashAccountIds },
-              journalEntry: {
-                ...scopeWhere,
-                entryDate: { lt: new Date(query.dateFrom) },
+    const opening = openingScope(query);
+    const [openingBalance, closingCashBalance, entries, accounts, ctx] =
+      await Promise.all([
+        opening && cashAccountIds.length > 0
+          ? this.prisma.journalEntryLine
+              .aggregate({
+                where: {
+                  accountId: { in: cashAccountIds },
+                  journalEntry: opening,
+                },
+                _sum: { debit: true, credit: true },
+              })
+              .then(
+                (agg) =>
+                  Number(agg._sum.debit ?? 0) - Number(agg._sum.credit ?? 0),
+              )
+          : Promise.resolve(0),
+        // Independent check figure: the cash accounts' balance as of the
+        // period end, aggregated the way the Balance Sheet reads it.
+        cashAccountIds.length > 0
+          ? this.prisma.journalEntryLine
+              .aggregate({
+                where: {
+                  accountId: { in: cashAccountIds },
+                  journalEntry: {
+                    ...this.buildEntryScopeWhere(query),
+                    ...(query.dateTo && {
+                      entryDate: { lte: asOfEndOfDay(query.dateTo) },
+                    }),
+                  },
+                },
+                _sum: { debit: true, credit: true },
+              })
+              .then(
+                (agg) =>
+                  Number(agg._sum.debit ?? 0) - Number(agg._sum.credit ?? 0),
+              )
+          : Promise.resolve(0),
+        cashAccountIds.length > 0
+          ? this.prisma.journalEntry.findMany({
+              where: {
+                ...periodScope(query),
+                lines: { some: { accountId: { in: cashAccountIds } } },
               },
-            },
-            _sum: { debit: true, credit: true },
-          })
-          .then(
-            (agg) => Number(agg._sum.debit ?? 0) - Number(agg._sum.credit ?? 0),
-          )
-      : 0;
+              select: {
+                id: true,
+                sourceType: true,
+                reversalOfEntry: { select: { sourceType: true } },
+                lines: {
+                  select: { accountId: true, debit: true, credit: true },
+                },
+              },
+            })
+          : Promise.resolve([]),
+        this.loadCoaNodes(),
+        this.loadClassificationContext(),
+      ]);
 
-    const lines = await this.prisma.journalEntryLine.findMany({
-      where: {
-        accountId: { in: cashAccountIds },
-        journalEntry: {
-          ...scopeWhere,
-          entryDate: buildDateRangeFilter(query.dateFrom, query.dateTo),
-        },
-      },
-      include: { journalEntry: { select: { sourceType: true } } },
+    const statement = buildCashFlowActivities({
+      entries: entries.map((entry) => ({
+        entryId: entry.id,
+        sourceType: effectiveSourceType(entry),
+        lines: entry.lines.map((line) => ({
+          accountId: line.accountId,
+          debit: Number(line.debit),
+          credit: Number(line.credit),
+        })),
+      })),
+      accounts,
+      ctx,
+      cashAccountIds: new Set(cashAccountIds),
+      openingCash: openingBalance,
+      closingCashBalance,
     });
-
-    const bySource = new Map<string, number>();
-    for (const line of lines) {
-      const key = line.journalEntry.sourceType ?? 'OTHER';
-      const net = Number(line.debit) - Number(line.credit);
-      bySource.set(key, (bySource.get(key) ?? 0) + net);
-    }
-    const movements = [...bySource.entries()]
-      .map(([sourceType, netChange]) => ({ sourceType, netChange }))
-      .sort((a, b) => a.sourceType.localeCompare(b.sourceType));
-
-    const netCashChange = movements.reduce((sum, m) => sum + m.netChange, 0);
-    const valueKeys = ['balance'];
-    const sectionOrder = [
-      'OPERATING',
-      'INVESTING',
-      'FINANCING',
-      'OTHER',
-    ] as const;
-    const sectionLabels: Record<
-      (typeof sectionOrder)[number],
-      { ar: string; en: string }
-    > = {
-      OPERATING: { ar: 'Operating Activities', en: 'Operating Activities' },
-      INVESTING: { ar: 'Investing Activities', en: 'Investing Activities' },
-      FINANCING: { ar: 'Financing Activities', en: 'Financing Activities' },
-      OTHER: { ar: 'Other', en: 'Other' },
-    };
-
-    const grouped = new Map<(typeof sectionOrder)[number], typeof movements>();
-    for (const movement of movements) {
-      const section = classifyCashFlowSource(movement.sourceType);
-      const list = grouped.get(section) ?? [];
-      list.push(movement);
-      grouped.set(section, list);
-    }
-
-    const sectionLines: HierarchicalReportLine[] = sectionOrder
-      .filter(
-        (section) =>
-          section !== 'OTHER' || (grouped.get(section)?.length ?? 0) > 0,
-      )
-      .map((section) => {
-        const children = (grouped.get(section) ?? []).map((movement) =>
-          leafLine({
-            id: `cf:${section}:${movement.sourceType}`,
-            kind: 'posting',
-            label: movement.sourceType,
-            values: { balance: roundReportMoney(movement.netChange) },
-            level: 1,
-          }),
-        );
-        return wrapSection({
-          id: `cf-${section.toLowerCase()}`,
-          label: sectionLabels[section].en,
-          labelEn: sectionLabels[section].en,
-          children,
-          valueKeys,
-          totalLabel: `Net cash from ${sectionLabels[section].en.toLowerCase()}`,
-          totalLabelEn: `Net cash from ${sectionLabels[section].en.toLowerCase()}`,
-        });
-      });
-
-    const reportLines: HierarchicalReportLine[] = [
-      leafLine({
-        id: 'cf-opening',
-        kind: 'opening',
-        label: 'Opening cash',
-        labelEn: 'Opening cash',
-        values: { balance: roundReportMoney(openingBalance) },
-      }),
-      ...sectionLines,
-      leafLine({
-        id: 'cf-net',
-        kind: 'result',
-        label: 'Net increase (decrease) in cash',
-        labelEn: 'Net increase (decrease) in cash',
-        values: { balance: roundReportMoney(netCashChange) },
-      }),
-      leafLine({
-        id: 'cf-closing',
-        kind: 'closing',
-        label: 'Closing cash',
-        labelEn: 'Closing cash',
-        values: { balance: roundReportMoney(openingBalance + netCashChange) },
-      }),
-    ];
+    const { reconciliation } = statement;
 
     return {
       view: 'activities' as const,
-      openingBalance,
-      movements,
+      method: 'direct' as const,
+      openingBalance: reconciliation.openingCash,
+      movements: statement.movements,
       totals: {
-        netCashChange,
-        closingBalance: openingBalance + netCashChange,
+        netCashChange: reconciliation.netChange,
+        closingBalance: reconciliation.closingCash,
       },
-      lines: reportLines,
-      sections: sectionOrder.map((section) => ({
-        section,
-        netChange: roundReportMoney(
-          (grouped.get(section) ?? []).reduce(
-            (sum, row) => sum + row.netChange,
-            0,
-          ),
-        ),
-      })),
+      reconciliation,
+      cashAccountIds,
+      warnings: [
+        ...statement.warnings,
+        ...(await this.integrityWarnings(query)),
+      ],
+      lines: statement.lines,
+      sections: statement.sections,
     };
   }
 
@@ -888,21 +786,18 @@ export class AccountingReportsService {
     query: CashFlowQueryDto,
     cashAccountIds: string[],
   ) {
-    const scopeWhere = this.buildEntryScopeWhere(query);
-    const [accounts, opening, period] = await Promise.all([
+    const opening = openingScope(query);
+    const [accounts, openingRows, period] = await Promise.all([
       this.prisma.chartOfAccount.findMany({
         where: { id: { in: cashAccountIds } },
         select: { id: true, code: true, name: true, nameEn: true },
       }),
-      query.dateFrom
+      opening
         ? this.prisma.journalEntryLine.groupBy({
             by: ['accountId'],
             where: {
               accountId: { in: cashAccountIds },
-              journalEntry: {
-                ...scopeWhere,
-                entryDate: { lt: new Date(query.dateFrom) },
-              },
+              journalEntry: opening,
             },
             _sum: { debit: true, credit: true },
           })
@@ -911,10 +806,7 @@ export class AccountingReportsService {
         by: ['accountId'],
         where: {
           accountId: { in: cashAccountIds },
-          journalEntry: {
-            ...scopeWhere,
-            entryDate: buildDateRangeFilter(query.dateFrom, query.dateTo),
-          },
+          journalEntry: periodScope(query),
         },
         _sum: { debit: true, credit: true },
       }),
@@ -922,7 +814,7 @@ export class AccountingReportsService {
     const { lines, totals } = buildCashMovementReport(
       accounts,
       new Map(
-        opening.map((row) => [
+        openingRows.map((row) => [
           row.accountId,
           Number(row._sum.debit ?? 0) - Number(row._sum.credit ?? 0),
         ]),
@@ -945,18 +837,13 @@ export class AccountingReportsService {
     };
   }
 
-  /** Shared by Balance Sheet and Income Statement: every account's signed balance, grouped by AccountType. */
+  /** Every account's signed balance (normal side positive), grouped by AccountType. */
   private async groupBalancesByAccountType(
     entryWhere: Prisma.JournalEntryWhereInput,
   ): Promise<Record<AccountType, StatementRow[]>> {
-    const grouped = await this.prisma.journalEntryLine.groupBy({
-      by: ['accountId'],
-      where: { journalEntry: entryWhere },
-      _sum: { debit: true, credit: true },
-    });
-
+    const sums = await this.aggregateAccountDebitCredit(entryWhere);
     const accounts = await this.prisma.chartOfAccount.findMany({
-      where: { id: { in: grouped.map((g) => g.accountId) } },
+      where: { id: { in: [...sums.keys()] } },
     });
     const accountMap = new Map(accounts.map((a) => [a.id, a]));
 
@@ -968,11 +855,9 @@ export class AccountingReportsService {
       EXPENSE: [],
     };
 
-    for (const g of grouped) {
-      const account = accountMap.get(g.accountId);
+    for (const [accountId, { debit, credit }] of sums) {
+      const account = accountMap.get(accountId);
       if (!account) continue;
-      const debit = Number(g._sum.debit ?? 0);
-      const credit = Number(g._sum.credit ?? 0);
       const balance = DEBIT_NORMAL_TYPES.includes(account.accountType)
         ? debit - credit
         : credit - debit;
@@ -980,7 +865,7 @@ export class AccountingReportsService {
         accountId: account.id,
         accountCode: account.code,
         accountName: account.name,
-        balance,
+        balance: roundReportMoney(balance),
       });
     }
 
@@ -993,13 +878,14 @@ export class AccountingReportsService {
     return rowsByType;
   }
 
-  private sumRows(rows: StatementRow[]): number {
-    return rows.reduce((sum, row) => sum + row.balance, 0);
-  }
-
+  /**
+   * Every Chart of Accounts row, including archived (soft-deleted) ones:
+   * an archived account that still carries postings must stay in the
+   * statement trees, or a tree would no longer add up to its totals. Rows
+   * with no amounts are hidden by the tree builder anyway.
+   */
   private async loadCoaNodes(): Promise<CoaNode[]> {
-    const accounts = await this.prisma.chartOfAccount.findMany({
-      where: { deletedAt: null },
+    return this.prisma.chartOfAccount.findMany({
       select: {
         id: true,
         code: true,
@@ -1012,7 +898,209 @@ export class AccountingReportsService {
       },
       orderBy: { code: 'asc' },
     });
-    return accounts;
+  }
+
+  /**
+   * Cash and cash equivalents (IAS 7.6-7.8) — the ledger accounts behind
+   * every Receiving Account (the cash/bank accounts payments are received
+   * into and paid from) plus the configured default Cash / Bank accounts.
+   * One set for the Cash Flow and the Balance Sheet cash figure.
+   */
+  private async resolveCashAccountIds(): Promise<string[]> {
+    const [receiving, settings] = await Promise.all([
+      this.prisma.receivingAccount.findMany({
+        select: { chartOfAccountId: true },
+      }),
+      this.prisma.postingSettings.findFirst({
+        select: { cashAccountId: true, bankAccountId: true },
+      }),
+    ]);
+    return [
+      ...new Set(
+        [
+          ...receiving.map((row) => row.chartOfAccountId),
+          settings?.cashAccountId,
+          settings?.bankAccountId,
+        ].filter((id): id is string => Boolean(id)),
+      ),
+    ];
+  }
+
+  /**
+   * The account roles the statements are classified by — read from the
+   * existing account mappings (Posting Settings, agent accounts, product
+   * categories, customer / supplier groups and profiles, payment-method
+   * clearing accounts, receiving accounts, partner control accounts).
+   * Nothing is inferred from names.
+   */
+  private async loadClassificationContext() {
+    const [
+      accounts,
+      settings,
+      categories,
+      customerGroups,
+      supplierGroups,
+      supplierProfiles,
+      paymentMethods,
+      cashIds,
+      controls,
+    ] = await Promise.all([
+      this.loadCoaNodes(),
+      this.prisma.postingSettings.findFirst(),
+      this.prisma.productCategory.findMany({
+        select: {
+          revenueAccountId: true,
+          cogsAccountId: true,
+          inventoryAccountId: true,
+          purchaseAccountId: true,
+        },
+      }),
+      this.prisma.customerGroup.findMany({
+        select: { defaultRevenueAccountId: true },
+      }),
+      this.prisma.supplierGroup.findMany({
+        select: { defaultPurchaseAccountId: true },
+      }),
+      this.prisma.supplierProfile.findMany({
+        select: { defaultExpenseAccountId: true },
+      }),
+      this.prisma.paymentMethod.findMany({ select: { accountId: true } }),
+      this.resolveCashAccountIds(),
+      this.prisma.chartOfAccount.findMany({
+        where: { partnerControlType: { not: null } },
+        select: { id: true, partnerControlType: true },
+      }),
+    ]);
+
+    const roles: RoleAssignment[] = [];
+    const push = (accountId: string | null | undefined, role: ReportRole) => {
+      if (accountId) roles.push({ accountId, role });
+    };
+    if (settings) {
+      const record = settings as unknown as Record<string, string | null>;
+      for (const [role, field] of Object.entries(POSTING_ROLE_SETTINGS)) {
+        if (field) push(record[field], role as ReportRole);
+      }
+      push(
+        settings.agentCommissionRevenueAccountId,
+        'AGENT_COMMISSION_REVENUE',
+      );
+      push(settings.agentServiceRevenueAccountId, 'AGENT_SERVICE_REVENUE');
+      push(settings.agentFundsPayableAccountId, 'AGENT_FUNDS_PAYABLE');
+    }
+    for (const row of categories) {
+      push(row.revenueAccountId, 'SALES_REVENUE');
+      push(row.cogsAccountId, 'COGS');
+      push(row.inventoryAccountId, 'INVENTORY');
+      push(row.purchaseAccountId, 'PURCHASE');
+    }
+    for (const row of customerGroups)
+      push(row.defaultRevenueAccountId, 'SALES_REVENUE');
+    for (const row of supplierGroups)
+      push(row.defaultPurchaseAccountId, 'PURCHASE');
+    for (const row of supplierProfiles)
+      push(row.defaultExpenseAccountId, 'OPERATING_EXPENSE');
+    for (const row of paymentMethods) push(row.accountId, 'PAYMENT_CLEARING');
+    for (const id of cashIds) push(id, 'CASH_ACCOUNT');
+    for (const row of controls) {
+      push(
+        row.id,
+        row.partnerControlType === 'RECEIVABLE'
+          ? 'PARTNER_RECEIVABLE'
+          : 'PARTNER_PAYABLE',
+      );
+    }
+    return buildClassificationContext(accounts, roles);
+  }
+
+  /**
+   * The fiscal year containing `asOf` (FiscalYear table); without one,
+   * 1 January (UTC) of the as-of year and no id.
+   */
+  private async currentFiscalYear(
+    asOf: Date,
+  ): Promise<{ id: string | null; startDate: Date }> {
+    const dayStart = new Date(
+      Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), asOf.getUTCDate()),
+    );
+    const fiscalYear = await this.prisma.fiscalYear.findFirst({
+      where: { startDate: { lte: asOf }, endDate: { gte: dayStart } },
+      orderBy: { startDate: 'desc' },
+      select: { id: true, startDate: true },
+    });
+    return (
+      fiscalYear ?? {
+        id: null,
+        startDate: new Date(Date.UTC(asOf.getUTCFullYear(), 0, 1)),
+      }
+    );
+  }
+
+  /**
+   * Scope-level warnings shared by every statement: drafts included, and a
+   * Year Closing carry-forward Opening entry (posted after a Year Closing)
+   * which, in this cumulative ledger, repeats balances already carried by
+   * the prior-year entries.
+   */
+  private async integrityWarnings(
+    query: ReportQueryBaseDto,
+  ): Promise<ReportWarning[]> {
+    const warnings: ReportWarning[] = [];
+    if (query.postedOnly === false) warnings.push({ code: 'DRAFTS_INCLUDED' });
+    const firstClosing = await this.prisma.journalEntry.findFirst({
+      where: {
+        deletedAt: null,
+        sourceType: YEAR_CLOSING_SOURCE_TYPE,
+        status: JournalEntryStatus.POSTED,
+      },
+      orderBy: { entryDate: 'asc' },
+      select: { entryDate: true },
+    });
+    if (firstClosing) {
+      const openings = await this.prisma.journalEntry.findMany({
+        where: {
+          deletedAt: null,
+          sourceType: OPENING_BALANCE_SOURCE_TYPE,
+          status: JournalEntryStatus.POSTED,
+          entryDate: { gt: firstClosing.entryDate },
+        },
+        select: { id: true, entryNumber: true },
+        take: 20,
+      });
+      if (openings.length > 0) {
+        warnings.push({
+          code: 'CARRY_FORWARD_OPENING_ENTRY',
+          entries: openings.map((row) => ({
+            id: row.id,
+            entryNumber: row.entryNumber,
+            difference: 0,
+          })),
+        });
+      }
+    }
+    return warnings;
+  }
+
+  /** Drill-down for an unbalanced statement: entries whose lines do not net to zero. */
+  private async unbalancedEntries(asOf: Date) {
+    const rows = await this.prisma.$queryRaw<
+      Array<{ id: string; entry_number: string; difference: unknown }>
+    >(Prisma.sql`
+      SELECT e.id, e.entry_number, SUM(l.debit) - SUM(l.credit) AS difference
+      FROM journal_entry_lines l
+      JOIN journal_entries e ON e.id = l.journal_entry_id
+      WHERE e.deleted_at IS NULL
+        AND e.status::text IN ('POSTED', 'REVERSED')
+        AND e.entry_date <= ${asOf}
+      GROUP BY e.id, e.entry_number
+      HAVING ABS(SUM(l.debit) - SUM(l.credit)) >= 0.005
+      ORDER BY e.entry_number
+      LIMIT 50`);
+    return rows.map((row) => ({
+      id: row.id,
+      entryNumber: row.entry_number,
+      difference: roundReportMoney(Number(row.difference)),
+    }));
   }
 
   private async aggregateAccountDebitCredit(
@@ -1031,12 +1119,6 @@ export class AccountingReportsService {
           credit: Number(row._sum.credit ?? 0),
         },
       ]),
-    );
-  }
-
-  private statementRowsToAmounts(rows: StatementRow[]): AccountAmounts {
-    return Object.fromEntries(
-      rows.map((row) => [row.accountId, { balance: row.balance }]),
     );
   }
 

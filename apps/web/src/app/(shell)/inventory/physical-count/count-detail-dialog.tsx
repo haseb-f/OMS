@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/business/status-badge";
 import { useLocale } from "@/providers/locale-provider";
-import { toast, reportApiError } from "@/lib/toast";
+import { toast, reportApiError, reportDestructiveDone } from "@/lib/toast";
 import {
   physicalCountService,
   type PhysicalCountDetailRow,
@@ -109,7 +109,7 @@ export function CountDetailDialog({
     setIsSubmitting(true);
     try {
       await physicalCountService.cancel(count.id);
-      toast.success(t("inventory.physicalCount.cancelledSuccess"));
+      reportDestructiveDone(t("inventory.physicalCount.cancelledSuccess"));
       setCancelOpen(false);
       onChanged();
       load();

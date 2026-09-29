@@ -8,10 +8,18 @@ import {
 } from '../../journal-entries/activities/journal-entry-activity.service';
 import { FiscalYearsService } from '../fiscal-periods/fiscal-years.service';
 import { AccountingReportsService } from '../reports/accounting-reports.service';
-import { OpeningBalancesService } from '../opening-balances/opening-balances.service';
 import { CloseYearDto } from './dto/close-year.dto';
 
 const CLOSING_SOURCE_TYPE = 'YEAR_CLOSING';
+
+/**
+ * Carry-forward is refused (fail-closed). Every OMS report accumulates from
+ * inception (opening = everything before the period), so an Opening entry
+ * at the next fiscal year's start re-posting the closed year's ending
+ * balances would count every balance-sheet balance twice. The closed year's
+ * balances already carry into the next year by themselves.
+ */
+export const CARRY_FORWARD_DISABLED = 'YEAR_CLOSING_CARRY_FORWARD_DISABLED';
 
 function toISODate(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -25,13 +33,10 @@ function toISODate(date: Date): string {
  *   1. One Closing/P&L-transfer entry zeroing every Revenue/Expense account
  *      active during the year, with the net difference posted to the
  *      configured Retained Earnings account.
- *   2. Optionally, one Opening entry for the next Fiscal Year carrying
- *      forward the just-closed year's ending Balance Sheet (Assets/
- *      Liabilities/Equity, including the Retained Earnings transfer above).
- * Reuses `AccountingReportsService.incomeStatement/balanceSheet` for every
- * balance computed here (never a second balance query) and
- * `OpeningBalancesService.create` for the next-year entry (never a second
- * "build a balanced entry" implementation).
+ *   2. (No next-year Opening entry — see CARRY_FORWARD_DISABLED: the
+ *      ledger is cumulative, so balances carry forward without one.)
+ * Reuses `AccountingReportsService.incomeStatement` for every balance
+ * computed here (never a second balance query).
  */
 @Injectable()
 export class YearClosingService {
@@ -41,10 +46,16 @@ export class YearClosingService {
     private readonly activityService: JournalEntryActivityService,
     private readonly fiscalYears: FiscalYearsService,
     private readonly accountingReports: AccountingReportsService,
-    private readonly openingBalances: OpeningBalancesService,
   ) {}
 
   async execute(dto: CloseYearDto, userId?: string) {
+    if (dto.nextFiscalYearId) {
+      throw new BadRequestException({
+        code: CARRY_FORWARD_DISABLED,
+        message:
+          'لا يُنشأ قيد افتتاحي للسنة التالية عند الإقفال: الأرصدة تنتقل تلقائيًا لأن التقارير تتراكم منذ البداية، وترحيلها مرة أخرى يضاعف أرصدة الميزانية. أعد الإقفال دون اختيار السنة التالية — Year Closing does not post a next-year opening entry: balances already carry forward because reports accumulate from inception, and re-posting them would double every balance-sheet balance. Run the closing again without a next fiscal year.',
+      });
+    }
     const fiscalYear = await this.fiscalYears.findOne(dto.fiscalYearId);
     if (fiscalYear.status !== FiscalYearStatus.CLOSED) {
       throw new BadRequestException(
@@ -78,16 +89,7 @@ export class YearClosingService {
       userId,
     );
 
-    let openingEntry = null;
-    if (dto.nextFiscalYearId) {
-      openingEntry = await this.generateNextYearOpeningEntry(
-        fiscalYear,
-        dto.nextFiscalYearId,
-        userId,
-      );
-    }
-
-    return { closingEntry, openingEntry };
+    return { closingEntry, openingEntry: null };
   }
 
   private async generateClosingEntry(
@@ -190,45 +192,5 @@ export class YearClosingService {
 
       return entry;
     });
-  }
-
-  private async generateNextYearOpeningEntry(
-    closedFiscalYear: { id: string; name: string; endDate: Date },
-    nextFiscalYearId: string,
-    userId?: string,
-  ) {
-    const nextFiscalYear = await this.fiscalYears.findOne(nextFiscalYearId);
-
-    const balanceSheet = await this.accountingReports.balanceSheet({
-      dateTo: toISODate(closedFiscalYear.endDate),
-    });
-
-    const lines: { accountId: string; debit?: number; credit?: number }[] = [];
-    for (const row of [
-      ...balanceSheet.assets,
-      ...balanceSheet.liabilities,
-      ...balanceSheet.equity,
-    ]) {
-      if (Math.abs(row.balance) < 0.01) continue;
-      lines.push({
-        accountId: row.accountId,
-        debit: row.balance > 0 ? row.balance : undefined,
-        credit: row.balance < 0 ? -row.balance : undefined,
-      });
-    }
-    if (lines.length === 0) {
-      throw new BadRequestException(
-        `Fiscal Year "${closedFiscalYear.name}" has no ending Balance Sheet activity to carry forward.`,
-      );
-    }
-
-    return this.openingBalances.create(
-      {
-        fiscalYearId: nextFiscalYear.id,
-        openingDate: toISODate(nextFiscalYear.startDate),
-        lines,
-      },
-      userId,
-    );
   }
 }

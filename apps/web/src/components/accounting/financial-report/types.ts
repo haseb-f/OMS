@@ -138,6 +138,13 @@ export type FinancialReportCheckScope = "period" | "asOf" | "page";
 export interface FinancialReportSummary {
   items: FinancialReportSummaryItem[];
   check?: FinancialReportCheck;
+  /**
+   * Caveats that must travel with the figures (unclassified accounts,
+   * drafts included, unbalanced entries…): shown on screen by the report's
+   * notice, and written into print and Excel/CSV after the summary so a
+   * printed statement never loses them.
+   */
+  notes?: Array<{ id: string; label: string; text: string }>;
 }
 
 /** Finds a line anywhere in the tree by id (e.g. "revenue:total"). */

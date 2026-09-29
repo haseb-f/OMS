@@ -6,6 +6,11 @@ import type {
   FinancialReportColumn,
   FinancialReportSummary,
 } from "@/components/accounting/financial-report";
+import {
+  ReportWarnings,
+  reportWarningNotes,
+} from "@/components/accounting/financial-report/report-warnings";
+import { formatAmount } from "@/lib/money";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   accountingReportsService,
@@ -58,6 +63,13 @@ export function CashFlowTab() {
   const lines = result && (result.view ?? "activities") === view ? result.lines : [];
   const isMovement = view === "movement";
   const totals = result?.totals;
+  const reconciliation = !isMovement ? result?.reconciliation : undefined;
+  const transfersNote =
+    reconciliation && reconciliation.internalTransfers >= 0.005
+      ? t("reports.finance.statementSummary.internalTransfers", {
+          amount: formatAmount(reconciliation.internalTransfers),
+        })
+      : null;
 
   const summary: FinancialReportSummary = isMovement
     ? {
@@ -98,12 +110,43 @@ export function CashFlowTab() {
             label: t("reports.finance.cashFlowSections.openingCash"),
             value: findLine(lines, "cf-opening")?.values.balance ?? 0,
           },
+          ...(reconciliation && Math.abs(reconciliation.openingBalanceEntries) >= 0.005
+            ? [
+                {
+                  id: "openingBalanceEntries",
+                  label: t("reports.finance.statementSummary.openingEntries"),
+                  value: reconciliation.openingBalanceEntries,
+                },
+              ]
+            : []),
           {
-            id: "netChange",
-            label: t("reports.finance.cashFlowSections.netChange"),
-            value: findLine(lines, "cf-net")?.values.balance ?? 0,
+            id: "operating",
+            label: t("reports.finance.statementSummary.operating"),
+            value: reconciliation?.operating ?? 0,
             tone: "result",
           },
+          {
+            id: "investing",
+            label: t("reports.finance.statementSummary.investing"),
+            value: reconciliation?.investing ?? 0,
+            tone: "result",
+          },
+          {
+            id: "financing",
+            label: t("reports.finance.statementSummary.financing"),
+            value: reconciliation?.financing ?? 0,
+            tone: "result",
+          },
+          ...(reconciliation && Math.abs(reconciliation.fxEffect) >= 0.005
+            ? [
+                {
+                  id: "fxEffect",
+                  label: t("reports.finance.statementSummary.fxEffect"),
+                  value: reconciliation.fxEffect,
+                  tone: "result" as const,
+                },
+              ]
+            : []),
           {
             id: "closingCash",
             label: t("reports.finance.cashFlowSections.closingCash"),
@@ -111,6 +154,30 @@ export function CashFlowTab() {
             emphasize: true,
           },
         ],
+        notes: reportWarningNotes(result?.warnings, t, transfersNote),
+        // Opening + activities (+ FX effect) must land on the cash accounts'
+        // own as-of balance, aggregated independently by the API — the
+        // statement's proof, not a formatting claim.
+        check: reconciliation
+          ? {
+              balanced: reconciliation.balanced,
+              difference: reconciliation.difference,
+              label: t("reports.finance.statementSummary.cashCheck"),
+              scope: "period",
+              sides: [
+                {
+                  id: "computedClosing",
+                  label: t("reports.finance.statementSummary.computedClosing"),
+                  value: reconciliation.closingCash,
+                },
+                {
+                  id: "ledgerClosing",
+                  label: t("reports.finance.statementSummary.ledgerClosing"),
+                  value: reconciliation.ledgerClosingCash,
+                },
+              ],
+            }
+          : undefined,
       };
 
   const viewLabel = t(`reports.finance.cashFlowView.${view}`);
@@ -139,6 +206,11 @@ export function CashFlowTab() {
           : undefined
       }
       summary={summary}
+      notice={
+        !isMovement && ((result?.warnings?.length ?? 0) > 0 || transfersNote) ? (
+          <ReportWarnings warnings={result?.warnings} extra={transfersNote} />
+        ) : undefined
+      }
       toolbarExtra={
         <ToggleGroup
           type="single"

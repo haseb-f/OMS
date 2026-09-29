@@ -32,7 +32,6 @@ export default function YearClosingPage() {
 
   const [fiscalYears, setFiscalYears] = useState<FiscalYearRow[]>([]);
   const [fiscalYearId, setFiscalYearId] = useState("");
-  const [nextFiscalYearId, setNextFiscalYearId] = useState("");
   const fieldId = useId();
   const [existingClosing, setExistingClosing] = useState<JournalEntryRow | null | undefined>(
     undefined,
@@ -49,7 +48,6 @@ export default function YearClosingPage() {
   }, []);
 
   const selectedFiscalYear = fiscalYears.find((fy) => fy.id === fiscalYearId) ?? null;
-  const otherFiscalYears = fiscalYears.filter((fy) => fy.id !== fiscalYearId);
 
   const checkExisting = useCallback(async (id: string) => {
     setIsLoadingExisting(true);
@@ -81,10 +79,7 @@ export default function YearClosingPage() {
     if (!fiscalYearId) return;
     setIsRunning(true);
     try {
-      const outcome = await yearClosingService.execute({
-        fiscalYearId,
-        nextFiscalYearId: nextFiscalYearId || undefined,
-      });
+      const outcome = await yearClosingService.execute({ fiscalYearId });
       setResult(outcome);
       toast.success(t("accounting.yearClosing.toasts.completed"));
       void checkExisting(fiscalYearId);
@@ -129,30 +124,12 @@ export default function YearClosingPage() {
                 </p>
               )}
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor={`${fieldId}-next`} className="text-caption text-muted-foreground">
-                {t("accounting.yearClosing.fields.nextFiscalYear")}
-              </label>
-              <Select
-                value={nextFiscalYearId || "__none__"}
-                onValueChange={(value) => setNextFiscalYearId(value === "__none__" ? "" : value)}
-                disabled={!fiscalYearId}
-              >
-                <SelectTrigger id={`${fieldId}-next`} className="w-full">
-                  <SelectValue placeholder={t("accounting.yearClosing.fields.noRollForward")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">
-                    {t("accounting.yearClosing.fields.noRollForward")}
-                  </SelectItem>
-                  {otherFiscalYears.map((fy) => (
-                    <SelectItem key={fy.id} value={fy.id}>
-                      {fy.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Next-year carry-forward is disabled: reports accumulate from
+                inception, so an opening entry built from closing balances would
+                count every balance twice (accounting-review.md, P1). */}
+            <p className="self-end text-caption text-muted-foreground">
+              {t("accounting.yearClosing.carryForwardDisabled")}
+            </p>
           </div>
 
           {isLoadingExisting ? (

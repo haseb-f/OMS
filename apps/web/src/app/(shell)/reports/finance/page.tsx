@@ -39,7 +39,12 @@ const REPORT_GROUP: Record<FinanceReportKey, MessageKey> = {
   supplierStatement: "reports.finance.header.groups.partners",
 };
 
-/** Menu order: ledgers, statements, partners, cash. */
+/**
+ * Menu hierarchy (usability-financial-reports §3): Financial reports (root) →
+ * Ledgers & entries → Financial statements → Receivables & payables → Cash.
+ * Cash availability is an operational cash-position view, not a statement,
+ * so it keeps its own group last rather than diluting the statements group.
+ */
 const MENU_ORDER: FinanceReportKey[] = [
   "generalLedger",
   "trialBalance",
@@ -92,13 +97,14 @@ function ReportsFinancePageContent() {
       title: reportLabel(report),
       switcher: (
         <ReportSwitcher
+          title={t("reports.finance.header.groups.root")}
           value={report}
           options={options}
           onChange={(value) => setReport(value as FinanceReportKey)}
         />
       ),
     }),
-    [options, report, reportLabel, setReport],
+    [options, report, reportLabel, setReport, t],
   );
 
   return (

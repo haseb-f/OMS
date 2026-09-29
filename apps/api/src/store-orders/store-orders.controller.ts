@@ -83,30 +83,48 @@ export class StoreOrdersController {
     @Query() query: FindStoreOrdersQueryDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    // ADR-0018 (M2 gap closure, Part 22) — the permission decision happens
-    // here, server-side, never trusted from `query.includeProfitability`
-    // itself. An unauthorized caller gets ordinary Order rows with no
-    // `profitability` field at all, not a hidden/empty one.
-    const includeProfitability =
+    return this.storeOrdersService.findAll(
+      query,
+      user.sub,
+      await this.resolveIncludeProfitability(query, user),
+    );
+  }
+
+  /**
+   * "Select all matching filters" — bare IDs only, same filter/search AND the
+   * same profitability decision as `findAll`, so Cost State / Loss-Making
+   * narrow the selection exactly as they narrow the list.
+   */
+  @Get('ids')
+  async findAllIds(
+    @Query() query: FindStoreOrdersQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.storeOrdersService.findAllIds(
+      query,
+      user.sub,
+      await this.resolveIncludeProfitability(query, user),
+    );
+  }
+
+  /**
+   * ADR-0018 (M2 gap closure, Part 22) — the permission decision happens
+   * here, server-side, never trusted from `query.includeProfitability`
+   * itself. An unauthorized caller gets ordinary Order rows with no
+   * `profitability` field at all, not a hidden/empty one — and its
+   * Cost State / Loss-Making params are ignored in both list and ids.
+   */
+  private async resolveIncludeProfitability(
+    query: FindStoreOrdersQueryDto,
+    user: JwtPayload,
+  ): Promise<boolean> {
+    return (
       !!query.includeProfitability &&
       (await this.permissionsResolver.hasPermission(
         user.sub,
         'orders.profitability.view',
-      ));
-    return this.storeOrdersService.findAll(
-      query,
-      user.sub,
-      includeProfitability,
+      ))
     );
-  }
-
-  /** "Select all matching filters" — bare IDs only, same filter/search as `findAll`. */
-  @Get('ids')
-  findAllIds(
-    @Query() query: FindStoreOrdersQueryDto,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    return this.storeOrdersService.findAllIds(query, user.sub);
   }
 
   /**

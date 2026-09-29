@@ -1,3 +1,4 @@
+import { BULK_LIMITS } from '../common/bulk/bulk-limits';
 import {
   BadRequestException,
   Injectable,
@@ -165,7 +166,7 @@ export class JournalEntriesService {
       this.prisma.journalEntry.findMany({
         where,
         select: { id: true },
-        take: 10_000,
+        take: BULK_LIMITS.selectIdsMax,
       }),
       this.prisma.journalEntry.count({ where }),
     ]);

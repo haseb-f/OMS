@@ -305,9 +305,10 @@ export function inferColumnType(columnId: string): ColumnType {
 }
 
 const UTILITY_FIXED_WIDTH: Record<"select" | "__expand" | "__actions", number> = {
-  // Wide enough for the checkbox plus the selection-scope menu's chevron
-  // (TASK-064) side by side without crowding.
-  select: 52,
+  // Wide enough for the checkbox plus the selection-scope menu button
+  // (TASK-064) side by side: 12px outer gutter + 16px box + 6px gap (where
+  // the two >=24px hit areas meet) + 20px button + 4px inner gutter = 58.
+  select: 60,
   __expand: 44,
   __actions: 88,
 };

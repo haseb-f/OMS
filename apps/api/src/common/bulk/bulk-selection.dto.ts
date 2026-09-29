@@ -1,3 +1,4 @@
+import { BULK_LIMITS } from './bulk-limits';
 import {
   ArrayMaxSize,
   IsArray,
@@ -22,13 +23,13 @@ export class BulkSelectionDto {
 
   @ValidateIf((dto: BulkSelectionDto) => dto.mode === 'ids')
   @IsArray()
-  @ArrayMaxSize(10_000)
+  @ArrayMaxSize(BULK_LIMITS.selectIdsMax)
   @IsUUID('4', { each: true })
   ids?: string[];
 
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(10_000)
+  @ArrayMaxSize(BULK_LIMITS.selectIdsMax)
   @IsUUID('4', { each: true })
   excludeIds?: string[];
 

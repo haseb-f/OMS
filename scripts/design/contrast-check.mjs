@@ -74,9 +74,14 @@ function parse(value, vars, seen = new Set()) {
   const hex = value.match(/^#([0-9a-f]{6})$/i);
   if (hex) {
     const n = parseInt(hex[1], 16);
-    return { lab: linearToOklab([(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => lin(c / 255))), alpha: 1 };
+    return {
+      lab: linearToOklab([(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => lin(c / 255))),
+      alpha: 1,
+    };
   }
-  const ok = value.match(/^oklch\(\s*([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)\s*(?:\/\s*([\d.]+)(%?))?\s*\)$/);
+  const ok = value.match(
+    /^oklch\(\s*([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)\s*(?:\/\s*([\d.]+)(%?))?\s*\)$/,
+  );
   if (ok) {
     const L = Number(ok[1]) / (ok[2] ? 100 : 1);
     const C = Number(ok[3]);
@@ -99,7 +104,10 @@ function parse(value, vars, seen = new Set()) {
     const p = Number(mix[2]) / 100;
     // premultiplied interpolation, per CSS Color 5
     const alpha = a.alpha * p + b.alpha * (1 - p);
-    const lab = alpha === 0 ? [0, 0, 0] : a.lab.map((x, k) => (x * a.alpha * p + b.lab[k] * b.alpha * (1 - p)) / alpha);
+    const lab =
+      alpha === 0
+        ? [0, 0, 0]
+        : a.lab.map((x, k) => (x * a.alpha * p + b.lab[k] * b.alpha * (1 - p)) / alpha);
     return { lab, alpha };
   }
   throw new Error(`unparsed color: ${value}`);
@@ -149,7 +157,12 @@ const PAIRS = [
     TEXT,
     "var(--card)",
   ]),
-  ...["success", "warning", "info", "destructive"].map((t) => [`${t} badge border`, `var(--${t}-border)`, "var(--card)", 1.3]),
+  ...["success", "warning", "info", "destructive"].map((t) => [
+    `${t} badge border`,
+    `var(--${t}-border)`,
+    "var(--card)",
+    1.3,
+  ]),
   ...["revenue", "expense", "profit", "loss"].map((t) => [
     `report ${t} on soft`,
     `var(--report-${t})`,
@@ -165,13 +178,56 @@ const PAIRS = [
   ["sidebar text", "var(--sidebar-foreground)", "var(--sidebar)", TEXT],
   ["sidebar muted text", "var(--sidebar-muted-foreground)", "var(--sidebar)", TEXT],
   ["sidebar active", "var(--sidebar-primary)", "var(--sidebar-active)", TEXT, "var(--sidebar)"],
-  ["table header text", "var(--table-header-foreground)", "var(--table-header)", TEXT, "var(--card)"],
+  [
+    "table header text",
+    "var(--table-header-foreground)",
+    "var(--table-header)",
+    TEXT,
+    "var(--card)",
+  ],
   ["selected row text", "var(--foreground)", "var(--table-row-selected)", TEXT, "var(--card)"],
   ["toast error", "var(--destructive-foreground)", "var(--destructive)", TEXT],
+  // usability-financial-reports §5: tinted success / failure toasts.
+  ...["success", "destructive"].flatMap((t) => [
+    [
+      `toast ${t} title`,
+      `var(--toast-${t}-title)`,
+      `var(--toast-${t}-surface)`,
+      TEXT,
+      "var(--popover)",
+    ],
+    [
+      `toast ${t} body text`,
+      "var(--popover-foreground)",
+      `var(--toast-${t}-surface)`,
+      TEXT,
+      "var(--popover)",
+    ],
+    [
+      `toast ${t} accent edge`,
+      `var(--toast-${t}-edge)`,
+      `var(--toast-${t}-surface)`,
+      UI,
+      "var(--popover)",
+    ],
+    [`toast ${t} ring on canvas`, `var(--toast-${t}-border)`, "var(--background)", 1.3],
+  ]),
   ["selector value", "var(--selector-foreground)", "var(--selector)", TEXT, "var(--card)"],
   ["selector placeholder", "var(--placeholder)", "var(--selector)", TEXT, "var(--card)"],
-  ["selector chevron/icon (muted)", "var(--muted-foreground)", "var(--selector-hover)", UI, "var(--card)"],
-  ["selector expanded value", "var(--selector-foreground)", "var(--selector-active)", TEXT, "var(--card)"],
+  [
+    "selector chevron/icon (muted)",
+    "var(--muted-foreground)",
+    "var(--selector-hover)",
+    UI,
+    "var(--card)",
+  ],
+  [
+    "selector expanded value",
+    "var(--selector-foreground)",
+    "var(--selector-active)",
+    TEXT,
+    "var(--card)",
+  ],
   // Round 2's tonal-selector rule is superseded (§12.4): selectors are white
   // like inputs and are told apart by the chevron checked above.
   ["sidebar rail on sidebar", "var(--sidebar-rail)", "var(--sidebar)", UI],

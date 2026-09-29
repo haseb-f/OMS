@@ -33,12 +33,13 @@ export const LEDGER_LINE_INCLUDE = {
   },
 } satisfies Prisma.JournalEntryLineInclude;
 
-/** Chronological, then by entry number, then line order — stable running balances. */
+/** Chronological, then by entry number, then line order, then line id — a total order, so running balances are stable. */
 export const LEDGER_LINE_ORDER: Prisma.JournalEntryLineOrderByWithRelationInput[] =
   [
     { journalEntry: { entryDate: 'asc' } },
     { journalEntry: { entryNumber: 'asc' } },
     { lineOrder: 'asc' },
+    { id: 'asc' },
   ];
 
 export type LedgerLine = Prisma.JournalEntryLineGetPayload<{

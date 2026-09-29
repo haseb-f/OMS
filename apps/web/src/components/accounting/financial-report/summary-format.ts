@@ -96,5 +96,8 @@ export function summaryToText(
     }
     items.push({ id: "summary:check", label: check.label, value: verdict });
   }
+  for (const note of summary.notes ?? []) {
+    items.push({ id: `summary:note:${note.id}`, label: note.label, value: note.text });
+  }
   return items;
 }

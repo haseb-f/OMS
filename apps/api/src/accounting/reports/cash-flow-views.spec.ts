@@ -1,144 +1,73 @@
 import { AccountingReportsService } from './accounting-reports.service';
 import { buildCashMovementReport } from './financial-report-tree';
+import { coa, createTestLedger, type TestEntry } from './report-test-ledger';
 
-interface FakeLine {
-  accountId: string;
-  debit: number;
-  credit: number;
-  entryDate: Date;
-  sourceType: string;
-}
+const ACCOUNTS = [
+  coa('cash', 'ASSET', null, true, '1101'),
+  coa('bank', 'ASSET', null, true, '1102'),
+  coa('ar', 'ASSET', null, true, '1201'),
+  coa('ap', 'LIABILITY', null, true, '2101'),
+  coa('capital', 'EQUITY', null, true, '3101'),
+];
 
-type DateFilter = { lt?: Date; gte?: Date; lte?: Date };
-
-function inRange(date: Date, filter?: DateFilter): boolean {
-  if (!filter) return true;
-  if (filter.lt && !(date < filter.lt)) return false;
-  if (filter.gte && date < filter.gte) return false;
-  if (filter.lte && date > filter.lte) return false;
-  return true;
-}
-
-/** In-memory stand-in for the few Prisma calls the cash-flow report makes. */
-function fakePrisma(lines: FakeLine[]) {
-  type LineWhere = {
-    accountId: { in: string[] };
-    journalEntry: { entryDate?: DateFilter };
-  };
-  const match = (where: LineWhere) =>
-    lines.filter(
-      (line) =>
-        where.accountId.in.includes(line.accountId) &&
-        inRange(line.entryDate, where.journalEntry.entryDate),
-    );
-  return {
-    receivingAccount: {
-      findMany: jest
-        .fn()
-        .mockResolvedValue([
-          { chartOfAccountId: 'cash' },
-          { chartOfAccountId: 'bank' },
-        ]),
-    },
-    chartOfAccount: {
-      findMany: jest.fn().mockResolvedValue([
-        { id: 'bank', code: '1102', name: 'البنك', nameEn: 'Bank' },
-        { id: 'cash', code: '1101', name: 'الصندوق', nameEn: 'Cash' },
-      ]),
-    },
-    journalEntryLine: {
-      aggregate: jest.fn(({ where }: { where: LineWhere }) => {
-        const rows = match(where);
-        return Promise.resolve({
-          _sum: {
-            debit: rows.reduce((sum, row) => sum + row.debit, 0),
-            credit: rows.reduce((sum, row) => sum + row.credit, 0),
-          },
-        });
-      }),
-      findMany: jest.fn(({ where }: { where: LineWhere }) =>
-        Promise.resolve(
-          match(where).map((row) => ({
-            ...row,
-            journalEntry: { sourceType: row.sourceType },
-          })),
-        ),
-      ),
-      groupBy: jest.fn(({ where }: { where: LineWhere }) => {
-        const byAccount = new Map<string, { debit: number; credit: number }>();
-        for (const row of match(where)) {
-          const current = byAccount.get(row.accountId) ?? {
-            debit: 0,
-            credit: 0,
-          };
-          current.debit += row.debit;
-          current.credit += row.credit;
-          byAccount.set(row.accountId, current);
-        }
-        return Promise.resolve(
-          [...byAccount.entries()].map(([accountId, sum]) => ({
-            accountId,
-            _sum: sum,
-          })),
-        );
-      }),
-    },
-  };
-}
-
-const LINES: FakeLine[] = [
+const ENTRIES: TestEntry[] = [
   // Before the period — opening balances.
   {
-    accountId: 'cash',
-    debit: 1000,
-    credit: 0,
-    entryDate: new Date('2026-01-10'),
+    id: 'o1',
+    entryDate: '2026-01-10',
     sourceType: 'CAPITAL_CONTRIBUTION',
+    lines: [
+      ['cash', 1000, 0],
+      ['capital', 0, 1000],
+    ],
   },
   {
-    accountId: 'bank',
-    debit: 500,
-    credit: 0,
-    entryDate: new Date('2026-01-15'),
+    id: 'o2',
+    entryDate: '2026-01-15',
     sourceType: 'CUSTOMER_RECEIPT',
+    lines: [
+      ['bank', 500, 0],
+      ['ar', 0, 500],
+    ],
   },
   // In the period.
   {
-    accountId: 'cash',
-    debit: 250.25,
-    credit: 0,
-    entryDate: new Date('2026-02-03'),
+    id: 'p1',
+    entryDate: '2026-02-03',
     sourceType: 'CUSTOMER_RECEIPT',
+    lines: [
+      ['cash', 250.25, 0],
+      ['ar', 0, 250.25],
+    ],
   },
   {
-    accountId: 'bank',
-    debit: 0,
-    credit: 120.5,
-    entryDate: new Date('2026-02-05'),
+    id: 'p2',
+    entryDate: '2026-02-05',
     sourceType: 'SUPPLIER_PAYMENT',
+    lines: [
+      ['ap', 120.5, 0],
+      ['bank', 0, 120.5],
+    ],
   },
   // Internal transfer cash → bank: an outflow on one row, inflow on the other.
   {
-    accountId: 'cash',
-    debit: 0,
-    credit: 300,
-    entryDate: new Date('2026-02-10'),
+    id: 'p3',
+    entryDate: '2026-02-10',
     sourceType: 'INTERNAL_TRANSFER',
-  },
-  {
-    accountId: 'bank',
-    debit: 300,
-    credit: 0,
-    entryDate: new Date('2026-02-10'),
-    sourceType: 'INTERNAL_TRANSFER',
+    lines: [
+      ['bank', 300, 0],
+      ['cash', 0, 300],
+    ],
   },
   // After the period — must be excluded.
   {
-    accountId: 'cash',
-    debit: 999,
-    credit: 0,
-    entryDate: new Date('2026-03-15'),
+    id: 'a1',
+    entryDate: '2026-03-15',
     sourceType: 'CUSTOMER_RECEIPT',
+    lines: [
+      ['cash', 999, 0],
+      ['ar', 0, 999],
+    ],
   },
 ];
 
@@ -146,7 +75,13 @@ const PERIOD = { dateFrom: '2026-02-01', dateTo: '2026-02-28' };
 
 describe('Cash Flow views reconcile with the GL', () => {
   const service = () =>
-    new AccountingReportsService(fakePrisma(LINES) as never);
+    new AccountingReportsService(
+      createTestLedger({
+        accounts: ACCOUNTS,
+        entries: ENTRIES,
+        receivingAccountIds: ['cash', 'bank'],
+      }) as never,
+    );
 
   it('movement view: opening + net change = closing, per account and in total', async () => {
     const result = (await service().cashFlowStatement({
@@ -202,6 +137,14 @@ describe('Cash Flow views reconcile with the GL', () => {
       activities.openingBalance + activities.totals.netCashChange,
       2,
     );
+    // the internal transfer moves 300 between cash accounts but is no cash flow
+    expect(
+      'reconciliation' in activities && activities.reconciliation,
+    ).toMatchObject({
+      operating: 129.75,
+      internalTransfers: 300,
+      balanced: true,
+    });
   });
 
   it('labels rows as cash accounts (not activity classes) and drops all-zero accounts', () => {

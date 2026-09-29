@@ -160,9 +160,16 @@ function ProductsPageContent() {
 
   const bulkArchiveSelected = async () => {
     const ids = Object.keys(rowSelection);
-    await Promise.all(ids.map((id) => productsService.archive(id).catch(() => undefined)));
+    // Success only for what the server confirmed — a swallowed rejection must
+    // never turn into a green toast (usability-financial-reports §5).
+    const results = await Promise.allSettled(ids.map((id) => productsService.archive(id)));
+    const failed = results.filter((result) => result.status === "rejected").length;
     setRowSelection({});
-    toast.success(t("products.archived"));
+    if (failed > 0) {
+      toast.error(t("masterData.actions.bulkArchivePartialFailure", { count: failed }));
+    } else {
+      toast.success(t("products.archived"));
+    }
     load();
   };
 
@@ -287,6 +294,7 @@ function ProductsPageContent() {
         isLoading={isLoading}
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
+        selectionResetKey={listFilters}
         bulkActions={
           canArchive && (
             <EnterpriseButton

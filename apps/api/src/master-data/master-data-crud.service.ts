@@ -1,3 +1,4 @@
+import { BULK_LIMITS } from '../common/bulk/bulk-limits';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -33,7 +34,7 @@ export interface BulkActionResult {
 }
 
 /** "Select all matching filters" (Part 8) never enumerates more than this many IDs in one response — large enough for any real Master Data list, small enough that a UUID-only payload stays trivial. */
-const SELECT_ALL_MATCHING_CAP = 10_000;
+const SELECT_ALL_MATCHING_CAP = BULK_LIMITS.selectIdsMax;
 
 /**
  * Base class every Master Data service extends (Companies, Branches,

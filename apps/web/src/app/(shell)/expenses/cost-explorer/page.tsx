@@ -749,8 +749,8 @@ function ProfitabilityAnalyticsTab() {
               {result.rows.map((row) => (
                 <TableRow
                   key={row.dimensionValue}
-                  className={dimension === "ORDER" ? "cursor-pointer" : undefined}
-                  onClick={() => handleRowClick(row)}
+                  interactive={dimension === "ORDER"}
+                  onClick={dimension === "ORDER" ? () => handleRowClick(row) : undefined}
                 >
                   <TableCell>{row.dimensionLabel}</TableCell>
                   <TableCell numeric>{row.orderCount}</TableCell>
