@@ -803,6 +803,24 @@ const en = {
     pinnedModulesTitle: "Pinned Modules",
     pinnedModulesEmptyTitle: "Nothing pinned yet",
     pinnedModulesEmptyDescription: "Pin a page from the sidebar to find it here.",
+    // ── Home dashboard (Clarity-inspired redesign, 2026-09-29) ──
+    overview: {
+      salesDescription: "{period} · within your access",
+      activityTitle: "Activity to date",
+      activityDescription: "Today, this week and this month so far — within your access.",
+      measureColumn: "Measure",
+      rankingDescription: "{period} · orders created, cancelled excluded",
+      rankingEmpty: "No orders were created in this period yet.",
+      yourRank: "Your rank",
+      bankTitle: "Bank matching",
+      bankDescription: "All bank transactions by matching state.",
+      matchedOf: "{matched} of {total} matched",
+      postedOf: "{posted} of {total} posted",
+      viewAll: "View all",
+      openBank: "Open cash flow",
+      queuesClear: "Every queue you follow is clear.",
+      attentionEmptyHint: "New work appears here as soon as it arrives.",
+    },
   },
   designSystem: {
     controlStates: {

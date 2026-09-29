@@ -801,6 +801,24 @@ const ar = {
     pinnedModulesTitle: "الوحدات المثبتة",
     pinnedModulesEmptyTitle: "لم يتم تثبيت أي شيء بعد",
     pinnedModulesEmptyDescription: "ثبّت صفحة من القائمة الجانبية لتظهر هنا.",
+    // ── Home dashboard (Clarity-inspired redesign, 2026-09-29) ──
+    overview: {
+      salesDescription: "{period} · ضمن صلاحياتك",
+      activityTitle: "النشاط حتى الآن",
+      activityDescription: "اليوم وهذا الأسبوع وهذا الشهر حتى تاريخه — ضمن صلاحياتك.",
+      measureColumn: "المؤشر",
+      rankingDescription: "{period} · الطلبات المنشأة دون الملغاة",
+      rankingEmpty: "لم تُنشأ أي طلبات في هذه الفترة بعد.",
+      yourRank: "ترتيبك",
+      bankTitle: "مطابقة الحركات البنكية",
+      bankDescription: "كل الحركات البنكية حسب حالة المطابقة.",
+      matchedOf: "{matched} من {total} مطابقة",
+      postedOf: "{posted} من {total} مُرحّلة",
+      viewAll: "عرض الكل",
+      openBank: "فتح التدفق النقدي",
+      queuesClear: "كل قوائم العمل التي تتابعها خالية.",
+      attentionEmptyHint: "يظهر العمل الجديد هنا فور وصوله.",
+    },
   },
   designSystem: {
     controlStates: {

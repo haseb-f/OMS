@@ -1,537 +1,173 @@
 "use client";
 
-import { useMemo, type CSSProperties, type ReactNode } from "react";
-import Link from "next/link";
-import {
-  ArrowRightLeft,
-  BellRing,
-  CalendarClock,
-  CircleCheck,
-  Clock,
-  Landmark,
-  PackageCheck,
-  Percent,
-  ReceiptText,
-  Scale,
-  ShoppingBag,
-  UserPlus,
-  type LucideIcon,
-} from "lucide-react";
-import { EnterpriseButton } from "@/components/ui/button";
-import { EnterpriseCard } from "@/components/ui/card";
-import {
-  InsightBar,
-  InsightCard,
-  InsightGroup,
-  type InsightTone,
-} from "@/components/shared/insight-card";
-import { EnterpriseBadge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useMemo, useState } from "react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { PageWorkspace } from "@/components/shared/page-workspace";
-import { SectionHeading } from "@/components/shared/section-heading";
 import { ErrorState } from "@/components/shared/error-state";
-import { loadPendingFigures, useLoad } from "@/components/dashboard/dashboard-data";
-import { useLocale } from "@/providers/locale-provider";
-import type { MessageKey } from "@/i18n/translate";
+import { AttentionPanel } from "@/components/dashboard/attention-panel";
+import { BankMatchingPanel } from "@/components/dashboard/bank-matching-panel";
+import { DashboardPanel } from "@/components/dashboard/dashboard-panel";
+import { DashboardShortcuts } from "@/components/dashboard/dashboard-shortcuts";
 import {
-  salesPerformanceService,
-  type SalesPeriod,
-  type SalesPerformanceDashboard,
-} from "@/services/sales-performance-service";
+  ActivityPanel,
+  PERIOD_LABEL_KEY,
+  RankingPanel,
+  SalesOverviewPanel,
+} from "@/components/dashboard/sales-panels";
+import {
+  SALES_PERIODS,
+  buildAttentionQueues,
+  loadPendingFigures,
+  loadSalesByPeriod,
+  summarizeBankMatching,
+  useLoad,
+} from "@/components/dashboard/dashboard-data";
+import { useLocale } from "@/providers/locale-provider";
+import type { SalesPeriod } from "@/services/sales-performance-service";
 
-const PERIOD_LABEL_KEY: Record<SalesPeriod, MessageKey> = {
-  today: "crm.leads.dashboard.today",
-  week: "crm.leads.dashboard.week",
-  month: "crm.leads.dashboard.month",
-};
-
-type Severity = "destructive" | "warning";
-
-interface AttentionItem {
-  key: string;
-  icon: LucideIcon;
-  title: string;
-  action: string;
-  count: number;
-  severity: Severity;
-  href: string;
+export interface DashboardAccess {
+  /** Lead or store-order figures (sales performance endpoint). */
+  sales: boolean;
+  /** The leads list itself (drill-down link). */
+  leads: boolean;
+  paymentReview: boolean;
+  bank: boolean;
 }
 
 /**
- * The dashboard (design-system §12.6; tiles and metric groups §12.8): 1) needs attention — the open work queues as clickable tiles, most
- * urgent first; 2) the sales metrics for the selected period, grouped
- * (leads · orders); 3) operational detail (ranking). Every figure comes from
- * a real endpoint — no filler text.
+ * The home dashboard (design-system §12.6): calm panels on one grid.
+ * Main column — sales performance for the selected period, activity to date,
+ * bank matching. Side column — needs attention, then the ranking. On phones
+ * the order is attention → performance → activity → bank → ranking.
+ * Every figure is real and every panel is permission-gated.
  */
-export function DashboardOverview({
-  showSales,
-  showPaymentReview,
-  showBank,
-  period,
-  onPeriodChange,
-  emptyState,
-}: {
-  showSales: boolean;
-  showPaymentReview: boolean;
-  showBank: boolean;
-  period: SalesPeriod;
-  onPeriodChange: (period: SalesPeriod) => void;
-  emptyState: ReactNode;
-}) {
+export function DashboardOverview({ access }: { access: DashboardAccess }) {
   const { t } = useLocale();
+  const [period, setPeriod] = useState<SalesPeriod>("month");
+
   const salesLoader = useMemo(
-    () => () => (showSales ? salesPerformanceService.dashboard(period) : Promise.resolve(null)),
-    [showSales, period],
+    () => () => (access.sales ? loadSalesByPeriod() : Promise.resolve(null)),
+    [access.sales],
   );
   const pendingLoader = useMemo(
-    () => () => loadPendingFigures(showPaymentReview, showBank),
-    [showPaymentReview, showBank],
+    () => () => loadPendingFigures(access.paymentReview, access.bank),
+    [access.paymentReview, access.bank],
   );
   const sales = useLoad(salesLoader);
   const pending = useLoad(pendingLoader);
-  const showAttention = showSales || showPaymentReview || showBank;
 
-  return (
-    <PageWorkspace title={t("dashboard.welcomeTitle")} description={t("dashboard.welcomeSubtitle")}>
-      {/* Reading order = priority: needs attention → metrics → details. On wide
-          screens the metrics and the ranking share the second row. */}
-      <div className="flex flex-col gap-5">
-        {showAttention ? (
-          <AttentionSection sales={sales} pending={pending} showSales={showSales} />
-        ) : null}
-        <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
-          {showSales ? (
-            <section aria-labelledby="dash-metrics" className="flex min-w-0 flex-col gap-2.5">
-              <SectionHeading
-                id="dash-metrics"
-                title={t("docUi.dashboard.metricsTitle")}
-                action={
-                  <ToggleGroup
-                    type="single"
-                    value={period}
-                    aria-label={t("docUi.dashboard.period")}
-                    onValueChange={(value) => {
-                      if (value) onPeriodChange(value as SalesPeriod);
-                    }}
-                  >
-                    {(["today", "week", "month"] as const).map((item) => (
-                      <ToggleGroupItem key={item} value={item} size="default">
-                        {t(PERIOD_LABEL_KEY[item])}
-                      </ToggleGroupItem>
-                    ))}
-                  </ToggleGroup>
-                }
-              />
-              {sales.state.status === "error" ? (
-                <ErrorState
-                  description={t("docUi.dashboard.loadFailed")}
-                  onRetry={() => void sales.retry()}
-                />
-              ) : (
-                <MetricsStrip
-                  data={sales.state.status === "ready" ? sales.state.data : null}
-                  loading={sales.state.status === "loading"}
-                />
-              )}
-            </section>
-          ) : null}
-          {showSales && sales.state.status === "ready" && sales.state.data ? (
-            <RankingSection data={sales.state.data} />
-          ) : null}
-        </div>
-        {!showAttention ? emptyState : null}
-      </div>
-    </PageWorkspace>
-  );
-}
+  const salesData = sales.state.status === "ready" ? sales.state.data : null;
+  const pendingData = pending.state.status === "ready" ? pending.state.data : null;
+  const current = salesData?.[period] ?? null;
 
-function AttentionSection({
-  sales,
-  pending,
-  showSales,
-}: {
-  sales: ReturnType<typeof useLoad<SalesPerformanceDashboard | null>>;
-  pending: ReturnType<typeof useLoad<Awaited<ReturnType<typeof loadPendingFigures>>>>;
-  showSales: boolean;
-}) {
-  const { t, direction } = useLocale();
-  const loading =
-    pending.state.status === "loading" || (showSales && sales.state.status === "loading");
+  const showAttention = access.sales || access.paymentReview || access.bank;
+  const hasMain = access.sales || access.bank;
+  const salesFailed = access.sales && sales.state.status === "error";
   const pendingFailed = pending.state.status === "error";
-  const salesFailed = showSales && sales.state.status === "error";
+  const attentionLoading =
+    pending.state.status === "loading" || (access.sales && sales.state.status === "loading");
   // One source failing never hides the queues the other one loaded.
-  const failed = pendingFailed && (!showSales || salesFailed);
-  const partialFailed = !failed && (pendingFailed || salesFailed);
-  const retry = () => {
+  const attentionFailed = pendingFailed && (!access.sales || salesFailed);
+  // Follow-up queues are not period-bound, so any period's figures serve.
+  const queues = buildAttentionQueues(salesData?.month.kpis ?? null, pendingData);
+  const retryAttention = () => {
     if (pendingFailed) void pending.retry();
     if (salesFailed) void sales.retry();
   };
 
-  const items: AttentionItem[] = [];
-  if (sales.state.status === "ready" && sales.state.data) {
-    const { overdue, dueToday } = sales.state.data.kpis;
-    items.push(
-      {
-        key: "overdue",
-        icon: BellRing,
-        title: t("crm.leads.dashboard.overdue"),
-        action: t("docUi.dashboard.actionOverdue"),
-        count: overdue,
-        severity: "destructive",
-        href: "/crm/leads?followUp=overdue",
-      },
-      {
-        key: "dueToday",
-        icon: CalendarClock,
-        title: t("crm.leads.dashboard.dueToday"),
-        action: t("docUi.dashboard.actionDueToday"),
-        count: dueToday,
-        severity: "warning",
-        href: "/crm/leads?followUp=today",
-      },
+  if (!showAttention) {
+    return (
+      <PageWorkspace
+        title={t("dashboard.welcomeTitle")}
+        description={t("dashboard.welcomeSubtitle")}
+      >
+        <div className="max-w-2xl">
+          <DashboardShortcuts />
+        </div>
+      </PageWorkspace>
     );
   }
-  if (pending.state.status === "ready") {
-    const figures = pending.state.data;
-    if (figures.paymentReview !== null) {
-      items.push({
-        key: "paymentReview",
-        icon: ReceiptText,
-        title: t("docUi.dashboard.paymentReview"),
-        action: t("docUi.dashboard.actionPaymentReview"),
-        count: figures.paymentReview,
-        severity: "warning",
-        href: "/finance/payment-review",
-      });
-    }
-    if (figures.bank) {
-      items.push(
-        {
-          key: "bankReview",
-          icon: Scale,
-          title: t("docUi.dashboard.bankReview"),
-          action: t("docUi.dashboard.actionBankReview"),
-          count: figures.bank.review,
-          severity: "warning",
-          href: "/finance/bank-transactions",
-        },
-        {
-          key: "bankUnmatched",
-          icon: Landmark,
-          title: t("docUi.dashboard.bankUnmatched"),
-          action: t("docUi.dashboard.actionBankUnmatched"),
-          count: figures.bank.unmatched,
-          severity: "warning",
-          href: "/finance/bank-transactions",
-        },
-      );
-    }
-  }
-  // Open work first (destructive before warning, then by size).
-  const rank = (item: AttentionItem) => (item.severity === "destructive" ? 0 : 1);
-  const open = items
-    .filter((item) => item.count > 0)
-    .sort((a, b) => rank(a) - rank(b) || b.count - a.count);
-  const cleared = items.filter((item) => item.count === 0);
+
+  const periodSwitch = access.sales ? (
+    <ToggleGroup
+      type="single"
+      value={period}
+      aria-label={t("docUi.dashboard.period")}
+      onValueChange={(value) => {
+        if (value) setPeriod(value as SalesPeriod);
+      }}
+    >
+      {SALES_PERIODS.map((item) => (
+        <ToggleGroupItem key={item} value={item} size="default">
+          {t(PERIOD_LABEL_KEY[item])}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  ) : undefined;
+
+  const attention = (
+    <AttentionPanel
+      open={queues.open}
+      cleared={queues.cleared}
+      loading={attentionLoading}
+      failed={attentionFailed}
+      partialFailed={!attentionFailed && (pendingFailed || salesFailed)}
+      onRetry={retryAttention}
+    />
+  );
+
+  const bankSummary = pendingData?.cashFlow ? summarizeBankMatching(pendingData.cashFlow) : null;
 
   return (
-    <section aria-labelledby="dash-attention" className="flex flex-col gap-2.5" aria-busy={loading}>
-      <SectionHeading
-        id="dash-attention"
-        title={t("docUi.dashboard.attentionTitle")}
-        badge={
-          !loading && !failed && !partialFailed ? (
-            <EnterpriseBadge variant={open.length > 0 ? "warning" : "success"}>
-              {open.length > 0 ? null : <CircleCheck />}
-              {open.length > 0
-                ? t("docUi.dashboard.openQueues", { count: open.length })
-                : t("docUi.dashboard.allClear")}
-            </EnterpriseBadge>
-          ) : undefined
-        }
-      />
-      {failed ? (
-        <ErrorState description={t("docUi.dashboard.loadFailed")} onRetry={retry} />
-      ) : loading ? (
-        <div className={TILE_GRID}>
-          {Array.from({ length: 3 }, (_, index) => (
-            <TileSkeleton key={index} />
-          ))}
+    <PageWorkspace
+      title={t("dashboard.welcomeTitle")}
+      description={t("dashboard.welcomeSubtitle")}
+      actions={periodSwitch}
+    >
+      {hasMain ? (
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(19rem,23rem)]">
+          <div className="flex min-w-0 flex-col gap-4 max-lg:contents">
+            {access.sales ? (
+              <div className="min-w-0 max-lg:order-2">
+                {salesFailed ? (
+                  <DashboardPanel id="dash-sales" title={t("docUi.dashboard.salesTitle")}>
+                    <ErrorState
+                      description={t("docUi.dashboard.loadFailed")}
+                      onRetry={() => void sales.retry()}
+                    />
+                  </DashboardPanel>
+                ) : (
+                  <SalesOverviewPanel
+                    data={current}
+                    period={period}
+                    leadsHref={access.leads ? "/crm/leads" : undefined}
+                  />
+                )}
+              </div>
+            ) : null}
+            {access.sales && !salesFailed ? (
+              <div className="min-w-0 max-lg:order-3">
+                <ActivityPanel data={salesData} />
+              </div>
+            ) : null}
+            {bankSummary ? (
+              <div className="min-w-0 max-lg:order-4">
+                <BankMatchingPanel summary={bankSummary} />
+              </div>
+            ) : null}
+          </div>
+          <div className="flex min-w-0 flex-col gap-4 max-lg:contents">
+            <div className="min-w-0 max-lg:order-1">{attention}</div>
+            {current && current.scope !== "OWN" ? (
+              <div className="min-w-0 max-lg:order-5">
+                <RankingPanel data={current} period={period} />
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : (
-        <>
-          {partialFailed ? (
-            <p
-              role="alert"
-              className="flex flex-wrap items-center gap-2 text-caption text-muted-foreground"
-            >
-              {t("docUi.dashboard.loadFailed")}
-              <EnterpriseButton type="button" variant="link" size="inline" onClick={retry}>
-                {t("common.retry")}
-              </EnterpriseButton>
-            </p>
-          ) : null}
-          {open.length > 0 ? (
-            <div className={TILE_GRID}>
-              {open.map((item) => (
-                <InsightCard
-                  key={item.key}
-                  icon={item.icon}
-                  tone={item.severity}
-                  emphasis
-                  label={item.title}
-                  value={item.count}
-                  href={item.href}
-                  actionLabel={item.action}
-                  direction={direction}
-                />
-              ))}
-            </div>
-          ) : null}
-          {cleared.length > 0 ? (
-            <ul className="flex flex-wrap items-center gap-2">
-              {cleared.map((item) => (
-                <li key={item.key}>
-                  <Link
-                    href={item.href}
-                    className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border bg-card px-2.5 text-caption text-muted-foreground transition-colors duration-(--duration-base) hover:border-input-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-                  >
-                    <CircleCheck className="size-3.5 text-success-soft-foreground" aria-hidden />
-                    {item.title}
-                    <span className="text-placeholder">· {t("docUi.dashboard.allClear")}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </>
+        <div className="max-w-2xl">{attention}</div>
       )}
-    </section>
-  );
-}
-/** Tile grid: equal-width compact tiles that wrap (never sideways scroll). */
-const TILE_GRID = "grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))]";
-/** Metric groups: four equal columns from `sm`, so a group never wraps 3 + 1. */
-const METRIC_GRID = "grid grid-cols-2 gap-2 sm:grid-cols-4";
-/**
- * A metric group's surface: the same four-column rhythm as `METRIC_GRID`,
- * as one hairline-split row; a shorter group spans only its share of it
- * (`--span` = metrics / 4) so figures line up with the group above.
- */
-const GROUP_GRID =
-  "grid-cols-2 sm:w-[calc(100%*var(--span))] sm:grid-cols-[repeat(var(--count),minmax(0,1fr))]";
-
-function TileSkeleton() {
-  return (
-    <div className="flex flex-col gap-2 rounded-md border border-border bg-card px-3 py-2.5">
-      <Skeleton className="h-5 w-28" />
-      <Skeleton className="h-6 w-14" />
-    </div>
-  );
-}
-
-interface Metric {
-  key: string;
-  labelKey: MessageKey;
-  value: string;
-  unit?: string;
-  icon: LucideIcon;
-  tone: InsightTone;
-  bar?: number;
-}
-
-/**
- * The period metrics in two labelled groups — the lead funnel and the
- * orders it produced. The period is the toggle above, so tiles carry no
- * repeated context line.
- */
-function MetricsStrip({
-  data,
-  loading,
-}: {
-  data: SalesPerformanceDashboard | null;
-  loading: boolean;
-}) {
-  const { t } = useLocale();
-  const kpis = data?.kpis;
-  if (loading || !kpis) {
-    return (
-      <div className={METRIC_GRID}>
-        {Array.from({ length: 6 }, (_, index) => (
-          <TileSkeleton key={index} />
-        ))}
-      </div>
-    );
-  }
-  const groups: { key: string; labelKey: MessageKey; metrics: Metric[] }[] = [
-    {
-      key: "leads",
-      labelKey: "docUi.dashboard.groupLeads",
-      metrics: [
-        {
-          key: "newLeads",
-          labelKey: "crm.leads.dashboard.newLeads",
-          value: String(kpis.newLeads),
-          icon: UserPlus,
-          tone: "info",
-        },
-        {
-          key: "inProgress",
-          labelKey: "crm.leads.dashboard.inProgress",
-          value: String(kpis.inProgress),
-          icon: Clock,
-          tone: "neutral",
-        },
-        {
-          key: "converted",
-          labelKey: "crm.leads.dashboard.converted",
-          value: String(kpis.converted),
-          icon: ArrowRightLeft,
-          tone: "success",
-        },
-        {
-          key: "conversionRate",
-          labelKey: "crm.leads.dashboard.conversionRate",
-          value: `${kpis.conversionRate}%`,
-          icon: Percent,
-          tone: "success",
-          bar: kpis.conversionRate,
-        },
-      ],
-    },
-    {
-      key: "orders",
-      labelKey: "docUi.dashboard.groupOrders",
-      metrics: [
-        {
-          key: "orders",
-          labelKey: "docUi.dashboard.ordersInScope",
-          value: String(kpis.orders),
-          icon: ShoppingBag,
-          tone: "neutral",
-        },
-        {
-          key: "delivered",
-          labelKey: "crm.leads.dashboard.delivered",
-          value: String(kpis.delivered),
-          icon: PackageCheck,
-          tone: "success",
-        },
-      ],
-    },
-  ];
-
-  return (
-    <div className="flex flex-col gap-3">
-      {groups.map((group) => (
-        <div
-          key={group.key}
-          role="group"
-          aria-labelledby={`dash-group-${group.key}`}
-          className="flex flex-col gap-1.5"
-        >
-          <h3
-            id={`dash-group-${group.key}`}
-            className="text-caption font-medium text-muted-foreground"
-          >
-            {t(group.labelKey)}
-          </h3>
-          <InsightGroup
-            className={GROUP_GRID}
-            style={
-              {
-                "--count": group.metrics.length,
-                "--span": group.metrics.length / 4,
-              } as CSSProperties
-            }
-          >
-            {group.metrics.map((metric) => (
-              <InsightCard
-                key={metric.key}
-                icon={metric.icon}
-                tone={metric.tone}
-                label={t(metric.labelKey)}
-                value={metric.value}
-                unit={metric.unit}
-              >
-                {metric.bar !== undefined ? (
-                  <InsightBar
-                    value={metric.bar}
-                    label={`${t(metric.labelKey)} ${metric.value}${metric.unit ?? ""}`}
-                  />
-                ) : null}
-              </InsightCard>
-            ))}
-          </InsightGroup>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function RankingSection({ data }: { data: SalesPerformanceDashboard }) {
-  const { t } = useLocale();
-  const self = data.ranking.self;
-  const leaderboard = data.ranking.leaderboard.slice(0, 8);
-  if (leaderboard.length === 0) return null;
-
-  return (
-    <section aria-labelledby="dash-ranking" className="flex flex-col gap-2.5">
-      <SectionHeading
-        id="dash-ranking"
-        title={t("crm.leads.dashboard.ranking")}
-        action={
-          <span className="text-caption text-muted-foreground">
-            <span className="num font-medium text-foreground">
-              {t("docUi.dashboard.rank", { rank: self.rank, of: self.of })}
-            </span>
-            {" · "}
-            <span className="num">{t("docUi.dashboard.ordersCount", { count: self.orders })}</span>
-          </span>
-        }
-      />
-      <EnterpriseCard className="gap-0 py-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-20">{t("docUi.dashboard.rankColumn")}</TableHead>
-              <TableHead>{t("docUi.dashboard.nameColumn")}</TableHead>
-              <TableHead className="text-end">{t("docUi.dashboard.ordersColumn")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {leaderboard.map((row) => {
-              const isSelf = row.rank === self.rank;
-              return (
-                <TableRow
-                  key={`${row.rank}-${row.userId}`}
-                  data-state={isSelf ? "selected" : undefined}
-                >
-                  <TableCell className="num text-muted-foreground">#{row.rank}</TableCell>
-                  <TableCell>
-                    <span className="flex items-center gap-2">
-                      <span className="truncate font-medium">{row.displayName}</span>
-                      {isSelf ? (
-                        <EnterpriseBadge variant="info">{t("docUi.dashboard.you")}</EnterpriseBadge>
-                      ) : null}
-                    </span>
-                  </TableCell>
-                  <TableCell className="num text-end font-medium">{row.orders}</TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </EnterpriseCard>
-    </section>
+    </PageWorkspace>
   );
 }
