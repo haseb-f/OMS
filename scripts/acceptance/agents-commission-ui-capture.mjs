@@ -81,7 +81,7 @@ await step("agreement preview", async () => {
   const row = page.locator("tr", { hasText: process.env.AGREEMENT_NUMBER }).first();
   await row.locator("button").last().click();
   await page.getByRole("menuitem", { name: /تفعيل/ }).click();
-  await page.getByText("مستحق الشركة").first().waitFor({ timeout: 10000 });
+  await page.getByText("تحتجز الشركة").first().waitFor({ timeout: 10000 });
   await page.waitForTimeout(500);
   await shot(page, "02-agreement-activation-preview", false);
   await page.keyboard.press("Escape");
@@ -117,7 +117,7 @@ await step("product commission", async () => {
 await step("carrier reconciliation", async () => {
   await page.goto(`${WEB}/finance/carrier-reconciliation`);
   await settle(page);
-  await shot(page, "05-carrier-reconciliation-kinds-recovery");
+  await shot(page, "05-carrier-costs-company-only");
 });
 
 await step("mobile commission tab", async () => {
