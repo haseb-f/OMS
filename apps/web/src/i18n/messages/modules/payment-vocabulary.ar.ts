@@ -15,7 +15,7 @@ const paymentVocabularyAr = {
     },
     MATCHED: {
       label: "مطابق · غير مُرحّل",
-      description: "خُصص مبلغ من الكشف للإبلاغ، ولم يُرحّل أي سند قبض بعد.",
+      description: "طابقته المالية بحركة كشف أو بسجل دفع، ولم يُرحّل أي سند قبض بعد.",
     },
     CONFIRMED: {
       label: "مؤكد ومُرحّل",
@@ -73,7 +73,11 @@ const paymentVocabularyAr = {
     },
     awaitingConfirmation: {
       title: "بانتظار التأكيد",
-      description: "مطابقة غير مُرحّلة — أكمل التخصيص لترحيل السند.",
+      description: "مطابقة غير مُرحّلة — أكّدها ورحّلها من هذه القائمة.",
+    },
+    partiallyAllocated: {
+      title: "مخصصة جزئيًا",
+      description: "الكشف يغطي جزءًا من الإبلاغ — خصص الباقي في مساحة المطابقة.",
     },
     awaitingSettlement: {
       title: "بانتظار التسوية",
@@ -189,7 +193,14 @@ const paymentVocabularyAr = {
       reversed: "عُكس الترحيل — أُلغي السند {receipt}.",
     },
   },
+  blocked: {
+    PROVIDER_STATUS_FAILED: "حالة المزوّد «{status}» ليست دفعة ناجحة — لا يمكن مطابقتها.",
+    LINE_NOT_UNMATCHED: "لم تعد هذه الحركة غير مطابقة — الاقتراحات للحركات غير المطابقة فقط.",
+    LINE_FULLY_ALLOCATED: "هذه الحركة مخصصة بالكامل.",
+  },
   bulk: {
+    progress: "جارٍ معالجة {done} من {total}…",
+    requestFailed: "فشل طلب هذه المجموعة — لا يُعرف أن شيئًا تغيّر فيها: {message}",
     selectedEligible: "يمكن معالجة {eligible} من {selected} محددة.",
     noneEligible: "لا يمكن معالجة أي من الدفعات المحددة بهذه الطريقة.",
     confirmTitle: "تأكيد وترحيل {count} إبلاغ؟",

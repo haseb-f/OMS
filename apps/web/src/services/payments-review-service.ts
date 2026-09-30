@@ -10,6 +10,8 @@ export interface PaymentReviewRow {
   status: PaymentReviewStatus;
   settlementStatus?: PaymentSettlementStatusValue;
   destinationOwnership?: "COMPANY" | "AGENT" | null;
+  /** Statement allocations still standing (reject/dispute are refused while any exist). */
+  activeMatchCount?: number;
   referenceNumber: string | null;
   senderName: string;
   createdAt: string;
@@ -103,6 +105,8 @@ export interface PaymentReviewStage {
 /** `GET /payments/review-summary` — statement stages are null without reconciliation access. */
 export interface PaymentReviewSummary {
   declared: PaymentReviewStage;
+  /** MATCHED claims of reconciliation methods — finished in their workspace. */
+  partiallyAllocated: PaymentReviewStage;
   unmatchedLines: PaymentReviewStage | null;
   exceptions: PaymentReviewStage | null;
   awaitingConfirmation: PaymentReviewStage;
@@ -185,6 +189,8 @@ export const paymentsReviewService = {
     params: {
       status?: PaymentReviewStatus;
       settlementStatus?: PaymentSettlementFilter[];
+      /** "false": confirmable from review (no reconciliation method); "true": reconciliation methods only. */
+      reconciled?: "true" | "false";
       page?: number;
       pageSize?: number;
     } = {},

@@ -20,7 +20,8 @@ const paymentVocabularyEn = {
     },
     MATCHED: {
       label: "Matched · not posted",
-      description: "A statement amount is allocated to the declaration; no receipt is posted yet.",
+      description:
+        "Matched to a statement transaction or to a payment record by Finance; no receipt is posted yet.",
     },
     CONFIRMED: {
       label: "Confirmed & posted",
@@ -81,7 +82,11 @@ const paymentVocabularyEn = {
     },
     awaitingConfirmation: {
       title: "Awaiting confirmation",
-      description: "Matched but not posted — finish the allocation to post the receipt.",
+      description: "Matched, not posted — confirm & post them from this list.",
+    },
+    partiallyAllocated: {
+      title: "Partially allocated",
+      description: "Statement covers part of the declaration — allocate the rest in the workspace.",
     },
     awaitingSettlement: {
       title: "Awaiting settlement",
@@ -198,7 +203,17 @@ const paymentVocabularyEn = {
       reversed: "Posting reversed — receipt {receipt} cancelled.",
     },
   },
+  blocked: {
+    PROVIDER_STATUS_FAILED:
+      "Provider status “{status}” is not a successful payment — it cannot be matched.",
+    LINE_NOT_UNMATCHED:
+      "This transaction is no longer unmatched — only unmatched transactions take suggestions.",
+    LINE_FULLY_ALLOCATED: "This transaction is fully allocated.",
+  },
   bulk: {
+    progress: "Processing {done} of {total}…",
+    requestFailed:
+      "The request for this group failed — nothing is known to have changed for it: {message}",
     selectedEligible: "{eligible} of {selected} selected can be processed.",
     noneEligible: "None of the selected payments can be processed this way.",
     confirmTitle: "Confirm & post {count} declarations?",

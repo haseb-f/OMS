@@ -298,10 +298,7 @@ export function PaymentMatchPanel({
   return (
     <>
       <Sheet open={!!paymentId} onOpenChange={onOpenChange}>
-        <SheetContent
-          className="w-full overflow-y-auto sm:max-w-3xl"
-          data-testid="payment-match-panel"
-        >
+        <SheetContent size="xl" className="overflow-y-auto" data-testid="payment-match-panel">
           <SheetHeader className="pe-12">
             <SheetTitle>
               {context

@@ -71,7 +71,7 @@ export function SettlementDetailSheet({
   return (
     <>
       <Sheet open={!!settlementId} onOpenChange={onOpenChange}>
-        <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+        <SheetContent size="lg" className="overflow-y-auto">
           <SheetHeader>
             <SheetTitle>
               {detail

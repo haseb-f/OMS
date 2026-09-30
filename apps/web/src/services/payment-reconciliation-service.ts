@@ -215,6 +215,9 @@ export interface ClaimView {
 
 export type SuggestionStrength = "STRONG" | "MEDIUM" | "WEAK";
 
+export type SuggestionBlockedCode =
+  "PROVIDER_STATUS_FAILED" | "LINE_NOT_UNMATCHED" | "LINE_FULLY_ALLOCATED";
+
 export interface Suggestion {
   paymentId: string;
   score: number;
@@ -239,6 +242,8 @@ export interface SuggestionResult {
   };
   candidates: Suggestion[];
   ambiguous: boolean;
+  /** Why the line takes no suggestions — translated via `paymentVocabulary.blocked.*`. */
+  blockedCode?: SuggestionBlockedCode | null;
   blockedReason: string | null;
 }
 

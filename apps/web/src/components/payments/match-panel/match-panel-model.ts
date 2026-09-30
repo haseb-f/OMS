@@ -15,6 +15,8 @@ import type {
  * learns them before clicking; the server stays the authority for every one.
  */
 
+import { decisionBlockReason, rejectBlockReason } from "../payment-eligibility";
+
 const round2 = (value: number) => Math.round(value * 100) / 100;
 const DAY_MS = 86_400_000;
 /** Same window the server's suggestion scoring uses (suggestion.util DATE_WINDOW_DAYS). */
@@ -40,15 +42,7 @@ export interface MatchPanelPermissions {
   canCorrect: boolean;
 }
 
-const OPEN_STATUSES = new Set(["PENDING", "MATCHED"]);
-
-export function isOpenDeclaration(status: string): boolean {
-  return OPEN_STATUSES.has(status);
-}
-
-export function isSettled(settlementStatus: string | null | undefined): boolean {
-  return settlementStatus === "SETTLED" || settlementStatus === "PARTIALLY_SETTLED";
-}
+export { isOpenDeclaration, isSettled } from "../payment-eligibility";
 
 /** Amount of the declaration not yet allocated to statement lines. */
 export function claimRemaining(context: Pick<PaymentReviewContext, "amount" | "matchedAmount">) {
@@ -125,14 +119,7 @@ export function matchedSignals(reasons: MatchReason[] | null | undefined): Match
 
 /** Why a declaration cannot be decided from review at all (null ⇒ it can). */
 function decisionBlock(context: PaymentReviewContext): MessageKey | null {
-  if (context.status === "VERIFIED") {
-    return isSettled(context.settlementStatus)
-      ? "paymentVocabulary.reason.settled"
-      : "paymentVocabulary.reason.alreadyPosted";
-  }
-  if (!isOpenDeclaration(context.status)) return "paymentVocabulary.reason.notOpen";
-  if (context.destinationOwnership === "AGENT") return "paymentVocabulary.reason.agentCollection";
-  return null;
+  return decisionBlockReason(context);
 }
 
 /** "Confirm & post" from review — non-reconciled methods only (the server refuses the others). */
@@ -249,12 +236,8 @@ export function rejectState(
   permissions: MatchPanelPermissions,
 ): ActionState {
   const blocked =
-    decisionBlock(context) ??
-    (context.activeMatchCount > 0
-      ? "paymentVocabulary.reason.activeMatches"
-      : !permissions.canConfirm
-        ? "paymentVocabulary.reason.noPermission"
-        : null);
+    rejectBlockReason(context) ??
+    (!permissions.canConfirm ? "paymentVocabulary.reason.noPermission" : null);
   return {
     disabledReason: blocked,
     effect: { key: "paymentVocabulary.effect.reject", params: declarationParams(context) },
@@ -267,13 +250,8 @@ export function disputeState(
 ): ActionState {
   const blocked =
     decisionBlock(context) ??
-    (!context.storeOrder
-      ? "paymentVocabulary.reason.noOrder"
-      : context.activeMatchCount > 0
-        ? "paymentVocabulary.reason.activeMatches"
-        : !permissions.canConfirm
-          ? "paymentVocabulary.reason.noPermission"
-          : null);
+    (!context.storeOrder ? "paymentVocabulary.reason.noOrder" : rejectBlockReason(context)) ??
+    (!permissions.canConfirm ? "paymentVocabulary.reason.noPermission" : null);
   return {
     disabledReason: blocked,
     effect: { key: "paymentVocabulary.effect.dispute", params: declarationParams(context) },

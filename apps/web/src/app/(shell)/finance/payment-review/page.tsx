@@ -33,7 +33,13 @@ import { formatCurrencyTotals, totalsByCurrency } from "@/components/payments/pa
 import { paymentRecordTerm, paymentTerm } from "@/config/payments/payment-vocabulary";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast, reportApiError } from "@/lib/toast";
+import { apiErrorMessage, toast, reportApiError } from "@/lib/toast";
+import { runInChunks } from "@/components/payments/bulk-chunks";
+import {
+  decisionBlockReason,
+  isOpenDeclaration,
+  rejectBlockReason,
+} from "@/components/payments/payment-eligibility";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/date";
 import { BULK_LIMITS } from "@/lib/bulk-limits";
@@ -85,14 +91,13 @@ function needsPrice(payment: PaymentReviewRow): boolean {
 }
 
 function isOpen(payment: PaymentReviewRow): boolean {
-  return payment.status === "PENDING" || payment.status === "MATCHED";
+  return isOpenDeclaration(payment.status);
 }
 
 /** Why "Confirm & post" cannot run from the review list (null ⇒ it can; the server re-checks). */
 function confirmBlockReason(payment: PaymentReviewRow): MessageKey | null {
-  if (payment.status === "VERIFIED") return "paymentVocabulary.reason.alreadyPosted";
-  if (!isOpen(payment)) return "paymentVocabulary.reason.notOpen";
-  if (payment.destinationOwnership === "AGENT") return "paymentVocabulary.reason.agentCollection";
+  const blocked = decisionBlockReason(payment);
+  if (blocked) return blocked;
   if (!payment.storeOrder) return "paymentVocabulary.reason.noOrder";
   if (reconciledMethodId(payment)) return "paymentVocabulary.reason.reconciledMethod";
   if (payment.paymentMethod && !payment.paymentMethod.account) {
@@ -136,6 +141,7 @@ function PaymentReviewPageContent() {
   const [bulkReason, setBulkReason] = useState("");
   const [isResolvingBulk, setIsResolvingBulk] = useState(false);
   const [isRunningBulk, setIsRunningBulk] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   const [bulkResult, setBulkResult] = useState<{
     result: BulkItemsResult<unknown>;
     labels: Map<string, string>;
@@ -145,7 +151,10 @@ function PaymentReviewPageContent() {
   /** A stage chip wins over the status filter; the status filter clears the stage. */
   const listQuery = useMemo(() => {
     if (stage === "declared") return { status: "PENDING" as const };
-    if (stage === "awaitingConfirmation") return { status: "MATCHED" as const };
+    // Only claims Finance can confirm from this list (reconciliation methods finish in their workspace).
+    if (stage === "awaitingConfirmation") {
+      return { status: "MATCHED" as const, reconciled: "false" as const };
+    }
     if (stage === "awaitingSettlement") {
       return { status: "VERIFIED" as const, settlementStatus: AWAITING_SETTLEMENT };
     }
@@ -294,13 +303,13 @@ function PaymentReviewPageContent() {
 
   /** Resolves the whole selection (every page), keeps the eligible records and shows the exact counts. */
   const startBulk = async (kind: BulkKind) => {
-    if (!withinBulkLimit(selection.selectedIds.length, BULK_LIMITS.paymentBulkActionMax)) return;
+    if (!withinBulkLimit(selection.selectedIds.length, BULK_LIMITS.paymentBulkSelectionMax)) return;
     setIsResolvingBulk(true);
     try {
       const records = await selection.resolve({ fresh: true });
       if (!records) return;
       const eligible = records.filter((row) =>
-        kind === "confirm" ? confirmBlockReason(row) === null : isOpen(row),
+        kind === "confirm" ? confirmBlockReason(row) === null : rejectBlockReason(row) === null,
       );
       if (eligible.length === 0) {
         toast.info(t("paymentVocabulary.bulk.noneEligible"));
@@ -316,13 +325,25 @@ function PaymentReviewPageContent() {
   const runBulk = async (reason?: string) => {
     if (!bulk) return;
     setIsRunningBulk(true);
-    const ids = bulk.targets.map((row) => row.id);
     const labels = new Map(bulk.targets.map((row) => [row.id, row.paymentNumber]));
     try {
-      const result =
-        bulk.kind === "confirm"
-          ? await paymentsReviewService.bulkConfirm(ids)
-          : await paymentsReviewService.bulkReject(ids, reason ?? "");
+      // Small requests (the server processes each item in turn); results merged per item.
+      const result = await runInChunks<PaymentReviewRow, unknown>(
+        bulk.targets,
+        BULK_LIMITS.paymentBulkChunk,
+        (chunk) => {
+          const ids = chunk.map((row) => row.id);
+          return bulk.kind === "confirm"
+            ? paymentsReviewService.bulkConfirm(ids)
+            : paymentsReviewService.bulkReject(ids, reason ?? "");
+        },
+        {
+          idOf: (row) => row.id,
+          onProgress: (done, total) => setBulkProgress({ done, total }),
+          requestFailed: (message) => t("paymentVocabulary.bulk.requestFailed", { message }),
+          errorMessage: (error) => apiErrorMessage(error),
+        },
+      );
       if (result.failed.length === 0) {
         toast.success(t("paymentVocabulary.bulk.allDone", { count: result.succeeded.length }));
       } else {
@@ -330,14 +351,15 @@ function PaymentReviewPageContent() {
       }
       setBulk(null);
       setRowSelection({});
-    } catch (error) {
-      reportApiError(error, "common.failedToSave");
-      throw error;
     } finally {
       setIsRunningBulk(false);
+      setBulkProgress(null);
       await reloadAll();
     }
   };
+
+  const bulkConfirmLabel = (action: string) =>
+    bulkProgress ? t("paymentVocabulary.bulk.progress", bulkProgress) : action;
 
   const columns = useMemo<ColumnDef<PaymentReviewRow, unknown>[]>(
     () => [
@@ -497,6 +519,9 @@ function PaymentReviewPageContent() {
                   intent="rejectDeclaration"
                   size="xs"
                   disabled={busy}
+                  disabledReason={
+                    rejectBlockReason(payment) ? t(rejectBlockReason(payment) as MessageKey) : null
+                  }
                   data-testid="payment-reject"
                   onClick={() => setRejectTarget(payment)}
                 />
@@ -688,9 +713,9 @@ function PaymentReviewPageContent() {
         tone="success"
         title={bulk ? t("paymentVocabulary.bulk.confirmTitle", { count: bulk.targets.length }) : ""}
         description={bulkDescription}
-        confirmLabel={t("paymentVocabulary.action.confirmPost")}
+        confirmLabel={bulkConfirmLabel(t("paymentVocabulary.action.confirmPost"))}
         isConfirming={isRunningBulk}
-        onConfirm={() => void runBulk().catch(() => undefined)}
+        onConfirm={() => void runBulk()}
       />
 
       <ConfirmationDialog
@@ -715,10 +740,10 @@ function PaymentReviewPageContent() {
             />
           </div>
         }
-        confirmLabel={t("paymentVocabulary.action.rejectDeclaration")}
+        confirmLabel={bulkConfirmLabel(t("paymentVocabulary.action.rejectDeclaration"))}
         confirmDisabled={!bulkReason.trim()}
         isConfirming={isRunningBulk}
-        onConfirm={() => void runBulk(bulkReason.trim()).catch(() => undefined)}
+        onConfirm={() => void runBulk(bulkReason.trim())}
       />
 
       <BulkResultDialog

@@ -21,8 +21,12 @@ export const BULK_LIMITS = {
    * batch is kept to what finishes promptly.
    */
   carrierChargeBulkMax: 500,
-  /** `POST /payments/bulk/confirm|reject`. */
-  paymentBulkActionMax: 200,
-  /** `POST /payment-reconciliation/methods/:methodId/matches/bulk-accept`. */
-  statementBulkAcceptMax: 100,
+  /**
+   * Payment bulk actions: the server takes at most 50 ids per request
+   * (`paymentBulkActionMax` / `statementBulkAcceptMax` there), each run one
+   * by one, so the client sends `paymentBulkChunk` per request and merges the
+   * per-item results. `paymentBulkSelectionMax` is the client-side selection cap.
+   */
+  paymentBulkChunk: 25,
+  paymentBulkSelectionMax: 500,
 } as const;

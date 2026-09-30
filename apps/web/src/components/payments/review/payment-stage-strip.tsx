@@ -5,13 +5,14 @@ import { StatusBadge } from "@/components/business/status-badge";
 import { paymentTerm, type PaymentTerm } from "@/config/payments/payment-vocabulary";
 import type { MessageKey } from "@/i18n/translate";
 import { useLocale } from "@/providers/locale-provider";
+import { useUserContext } from "@/providers/user-context";
 import type { PaymentReviewStage, PaymentReviewSummary } from "@/services/payments-review-service";
 import { formatCurrencyTotals } from "../payment-totals";
 
 /** Stages that filter the Payments review list (kept in the URL: `?stage=`). */
 export type ReviewListStage = "declared" | "awaitingConfirmation" | "awaitingSettlement";
 /** Stages that live in a method's reconciliation workspace. */
-type WorkspaceStage = "unmatchedLines" | "exceptions";
+type WorkspaceStage = "unmatchedLines" | "exceptions" | "partiallyAllocated";
 type StripStage = ReviewListStage | WorkspaceStage;
 
 const STRIP: { stage: StripStage; term: PaymentTerm; workspaceTab?: string }[] = [
@@ -19,6 +20,7 @@ const STRIP: { stage: StripStage; term: PaymentTerm; workspaceTab?: string }[] =
   { stage: "unmatchedLines", term: "STATEMENT_LINE", workspaceTab: "matching" },
   { stage: "exceptions", term: "EXCEPTION", workspaceTab: "exceptions" },
   { stage: "awaitingConfirmation", term: "MATCHED" },
+  { stage: "partiallyAllocated", term: "MATCHED", workspaceTab: "matching" },
   { stage: "awaitingSettlement", term: "AWAITING_SETTLEMENT" },
 ];
 
@@ -49,11 +51,13 @@ export function PaymentStageStrip({
   listHref: (stage: ReviewListStage | null) => string;
 }) {
   const { t, direction } = useLocale();
+  const { hasPermission } = useUserContext();
+  const canOpenWorkspace = hasPermission("finance.payment-reconciliation.view");
   return (
     <div
       role="group"
       aria-label={t("paymentVocabulary.strip.label")}
-      className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5"
+      className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6"
       data-testid="payment-stage-strip"
     >
       {STRIP.map(({ stage, term, workspaceTab }) => {
@@ -77,7 +81,7 @@ export function PaymentStageStrip({
         }
         const isActive = active === stage;
         const href = workspaceTab
-          ? data
+          ? data && canOpenWorkspace
             ? workspaceHref(data, workspaceTab)
             : undefined
           : listHref(isActive ? null : (stage as ReviewListStage));
@@ -91,7 +95,7 @@ export function PaymentStageStrip({
             emphasis={isActive}
             href={href}
             actionLabel={
-              workspaceTab
+              workspaceTab && href
                 ? t("paymentVocabulary.strip.openWorkspace")
                 : isActive
                   ? t("paymentVocabulary.strip.showAll")

@@ -24,7 +24,8 @@ import { StatusBadge } from "@/components/business/status-badge";
 import { formatDate } from "@/lib/date";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { toast, reportApiError } from "@/lib/toast";
+import { apiErrorMessage, toast, reportApiError } from "@/lib/toast";
+import { runInChunks } from "@/components/payments/bulk-chunks";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
 import {
@@ -94,6 +95,7 @@ export function MatchingTab({
     key: string;
   } | null>(null);
   const [accepting, setAccepting] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   const [acceptResult, setAcceptResult] = useState<{
     result: BulkItemsResult<BulkAcceptPlan>;
     labels: Map<string, string>;
@@ -174,24 +176,34 @@ export function MatchingTab({
   };
 
   /** Dry run on the server: which unmatched lines have a strong, unambiguous, amount-equal top suggestion. */
+  const chunkOptions = {
+    idOf: (item: { statementLineId: string }) => item.statementLineId,
+    onProgress: (done: number, total: number) => setBulkProgress({ done, total }),
+    requestFailed: (message: string) => t("paymentVocabulary.bulk.requestFailed", { message }),
+    errorMessage: (error: unknown) => apiErrorMessage(error),
+  };
+
+  /** Dry run on the server: which unmatched lines have a strong, unambiguous, reference-backed suggestion. */
   const planAcceptStrong = async () => {
-    const ids = lines.slice(0, BULK_LIMITS.statementBulkAcceptMax).map((line) => line.id);
-    if (ids.length === 0) return;
+    const items = lines.map((line) => ({ statementLineId: line.id }));
+    if (items.length === 0) return;
     setPlanning(true);
     try {
-      const plan = await paymentReconciliationService.bulkAccept(methodId, {
-        dryRun: true,
-        items: ids.map((statementLineId) => ({ statementLineId })),
-      });
+      const plan = await runInChunks(
+        items,
+        BULK_LIMITS.paymentBulkChunk,
+        (chunk) =>
+          paymentReconciliationService.bulkAccept(methodId, { dryRun: true, items: chunk }),
+        chunkOptions,
+      );
       if (plan.succeeded.length === 0) {
         toast.info(t("paymentVocabulary.bulk.acceptNone"));
         return;
       }
-      setAcceptPlan({ eligible: plan.succeeded, checked: ids.length, key: newIdempotencyKey() });
-    } catch (error) {
-      reportApiError(error, t("common.loadFailed"));
+      setAcceptPlan({ eligible: plan.succeeded, checked: items.length, key: newIdempotencyKey() });
     } finally {
       setPlanning(false);
+      setBulkProgress(null);
     }
   };
 
@@ -199,14 +211,17 @@ export function MatchingTab({
     if (!acceptPlan) return;
     setAccepting(true);
     try {
-      const result = await paymentReconciliationService.bulkAccept(methodId, {
-        idempotencyKey: acceptPlan.key.slice(0, 80),
+      const result = await runInChunks(
         // The reviewed pair is sent back: a changed top suggestion is refused, never swapped.
-        items: acceptPlan.eligible.map((row) => ({
-          statementLineId: row.id,
-          paymentId: row.paymentId,
-        })),
-      });
+        acceptPlan.eligible.map((row) => ({ statementLineId: row.id, paymentId: row.paymentId })),
+        BULK_LIMITS.paymentBulkChunk,
+        (chunk) =>
+          paymentReconciliationService.bulkAccept(methodId, {
+            idempotencyKey: acceptPlan.key.slice(0, 80),
+            items: chunk,
+          }),
+        chunkOptions,
+      );
       if (result.failed.length === 0) {
         toast.success(t("paymentVocabulary.bulk.allDone", { count: result.succeeded.length }));
       } else {
@@ -217,10 +232,9 @@ export function MatchingTab({
       }
       setAcceptPlan(null);
       refreshAll();
-    } catch (error) {
-      reportApiError(error, t("common.failedToSave"));
     } finally {
       setAccepting(false);
+      setBulkProgress(null);
     }
   };
 
@@ -249,6 +263,11 @@ export function MatchingTab({
             {canMatch && lines.length > 0 ? (
               <PaymentActionButton
                 intent="acceptStrong"
+                label={
+                  bulkProgress && planning
+                    ? t("paymentVocabulary.bulk.progress", bulkProgress)
+                    : undefined
+                }
                 isLoading={planning}
                 onClick={() => void planAcceptStrong()}
                 data-testid="accept-strong-suggestions"
@@ -324,7 +343,7 @@ export function MatchingTab({
                       ),
                     })}
                   </span>
-                  {canMatch && !suggestions.blockedReason ? (
+                  {canMatch && !suggestions.blockedCode && !suggestions.blockedReason ? (
                     <EnterpriseButton
                       type="button"
                       variant="outline"
@@ -336,10 +355,16 @@ export function MatchingTab({
                     </EnterpriseButton>
                   ) : null}
                 </div>
-                {suggestions.blockedReason ? (
+                {suggestions.blockedCode || suggestions.blockedReason ? (
                   <Alert tone="warning">
                     <AlertTriangle />
-                    <AlertDescription>{suggestions.blockedReason}</AlertDescription>
+                    <AlertDescription>
+                      {suggestions.blockedCode
+                        ? t(`paymentVocabulary.blocked.${suggestions.blockedCode}`, {
+                            status: selectedLine?.providerStatus ?? "",
+                          })
+                        : suggestions.blockedReason}
+                    </AlertDescription>
                   </Alert>
                 ) : null}
                 {suggestions.ambiguous ? (
@@ -350,7 +375,9 @@ export function MatchingTab({
                     </AlertDescription>
                   </Alert>
                 ) : null}
-                {!suggestions.blockedReason && suggestions.candidates.length === 0 ? (
+                {!suggestions.blockedCode &&
+                !suggestions.blockedReason &&
+                suggestions.candidates.length === 0 ? (
                   <p className="text-caption text-muted-foreground">
                     {t("paymentReconciliation.matching.noSuggestions")}
                   </p>
@@ -573,7 +600,11 @@ export function MatchingTab({
             </ul>
           ) : null
         }
-        confirmLabel={t("paymentVocabulary.action.acceptStrong")}
+        confirmLabel={
+          bulkProgress && accepting
+            ? t("paymentVocabulary.bulk.progress", bulkProgress)
+            : t("paymentVocabulary.action.acceptStrong")
+        }
         isConfirming={accepting}
         onConfirm={() => void commitAcceptStrong()}
       />
