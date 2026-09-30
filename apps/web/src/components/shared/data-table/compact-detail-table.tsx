@@ -36,6 +36,11 @@ export interface CompactDetailColumn<T> {
  * Line height stays on the type scale (`leading-normal`) so Arabic glyphs
  * are never shaved by a tighter local box. Horizontal overflow is clipped
  * by `min-w-0` on the cell, never by a vertical `overflow-hidden`.
+ *
+ * `stacked`: below `sm` each row renders as a card — the first column as its
+ * title, every other column as a label/value pair (the same cell renderers),
+ * so wide line tables never scroll sideways on phones. Column `footer`s
+ * render as a totals card; a custom `footer` node stays desktop-only.
  */
 export function CompactDetailTable<T>({
   columns,
@@ -43,6 +48,7 @@ export function CompactDetailTable<T>({
   rowKey,
   empty,
   footer,
+  stacked = false,
   className,
 }: {
   columns: CompactDetailColumn<T>[];
@@ -50,10 +56,18 @@ export function CompactDetailTable<T>({
   rowKey: (row: T) => string;
   empty?: ReactNode;
   footer?: ReactNode;
+  stacked?: boolean;
   className?: string;
 }) {
-  return (
-    <div className={cn("overflow-hidden rounded-md border border-border bg-card", className)}>
+  const hasColumnFooters = columns.some((column) => column.footer != null);
+  const table = (
+    <div
+      className={cn(
+        "overflow-hidden rounded-md border border-border bg-card",
+        stacked && "hidden sm:block",
+        className,
+      )}
+    >
       <Table className="w-full">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
@@ -89,7 +103,7 @@ export function CompactDetailTable<T>({
             ))
           )}
         </TableBody>
-        {footer || columns.some((column) => column.footer != null) ? (
+        {footer || hasColumnFooters ? (
           <TableFooter>
             <TableRow className={tableTotalsRowClass}>
               {footer ??
@@ -106,5 +120,63 @@ export function CompactDetailTable<T>({
         ) : null}
       </Table>
     </div>
+  );
+  if (!stacked) return table;
+
+  const [titleColumn, ...detailColumns] = columns;
+  return (
+    <>
+      {table}
+      <div
+        data-stacked-table=""
+        className={cn("rounded-md border border-border bg-card sm:hidden", className)}
+      >
+        {rows.length === 0 ? (
+          <p className="p-3 text-center text-caption text-muted-foreground">{empty}</p>
+        ) : (
+          rows.map((row) => (
+            <div
+              key={rowKey(row)}
+              className="flex min-w-0 flex-col gap-1 border-b border-border p-3 last:border-b-0"
+            >
+              {titleColumn ? (
+                <div className="min-w-0 text-body font-medium text-foreground">
+                  {titleColumn.cell(row)}
+                </div>
+              ) : null}
+              <StackedPairs columns={detailColumns} value={(column) => column.cell(row)} />
+            </div>
+          ))
+        )}
+        {hasColumnFooters ? (
+          <div className="border-t border-border bg-muted/40 p-3 font-semibold">
+            <StackedPairs
+              columns={columns.filter((column) => column.footer != null)}
+              value={(column) => column.footer}
+            />
+          </div>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+function StackedPairs<T>({
+  columns,
+  value,
+}: {
+  columns: CompactDetailColumn<T>[];
+  value: (column: CompactDetailColumn<T>) => ReactNode;
+}) {
+  if (columns.length === 0) return null;
+  return (
+    <dl className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1 text-caption">
+      {columns.map((column) => (
+        <div key={column.id} className="contents">
+          <dt className="text-muted-foreground">{column.header}</dt>
+          <dd className="min-w-0 text-end break-words text-foreground">{value(column)}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }

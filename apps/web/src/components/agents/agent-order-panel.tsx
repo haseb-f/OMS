@@ -1,5 +1,6 @@
 "use client";
 
+import { shippingStatusName } from "@/config/shipping/shipment-status";
 import { useCallback, useEffect, useId, useState } from "react";
 import { Info, PackageOpen, Undo2 } from "lucide-react";
 import { DetailSection } from "@/components/shared/detail-workspace";
@@ -523,7 +524,7 @@ function ReceiveReturnDialog({
                   description: [
                     shipment.shippingCompany?.name,
                     shipment.trackingNumber,
-                    shipment.shippingStatus?.name ?? shipment.status,
+                    shippingStatusName(shipment.shippingStatus, t) ?? shipment.status,
                   ]
                     .filter(Boolean)
                     .join(" · "),

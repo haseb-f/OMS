@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { useLocale } from "@/providers/locale-provider";
 import { getCountryPhoneMetadata } from "@/services/phone-service";
+import { localizedName } from "@/lib/localized-name";
 
 export interface PhoneCountryOption {
   /** The `Country.id` (UUID) this option represents — stays the form's actual `countryId` value, unrelated to the ISO2 code libphonenumber-js needs. */
@@ -44,7 +45,7 @@ export function PhoneCountrySelector({
   disabled?: boolean;
   placeholder?: string;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
 
   const selected = useMemo(() => countries.find((c) => c.id === value) ?? null, [countries, value]);
   const selectedMeta = selected ? getCountryPhoneMetadata(selected.code) : null;
@@ -62,7 +63,7 @@ export function PhoneCountrySelector({
       emptyText={t("phone.noCountryFound")}
       noMatchText={t("phone.noCountryFound")}
       getId={(country) => country.id}
-      getTitle={(country) => country.name}
+      getTitle={(country) => localizedName(country, locale)}
       getIcon={(country) => {
         const flag = getCountryPhoneMetadata(country.code)?.flag;
         return flag ? <span className="shrink-0">{flag}</span> : undefined;

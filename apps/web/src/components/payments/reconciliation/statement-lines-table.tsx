@@ -36,6 +36,7 @@ export function MatchTrail({ match }: { match: StatementLineMatch }) {
         id={match.payment.id}
         number={match.payment.paymentNumber}
         status={match.payment.status}
+        settlementStatus={match.payment.settlementStatus}
       />
       {match.storeOrder ? (
         <RelatedRecordLink

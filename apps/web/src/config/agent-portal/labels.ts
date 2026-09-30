@@ -185,12 +185,4 @@ export function stageShares(
   }));
 }
 
-/** Name in the UI language when the record carries an English name. */
-export function localizedName(
-  record: { name: string; nameEn?: string | null; displayName?: string | null } | null | undefined,
-  locale: "ar" | "en",
-): string {
-  if (!record) return "";
-  if (locale === "en" && record.nameEn) return record.nameEn;
-  return record.displayName || record.name;
-}
+export { localizedName } from "@/lib/localized-name";
