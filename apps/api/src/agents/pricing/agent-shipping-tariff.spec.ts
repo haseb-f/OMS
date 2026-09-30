@@ -191,6 +191,28 @@ describe('customer-side effect of the confirmed fee (spec 2B)', () => {
     expect(lines[1].unitPrice).toBeCloseTo(lines[1].amount / 3, 2);
   });
 
+  it('INCLUDED: a 0 line stays 0 and the discount follows the list price (list 500: 475 → 465 ⇒ discount 35)', () => {
+    const result = repriceForConfirmedFee({
+      mode: 'SHIPPING_INCLUDED',
+      merchandiseAmount: 475,
+      taxAmount: 0,
+      serviceCharge: 0,
+      shippingCharge: 25,
+      payableTotal: 500,
+      lines: [
+        { id: 'a', quantity: 1, amount: 475, listAmount: 500 },
+        { id: 'gift', quantity: 1, amount: 0, listAmount: null },
+      ],
+      fee: 35,
+    });
+    if (result.kind !== 'APPLY') throw new Error('expected APPLY');
+    expect(result.lines).toEqual([
+      { id: 'a', amount: 465, unitPrice: 465 },
+      { id: 'gift', amount: 0, unitPrice: 0 },
+    ]);
+    expect(result.discountAmount).toBe(35);
+  });
+
   it('INCLUDED: a fee leaving no merchandise room is refused with both amounts', () => {
     expect(
       repriceForConfirmedFee({
@@ -244,6 +266,7 @@ describe('customer-side effect of the confirmed fee (spec 2B)', () => {
       merchandiseAmount: 400,
       payableTotal: 425,
       lines: null,
+      discountAmount: null,
     });
   });
 });

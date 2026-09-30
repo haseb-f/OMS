@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProductsService } from '../../products/products.service';
-import { agentConflict, agentNotFoundError } from '../common/agent-errors';
+import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
+import {
+  agentConflict,
+  agentForbidden,
+  agentNotFoundError,
+} from '../common/agent-errors';
 import { AgentCommissionRatesService } from '../commission/agent-commission-rates.service';
 import {
   AgentCommissionRateMissingError,
@@ -34,6 +39,7 @@ export class AgentProductsService {
     private readonly prisma: PrismaService,
     private readonly products: ProductsService,
     private readonly commissionRates: AgentCommissionRatesService,
+    private readonly resolver: PermissionsResolverService,
   ) {}
 
   /** The agent's products with the commission in force today (override / agreement). */
@@ -142,6 +148,7 @@ export class AgentProductsService {
 
   /** Company-owned product → this agent (same validation and lock as the product editor). */
   async link(agentId: string, productId: string, userId: string) {
+    await this.assertCanEditProducts(userId);
     await this.requireAgent(agentId);
     const product = await this.requireProduct(productId);
     if (product.ownerAgentId === agentId)
@@ -153,17 +160,30 @@ export class AgentProductsService {
         'The product belongs to another agent — unlink it there first.',
       );
     }
-    return this.products.update(productId, { ownerAgentId: agentId }, userId);
+    // Atomic: refused if another link won meanwhile (PRODUCT_OWNER_CHANGED).
+    return this.products.changeOwner(productId, null, agentId, userId);
   }
 
   /** This agent's product → company (refused with PRODUCT_OWNER_LOCKED once referenced). */
   async unlink(agentId: string, productId: string, userId: string) {
+    await this.assertCanEditProducts(userId);
     await this.requireAgent(agentId);
     const product = await this.requireProduct(productId);
     if (product.ownerAgentId !== agentId) {
       throw agentNotFoundError('Product', 'المنتج');
     }
-    return this.products.update(productId, { ownerAgentId: null }, userId);
+    return this.products.changeOwner(productId, agentId, null, userId);
+  }
+
+  /** Ownership is a product change too: `products.edit` besides `agents.edit`. */
+  private async assertCanEditProducts(userId: string) {
+    if (!(await this.resolver.hasPermission(userId, 'products.edit'))) {
+      throw agentForbidden(
+        'PERMISSION_REQUIRED',
+        'ربط المنتجات بالوكيل يتطلب صلاحية تعديل المنتجات',
+        'Linking products to an agent requires the products.edit permission.',
+      );
+    }
   }
 
   private async requireAgent(agentId: string) {

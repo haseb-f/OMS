@@ -441,6 +441,51 @@ export class ProductsService {
     }
   }
 
+  /**
+   * Spec 2 (R5) — moves ownership from `expectedOwnerAgentId` to
+   * `nextOwnerAgentId` (null = company) atomically: under the product row
+   * lock the current owner is re-read, so of two concurrent links only the
+   * first wins (PRODUCT_OWNER_CHANGED for the other). Same validation and
+   * ownership lock as `update()` (active agent, PRODUCT_OWNER_LOCKED).
+   */
+  async changeOwner(
+    id: string,
+    expectedOwnerAgentId: string | null,
+    nextOwnerAgentId: string | null,
+    userId?: string,
+  ) {
+    if (nextOwnerAgentId)
+      await this.assertOwnerAgentAssignable(nextOwnerAgentId);
+    return this.prisma.$transaction(async (tx) => {
+      // Locks the product row, then refuses once referenced.
+      await this.assertOwnerUnlocked(tx, id);
+      const current = await tx.product.findFirst({
+        where: { id, deletedAt: null },
+        select: { ownerAgentId: true, sku: true },
+      });
+      if (!current) throw new NotFoundException(`Product ${id} not found`);
+      if (current.ownerAgentId !== expectedOwnerAgentId) {
+        throw new ConflictException({
+          code: 'PRODUCT_OWNER_CHANGED',
+          message:
+            'تغيّر مالك المنتج للتو — أعد التحميل وحاول مجددًا — The product owner just changed; reload and try again.',
+        });
+      }
+      const product = await tx.product.update({
+        where: { id },
+        data: { ownerAgentId: nextOwnerAgentId, updatedBy: userId ?? null },
+      });
+      await this.activityService.log(
+        id,
+        ProductActivityType.PRODUCT_UPDATED,
+        `Product ${current.sku} updated — owner agent ${expectedOwnerAgentId ?? 'company'} → ${nextOwnerAgentId ?? 'company'}`,
+        undefined,
+        tx,
+      );
+      return product;
+    });
+  }
+
   /** Soft delete only. */
   async archive(id: string, userId?: string) {
     const existing = await this.findOne(id);

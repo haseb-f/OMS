@@ -11,7 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { Server } from 'http';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
-import { PaymentOrigin, PaymentStatus } from '@prisma/client';
+import { PaymentOrigin, PaymentStatus, type Prisma } from '@prisma/client';
 import { AppModule } from '../../app.module';
 import { AllExceptionsFilter } from '../../common/errors/all-exceptions.filter';
 import { formatValidationErrors } from '../../common/errors/format-validation-errors';
@@ -27,6 +27,7 @@ import { AgentOrdersService } from '../orders/agent-orders.service';
 import type { CreateAgreementDto } from '../admin/dto/agreement.dto';
 import type { CreateAgentOrderDto } from '../orders/dto/agent-order.dto';
 import type { AgentOrderSnapshot } from '../common/agent-terms';
+import { AgentFulfillmentService } from '../finance/agent-fulfillment.service';
 import { leakedKeys } from './leaked-keys.test-util';
 
 async function expectCode(promise: Promise<unknown>, code: string) {
@@ -57,6 +58,7 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
   let orders: AgentOrdersService;
   let shipments: StoreOrderShipmentOperationsService;
   let carrier: CarrierReconciliationService;
+  let fulfillment: AgentFulfillmentService;
 
   const tag = randomUUID().slice(0, 6).toUpperCase();
   const lower = tag.toLowerCase();
@@ -90,7 +92,20 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
   const put = (token: string, path: string, body: object = {}) =>
     request(http).put(path).set('Authorization', `Bearer ${token}`).send(body);
 
-  const terms = (): CreateAgreementDto => ({
+  type TariffInput = {
+    deliveryChannel: 'ANY' | 'CARRIER' | 'INTERNAL_COURIER';
+    paymentType: 'ANY' | 'PREPAID' | 'CASH_ON_DELIVERY';
+    amount: number;
+  };
+  let makeAgent: (
+    suffix: string,
+    tariffs: TariffInput[],
+    over?: Partial<CreateAgreementDto>,
+  ) => Promise<string>;
+
+  const terms = (
+    over: Partial<CreateAgreementDto> = {},
+  ): CreateAgreementDto => ({
     effectiveFrom: '2020-01-01',
     productCommissionRatePercent: 10,
     serviceCommissionRatePercent: 10,
@@ -104,6 +119,7 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
     serviceFeePerOrder: 0,
     allowAgentDestinations: false,
     payoutHoldDays: 0,
+    ...over,
   });
 
   const makeProduct = async (owner: string | null, stocked = true) => {
@@ -205,6 +221,7 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
       strict: false,
     });
     carrier = moduleRef.get(CarrierReconciliationService, { strict: false });
+    fulfillment = moduleRef.get(AgentFulfillmentService, { strict: false });
     const agents = moduleRef.get(AgentsService, { strict: false });
     const agreements = moduleRef.get(AgentAgreementsService, { strict: false });
     const agentUsers = moduleRef.get(AgentUsersService, { strict: false });
@@ -261,14 +278,7 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
       })
     ).id;
 
-    const makeAgent = async (
-      suffix: string,
-      tariffs: Array<{
-        deliveryChannel: 'ANY' | 'CARRIER' | 'INTERNAL_COURIER';
-        paymentType: 'ANY' | 'PREPAID' | 'CASH_ON_DELIVERY';
-        amount: number;
-      }>,
-    ) => {
+    makeAgent = async (suffix, tariffs, over = {}) => {
       const agent = await agents.create(
         {
           name: `R5 agent ${suffix} ${tag}`,
@@ -277,7 +287,11 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
         },
         internal.id,
       );
-      const agreement = await agreements.create(agent.id, terms(), internal.id);
+      const agreement = await agreements.create(
+        agent.id,
+        terms(over),
+        internal.id,
+      );
       // Tariff CRUD through the agreement admin endpoint (spec 2B).
       for (const tariff of tariffs) {
         const res = await put(
@@ -674,8 +688,173 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
     const again = await post(
       adminToken,
       `/agent-portal/orders/${id}/customer-total/confirm`,
+      { expectedPayableTotal: 435 },
     );
+    expect(again.body.code).toBe('AGENT_CUSTOMER_TOTAL_NOT_PENDING');
+    // The shown total must always be echoed back.
+    const blind = await post(
+      internalToken,
+      `/agent-orders/${id}/customer-total/confirm`,
+    );
+    expect(blind.status).toBe(400);
     expect(again.status).toBe(409);
+  });
+
+  it('review H1 — prepaid + PAYMENT_VERIFIED never earns on a provisional fee; the assignment earns; the earned fee is frozen', async () => {
+    const agentId = await makeAgent(
+      `H1${next()}`,
+      [
+        { deliveryChannel: 'CARRIER', paymentType: 'PREPAID', amount: 25 },
+        {
+          deliveryChannel: 'INTERNAL_COURIER',
+          paymentType: 'PREPAID',
+          amount: 35,
+        },
+      ],
+      { commissionEarningEvent: 'PAYMENT_VERIFIED' },
+    );
+    const productId = await makeProduct(agentId);
+    const id = await createOrder(productId, { paymentType: 'PREPAID' });
+    let order = await loadOrder(id);
+    expect(order.shippingPricingStatus).toBe('PENDING_METHOD');
+    expect(Number(order.payableTotal)).toBe(425);
+    await prisma.payment.create({
+      data: {
+        paymentNumber: `PAY-R5P-${next()}`,
+        storeOrderId: id,
+        paymentDate: new Date(),
+        amount: 425,
+        currencyId,
+        paymentSourceId,
+        paymentMethodId,
+        origin: PaymentOrigin.SALES_DECLARATION,
+        senderName: 'R5 customer',
+        status: PaymentStatus.VERIFIED,
+        agentId,
+        destinationOwnership: 'COMPANY',
+      },
+    });
+    await prisma.storeOrder.update({
+      where: { id },
+      data: { declaredPaymentStatus: 'PAID', declaredAmount: 425 },
+    });
+    // Fully verified, but the fee is provisional → no earning.
+    const earned = await prisma.$transaction((tx) =>
+      fulfillment.tryEarn(tx, id, 'PAYMENT_VERIFIED', internalId),
+    );
+    expect(earned).toBe(false);
+    expect((await loadOrder(id)).agentEarnedAt).toBeNull();
+
+    // Carrier (25) confirms the fee → the assignment retries the earning.
+    expect((await assign(id, carrierCoId)).status).toBe(200);
+    order = await loadOrder(id);
+    expect(order.agentEarnedAt).not.toBeNull();
+    const retained = await prisma.agentLedgerEntry.findFirstOrThrow({
+      where: { storeOrderId: id, entryType: 'CUSTOMER_SHIPPING_RETAINED' },
+    });
+    expect(Number(retained.debit)).toBe(25);
+    // Another method would change an earned fee → refused; same fee passes.
+    const frozen = await assign(id, courierCoId);
+    expect(frozen.status).toBe(409);
+    expect(frozen.body.code).toBe('AGENT_SHIPPING_FEE_FROZEN');
+    expect((await assign(id, carrierCoId)).status).toBe(200);
+    expect((await snapshotOf(id)).agentShippingCharge?.amount).toBe(25);
+  });
+
+  it('review M2 — a tariff edited after submission never changes the order; legacy snapshots ship unchanged', async () => {
+    const agentId = await makeAgent(`M2${next()}`, [
+      { deliveryChannel: 'CARRIER', paymentType: 'ANY', amount: 25 },
+      { deliveryChannel: 'INTERNAL_COURIER', paymentType: 'ANY', amount: 30 },
+    ]);
+    const productId = await makeProduct(agentId);
+    const id = await createOrder(productId);
+    const legacyId = await createOrder(productId);
+    expect((await snapshotOf(id)).agentShippingCharge?.byChannel).toEqual({
+      CARRIER: expect.objectContaining({ amount: 25 }),
+      INTERNAL_COURIER: expect.objectContaining({ amount: 30 }),
+    });
+    const agreementId = (await loadOrder(id)).agentAgreementId!;
+    await prisma.agentShippingRate.updateMany({
+      where: { agreementId, deliveryChannel: 'CARRIER' },
+      data: { amount: 99 },
+    });
+    expect((await assign(id, carrierCoId)).status).toBe(200);
+    expect(Number((await loadOrder(id)).shippingCharge)).toBe(25);
+    expect((await snapshotOf(id)).agentShippingCharge?.amount).toBe(25);
+
+    // Legacy: priced once at submission (no frozen channels, no payment type).
+    const snap = await snapshotOf(legacyId);
+    await prisma.storeOrder.update({
+      where: { id: legacyId },
+      data: {
+        shippingPricingStatus: 'CONFIRMED',
+        agentTermsSnapshot: {
+          ...snap,
+          agentShippingCharge: { amount: 25, source: 'RATE', rateId: null },
+        } as unknown as Prisma.InputJsonValue,
+      },
+    });
+    expect((await assign(legacyId, courierCoId)).status).toBe(200);
+    await shipments.markShipped(legacyId, internalId);
+    const legacy = await loadOrder(legacyId);
+    expect(legacy.agentDispatchedAt).not.toBeNull();
+    expect(Number(legacy.shippingCharge)).toBe(25);
+    expect(
+      (legacy.agentTermsSnapshot as unknown as AgentOrderSnapshot)
+        .agentShippingCharge,
+    ).toEqual({ amount: 25, source: 'RATE', rateId: null });
+  });
+
+  it('review M3/L — link needs products.edit; concurrent links: one wins; tariff city unique ignoring case', async () => {
+    const clerk = await prisma.user.create({
+      data: {
+        email: `r5p-clerk-${lower}@test.local`,
+        username: `r5p-clerk-${lower}`,
+        fullName: `R5 clerk ${tag}`,
+        passwordHash: 'x',
+      },
+    });
+    const permission = await prisma.permission.upsert({
+      where: { name: 'agents.edit' },
+      create: { name: 'agents.edit' },
+      update: {},
+    });
+    await prisma.userPermission.create({
+      data: { userId: clerk.id, permissionId: permission.id },
+    });
+    const clerkToken = jwt.sign({ sub: clerk.id, email: clerk.email });
+    const product = await makeProduct(null, false);
+    const denied = await post(
+      clerkToken,
+      `/agents/${agentAId}/products/${product}/link`,
+    );
+    expect(denied.status).toBe(403);
+
+    const results = await Promise.all([
+      post(internalToken, `/agents/${agentAId}/products/${product}/link`),
+      post(internalToken, `/agents/${agentBId}/products/${product}/link`),
+    ]);
+    expect(results.map((r) => r.status).sort()).toEqual([201, 409]);
+    const owner = (
+      await prisma.product.findUniqueOrThrow({ where: { id: product } })
+    ).ownerAgentId;
+    expect([agentAId, agentBId]).toContain(owner);
+
+    const rate = await prisma.agentShippingRate.findFirstOrThrow({
+      where: { agreement: { agentId: agentAId } },
+    });
+    await expect(
+      prisma.agentShippingRate.create({
+        data: {
+          agreementId: rate.agreementId,
+          countryId: rate.countryId,
+          city: ` ${rate.city.toUpperCase()}X `.replace('X', ''),
+          deliveryChannel: rate.deliveryChannel,
+          paymentType: rate.paymentType,
+          amount: 1,
+        },
+      }),
+    ).rejects.toThrow();
   });
 
   it('acceptance 7 — link / unlink from the agent Products tab; own active sellable products only', async () => {

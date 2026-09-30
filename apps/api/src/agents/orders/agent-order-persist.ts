@@ -54,6 +54,8 @@ export interface AgentOrderPersistInput {
     inventoryLine: boolean;
     /** Commission class, source and rate resolved at submission (commission-policy.md A5). */
     commission: AgentLineCommissionRate;
+    /** List price × quantity at submission (null = no list price). */
+    listAmount: number | null;
   }>;
   /** Predetermined agent shipping charge (PREDETERMINED_CHARGE policy), else null. */
   agentShippingCharge: AgentShippingChargeSnapshot | null;
@@ -69,6 +71,7 @@ export function agentOrderSnapshot(
     productId: line.productId,
     inventoryLine: line.inventoryLine,
     commission: line.commission,
+    listAmount: line.listAmount,
   }));
   return {
     ...input.agentTermsSnapshot,

@@ -50,6 +50,12 @@ export interface AgentLineSnapshot {
   inventoryLine: boolean;
   /** commission-policy.md A5 — resolved at submission; absent on legacy snapshots. */
   commission?: AgentLineCommissionRate;
+  /**
+   * Spec 2 — list price × quantity at submission (null = no list price), so a
+   * re-allocated shipping-included line keeps its informational discount
+   * (max(0, list − line amount)) consistent.
+   */
+  listAmount?: number | null;
 }
 
 /** What `StoreOrder.agentTermsSnapshot` holds: agreement terms + order facts. */
@@ -77,6 +83,16 @@ export interface AgentShippingChargeSnapshot {
   shippingCompanyId?: string | null;
   resolvedAt?: string;
   resolvedBy?: string | null;
+  /**
+   * Spec 2 — the tariff of every delivery channel as resolved at submission
+   * (null = not configured). Shipping's later choice is priced from this
+   * frozen copy: agreement edits never change an existing order. Absent on
+   * legacy snapshots, which are never re-resolved.
+   */
+  byChannel?: Record<
+    'CARRIER' | 'INTERNAL_COURIER',
+    { rateId: string; amount: number } | null
+  >;
 }
 
 /**

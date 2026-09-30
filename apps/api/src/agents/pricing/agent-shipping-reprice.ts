@@ -20,7 +20,13 @@ export interface RepriceInput {
   serviceCharge: number;
   shippingCharge: number;
   payableTotal: number;
-  lines: Array<{ id: string; quantity: number; amount: number }>;
+  /** `listAmount` = list price × quantity at submission (null = none). */
+  lines: Array<{
+    id: string;
+    quantity: number;
+    amount: number;
+    listAmount?: number | null;
+  }>;
   fee: number;
 }
 
@@ -32,6 +38,12 @@ export type RepriceResult =
       payableTotal: number;
       /** Only when the merchandise was re-allocated (SHIPPING_INCLUDED). */
       lines: Array<{ id: string; amount: number; unitPrice: number }> | null;
+      /**
+       * Re-allocated only: Σ max(0, list − line amount) — the same
+       * informational discount the order entry computes (lines without a
+       * list price contribute 0). Null = unchanged.
+       */
+      discountAmount: number | null;
     }
   | {
       kind: 'CONFIRMATION_REQUIRED';
@@ -63,12 +75,21 @@ export function repriceForConfirmedFee(input: RepriceInput): RepriceResult {
         fee: fromMinor(fee),
       };
     }
+    // The existing allocation is the weight: a 0 line stays 0. Quantities
+    // only when there is no allocation at all.
     const weights = input.lines.map((l) => toMinor(l.amount));
     const allocated = allocateMinor(
       merchandise,
-      weights.every((w) => w > 0)
+      weights.reduce((a, b) => a + b, 0) > 0
         ? weights
         : input.lines.map((l) => l.quantity),
+    );
+    const discount = input.lines.reduce(
+      (sum, line, index) =>
+        line.listAmount == null
+          ? sum
+          : sum + Math.max(0, toMinor(line.listAmount) - allocated[index]),
+      0,
     );
     return {
       kind: 'APPLY',
@@ -80,6 +101,7 @@ export function repriceForConfirmedFee(input: RepriceInput): RepriceResult {
         amount: fromMinor(allocated[index]),
         unitPrice: fromMinor(Math.round(allocated[index] / line.quantity)),
       })),
+      discountAmount: fromMinor(discount),
     };
   }
   const merchandise = toMinor(input.merchandiseAmount);
@@ -97,5 +119,6 @@ export function repriceForConfirmedFee(input: RepriceInput): RepriceResult {
     merchandiseAmount: fromMinor(merchandise),
     payableTotal: fromMinor(nextPayable),
     lines: null,
+    discountAmount: null,
   };
 }

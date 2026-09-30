@@ -249,8 +249,7 @@ export class DeclareAgentOrderPaymentDto extends AgentOrderDeclarationDto {}
  */
 export class ConfirmCustomerTotalDto {
   @Type(() => Number)
-  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
-  expectedPayableTotal?: number;
+  expectedPayableTotal!: number;
 }

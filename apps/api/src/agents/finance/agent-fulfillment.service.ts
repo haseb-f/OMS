@@ -76,6 +76,7 @@ const ORDER_SELECT = {
   agentDispatchedAt: true,
   agentEarnedAt: true,
   customerTotalStatus: true,
+  shippingPricingStatus: true,
   merchandiseAmount: true,
   shippingCharge: true,
   serviceCharge: true,
@@ -288,6 +289,9 @@ export class AgentFulfillmentService {
       storeOrderId,
       userId,
     );
+    // A fully verified order held back while its fee was provisional earns
+    // now that the fee is final (no-op otherwise; row lock already held).
+    await this.tryEarn(tx, storeOrderId, 'PAYMENT_VERIFIED', userId);
   }
 
   /** Issues the order's agent stock once (SALES_DELIVERY, referenceType STORE_ORDER). */
@@ -402,6 +406,10 @@ export class AgentFulfillmentService {
     // Spec 2: a shipping-added total awaiting the customer's agreement is
     // not final — earning waits for the confirmation (which retries it).
     if (order.customerTotalStatus === 'CONFIRMATION_REQUIRED') return false;
+    // Spec 2: never earn on a provisional fee — commission, retained shipping
+    // and (shipping included) line amounts are final only once Shipping has
+    // chosen the delivery method; the assignment retries the earning event.
+    if (order.shippingPricingStatus === 'PENDING_METHOD') return false;
     const terms = this.snapshotOf(order);
     const event = terms.commissionEarningEvent;
     let earns = false;

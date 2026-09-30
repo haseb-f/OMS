@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { lockStoreOrderRow } from '../../store-orders/store-order-payment-settlement.util';
-import { loadAgreementTariffs } from '../admin/agent-agreements.service';
 import { agentConflict, agentUnprocessable } from '../common/agent-errors';
 import {
   readAgentTermsSnapshot,
@@ -11,7 +10,6 @@ import {
 } from '../common/agent-terms';
 import {
   deliveryChannelOf,
-  resolveTariff,
   type DeliveryChannel,
 } from './agent-shipping-tariff';
 import { repriceForConfirmedFee } from './agent-shipping-reprice';
@@ -39,6 +37,7 @@ const ORDER_SELECT = {
   agentAgreementId: true,
   agentTermsSnapshot: true,
   agentDispatchedAt: true,
+  agentEarnedAt: true,
   fulfillmentMethod: true,
   paymentType: true,
   pricingMode: true,
@@ -54,7 +53,7 @@ const ORDER_SELECT = {
   items: {
     where: { deletedAt: null },
     orderBy: { createdAt: 'asc' },
-    select: { id: true, quantity: true, agreedAmount: true },
+    select: { id: true, productId: true, quantity: true, agreedAmount: true },
   },
   shipments: {
     where: { deletedAt: null },
@@ -147,7 +146,10 @@ export class AgentShippingPricingService {
       !current ||
       current.source === 'PICKUP' ||
       current.source === 'DIGITAL_ONLY' ||
-      order.fulfillmentMethod !== 'SHIPPING'
+      order.fulfillmentMethod !== 'SHIPPING' ||
+      // Legacy snapshot (before tariffs): priced once at submission, never re-resolved.
+      !current.byChannel ||
+      !current.paymentType
     ) {
       return order.shippingPricingStatus;
     }
@@ -155,20 +157,15 @@ export class AgentShippingPricingService {
     if (!company) return order.shippingPricingStatus;
 
     const channel = deliveryChannelOf(company.type);
-    const paymentType = order.paymentType;
+    // Priced from the tariffs frozen at submission (payment type included):
+    // agreement edits never change an existing order.
+    const paymentType = current.paymentType;
     const destination = {
       countryId: current.countryId ?? snapshot.customer?.countryId ?? null,
       city: current.city ?? snapshot.customer?.city ?? null,
     };
-    const tariff =
-      destination.countryId && order.agentAgreementId
-        ? resolveTariff(
-            await loadAgreementTariffs(order.agentAgreementId, tx),
-            { countryId: destination.countryId, city: destination.city },
-            channel,
-            paymentType,
-          )
-        : null;
+    const frozen = current.byChannel[channel];
+    const tariff = frozen ? { id: frozen.rateId, amount: frozen.amount } : null;
     if (!tariff) {
       const country = destination.countryId
         ? await tx.country.findUnique({
@@ -190,6 +187,19 @@ export class AgentShippingPricingService {
       );
     }
 
+    const sameFee =
+      Math.round(current.amount * 100) === Math.round(tariff.amount * 100);
+    // Earned: commission and retained shipping are booked — the fee is frozen.
+    if (order.agentEarnedAt) {
+      if (sameFee && order.shippingPricingStatus === 'CONFIRMED') {
+        return 'CONFIRMED';
+      }
+      throw agentConflict(
+        'AGENT_SHIPPING_FEE_FROZEN',
+        `استُحقت عمولة الطلب ${order.internalOrderId} برسم شحن ${money(current.amount)}؛ لا يمكن تغييره إلى ${money(tariff.amount)} باختيار طريقة توصيل أخرى`,
+        `Order ${order.internalOrderId} was already earned with the agent shipping fee ${money(current.amount)}; another delivery method cannot change it to ${money(tariff.amount)}.`,
+      );
+    }
     const unchanged =
       order.shippingPricingStatus === 'CONFIRMED' &&
       current.provisional !== true &&
@@ -209,6 +219,9 @@ export class AgentShippingPricingService {
         id: item.id,
         quantity: item.quantity,
         amount: Number(item.agreedAmount),
+        listAmount:
+          snapshot.lines?.find((line) => line.productId === item.productId)
+            ?.listAmount ?? null,
       })),
       fee: tariff.amount,
     });
@@ -231,6 +244,7 @@ export class AgentShippingPricingService {
       countryId: destination.countryId,
       city: destination.city,
       shippingCompanyId: company.id,
+      byChannel: current.byChannel,
       resolvedAt: new Date().toISOString(),
       resolvedBy: userId ?? null,
     };
@@ -251,6 +265,9 @@ export class AgentShippingPricingService {
       data.merchandiseAmount = repriced.merchandiseAmount;
       data.payableTotal = repriced.payableTotal;
       data.shippingChargeSource = 'RATE';
+      if (repriced.discountAmount != null) {
+        data.discountAmount = repriced.discountAmount;
+      }
       // A pending customer agreement is superseded by an applied total.
       if (order.customerTotalStatus === 'CONFIRMATION_REQUIRED') {
         data.customerTotalStatus = 'NONE';

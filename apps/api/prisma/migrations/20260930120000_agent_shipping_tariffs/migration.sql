@@ -25,6 +25,10 @@ DROP INDEX "agent_shipping_rates_agreement_id_country_id_city_key";
 -- CreateIndex
 CREATE UNIQUE INDEX "agent_shipping_rates_tariff_key" ON "agent_shipping_rates"("agreement_id", "country_id", "city", "delivery_channel", "payment_type");
 
+-- One tariff per destination whatever the city's letter case or padding
+-- ("Riyadh" = "riyadh "). Expression index — not modelled in schema.prisma.
+CREATE UNIQUE INDEX "agent_shipping_rates_tariff_ci_key" ON "agent_shipping_rates"("agreement_id", "country_id", lower(btrim("city")), "delivery_channel", "payment_type");
+
 -- AlterTable
 ALTER TABLE "store_orders" ADD COLUMN "shipping_pricing_status" "StoreOrderShippingPricingStatus" NOT NULL DEFAULT 'NOT_APPLICABLE',
 ADD COLUMN "customer_total_status" "StoreOrderCustomerTotalStatus" NOT NULL DEFAULT 'NONE';

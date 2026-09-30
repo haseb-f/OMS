@@ -132,6 +132,10 @@ interface PreparedOrder {
   commissionRates: AgentLineCommissionRate[] | null;
 }
 
+/** The submission-time tariff of one channel, as frozen in the order snapshot. */
+const frozenTariff = (tariff: ResolvedTariff | null) =>
+  tariff ? { rateId: tariff.id, amount: tariff.amount } : null;
+
 const issue = (code: string, message: string, lineKey?: string) => ({
   code,
   message,
@@ -525,7 +529,7 @@ export class AgentOrdersService {
    */
   async confirmCustomerTotal(
     orderId: string,
-    input: { expectedPayableTotal?: number },
+    input: { expectedPayableTotal: number },
     actor: AgentOrderActor,
   ) {
     const resolved = await this.resolveActor(actor);
@@ -543,9 +547,17 @@ export class AgentOrdersService {
           select: {
             customerTotalStatus: true,
             agentTermsSnapshot: true,
+            deletedAt: true,
             fulfillmentStatus: { select: { code: true } },
           },
         });
+        if (order.deletedAt || order.fulfillmentStatus?.code === 'CANCELLED') {
+          throw agentConflict(
+            'AGENT_ORDER_CLOSED',
+            'الطلب ملغى أو مؤرشف — لا يمكن تسجيل موافقة العميل عليه',
+            'The order is cancelled or archived — the customer agreement cannot be recorded.',
+          );
+        }
         const snapshot =
           order.agentTermsSnapshot as unknown as AgentOrderSnapshot;
         const change = snapshot?.customerTotalChange;
@@ -557,7 +569,7 @@ export class AgentOrdersService {
           );
         }
         if (
-          input.expectedPayableTotal != null &&
+          !Number.isFinite(input.expectedPayableTotal) ||
           Math.round(input.expectedPayableTotal * 100) !==
             Math.round(change.proposedPayableTotal * 100)
         ) {
@@ -993,6 +1005,16 @@ export class AgentOrdersService {
           city: noShipment ? null : input.city?.trim() || null,
           resolvedAt: new Date().toISOString(),
           resolvedBy: actor.userId,
+          ...(noShipment || !submissionTariff
+            ? {}
+            : {
+                byChannel: {
+                  CARRIER: frozenTariff(submissionTariff.byChannel.CARRIER),
+                  INTERNAL_COURIER: frozenTariff(
+                    submissionTariff.byChannel.INTERNAL_COURIER,
+                  ),
+                },
+              }),
         };
         shippingPricingStatus = pending ? 'PENDING_METHOD' : 'CONFIRMED';
       }
@@ -1139,6 +1161,12 @@ export class AgentOrdersService {
         agreedAmount: line.lineAmount,
         inventoryLine: prepared.lines[index].isInventoryItem,
         commission: prepared.commissionRates![index],
+        listAmount:
+          prepared.lines[index].listUnitPrice == null
+            ? null
+            : Math.round(
+                prepared.lines[index].listUnitPrice * 100 * line.quantity,
+              ) / 100,
       })),
       agentShippingCharge: prepared.agentShippingCharge,
       shippingPricingStatus: prepared.shippingPricingStatus,
