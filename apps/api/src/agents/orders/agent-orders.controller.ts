@@ -98,10 +98,10 @@ export class AgentOrdersController {
     return this.orders.shippingPricing(orderId, { userId: user.sub });
   }
 
-  /** Spec 2 — "Customer agreed to pay {new total}" (`agents.edit`, checked in the service). */
+  /** Spec 2 — "Customer agreed to pay {new total}" (`agents.edit`). */
   @Post(':orderId/customer-total/confirm')
   @HttpCode(200)
-  @SkipPermissionCheck()
+  @PermissionAction('edit')
   confirmCustomerTotal(
     @Param('orderId', ParseUUIDPipe) orderId: string,
     @Body() dto: ConfirmCustomerTotalDto,
