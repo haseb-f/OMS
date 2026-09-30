@@ -8,10 +8,12 @@ import feedbackEn from "./modules/feedback.en";
 import productCommissionEn from "./modules/product-commission.en";
 import agentPricingEn from "./modules/agent-pricing.en";
 import orderDuplicatesEn from "./modules/order-duplicates.en";
+import orderAmendmentsEn from "./modules/order-amendments.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
   orderDuplicates: orderDuplicatesEn,
+  orderAmendments: orderAmendmentsEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
@@ -160,6 +162,15 @@ const en = {
    * for the (currently unused) secondary locale.
    */
   errors: {
+    ORDER_VERSION_CONFLICT: "This order was changed meanwhile. Reload to see the latest version.",
+    AMENDMENT_BLOCKED: "The amendment cannot be saved — review the listed reasons.",
+    AMENDMENT_ACKNOWLEDGEMENT_REQUIRED: "Confirm every listed impact, then save again.",
+    AMENDMENT_NO_CHANGES: "Nothing to amend — change at least one field.",
+    AGENT_ORDER_CUSTOMER_SWITCH:
+      "An agent order's customer is identified by the typed name and mobile — correct those instead.",
+    CUSTOMER_PHONE_INVALID: "The customer phone number is not valid.",
+    LINE_HAS_ALLOCATIONS:
+      "A removed or changed line is allocated to an investment opportunity — reverse that allocation first.",
     DUPLICATE_ACKNOWLEDGEMENT_REQUIRED:
       "A customer with these details already exists — choose how to continue, then save again.",
     VALIDATION_ERROR: "Check the information you entered and try again.",
@@ -275,6 +286,7 @@ const en = {
       import: "Import",
       manage: "Manage",
       duplicateReview: "Duplicate review",
+      amend: "Amend order",
     },
     modules: {
       dashboard: "Dashboard",

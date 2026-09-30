@@ -702,6 +702,7 @@ const agentsAr = {
       orders_view: "عرض الطلبات",
       orders_create: "إنشاء الطلبات",
       orders_override_shipping: "تعديل رسوم الشحن",
+      orders_edit: "تعديل الطلبات (قبل التسليم)",
       payments_declare: "الإبلاغ عن الدفع",
       records_view_all: "رؤية كل سجلات الوكيل",
       stock_view: "عرض المخزون",

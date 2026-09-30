@@ -13,6 +13,7 @@ export const AGENT_PORTAL_PERMISSIONS = [
   "agent.leads.convert",
   "agent.orders.view",
   "agent.orders.create",
+  "agent.orders.edit",
   "agent.orders.override_shipping",
   "agent.payments.declare",
   "agent.records.view_all",
@@ -32,6 +33,7 @@ const SALES_PRESET: AgentPortalPermission[] = [
   "agent.leads.convert",
   "agent.orders.view",
   "agent.orders.create",
+  "agent.orders.edit",
   "agent.payments.declare",
 ];
 

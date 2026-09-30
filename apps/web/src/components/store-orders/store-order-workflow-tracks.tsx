@@ -6,7 +6,7 @@ import {
   type WorkflowTrackerTone,
 } from "@/components/shared/workflow-tracker";
 import { declaredShortLabelKey } from "@/components/payments/declaration/declaration-status";
-import type { StatusTone } from "@/components/business/status-badge";
+import { fulfillmentStatusTone } from "@/config/store-orders/order-status-badges";
 import {
   FULFILLMENT_METHOD_LABEL_KEY,
   PAYMENT_STATUS_LABEL_KEY,
@@ -19,15 +19,6 @@ import { formatDate } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
 import { useLocale } from "@/providers/locale-provider";
 import type { StoreOrderPaymentStatusValue, StoreOrderRow } from "@/services/store-orders-service";
-
-/** Tone for a fulfillment catalog status, by its stable code (the catalog has no color). */
-function fulfillmentStatusTone(code: string | null | undefined): StatusTone {
-  if (!code) return "neutral";
-  if (["DELIVERED", "COLLECTED", "COMPLETED", "FULFILLED"].includes(code)) return "success";
-  if (["CANCELLED", "RETURNED", "DELIVERY_FAILED", "FAILED"].includes(code)) return "destructive";
-  if (code.startsWith("AWAITING") || code === "NEW" || code === "PENDING") return "neutral";
-  return "info";
-}
 
 /** Where a track is, in codes only (labels are added by the component). */
 export interface TrackPosition {

@@ -716,6 +716,7 @@ const agentsEn = {
       orders_view: "View orders",
       orders_create: "Create orders",
       orders_override_shipping: "Override shipping charge",
+      orders_edit: "Amend orders (before delivery)",
       payments_declare: "Declare payments",
       records_view_all: "See all of the agent's records",
       stock_view: "View stock",
