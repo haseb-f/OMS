@@ -80,8 +80,9 @@ read-only (never confirms, archives or submits).
 | `073562f`   | table selection scopes, Print/Export selected, cross-page bulk resolution, carrier bulk confirm/unmatch + server guards |
 | this commit | register                                                                                                                |
 
-- **Push to `main` (= Production deploy): not done by the release owner** — the session's permission
-  system blocks Production deploys. Owner action: `git -C D:/Systems/OMS-ux push origin HEAD:main`.
+- **Push to `main`:** `main` was moved to `7feea08` at 2026-09-30T05:11Z, but Vercel only built that
+  SHA as the branch Preview (6752073039) and created no Production deployment. The release owner
+  then pushed this register commit to `main` (owner-approved 2026-09-30) to trigger Production.
   After it, verify: deployed SHA via GitHub deployments, then `tmp/ux/probe.mjs` against
   https://oms.haseb.org (QA admin, AR light / EN dark / 390px mobile).
 - **Preview of this branch:** Vercel Preview for `feat/ux-completion` (link in the final handoff).
