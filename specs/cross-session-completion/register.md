@@ -104,3 +104,24 @@ read-only (never confirms, archives or submits).
 6. Local cleanup (optional): `D:\Systems\OMS-kumo-verify` (unregistered copy, nothing unique);
    untracked `.claude/launch.json` and `specs/enterprise-ui-overhaul/round4-proposal.md` in the main
    checkout (owned by other sessions — left untouched).
+
+## Final release state (2026-09-30)
+
+| SHA       | Content                                                                                                                    | Production deployment                                                                                                                                                                                                       |
+| --------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `8a67de9` | toast ×, sidebar radius, selection scopes, cross-page bulk actions, carrier bulk confirm/unmatch + server guards, register | 6752193931 — success; probe: menu scopes, Print/Export selected, sidebar 10px, overflow 0, no page errors; deployed CSS carries the toast-close rule and `--radius-sidebar-item`                                            |
+| `61a5124` | phone selection bar + wrapping bulk strip                                                                                  | 6752508322 — success; `tmp/ux/mobile-probe.mjs` on Production: invoices and store orders at 390px AR/EN and 768px — bar, card checkboxes, "all matching" → `allMatching`, strip within viewport, overflow 0, no page errors |
+
+Not verifiable on Production without creating financial records: Carrier Reconciliation bulk actions
+(no charges there) — verified locally with tagged demo charges `DEMO-UX-20260930-*`.
+
+**Preview access.** Both Vercel Preview links answer 302 → `vercel.com/sso-api`: that is Vercel
+Deployment Protection (Vercel Authentication), not the OMS login. Only a Vercel member of team
+`haseb-f-s-projects` (or a Shareable Link created from the Vercel dashboard) gets through; the release
+owner has no Vercel access (CLI not installed, Vercel MCP not authorized), so it could neither create
+a share link nor read which database the Preview environment uses. Working alternative: local review
+stack `dashboard-review` (`.claude/launch.json`, `tmp/review/stack.cjs`) — dashboard branch on
+http://localhost:3036 against a review API on :3035 using the local dev DB only; login path tested
+end-to-end with the local seed account (`apps/api/prisma/seed.ts`).
+
+Decisions awaiting the owner: `decisions-ar.md`.
