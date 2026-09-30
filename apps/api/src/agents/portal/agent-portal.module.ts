@@ -6,6 +6,7 @@ import { AgentOrdersModule } from '../orders/agent-orders.module';
 import { AgentFinanceModule } from '../finance/agent-finance.module';
 import { AgentPermissionGuard } from '../common/agent-permission.guard';
 import { StoreOrderDuplicatesModule } from '../../store-orders/duplicates/store-order-duplicates.module';
+import { StoreOrderAmendmentsModule } from '../../store-orders/amendments/store-order-amendments.module';
 import {
   AgentPortalFinanceController,
   AgentPortalHomeController,
@@ -26,6 +27,7 @@ import { AgentPortalTeamService } from './agent-portal-team.service';
     AgentOrdersModule,
     AgentFinanceModule,
     StoreOrderDuplicatesModule,
+    StoreOrderAmendmentsModule,
   ],
   controllers: [
     AgentPortalHomeController,

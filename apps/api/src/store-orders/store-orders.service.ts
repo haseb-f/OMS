@@ -684,6 +684,7 @@ export class StoreOrdersService {
             paymentType: dto.paymentType ?? StoreOrderPaymentType.PREPAID,
             notes: dto.notes,
             updatedBy: userId,
+            version: { increment: 1 },
             items: {
               create: dto.items.map((item) => ({
                 productId: item.productId,
@@ -1340,7 +1341,8 @@ export class StoreOrdersService {
       if (changes.length === 0) return;
       await tx.storeOrder.update({
         where: { id },
-        data: { updatedBy: userId },
+        // Spec 1A — commercial data changed: stale amendment previews conflict.
+        data: { updatedBy: userId, version: { increment: 1 } },
       });
       await recomputeDeclaredPaymentStatus(tx, id);
       await this.activityService.log(
@@ -1962,8 +1964,14 @@ export class StoreOrdersService {
         'Invoice can only be generated once the order is Fully Paid & Reconciled.',
       );
     }
+    // A cancelled (never posted) invoice — e.g. cancelled by an order
+    // amendment — does not block issuing the corrected one.
     const existingInvoice = await this.prisma.salesInvoice.findFirst({
-      where: { storeOrderId: id, deletedAt: null },
+      where: {
+        storeOrderId: id,
+        deletedAt: null,
+        status: { not: SalesDocumentStatus.CANCELLED },
+      },
     });
     if (existingInvoice) {
       throw new BadRequestException({

@@ -112,6 +112,7 @@ import { PaymentSettlementsModule } from './payment-settlements/payment-settleme
 import { PaymentReconciliationModule } from './payment-reconciliation/payment-reconciliation.module';
 
 import { AgentsModule } from './agents/agents.module';
+import { StoreOrderAmendmentsModule } from './store-orders/amendments/store-order-amendments.module';
 @Module({
   imports: [
     PrismaModule,
@@ -225,6 +226,7 @@ import { AgentsModule } from './agents/agents.module';
     PaymentSettlementsModule,
     PaymentReconciliationModule,
     AgentsModule,
+    StoreOrderAmendmentsModule,
   ],
   controllers: [HealthController],
   providers: [],

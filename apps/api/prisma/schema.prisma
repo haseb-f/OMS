@@ -90,9 +90,10 @@ model User {
 
   /// Store Orders + Shipping Operations — independent order pipeline, not
   /// routed through Lead/SalesOrder. See the StoreOrder model comment.
-  storeOrdersAsEmployee      StoreOrder[]         @relation("StoreOrderEmployee")
+  storeOrdersAsEmployee      StoreOrder[]          @relation("StoreOrderEmployee")
   /// Round 5 Spec 1B — orders whose cross-scope duplicate review this user resolved.
-  storeOrderDuplicateReviews StoreOrder[]         @relation("StoreOrderDuplicateReviewer")
+  storeOrderDuplicateReviews StoreOrder[]          @relation("StoreOrderDuplicateReviewer")
+  storeOrderAmendments       StoreOrderAmendment[] @relation("StoreOrderAmendmentActor")
   storeOrderReceiptUploads   StoreOrderReceipt[]
   storeOrderActivities       StoreOrderActivity[]
 
@@ -2038,6 +2039,14 @@ model Shipment {
   notes String?
 
   isReship Boolean @default(false) @map("is_reship")
+
+  /// Round 5 Spec 1A — an amendment changed items / address / fulfillment
+  /// after this label was issued (LABEL_CREATED, not handed over): the label
+  /// must be cancelled and reissued. Cleared when a new label is set; the
+  /// shipment cannot be marked shipped while it is set.
+  labelReissueRequired      Boolean   @default(false) @map("label_reissue_required")
+  labelReissueRequestedAt   DateTime? @map("label_reissue_requested_at")
+  labelReissueRequestedById String?   @map("label_reissue_requested_by_id") @db.Uuid
 
   /// Data Synchronization (Google Sheets / CSV shipping updates) conflict
   /// detection — stamped only by `ShippingUpdatesImportHandler` right after
@@ -5009,6 +5018,12 @@ model StoreOrder {
   duplicateReviewedAt    DateTime?                       @map("duplicate_reviewed_at")
   duplicateReviewNote    String?                         @map("duplicate_review_note")
 
+  /// Round 5 Spec 1A — optimistic concurrency. Every amendment and every
+  /// other mutation that changes commercial data (line amounts, customer
+  /// total confirmation, agent tariff re-pricing) increments it; a stale
+  /// `expectedVersion` on an amendment is a 409 ORDER_VERSION_CONFLICT.
+  version Int @default(0)
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by") @db.Uuid
@@ -5016,6 +5031,7 @@ model StoreOrder {
   deletedAt DateTime? @map("deleted_at")
 
   agentReturns AgentOrderReturn[]
+  amendments   StoreOrderAmendment[]
 
   items      StoreOrderItem[]
   receipts   StoreOrderReceipt[]
@@ -5145,6 +5161,45 @@ model StoreOrderActivity {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("store_order_activities")
+}
+
+/// Round 5 Spec 1A — who amended an order.
+enum StoreOrderAmendmentActorType {
+  INTERNAL
+  AGENT
+}
+
+/// Round 5 Spec 1A — append-only amendment audit (never updated or deleted,
+/// same convention as StoreOrderActivity). One row per committed amendment:
+/// the field / line diffs, the impacts shown in the preview with the
+/// acknowledgements given, and the commercial snapshot before the change
+/// (agent terms, pricing breakdown, lines) so a re-quote is always traceable.
+model StoreOrderAmendment {
+  id String @id @default(uuid()) @db.Uuid
+
+  storeOrderId String     @map("store_order_id") @db.Uuid
+  storeOrder   StoreOrder @relation(fields: [storeOrderId], references: [id])
+
+  /// `StoreOrder.version` after this amendment.
+  version Int
+  reason  String
+
+  actorId   String?                      @map("actor_id") @db.Uuid
+  actor     User?                        @relation("StoreOrderAmendmentActor", fields: [actorId], references: [id])
+  actorType StoreOrderAmendmentActorType @map("actor_type")
+
+  /// field → { old, new } plus line diffs.
+  changes          Json
+  /// Impact codes with severity, and the acknowledged codes.
+  impacts          Json
+  /// Commercial state before the amendment (totals, lines, agent snapshot).
+  previousSnapshot Json @map("previous_snapshot")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([storeOrderId, version])
+  @@index([storeOrderId, createdAt])
+  @@map("store_order_amendments")
 }
 
 // ---------------------------------------------------------------------------

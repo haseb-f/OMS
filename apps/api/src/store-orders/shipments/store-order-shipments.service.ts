@@ -177,6 +177,8 @@ export class StoreOrderShipmentsService {
       where: { id: shipment.id },
       data: await this.catalogStatusData(tx, ShipmentStatus.LABEL_CREATED, {
         labelUrl,
+        // Spec 1A — a new label answers an amendment's reissue request.
+        labelReissueRequired: false,
       }),
     });
   }
@@ -187,6 +189,15 @@ export class StoreOrderShipmentsService {
   ) {
     const { shipment } = await this.getOrCreateCurrent(storeOrderId, tx);
     this.assertTransition(shipment.status, ShipmentStatus.SHIPPED);
+    // Spec 1A — the order was amended after this label was issued: the
+    // parcel must not leave with the old label / contents.
+    if (shipment.labelReissueRequired) {
+      throw new BadRequestException({
+        code: 'LABEL_REISSUE_REQUIRED',
+        message:
+          'تم تعديل الطلب بعد إصدار البوليصة — ألغِ البوليصة وأصدر بوليصة جديدة قبل الشحن — The order was amended after this label was issued: cancel it and issue a new label before shipping.',
+      });
+    }
     return tx.shipment.update({
       where: { id: shipment.id },
       data: await this.catalogStatusData(tx, ShipmentStatus.SHIPPED),

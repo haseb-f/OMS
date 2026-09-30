@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import {
   PaymentOrigin,
   Prisma,
@@ -139,6 +139,20 @@ interface PreparedOrder {
   shippingPricingStatus: 'NOT_APPLICABLE' | 'PENDING_METHOD' | 'CONFIRMED';
   /** Per-line commission rate resolved on the order date (commission-policy.md A4). */
   commissionRates: AgentLineCommissionRate[] | null;
+}
+
+interface PrepareOptions {
+  /** Amendment re-quote: price on the order's own date, not "now". */
+  orderDate?: Date;
+  /** Amendment re-quote: the order's existing (audited) shipping override stays allowed. */
+  keepAuthorizedOverride?: boolean;
+}
+
+/** Round 5 Spec 1A — the re-quote of an amended agent order (no writes). */
+export interface AgentAmendmentQuote {
+  issues: AgentOrderIssue[];
+  /** Null when an issue prevents persisting the re-quote. */
+  persist: AgentOrderPersistInput | null;
 }
 
 /** The submission-time tariff of one channel, as frozen in the order snapshot. */
@@ -625,6 +639,8 @@ export class AgentOrdersService {
             payableTotal: change.proposedPayableTotal,
             customerTotalStatus: 'CONFIRMED',
             updatedBy: resolved.userId,
+            // Spec 1A — the payable changed: stale amendment previews conflict.
+            version: { increment: 1 },
             agentTermsSnapshot: {
               ...snapshot,
               customerTotalChange: {
@@ -677,6 +693,66 @@ export class AgentOrdersService {
     return order;
   }
 
+  // ── Amendment re-quote (spec-1-orders.md 1A) ────────────────────────────
+
+  /**
+   * Full re-quote of an amended agent order through the same `prepare()` as
+   * submission: agreement and commission rates on the order's own date,
+   * tariffs re-resolved for the (possibly new) destination and payment type,
+   * a new terms snapshot. Never writes — the amendment service persists the
+   * result under the order row lock and keeps the previous snapshot.
+   */
+  async quoteAmendment(
+    input: AgentOrderPricingDto,
+    actor: AgentOrderActor,
+    order: {
+      orderDate: Date;
+      employeeId: string | null;
+      keepShippingOverride: boolean;
+      customer: {
+        name: string;
+        mobile: string | null;
+        countryId: string | null;
+        city: string | null;
+        address: string | null;
+      };
+    },
+  ): Promise<AgentAmendmentQuote> {
+    const resolved = await this.resolveActor(actor);
+    const prepared = await this.prepare(input, resolved, {
+      orderDate: order.orderDate,
+      keepAuthorizedOverride: order.keepShippingOverride,
+    });
+    let customer: AgentCustomerSnapshot | null = null;
+    try {
+      customer = await this.customerSnapshot(order.customer);
+    } catch (error) {
+      const response =
+        error instanceof HttpException ? error.getResponse() : null;
+      if (!response || typeof response !== 'object') throw error;
+      const body = response as { code?: string; message?: string };
+      prepared.issues.push(
+        issue(
+          body.code ?? 'CUSTOMER_INVALID',
+          body.message ?? 'Invalid customer.',
+        ),
+      );
+    }
+    const complete =
+      prepared.issues.length === 0 &&
+      prepared.breakdown &&
+      prepared.commissionRates &&
+      prepared.agent &&
+      prepared.agreement &&
+      customer;
+    return {
+      issues: prepared.issues,
+      persist: complete
+        ? this.toPersistInput(prepared, order.employeeId, customer!)
+        : null,
+    };
+  }
+
   // ── Core ────────────────────────────────────────────────────────────────
 
   async resolveActor(actor: AgentOrderActor): Promise<ResolvedActor> {
@@ -709,6 +785,7 @@ export class AgentOrdersService {
   private async prepare(
     input: AgentOrderPricingDto,
     actor: ResolvedActor,
+    options: PrepareOptions = {},
   ): Promise<PreparedOrder> {
     const issues: AgentOrderIssue[] = [];
     const fulfillmentMethod =
@@ -833,11 +910,13 @@ export class AgentOrdersService {
         ),
       );
     }
-    // Agent users always order "now"; internal staff may back-date.
+    // Agent users always order "now"; internal staff may back-date. An
+    // amendment re-quotes on the order's own date (same agreement / rates).
     const orderDate =
-      !actor.isAgentUser && input.orderDate
+      options.orderDate ??
+      (!actor.isAgentUser && input.orderDate
         ? new Date(input.orderDate)
-        : new Date();
+        : new Date());
     if (agent) {
       agreement = await resolveActiveAgreement(
         agent.id,
@@ -898,7 +977,10 @@ export class AgentOrdersService {
     // Shipping (spec §5): configured rate, or a permitted + audited override.
     const digitalOnly =
       lines.length > 0 && lines.every((line) => !line.isInventoryItem);
-    const overrideAllowed = await this.canOverrideShipping(actor);
+    // An amendment keeps a shipping override that was authorized at entry.
+    const overrideAllowed =
+      options.keepAuthorizedOverride === true ||
+      (await this.canOverrideShipping(actor));
     const shipping: PreparedOrder['shipping'] = {
       rate: null,
       charge: null,

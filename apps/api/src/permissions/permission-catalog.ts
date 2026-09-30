@@ -80,6 +80,7 @@ export const AGENT_PORTAL_PERMISSIONS = [
   'agent.leads.convert',
   'agent.orders.view',
   'agent.orders.create',
+  'agent.orders.edit',
   'agent.orders.override_shipping',
   'agent.payments.declare',
   'agent.records.view_all',
@@ -108,6 +109,7 @@ export const AGENT_ROLE_PRESETS: Record<
     'agent.leads.convert',
     'agent.orders.view',
     'agent.orders.create',
+    'agent.orders.edit',
     'agent.payments.declare',
   ],
   ADMIN: [
@@ -117,6 +119,7 @@ export const AGENT_ROLE_PRESETS: Record<
     'agent.leads.convert',
     'agent.orders.view',
     'agent.orders.create',
+    'agent.orders.edit',
     'agent.payments.declare',
     'agent.records.view_all',
     'agent.stock.view',
@@ -353,6 +356,9 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       // Round 5 Spec 1B — resolve orders flagged for cross-scope duplicate
       // review; the reviewer sees both sides regardless of sales scope.
       { action: 'duplicate_review', name: 'store-orders.duplicate_review' },
+      // Round 5 Spec 1A — guided amendment (items, customer, currency,
+      // payment arrangement, fulfillment, destination) until delivery.
+      { action: 'amend', name: 'store-orders.amend' },
       // ADR-0018 (Order Economics M2) — COGS/margin/contribution data is
       // company-sensitive in a way plain order status/customer/shipping
       // fields are not; a Sales Agent holding `store-orders.view` must

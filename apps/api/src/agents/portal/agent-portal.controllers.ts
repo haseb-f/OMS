@@ -43,6 +43,11 @@ import { AgentPortalOrdersService } from './agent-portal-orders.service';
 import { AgentPortalTeamService } from './agent-portal-team.service';
 import { StoreOrderDuplicatesService } from '../../store-orders/duplicates/store-order-duplicates.service';
 import { AgentDuplicateCheckDto } from '../../store-orders/duplicates/dto/duplicate.dto';
+import { StoreOrderAmendmentsService } from '../../store-orders/amendments/store-order-amendments.service';
+import {
+  AmendmentCommitDto,
+  AmendmentPreviewDto,
+} from '../../store-orders/amendments/dto/amend-store-order.dto';
 import {
   AgentPortalOrdersQueryDto,
   AgentPortalPageQueryDto,
@@ -193,6 +198,7 @@ export class AgentPortalOrdersController {
   constructor(
     private readonly orders: AgentPortalOrdersService,
     private readonly duplicates: StoreOrderDuplicatesService,
+    private readonly amendments: StoreOrderAmendmentsService,
   ) {}
 
   /**
@@ -256,6 +262,48 @@ export class AgentPortalOrdersController {
     @Body() dto: DeclareAgentOrderPaymentDto,
   ) {
     return this.orders.declare(agent, id, dto);
+  }
+
+  /**
+   * Round 5 Spec 1A — amend an own-visibility order (Sales: own orders;
+   * agent admin: all of the agent's). Refused once a posted payment, an
+   * invoice or earned commission exists; never shows internal costs.
+   */
+  @Post(':id/amendments/preview')
+  @HttpCode(200)
+  @RequireAgentPermission('agent.orders.edit')
+  previewAmendment(
+    @CurrentAgent() agent: AgentRequestContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AmendmentPreviewDto,
+  ) {
+    return this.amendments.preview(id, dto.changes, {
+      userId: agent.userId,
+      agent,
+    });
+  }
+
+  @Post(':id/amendments')
+  @RequireAgentPermission('agent.orders.edit')
+  async commitAmendment(
+    @CurrentAgent() agent: AgentRequestContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AmendmentCommitDto,
+  ) {
+    const result = await this.amendments.commit(id, dto, {
+      userId: agent.userId,
+      agent,
+    });
+    return { ...result, order: await this.orders.detail(agent, id) };
+  }
+
+  @Get(':id/amendments')
+  @RequireAgentPermission('agent.orders.view')
+  amendmentHistory(
+    @CurrentAgent() agent: AgentRequestContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.amendments.list(id, { userId: agent.userId, agent });
   }
 
   /** Spec 2 — "Customer agreed to pay {new total}" (order owner / agent admin). */

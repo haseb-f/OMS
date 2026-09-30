@@ -256,6 +256,8 @@ export class AgentShippingPricingService {
       shippingPricingStatus: 'CONFIRMED',
       shippingRateAmount: tariff.amount,
       updatedBy: userId ?? null,
+      // Spec 1A — commercial data changed: stale amendment previews conflict.
+      version: { increment: 1 },
     };
     const notes: string[] = [];
     const previousShipping = Number(order.shippingCharge ?? 0);

@@ -42,6 +42,8 @@ const STATUS_SELECT = {
 const ORDER_LIST_SELECT = {
   id: true,
   internalOrderId: true,
+  /** Spec 1A — optimistic concurrency for amendments. */
+  version: true,
   orderDate: true,
   createdAt: true,
   fulfillmentMethod: true,
@@ -450,6 +452,7 @@ export class AgentPortalOrdersService {
     return {
       id: order.id,
       internalOrderId: order.internalOrderId,
+      version: order.version,
       orderDate: order.orderDate,
       createdAt: order.createdAt,
       owner: order.employee,
