@@ -1,5 +1,6 @@
 import type { DuplicateResolution, DuplicateReviewStatus } from "./order-duplicates-service";
 import { apiClient } from "./api-client";
+import { orderAmendmentsClient } from "./order-amendments-service";
 import { buildQueryString } from "@/lib/query-string";
 
 /** ADR-0018 — completeness of a cost component (or the Order overall). Never treat a missing value as 0 without reading this. */
@@ -123,6 +124,7 @@ export interface StoreOrderPartnerRef {
   email?: string | null;
   address?: string | null;
   city?: string | null;
+  countryId?: string | null;
 }
 
 export interface StoreOrderItemRow {
@@ -203,6 +205,8 @@ export interface StoreOrderShipmentRow {
   shippingCost: string | null;
   notes: string | null;
   createdAt: string;
+  /** Spec 1A — the order was amended after this label was issued: cancel and reissue it. */
+  labelReissueRequired?: boolean;
 }
 
 /** Shipping operational evidence (receipt/waybill/handover proof) — never a Payment Receipt (see StoreOrderReceiptRow/PaymentAttachmentRow). */
@@ -289,6 +293,21 @@ export interface StoreOrderRow {
   agentEarnedAt?: string | null;
   /** Spec 1B — PENDING when flagged for cross-scope duplicate review. */
   duplicateReviewStatus?: DuplicateReviewStatus;
+  /** Spec 1A — optimistic concurrency version (amendments). */
+  version?: number;
+  /** Spec 2 — agent shipping tariff state and customer-total agreement. */
+  shippingPricingStatus?: "NOT_APPLICABLE" | "PENDING_METHOD" | "CONFIRMED";
+  customerTotalStatus?: "NONE" | "CONFIRMATION_REQUIRED" | "CONFIRMED";
+  /** Agent orders — the terms snapshot (the typed customer lives in `.customer`). */
+  agentTermsSnapshot?: {
+    customer?: {
+      name: string;
+      mobile: string | null;
+      countryId: string | null;
+      city: string | null;
+      address: string | null;
+    } | null;
+  } & Record<string, unknown>;
 }
 
 export interface StoreOrderListParams {
@@ -438,6 +457,8 @@ export const storeOrdersService = {
     apiClient.post<{ id: string; invoiceNumber: string }>(`/store-orders/${id}/generate-invoice`),
   activities: (id: string) =>
     apiClient.get<StoreOrderActivityEntry[]>(`/store-orders/${id}/activities`),
+  /** Round 5 Spec 1A — guided amendments (`store-orders.amend`). */
+  amendments: orderAmendmentsClient<StoreOrderRow>("/store-orders"),
 
   // Shipments — always scoped to a single Store Order; NEEDS_RESHIPMENT
   // always creates a brand-new Shipment row on the same order, never a new

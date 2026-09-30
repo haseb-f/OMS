@@ -1,5 +1,7 @@
 import type { MessageKey } from "@/i18n/translate";
 import type { AmendmentChanges } from "@/services/order-amendments-service";
+import type { StoreOrderRow } from "@/services/store-orders-service";
+import type { PortalOrderDetail } from "@/services/agent-portal-service";
 
 /**
  * Round 5 Spec 1A — the amend dialog's editable copy of an order and the
@@ -200,4 +202,89 @@ export function buildAmendmentChanges(order: AmendableOrder, draft: AmendDraft):
 export function isAmendReasonValid(reason: string): boolean {
   const length = reason.trim().length;
   return length >= 3 && length <= 1000;
+}
+
+const num = (value: string | number | null | undefined) =>
+  value == null || value === "" ? 0 : Number(value);
+
+/** Internal Store Order detail → the dialog's editable copy (agent orders: the typed customer). */
+export function amendableFromStoreOrder(order: StoreOrderRow): AmendableOrder {
+  const typed = order.agentId ? (order.agentTermsSnapshot?.customer ?? null) : null;
+  const partner = order.partner;
+  const lineAmount = (item: StoreOrderRow["items"][number]) =>
+    item.agreedAmount != null ? num(item.agreedAmount) : num(item.unitPrice) * item.quantity;
+  const itemsTotal = order.items.reduce((sum, item) => sum + lineAmount(item), 0);
+  return {
+    id: order.id,
+    number: order.internalOrderId,
+    version: order.version ?? 0,
+    isAgentOrder: Boolean(order.agentId),
+    currencyId: order.currencyId,
+    currencyCode: order.currency?.code ?? "",
+    paymentType: order.paymentType,
+    fulfillmentMethod: order.fulfillmentMethod ?? "SHIPPING",
+    pricingMode: order.pricingMode ?? null,
+    payableTotal: order.payableTotal != null ? num(order.payableTotal) : itemsTotal,
+    customer: typed
+      ? {
+          partnerId: order.partnerId,
+          name: typed.name,
+          phone: typed.mobile ?? "",
+          email: "",
+          countryId: typed.countryId ?? "",
+          city: typed.city ?? "",
+          address: typed.address ?? "",
+        }
+      : {
+          partnerId: order.partnerId,
+          name: partner?.name ?? "",
+          phone: partner?.phone ?? partner?.mobile ?? "",
+          email: partner?.email ?? "",
+          countryId: partner?.countryId ?? "",
+          city: partner?.city ?? "",
+          address: partner?.address ?? "",
+        },
+    lines: order.items.map((item) => ({
+      itemId: item.id,
+      productId: item.productId,
+      productName: item.product?.name ?? item.productId,
+      quantity: item.quantity,
+      agreedAmount: lineAmount(item),
+    })),
+  };
+}
+
+/** Agent portal order detail → the dialog's editable copy (agent-safe fields only). */
+export function amendableFromPortalOrder(
+  order: PortalOrderDetail,
+  productName: (product: PortalOrderDetail["lines"][number]["product"]) => string,
+): AmendableOrder {
+  return {
+    id: order.id,
+    number: order.internalOrderId,
+    version: order.version,
+    isAgentOrder: true,
+    currencyId: order.currency?.id ?? "",
+    currencyCode: order.currency?.code ?? "",
+    paymentType: order.paymentType,
+    fulfillmentMethod: order.fulfillmentMethod,
+    pricingMode: order.breakdown.mode ?? null,
+    payableTotal: order.breakdown.payableTotal,
+    customer: {
+      partnerId: null,
+      name: order.customer?.name ?? "",
+      phone: order.customer?.mobile ?? "",
+      email: "",
+      countryId: order.customer?.country?.id ?? "",
+      city: order.customer?.city ?? "",
+      address: order.customer?.address ?? "",
+    },
+    lines: order.lines.map((line) => ({
+      itemId: line.id,
+      productId: line.product.id,
+      productName: productName(line.product),
+      quantity: line.quantity,
+      agreedAmount: line.lineAmount,
+    })),
+  };
 }

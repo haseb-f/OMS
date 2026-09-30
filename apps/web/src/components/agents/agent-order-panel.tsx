@@ -137,9 +137,12 @@ export function OrderPriceBreakdown({
 export function AgentOrderPanel({
   order,
   onChanged,
+  showBreakdown = true,
 }: {
   order: StoreOrderRow;
   onChanged: () => void;
+  /** False when the page already shows the totals (spec 1C compact order card). */
+  showBreakdown?: boolean;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -202,7 +205,7 @@ export function AgentOrderPanel({
     void loadReturns();
   }, [loadReturns]);
 
-  if (!order.agentId) return <OrderPriceBreakdown order={order} />;
+  if (!order.agentId) return showBreakdown ? <OrderPriceBreakdown order={order} /> : null;
 
   const dispatched = !!order.agentDispatchedAt;
   const refundButton = canRefund ? (
@@ -263,7 +266,9 @@ export function AgentOrderPanel({
         canConfirm={canConfirmTotal}
         onConfirm={confirmCustomerTotal}
       />
-      <OrderPriceBreakdown order={order} provisional={pricing?.status === "PENDING_METHOD"} />
+      {showBreakdown ? (
+        <OrderPriceBreakdown order={order} provisional={pricing?.status === "PENDING_METHOD"} />
+      ) : null}
       {pricing && pricing.status !== "NOT_APPLICABLE" ? (
         <InternalShippingPricingSection pricing={pricing} currency={order.currency} />
       ) : null}

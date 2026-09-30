@@ -1,5 +1,6 @@
 import type { DuplicateResolution } from "./order-duplicates-service";
 import { apiClient } from "./api-client";
+import { orderAmendmentsClient } from "./order-amendments-service";
 import { buildQueryString as buildQuery } from "@/lib/query-string";
 import type {
   AgentCommissionReport,
@@ -401,6 +402,8 @@ export interface PortalClaim {
 export interface PortalOrderDetail {
   id: string;
   internalOrderId: string;
+  /** Spec 1A — optimistic concurrency version (amendments). */
+  version: number;
   orderDate: string;
   createdAt: string;
   owner: { id: string; fullName: string } | null;
@@ -668,6 +671,8 @@ export const agentPortalService = {
     get: (id: string) => apiClient.get<PortalOrderDetail>(`${BASE}/orders/${id}`),
     declare: (id: string, input: DeclarationInput) =>
       apiClient.post<PortalOrderDetail>(`${BASE}/orders/${id}/payment-declaration`, input),
+    /** Round 5 Spec 1A — guided amendments (`agent.orders.edit`). */
+    amendments: orderAmendmentsClient<PortalOrderDetail>(`${BASE}/orders`),
     /** Spec 2 — "Customer agreed to pay {total}" (order owner / agent admin). */
     confirmCustomerTotal: (id: string, expectedPayableTotal: number) =>
       apiClient.post<PortalOrderDetail>(`${BASE}/orders/${id}/customer-total/confirm`, {

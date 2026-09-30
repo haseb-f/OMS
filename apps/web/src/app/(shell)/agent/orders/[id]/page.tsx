@@ -3,14 +3,22 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Wallet } from "lucide-react";
+import { PenLine, Wallet } from "lucide-react";
 import {
+  CollapsibleDetailSection,
   DetailField,
   DetailFieldGrid,
   DetailSection,
   DetailSummaryBar,
   DetailWorkspace,
 } from "@/components/shared/detail-workspace";
+import { HeaderActions } from "@/components/shared/header-actions";
+import { OrderAmendDialog } from "@/components/store-orders/order-amend-dialog";
+import { OrderAmendmentHistory } from "@/components/store-orders/order-amendment-history";
+import { amendableFromPortalOrder } from "@/config/store-orders/amendment-draft";
+import type { AmendmentHistoryRow } from "@/services/order-amendments-service";
+import type { SearchableSelectOption } from "@/components/shared/searchable-select";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import { PageLoading } from "@/components/shared/page-loading";
 import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -23,7 +31,6 @@ import {
   type CompactDetailColumn,
 } from "@/components/shared/data-table/compact-detail-table";
 import { StatusBadge } from "@/components/business/status-badge";
-import { EnterpriseButton } from "@/components/ui/button";
 import { OrderBreakdown } from "@/components/agent-portal/order-breakdown";
 import { ShippingPricingNotice } from "@/components/agents/shipping-pricing-panel";
 import { PortalFileList } from "@/components/agent-portal/portal-files";
@@ -71,6 +78,19 @@ export default function AgentOrderDetailPage() {
   const [order, setOrder] = useState<PortalOrderDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [declareOpen, setDeclareOpen] = useState(false);
+  const [amendOpen, setAmendOpen] = useState(false);
+  const [amendments, setAmendments] = useState<AmendmentHistoryRow[] | null>(null);
+  const [products, setProducts] = useState<SearchableSelectOption[]>([]);
+  const [countries, setCountries] = useState<SearchableSelectOption[]>([]);
+  // Spec 1C — secondary sections collapsed by default, remembered per user.
+  const [openSections, setOpenSections] = useLocalStorage<Record<string, boolean>>(
+    "oms.agentOrderDetail.openSections",
+    {},
+  );
+  const sectionProps = (key: string) => ({
+    open: openSections[key] === true,
+    onOpenChange: (open: boolean) => setOpenSections((prev) => ({ ...prev, [key]: open })),
+  });
 
   useBreadcrumbLabel(order?.internalOrderId ?? null);
 
@@ -78,6 +98,10 @@ export default function AgentOrderDetailPage() {
     setError(null);
     try {
       setOrder(await agentPortalService.orders.get(id));
+      agentPortalService.orders.amendments
+        .history(id)
+        .then(setAmendments)
+        .catch(() => setAmendments([]));
     } catch (err) {
       setError(apiErrorMessage(err, "agentPortal.common.loadFailed"));
     }
@@ -94,6 +118,32 @@ export default function AgentOrderDetailPage() {
   const currency = order.currency;
   const cancelled = order.fulfillment.status?.code === "CANCELLED";
   const canDeclare = hasPermission("agent.payments.declare") && !cancelled;
+  // Spec 1A — amend until delivery (the server decides what the agent may change).
+  const canAmend =
+    hasPermission("agent.orders.edit") && !cancelled && !order.fulfillment.dispatchedAt;
+  const openAmend = () => {
+    setAmendOpen(true);
+    agentPortalService
+      .products({ pageSize: 200 })
+      .then((page) =>
+        setProducts(
+          page.items.map((product) => ({
+            value: product.id,
+            label: localizedName(product, locale),
+            description: product.sku,
+          })),
+        ),
+      )
+      .catch(() => setProducts([]));
+    agentPortalService
+      .countries()
+      .then((rows) =>
+        setCountries(
+          rows.map((country) => ({ value: country.id, label: localizedName(country, locale) })),
+        ),
+      )
+      .catch(() => setCountries([]));
+  };
   // Spec 2 — the order owner / agent admin records the customer's agreement.
   const canConfirmTotal = hasPermission("agent.orders.create") && !cancelled;
   const confirmCustomerTotal = async (expectedPayableTotal: number) => {
@@ -246,12 +296,25 @@ export default function AgentOrderDetailPage() {
         )
       }
       actions={
-        canDeclare ? (
-          <EnterpriseButton type="button" onClick={() => setDeclareOpen(true)}>
-            <Wallet />
-            {t("agentPortal.declare.action")}
-          </EnterpriseButton>
-        ) : null
+        <HeaderActions
+          primary={{
+            key: "declare",
+            label: t("agentPortal.declare.action"),
+            icon: Wallet,
+            hidden: !canDeclare,
+            onSelect: () => setDeclareOpen(true),
+          }}
+          secondary={[
+            {
+              key: "amend",
+              label: t("orderAmendments.action"),
+              icon: PenLine,
+              testId: "order-amend",
+              hidden: !canAmend,
+              onSelect: openAmend,
+            },
+          ]}
+        />
       }
     >
       <DetailSummaryBar>
@@ -330,7 +393,13 @@ export default function AgentOrderDetailPage() {
             ) : null}
           </DetailSection>
 
-          <DetailSection title={t("agentPortal.orderDetail.paymentTitle")}>
+          <CollapsibleDetailSection
+            title={t("orderAmendments.detail.sections.payments")}
+            summary={t("orderAmendments.detail.summary.payments", {
+              count: order.payment.claims.length,
+            })}
+            {...sectionProps("payments")}
+          >
             <DetailFieldGrid columns={4}>
               <DetailField
                 label={t("agentPortal.orderDetail.payment.declaredAmount")}
@@ -434,7 +503,7 @@ export default function AgentOrderDetailPage() {
                 ))}
               </ul>
             )}
-          </DetailSection>
+          </CollapsibleDetailSection>
 
           <DetailSection title={t("agentPortal.orderDetail.returnsTitle")}>
             {order.returns.length > 0 ? (
@@ -507,7 +576,14 @@ export default function AgentOrderDetailPage() {
             ) : null}
           </DetailSection>
 
-          <DetailSection title={t("agentPortal.orderDetail.timelineTitle")}>
+          <CollapsibleDetailSection
+            title={t("orderAmendments.detail.sections.history")}
+            summary={t("orderAmendments.detail.summary.history", {
+              count: amendments?.length ?? 0,
+            })}
+            {...sectionProps("history")}
+          >
+            <OrderAmendmentHistory rows={amendments} />
             <ol className="flex flex-col gap-2">
               {order.timeline.map((event, index) => (
                 <li
@@ -528,10 +604,30 @@ export default function AgentOrderDetailPage() {
                 </li>
               ))}
             </ol>
-          </DetailSection>
+          </CollapsibleDetailSection>
         </div>
       </div>
 
+      <OrderAmendDialog
+        order={amendableFromPortalOrder(order, (product) => localizedName(product, locale))}
+        client={agentPortalService.orders.amendments}
+        options={{
+          products,
+          countries,
+          canSwitchCustomer: false,
+          canCorrectIdentity: true,
+        }}
+        open={amendOpen}
+        onOpenChange={setAmendOpen}
+        onAmended={(result) => {
+          setOrder(result.order);
+          agentPortalService.orders.amendments
+            .history(order.id)
+            .then(setAmendments)
+            .catch(() => setAmendments([]));
+        }}
+        onReload={() => void load()}
+      />
       <DeclarePaymentDialog
         order={order}
         open={declareOpen}
