@@ -74,7 +74,19 @@ import {
   type ProductFormValues,
 } from "@/config/products/schema";
 import { ProductOpeningBalanceDialog } from "./product-opening-balance-dialog";
-import { ProductCommissionSection } from "@/components/products/product-commission-section";
+import {
+  ProductCommissionDraftSection,
+  ProductCommissionSection,
+} from "@/components/products/product-commission-section";
+import {
+  EMPTY_COMMISSION_DRAFT,
+  commissionDraftInput,
+  commissionDraftInvalid,
+  type ProductCommissionDraft,
+} from "@/components/products/product-commission-form";
+import { productCommissionService } from "@/services/product-commission-service";
+import { SegmentedRadioGroup } from "@/components/documents/segmented-radio-group";
+import { toISODate } from "@/lib/date";
 import { formatDate, formatDateTime } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
 import { formatNumber } from "@/lib/format-number";
@@ -237,6 +249,7 @@ export function ProductModal({
   onSaved,
   onCategoryCreated,
   initialTab,
+  initialOwnerAgentId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -255,6 +268,8 @@ export function ProductModal({
   onCategoryCreated?: (category: CategoryRow) => void;
   /** Opens straight to a specific tab (e.g. the compact detail page's per-section edit icons) — falls back to "general". */
   initialTab?: string;
+  /** Spec 2 (R5) — a new product created from an agent's Products tab starts agent-owned. */
+  initialOwnerAgentId?: string;
 }) {
   const { t } = useLocale();
   const [activeTab, setActiveTab] = useState(initialTab ?? "general");
@@ -266,6 +281,11 @@ export function ProductModal({
   const [pendingType, setPendingType] = useState<ProductType | null>(null);
   const [openingBalanceOpen, setOpeningBalanceOpen] = useState(false);
   const [categoryQuickCreateOpen, setCategoryQuickCreateOpen] = useState(false);
+  // Spec 2 (R5) 2A — Company | Agent; Agent reveals the owner selector.
+  const [ownership, setOwnership] = useState<"COMPANY" | "AGENT">("COMPANY");
+  const [commissionDraft, setCommissionDraft] =
+    useState<ProductCommissionDraft>(EMPTY_COMMISSION_DRAFT);
+  const [showDraftErrors, setShowDraftErrors] = useState(false);
   const { hasPermission } = useUserContext();
 
   const form = useForm<ProductFormValues>({
@@ -278,9 +298,16 @@ export function ProductModal({
     setActiveTab(initialTab ?? "general");
     setSavedProduct(editingProduct);
     setOriginalType(editingProduct?.type ?? null);
-    form.reset(toFormValues(editingProduct ?? duplicateSource));
+    const values = toFormValues(editingProduct ?? duplicateSource);
+    if (!editingProduct && !duplicateSource && initialOwnerAgentId) {
+      values.ownerAgentId = initialOwnerAgentId;
+    }
+    form.reset(values);
+    setOwnership(values.ownerAgentId ? "AGENT" : "COMPANY");
+    setCommissionDraft(EMPTY_COMMISSION_DRAFT);
+    setShowDraftErrors(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, editingProduct, duplicateSource, initialTab]);
+  }, [open, editingProduct, duplicateSource, initialTab, initialOwnerAgentId]);
 
   const isDirty = form.formState.isDirty;
   const isEditing = !!editingProduct;
@@ -364,6 +391,16 @@ export function ProductModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preferredPartnerId, suppliers]);
 
+  const watchedOwnerAgentId = form.watch("ownerAgentId");
+  // A product becoming agent-owned in this editor has no commission setting
+  // yet: its choice is made here and saved with the product.
+  const showCommissionDraft =
+    canSetOwnerAgent &&
+    hasPermission("agents.agreements.manage") &&
+    ownership === "AGENT" &&
+    !!watchedOwnerAgentId &&
+    savedProduct?.ownerAgentId !== watchedOwnerAgentId;
+
   const watchedType = form.watch("type");
   const visibleTabs = TAB_VISIBILITY[watchedType] ?? TAB_VISIBILITY.PURCHASE_AND_SALE;
 
@@ -395,13 +432,42 @@ export function ProductModal({
   };
 
   const submit = form.handleSubmit(async (values) => {
+    // Spec 2 (R5) 2A — explicit item type and, for Agent ownership, an owner.
+    let blocked = false;
+    if (!values.itemType) {
+      form.setError("itemType", { message: t("agentPricing.itemType.required") });
+      blocked = true;
+    }
+    if (canSetOwnerAgent && ownership === "AGENT" && !values.ownerAgentId) {
+      form.setError("ownerAgentId", { message: t("agentPricing.ownership.agentRequired") });
+      blocked = true;
+    }
+    if (showCommissionDraft && commissionDraftInvalid(commissionDraft)) {
+      setShowDraftErrors(true);
+      blocked = true;
+    }
+    if (blocked) {
+      setActiveTab("general");
+      return;
+    }
     setIsSubmitting(true);
     try {
-      const payload: Record<string, unknown> = toPayload(values);
+      const payload: Record<string, unknown> = toPayload({
+        ...values,
+        ownerAgentId: ownership === "AGENT" ? values.ownerAgentId : "",
+      });
       if (!canSetOwnerAgent) delete payload.ownerAgentId;
       const saved = isEditing
         ? await productsService.update(editingProduct!.id, payload)
         : await productsService.create(payload);
+      // The commission choice is saved with the product (no second step).
+      const draftInput = showCommissionDraft
+        ? commissionDraftInput(commissionDraft, toISODate(new Date()))
+        : null;
+      if (draftInput && saved.ownerAgentId) {
+        await productCommissionService.set(saved.id, draftInput);
+      }
+      setCommissionDraft(EMPTY_COMMISSION_DRAFT);
       toast.success(t("products.saved"));
       setSavedProduct(saved);
       onSaved();
@@ -704,37 +770,85 @@ export function ProductModal({
                   name="itemType"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("productCommission.itemType.label")}</FormLabel>
-                      <Select
-                        value={field.value || "UNSET"}
-                        onValueChange={(value) => field.onChange(value === "UNSET" ? "" : value)}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="PRODUCT">
-                            {t("productCommission.itemType.PRODUCT")}
-                          </SelectItem>
-                          <SelectItem value="SERVICE">
-                            {t("productCommission.itemType.SERVICE")}
-                          </SelectItem>
-                          {!field.value ? (
-                            <SelectItem value="UNSET" disabled>
-                              {t("productCommission.itemType.UNSET")}
-                            </SelectItem>
-                          ) : null}
-                        </SelectContent>
-                      </Select>
+                      <FormLabel>
+                        {t("productCommission.itemType.label")}{" "}
+                        <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <SegmentedRadioGroup
+                        aria-label={t("productCommission.itemType.label")}
+                        value={(field.value || "") as "PRODUCT" | "SERVICE"}
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          form.clearErrors("itemType");
+                        }}
+                        options={(["PRODUCT", "SERVICE"] as const).map((value) => ({
+                          value,
+                          label: t(`agentPricing.products.itemTypeValue.${value}`),
+                        }))}
+                      />
                       <p className="text-caption text-muted-foreground">
-                        {t("productCommission.itemType.hint")}
+                        {field.value
+                          ? t("agentPricing.itemType.hint")
+                          : t("productCommission.itemType.UNSET")}
                       </p>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                {canSetOwnerAgent ? (
+                  <div className="flex flex-col gap-2">
+                    <Label>{t("agentPricing.ownership.label")}</Label>
+                    <SegmentedRadioGroup
+                      aria-label={t("agentPricing.ownership.label")}
+                      value={ownership}
+                      onValueChange={(next) => {
+                        setOwnership(next);
+                        if (next === "COMPANY") {
+                          form.setValue("ownerAgentId", "", { shouldDirty: true });
+                        }
+                      }}
+                      options={(["COMPANY", "AGENT"] as const).map((value) => ({
+                        value,
+                        label: t(`agentPricing.ownership.${value}`),
+                      }))}
+                    />
+                    <p className="text-caption text-muted-foreground">
+                      {t("agentPricing.ownership.hint")}
+                    </p>
+                  </div>
+                ) : null}
+                {canSetOwnerAgent && ownership === "AGENT" ? (
+                  <FormField
+                    control={form.control}
+                    name="ownerAgentId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          {t("agentPricing.ownership.agent")}{" "}
+                          <span className="text-destructive">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value}
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              form.clearErrors("ownerAgentId");
+                            }}
+                            options={ownerAgentOptions}
+                            placeholder={t("agentPricing.ownership.agent")}
+                            selectedLabel={
+                              sourceProduct?.ownerAgent &&
+                              sourceProduct.ownerAgentId === field.value
+                                ? agentOptionLabel(sourceProduct.ownerAgent)
+                                : undefined
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ) : null}
                 <FormField
                   control={form.control}
                   name="status"
@@ -866,36 +980,6 @@ export function ProductModal({
                     </FormItem>
                   )}
                 />
-                {canSetOwnerAgent ? (
-                  <FormField
-                    control={form.control}
-                    name="ownerAgentId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t("agents.products.ownerAgent")}</FormLabel>
-                        <FormControl>
-                          <SearchableSelect
-                            value={field.value}
-                            onValueChange={field.onChange}
-                            options={ownerAgentOptions}
-                            allowClear
-                            placeholder={t("agents.products.companyOwned")}
-                            selectedLabel={
-                              sourceProduct?.ownerAgent &&
-                              sourceProduct.ownerAgentId === field.value
-                                ? agentOptionLabel(sourceProduct.ownerAgent)
-                                : undefined
-                            }
-                          />
-                        </FormControl>
-                        <p className="text-caption text-muted-foreground">
-                          {t("agents.products.ownerAgentHint")}
-                        </p>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                ) : null}
                 <FormField
                   control={form.control}
                   name="analyticAccountId"
@@ -939,10 +1023,17 @@ export function ProductModal({
                 </ModalFieldFullWidth>
               </ModalSection>
               {/* commission-policy.md A4 — only an existing agent-owned product carries a commission setting. */}
-              {canSetOwnerAgent && savedProduct?.ownerAgentId ? (
+              {canSetOwnerAgent && savedProduct?.ownerAgentId && !showCommissionDraft ? (
                 <ProductCommissionSection
                   key={`${savedProduct.id}:${savedProduct.ownerAgentId}`}
                   productId={savedProduct.id}
+                />
+              ) : null}
+              {showCommissionDraft ? (
+                <ProductCommissionDraftSection
+                  value={commissionDraft}
+                  onChange={setCommissionDraft}
+                  showErrors={showDraftErrors}
                 />
               ) : null}
             </TabsContent>

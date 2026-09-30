@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
-import { PackagePlus, Package } from "lucide-react";
+import { PackagePlus } from "lucide-react";
 import { DetailSection } from "@/components/shared/detail-workspace";
-import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { CreateOperationFooter } from "@/components/shared/create-operation";
@@ -21,7 +20,6 @@ import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-ta
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WarehousePicker } from "@/components/business/warehouse-picker";
-import { StatusBadge } from "@/components/business/status-badge";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { WarehouseRow } from "@/config/master-data/entities";
 import {
@@ -138,38 +136,6 @@ export function AgentStockTab({ agentId, agentLabel }: { agentId: string; agentL
 
   return (
     <div className="flex flex-col gap-3">
-      <DetailSection title={t("agents.stock.productsTitle")}>
-        {products.length === 0 ? (
-          <EmptyState
-            icon={Package}
-            title={t("agents.stock.productsEmpty")}
-            description={t("agents.stock.productsHint")}
-          />
-        ) : (
-          <ul className="flex flex-wrap gap-2">
-            {products.map((product) => (
-              <li key={product.id}>
-                <Link
-                  href={`/products/${product.id}`}
-                  className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border px-2 py-1 text-caption hover:bg-muted/40"
-                >
-                  <span className="truncate">{product.displayName || product.name}</span>
-                  <SemanticValue kind="id" className="text-muted-foreground">
-                    {product.sku}
-                  </SemanticValue>
-                  {product.status !== "ACTIVE" ? (
-                    <StatusBadge
-                      label={t(`products.status.${product.status}` as MessageKey)}
-                      tone="neutral"
-                    />
-                  ) : null}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </DetailSection>
-
       <DetailSection
         title={t("agents.stock.stockTitle")}
         actions={

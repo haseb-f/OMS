@@ -24,6 +24,7 @@ import { AgreementTerms } from "@/components/agents/agreement-terms";
 import { AgentDestinationsTab } from "@/components/agents/agent-destinations-tab";
 import { AgentTeamTab } from "@/components/agents/agent-team-tab";
 import { AgentStockTab } from "@/components/agents/agent-stock-tab";
+import { AgentProductsTab } from "@/components/agents/agent-products-tab";
 import { AgentOrdersTab } from "@/components/agents/agent-orders-tab";
 import { AgentStatementTab } from "@/components/agents/agent-statement-tab";
 import { AgentCommissionReportView } from "@/components/agents/agent-commission-report";
@@ -329,6 +330,17 @@ function AgentWorkspace() {
           },
         ]
       : []),
+    {
+      value: "products",
+      label: t("agents.tabs.products"),
+      content: (
+        <AgentProductsTab
+          agentId={agent.id}
+          agentLabel={agentLabel}
+          agentActive={agent.status === "ACTIVE"}
+        />
+      ),
+    },
     {
       value: "stock",
       label: t("agents.tabs.stock"),
