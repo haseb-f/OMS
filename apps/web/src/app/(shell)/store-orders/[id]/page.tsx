@@ -86,6 +86,7 @@ import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { AgentOrderPanel } from "@/components/agents/agent-order-panel";
 import { AgentBadge } from "@/components/agents/agent-options";
 import type { MessageKey } from "@/i18n/translate";
+import { PaymentMatchPanel } from "@/components/payments/match-panel/payment-match-panel";
 
 const ACTIVITY_PREVIEW = 8;
 
@@ -168,6 +169,9 @@ function StoreOrderDetailContent() {
     canAcceptPayment?: boolean;
   } | null>(null);
   const [feeDialogPayment, setFeeDialogPayment] = useState<StoreOrderPaymentRow | null>(null);
+  // Round 5 spec 3B — payment rows open the shared match panel (Finance review readers only).
+  const [panelPaymentId, setPanelPaymentId] = useState<string | null>(null);
+  const canReviewPayments = hasPermission("sales.receipts.view");
   const [assignmentOpen, setAssignmentOpen] = useState(false);
   const [customerEditOpen, setCustomerEditOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -722,9 +726,19 @@ function StoreOrderDetailContent() {
                 {
                   id: "number",
                   header: t("storeOrders.detail.payments.number"),
-                  cell: (payment) => (
-                    <SemanticValue kind="id">{payment.paymentNumber}</SemanticValue>
-                  ),
+                  cell: (payment) =>
+                    canReviewPayments ? (
+                      <EnterpriseButton
+                        type="button"
+                        variant="link"
+                        size="inline"
+                        onClick={() => setPanelPaymentId(payment.id)}
+                      >
+                        <SemanticValue kind="id">{payment.paymentNumber}</SemanticValue>
+                      </EnterpriseButton>
+                    ) : (
+                      <SemanticValue kind="id">{payment.paymentNumber}</SemanticValue>
+                    ),
                 },
                 {
                   id: "date",
@@ -1141,6 +1155,11 @@ function StoreOrderDetailContent() {
         open={declareOpen}
         onOpenChange={setDeclareOpen}
         onDeclared={() => void refreshOrder()}
+      />
+      <PaymentMatchPanel
+        paymentId={panelPaymentId}
+        onOpenChange={(open) => !open && setPanelPaymentId(null)}
+        onChanged={() => void refreshOrder()}
       />
       <SetPaymentFeeDialog
         payment={feeDialogPayment}

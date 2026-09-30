@@ -1,5 +1,6 @@
 import { apiClient } from "./api-client";
 import { buildQueryString } from "@/lib/query-string";
+import type { BulkItemsResult } from "./payments-review-service";
 
 /** payment-declaration-reconciliation — provider statements + matching per payment method. */
 
@@ -75,7 +76,11 @@ export interface StatementLineMatch {
   customer: { id: string; name: string } | null;
   receipt: { id: string; transactionNumber: string; status: string } | null;
   journalEntry: { id: string; entryNumber: string } | null;
+  /** What "correct match" would do: cancel a receipt posted by this match, or only release the allocation. */
+  reversalEffect: MatchReversalEffect | null;
 }
+
+export type MatchReversalEffect = "REVERSE_POSTING" | "UNMATCH";
 
 export interface StatementLine {
   id: string;
@@ -224,6 +229,7 @@ export interface Suggestion {
 export interface SuggestionResult {
   line: {
     id: string;
+    providerReference?: string | null;
     amount: number;
     matchedAmount: number;
     remaining: number;
@@ -248,6 +254,80 @@ export interface ConfirmMatchResult {
     alreadyPosted: boolean;
   }[];
   replayed: boolean;
+}
+
+/** A statement line as the match panel shows it (business fields + collapsed provenance). */
+export interface StatementLineView {
+  id: string;
+  providerReference: string | null;
+  orderReference: string | null;
+  customerName: string | null;
+  customerPhone: string | null;
+  amount: number;
+  matchedAmount: number;
+  remaining: number;
+  currency: { id: string; code: string };
+  transactionDate: string;
+  providerStatus: string | null;
+  feeAmount: number | null;
+  netAmount: number | null;
+  status: StatementLineStatus;
+  technical: {
+    importId: string | null;
+    sourceType: StatementSourceType;
+    fileName: string | null;
+    sheetName: string | null;
+    rowNumber: number | null;
+    importedAt: string;
+    dedupeKey: string;
+    rowHash: string | null;
+    rawRow: Record<string, string> | null;
+  };
+}
+
+export interface ClaimLineCandidate {
+  paymentId: string;
+  score: number;
+  strength: SuggestionStrength;
+  reasons: MatchReason[];
+  amountMatches: boolean;
+  suggestible: boolean;
+  dayDistance: number;
+  line: StatementLineView;
+}
+
+export interface ClaimActiveMatch {
+  id: string;
+  amount: number;
+  reasons: MatchReason[] | null;
+  confirmedAt: string;
+  reversalEffect: MatchReversalEffect;
+  settled: boolean;
+  line: StatementLineView;
+}
+
+/** `GET …/claims/:paymentId/lines` — the match panel's statement side. */
+export interface ClaimLines {
+  claim: ClaimView;
+  receipt: { id: string; transactionNumber: string; status: string } | null;
+  journalEntry: { id: string; entryNumber: string } | null;
+  activeMatches: ClaimActiveMatch[];
+  candidates: ClaimLineCandidate[];
+  ambiguous: boolean;
+}
+
+export interface BulkAcceptPlan {
+  /** Statement line id. */
+  id: string;
+  providerReference: string | null;
+  paymentId: string;
+  paymentNumber: string;
+  orderNumber: string | null;
+  amount: number;
+  currencyCode: string;
+  posted?: boolean;
+  receiptId?: string | null;
+  replayed?: boolean;
 }
 
 export interface ReverseMatchResult {
@@ -341,4 +421,16 @@ export const paymentReconciliationService = {
     apiClient.post(`${base(methodId)}/lines/${lineId}/ignore`, { reason }),
   reopenLine: (methodId: string, lineId: string) =>
     apiClient.post(`${base(methodId)}/lines/${lineId}/reopen`),
+  claimLines: (methodId: string, paymentId: string) =>
+    apiClient.get<ClaimLines>(`${base(methodId)}/claims/${paymentId}/lines`),
+  /** Dry run plans strong, unambiguous suggestions; commit re-plans and confirms each line on its own. */
+  bulkAccept: (
+    methodId: string,
+    body: {
+      items: { statementLineId: string; paymentId?: string }[];
+      dryRun?: boolean;
+      idempotencyKey?: string;
+    },
+  ) =>
+    apiClient.post<BulkItemsResult<BulkAcceptPlan>>(`${base(methodId)}/matches/bulk-accept`, body),
 };

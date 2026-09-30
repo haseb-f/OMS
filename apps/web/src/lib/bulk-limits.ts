@@ -21,4 +21,8 @@ export const BULK_LIMITS = {
    * batch is kept to what finishes promptly.
    */
   carrierChargeBulkMax: 500,
+  /** `POST /payments/bulk/confirm|reject`. */
+  paymentBulkActionMax: 200,
+  /** `POST /payment-reconciliation/methods/:methodId/matches/bulk-accept`. */
+  statementBulkAcceptMax: 100,
 } as const;
