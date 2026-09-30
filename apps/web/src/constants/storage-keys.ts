@@ -15,4 +15,7 @@ export const STORAGE_KEYS = {
   activeBranchId: "oms.company.activeBranchId",
   recentCustomers: "oms.sales.recentCustomers",
   recentSuppliers: "oms.purchasing.recentSuppliers",
+  // One device preference for every financial report (spec-4 §4A): the
+  // header block (context, filter row, summary strip) collapsed to one row.
+  reportSummaryCollapsed: "oms.report.summaryCollapsed",
 } as const;

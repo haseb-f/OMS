@@ -236,6 +236,8 @@ export function FinancialReportSummary({
   summary,
   currency,
   className,
+  id,
+  hidden,
 }: {
   summary: Summary;
   currency: string;
@@ -243,6 +245,9 @@ export function FinancialReportSummary({
   period?: string;
   basis?: string;
   className?: string;
+  /** Target of the report header's collapse toggle (`aria-controls`). */
+  id?: string;
+  hidden?: boolean;
 }) {
   const { t } = useLocale();
   const check = summary.check;
@@ -250,6 +255,8 @@ export function FinancialReportSummary({
   const hasFigures = summary.items.length + sides.length > 0;
   return (
     <section
+      id={id}
+      hidden={hidden}
       data-slot="report-summary"
       aria-label={t("reports.finance.summaryCards.region")}
       className={cx("flex min-w-0 flex-col gap-2 sm:flex-row print:hidden", className)}

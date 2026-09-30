@@ -15,7 +15,9 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLocale } from "@/providers/locale-provider";
 import type { ReportExportFormat } from "@/lib/report-export";
-import { FinancialReportHeaderBar } from "./financial-report-header-bar";
+import { FinancialReportHeaderBar, type ReportHeaderCollapse } from "./financial-report-header-bar";
+
+export type { ReportHeaderCollapse } from "./financial-report-header-bar";
 
 /* ------------------------------------------------------------------ */
 /* Page chrome: the page that hosts a report hands it the title and the */
@@ -66,6 +68,7 @@ export function FinancialReportHeader({
   actions,
   filters,
   notice,
+  collapse,
   titleAs: TitleTag = "h1",
 }: {
   /** Omitted when the host page already has its own h1 (Management P&L tab). */
@@ -78,6 +81,8 @@ export function FinancialReportHeader({
   actions?: ReactNode;
   filters?: ReactNode;
   notice?: ReactNode;
+  /** Collapsible header (spec-4 §4A): one ≤44px strip while collapsed. */
+  collapse?: ReportHeaderCollapse;
 }) {
   return (
     <FinancialReportHeaderBar
@@ -88,6 +93,7 @@ export function FinancialReportHeader({
       actions={actions}
       filters={filters}
       notice={notice}
+      collapse={collapse}
     />
   );
 }
