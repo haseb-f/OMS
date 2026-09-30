@@ -704,6 +704,38 @@
 [data-sonner-toaster] [data-sonner-toast] {
   box-shadow: var(--shadow-floating);
 }
+/* Close (×) on every toast: inside the card at the logical END corner (never
+   hanging off the edge over controls behind it), with its own reserved
+   gutter so it never overlaps the title or an action such as Retry. */
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"]:has([data-close-button]) {
+  padding-inline-end: calc(var(--spacing) * 10);
+}
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button] {
+  left: auto;
+  right: auto;
+  inset-inline-end: calc(var(--spacing) * 2);
+  top: calc(var(--spacing) * 2);
+  transform: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted-foreground);
+}
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button]:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button]:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button] svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
 
 /**
  * The app shell is never printed (Enterprise Print Engine, TASK-032) — each

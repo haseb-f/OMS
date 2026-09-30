@@ -53,8 +53,8 @@ export interface ToastSemantics {
 
 /**
  * Pure mapping tone → announcement + lifetime (unit-tested). Errors are
- * assertive and closable; `persistent` (critical / actionable) removes the
- * auto-dismiss.
+ * assertive; every toast carries a visible, labelled × close button;
+ * `persistent` (critical / actionable) removes the auto-dismiss.
  */
 export function toastSemantics(tone: ToastTone, persistent = false): ToastSemantics {
   const isError = tone === "error";
@@ -62,7 +62,7 @@ export function toastSemantics(tone: ToastTone, persistent = false): ToastSemant
     role: isError ? "alert" : "status",
     ariaLive: isError ? "assertive" : "polite",
     duration: persistent ? TOAST_PERSISTENT : TOAST_DURATIONS[tone],
-    closeButton: isError || persistent,
+    closeButton: true,
   };
 }
 

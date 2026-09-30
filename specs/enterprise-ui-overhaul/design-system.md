@@ -364,7 +364,8 @@ owner's brief asks for button-like triggers.
 
 - **Container.** Inset with an 8px gutter, `rounded-lg`, a solid `--sidebar` surface, a 1px border
   and no shadow.
-- **Items.** `rounded-sm` and 32px tall; nested items are 28px.
+- **Items.** `--radius-sidebar-item` (10px, one step softer than controls; 2026-09-29) and 32px tall;
+  nested items are 28px. The item box and height are unchanged, so no usable space is lost.
 - **Active item:**
   - a 4px `--sidebar-rail` rail on the outer edge (logical start: right in RTL, left in LTR), with a
     soft `--sidebar-rail-glow` shadow

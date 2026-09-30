@@ -49,6 +49,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
       offset={OFFSET}
       mobileOffset={MOBILE_OFFSET}
       containerAriaLabel={t("toast.region")}
+      // Every toast (incl. loading/promise ones outside lib/toast) is closable.
+      closeButton
       icons={{
         success: <CircleCheckIcon className="size-5" aria-hidden />,
         info: <InfoIcon className="size-5" aria-hidden />,

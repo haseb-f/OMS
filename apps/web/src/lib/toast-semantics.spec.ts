@@ -14,12 +14,12 @@ import {
 import { messages } from "@/i18n/messages";
 
 describe("toastSemantics (variant → role / aria-live / duration)", () => {
-  it("success is a polite status that auto-dismisses", () => {
+  it("success is a polite status that auto-dismisses, still closable", () => {
     expect(toastSemantics("success")).toEqual({
       role: "status",
       ariaLive: "polite",
       duration: TOAST_DURATIONS.success,
-      closeButton: false,
+      closeButton: true,
     });
   });
 

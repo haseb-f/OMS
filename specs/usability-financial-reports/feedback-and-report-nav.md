@@ -43,6 +43,12 @@ Shared: `lib/toast.ts` (semantics + helpers), `components/ui/sonner.tsx` (Toaste
 | destructive (confirmed + server-completed cancel/void) | same red treatment, `Ban` icon                                                                          | `role="status"` polite (nothing failed) | 6s                                                                               |
 | warning / info                                         | unchanged quiet solid card + tinted ring                                                                | polite                                  | 7s / 5s                                                                          |
 
+- **Close button (2026-09-29):** every toast — success, info, warning, error, destructive and
+  loading — carries a visible, labelled × (`toast.close`). It sits INSIDE the card at the logical
+  end corner (24px target, `--radius-sm`, muted icon, hover tint, focus ring) in its own reserved
+  gutter, so it never hangs over the page behind the toast and never overlaps the title or a Retry
+  action. `toastSemantics().closeButton` is `true` for every tone; the Toaster sets `closeButton`
+  globally for toasts created outside `lib/toast`.
 - **Live regions:** sonner exposes one polite region; each toast title is wrapped in its own live
   region, so the nearest-ancestor politeness applies (errors interrupt, the rest waits). Region and
   close-button labels are localized (`toast.region`, `toast.close`).

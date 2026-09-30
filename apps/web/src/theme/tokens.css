@@ -95,6 +95,10 @@
   --radius-control: 8px;
   --radius-surface: 10px;
   --radius-overlay: 12px;
+  /* Sidebar navigation items (menu buttons, nested items, pin actions): one
+     step softer than controls so the rail reads calmer; the item box and
+     its height are unchanged, so no usable space is lost. */
+  --radius-sidebar-item: 10px;
 
   /* Control heights (TASK-042) — the one height scale every form control
      (Input/Select/DatePicker/search) shares, referenced via
