@@ -198,7 +198,7 @@ describeDb('Payment reconciliation (local DB)', () => {
       })
     ).id;
     const product = await prisma.product.findFirst({
-      where: { deletedAt: null, status: 'ACTIVE' },
+      where: { deletedAt: null, status: 'ACTIVE', ownerAgentId: null },
       select: { id: true },
     });
     if (!product) throw new Error('Expected an active product.');
