@@ -4,9 +4,7 @@ import { DisclosureTrigger } from "@/components/shared/disclosure-trigger";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Banknote, Globe, Loader2, UserCheck } from "lucide-react";
-import { EnterpriseButton } from "@/components/ui/button";
-import { EnterpriseBadge } from "@/components/ui/badge";
+import { Banknote, Globe } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ModalFieldFullWidth } from "@/components/shared/modal-section";
 import { FormSection } from "@/components/documents/form-section";
@@ -71,17 +69,12 @@ import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { useCountries, useCurrencies } from "@/hooks/use-reference-data";
 import { toast, reportApiError, reportSuccess } from "@/lib/toast";
-import {
-  PAYMENT_STATUS_LABEL_KEY,
-  PAYMENT_TYPE_LABEL_KEY,
-  SHIPPING_STAGE_LABEL_KEY,
-} from "@/config/store-orders/status";
-import type {
-  StoreOrderPaymentStatusValue,
-  StoreOrderShippingStageValue,
-} from "@/services/store-orders-service";
-import { formatDate } from "@/lib/date";
+import { PAYMENT_TYPE_LABEL_KEY } from "@/config/store-orders/status";
 import type { MessageKey } from "@/i18n/translate";
+import { DuplicateCustomerPanel } from "@/components/business/duplicate-customer-panel";
+import { useDuplicateCheck } from "@/hooks/use-duplicate-check";
+import { duplicateFromError, orderDuplicatesService } from "@/services/order-duplicates-service";
+import type { DuplicateChoice } from "@/config/orders/duplicate-panel";
 
 /** Field order + label keys for the error summary (matches the form's visual order). */
 const FIELD_LABEL_KEY: Record<string, MessageKey> = {
@@ -100,6 +93,8 @@ const FIELD_LABEL_KEY: Record<string, MessageKey> = {
 const FIELD_ORDER = Object.keys(FIELD_LABEL_KEY);
 
 export interface StoreOrderCreatePrefillCustomer {
+  /** The existing customer (e.g. from Global Lookup) — its duplicate match needs no second answer. */
+  id?: string | null;
   name: string;
   phone?: string | null;
   countryId?: string | null;
@@ -139,11 +134,9 @@ export function StoreOrderCreateDialog({
   const [declarationKey, setDeclarationKey] = useState("");
   const [receiptError, setReceiptError] = useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const [existingCustomer, setExistingCustomer] = useState<CustomerGlobalLookupResult | null>(null);
-  const [existingCustomerStatus, setExistingCustomerStatus] = useState<
-    "idle" | "checking" | "found" | "not-found"
-  >("idle");
-  const [existingCustomerApplied, setExistingCustomerApplied] = useState(false);
+  // Spec 1B — one key per dialog instance: a double submit or a retry after
+  // a lost response returns the first order instead of creating another.
+  const [creationKey, setCreationKey] = useState("");
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [serverErrors, setServerErrors] = useState<FormErrorItem[]>([]);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -169,9 +162,7 @@ export function StoreOrderCreateDialog({
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPendingFiles([]);
-    setExistingCustomer(null);
-    setExistingCustomerStatus("idle");
-    setExistingCustomerApplied(false);
+    setCreationKey(newIdempotencyKey());
     setPhoneCountryOverride(
       prefillCustomer
         ? phoneCountryOverrideFor(prefillCustomer.phone, prefillCustomer.countryId)
@@ -183,7 +174,6 @@ export function StoreOrderCreateDialog({
       form.setValue("countryId", prefillCustomer.countryId || "", { shouldDirty: true });
       form.setValue("city", prefillCustomer.city || "", { shouldDirty: true });
       form.setValue("address", prefillCustomer.address || "", { shouldDirty: true });
-      setExistingCustomerApplied(true);
     }
     setDeclarationKey(newIdempotencyKey());
     setDeclaration(emptyDeclaration("UNPAID"));
@@ -271,8 +261,6 @@ export function StoreOrderCreateDialog({
     setPhoneCountryOverride(
       phoneCountryOverrideFor(customer.phone || customer.mobile, customer.countryId),
     );
-    setExistingCustomer(null);
-    setExistingCustomerStatus("idle");
   };
 
   const applyExistingCustomer = (customer: CustomerGlobalLookupResult) => {
@@ -287,45 +275,34 @@ export function StoreOrderCreateDialog({
     setPhoneCountryOverride(
       phoneCountryOverrideFor(customer.phone || customer.mobile, customer.countryId),
     );
-    setExistingCustomerApplied(true);
     toast.success(t("storeOrders.createDialog.existingCustomer.applied"));
   };
 
-  // Existing Customer detection (Leads/Customers/Orders Finalization —
-  // "phone lookup during order creation"). Debounced, silent on
-  // permission-denied/network errors (progressive enhancement only — never
-  // blocks manual entry), and skipped once a customer was picked via
-  // PartnerPicker or already applied from a lookup result.
-  useEffect(() => {
-    if (!open || selectedCustomer || existingCustomerApplied) return;
-    const digits = (customerPhone ?? "").replace(/\D/g, "");
-    if (digits.length < 8) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setExistingCustomer(null);
-      setExistingCustomerStatus("idle");
-      return;
-    }
-    let cancelled = false;
-    setExistingCustomerStatus("checking");
-    const timer = setTimeout(() => {
+  // Spec 1B duplicate warning — debounced check of the typed phone / name.
+  // A customer picked explicitly (picker or Global Lookup) answers its own
+  // match; any other match must be answered before saving.
+  const duplicates = useDuplicateCheck({
+    phone: customerPhone,
+    name: customerName,
+    countryId: phoneCountryId,
+    enabled: open,
+    check: orderDuplicatesService.check,
+    knownCustomerId: selectedCustomer?.id ?? prefillCustomer?.id ?? null,
+  });
+  const canLookupCustomers = hasPermission("customers.lookup_global");
+  const chooseDuplicate = (choice: DuplicateChoice | null) => {
+    duplicates.choose(choice);
+    // "New order for this customer": reuse the stored contact details too —
+    // only for users who may read them (the audited global lookup).
+    if (choice?.kind === "NEW_ORDER" && canLookupCustomers && customerPhone) {
       partnersService
-        .globalLookupByPhone(customerPhone!)
-        .then((result) => {
-          if (cancelled) return;
-          setExistingCustomer(result);
-          setExistingCustomerStatus(result ? "found" : "not-found");
+        .globalLookupByPhone(customerPhone)
+        .then((customer) => {
+          if (customer?.id === choice.customerId) applyExistingCustomer(customer);
         })
-        .catch(() => {
-          if (cancelled) return;
-          setExistingCustomer(null);
-          setExistingCustomerStatus("idle");
-        });
-    }, 500);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [customerPhone, open, selectedCustomer, existingCustomerApplied]);
+        .catch(() => undefined);
+    }
+  };
 
   const labelFor = (name: string) => {
     const key = FIELD_LABEL_KEY[name];
@@ -349,6 +326,9 @@ export function StoreOrderCreateDialog({
           ? [declarationErrorItem(declarationError, t)]
           : []),
         ...(receiptError ? [{ fieldId: "receipts", message: receiptError }] : []),
+        ...(duplicates.blocked && duplicates.state.status === "ready"
+          ? [{ fieldId: "customerPhone", message: t("orderDuplicates.required") }]
+          : []),
         ...serverErrors,
       ]
     : [];
@@ -382,6 +362,10 @@ export function StoreOrderCreateDialog({
       return;
     }
     setReceiptError(null);
+    if (duplicates.blocked) {
+      focusFirstInvalid();
+      return;
+    }
 
     try {
       const created = await storeOrdersService.create({
@@ -415,6 +399,8 @@ export function StoreOrderCreateDialog({
               },
             }
           : {}),
+        creationIdempotencyKey: creationKey,
+        ...(duplicates.resolution ? { duplicateResolution: duplicates.resolution } : {}),
       });
 
       const uploadedKeys: string[] = [];
@@ -444,6 +430,13 @@ export function StoreOrderCreateDialog({
       rememberPhoneCountry(phoneCountryCode);
       onCreated(created);
     } catch (error) {
+      // The server found a customer the panel had not answered — reopen it.
+      const duplicate = duplicateFromError(error);
+      if (duplicate) {
+        duplicates.applyServerResult(duplicate);
+        toast.warning(t("orderDuplicates.conflictToast"));
+        return;
+      }
       setServerErrors(
         applyServerFieldErrors(error, form.setError, {
           knownFields: FIELD_ORDER,
@@ -476,6 +469,7 @@ export function StoreOrderCreateDialog({
           requestClose={requestClose}
           onSubmit={() => void submit()}
           isSubmitting={isSubmitting}
+          submitDisabled={duplicates.blocked}
           submitLabel={t("storeOrders.createDialog.submit")}
         />
       )}
@@ -521,69 +515,14 @@ export function StoreOrderCreateDialog({
                   if (match) selectPhoneCountry(match.id);
                 }}
               />
-              {existingCustomerStatus === "not-found" && (
-                <ModalFieldFullWidth>
-                  <p className="text-xs text-muted-foreground">
-                    {t("storeOrders.globalLookup.notFoundCustomer")}
-                  </p>
-                </ModalFieldFullWidth>
-              )}
-              {existingCustomerStatus === "checking" && (
-                <ModalFieldFullWidth>
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Loader2 className="size-3.5 animate-spin" />
-                    {t("storeOrders.createDialog.existingCustomer.checking")}
-                  </p>
-                </ModalFieldFullWidth>
-              )}
-              {existingCustomerStatus === "found" && existingCustomer && (
-                <ModalFieldFullWidth>
-                  <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <EnterpriseBadge variant="info" className="gap-1">
-                        <UserCheck className="size-3.5" />
-                        {t("storeOrders.createDialog.existingCustomer.badge")}
-                      </EnterpriseBadge>
-                      <span className="text-xs text-muted-foreground">
-                        {t("storeOrders.createDialog.existingCustomer.previousOrders", {
-                          count: existingCustomer.totalOrders,
-                        })}
-                      </span>
-                    </div>
-                    {existingCustomer.lastOrder && (
-                      <p className="text-xs text-muted-foreground">
-                        {t("storeOrders.createDialog.existingCustomer.lastOrder")}:{" "}
-                        {existingCustomer.lastOrder.orderNumber} ·{" "}
-                        {formatDate(existingCustomer.lastOrder.orderDate)} ·{" "}
-                        {existingCustomer.lastOrder.products} ·{" "}
-                        {t(
-                          PAYMENT_STATUS_LABEL_KEY[
-                            existingCustomer.lastOrder.paymentStatus as StoreOrderPaymentStatusValue
-                          ] ?? "storeOrders.paymentStatus.PAYMENT_PENDING",
-                        )}{" "}
-                        ·{" "}
-                        {t(
-                          SHIPPING_STAGE_LABEL_KEY[
-                            existingCustomer.lastOrder.shippingStage as StoreOrderShippingStageValue
-                          ] ?? "storeOrders.shippingStage.NOT_READY",
-                        )}
-                      </p>
-                    )}
-                    {!existingCustomerApplied && (
-                      <EnterpriseButton
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="w-fit gap-1.5"
-                        onClick={() => applyExistingCustomer(existingCustomer)}
-                      >
-                        <UserCheck className="size-3.5" />
-                        {t("storeOrders.createDialog.existingCustomer.useData")}
-                      </EnterpriseButton>
-                    )}
-                  </div>
-                </ModalFieldFullWidth>
-              )}
+              <ModalFieldFullWidth>
+                <DuplicateCustomerPanel
+                  state={duplicates.state}
+                  onChoose={chooseDuplicate}
+                  orderHref={(id) => `/store-orders/${id}`}
+                  onEditDetails={() => form.setFocus("customerPhone")}
+                />
+              </ModalFieldFullWidth>
               <ComboboxFormField
                 control={form.control}
                 name="countryId"

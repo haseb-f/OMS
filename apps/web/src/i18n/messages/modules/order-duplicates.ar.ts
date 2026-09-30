@@ -1,0 +1,67 @@
+/** orderDuplicates namespace (ar) — Round 5 Spec 1B duplicate warning on order creation + duplicate review. */
+const orderDuplicatesAr = {
+  checking: "جارٍ التحقق من وجود عميل مسجل…",
+  checkFailed: "تعذر التحقق من وجود عميل مسجل. يمكنك المتابعة — سيُعاد التحقق عند الحفظ.",
+  required: "اختر طريقة التعامل مع العميل المسجل قبل الحفظ.",
+  conflictToast: "هذا العميل مسجل مسبقًا — اختر طريقة المتابعة.",
+  change: "تغيير",
+  phone: {
+    title: "لهذا العميل طلبات سابقة",
+    otherOrders: "{count} طلب آخر لدى أعضاء فريق آخرين",
+    noOpenable: "طلباته لدى أعضاء فريق آخرين.",
+    openExisting: "فتح الطلب الحالي",
+    newOrder: "طلب جديد لنفس العميل",
+    editDetails: "تعديل البيانات",
+    chosen: "سيُنشأ طلب جديد للعميل المسجل {name}.",
+    active: "نشط",
+    closed: "مغلق",
+  },
+  crossScope: {
+    title: "رقم الجوال مسجل لعميل خارج نطاق صلاحيتك",
+    description:
+      "يمكنك إنشاء الطلب، وسيبقى مرتبطًا بعميلك، ويُرسل إلى مراجع داخلي للتحقق من التكرار.",
+    continue: "متابعة وإرسال للمراجعة",
+    chosen: "سيُنشأ الطلب ويُرسل لمراجعة التكرار.",
+  },
+  name: {
+    title: "يوجد عميل باسم مشابه",
+    description:
+      "إذا كان نفس الشخص فاربط الطلب به، وإلا سيُنشأ عميل جديد — لا يُدمج العملاء بالاسم وحده أبدًا.",
+    candidate: "{count} طلب · آخرها {date}",
+    same: "نفس العميل",
+    different: "عميل مختلف",
+    chosenSame: "سيُربط الطلب بالعميل المسجل {name}.",
+    chosenDifferent: "سيُنشأ عميل جديد لهذا الطلب.",
+  },
+  review: {
+    filter: "مراجعة التكرار",
+    action: "مراجعة التكرار",
+    title: "مراجعة التكرار",
+    description: "تطابق جوال العميل مع عميل خارج نطاق منشئ الطلب. قارن الطرفين وسجّل القرار.",
+    thisOrder: "الطلب المعلَّم",
+    matches: "عملاء آخرون بنفس الجوال",
+    noMatches: "لا يوجد حاليًا عميل آخر بطلبات على هذا الرقم.",
+    owner: "المسؤول",
+    agent: "الوكيل",
+    company: "الشركة",
+    customer: "العميل",
+    decision: "القرار",
+    distinct: "عميلان مختلفان — يبقى الطلب",
+    duplicate: "طلب مكرر",
+    duplicateHint: "تسجيل التكرار لا يلغي الطلب — ألغِه من صفحة الطلب عبر الإجراء المعتاد.",
+    note: "ملاحظة",
+    submit: "حفظ القرار",
+    resolved: "تم حفظ قرار مراجعة التكرار",
+    resolvedDuplicate: "سُجّل الطلب كمكرر — ألغِه من صفحة الطلب.",
+    alreadyResolved: "راجعه {name} · {date}",
+    loadFailed: "تعذر تحميل مراجعة التكرار.",
+    status: {
+      NONE: "بدون مراجعة",
+      PENDING: "بانتظار المراجعة",
+      CONFIRMED_DISTINCT: "مؤكد أنه مختلف",
+      CONFIRMED_DUPLICATE: "مؤكد أنه مكرر",
+    },
+  },
+} as const;
+
+export default orderDuplicatesAr;

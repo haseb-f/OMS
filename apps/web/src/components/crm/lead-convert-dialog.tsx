@@ -47,13 +47,18 @@ import { formatMoney } from "@/lib/money";
 import { createMasterDataService } from "@/services/master-data-service";
 import { stagingIdsOf, type ReceiptUploadItem } from "@/components/business/payment-receipts-field";
 import { attachmentsService } from "@/services/attachments-service";
+import { newIdempotencyKey } from "@/components/payments/declaration/declaration-logic";
+import { DuplicateCustomerPanel } from "@/components/business/duplicate-customer-panel";
+import { useDuplicateCheck } from "@/hooks/use-duplicate-check";
+import { duplicateFromError, orderDuplicatesService } from "@/services/order-duplicates-service";
 
 const citiesService = createMasterDataService<CityRow>("/cities");
 
 type ValidationIssue =
   | { kind: "lines"; message: string }
   | { kind: "declaration"; error: DeclarationError }
-  | { kind: "address"; message: string };
+  | { kind: "address"; message: string }
+  | { kind: "duplicate"; message: string };
 
 /** Read-only lead fact — label and value on one line, not a disabled input. */
 function LeadFact({ label, value, ltr }: { label: string; value: string; ltr?: boolean }) {
@@ -120,6 +125,16 @@ export function LeadConvertDialog({
   const [cities, setCities] = useState<CityRow[]>([]);
   const [issue, setIssue] = useState<ValidationIssue | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
+  // Spec 1B — one key per dialog instance (a retried submit never converts twice).
+  const [idempotencyKey, setIdempotencyKey] = useState("");
+  // Spec 1B — the lead's phone / name against existing customers.
+  const duplicates = useDuplicateCheck({
+    phone: lead.mobileNumber,
+    name: lead.customerName,
+    countryId: lead.countryId,
+    enabled: open,
+    check: orderDuplicatesService.check,
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -127,6 +142,7 @@ export function LeadConvertDialog({
     setStep("form");
     setIssue(null);
     setServerError(null);
+    setIdempotencyKey(newIdempotencyKey());
     setShowLineErrors(false);
     setLines([
       {
@@ -195,6 +211,9 @@ export function LeadConvertDialog({
     if (!address.trim() && !city.trim()) {
       return { kind: "address", message: t("crm.leads.convert.validation.shipping") };
     }
+    if (duplicates.blocked) {
+      return { kind: "duplicate", message: t("orderDuplicates.required") };
+    }
     return null;
   };
 
@@ -227,6 +246,9 @@ export function LeadConvertDialog({
             message: liveIssue.message,
           },
         ]
+      : []),
+    ...(liveIssue?.kind === "duplicate"
+      ? [{ fieldId: "duplicate", message: liveIssue.message }]
       : []),
     ...(serverError ? [{ message: serverError }] : []),
   ];
@@ -266,6 +288,8 @@ export function LeadConvertDialog({
         city: city.trim() || undefined,
         address: address.trim() || undefined,
         notes: notes.trim() || undefined,
+        idempotencyKey,
+        ...(duplicates.resolution ? { duplicateResolution: duplicates.resolution } : {}),
       });
       reportSuccess(
         `${t("crm.leads.convert.success")} ${result.storeOrder?.internalOrderId ?? ""}`.trim(),
@@ -276,6 +300,12 @@ export function LeadConvertDialog({
       onOpenChange(false);
       onConverted(result);
     } catch (error) {
+      // A customer the panel had not answered — reopen it on the form step.
+      const duplicate = duplicateFromError(error);
+      if (duplicate) {
+        duplicates.applyServerResult(duplicate);
+        setStep("form");
+      }
       setServerError(apiErrorMessage(error, "common.failedToSave"));
       reportApiError(error, "common.failedToSave");
     } finally {
@@ -400,7 +430,11 @@ export function LeadConvertDialog({
               <EnterpriseButton
                 variant="success"
                 isLoading={isSaving}
-                disabled={isSaving || receiptItems.some((item) => item.status === "uploading")}
+                disabled={
+                  isSaving ||
+                  duplicates.blocked ||
+                  receiptItems.some((item) => item.status === "uploading")
+                }
                 onClick={() => void submit()}
               >
                 {t("crm.leads.convert.confirmCreate")}
@@ -429,6 +463,19 @@ export function LeadConvertDialog({
               />
               <LeadFact label={t("crm.leads.fields.source")} value={sourceLabel} />
             </dl>
+            <div
+              data-field-name="duplicate"
+              data-invalid={liveIssue?.kind === "duplicate" ? "true" : undefined}
+            >
+              <DuplicateCustomerPanel
+                state={duplicates.state}
+                onChoose={(choice) => {
+                  duplicates.choose(choice);
+                  setServerError(null);
+                }}
+                orderHref={(id) => `/store-orders/${id}`}
+              />
+            </div>
           </FormSection>
 
           <FormSection

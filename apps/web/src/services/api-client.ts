@@ -36,7 +36,9 @@ export type ErrorCode =
   | "ACCOUNT_DISABLED"
   | "ACCOUNT_LOCKED"
   | "MISSING_EXCHANGE_RATE"
-  | "STALE_EXCHANGE_RATE";
+  | "STALE_EXCHANGE_RATE"
+  /** Round 5 Spec 1B — a duplicate customer warning needs an answer (`details.duplicate`). */
+  | "DUPLICATE_ACKNOWLEDGEMENT_REQUIRED";
 
 export interface ErrorFieldDetail {
   field: string;

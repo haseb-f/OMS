@@ -8,7 +8,7 @@ import type { MessageKey } from "@/i18n/translate";
 import type { StoreOrderRow } from "@/services/store-orders-service";
 import { StatusBadge } from "@/components/business/status-badge";
 import { financialStatusLabelKey } from "./status";
-import { Archive, Eye, Pencil } from "lucide-react";
+import { Archive, Eye, Pencil, UsersRound } from "lucide-react";
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -30,6 +30,8 @@ export interface StoreOrderRowHandlers {
   onView: (row: StoreOrderRow) => void;
   onEdit?: (row: StoreOrderRow) => void;
   onArchive?: (row: StoreOrderRow) => void;
+  /** Round 5 Spec 1B — resolve a pending cross-scope duplicate review. */
+  onResolveDuplicate?: (row: StoreOrderRow) => void;
   /** ADR-0018 (M2 gap closure) — adds the default-hidden profitability columns; only pass true when the caller both requested and was authorized for `orders.profitability.view` (the page decides, never this config). */
   includeProfitability?: boolean;
 }
@@ -67,11 +69,13 @@ function StoreOrderActionsCell({
   onView,
   onEdit,
   onArchive,
+  onResolveDuplicate,
 }: {
   order: StoreOrderRow;
   onView: (row: StoreOrderRow) => void;
   onEdit?: (row: StoreOrderRow) => void;
   onArchive?: (row: StoreOrderRow) => void;
+  onResolveDuplicate?: (row: StoreOrderRow) => void;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -92,6 +96,16 @@ function StoreOrderActionsCell({
           icon: Pencil,
           hidden: !onEdit || !hasPermission("store-orders.edit"),
           onSelect: () => onEdit?.(order),
+        },
+        {
+          key: "duplicate-review",
+          label: t("orderDuplicates.review.action"),
+          icon: UsersRound,
+          hidden:
+            !onResolveDuplicate ||
+            order.duplicateReviewStatus !== "PENDING" ||
+            !hasPermission("store-orders.duplicate_review"),
+          onSelect: () => onResolveDuplicate?.(order),
         },
         {
           key: "archive",
@@ -285,6 +299,7 @@ export function buildStoreOrderColumns(
           onView={handlers.onView}
           onEdit={handlers.onEdit}
           onArchive={handlers.onArchive}
+          onResolveDuplicate={handlers.onResolveDuplicate}
         />
       ),
     },
