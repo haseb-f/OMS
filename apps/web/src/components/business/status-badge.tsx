@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
@@ -36,6 +37,8 @@ const toneVariant: Record<
  *   `resolveStatusColor`; a color with no status meaning renders neutral with
  *   that color on the dot only (never a raw background).
  * - `dot`: adds a small leading dot in the tone color (classifications).
+ * - `icon`: an optional leading glyph that reinforces a state the label
+ *   already names (e.g. the bank icon of "Settled to bank"); never alone.
  *
  * An explicit `tone` wins over `colorKey`.
  */
@@ -44,12 +47,14 @@ export function StatusBadge({
   tone,
   colorKey,
   dot = false,
+  icon: Icon,
   className,
 }: {
   label: string;
   tone?: StatusTone;
   colorKey?: string | null;
   dot?: boolean;
+  icon?: LucideIcon;
   className?: string;
 }) {
   const resolved = tone ? { tone, dotColor: undefined } : resolveStatusColor(colorKey);
@@ -72,6 +77,7 @@ export function StatusBadge({
           style={resolved.dotColor ? { backgroundColor: resolved.dotColor } : undefined}
         />
       )}
+      {Icon ? <Icon aria-hidden className="size-3 shrink-0" /> : null}
       <span className="min-w-0 truncate">{label}</span>
     </EnterpriseBadge>
   );

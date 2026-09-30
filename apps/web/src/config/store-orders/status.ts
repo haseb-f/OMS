@@ -1,5 +1,6 @@
 import type { StatusTone } from "@/components/business/status-badge";
 import { isPrepaidFulfillmentAllowed } from "@/components/payments/declaration/declaration-status";
+import { paymentRecordTerm, paymentTerm } from "@/config/payments/payment-vocabulary";
 import type {
   StoreOrderDeclaredPaymentStatusValue,
   StoreOrderPaymentStatusValue,
@@ -54,50 +55,16 @@ export const FULFILLMENT_METHOD_LABEL_KEY: Record<"SHIPPING" | "PICKUP", Message
  * `StatusBadge` like every other status in the product instead of printing
  * the raw enum value.
  */
-const PAYMENT_RECORD_STATUS_VALUES = [
-  "PENDING",
-  "MATCHED",
-  "VERIFIED",
-  "REJECTED",
-  "DISPUTED",
-] as const;
-
-type PaymentRecordStatusValue = (typeof PAYMENT_RECORD_STATUS_VALUES)[number];
-
-const PAYMENT_RECORD_STATUS_LABEL_KEY: Record<PaymentRecordStatusValue, MessageKey> = {
-  PENDING: "storeOrders.detail.payments.recordStatus.PENDING",
-  MATCHED: "storeOrders.detail.payments.recordStatus.MATCHED",
-  VERIFIED: "storeOrders.detail.payments.recordStatus.VERIFIED",
-  REJECTED: "storeOrders.detail.payments.recordStatus.REJECTED",
-  DISPUTED: "paymentDeclaration.recordStatus.DISPUTED",
-};
-
-const PAYMENT_RECORD_STATUS_TONE: Record<PaymentRecordStatusValue, StatusTone> = {
-  PENDING: "neutral",
-  MATCHED: "info",
-  VERIFIED: "success",
-  REJECTED: "destructive",
-  DISPUTED: "destructive",
-};
-
-function isPaymentRecordStatus(value: string): value is PaymentRecordStatusValue {
-  return (PAYMENT_RECORD_STATUS_VALUES as readonly string[]).includes(value);
-}
-
-/** The API types this field as a plain string, so unknown values fall back to the raw value with a neutral tone rather than crashing the detail page. */
+/** The API types this field as a plain string, so unknown values fall back to the raw value with a neutral tone rather than crashing the detail page. Labels and tones come from the one payment vocabulary. */
 export function paymentRecordStatusBadge(status: string): {
   labelKey: MessageKey | null;
   fallback: string;
   tone: StatusTone;
 } {
-  if (!isPaymentRecordStatus(status)) {
-    return { labelKey: null, fallback: status, tone: "neutral" };
-  }
-  return {
-    labelKey: PAYMENT_RECORD_STATUS_LABEL_KEY[status],
-    fallback: status,
-    tone: PAYMENT_RECORD_STATUS_TONE[status],
-  };
+  const term = paymentRecordTerm(status);
+  if (!term) return { labelKey: null, fallback: status, tone: "neutral" };
+  const definition = paymentTerm(term);
+  return { labelKey: definition.labelKey, fallback: status, tone: definition.tone };
 }
 
 export const SHIPPING_STAGE_LABEL_KEY: Record<StoreOrderShippingStageValue, MessageKey> = {

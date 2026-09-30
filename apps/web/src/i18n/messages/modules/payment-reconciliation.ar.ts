@@ -12,11 +12,7 @@ const paymentReconciliationAr = {
     open: "فتح مساحة العمل",
     clearingAccount: "حساب التسوية الوسيط",
     noAccount: "لم يُحدَّد حساب تسوية وسيط",
-    unmatchedLines: "حركات كشف غير مطابقة",
     exceptions: "استثناءات",
-    awaitingReconciliation: "مُبلّغ عنها · بانتظار المطابقة",
-    awaitingSettlement: "بانتظار التسوية",
-    disputed: "مطالبات معترض عليها",
   },
   workspace: {
     back: "كل الطرق",
@@ -43,17 +39,6 @@ const paymentReconciliationAr = {
   },
   status: {
     ALL: "كل الحالات",
-    UNMATCHED: "غير مطابقة",
-    MATCHED: "مطابقة",
-    EXCEPTION: "استثناء",
-    IGNORED: "مُتجاهلة",
-  },
-  claimStatus: {
-    PENDING: "مُبلّغ عنها · بانتظار المطابقة",
-    MATCHED: "مطابقة جزئيًا",
-    VERIFIED: "مُتحقَّق ومُرحَّل",
-    REJECTED: "مرفوضة",
-    DISPUTED: "معترض عليها",
   },
   source: {
     FILE: "ملف",

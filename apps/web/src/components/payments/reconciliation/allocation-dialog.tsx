@@ -7,6 +7,7 @@ import { ModalFieldFullWidth, ModalSection } from "@/components/shared/modal-sec
 import { SearchInput } from "@/components/shared/search-input";
 import { RelatedRecordLink } from "@/components/shared/record-preview";
 import { StatusBadge } from "@/components/business/status-badge";
+import { PaymentRecordBadge } from "@/components/payments/payment-term-badge";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDate } from "@/lib/date";
@@ -18,7 +19,6 @@ import {
   type ClaimView,
 } from "@/services/payment-reconciliation-service";
 import {
-  CLAIM_STATUS_TONE,
   defaultAllocationAmount,
   newIdempotencyKey,
   validateAllocations,
@@ -39,7 +39,6 @@ interface Draft {
 
 /** Claim → order → customer identity row, shared by suggestions and the allocation dialog. */
 export function ClaimIdentity({ claim }: { claim: ClaimView }) {
-  const { t } = useLocale();
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-1">
       <RelatedRecordLink kind="PAYMENT" id={claim.id} number={claim.paymentNumber} />
@@ -53,10 +52,7 @@ export function ClaimIdentity({ claim }: { claim: ClaimView }) {
       {claim.customer ? (
         <RelatedRecordLink kind="CUSTOMER" id={claim.customer.id} number={claim.customer.name} />
       ) : null}
-      <StatusBadge
-        label={t(`paymentReconciliation.claimStatus.${claim.status}`)}
-        tone={CLAIM_STATUS_TONE[claim.status] ?? "neutral"}
-      />
+      <PaymentRecordBadge status={claim.status} />
       <span className="text-caption text-muted-foreground" dir="ltr">
         {formatDate(claim.paymentDate)}
         {claim.referenceNumber ? ` · ${claim.referenceNumber}` : ""}

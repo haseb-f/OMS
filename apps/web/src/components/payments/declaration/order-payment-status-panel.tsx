@@ -9,9 +9,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
 import type { DeclaredPaymentStatus } from "./declaration-logic";
+import { PaymentSettlementBadge } from "@/components/payments/payment-term-badge";
 import {
   DECLARED_STATUS_TONE,
-  SETTLEMENT_TONE,
   VERIFICATION_TONE,
   declaredStatusLabelKey,
   financeVerificationState,
@@ -123,12 +123,7 @@ export function OrderPaymentStatusPanel({
             </p>
             <DetailFieldRow
               label={t("common.status")}
-              value={
-                <StatusBadge
-                  label={t(`paymentDeclaration.settlement.${settlement}` as MessageKey)}
-                  tone={SETTLEMENT_TONE[settlement]}
-                />
-              }
+              value={<PaymentSettlementBadge status={settlement} />}
             />
           </div>
         ) : null}

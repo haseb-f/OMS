@@ -1,6 +1,7 @@
 import paymentDeclarationEn from "./modules/payment-declaration.en";
 import paymentReconciliationEn from "./modules/payment-reconciliation.en";
 import paymentSettlementEn from "./modules/payment-settlement.en";
+import paymentVocabularyEn from "./modules/payment-vocabulary.en";
 import fxSettingsEn from "./modules/fx-settings.en";
 import docUiEn from "./modules/doc-ui.en";
 import feedbackEn from "./modules/feedback.en";
@@ -10,6 +11,7 @@ const en = {
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
+  paymentVocabulary: paymentVocabularyEn,
   fxSettings: fxSettingsEn,
   docUi: docUiEn,
   feedback: feedbackEn,
@@ -428,7 +430,7 @@ const en = {
     financeJournalEntries: "Journal Entries",
     financeCustomerReceipts: "Receipts",
     financeSupplierPayments: "Payments",
-    financePaymentReview: "Payment Review",
+    financePaymentReview: "Payments review",
     financeFiscalPeriods: "Fiscal Years & Periods",
     financeOpeningBalances: "Opening Balances",
     financeYearClosing: "Year Closing",
@@ -3889,12 +3891,6 @@ const en = {
         amount: "Amount",
         paid: "Paid",
         remaining: "Remaining",
-        recordStatus: {
-          PENDING: "Awaiting confirmation",
-          MATCHED: "Matched — not posted",
-          VERIFIED: "Confirmed & posted",
-          REJECTED: "Rejected",
-        },
         add: "Add Payment",
         addTitle: "Add Payment",
         addDescription:
