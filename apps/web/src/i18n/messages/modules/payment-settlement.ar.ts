@@ -38,12 +38,6 @@ const paymentSettlementAr = {
     carrying: "القيمة الدفترية",
     lines: "المطالبات",
   },
-  claimStatus: {
-    NOT_APPLICABLE: "غير منطبق",
-    AWAITING_SETTLEMENT: "بانتظار التسوية",
-    PARTIALLY_SETTLED: "مسوّاة جزئيًا",
-    SETTLED: "مسوّاة",
-  },
   docStatus: {
     ALL: "كل الحالات",
     POSTED: "مرحّلة",

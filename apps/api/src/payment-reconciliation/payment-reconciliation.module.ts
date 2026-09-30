@@ -4,6 +4,8 @@ import { StoreOrdersModule } from '../store-orders/store-orders.module';
 import { FinancialTransactionsModule } from '../financial-transactions/financial-transactions.module';
 import { GoogleSheetsService } from '../import-center/google-sheets.service';
 import { PaymentReconciliationController } from './payment-reconciliation.controller';
+import { PaymentReconciliationWorkbenchController } from './payment-reconciliation-workbench.controller';
+import { PaymentBulkAcceptService } from './payment-bulk-accept.service';
 import { PaymentReconciliationService } from './payment-reconciliation.service';
 import { PaymentStatementsService } from './payment-statements.service';
 import { PaymentMatchingService } from './payment-matching.service';
@@ -25,13 +27,17 @@ import { AgentLedgerModule } from '../agents/finance/agent-ledger.module';
     FinancialTransactionsModule,
     AgentLedgerModule,
   ],
-  controllers: [PaymentReconciliationController],
+  controllers: [
+    PaymentReconciliationController,
+    PaymentReconciliationWorkbenchController,
+  ],
   providers: [
     PaymentReconciliationService,
     PaymentStatementsService,
     PaymentMatchingService,
     ClaimPostingAdapter,
     GoogleSheetsService,
+    PaymentBulkAcceptService,
   ],
   exports: [PaymentMatchingService],
 })

@@ -1,6 +1,7 @@
 import paymentDeclarationAr from "./modules/payment-declaration.ar";
 import paymentReconciliationAr from "./modules/payment-reconciliation.ar";
 import paymentSettlementAr from "./modules/payment-settlement.ar";
+import paymentVocabularyAr from "./modules/payment-vocabulary.ar";
 import fxSettingsAr from "./modules/fx-settings.ar";
 import docUiAr from "./modules/doc-ui.ar";
 import feedbackAr from "./modules/feedback.ar";
@@ -14,6 +15,7 @@ const ar = {
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
+  paymentVocabulary: paymentVocabularyAr,
   fxSettings: fxSettingsAr,
   docUi: docUiAr,
   feedback: feedbackAr,
@@ -3866,12 +3868,6 @@ const ar = {
         amount: "المبلغ",
         paid: "المدفوع",
         remaining: "المتبقي",
-        recordStatus: {
-          PENDING: "بانتظار التأكيد",
-          MATCHED: "مطابقة — غير مرحّلة",
-          VERIFIED: "مؤكدة ومرحّلة",
-          REJECTED: "مرفوضة",
-        },
         add: "إضافة دفعة",
         addTitle: "إضافة دفعة",
         addDescription: "تسجيل دفعة عادية على هذا الطلب وإعادة تقييم حالة التسوية.",

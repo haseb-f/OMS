@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { DismissibleAlert } from "@/components/shared/dismissible-alert";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import {
   type ReconciliationMethod,
   type StatementLine,
 } from "@/services/payment-reconciliation-service";
+import { paymentTerm } from "@/config/payments/payment-vocabulary";
 import { CurrencyTotalsList } from "./currency-totals";
 import { StatementTab } from "./statement-tab";
 import { MatchingTab } from "./matching-tab";
@@ -30,6 +32,10 @@ const TABS: WorkspaceTab[] = [
   "exceptions",
 ];
 
+function isWorkspaceTab(value: string | null): value is WorkspaceTab {
+  return !!value && (TABS as string[]).includes(value);
+}
+
 /** Per-currency summary strip: reported/awaiting, unmatched statement, awaiting settlement, disputed — never one "Paid" flag. */
 export function MethodSummaryStrip({ method }: { method: ReconciliationMethod }) {
   const { t } = useLocale();
@@ -41,19 +47,19 @@ export function MethodSummaryStrip({ method }: { method: ReconciliationMethod })
       className="grid grid-cols-2 gap-x-3 gap-y-2 lg:grid-cols-4 lg:[&>*+*]:border-s lg:[&>*+*]:border-border lg:[&>*+*]:ps-3"
     >
       <CurrencyTotalsList
-        label={t("paymentReconciliation.list.awaitingReconciliation")}
+        label={t(paymentTerm("DECLARED").labelKey)}
         totals={summary?.claimsAwaitingReconciliation}
       />
       <CurrencyTotalsList
-        label={t("paymentReconciliation.list.unmatchedLines")}
+        label={t(paymentTerm("STATEMENT_LINE").labelKey)}
         totals={summary?.unmatchedByCurrency}
       />
       <CurrencyTotalsList
-        label={t("paymentReconciliation.list.awaitingSettlement")}
+        label={t(paymentTerm("AWAITING_SETTLEMENT").labelKey)}
         totals={summary?.awaitingSettlement}
       />
       <CurrencyTotalsList
-        label={t("paymentReconciliation.list.disputed")}
+        label={t(paymentTerm("DISPUTED").labelKey)}
         totals={summary?.disputedClaims}
       />
     </div>
@@ -70,8 +76,13 @@ export function ReconciliationWorkspace({ methodId }: { methodId: string }) {
 
   const [method, setMethod] = useState<ReconciliationMethod | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<WorkspaceTab>("statement");
-  const [focusLineId, setFocusLineId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  // `?tab=` deep link (Payments review stage strip → matching / exceptions / awaiting settlement).
+  const requestedTab = searchParams.get("tab");
+  const [tab, setTab] = useState<WorkspaceTab>(
+    isWorkspaceTab(requestedTab) ? requestedTab : "statement",
+  );
+  const [focusLineId, setFocusLineId] = useState<string | null>(searchParams.get("line"));
   const [refreshKey, setRefreshKey] = useState(0);
 
   const loadMethod = useCallback(async () => {
@@ -151,7 +162,7 @@ export function ReconciliationWorkspace({ methodId }: { methodId: string }) {
               <TabsTrigger key={value} value={value} className="gap-1.5">
                 {t(`paymentReconciliation.tabs.${value}`)}
                 {value === "exceptions" && exceptions > 0 ? (
-                  <StatusBadge label={String(exceptions)} tone="destructive" />
+                  <StatusBadge label={String(exceptions)} tone={paymentTerm("EXCEPTION").tone} />
                 ) : null}
               </TabsTrigger>
             ))}

@@ -12,11 +12,7 @@ const paymentReconciliationEn = {
     open: "Open workspace",
     clearingAccount: "Clearing account",
     noAccount: "No clearing account configured",
-    unmatchedLines: "Unmatched statement lines",
     exceptions: "Exceptions",
-    awaitingReconciliation: "Reported · awaiting reconciliation",
-    awaitingSettlement: "Awaiting settlement",
-    disputed: "Disputed claims",
   },
   workspace: {
     back: "All methods",
@@ -43,17 +39,6 @@ const paymentReconciliationEn = {
   },
   status: {
     ALL: "All statuses",
-    UNMATCHED: "Unmatched",
-    MATCHED: "Matched",
-    EXCEPTION: "Exception",
-    IGNORED: "Ignored",
-  },
-  claimStatus: {
-    PENDING: "Reported · awaiting reconciliation",
-    MATCHED: "Partially matched",
-    VERIFIED: "Verified & posted",
-    REJECTED: "Rejected",
-    DISPUTED: "Disputed",
   },
   source: {
     FILE: "File",

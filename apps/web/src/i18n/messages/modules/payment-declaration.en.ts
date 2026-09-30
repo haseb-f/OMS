@@ -28,7 +28,7 @@ const paymentDeclarationEn = {
     reference: "Payment reference",
     currency: "Currency",
     submit: "Save declaration",
-    notVerifiedNote: "“Customer reported paid” is not “Verified & posted by Finance”.",
+    notVerifiedNote: "“Customer reported paid” is not “Confirmed & posted by Finance”.",
     errors: {
       amountRequired: "Enter the amount the customer paid.",
       amountExceeds: "The amount cannot exceed the remaining amount to declare.",
@@ -63,20 +63,14 @@ const paymentDeclarationEn = {
   verification: {
     NONE: "No payment claims yet",
     AWAITING: "Awaiting Finance reconciliation",
-    PARTIAL: "Partly verified & posted",
-    VERIFIED: "Verified & posted by Finance",
+    PARTIAL: "Partly confirmed & posted",
+    VERIFIED: "Confirmed & posted by Finance",
     DISPUTED: "Disputed by Finance",
     REJECTED: "Rejected by Finance",
   },
-  settlement: {
-    NOT_APPLICABLE: "Not applicable",
-    AWAITING_SETTLEMENT: "Awaiting provider settlement",
-    PARTIALLY_SETTLED: "Partially settled",
-    SETTLED: "Settled",
-  },
   fields: {
     declaredAmount: "Declared amount",
-    verifiedAmount: "Verified & posted",
+    verifiedAmount: "Confirmed & posted",
     method: "Method",
     origin: "Declared by",
     kind: "Declaration",
@@ -91,9 +85,6 @@ const paymentDeclarationEn = {
   kind: {
     FULL: "Paid in full",
     PARTIAL: "Partial",
-  },
-  recordStatus: {
-    DISPUTED: "Disputed",
   },
   discrepancy: {
     title: "Payment discrepancy",

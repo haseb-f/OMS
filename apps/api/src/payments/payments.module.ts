@@ -10,6 +10,8 @@ import { PaymentNotesService } from './notes/payment-notes.service';
 import { PaymentAttachmentsController } from './attachments/payment-attachments.controller';
 import { PaymentAttachmentsService } from './attachments/payment-attachments.service';
 import { PaymentAutoMatchingService } from './auto-matching/payment-auto-matching.service';
+import { PaymentReviewService } from './payment-review.service';
+import { PaymentsBulkService } from './payments-bulk.service';
 import { NumberingModule } from '../numbering/numbering.module';
 import { FxModule } from '../accounting/fx/fx.module';
 import { AgentLedgerModule } from '../agents/finance/agent-ledger.module';
@@ -34,6 +36,8 @@ import { AgentLedgerModule } from '../agents/finance/agent-ledger.module';
     PaymentNotesService,
     PaymentAttachmentsService,
     PaymentAutoMatchingService,
+    PaymentReviewService,
+    PaymentsBulkService,
   ],
   exports: [PaymentsService, PaymentAutoMatchingService],
 })

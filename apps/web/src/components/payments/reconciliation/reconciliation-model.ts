@@ -2,7 +2,6 @@ import type { StatusTone } from "@/components/business/status-badge";
 import {
   REQUIRED_STATEMENT_FIELDS,
   type MatchReason,
-  type StatementLineStatus,
   type StatementMapping,
   type SuggestionResult,
   type Suggestion,
@@ -11,25 +10,10 @@ import {
 
 /** Pure view-model helpers for the reconciliation workspace (unit-tested; no React). */
 
-export const LINE_STATUS_TONE: Record<StatementLineStatus, StatusTone> = {
-  UNMATCHED: "warning",
-  MATCHED: "success",
-  EXCEPTION: "destructive",
-  IGNORED: "neutral",
-};
-
 export const STRENGTH_TONE: Record<SuggestionStrength, StatusTone> = {
   STRONG: "success",
   MEDIUM: "info",
   WEAK: "neutral",
-};
-
-export const CLAIM_STATUS_TONE: Record<string, StatusTone> = {
-  PENDING: "warning",
-  MATCHED: "info",
-  VERIFIED: "success",
-  REJECTED: "destructive",
-  DISPUTED: "destructive",
 };
 
 const NEGATIVE_SIGNALS = new Set(["AMOUNT_DIFFERS", "DATE_OUT_OF_WINDOW", "STATUS_UNVERIFIED"]);

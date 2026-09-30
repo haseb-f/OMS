@@ -24,7 +24,8 @@ import { StatusBadge } from "@/components/business/status-badge";
 import { formatDate } from "@/lib/date";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { toast, reportApiError } from "@/lib/toast";
+import { apiErrorMessage, toast, reportApiError } from "@/lib/toast";
+import { runInChunks } from "@/components/payments/bulk-chunks";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
 import {
@@ -34,12 +35,21 @@ import {
   type Suggestion,
   type SuggestionResult,
 } from "@/services/payment-reconciliation-service";
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { PaymentActionButton } from "@/components/payments/payment-action-button";
+import { PaymentRecordBadge } from "@/components/payments/payment-term-badge";
+import { PaymentMatchPanel } from "@/components/payments/match-panel/payment-match-panel";
+import { BulkResultDialog } from "@/components/payments/bulk-result-dialog";
+import { formatCurrencyTotals, totalsByCurrency } from "@/components/payments/payment-totals";
+import { BULK_LIMITS } from "@/lib/bulk-limits";
+import type { BulkItemsResult } from "@/services/payments-review-service";
+import type { BulkAcceptPlan } from "@/services/payment-reconciliation-service";
 import { AllocationDialog, ClaimIdentity, type AllocationLine } from "./allocation-dialog";
 import { ReasonDialog } from "./reason-dialog";
 import {
-  CLAIM_STATUS_TONE,
   STRENGTH_TONE,
   canQuickConfirm,
+  newIdempotencyKey,
   reasonTone,
   visibleReasons,
 } from "./reconciliation-model";
@@ -77,6 +87,19 @@ export function MatchingTab({
   } | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Suggestion | null>(null);
   const [disputeTarget, setDisputeTarget] = useState<ClaimView | null>(null);
+  const [panelId, setPanelId] = useState<string | null>(null);
+  const [planning, setPlanning] = useState(false);
+  const [acceptPlan, setAcceptPlan] = useState<{
+    eligible: BulkAcceptPlan[];
+    checked: number;
+    key: string;
+  } | null>(null);
+  const [accepting, setAccepting] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [acceptResult, setAcceptResult] = useState<{
+    result: BulkItemsResult<BulkAcceptPlan>;
+    labels: Map<string, string>;
+  } | null>(null);
 
   const loadLines = useCallback(async () => {
     setLoadingLines(true);
@@ -147,6 +170,74 @@ export function MatchingTab({
     onChanged();
   };
 
+  const lineLabel = (lineId: string) => {
+    const line = lines.find((row) => row.id === lineId);
+    return line?.providerReference ?? line?.orderReference ?? lineId;
+  };
+
+  /** Dry run on the server: which unmatched lines have a strong, unambiguous, amount-equal top suggestion. */
+  const chunkOptions = {
+    idOf: (item: { statementLineId: string }) => item.statementLineId,
+    onProgress: (done: number, total: number) => setBulkProgress({ done, total }),
+    requestFailed: (message: string) => t("paymentVocabulary.bulk.requestFailed", { message }),
+    errorMessage: (error: unknown) => apiErrorMessage(error),
+  };
+
+  /** Dry run on the server: which unmatched lines have a strong, unambiguous, reference-backed suggestion. */
+  const planAcceptStrong = async () => {
+    const items = lines.map((line) => ({ statementLineId: line.id }));
+    if (items.length === 0) return;
+    setPlanning(true);
+    try {
+      const plan = await runInChunks(
+        items,
+        BULK_LIMITS.paymentBulkChunk,
+        (chunk) =>
+          paymentReconciliationService.bulkAccept(methodId, { dryRun: true, items: chunk }),
+        chunkOptions,
+      );
+      if (plan.succeeded.length === 0) {
+        toast.info(t("paymentVocabulary.bulk.acceptNone"));
+        return;
+      }
+      setAcceptPlan({ eligible: plan.succeeded, checked: items.length, key: newIdempotencyKey() });
+    } finally {
+      setPlanning(false);
+      setBulkProgress(null);
+    }
+  };
+
+  const commitAcceptStrong = async () => {
+    if (!acceptPlan) return;
+    setAccepting(true);
+    try {
+      const result = await runInChunks(
+        // The reviewed pair is sent back: a changed top suggestion is refused, never swapped.
+        acceptPlan.eligible.map((row) => ({ statementLineId: row.id, paymentId: row.paymentId })),
+        BULK_LIMITS.paymentBulkChunk,
+        (chunk) =>
+          paymentReconciliationService.bulkAccept(methodId, {
+            idempotencyKey: acceptPlan.key.slice(0, 80),
+            items: chunk,
+          }),
+        chunkOptions,
+      );
+      if (result.failed.length === 0) {
+        toast.success(t("paymentVocabulary.bulk.allDone", { count: result.succeeded.length }));
+      } else {
+        setAcceptResult({
+          result,
+          labels: new Map(lines.map((line) => [line.id, lineLabel(line.id)])),
+        });
+      }
+      setAcceptPlan(null);
+      refreshAll();
+    } finally {
+      setAccepting(false);
+      setBulkProgress(null);
+    }
+  };
+
   const openAllocation = (claimsToAllocate: ClaimView[]) => {
     if (!suggestions) return;
     setAllocation({
@@ -165,10 +256,23 @@ export function MatchingTab({
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <EnterpriseCard className="relative min-w-0">
           {loadingLines ? <LoadingOverlay /> : null}
-          <EnterpriseCardHeader>
+          <EnterpriseCardHeader className="flex flex-wrap items-center justify-between gap-2">
             <EnterpriseCardTitle>
               {t("paymentReconciliation.matching.unmatchedTitle")}
             </EnterpriseCardTitle>
+            {canMatch && lines.length > 0 ? (
+              <PaymentActionButton
+                intent="acceptStrong"
+                label={
+                  bulkProgress && planning
+                    ? t("paymentVocabulary.bulk.progress", bulkProgress)
+                    : undefined
+                }
+                isLoading={planning}
+                onClick={() => void planAcceptStrong()}
+                data-testid="accept-strong-suggestions"
+              />
+            ) : null}
           </EnterpriseCardHeader>
           <EnterpriseCardContent className="flex flex-col gap-2">
             <SearchInput
@@ -239,7 +343,7 @@ export function MatchingTab({
                       ),
                     })}
                   </span>
-                  {canMatch && !suggestions.blockedReason ? (
+                  {canMatch && !suggestions.blockedCode && !suggestions.blockedReason ? (
                     <EnterpriseButton
                       type="button"
                       variant="outline"
@@ -251,10 +355,16 @@ export function MatchingTab({
                     </EnterpriseButton>
                   ) : null}
                 </div>
-                {suggestions.blockedReason ? (
+                {suggestions.blockedCode || suggestions.blockedReason ? (
                   <Alert tone="warning">
                     <AlertTriangle />
-                    <AlertDescription>{suggestions.blockedReason}</AlertDescription>
+                    <AlertDescription>
+                      {suggestions.blockedCode
+                        ? t(`paymentVocabulary.blocked.${suggestions.blockedCode}`, {
+                            status: selectedLine?.providerStatus ?? "",
+                          })
+                        : suggestions.blockedReason}
+                    </AlertDescription>
                   </Alert>
                 ) : null}
                 {suggestions.ambiguous ? (
@@ -265,7 +375,9 @@ export function MatchingTab({
                     </AlertDescription>
                   </Alert>
                 ) : null}
-                {!suggestions.blockedReason && suggestions.candidates.length === 0 ? (
+                {!suggestions.blockedCode &&
+                !suggestions.blockedReason &&
+                suggestions.candidates.length === 0 ? (
                   <p className="text-caption text-muted-foreground">
                     {t("paymentReconciliation.matching.noSuggestions")}
                   </p>
@@ -297,17 +409,18 @@ export function MatchingTab({
                     </div>
                     {canMatch ? (
                       <div className="flex flex-wrap gap-2">
-                        <EnterpriseButton
-                          type="button"
-                          size="sm"
-                          variant={canQuickConfirm(suggestions, candidate) ? "success" : "outline"}
+                        <PaymentActionButton
+                          intent={
+                            canQuickConfirm(suggestions, candidate) ? "confirmMatchPost" : "match"
+                          }
+                          quiet
                           onClick={() => openAllocation([candidate.claim])}
-                        >
-                          <CheckCircle2 />
-                          {canQuickConfirm(suggestions, candidate)
-                            ? t("paymentReconciliation.matching.confirmPost")
-                            : t("paymentReconciliation.matching.allocate")}
-                        </EnterpriseButton>
+                        />
+                        <PaymentActionButton
+                          intent="review"
+                          quiet
+                          onClick={() => setPanelId(candidate.claim.id)}
+                        />
                         <EnterpriseButton
                           type="button"
                           size="sm"
@@ -317,15 +430,10 @@ export function MatchingTab({
                           <ThumbsDown />
                           {t("paymentReconciliation.matching.reject")}
                         </EnterpriseButton>
-                        <EnterpriseButton
-                          type="button"
-                          size="sm"
-                          variant="ghost"
+                        <PaymentActionButton
+                          intent="dispute"
                           onClick={() => setDisputeTarget(candidate.claim)}
-                        >
-                          <ShieldAlert />
-                          {t("paymentReconciliation.matching.dispute")}
-                        </EnterpriseButton>
+                        />
                       </div>
                     ) : null}
                   </div>
@@ -372,23 +480,25 @@ export function MatchingTab({
                 id: "actions",
                 header: "",
                 align: "end",
-                cell: (claim) =>
-                  canMatch && (claim.status === "PENDING" || claim.status === "MATCHED") ? (
-                    <EnterpriseButton
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setDisputeTarget(claim)}
-                    >
-                      <ShieldAlert />
-                      {t("paymentReconciliation.matching.dispute")}
-                    </EnterpriseButton>
-                  ) : (
-                    <StatusBadge
-                      label={t(`paymentReconciliation.claimStatus.${claim.status}`)}
-                      tone={CLAIM_STATUS_TONE[claim.status] ?? "neutral"}
+                cell: (claim) => (
+                  <div className="flex flex-wrap items-center justify-end gap-1">
+                    <PaymentActionButton
+                      intent="review"
+                      size="xs"
+                      quiet
+                      onClick={() => setPanelId(claim.id)}
                     />
-                  ),
+                    {canMatch && (claim.status === "PENDING" || claim.status === "MATCHED") ? (
+                      <PaymentActionButton
+                        intent="dispute"
+                        size="xs"
+                        onClick={() => setDisputeTarget(claim)}
+                      />
+                    ) : (
+                      <PaymentRecordBadge status={claim.status} />
+                    )}
+                  </div>
+                ),
               },
             ]}
           />
@@ -431,6 +541,78 @@ export function MatchingTab({
             throw error;
           }
         }}
+      />
+
+      <PaymentMatchPanel
+        paymentId={panelId}
+        onOpenChange={(open) => !open && setPanelId(null)}
+        onChanged={refreshAll}
+      />
+
+      <ConfirmationDialog
+        open={!!acceptPlan}
+        onOpenChange={(open) => {
+          if (!open && !accepting) setAcceptPlan(null);
+        }}
+        tone="success"
+        size="lg"
+        title={
+          acceptPlan
+            ? t("paymentVocabulary.bulk.acceptTitle", { count: acceptPlan.eligible.length })
+            : ""
+        }
+        description={
+          acceptPlan ? (
+            <>
+              {t("paymentVocabulary.bulk.selectedEligible", {
+                eligible: acceptPlan.eligible.length,
+                selected: acceptPlan.checked,
+              })}{" "}
+              {t("paymentVocabulary.effect.bulkAccept", {
+                totals: formatCurrencyTotals(
+                  totalsByCurrency(acceptPlan.eligible, (row) => ({
+                    code: row.currencyCode,
+                    amount: row.amount,
+                  })),
+                ),
+              })}
+            </>
+          ) : undefined
+        }
+        extra={
+          acceptPlan ? (
+            <ul className="flex max-h-60 flex-col divide-y divide-border overflow-y-auto rounded-md border border-border text-caption">
+              {acceptPlan.eligible.map((row) => (
+                <li
+                  key={row.id}
+                  className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5"
+                >
+                  <span dir="ltr">{row.providerReference ?? row.id.slice(0, 8)}</span>
+                  <span>
+                    {row.paymentNumber}
+                    {row.orderNumber ? ` · ${row.orderNumber}` : ""}
+                  </span>
+                  <span dir="ltr" className="tabular-nums">
+                    {formatMoney(row.amount, row.currencyCode)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null
+        }
+        confirmLabel={
+          bulkProgress && accepting
+            ? t("paymentVocabulary.bulk.progress", bulkProgress)
+            : t("paymentVocabulary.action.acceptStrong")
+        }
+        isConfirming={accepting}
+        onConfirm={() => void commitAcceptStrong()}
+      />
+
+      <BulkResultDialog
+        result={acceptResult?.result ?? null}
+        label={(id) => acceptResult?.labels.get(id) ?? id}
+        onClose={() => setAcceptResult(null)}
       />
 
       <ReasonDialog

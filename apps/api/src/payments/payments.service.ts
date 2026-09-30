@@ -181,6 +181,19 @@ export class PaymentsService {
     const where: Prisma.PaymentWhereInput = {
       deletedAt: null,
       ...(query.status ? { status: query.status } : {}),
+      ...(query.settlementStatus?.length
+        ? { settlementStatus: { in: query.settlementStatus } }
+        : {}),
+      ...(query.reconciled === 'true'
+        ? { paymentMethod: { requiresReconciliation: true } }
+        : query.reconciled === 'false'
+          ? {
+              OR: [
+                { paymentMethodId: null },
+                { paymentMethod: { requiresReconciliation: false } },
+              ],
+            }
+          : {}),
     };
     const [items, total] = await Promise.all([
       this.prisma.payment.findMany({
@@ -230,6 +243,12 @@ export class PaymentsService {
           },
           matchedBy: { select: { id: true, fullName: true } },
           verifiedBy: { select: { id: true, fullName: true } },
+          // Statement allocations still standing — reject/dispute refuse while any exist.
+          _count: {
+            select: {
+              matches: { where: { status: PaymentMatchStatus.ACTIVE } },
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
@@ -258,8 +277,9 @@ export class PaymentsService {
     );
 
     return {
-      items: items.map((item) => ({
+      items: items.map(({ _count, ...item }) => ({
         ...item,
+        activeMatchCount: _count.matches,
         settlement: item.storeOrderId
           ? (settlements.get(item.storeOrderId) ?? null)
           : null,
