@@ -172,7 +172,7 @@ afterEach(cleanup);
 describe("FinancialReport header collapse", () => {
   it("exports and prints the same document collapsed or expanded", async () => {
     renderReport();
-    expect(screen.getByRole("button", { name: /collapseHeader/ })).toHaveProperty(
+    expect(screen.getByRole("button", { name: "reports.finance.header.collapse" })).toHaveProperty(
       "ariaExpanded",
       "true",
     );
@@ -181,7 +181,7 @@ describe("FinancialReport header collapse", () => {
 
     localStorage.setItem(STORAGE_KEYS.reportSummaryCollapsed, "true");
     renderReport();
-    const toggle = await screen.findByRole("button", { name: /expandHeader/ });
+    const toggle = await screen.findByRole("button", { name: "reports.finance.header.expand" });
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     await exportAndPrint();
 
@@ -200,14 +200,14 @@ describe("FinancialReport header collapse", () => {
 
   it("remembers the preference and keeps caveats visible on the strip", async () => {
     renderReport();
-    fireEvent.click(screen.getByRole("button", { name: /collapseHeader/ }));
+    fireEvent.click(screen.getByRole("button", { name: "reports.finance.header.collapse" }));
     expect(localStorage.getItem(STORAGE_KEYS.reportSummaryCollapsed)).toBe("true");
     // Unbalanced + drafts included + one report warning.
     expect(
       screen.getByRole("button", { name: 'reports.finance.header.warningsCount:{"count":3}' }),
     ).toBeTruthy();
     // The summary strip stays in the DOM (aria-controls target) but hidden.
-    const toggle = screen.getByRole("button", { name: /expandHeader/ });
+    const toggle = screen.getByRole("button", { name: "reports.finance.header.expand" });
     const summaryId = toggle.getAttribute("aria-controls")?.split(" ").at(-1);
     expect(document.getElementById(summaryId!)?.hidden).toBe(true);
     // The filter badge opens the filter row without expanding the header.

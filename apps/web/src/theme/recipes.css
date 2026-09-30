@@ -213,6 +213,14 @@ html[dir="ltr"] :is(h1, h2) {
   ) {
   box-shadow: var(--control-inset);
 }
+/* A disclosure button (report header collapse) rests expanded — it keeps
+   its normal depth instead of the pressed sink. */
+[data-button][data-variant="outline"][data-disclosure][aria-expanded="true"]:not(
+    :active,
+    :focus-visible
+  ) {
+  box-shadow: var(--control-shadow);
+}
 /* Connected groups (Kumo): items drop their own drop shadow so the group
    reads as one control; pressed / open still sink, focus keeps its halo. */
 [data-slot="button-group"]
@@ -461,7 +469,7 @@ html[dir="ltr"] :is(h1, h2) {
 /* Segmented control (period switch, form choices): a recessed track ringed
    like every neutral control (same edge, radius and 32px/40px height as a
    `ButtonGroup`, §12.12); the selected segment is a raised white control in
-   foreground 600 — the choice reads at a glance. Colour/shadow only. */
+   full foreground (weight 500) — the choice reads at a glance. Colour/shadow only. */
 :is([data-slot="toggle-group"], [data-slot="segmented-radio-group"]) {
   gap: 2px;
   padding: 2px;
@@ -502,7 +510,9 @@ html[dir="ltr"] :is(h1, h2) {
   border-color: transparent;
   background-color: var(--segment-on);
   color: var(--foreground);
-  font-weight: 600;
+  /* Same weight as the other segments (500) — a bolder label would widen the
+     segment and shift its neighbours; the raised fill + full foreground
+     carry "selected". */
   box-shadow:
     0 0 0 1px var(--control-border),
     var(--control-shadow);

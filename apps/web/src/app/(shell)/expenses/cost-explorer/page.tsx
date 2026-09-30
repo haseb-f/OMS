@@ -543,6 +543,21 @@ function ManagementPnlTab() {
         nameHeaderKey="costExplorer.pnl.title"
         printTitle={t("costExplorer.pnl.title")}
         exportFileName="management-pnl.xlsx"
+        // Caveats the collapsed header keeps visible (spec-4 §4A).
+        alerts={
+          pnl
+            ? [
+                ...(pnl.costState !== "COMPLETE"
+                  ? [
+                      `${t("storeOrders.profitability.costState")}: ${t(
+                        `storeOrders.profitability.costStateValues.${pnl.costState}` as MessageKey,
+                      )}`,
+                    ]
+                  : []),
+                ...(pnl.scope.truncated ? [t("costExplorer.pnl.truncatedWarning")] : []),
+              ]
+            : undefined
+        }
         notice={
           pnl ? (
             <div className="flex flex-wrap items-center gap-2">

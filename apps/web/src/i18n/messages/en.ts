@@ -1692,6 +1692,8 @@ const en = {
       header: {
         switchReport: "Switch report",
         reportActions: "Report actions",
+        collapse: "Collapse",
+        expand: "Expand",
         collapseHeader: "Collapse report header",
         expandHeader: "Expand report header",
         showFilters: "Show filters",

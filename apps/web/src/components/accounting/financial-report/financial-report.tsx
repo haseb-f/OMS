@@ -19,7 +19,7 @@ import { usePrintCompany } from "@/components/print/print-brand";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { usePrintEngine } from "@/hooks/use-print-engine";
-import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useStoredPreference } from "@/hooks/use-local-storage";
 import { STORAGE_KEYS } from "@/constants/storage-keys";
 import { downloadReport, type ReportExportFormat } from "@/lib/report-export";
 import { reportApiError, toast } from "@/lib/toast";
@@ -74,6 +74,7 @@ export function FinancialReport({
   pagination,
   exportAllLines = false,
   loadAllLines,
+  alerts: extraAlerts,
 }: {
   lines: FinancialReportLine[];
   columns: FinancialReportColumn[];
@@ -131,6 +132,11 @@ export function FinancialReport({
   /** Rendered instead of the table while the report cannot run yet (e.g. "Select an account"). */
   placeholder?: ReactNode;
   nameHeaderKey?: MessageKey;
+  /**
+   * Caveats that live only in `notice` (estimate, truncated / partial data):
+   * the collapsed header shows them in its warning badge (spec-4 §4A).
+   */
+  alerts?: string[];
 }) {
   const { t, locale, direction } = useLocale();
   const { runPrint } = usePrintEngine();
@@ -301,7 +307,7 @@ export function FinancialReport({
   // spec-4 §4A: one device preference for every financial report. Screen
   // only — print and export are rebuilt from data (`buildDocument`), never
   // from this header, so a collapsed report still prints its full context.
-  const [collapsed, setCollapsed] = useLocalStorage(STORAGE_KEYS.reportSummaryCollapsed, false);
+  const [collapsed, setCollapsed] = useStoredPreference(STORAGE_KEYS.reportSummaryCollapsed, false);
   const summaryId = useId();
   const openingOff =
     onIncludeOpeningBalanceChange !== undefined && includeOpeningBalance === false ? 1 : 0;
@@ -314,11 +320,14 @@ export function FinancialReport({
         fields: filterFields,
         accountSelected: Boolean(accountFilter?.value),
       }) + openingOff,
-    alerts: collectReportAlerts(summary, {
-      draftsIncluded: filterFields.includes("postedOnly") && !filters.postedOnly,
-      currency,
-      t,
-    }),
+    alerts: [
+      ...collectReportAlerts(summary, {
+        draftsIncluded: filterFields.includes("postedOnly") && !filters.postedOnly,
+        currency,
+        t,
+      }),
+      ...(extraAlerts ?? []),
+    ],
   };
 
   const toggles: ReportFilterToggle[] = onIncludeOpeningBalanceChange

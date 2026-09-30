@@ -1456,8 +1456,11 @@ export function EnterpriseDataTable<TData>({
             </div>
             {filterBar ? (
               <FilterBarProvider value={inlineFilterContext}>
-                <ListToolbarSeparator className="sm:hidden @3xl/enterprise-table:block" />
-                <ListToolbarGroup className="hidden @3xl/enterprise-table:flex">
+                {/* The filters flow in the toolbar row itself (`contents`), so they
+                    fill the search row before wrapping — never a row of their own.
+                    One hairline after search, which always stays on the first row. */}
+                <ListToolbarSeparator className="sm:hidden @3xl/enterprise-table:block!" />
+                <ListToolbarGroup className="hidden @3xl/enterprise-table:contents">
                   {filterBar}
                 </ListToolbarGroup>
                 <EnterpriseButton
@@ -1484,7 +1487,6 @@ export function EnterpriseDataTable<TData>({
               </FilterBarProvider>
             ) : null}
             <ListToolbarGroup className="ms-auto shrink-0 flex-nowrap">
-              <ListToolbarSeparator className="me-1" />
               {onRefresh && (
                 <IconActionButton
                   label={t("table.refresh")}

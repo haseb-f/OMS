@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState, type ReactNode } from "react";
-import { ChevronsDownUp, ChevronsUpDown, Filter, TriangleAlert } from "lucide-react";
+import { Filter, PanelTopClose, PanelTopOpen, TriangleAlert } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -56,27 +56,36 @@ function CollapseToggle({
 }) {
   const { t } = useLocale();
   const label = collapsed
+    ? t("reports.finance.header.expand")
+    : t("reports.finance.header.collapse");
+  const hint = collapsed
     ? t("reports.finance.header.expandHeader")
     : t("reports.finance.header.collapseHeader");
+  // An outline action like its neighbours (export, print); the label shows
+  // from `sm` up and stays the accessible name on phones (sr-only).
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <EnterpriseButton
           type="button"
-          variant="ghost"
-          size="icon"
-          data-slot="report-header-toggle"
-          // A disclosure, not a menu: "expanded" is its resting state, not pressed.
-          className="aria-expanded:bg-transparent aria-expanded:not-disabled:hover:bg-(--control-hover)"
-          aria-label={label}
+          variant="outline"
+          data-report-header-toggle=""
+          // A disclosure: "expanded" is its resting state, never drawn pressed.
+          data-disclosure=""
+          className="max-sm:size-(--control-height-md) max-sm:px-0 aria-expanded:border-(--control-border) aria-expanded:bg-card aria-expanded:not-disabled:hover:bg-(--control-hover)"
           aria-expanded={!collapsed}
           aria-controls={controls}
           onClick={onToggle}
         >
-          {collapsed ? <ChevronsUpDown /> : <ChevronsDownUp />}
+          {collapsed ? (
+            <PanelTopOpen data-icon="inline-start" />
+          ) : (
+            <PanelTopClose data-icon="inline-start" />
+          )}
+          <span className="max-sm:sr-only">{label}</span>
         </EnterpriseButton>
       </TooltipTrigger>
-      <TooltipContent side="top">{label}</TooltipContent>
+      <TooltipContent side="top">{hint}</TooltipContent>
     </Tooltip>
   );
 }
@@ -194,15 +203,26 @@ export function FinancialReportHeaderBar({
         <div className="flex max-h-11 min-h-(--control-height-md) min-w-0 items-center gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-x-3">
             {title ? (
-              <TitleTag className="min-w-0 shrink truncate text-card-title font-semibold text-foreground">
+              <TitleTag className="max-w-[60%] min-w-0 shrink-0 truncate text-card-title font-semibold text-foreground">
                 {title}
               </TitleTag>
             ) : null}
             {stripParts.length > 0 ? (
-              <ContextLine
-                parts={stripParts}
-                className="hidden shrink-[2] flex-nowrap overflow-hidden sm:flex"
-              />
+              // Phones keep the period (truncated); the currency joins from `sm`.
+              <p
+                data-slot="report-context"
+                className="flex min-w-0 shrink-[2] items-center text-caption text-muted-foreground"
+              >
+                <bdi className="min-w-0 truncate">{stripParts[0]}</bdi>
+                {stripParts[1] ? (
+                  <span className="hidden shrink-0 items-center whitespace-nowrap sm:flex">
+                    <span aria-hidden className="px-2 text-border-strong">
+                      ·
+                    </span>
+                    <bdi>{stripParts[1]}</bdi>
+                  </span>
+                ) : null}
+              </p>
             ) : null}
             <EnterpriseButton
               type="button"

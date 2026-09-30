@@ -590,30 +590,30 @@ gradients, delicate borders) — adopted as a restrained tint, not copied. The l
 white; nothing uses backdrop blur, transforms or new radii.
 
 **Report header collapse (4A).** `FinancialReport` (every financial report) owns a collapse toggle
-(`ChevronsDownUp` / `ChevronsUpDown`, ghost icon button at the end of the header row;
+(`PanelTopClose` / `PanelTopOpen`, an outline button like the other report actions, labelled «طي / توسيع» · Collapse / Expand from `sm` up (icon-only with the label as sr-only text on phones), full hint in a tooltip; a disclosure, so "expanded" is drawn at rest, never pressed;
 `aria-expanded`, `aria-controls` = filter row + summary strip). Preference:
 `STORAGE_KEYS.reportSummaryCollapsed` = `oms.report.summaryCollapsed` (one device preference for all
-reports; listed in `DEVICE_PREFERENCE_LOCAL_KEYS`, kept across logout). Collapsed = ONE row ≤ 44px:
-title · period · currency · filter badge (count of `countActiveReportFilters`; opens the filter row
+reports; listed in `DEVICE_PREFERENCE_LOCAL_KEYS`, kept across logout), read with `useStoredPreference` (`useSyncExternalStore`, server snapshot = default) so a collapsed report never paints expanded first. Collapsed = ONE row ≤ 44px:
+title · period (phones too, truncated) · currency (from `sm`) · filter badge (count of `countActiveReportFilters`; opens the filter row
 in place without expanding) · caveat badge (`collectReportAlerts`: unbalanced + discrepancy, drafts
-included, every report warning / partial-data note; list in a popover) · switcher · actions ·
+included, every report warning / partial-data note, plus the report's own `alerts` prop for caveats that live only in `notice` — cash-availability estimate, cost-explorer truncated data / incomplete cost state; list in a popover) · switcher · actions ·
 expand. The summary strip stays in the DOM with `hidden`. No height animation (instant swap), so
 reduced motion needs nothing. Print / Excel / CSV are rebuilt from data (`buildDocument`) and are
 identical collapsed or expanded (`financial-report-collapse.spec.tsx`).
 
 **Soft surfaces (4B).** Tokens (`globals.css`, light / dark; print overrides in `theme/print.css`):
 
-| Token                                     | Light                                   | Dark                       |
-| ----------------------------------------- | --------------------------------------- | -------------------------- |
-| `--surface-soft`                          | brand canvas 32% over `--card` (≈2.5%)  | `#52a8ff` 3% over `--card` |
-| `--surface-soft-border`                   | navy 11% translucent hairline           | white 8% translucent       |
-| `--surface-soft-hover-border`             | navy 20%                                | white 15%                  |
-| `--surface-soft-gradient`                 | `--surface-soft` → `--card` by 5.5rem   | same formula               |
-| `--surface-soft-shadow` / `-shadow-hover` | navy whisper / soft lift                | none / dark lift           |
-| `--surface-soft-tone-strength`            | 4% (tone tint of a tile, `--insight-*`) | 6%                         |
-| `--surface-soft-row-hover`                | brand canvas 55% (list row hover)       | blue 6% over `--card`      |
+| Token                                     | Light                                         | Dark                       |
+| ----------------------------------------- | --------------------------------------------- | -------------------------- |
+| `--surface-soft`                          | brand canvas 45% over `--card` (≈2.3% tint)   | `#52a8ff` 3% over `--card` |
+| `--surface-soft-border`                   | navy 11% translucent hairline                 | white 8% translucent       |
+| `--surface-soft-hover-border`             | navy 20%                                      | white 15%                  |
+| `--surface-soft-gradient`                 | `--surface-soft` → `--card` by 5.5rem         | same formula               |
+| `--surface-soft-shadow` / `-shadow-hover` | navy (`--brand-navy` mix) whisper / soft lift | none / dark lift           |
+| `--surface-soft-tone-strength`            | 4% (tone tint of a tile, `--insight-*`)       | 6%                         |
+| `--surface-soft-row-hover`                | brand canvas 55% (list row hover)             | blue 6% over `--card`      |
 
-Print: white, 1px `#cfcfcf` rule, no gradient / tint / shadow. Applied only through shared
+Print (`--print-paper` / `--print-rule` tokens): white, 1px rule, no gradient / tint / shadow. Applied only through shared
 components: `EnterpriseCard surface="soft"` (`[data-surface="soft"]` recipe) — used by every
 `DashboardPanel` (attention, ranking, sales, activity, bank); `InsightCard` (tone-tinted top,
 neutral tiles untinted) and `InsightGroup` (one soft surface, cells transparent; a group inside a
@@ -623,9 +623,11 @@ focus change border and shadow only (no fill change, transform or layout shift);
 
 **Toolbars (4C).**
 
-- `ListToolbar`: card surface + bottom hairline (the grey band is gone); 8px between groups,
-  `ListToolbarGroup` = 4px inside a group, `ListToolbarSeparator` (20px hairline, hidden on phones)
-  between search · filters · view controls. `EnterpriseDataTable` uses all three.
+- `ListToolbar`: card surface + bottom hairline (the grey band is gone); controls 4px apart, 6px
+  between wrapped rows. `EnterpriseDataTable`: search → `ListToolbarSeparator` (hairline, from the
+  `@3xl` table width) → the filters flowing in the same row (`ListToolbarGroup` as `contents`, so
+  they fill the search row before wrapping and never take a row of their own) → view controls at
+  the end edge (no separator there: when the row wraps a leading hairline would be orphaned).
 - `FilterTrigger`: unset = the filter's name; set = «Name: Value» (name `--muted-foreground` 400,
   value foreground 500; applied = primary soft tint + primary value); several values = name + count
   badge. The name never truncates; a long value does (full text in `title`), max 18rem. States: hover
@@ -634,7 +636,7 @@ focus change border and shadow only (no fill change, transform or layout shift);
   value alone for a required switch or a filter named by its «All …» text.
 - `ToggleGroup` and `SegmentedRadioGroup` share one recipe with the `ButtonGroup` silhouette: 32px
   (40px touch) track, `--control-border` ring, `--radius-control`; selected segment `--segment-on`,
-  foreground 600. Segments may carry a leading Lucide icon (agent order form: Shipping / Pickup,
+  full foreground at the same weight (500) as the others — no width shift. Segments may carry a leading Lucide icon (agent order form: Shipping / Pickup,
   Prepaid / COD, Shipping added / included).
 - Toggle filters (Show archived, Loss-making) are `Toggle` (pressed = primary soft tint), never an
   outline/secondary button swapping variants. `Toggle` uses the control edge and shadow.

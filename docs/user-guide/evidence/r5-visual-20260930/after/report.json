@@ -1,7 +1,7 @@
 {
   "phase": "after",
   "base": "http://localhost:3401",
-  "at": "2026-09-30T09:38:54.921Z",
+  "at": "2026-09-30T10:32:28.388Z",
   "results": [
     {
       "name": "report-expanded--desktop-ar-light",
@@ -9,7 +9,9 @@
       "hOverflow": 0,
       "h1": "قائمة الدخل",
       "reportHeaderHeight": 123,
-      "collapsed": false
+      "collapsed": false,
+      "toolbarRows": null,
+      "toolbarHeight": null
     },
     {
       "name": "report-collapsed--desktop-ar-light",
@@ -17,7 +19,9 @@
       "hOverflow": 0,
       "h1": "قائمة الدخل",
       "reportHeaderHeight": 32,
-      "collapsed": true
+      "collapsed": true,
+      "toolbarRows": null,
+      "toolbarHeight": null
     },
     {
       "name": "dashboard--desktop-ar-light",
@@ -25,7 +29,9 @@
       "hOverflow": 0,
       "h1": "لوحة التحكم",
       "reportHeaderHeight": null,
-      "collapsed": null
+      "collapsed": null,
+      "toolbarRows": null,
+      "toolbarHeight": null
     },
     {
       "name": "leads--desktop-ar-light",
@@ -33,7 +39,9 @@
       "hOverflow": 0,
       "h1": "الليدز",
       "reportHeaderHeight": null,
-      "collapsed": null
+      "collapsed": null,
+      "toolbarRows": 2,
+      "toolbarHeight": 45
     },
     {
       "name": "store-orders--desktop-ar-light",
@@ -41,7 +49,9 @@
       "hOverflow": 0,
       "h1": "طلبات المتجر",
       "reportHeaderHeight": null,
-      "collapsed": null
+      "collapsed": null,
+      "toolbarRows": 2,
+      "toolbarHeight": 83
     },
     {
       "name": "control-states--desktop-ar-light",
@@ -49,7 +59,9 @@
       "hOverflow": 0,
       "h1": "نظام التصميم",
       "reportHeaderHeight": 92,
-      "collapsed": false
+      "collapsed": false,
+      "toolbarRows": 2,
+      "toolbarHeight": 45
     },
     {
       "name": "report-expanded--desktop-en-dark",
@@ -57,7 +69,9 @@
       "hOverflow": 0,
       "h1": "Income Statement",
       "reportHeaderHeight": 123,
-      "collapsed": false
+      "collapsed": false,
+      "toolbarRows": null,
+      "toolbarHeight": null
     },
     {
       "name": "report-collapsed--desktop-en-dark",
@@ -65,7 +79,9 @@
       "hOverflow": 0,
       "h1": "Income Statement",
       "reportHeaderHeight": 32,
-      "collapsed": true
+      "collapsed": true,
+      "toolbarRows": null,
+      "toolbarHeight": null
     },
     {
       "name": "dashboard--desktop-en-dark",
@@ -73,7 +89,9 @@
       "hOverflow": 0,
       "h1": "Dashboard",
       "reportHeaderHeight": null,
-      "collapsed": null
+      "collapsed": null,
+      "toolbarRows": null,
+      "toolbarHeight": null
     },
     {
       "name": "leads--desktop-en-dark",
@@ -81,7 +99,9 @@
       "hOverflow": 0,
       "h1": "Leads",
       "reportHeaderHeight": null,
-      "collapsed": null
+      "collapsed": null,
+      "toolbarRows": 3,
+      "toolbarHeight": 79
     },
     {
       "name": "store-orders--desktop-en-dark",
@@ -89,7 +109,9 @@
       "hOverflow": 0,
       "h1": "Store Orders",
       "reportHeaderHeight": null,
-      "collapsed": null
+      "collapsed": null,
+      "toolbarRows": 2,
+      "toolbarHeight": 83
     },
     {
       "name": "control-states--desktop-en-dark",
@@ -97,7 +119,9 @@
       "hOverflow": 0,
       "h1": "Design System",
       "reportHeaderHeight": 92,
-      "collapsed": false
+      "collapsed": false,
+      "toolbarRows": 1,
+      "toolbarHeight": 45
     },
     {
       "name": "report-expanded--mobile-ar-light",
@@ -105,7 +129,9 @@
       "hOverflow": 0,
       "h1": "قائمة الدخل",
       "reportHeaderHeight": 155,
-      "collapsed": false
+      "collapsed": false,
+      "toolbarRows": null,
+      "toolbarHeight": null
     },
     {
       "name": "report-collapsed--mobile-ar-light",
@@ -113,7 +139,9 @@
       "hOverflow": 0,
       "h1": "قائمة الدخل",
       "reportHeaderHeight": 40,
-      "collapsed": true
+      "collapsed": true,
+      "toolbarRows": null,
+      "toolbarHeight": null
     },
     {
       "name": "dashboard--mobile-ar-light",
@@ -121,7 +149,9 @@
       "hOverflow": 0,
       "h1": "لوحة التحكم",
       "reportHeaderHeight": null,
-      "collapsed": null
+      "collapsed": null,
+      "toolbarRows": null,
+      "toolbarHeight": null
     },
     {
       "name": "leads--mobile-ar-light",
@@ -129,7 +159,9 @@
       "hOverflow": 0,
       "h1": "الليدز",
       "reportHeaderHeight": null,
-      "collapsed": null
+      "collapsed": null,
+      "toolbarRows": 2,
+      "toolbarHeight": 95
     },
     {
       "name": "store-orders--mobile-ar-light",
@@ -137,7 +169,9 @@
       "hOverflow": 0,
       "h1": "طلبات المتجر",
       "reportHeaderHeight": null,
-      "collapsed": null
+      "collapsed": null,
+      "toolbarRows": 2,
+      "toolbarHeight": 95
     },
     {
       "name": "control-states--mobile-ar-light",
@@ -145,7 +179,9 @@
       "hOverflow": 0,
       "h1": "نظام التصميم",
       "reportHeaderHeight": 211,
-      "collapsed": false
+      "collapsed": false,
+      "toolbarRows": 2,
+      "toolbarHeight": 45
     }
   ]
 }

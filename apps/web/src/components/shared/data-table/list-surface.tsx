@@ -70,9 +70,11 @@ export function ListSurface({
 
 /**
  * Filter/search strip pinned to the top of a `ListSurface` (design-system
- * §12.12): the card surface with a bottom hairline — never a grey band —
- * 8px between groups (search · filters · view controls), 4px inside a group
- * (`ListToolbarGroup`), a hairline `ListToolbarSeparator` between groups.
+ * §12.12): the card surface with a bottom hairline — never a grey band.
+ * Controls sit 4px apart; a `ListToolbarSeparator` (4px + hairline + 4px)
+ * splits groups that always share a row (search | filters), and the view
+ * controls are pushed to the end edge. `ListToolbarGroup` keeps related
+ * controls together where they must wrap as one.
  * `relative` so a bulk-action strip can overlay it in place.
  */
 export function ListToolbar({ children, className }: { children: ReactNode; className?: string }) {
@@ -80,7 +82,7 @@ export function ListToolbar({ children, className }: { children: ReactNode; clas
     <div
       data-slot="list-toolbar"
       className={cn(
-        "relative flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-card px-3 py-1.5 sm:px-4",
+        "relative flex shrink-0 flex-wrap items-center gap-x-1 gap-y-1.5 border-b border-border bg-card px-3 py-1.5 sm:px-4",
         className,
       )}
     >

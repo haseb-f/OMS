@@ -1683,6 +1683,8 @@ const ar = {
       header: {
         switchReport: "تبديل التقرير",
         reportActions: "إجراءات التقرير",
+        collapse: "طي",
+        expand: "توسيع",
         collapseHeader: "طي رأس التقرير",
         expandHeader: "توسيع رأس التقرير",
         showFilters: "عرض الفلاتر",

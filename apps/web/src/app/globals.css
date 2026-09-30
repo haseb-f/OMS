@@ -336,12 +336,14 @@
      navy hairline and a top-to-bottom gradient of at most 3%. Translucency
      comes from the tint, never a backdrop blur. Hover changes the border and
      shadow only. */
-  --surface-soft: color-mix(in oklab, var(--brand-canvas) 32%, var(--card));
+  --surface-soft: color-mix(in oklab, var(--brand-canvas) 45%, var(--card));
   --surface-soft-border: color-mix(in oklab, var(--brand-navy) 11%, transparent);
   --surface-soft-hover-border: color-mix(in oklab, var(--brand-navy) 20%, transparent);
   --surface-soft-gradient: linear-gradient(180deg, var(--surface-soft), var(--card) 5.5rem);
-  --surface-soft-shadow: 0 1px 2px rgb(4 32 60 / 0.04);
-  --surface-soft-shadow-hover: 0 1px 2px rgb(4 32 60 / 0.05), 0 6px 16px -8px rgb(4 32 60 / 0.16);
+  --surface-soft-shadow: 0 1px 2px color-mix(in oklab, var(--brand-navy) 4%, transparent);
+  --surface-soft-shadow-hover:
+    0 1px 2px color-mix(in oklab, var(--brand-navy) 5%, transparent),
+    0 6px 16px -8px color-mix(in oklab, var(--brand-navy) 16%, transparent);
   /* Per-tone tint of a soft tile (mixed with `--insight-*`). */
   --surface-soft-tone-strength: 4%;
   --surface-soft-row-hover: color-mix(in oklab, var(--brand-canvas) 55%, var(--card));
