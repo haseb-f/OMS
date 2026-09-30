@@ -581,3 +581,65 @@ height and 8px radius stay (D2/D4); only the text, chevron and group seams chang
   and permission-matrix row carets, journal-line detail toggle), sort icons, icon-only menus
   without a caret (row actions ⋯, top-bar theme/language/profile), sheet-opening "Filters"
   buttons on phones.
+
+### 12.12 Report header collapse, soft surfaces, toolbars (Round 5, 2026-09-30)
+
+Spec: `specs/order-operations-r5/spec-4-visual.md`. Released only after owner visual approval.
+Reference for the soft treatment: Microsoft Clarity's calm dashboard (white fields, gentle
+gradients, delicate borders) — adopted as a restrained tint, not copied. The light canvas stays
+white; nothing uses backdrop blur, transforms or new radii.
+
+**Report header collapse (4A).** `FinancialReport` (every financial report) owns a collapse toggle
+(`ChevronsDownUp` / `ChevronsUpDown`, ghost icon button at the end of the header row;
+`aria-expanded`, `aria-controls` = filter row + summary strip). Preference:
+`STORAGE_KEYS.reportSummaryCollapsed` = `oms.report.summaryCollapsed` (one device preference for all
+reports; listed in `DEVICE_PREFERENCE_LOCAL_KEYS`, kept across logout). Collapsed = ONE row ≤ 44px:
+title · period · currency · filter badge (count of `countActiveReportFilters`; opens the filter row
+in place without expanding) · caveat badge (`collectReportAlerts`: unbalanced + discrepancy, drafts
+included, every report warning / partial-data note; list in a popover) · switcher · actions ·
+expand. The summary strip stays in the DOM with `hidden`. No height animation (instant swap), so
+reduced motion needs nothing. Print / Excel / CSV are rebuilt from data (`buildDocument`) and are
+identical collapsed or expanded (`financial-report-collapse.spec.tsx`).
+
+**Soft surfaces (4B).** Tokens (`globals.css`, light / dark; print overrides in `theme/print.css`):
+
+| Token                                     | Light                                   | Dark                       |
+| ----------------------------------------- | --------------------------------------- | -------------------------- |
+| `--surface-soft`                          | brand canvas 32% over `--card` (≈2.5%)  | `#52a8ff` 3% over `--card` |
+| `--surface-soft-border`                   | navy 11% translucent hairline           | white 8% translucent       |
+| `--surface-soft-hover-border`             | navy 20%                                | white 15%                  |
+| `--surface-soft-gradient`                 | `--surface-soft` → `--card` by 5.5rem   | same formula               |
+| `--surface-soft-shadow` / `-shadow-hover` | navy whisper / soft lift                | none / dark lift           |
+| `--surface-soft-tone-strength`            | 4% (tone tint of a tile, `--insight-*`) | 6%                         |
+| `--surface-soft-row-hover`                | brand canvas 55% (list row hover)       | blue 6% over `--card`      |
+
+Print: white, 1px `#cfcfcf` rule, no gradient / tint / shadow. Applied only through shared
+components: `EnterpriseCard surface="soft"` (`[data-surface="soft"]` recipe) — used by every
+`DashboardPanel` (attention, ranking, sales, activity, bank); `InsightCard` (tone-tinted top,
+neutral tiles untinted) and `InsightGroup` (one soft surface, cells transparent; a group inside a
+soft panel shares the panel's surface); attention rows hover `--surface-soft-row-hover`. Hover /
+focus change border and shadow only (no fill change, transform or layout shift);
+`prefers-reduced-motion` → no transition. Radius stays `--radius-surface`. Metric sizes unchanged.
+
+**Toolbars (4C).**
+
+- `ListToolbar`: card surface + bottom hairline (the grey band is gone); 8px between groups,
+  `ListToolbarGroup` = 4px inside a group, `ListToolbarSeparator` (20px hairline, hidden on phones)
+  between search · filters · view controls. `EnterpriseDataTable` uses all three.
+- `FilterTrigger`: unset = the filter's name; set = «Name: Value» (name `--muted-foreground` 400,
+  value foreground 500; applied = primary soft tint + primary value); several values = name + count
+  badge. The name never truncates; a long value does (full text in `title`), max 18rem. States: hover
+  `--control-hover`; open / pressed `--control-pressed` + focus-ring edge (placeholder steps up to
+  `--muted-foreground` there to keep 4.5:1); focus-visible = ring + halo. `SelectFilter` shows the
+  value alone for a required switch or a filter named by its «All …» text.
+- `ToggleGroup` and `SegmentedRadioGroup` share one recipe with the `ButtonGroup` silhouette: 32px
+  (40px touch) track, `--control-border` ring, `--radius-control`; selected segment `--segment-on`,
+  foreground 600. Segments may carry a leading Lucide icon (agent order form: Shipping / Pickup,
+  Prepaid / COD, Shipping added / included).
+- Toggle filters (Show archived, Loss-making) are `Toggle` (pressed = primary soft tint), never an
+  outline/secondary button swapping variants. `Toggle` uses the control edge and shadow.
+
+Contrast (`node scripts/design/contrast-check.mjs`) adds: text / muted / placeholder on
+`--surface-soft`, muted on row hover, filter name and value on the applied tint, open-trigger value /
+placeholder / label on `--control-pressed`, segment on / off text. The script now flattens
+multi-line `color-mix()` values (Prettier wraps them).
