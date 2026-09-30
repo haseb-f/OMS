@@ -15,9 +15,11 @@ import { AgentStatementService } from '../finance/agent-statement.service';
 import type {
   AgentOrderPricingDto,
   ConvertAgentLeadDto,
+  ConfirmCustomerTotalDto,
   CreateAgentOrderDto,
   DeclareAgentOrderPaymentDto,
 } from '../orders/dto/agent-order.dto';
+import { agentShippingPricingView } from '../pricing/agent-shipping-pricing-view';
 import { periodBounds } from '../finance/agent-statement.service';
 import {
   isAgentOrderDigitalOnly,
@@ -57,8 +59,10 @@ const ORDER_LIST_SELECT = {
   paymentDiscrepancy: true,
   agentDispatchedAt: true,
   agentEarnedAt: true,
+  shippingPricingStatus: true,
+  customerTotalStatus: true,
   currency: { select: { id: true, code: true } },
-  /** Only `.customer` is read (the customer as typed on this order — S1). */
+  /** Only `.customer` / the contractual shipping fee are read (the customer as typed on this order — S1). */
   agentTermsSnapshot: true,
   partner: { select: { name: true, mobile: true } },
   employee: { select: { id: true, fullName: true } },
@@ -158,6 +162,19 @@ export class AgentPortalOrdersService {
     return this.detail(agent, orderId);
   }
 
+  /** Spec 2 — the agent (owner / admin) records the customer's agreement to the new total. */
+  async confirmCustomerTotal(
+    agent: AgentRequestContext,
+    orderId: string,
+    dto: ConfirmCustomerTotalDto,
+  ) {
+    await this.orders.confirmCustomerTotal(orderId, dto, {
+      userId: agent.userId,
+      agent,
+    });
+    return this.detail(agent, orderId);
+  }
+
   /** Internal-staff-only DTO fields are dropped for agent callers. */
   private stripInternalFields<T extends AgentOrderPricingDto>(dto: T): T {
     return { ...dto, agentId: undefined, orderDate: undefined };
@@ -249,6 +266,9 @@ export class AgentPortalOrdersService {
         serviceCharge: num(row.serviceCharge),
         payableTotal: storeOrderPayableTotal(row),
       },
+      /** Spec 2 — PENDING_METHOD: shipping (and a shipping-added total) is provisional. */
+      shippingPricingStatus: row.shippingPricingStatus,
+      customerTotalStatus: row.customerTotalStatus,
       declaredPaymentStatus: row.declaredPaymentStatus,
       declaredAmount: Number(row.declaredAmount),
       financePaymentStatus: row.paymentStatus,
@@ -450,6 +470,11 @@ export class AgentPortalOrdersService {
         serviceCharge: num(order.serviceCharge),
         payableTotal,
       },
+      /** Spec 2 — customer shipping + contractual fee only (never carrier cost or margin). */
+      shippingPricing: agentShippingPricingView(
+        order,
+        confirmedAmount([PaymentStatus.VERIFIED]),
+      ),
       payment: {
         declaredPaymentStatus: order.declaredPaymentStatus,
         declaredAmount: Number(order.declaredAmount),

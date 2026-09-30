@@ -242,3 +242,14 @@ export class ConvertAgentLeadDto extends AgentOrderPricingDto {
 }
 
 export class DeclareAgentOrderPaymentDto extends AgentOrderDeclarationDto {}
+
+/**
+ * Spec 2 — "Customer agreed to pay {new total}". The total shown to the user
+ * is echoed back so a re-resolution in between is never confirmed blindly.
+ */
+export class ConfirmCustomerTotalDto {
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  expectedPayableTotal!: number;
+}

@@ -5,8 +5,10 @@ import fxSettingsEn from "./modules/fx-settings.en";
 import docUiEn from "./modules/doc-ui.en";
 import feedbackEn from "./modules/feedback.en";
 import productCommissionEn from "./modules/product-commission.en";
+import agentPricingEn from "./modules/agent-pricing.en";
 const en = {
   productCommission: productCommissionEn,
+  agentPricing: agentPricingEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,

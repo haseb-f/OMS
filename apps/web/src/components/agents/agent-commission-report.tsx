@@ -129,6 +129,9 @@ export function AgentCommissionReportView({
   if (loadError) return <ErrorState description={loadError} onRetry={() => void reload()} />;
   const summary = report?.summary;
   const cash = report?.cash;
+  // Spec 2 (2E): carrier cost and margin exist only in the internal report —
+  // the portal response never carries them, so the portal never shows them.
+  const carrierCost = summary?.carrierCost;
 
   const orderColumns: CompactDetailColumn<CommissionReportOrder>[] = [
     {
@@ -176,27 +179,44 @@ export function AgentCommissionReportView({
         );
       },
     },
-    {
-      id: "carrier",
-      header: t("agents.commission.report.carrierCost"),
-      align: "end",
-      cell: (row) => {
-        const stage = carrierCostStage(row.shipping.carrier);
-        return (
-          <span className="flex flex-col items-end gap-0.5">
-            <span className="num">
-              {stage === "ESTIMATED"
-                ? formatAmount(row.shipping.carrier.estimated)
-                : formatCurrencyAmounts(row.shipping.carrier.approvedByCurrency)}
-            </span>
-            <StatusBadge
-              label={t(`agents.commission.report.carrierStages.${stage}` as MessageKey)}
-              tone={CARRIER_TONE[stage]}
-            />
-          </span>
-        );
-      },
-    },
+    ...(carrierCost
+      ? [
+          {
+            id: "carrier",
+            header: t("agents.commission.report.carrierCost"),
+            align: "end" as const,
+            cell: (row: CommissionReportOrder) => {
+              const carrier = row.shipping.carrier;
+              if (!carrier) return "—";
+              const stage = carrierCostStage(carrier);
+              return (
+                <span className="flex flex-col items-end gap-0.5">
+                  <span className="num">
+                    {stage === "ESTIMATED"
+                      ? formatAmount(carrier.estimated)
+                      : formatCurrencyAmounts(carrier.approvedByCurrency)}
+                  </span>
+                  <StatusBadge
+                    label={t(`agents.commission.report.carrierStages.${stage}` as MessageKey)}
+                    tone={CARRIER_TONE[stage]}
+                  />
+                </span>
+              );
+            },
+          },
+          {
+            id: "margin",
+            header: t("agentPricing.report.margin"),
+            align: "end" as const,
+            cell: (row: CommissionReportOrder) =>
+              row.shipping.margin?.amount != null ? (
+                <MoneyValue value={row.shipping.margin.amount} currency={currency} />
+              ) : (
+                "—"
+              ),
+          },
+        ]
+      : []),
     {
       id: "commission",
       header: t("agents.commission.report.commission"),
@@ -312,14 +332,19 @@ export function AgentCommissionReportView({
       ) : null}
       {summary ? (
         <p className="text-caption text-muted-foreground">
-          {t("agents.commission.report.entitlementNote")}
-          {summary.carrierCost.ordersAwaitingApproval + summary.carrierCost.ordersWithEstimateOnly >
-          0
-            ? ` ${t("agents.commission.report.carrierPendingNote", {
-                awaiting: summary.carrierCost.ordersAwaitingApproval,
-                estimated: summary.carrierCost.ordersWithEstimateOnly,
-              })}`
-            : ""}
+          {carrierCost ? (
+            <>
+              {t("agents.commission.report.entitlementNote")}
+              {carrierCost.ordersAwaitingApproval + carrierCost.ordersWithEstimateOnly > 0
+                ? ` ${t("agents.commission.report.carrierPendingNote", {
+                    awaiting: carrierCost.ordersAwaitingApproval,
+                    estimated: carrierCost.ordersWithEstimateOnly,
+                  })}`
+                : ""}
+            </>
+          ) : (
+            t("agentPricing.report.portalNote")
+          )}
         </p>
       ) : null}
 

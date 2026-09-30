@@ -38,16 +38,28 @@ import {
   resolveAgentVisibility,
 } from '../common/agent-visibility';
 import {
+  agentConflict,
   agentForbidden,
   agentNotFoundError,
   agentUnprocessable,
 } from '../common/agent-errors';
 import {
+  loadAgreementTariffs,
   resolveActiveAgreement,
-  resolveShippingRate,
-  type ResolvedShippingRate,
 } from '../admin/agent-agreements.service';
+import {
+  resolveSubmissionTariff,
+  type ResolvedTariff,
+  type SubmissionTariff,
+} from '../pricing/agent-shipping-tariff';
 import type { AgentOrderPersistInput } from './agent-order-persist';
+import { AgentFulfillmentService } from '../finance/agent-fulfillment.service';
+import { lockStoreOrderRow } from '../../store-orders/store-order-payment-settlement.util';
+import {
+  agentShippingEconomics,
+  agentShippingPricingView,
+} from '../pricing/agent-shipping-pricing-view';
+import type { AgentOrderSnapshot } from '../common/agent-terms';
 import { AgentCommissionRatesService } from '../commission/agent-commission-rates.service';
 import {
   AgentCommissionRateMissingError,
@@ -96,7 +108,7 @@ interface PreparedOrder {
   paymentType: StoreOrderPaymentType;
   digitalOnly: boolean;
   shipping: {
-    rate: ResolvedShippingRate | null;
+    rate: ResolvedTariff | null;
     charge: number | null;
     source: 'NONE' | 'RATE' | 'MANUAL' | null;
     overrideAllowed: boolean;
@@ -114,9 +126,15 @@ interface PreparedOrder {
   breakdown: AgentPricingBreakdown | null;
   /** A3/A6 — the predetermined agent shipping charge (PREDETERMINED_CHARGE policy only). */
   agentShippingCharge: AgentShippingChargeSnapshot | null;
+  /** Spec 2 — whether that charge is final or waits for the delivery method. */
+  shippingPricingStatus: 'NOT_APPLICABLE' | 'PENDING_METHOD' | 'CONFIRMED';
   /** Per-line commission rate resolved on the order date (commission-policy.md A4). */
   commissionRates: AgentLineCommissionRate[] | null;
 }
+
+/** The submission-time tariff of one channel, as frozen in the order snapshot. */
+const frozenTariff = (tariff: ResolvedTariff | null) =>
+  tariff ? { rateId: tariff.id, amount: tariff.amount } : null;
 
 const issue = (code: string, message: string, lineKey?: string) => ({
   code,
@@ -152,6 +170,7 @@ export class AgentOrdersService {
     private readonly declarations: StoreOrderPaymentDeclarationService,
     private readonly phones: PhoneNumberService,
     private readonly commissionRates: AgentCommissionRatesService,
+    private readonly fulfillment: AgentFulfillmentService,
   ) {}
 
   // ── Internal workspace list ─────────────────────────────────────────────
@@ -429,6 +448,179 @@ export class AgentOrdersService {
     );
   }
 
+  // ── Shipping pricing (spec-2-agent-pricing.md 2B) ─────────────────────────
+
+  /**
+   * Pricing state of an agent order: customer shipping + contractual agent
+   * shipping fee (provisional or final), customer-total confirmation and
+   * paid vs payable. Internal callers (`agents.view`) also get the shipping
+   * economics — actual carrier cost and company margin — which agent users
+   * never receive.
+   */
+  async shippingPricing(orderId: string, actor: AgentOrderActor) {
+    const resolved = await this.resolveActor(actor);
+    if (!resolved.isAgentUser) {
+      await this.assertInternalPermission(resolved.userId, 'agents.view');
+    }
+    const { id } = await this.findAgentOrderForActor(orderId, resolved);
+    const order = await this.prisma.storeOrder.findUniqueOrThrow({
+      where: { id },
+      select: {
+        shippingPricingStatus: true,
+        customerTotalStatus: true,
+        agentTermsSnapshot: true,
+        pricingMode: true,
+        merchandiseAmount: true,
+        shippingCharge: true,
+        payableTotal: true,
+        declaredAmount: true,
+        payments: {
+          where: { deletedAt: null, status: 'VERIFIED' },
+          select: { amount: true },
+        },
+      },
+    });
+    const verified = order.payments.reduce(
+      (sum, p) => sum + Number(p.amount),
+      0,
+    );
+    const view = agentShippingPricingView(order, verified);
+    if (resolved.isAgentUser) return view;
+    // Internal only — carrier cost and margin never reach an agent response.
+    const internal = await this.prisma.storeOrder.findUniqueOrThrow({
+      where: { id },
+      select: {
+        agentTermsSnapshot: true,
+        currency: { select: { code: true } },
+        shipments: {
+          where: { deletedAt: null },
+          select: {
+            baseShippingCost: true,
+            additionalShippingCost: true,
+            carrierCharges: {
+              where: { deletedAt: null },
+              select: {
+                chargeAmount: true,
+                chargeKind: true,
+                reconciliationState: true,
+                currency: { select: { code: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    return {
+      ...view,
+      economics: agentShippingEconomics(
+        internal,
+        internal.currency.code,
+        internal.shipments,
+      ),
+    };
+  }
+
+  /**
+   * "Customer agreed to pay {new total}" (spec 2B shipping added): applies
+   * the confirmed shipping and payable once the customer agreed. Internal
+   * `agents.edit`, or an agent user with `agent.orders.create` who sees the
+   * order (its owner, or an agent admin with `agent.records.view_all`).
+   * Audited; retries the earning event the pending total held back.
+   */
+  async confirmCustomerTotal(
+    orderId: string,
+    input: { expectedPayableTotal: number },
+    actor: AgentOrderActor,
+  ) {
+    const resolved = await this.resolveActor(actor);
+    const { id } = await this.findAgentOrderForActor(orderId, resolved);
+    if (resolved.isAgentUser) {
+      await this.assertAgentPermission(resolved, 'agent.orders.create');
+    } else {
+      await this.assertInternalPermission(resolved.userId, 'agents.edit');
+    }
+    await this.prisma.$transaction(
+      async (tx) => {
+        await lockStoreOrderRow(tx, id);
+        const order = await tx.storeOrder.findUniqueOrThrow({
+          where: { id },
+          select: {
+            customerTotalStatus: true,
+            agentTermsSnapshot: true,
+            deletedAt: true,
+            fulfillmentStatus: { select: { code: true } },
+          },
+        });
+        if (order.deletedAt || order.fulfillmentStatus?.code === 'CANCELLED') {
+          throw agentConflict(
+            'AGENT_ORDER_CLOSED',
+            'الطلب ملغى أو مؤرشف — لا يمكن تسجيل موافقة العميل عليه',
+            'The order is cancelled or archived — the customer agreement cannot be recorded.',
+          );
+        }
+        const snapshot =
+          order.agentTermsSnapshot as unknown as AgentOrderSnapshot;
+        const change = snapshot?.customerTotalChange;
+        if (order.customerTotalStatus !== 'CONFIRMATION_REQUIRED' || !change) {
+          throw agentConflict(
+            'AGENT_CUSTOMER_TOTAL_NOT_PENDING',
+            'لا يوجد إجمالي جديد بانتظار موافقة العميل على هذا الطلب',
+            'This order has no new customer total awaiting confirmation.',
+          );
+        }
+        if (
+          !Number.isFinite(input.expectedPayableTotal) ||
+          Math.round(input.expectedPayableTotal * 100) !==
+            Math.round(change.proposedPayableTotal * 100)
+        ) {
+          throw agentConflict(
+            'AGENT_CUSTOMER_TOTAL_CHANGED',
+            `تغيّر الإجمالي المطلوب تأكيده إلى ${change.proposedPayableTotal.toFixed(2)} — راجع الطلب ثم أكّد`,
+            `The total to confirm changed to ${change.proposedPayableTotal.toFixed(2)} — review the order and confirm again.`,
+            { proposedPayableTotal: change.proposedPayableTotal },
+          );
+        }
+        await tx.storeOrder.update({
+          where: { id },
+          data: {
+            shippingCharge: change.proposedShippingCharge,
+            payableTotal: change.proposedPayableTotal,
+            customerTotalStatus: 'CONFIRMED',
+            updatedBy: resolved.userId,
+            agentTermsSnapshot: {
+              ...snapshot,
+              customerTotalChange: {
+                ...change,
+                confirmedAt: new Date().toISOString(),
+                confirmedBy: resolved.userId,
+              },
+            } as unknown as Prisma.InputJsonValue,
+          },
+        });
+        await tx.storeOrderActivity.create({
+          data: {
+            storeOrderId: id,
+            action: 'AGENT_CUSTOMER_TOTAL_CONFIRMED',
+            details: `Customer agreed to pay ${change.proposedPayableTotal.toFixed(2)} (was ${change.previousPayableTotal.toFixed(2)}; shipping ${change.previousShippingCharge.toFixed(2)} → ${change.proposedShippingCharge.toFixed(2)})`,
+            performedById: resolved.userId,
+          },
+        });
+        // The earning event the pending total held back.
+        if (order.fulfillmentStatus?.code === 'DELIVERED') {
+          await this.fulfillment.tryEarn(tx, id, 'DELIVERED', resolved.userId);
+        }
+        await this.fulfillment.tryEarn(
+          tx,
+          id,
+          'PAYMENT_VERIFIED',
+          resolved.userId,
+        );
+      },
+      { maxWait: 10_000, timeout: 60_000 },
+    );
+    return this.shippingPricing(id, actor);
+  }
+
   /** An agent order visible to the actor (agent: own agent + visibility; internal: any agent order). */
   async findAgentOrderForActor(orderId: string, actor: ResolvedActor) {
     const where: Prisma.StoreOrderWhereInput = actor.isAgentUser
@@ -676,6 +868,7 @@ export class AgentOrdersService {
       overrideAllowed,
     };
     let shippingOverrideReason: string | null = null;
+    let submissionTariff: SubmissionTariff | null = null;
     const override = input.shippingChargeOverride;
     if (
       digitalOnly ||
@@ -699,12 +892,14 @@ export class AgentOrdersService {
         ),
       );
     } else if (agreement) {
-      shipping.rate = await resolveShippingRate(
-        agreement,
-        input.countryId,
-        input.city,
-        this.prisma,
+      // Spec 2: the delivery channel is unknown at submission — the fee is
+      // final when every channel agrees, else a provisional estimate.
+      submissionTariff = resolveSubmissionTariff(
+        await loadAgreementTariffs(agreement.id, this.prisma),
+        { countryId: input.countryId, city: input.city },
+        paymentType,
       );
+      shipping.rate = submissionTariff?.tariff ?? null;
       const rateAmount = shipping.rate?.amount ?? null;
       const isOverride =
         override != null &&
@@ -769,6 +964,8 @@ export class AgentOrdersService {
     // A3/A6 — predetermined agent shipping charge, settled by the customer
     // shipping the company retains. A difference is never settled silently.
     let agentShippingCharge: AgentShippingChargeSnapshot | null = null;
+    let shippingPricingStatus: PreparedOrder['shippingPricingStatus'] =
+      'NOT_APPLICABLE';
     if (agreement?.shippingPolicy === 'PREDETERMINED_CHARGE' && breakdown) {
       const noShipment =
         digitalOnly || fulfillmentMethod === StoreOrderFulfillmentMethod.PICKUP;
@@ -793,11 +990,33 @@ export class AgentOrdersService {
             ),
           );
         }
+        const pending =
+          !noShipment && submissionTariff?.status === 'PENDING_METHOD';
         agentShippingCharge = {
           amount: rate,
           source: digitalOnly ? 'DIGITAL_ONLY' : noShipment ? 'PICKUP' : 'RATE',
           rateId: noShipment ? null : (shipping.rate?.id ?? null),
+          provisional: pending,
+          deliveryChannel: pending
+            ? (submissionTariff?.estimateChannel ?? null)
+            : null,
+          paymentType,
+          countryId: noShipment ? null : (input.countryId ?? null),
+          city: noShipment ? null : input.city?.trim() || null,
+          resolvedAt: new Date().toISOString(),
+          resolvedBy: actor.userId,
+          ...(noShipment || !submissionTariff
+            ? {}
+            : {
+                byChannel: {
+                  CARRIER: frozenTariff(submissionTariff.byChannel.CARRIER),
+                  INTERNAL_COURIER: frozenTariff(
+                    submissionTariff.byChannel.INTERNAL_COURIER,
+                  ),
+                },
+              }),
         };
+        shippingPricingStatus = pending ? 'PENDING_METHOD' : 'CONFIRMED';
       }
     }
 
@@ -815,6 +1034,7 @@ export class AgentOrdersService {
       breakdown,
       commissionRates,
       agentShippingCharge,
+      shippingPricingStatus,
     };
   }
 
@@ -868,6 +1088,11 @@ export class AgentOrdersService {
       })),
       /** A3/A6 — predetermined agent shipping charge (settled by the retained customer shipping). */
       agentShippingCharge: prepared.agentShippingCharge,
+      /**
+       * Spec 2 — PENDING_METHOD: the fee (and, shipping added, the customer
+       * total) is provisional until Shipping selects the delivery method.
+       */
+      shippingPricingStatus: prepared.shippingPricingStatus,
       breakdown: prepared.breakdown
         ? {
             mode: prepared.breakdown.mode,
@@ -936,8 +1161,15 @@ export class AgentOrdersService {
         agreedAmount: line.lineAmount,
         inventoryLine: prepared.lines[index].isInventoryItem,
         commission: prepared.commissionRates![index],
+        listAmount:
+          prepared.lines[index].listUnitPrice == null
+            ? null
+            : Math.round(
+                prepared.lines[index].listUnitPrice * 100 * line.quantity,
+              ) / 100,
       })),
       agentShippingCharge: prepared.agentShippingCharge,
+      shippingPricingStatus: prepared.shippingPricingStatus,
     };
   }
 

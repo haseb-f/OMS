@@ -9,6 +9,8 @@ import { AgentUsersController } from './agent-users.controller';
 import { AgentsService } from './agents.service';
 import { AgentAgreementsService } from './agent-agreements.service';
 import { AgentDestinationsService } from './agent-destinations.service';
+import { AgentProductsService } from './agent-products.service';
+import { ProductsModule } from '../../products/products.module';
 import { AgentTeamService, AgentUsersService } from './agent-users.service';
 import { AgentCommissionModule } from '../commission/agent-commission.module';
 
@@ -21,12 +23,14 @@ import { AgentCommissionModule } from '../commission/agent-commission.module';
     UsersModule,
     MasterDataModule,
     AgentCommissionModule,
+    ProductsModule,
   ],
   controllers: [AgentsController, AgentUsersController],
   providers: [
     AgentsService,
     AgentAgreementsService,
     AgentDestinationsService,
+    AgentProductsService,
     AgentUsersService,
     AgentTeamService,
   ],

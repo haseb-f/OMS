@@ -14,6 +14,10 @@ import type {
   UpdateAgreementDto,
   UpsertShippingRateDto,
 } from './dto/agreement.dto';
+import {
+  normalizeTariffCity,
+  type TariffRow,
+} from '../pricing/agent-shipping-tariff';
 
 type Client = Prisma.TransactionClient | PrismaService;
 
@@ -32,42 +36,25 @@ export async function resolveActiveAgreement(
   });
 }
 
-export interface ResolvedShippingRate {
-  id: string;
-  amount: number;
-  countryId: string;
-  /** '' = the whole-country rate. */
-  city: string;
-}
-
-const normalizeCity = (city: string | null | undefined) =>
-  (city ?? '').trim().toLocaleLowerCase();
-
 /**
- * Configured customer shipping charge (spec §5): the destination city's row
- * wins, else the country row, else null — never a guessed amount.
+ * The agreement's shipping tariff rows (spec-2-agent-pricing.md 2B) in the
+ * shape the pure resolver reads.
  */
-export async function resolveShippingRate(
-  agreement: { id: string },
-  countryId: string,
-  city: string | null | undefined,
+export async function loadAgreementTariffs(
+  agreementId: string,
   client: Client,
-): Promise<ResolvedShippingRate | null> {
+): Promise<TariffRow[]> {
   const rows = await client.agentShippingRate.findMany({
-    where: { agreementId: agreement.id, countryId },
+    where: { agreementId },
   });
-  const wanted = normalizeCity(city);
-  const cityRow = wanted
-    ? rows.find((row) => normalizeCity(row.city) === wanted)
-    : undefined;
-  const row = cityRow ?? rows.find((r) => normalizeCity(r.city) === '');
-  if (!row) return null;
-  return {
+  return rows.map((row) => ({
     id: row.id,
-    amount: Number(row.amount),
     countryId: row.countryId,
     city: row.city,
-  };
+    deliveryChannel: row.deliveryChannel,
+    paymentType: row.paymentType,
+    amount: Number(row.amount),
+  }));
 }
 
 const AGREEMENT_INCLUDE = {
@@ -76,7 +63,12 @@ const AGREEMENT_INCLUDE = {
     include: {
       country: { select: { id: true, code: true, name: true, nameEn: true } },
     },
-    orderBy: [{ countryId: 'asc' as const }, { city: 'asc' as const }],
+    orderBy: [
+      { countryId: 'asc' as const },
+      { city: 'asc' as const },
+      { deliveryChannel: 'asc' as const },
+      { paymentType: 'asc' as const },
+    ],
   },
   _count: { select: { storeOrders: true } },
 } satisfies Prisma.AgentAgreementInclude;
@@ -338,11 +330,22 @@ export class AgentAgreementsService {
       );
     }
     const city = (dto.city ?? '').trim();
+    const deliveryChannel = dto.deliveryChannel ?? 'ANY';
+    const paymentType = dto.paymentType ?? 'ANY';
+    // One row per (destination, channel, payment type); the city compares
+    // case-insensitively so "Riyadh" and "riyadh" are the same tariff.
     const existing = (
       await this.prisma.agentShippingRate.findMany({
-        where: { agreementId, countryId: dto.countryId },
+        where: {
+          agreementId,
+          countryId: dto.countryId,
+          deliveryChannel,
+          paymentType,
+        },
       })
-    ).find((row) => normalizeCity(row.city) === normalizeCity(city));
+    ).find(
+      (row) => normalizeTariffCity(row.city) === normalizeTariffCity(city),
+    );
     if (existing) {
       await this.prisma.agentShippingRate.update({
         where: { id: existing.id },
@@ -354,6 +357,8 @@ export class AgentAgreementsService {
           agreementId,
           countryId: dto.countryId,
           city,
+          deliveryChannel,
+          paymentType,
           amount: dto.amount,
         },
       });

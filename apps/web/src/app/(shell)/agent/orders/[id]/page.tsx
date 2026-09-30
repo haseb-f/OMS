@@ -25,6 +25,7 @@ import {
 import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseButton } from "@/components/ui/button";
 import { OrderBreakdown } from "@/components/agent-portal/order-breakdown";
+import { ShippingPricingNotice } from "@/components/agents/shipping-pricing-panel";
 import { PortalFileList } from "@/components/agent-portal/portal-files";
 import { DeclarePaymentDialog } from "@/components/agent-portal/declare-payment-dialog";
 import {
@@ -48,7 +49,8 @@ import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { formatDate, formatDateTime } from "@/lib/date";
-import { apiErrorMessage } from "@/lib/toast";
+import { apiErrorMessage, reportApiError, reportSuccess } from "@/lib/toast";
+import { formatMoney } from "@/lib/money";
 import type { MessageKey } from "@/i18n/translate";
 
 type Line = PortalOrderDetail["lines"][number];
@@ -92,6 +94,22 @@ export default function AgentOrderDetailPage() {
   const currency = order.currency;
   const cancelled = order.fulfillment.status?.code === "CANCELLED";
   const canDeclare = hasPermission("agent.payments.declare") && !cancelled;
+  // Spec 2 — the order owner / agent admin records the customer's agreement.
+  const canConfirmTotal = hasPermission("agent.orders.create") && !cancelled;
+  const confirmCustomerTotal = async (expectedPayableTotal: number) => {
+    try {
+      setOrder(
+        await agentPortalService.orders.confirmCustomerTotal(order.id, expectedPayableTotal),
+      );
+      reportSuccess(
+        t("agentPricing.customerTotal.confirmed", {
+          total: formatMoney(expectedPayableTotal, currency?.code ?? null),
+        }),
+      );
+    } catch (err) {
+      reportApiError(err, "common.failedToSave");
+    }
+  };
   const progress = fulfillmentProgress({
     dispatchedAt: order.fulfillment.dispatchedAt,
     earnedAt: order.fulfillment.earnedAt,
@@ -259,6 +277,13 @@ export default function AgentOrderDetailPage() {
         />
         <DetailField label={t("agentPortal.orders.fields.owner")} value={order.owner?.fullName} />
       </DetailSummaryBar>
+
+      <ShippingPricingNotice
+        pricing={order.shippingPricing}
+        currency={currency}
+        canConfirm={canConfirmTotal}
+        onConfirm={confirmCustomerTotal}
+      />
 
       <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="flex min-w-0 flex-col gap-3">
@@ -433,6 +458,8 @@ export default function AgentOrderDetailPage() {
               currency={currency}
               shippingSource={order.breakdown.shippingChargeSource ?? null}
               shippingRate={order.breakdown.shippingRateAmount ?? null}
+              provisional={order.shippingPricing.status === "PENDING_METHOD"}
+              mode={order.breakdown.mode}
             />
             {order.breakdown.shippingOverrideReason ? (
               <p className="text-caption text-muted-foreground">

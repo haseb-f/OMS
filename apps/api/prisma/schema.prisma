@@ -4973,6 +4973,11 @@ model StoreOrder {
   serviceCharge          Decimal?               @map("service_charge") @db.Decimal(12, 2)
   payableTotal           Decimal?               @map("payable_total") @db.Decimal(12, 2)
 
+  /// Spec 2 — agent shipping tariff state (PREDETERMINED_CHARGE agent orders).
+  shippingPricingStatus StoreOrderShippingPricingStatus @default(NOT_APPLICABLE) @map("shipping_pricing_status")
+  /// Spec 2 — customer agreement to a higher confirmed payable (shipping added).
+  customerTotalStatus   StoreOrderCustomerTotalStatus   @default(NONE) @map("customer_total_status")
+
   /// Set once when agent stock is issued (shipment SHIPPED / pickup handover).
   agentDispatchedAt DateTime? @map("agent_dispatched_at")
   /// Set once when the agreement's earning event is reached.
@@ -9474,17 +9479,53 @@ model AgentAgreement {
 
 /// Configured customer shipping charge by destination (the "configured rate").
 model AgentShippingRate {
-  id          String         @id @default(uuid()) @db.Uuid
-  agreementId String         @map("agreement_id") @db.Uuid
-  agreement   AgentAgreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
-  countryId   String         @map("country_id") @db.Uuid
-  country     Country        @relation(fields: [countryId], references: [id])
+  id              String                       @id @default(uuid()) @db.Uuid
+  agreementId     String                       @map("agreement_id") @db.Uuid
+  agreement       AgentAgreement               @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  countryId       String                       @map("country_id") @db.Uuid
+  country         Country                      @relation(fields: [countryId], references: [id])
   /// Empty string = whole country; a city row wins over the country row.
-  city        String         @default("")
-  amount      Decimal        @db.Decimal(12, 2)
+  city            String                       @default("")
+  /// Spec 2 tariff dimensions — ANY matches every channel / payment type;
+  /// the most specific row wins (city → channel → payment type).
+  deliveryChannel AgentShippingDeliveryChannel @default(ANY) @map("delivery_channel")
+  paymentType     AgentShippingPaymentType     @default(ANY) @map("payment_type")
+  amount          Decimal                      @db.Decimal(12, 2)
 
-  @@unique([agreementId, countryId, city])
+  @@unique([agreementId, countryId, city, deliveryChannel, paymentType], map: "agent_shipping_rates_tariff_key")
   @@map("agent_shipping_rates")
+}
+
+/// Spec 2 — how a shipment is delivered (from ShippingCompany.type).
+enum AgentShippingDeliveryChannel {
+  ANY
+  /// ShippingCompany.type EXTERNAL_COMPANY.
+  CARRIER
+  /// ShippingCompany.type INTERNAL_DELIVERY.
+  INTERNAL_COURIER
+}
+
+/// Spec 2 — payment arrangement a tariff applies to.
+enum AgentShippingPaymentType {
+  ANY
+  PREPAID
+  CASH_ON_DELIVERY
+}
+
+/// Spec 2 — whether an agent order's contractual shipping fee is final.
+enum StoreOrderShippingPricingStatus {
+  /// Company orders and agreements without the predetermined charge.
+  NOT_APPLICABLE
+  /// The fee depends on the delivery channel Shipping has not chosen yet (provisional estimate).
+  PENDING_METHOD
+  CONFIRMED
+}
+
+/// Spec 2 — shipping-added orders whose confirmed payable rose above the provisional one.
+enum StoreOrderCustomerTotalStatus {
+  NONE
+  CONFIRMATION_REQUIRED
+  CONFIRMED
 }
 
 /// Which payment methods an agent's Sales may choose, and who owns the money.

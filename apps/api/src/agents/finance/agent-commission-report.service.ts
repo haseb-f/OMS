@@ -11,6 +11,30 @@ import type { AgentOrderSnapshot } from '../common/agent-terms';
 const sum = (values: number[]) =>
   fromMinor(values.reduce((acc, value) => acc + toMinor(value), 0));
 
+/**
+ * Contractual agent shipping fee − carrier cost (spec 2B, internal only):
+ * the approved net in the agent's currency, else the operational estimate
+ * when nothing was approved yet; null when not comparable.
+ */
+function shippingMargin(
+  fee: number | null,
+  carrier: {
+    estimated: number;
+    approvedByCurrency: Array<{ currencyCode: string; amount: number }>;
+  },
+  currencyCode: string,
+) {
+  if (fee == null) return null;
+  const approved = carrier.approvedByCurrency;
+  if (approved.length === 1 && approved[0].currencyCode === currencyCode) {
+    return { amount: round2(fee - approved[0].amount), basis: 'ACTUAL' };
+  }
+  if (approved.length === 0 && carrier.estimated > 0) {
+    return { amount: round2(fee - carrier.estimated), basis: 'ESTIMATE' };
+  }
+  return null;
+}
+
 /** Order-linked charges other than commission and retained customer shipping. */
 const OTHER_CHARGE_TYPES = [
   'SHIPPING_FEE',
@@ -24,6 +48,14 @@ export interface CommissionReportQuery {
   from?: string;
   to?: string;
 }
+
+/**
+ * Who reads the report. INTERNAL (Finance, agent managers) sees the actual
+ * carrier cost and the company shipping margin; PORTAL (agent users) never
+ * does — spec-2-agent-pricing.md 2E removes them from the serializer, not
+ * just from the screen.
+ */
+export type CommissionReportAudience = 'INTERNAL' | 'PORTAL';
 
 /**
  * Agent commission report (commission-policy.md A7). Earned view per order
@@ -44,7 +76,12 @@ export class AgentCommissionReportService {
     private readonly statements: AgentStatementService,
   ) {}
 
-  async report(agentId: string, query: CommissionReportQuery) {
+  async report(
+    agentId: string,
+    query: CommissionReportQuery,
+    audience: CommissionReportAudience = 'INTERNAL',
+  ) {
+    const internal = audience === 'INTERNAL';
     const agent = await this.prisma.agent.findFirst({
       where: { id: agentId, deletedAt: null },
       select: {
@@ -101,8 +138,9 @@ export class AgentCommissionReportService {
             product: { select: { sku: true, name: true, nameEn: true } },
           },
         },
+        // Carrier cost is read for the internal audience only.
         shipments: {
-          where: { deletedAt: null },
+          where: internal ? { deletedAt: null } : { id: { in: [] } },
           select: {
             id: true,
             attemptNumber: true,
@@ -220,8 +258,8 @@ export class AgentCommissionReportService {
         });
       }
 
-      // Actual carrier cost: company expense (carrier currency), informational.
-      const carrier = this.carrierCostStages(order.shipments);
+      // Actual carrier cost: company expense (carrier currency), internal only.
+      const carrier = internal ? this.carrierCostStages(order.shipments) : null;
       const snapshot = order.agentTermsSnapshot as AgentOrderSnapshot | null;
       const agentShippingCharge =
         snapshot?.agentShippingCharge?.amount != null
@@ -270,7 +308,17 @@ export class AgentCommissionReportService {
             agentShippingCharge == null
               ? null
               : round2(customerShipping - agentShippingCharge),
-          carrier,
+          ...(carrier
+            ? {
+                carrier,
+                /** Company shipping margin = contractual fee − carrier cost (internal). */
+                margin: shippingMargin(
+                  agentShippingCharge,
+                  carrier,
+                  agent.currency.code,
+                ),
+              }
+            : {}),
         },
         otherCharges,
         netEntitlement: round2(
@@ -317,16 +365,20 @@ export class AgentCommissionReportService {
       shippingRetained: sum(orderRows.map((o) => o.shipping.retained)),
       otherCharges: sum(orderRows.map((o) => o.otherCharges)),
       netEntitlement: sum(orderRows.map((o) => o.netEntitlement)),
-      carrierCost: {
-        ordersWithEstimateOnly: orderRows.filter(
-          (o) =>
-            o.shipping.carrier.estimated > 0 &&
-            o.shipping.carrier.approvedByCurrency.length === 0,
-        ).length,
-        ordersAwaitingApproval: orderRows.filter(
-          (o) => o.shipping.carrier.incurredByCurrency.length > 0,
-        ).length,
-      },
+      ...(internal
+        ? {
+            carrierCost: {
+              ordersWithEstimateOnly: orderRows.filter(
+                (o) =>
+                  (o.shipping.carrier?.estimated ?? 0) > 0 &&
+                  o.shipping.carrier?.approvedByCurrency.length === 0,
+              ).length,
+              ordersAwaitingApproval: orderRows.filter(
+                (o) => (o.shipping.carrier?.incurredByCurrency.length ?? 0) > 0,
+              ).length,
+            },
+          }
+        : {}),
     };
     return {
       agent: {

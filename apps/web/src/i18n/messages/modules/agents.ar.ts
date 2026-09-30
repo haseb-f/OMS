@@ -77,7 +77,8 @@ const agentsAr = {
     agreements: "الاتفاقيات",
     destinations: "وجهات الدفع",
     team: "فريق الوكيل",
-    stock: "المنتجات والمخزون",
+    stock: "المخزون",
+    products: "المنتجات",
     orders: "الطلبات",
     statement: "كشف الحساب",
     payouts: "المدفوعات للوكيل",
@@ -301,10 +302,6 @@ const agentsAr = {
     },
   },
   stock: {
-    productsTitle: "منتجات الوكيل",
-    productsEmpty: "لا توجد منتجات مملوكة لهذا الوكيل بعد.",
-    productsHint:
-      "حدّد الوكيل المالك في المنتج (المنتجات ← تعديل ← التصنيف) ما دام بلا مخزون أو طلبات.",
     stockTitle: "المخزون حسب المستودع",
     stockEmpty: "لم يُسجل مخزون بعد",
     product: "المنتج",
@@ -713,12 +710,6 @@ const agentsAr = {
       team_view: "عرض الفريق",
       team_manage: "إدارة الفريق",
     },
-  },
-  products: {
-    ownerAgent: "الوكيل المالك",
-    ownerAgentHint:
-      "البضاعة المملوكة لوكيل تُباع من خلاله فقط. لا يتغير المالك إلا ما دام المنتج بلا حركة مخزون وبلا سطر طلب.",
-    companyOwned: "ملك الشركة",
   },
   commission: {
     item: "الصنف",

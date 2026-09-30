@@ -4,6 +4,10 @@ import { CreateOperationTotals } from "@/components/shared/create-operation";
 import { MoneyValue } from "@/components/shared/money-value";
 import { useLocale } from "@/providers/locale-provider";
 import type { ShippingChargeSource } from "@/services/agent-portal-service";
+import { formatMoney } from "@/lib/money";
+
+const codeOf = (currency: string | { code: string } | null | undefined) =>
+  typeof currency === "string" ? currency : (currency?.code ?? null);
 
 export interface BreakdownFigures {
   merchandiseAmount: number | null;
@@ -27,6 +31,8 @@ export function OrderBreakdown({
   shippingSource,
   shippingRate,
   rateScope,
+  provisional = false,
+  mode,
 }: {
   figures: BreakdownFigures;
   currency?: string | { code: string } | null;
@@ -34,13 +40,19 @@ export function OrderBreakdown({
   /** The configured rate — shown next to a manual override so the difference is visible. */
   shippingRate?: number | null;
   rateScope?: "CITY" | "COUNTRY" | null;
+  /** Spec 2 — the shipping fee is an estimate until Shipping selects the delivery method. */
+  provisional?: boolean;
+  mode?: "SHIPPING_ADDED" | "SHIPPING_INCLUDED" | null;
 }) {
   const { t } = useLocale();
   const money = (value: number | null) =>
     value == null ? "—" : <MoneyValue value={value} currency={currency} />;
 
-  const sourceNote =
-    shippingSource === "RATE"
+  // Shipping added + provisional: the total is never shown as final.
+  const payablePending = provisional && mode !== "SHIPPING_INCLUDED";
+  const sourceNote = provisional
+    ? t("agentPricing.shippingProvisional")
+    : shippingSource === "RATE"
       ? `${t("agentPortal.orderForm.breakdown.configuredRate")}${
           rateScope
             ? ` · ${t(
@@ -96,10 +108,32 @@ export function OrderBreakdown({
       : []),
     {
       label: t("agentPortal.orderForm.breakdown.payable"),
-      value: money(figures.payableTotal),
+      value: payablePending ? (
+        <span className="flex flex-col items-end">
+          <span>
+            {t("agentPricing.payablePending", {
+              merchandise: formatMoney(figures.merchandiseAmount ?? 0, codeOf(currency)),
+            })}
+          </span>
+          <span className="text-micro font-normal text-muted-foreground">
+            {t("agentPricing.payableEstimate", {
+              amount: formatMoney(figures.payableTotal, codeOf(currency)),
+            })}
+          </span>
+        </span>
+      ) : (
+        money(figures.payableTotal)
+      ),
       emphasis: "strong" as const,
     },
   ];
 
-  return <CreateOperationTotals rows={rows} />;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <CreateOperationTotals rows={rows} />
+      {provisional ? (
+        <p className="text-caption text-muted-foreground">{t("agentPricing.provisionalNote")}</p>
+      ) : null}
+    </div>
+  );
 }

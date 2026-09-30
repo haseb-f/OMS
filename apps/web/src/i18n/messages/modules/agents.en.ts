@@ -79,7 +79,8 @@ const agentsEn = {
     agreements: "Agreements",
     destinations: "Payment destinations",
     team: "Agent team",
-    stock: "Products & stock",
+    stock: "Stock",
+    products: "Products",
     orders: "Orders",
     statement: "Statement",
     payouts: "Payouts",
@@ -310,10 +311,6 @@ const agentsEn = {
     },
   },
   stock: {
-    productsTitle: "Agent-owned products",
-    productsEmpty: "No products are owned by this agent yet.",
-    productsHint:
-      "Set the owner agent on a product (Products → edit → Classification) while it has no stock or orders.",
     stockTitle: "Stock by warehouse",
     stockEmpty: "No stock recorded yet",
     product: "Product",
@@ -727,12 +724,6 @@ const agentsEn = {
       team_view: "View team",
       team_manage: "Manage team",
     },
-  },
-  products: {
-    ownerAgent: "Owner agent",
-    ownerAgentHint:
-      "Agent-owned goods are sold only through that agent. The owner can change only while the product has no stock movement and no order line.",
-    companyOwned: "Company-owned",
   },
   commission: {
     item: "Item",

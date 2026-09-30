@@ -29,6 +29,7 @@ import {
 } from '../orders/dto/agent-lead.dto';
 import {
   AgentOrderPricingDto,
+  ConfirmCustomerTotalDto,
   ConvertAgentLeadDto,
   CreateAgentOrderDto,
   DeclareAgentOrderPaymentDto,
@@ -236,6 +237,18 @@ export class AgentPortalOrdersController {
     @Body() dto: DeclareAgentOrderPaymentDto,
   ) {
     return this.orders.declare(agent, id, dto);
+  }
+
+  /** Spec 2 — "Customer agreed to pay {new total}" (order owner / agent admin). */
+  @Post(':id/customer-total/confirm')
+  @HttpCode(200)
+  @RequireAgentPermission('agent.orders.create')
+  confirmCustomerTotal(
+    @CurrentAgent() agent: AgentRequestContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ConfirmCustomerTotalDto,
+  ) {
+    return this.orders.confirmCustomerTotal(agent, id, dto);
   }
 }
 
