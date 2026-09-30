@@ -231,3 +231,20 @@ on), so no list needs to rebuild them:
 - **Not added (deliberately).** No bulk operation was invented where the domain has none: posted
   journals, payroll runs, fiscal periods, agent statements/payouts, stock and report tables get
   only Print/Export selected.
+
+### Phones and narrow containers (2026-09-30)
+
+Below the `@4xl` table breakpoint rows render as cards (never a squeezed desktop grid), with the
+same selection and bulk actions:
+
+- **Selection bar** above the cards (`data-mobile-selection-bar`): the table header's own control,
+  i.e. the page checkbox and the scope menu (select this page / all matching / a specific number /
+  clear), labelled «تحديد» / "Select". Every card carries its row checkbox (automatic cards and
+  custom `renderMobileRow` cards, e.g. Store Orders, Import sync review).
+- **Bulk strip** (`data-bulk-strip`) is in flow and wraps onto as many lines as it needs, full
+  toolbar width, so every action, the scope text, "Use current page selection only" and Clear are
+  reachable with no sideways scrolling; the search/filter row hides while the strip is open. At
+  table width it still overlays the toolbar row in place.
+- Evidence: `tmp/ux/mobile-probe.mjs` (390px AR-light / EN-dark, 768px, 1440px): Sales invoices,
+  Carrier Reconciliation and Store Orders — bar visible, all four scopes, "all matching" reaches
+  `allMatching`, strip within the viewport, no internal or page horizontal scroll, no page errors.

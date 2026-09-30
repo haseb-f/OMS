@@ -719,6 +719,7 @@ const en = {
     bulkNoneEligible: "None of the selected records can be archived in their current status.",
     usePageSelection: "Use current page selection only",
     clearSelection: "Clear selection",
+    mobileSelectLabel: "Select",
     printSelected: "Print selected",
     exportSelected: "Export selected",
     exportedSelected: "Exported {count} selected rows.",

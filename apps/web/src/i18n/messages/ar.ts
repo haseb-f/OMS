@@ -718,6 +718,7 @@ const ar = {
     bulkNoneEligible: "لا يمكن أرشفة أي من السجلات المحددة في حالتها الحالية.",
     usePageSelection: "استخدام تحديد الصفحة الحالية فقط",
     clearSelection: "مسح التحديد",
+    mobileSelectLabel: "تحديد",
     printSelected: "طباعة المحدد",
     exportSelected: "تصدير المحدد",
     exportedSelected: "تم تصدير {count} صف محدد.",

@@ -1322,6 +1322,9 @@ export function EnterpriseDataTable<TData>({
   const hasBulkStrip = Boolean(bulkActions) || builtInSelectionActions;
   const bulkStripOpen = selectedCount > 0 && hasBulkStrip;
   const pageRows = table.getRowModel().rows;
+  const mobileSelectHeader = hasBulkStrip
+    ? (table.getHeaderGroups()[0]?.headers.find((header) => header.column.id === "select") ?? null)
+    : null;
   const hasRows = pageRows.length > 0;
 
   // Column floors (per locale): each shown header's natural width, and for
@@ -1436,7 +1439,10 @@ export function EnterpriseDataTable<TData>({
             "Filters" button (bottom sheet) so the grid starts near the top
             on phones; search and the view controls stay inline. */}
         <ListToolbar>
-          <div className="contents" inert={bulkStripOpen}>
+          <div
+            className={cn("contents", bulkStripOpen && "@max-4xl/enterprise-table:hidden")}
+            inert={bulkStripOpen}
+          >
             <div className="min-w-0 flex-1 basis-40 sm:min-w-48 sm:max-w-88 md:min-w-56 md:max-w-112">
               <SearchInput
                 value={searchDraft}
@@ -1501,8 +1507,17 @@ export function EnterpriseDataTable<TData>({
               Feature actions lead, the count (shown only here, never again in
               the footer) sits beside them, and "Clear" trails at the end. */}
           {bulkStripOpen ? (
-            <div className="absolute inset-0 z-(--z-sticky) flex items-center gap-x-3 overflow-x-auto bg-table-row-selected px-3 whitespace-nowrap sm:px-4">
-              <div className="flex shrink-0 items-center gap-2">
+            <div
+              data-bulk-strip=""
+              className={cn(
+                // Narrow containers (cards): in flow and wrapping — every
+                // action stays reachable without sideways scrolling.
+                "-mx-3 -my-1.5 flex shrink-0 basis-[calc(100%+1.5rem)] flex-wrap items-center gap-x-3 gap-y-2 bg-table-row-selected px-3 py-2 sm:-mx-4 sm:basis-[calc(100%+2rem)] sm:px-4",
+                // Table width: overlays the toolbar row in place.
+                "@4xl/enterprise-table:absolute @4xl/enterprise-table:inset-0 @4xl/enterprise-table:z-(--z-sticky) @4xl/enterprise-table:m-0 @4xl/enterprise-table:basis-auto @4xl/enterprise-table:flex-nowrap @4xl/enterprise-table:overflow-x-auto @4xl/enterprise-table:py-0 @4xl/enterprise-table:whitespace-nowrap",
+              )}
+            >
+              <div className="flex flex-wrap items-center gap-2 @4xl/enterprise-table:shrink-0 @4xl/enterprise-table:flex-nowrap">
                 {bulkActions}
                 {builtInSelectionActions ? (
                   <>
@@ -1601,109 +1616,129 @@ export function EnterpriseDataTable<TData>({
           ) : !hasRows ? (
             <EmptyState icon={Inbox} {...emptyStateProps} />
           ) : (
-            pageRows.map((row) =>
-              renderMobileRow ? (
-                <div key={row.id} data-mobile-row="">
-                  {renderMobileRow({
-                    row: row.original,
-                    selected: row.getIsSelected(),
-                    onToggleSelected: () => row.toggleSelected(),
-                    expanded: row.getIsExpanded(),
-                    onToggleExpanded: () => row.toggleExpanded(),
-                  })}
+            <>
+              {mobileSelectHeader ? (
+                // Phones get the same selection control as the table header:
+                // select this page, and the scope menu (all matching, first N,
+                // clear) — the header row itself is not rendered for cards.
+                <div
+                  data-mobile-selection-bar=""
+                  className="flex min-h-(--control-height-sm) items-center gap-2 border-b border-border px-3 py-1.5"
+                >
+                  {flexRender(
+                    mobileSelectHeader.column.columnDef.header,
+                    mobileSelectHeader.getContext(),
+                  )}
+                  <span className="text-caption text-muted-foreground">
+                    {t("table.mobileSelectLabel")}
+                  </span>
                 </div>
-              ) : (
-                // Automatic phone card: identity + status on the first line,
-                // the row's own actions in reach, then up to four key fields
-                // as label/value pairs — the same cell renderers as the
-                // desktop table, never a copy. Amounts sit on the numeric
-                // edge with tabular digits.
-                (() => {
-                  const cells = row.getVisibleCells();
-                  const renderCell = (cell: (typeof cells)[number]) => {
-                    const layout = layoutById.get(cell.column.id);
-                    const raw = columnsWithExplicitCell.has(cell.column.id)
-                      ? flexRender(cell.column.columnDef.cell, cell.getContext())
-                      : cell.renderValue<ReactNode>();
-                    return applySemanticCellContent(raw, layout?.type);
-                  };
-                  const selectCell = cells.find((cell) => cell.column.id === "select");
-                  const actionsCell = cells.find((cell) => cell.column.id === "__actions");
-                  const dataCells = cells.filter(
-                    (cell) => cell.column.id !== "select" && !cell.column.id.startsWith("__"),
-                  );
-                  const titleCell =
-                    dataCells.find((cell) => cell.column.columnDef.meta?.identity) ?? dataCells[0];
-                  const statusCell = dataCells.find(
-                    (cell) =>
-                      cell !== titleCell && layoutById.get(cell.column.id)?.type === "status",
-                  );
-                  const detailCells = dataCells
-                    .filter((cell) => cell !== titleCell && cell !== statusCell)
-                    .slice(0, 4);
-                  const rowHref = getRowHref?.(row.original) ?? null;
-                  return (
-                    <div
-                      key={row.id}
-                      data-mobile-row=""
-                      data-state={row.getIsSelected() ? "selected" : undefined}
-                      className="flex flex-col gap-1 border-b border-border p-3 data-[state=selected]:bg-table-row-selected"
-                    >
-                      <div className="flex min-h-(--control-height-sm) items-center gap-2">
-                        {selectCell ? (
-                          <div className="shrink-0">{renderCell(selectCell)}</div>
-                        ) : null}
-                        <div className="min-w-0 flex-1 truncate text-body font-medium text-foreground">
-                          {titleCell ? (
-                            rowHref ? (
-                              <RowIdentityLink href={rowHref}>
+              ) : null}
+              {pageRows.map((row) =>
+                renderMobileRow ? (
+                  <div key={row.id} data-mobile-row="">
+                    {renderMobileRow({
+                      row: row.original,
+                      selected: row.getIsSelected(),
+                      onToggleSelected: () => row.toggleSelected(),
+                      expanded: row.getIsExpanded(),
+                      onToggleExpanded: () => row.toggleExpanded(),
+                    })}
+                  </div>
+                ) : (
+                  // Automatic phone card: identity + status on the first line,
+                  // the row's own actions in reach, then up to four key fields
+                  // as label/value pairs — the same cell renderers as the
+                  // desktop table, never a copy. Amounts sit on the numeric
+                  // edge with tabular digits.
+                  (() => {
+                    const cells = row.getVisibleCells();
+                    const renderCell = (cell: (typeof cells)[number]) => {
+                      const layout = layoutById.get(cell.column.id);
+                      const raw = columnsWithExplicitCell.has(cell.column.id)
+                        ? flexRender(cell.column.columnDef.cell, cell.getContext())
+                        : cell.renderValue<ReactNode>();
+                      return applySemanticCellContent(raw, layout?.type);
+                    };
+                    const selectCell = cells.find((cell) => cell.column.id === "select");
+                    const actionsCell = cells.find((cell) => cell.column.id === "__actions");
+                    const dataCells = cells.filter(
+                      (cell) => cell.column.id !== "select" && !cell.column.id.startsWith("__"),
+                    );
+                    const titleCell =
+                      dataCells.find((cell) => cell.column.columnDef.meta?.identity) ??
+                      dataCells[0];
+                    const statusCell = dataCells.find(
+                      (cell) =>
+                        cell !== titleCell && layoutById.get(cell.column.id)?.type === "status",
+                    );
+                    const detailCells = dataCells
+                      .filter((cell) => cell !== titleCell && cell !== statusCell)
+                      .slice(0, 4);
+                    const rowHref = getRowHref?.(row.original) ?? null;
+                    return (
+                      <div
+                        key={row.id}
+                        data-mobile-row=""
+                        data-state={row.getIsSelected() ? "selected" : undefined}
+                        className="flex flex-col gap-1 border-b border-border p-3 data-[state=selected]:bg-table-row-selected"
+                      >
+                        <div className="flex min-h-(--control-height-sm) items-center gap-2">
+                          {selectCell ? (
+                            <div className="shrink-0">{renderCell(selectCell)}</div>
+                          ) : null}
+                          <div className="min-w-0 flex-1 truncate text-body font-medium text-foreground">
+                            {titleCell ? (
+                              rowHref ? (
+                                <RowIdentityLink href={rowHref}>
+                                  <bdi className={bidiLineClass}>{renderCell(titleCell)}</bdi>
+                                </RowIdentityLink>
+                              ) : (
                                 <bdi className={bidiLineClass}>{renderCell(titleCell)}</bdi>
-                              </RowIdentityLink>
-                            ) : (
-                              <bdi className={bidiLineClass}>{renderCell(titleCell)}</bdi>
-                            )
+                              )
+                            ) : null}
+                          </div>
+                          {statusCell ? (
+                            <div className="shrink-0">{renderCell(statusCell)}</div>
+                          ) : null}
+                          {actionsCell ? (
+                            <div className="shrink-0">{renderCell(actionsCell)}</div>
                           ) : null}
                         </div>
-                        {statusCell ? (
-                          <div className="shrink-0">{renderCell(statusCell)}</div>
-                        ) : null}
-                        {actionsCell ? (
-                          <div className="shrink-0">{renderCell(actionsCell)}</div>
+                        {detailCells.length > 0 ? (
+                          <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
+                            {detailCells.map((cell) => {
+                              const numeric = isNumericColumnType(
+                                layoutById.get(cell.column.id)?.type,
+                              );
+                              return (
+                                <div key={cell.id} className={cn("min-w-0", numeric && "text-end")}>
+                                  <dt className="truncate text-caption text-muted-foreground">
+                                    {cell.column.columnDef.meta?.titleKey
+                                      ? t(cell.column.columnDef.meta.titleKey)
+                                      : cell.column.id}
+                                  </dt>
+                                  <dd
+                                    className={cn(
+                                      "min-w-0 text-table",
+                                      numeric ? "tabular-nums whitespace-nowrap" : "truncate",
+                                    )}
+                                  >
+                                    <bdi className={numeric ? undefined : bidiLineClass}>
+                                      {renderCell(cell)}
+                                    </bdi>
+                                  </dd>
+                                </div>
+                              );
+                            })}
+                          </dl>
                         ) : null}
                       </div>
-                      {detailCells.length > 0 ? (
-                        <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
-                          {detailCells.map((cell) => {
-                            const numeric = isNumericColumnType(
-                              layoutById.get(cell.column.id)?.type,
-                            );
-                            return (
-                              <div key={cell.id} className={cn("min-w-0", numeric && "text-end")}>
-                                <dt className="truncate text-caption text-muted-foreground">
-                                  {cell.column.columnDef.meta?.titleKey
-                                    ? t(cell.column.columnDef.meta.titleKey)
-                                    : cell.column.id}
-                                </dt>
-                                <dd
-                                  className={cn(
-                                    "min-w-0 text-table",
-                                    numeric ? "tabular-nums whitespace-nowrap" : "truncate",
-                                  )}
-                                >
-                                  <bdi className={numeric ? undefined : bidiLineClass}>
-                                    {renderCell(cell)}
-                                  </bdi>
-                                </dd>
-                              </div>
-                            );
-                          })}
-                        </dl>
-                      ) : null}
-                    </div>
-                  );
-                })()
-              ),
-            )
+                    );
+                  })()
+                ),
+              )}
+            </>
           )}
         </div>
 

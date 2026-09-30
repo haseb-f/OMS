@@ -63,9 +63,9 @@ Details: `specs/usability-financial-reports/tables-selection.md` ("Built-in sele
 - Toast ×: labelled («إغلاق الإشعار» / "Dismiss notification"), inside the card, at the logical end
   corner in both directions.
 - Sidebar item radius 10px. Horizontal overflow 0 on every page and viewport; no page errors.
-- **Known limitation (unchanged by this pass):** below the table breakpoint, generic lists render
-  cards without checkboxes, so bulk actions on phones exist only where a page's own mobile card
-  offers selection (e.g. Store Orders).
+- **Phones (completed 2026-09-30):** cards keep row checkboxes; a selection bar above the cards
+  carries the page checkbox and scope menu; the bulk strip wraps in flow — see
+  `usability-financial-reports/tables-selection.md` "Phones and narrow containers".
 - The branch's Vercel Preview (https://oms-fjbtni728-haseb-f-s-projects.vercel.app) is behind
   Vercel SSO, so it was not browsed by the release owner.
 
