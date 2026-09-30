@@ -296,7 +296,7 @@ export class StoreOrderAmendmentsService {
           throw new UnprocessableEntityException({
             code: 'AMENDMENT_BLOCKED',
             message: blocking.map((i) => i.message).join(' '),
-            impacts: plan.impacts,
+            details: { impacts: plan.impacts },
           });
         }
         const missing = missingAcknowledgements(
@@ -307,8 +307,7 @@ export class StoreOrderAmendmentsService {
           throw new ConflictException({
             code: 'AMENDMENT_ACKNOWLEDGEMENT_REQUIRED',
             message: `Acknowledge before saving: ${missing.join(', ')}.`,
-            missing,
-            impacts: plan.impacts,
+            details: { missing, impacts: plan.impacts },
           });
         }
         return this.apply(tx, plan, dto, actor);
@@ -1872,9 +1871,11 @@ export class StoreOrderAmendmentsService {
     return new ConflictException({
       code: 'ORDER_VERSION_CONFLICT',
       message: `This order was changed by ${who} at ${head.updatedAt.toISOString()}. Reload to see the latest version.`,
-      currentVersion: head.version,
-      changedBy: user?.fullName ?? null,
-      changedAt: head.updatedAt.toISOString(),
+      details: {
+        currentVersion: head.version,
+        changedBy: user?.fullName ?? null,
+        changedAt: head.updatedAt.toISOString(),
+      },
     });
   }
 }

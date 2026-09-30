@@ -727,7 +727,7 @@ describe('Spec 1A — order amendments (HTTP integration)', () => {
     expect(stale.status).toBe(409);
     expect(stale.body).toMatchObject({
       code: 'ORDER_VERSION_CONFLICT',
-      currentVersion: 1,
+      details: { currentVersion: 1, changedBy: expect.any(String) },
     });
     expect(stale.body.message).toContain('Reload to see the latest version');
     expect(Number((await loadOrder(order.id)).items[0].agreedAmount)).toBe(110);
