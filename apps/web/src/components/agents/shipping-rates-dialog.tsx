@@ -301,7 +301,12 @@ export function ShippingRatesDialog({
             <p className="text-caption text-muted-foreground">
               {t("agentPricing.tariffs.matrixHint")}
             </p>
-            <CompactDetailTable columns={matrixColumns} rows={matrix} rowKey={(row) => row.key} />
+            <CompactDetailTable
+              columns={matrixColumns}
+              rows={matrix}
+              rowKey={(row) => row.key}
+              stacked
+            />
           </FormCardSection>
         ) : null}
         <FormCardSection title={t("agentPricing.tariffs.rowsTitle")}>
@@ -310,6 +315,7 @@ export function ShippingRatesDialog({
             rows={rates}
             rowKey={(rate) => rate.id}
             empty={t("agents.agreements.rates.empty")}
+            stacked
           />
         </FormCardSection>
       </FormCardStack>

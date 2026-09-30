@@ -292,6 +292,7 @@ export default function AgentOrderDetailPage() {
               columns={lineColumns}
               rows={order.lines}
               rowKey={(line) => line.id}
+              stacked
             />
           </DetailSection>
 
@@ -321,6 +322,7 @@ export default function AgentOrderDetailPage() {
                   columns={shipmentColumns}
                   rows={order.fulfillment.shipments}
                   rowKey={(s) => s.id}
+                  stacked
                 />
               ) : (
                 <p className="text-caption text-muted-foreground">
@@ -442,6 +444,7 @@ export default function AgentOrderDetailPage() {
                 columns={returnColumns}
                 rows={order.returns}
                 rowKey={(r) => r.id}
+                stacked
               />
             ) : (
               <p className="text-caption text-muted-foreground">
