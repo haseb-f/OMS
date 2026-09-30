@@ -15,4 +15,11 @@ export const BULK_LIMITS = {
   storeOrderShippingStatusMax: 1_000,
   /** `POST leads/bulk-status` — `BulkChangeLeadStatusDto`. */
   leadStatusChangeMax: 5_000,
+  /**
+   * `POST payments/bulk/confirm|reject` — every item runs through the
+   * single-record service in its own transaction, so the batch stays small.
+   */
+  paymentBulkActionMax: 200,
+  /** `POST payment-reconciliation/methods/:methodId/matches/bulk-accept`. */
+  statementBulkAcceptMax: 100,
 } as const;

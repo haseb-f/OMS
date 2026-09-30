@@ -9,23 +9,14 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import type { FindStatementLinesQueryDto } from './dto/payment-reconciliation.dto';
 import { COMPANY_CASH_CLAIM } from '../agents/finance/agent-payment-scope';
+import { matchReversalEffect } from './match-reversal.util';
 
-type CurrencyTotals = Record<string, { count: number; amount: number }>;
+import {
+  addCurrencyTotal as addTotal,
+  type CurrencyTotals,
+} from '../common/money/currency-totals';
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
-
-function addTotal(
-  bucket: CurrencyTotals,
-  code: string,
-  count: number,
-  amount: number,
-) {
-  const current = bucket[code] ?? { count: 0, amount: 0 };
-  bucket[code] = {
-    count: current.count + count,
-    amount: round2(current.amount + amount),
-  };
-}
 
 /**
  * Read side of the reconciliation workspace: the method list with
@@ -259,6 +250,7 @@ export class PaymentReconciliationService {
                           id: true,
                           transactionNumber: true,
                           status: true,
+                          createdAt: true,
                         },
                       },
                     },
@@ -297,6 +289,30 @@ export class PaymentReconciliationService {
         });
       }
     }
+
+    // What "correct match" would do per claim (shared rule with reverseMatch).
+    const matchedPaymentIds = [
+      ...new Set(
+        lines.flatMap((line) =>
+          line.matches
+            .filter((match) => match.status === PaymentMatchStatus.ACTIVE)
+            .map((match) => match.payment.id),
+        ),
+      ),
+    ];
+    const firstActive = matchedPaymentIds.length
+      ? await this.prisma.paymentMatch.groupBy({
+          by: ['paymentId'],
+          where: {
+            paymentId: { in: matchedPaymentIds },
+            status: PaymentMatchStatus.ACTIVE,
+          },
+          _min: { confirmedAt: true },
+        })
+      : [];
+    const firstActiveByPayment = new Map(
+      firstActive.map((row) => [row.paymentId, row._min.confirmedAt]),
+    );
 
     return {
       total,
@@ -357,7 +373,18 @@ export class PaymentReconciliationService {
             customer: match.payment.storeOrder?.partner ?? null,
             receipt:
               receipt && match.status === PaymentMatchStatus.ACTIVE
-                ? receipt
+                ? {
+                    id: receipt.id,
+                    transactionNumber: receipt.transactionNumber,
+                    status: receipt.status,
+                  }
+                : null,
+            reversalEffect:
+              match.status === PaymentMatchStatus.ACTIVE
+                ? matchReversalEffect(
+                    receipt,
+                    firstActiveByPayment.get(match.payment.id),
+                  )
                 : null,
             journalEntry:
               receipt && match.status === PaymentMatchStatus.ACTIVE

@@ -35,6 +35,10 @@ import {
   type SuggestionLine,
 } from './suggestion.util';
 import type { ConfirmMatchDto } from './dto/payment-reconciliation.dto';
+import {
+  matchReversalEffect,
+  receiptPredatesMatching as receiptPredates,
+} from './match-reversal.util';
 
 export const RECONCILIATION_ACTIVITY = {
   MATCH_CONFIRMED: 'RECONCILIATION_MATCH_CONFIRMED',
@@ -113,6 +117,56 @@ function describeClaim(claim: ClaimRow, remaining: number) {
 }
 
 export type ClaimView = ReturnType<typeof describeClaim>;
+
+const STATEMENT_LINE_INCLUDE = {
+  currency: { select: { id: true, code: true } },
+  statementImport: {
+    select: {
+      id: true,
+      sourceType: true,
+      fileName: true,
+      sheetName: true,
+      createdAt: true,
+    },
+  },
+} satisfies Prisma.PaymentStatementLineInclude;
+
+type StatementLineRow = Prisma.PaymentStatementLineGetPayload<{
+  include: typeof STATEMENT_LINE_INCLUDE;
+}>;
+
+/** A statement line as the match panel shows it: business fields + collapsed technical provenance. */
+function describeStatementLine(line: StatementLineRow) {
+  return {
+    id: line.id,
+    providerReference: line.providerReference,
+    orderReference: line.orderReference,
+    customerName: line.customerName,
+    customerPhone: line.customerPhoneE164 ?? line.customerPhone,
+    amount: Number(line.amount),
+    matchedAmount: Number(line.matchedAmount),
+    remaining: round2(Number(line.amount) - Number(line.matchedAmount)),
+    currency: line.currency,
+    transactionDate: line.transactionDate,
+    providerStatus: line.providerStatus,
+    feeAmount: line.feeAmount === null ? null : Number(line.feeAmount),
+    netAmount: line.netAmount === null ? null : Number(line.netAmount),
+    status: line.status,
+    technical: {
+      importId: line.importId,
+      sourceType: line.statementImport?.sourceType ?? line.sourceType,
+      fileName: line.statementImport?.fileName ?? null,
+      sheetName: line.sheetName ?? line.statementImport?.sheetName ?? null,
+      rowNumber: line.rowNumber,
+      importedAt: line.statementImport?.createdAt ?? line.createdAt,
+      dedupeKey: line.dedupeKey,
+      rowHash: line.rowHash,
+      rawRow: line.rawRow,
+    },
+  };
+}
+
+export type StatementLineView = ReturnType<typeof describeStatementLine>;
 export type SuggestionView = ScoredCandidate & { claim: ClaimView };
 
 export interface ConfirmMatchResult {
@@ -273,6 +327,7 @@ export class PaymentMatchingService {
     const base = {
       line: {
         id: line.id,
+        providerReference: line.providerReference,
         amount: Number(line.amount),
         matchedAmount: Number(line.matchedAmount),
         remaining: target.remaining,
@@ -438,6 +493,173 @@ export class PaymentMatchingService {
       ),
       disputeReason: claim.disputeReason,
     }));
+  }
+
+  // ------------------------------------------------------- claim match panel
+
+  /**
+   * The match panel's statement side for ONE claim (read-only): its active
+   * allocations (statement line + provenance, receipt/JE and what reversing
+   * each would do) and — while it still has an unallocated remainder — the
+   * unmatched statement lines of the same method and currency, ranked with
+   * the same scoring as line → claim suggestions. Nothing is confirmed here.
+   */
+  async claimLines(methodId: string, paymentId: string) {
+    const claim = await this.prisma.payment.findFirst({
+      where: {
+        id: paymentId,
+        paymentMethodId: methodId,
+        deletedAt: null,
+        AND: [COMPANY_CASH_CLAIM],
+      },
+      include: CLAIM_INCLUDE,
+    });
+    if (!claim) throw new NotFoundException('Claim not found for this method.');
+
+    const matched = await this.activeMatchedByPayment(this.prisma, [claim.id]);
+    const remaining = round2(
+      Number(claim.amount) - (matched.get(claim.id) ?? 0),
+    );
+
+    const matchRows = await this.prisma.paymentMatch.findMany({
+      where: { paymentId: claim.id, status: PaymentMatchStatus.ACTIVE },
+      orderBy: { confirmedAt: 'asc' },
+      include: { statementLine: { include: STATEMENT_LINE_INCLUDE } },
+    });
+    const receiptLink = await this.prisma.paymentReceiptLink.findUnique({
+      where: { paymentId: claim.id },
+      select: {
+        financialTransaction: {
+          select: {
+            id: true,
+            transactionNumber: true,
+            status: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+    const receipt = receiptLink?.financialTransaction ?? null;
+    const journalEntry = receipt
+      ? await this.prisma.journalEntry.findFirst({
+          where: { sourceType: 'CUSTOMER_RECEIPT', sourceId: receipt.id },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, entryNumber: true },
+        })
+      : null;
+    const reversalEffect = matchReversalEffect(
+      receipt,
+      matchRows[0]?.confirmedAt,
+    );
+    const settled =
+      Number(claim.settledAmount) > 0 ||
+      claim.settlementStatus === PaymentSettlementStatus.PARTIALLY_SETTLED ||
+      claim.settlementStatus === PaymentSettlementStatus.SETTLED;
+
+    const activeMatches = matchRows.map((match) => ({
+      id: match.id,
+      amount: Number(match.amount),
+      reasons: match.reasons as unknown as MatchReason[] | null,
+      confirmedAt: match.confirmedAt,
+      reversalEffect,
+      settled,
+      line: describeStatementLine(match.statementLine),
+    }));
+
+    let candidates: (ScoredCandidate & { line: StatementLineView })[] = [];
+    let ambiguous = false;
+    const open =
+      ELIGIBLE_CLAIM_STATUSES.includes(claim.status) &&
+      remaining > 0 &&
+      !!claim.storeOrder &&
+      !claim.storeOrder.deletedAt;
+    if (open) {
+      const refs = [
+        claim.referenceNumber,
+        claim.storeOrder?.internalOrderId,
+        claim.storeOrder?.externalOrderId,
+      ].filter((value): value is string => !!value);
+      const from = new Date(
+        claim.paymentDate.getTime() - CANDIDATE_WINDOW_DAYS * DAY_MS,
+      );
+      const to = new Date(
+        claim.paymentDate.getTime() + CANDIDATE_WINDOW_DAYS * DAY_MS,
+      );
+      const lines = await this.prisma.paymentStatementLine.findMany({
+        where: {
+          paymentMethodId: methodId,
+          currencyId: claim.currencyId,
+          status: PaymentStatementLineStatus.UNMATCHED,
+          OR: [
+            { transactionDate: { gte: from, lte: to } },
+            ...(refs.length
+              ? [
+                  { providerReference: { in: refs } },
+                  { orderReference: { in: refs } },
+                ]
+              : []),
+          ],
+        },
+        include: STATEMENT_LINE_INCLUDE,
+        orderBy: { transactionDate: 'desc' },
+        take: 500,
+      });
+      const dismissedRows = await this.prisma.paymentActivity.findMany({
+        where: {
+          paymentId: claim.id,
+          type: RECONCILIATION_ACTIVITY.SUGGESTION_DISMISSED,
+          deletedAt: null,
+        },
+        select: { metadata: true },
+      });
+      const dismissed = new Set(
+        dismissedRows.map(
+          (row) =>
+            (row.metadata as { statementLineId?: string } | null)
+              ?.statementLineId,
+        ),
+      );
+      const candidate = this.toCandidate(claim, matched);
+      const scored = lines
+        .filter((line) => !dismissed.has(line.id))
+        .map((line) => ({
+          line,
+          score: scoreCandidate(this.suggestionLine(line), candidate),
+        }))
+        .filter(
+          ({ line, score }) =>
+            score.suggestible &&
+            Number(line.amount) - Number(line.matchedAmount) > 0,
+        )
+        .sort(
+          (a, b) =>
+            b.score.score - a.score.score ||
+            a.score.dayDistance - b.score.dayDistance,
+        );
+      const top = scored[0]?.score.score;
+      ambiguous =
+        top !== undefined &&
+        scored.filter(({ score }) => score.score === top).length > 1;
+      candidates = scored.slice(0, 10).map(({ line, score }) => ({
+        ...score,
+        line: describeStatementLine(line),
+      }));
+    }
+
+    return {
+      claim: describeClaim(claim, remaining),
+      receipt: receipt
+        ? {
+            id: receipt.id,
+            transactionNumber: receipt.transactionNumber,
+            status: receipt.status,
+          }
+        : null,
+      journalEntry,
+      activeMatches,
+      candidates,
+      ambiguous,
+    };
   }
 
   // ----------------------------------------------------------------- confirm
@@ -893,14 +1115,14 @@ export class PaymentMatchingService {
           orderBy: { confirmedAt: 'asc' },
           select: { confirmedAt: true },
         });
-        const receiptPredatesMatching =
-          !!receipt &&
-          !!firstMatch &&
-          receipt.createdAt.getTime() < firstMatch.confirmedAt.getTime();
+        const receiptPredatesMatching = receiptPredates(
+          receipt,
+          firstMatch?.confirmedAt,
+        );
         if (
           receipt &&
-          !receiptPredatesMatching &&
-          receipt.status === FinancialTransactionStatus.CONFIRMED
+          matchReversalEffect(receipt, firstMatch?.confirmedAt) ===
+            'REVERSE_POSTING'
         ) {
           await this.financialTransactions.cancelInTx(tx, receipt.id, userId, {
             allowLinkedClaim: true,

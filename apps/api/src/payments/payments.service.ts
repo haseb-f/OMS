@@ -181,6 +181,9 @@ export class PaymentsService {
     const where: Prisma.PaymentWhereInput = {
       deletedAt: null,
       ...(query.status ? { status: query.status } : {}),
+      ...(query.settlementStatus?.length
+        ? { settlementStatus: { in: query.settlementStatus } }
+        : {}),
     };
     const [items, total] = await Promise.all([
       this.prisma.payment.findMany({
