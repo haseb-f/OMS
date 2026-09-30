@@ -46,6 +46,13 @@ import {
 } from '../sales-scope/sales-scope.service';
 import { findArabicNormalizedIds } from '../common/text/arabic-search.query';
 import { BULK_LIMITS } from '../common/bulk/bulk-limits';
+import { StoreOrderDuplicatesService } from '../store-orders/duplicates/store-order-duplicates.service';
+import {
+  assertReplayable,
+  idempotencyKeyReused,
+  payloadFingerprint,
+  scopedCreationKey,
+} from '../store-orders/duplicates/duplicate-outcome';
 
 const SEARCH_FIELDS = [
   'leadNumber',
@@ -142,6 +149,7 @@ export class LeadsService {
     private readonly workflowEngine: WorkflowEngineService,
     private readonly salesScope: SalesScopeService,
     private readonly leadFollowUpTypesService: LeadFollowUpTypesService,
+    private readonly duplicates: StoreOrderDuplicatesService,
   ) {}
 
   /** Resolves `dto.countryId` to its ISO2 code and validates/normalizes `dto.mobileNumber` against it — the country-aware check `@IsPhoneNumber()` on the DTO can't do (it has no access to the sibling `countryId`). Returns the E.164 value every caller should use in place of the raw input. */
@@ -830,8 +838,33 @@ export class LeadsService {
     userId: string,
     scope: SalesScope,
   ) {
-    await this.findOne(id, scope);
-    await this.workflowEngine.convertLead(id, userId, {
+    const lead = await this.findOne(id, scope);
+    // Spec 1B — a retried submit (same dialog key) or an already converted
+    // lead returns the lead with its order, never a second order.
+    const creationIdempotencyKey = scopedCreationKey(
+      'lead-convert',
+      userId,
+      dto.idempotencyKey,
+    );
+    const creationPayloadHash = payloadFingerprint({ leadId: id, ...dto });
+    const replayed = await this.leadConvertReplay(
+      id,
+      creationIdempotencyKey,
+      creationPayloadHash,
+    );
+    if (replayed || lead.storeOrder) {
+      return { ...lead, idempotentReplay: true as const };
+    }
+    const duplicate = await this.duplicates.enforce(
+      {
+        phone: lead.mobileNumber,
+        name: lead.customerName,
+        countryId: lead.countryId,
+      },
+      { kind: 'COMPANY', userId },
+      dto.duplicateResolution,
+    );
+    const payload = {
       items: dto.items,
       paymentType: dto.paymentType,
       fulfillmentMethod: dto.fulfillmentMethod,
@@ -847,8 +880,56 @@ export class LeadsService {
       city: dto.city,
       address: dto.address,
       notes: dto.notes,
-    });
+      creationIdempotencyKey,
+      creationPayloadHash,
+      duplicate,
+    };
+    try {
+      await this.workflowEngine.convertLead(id, userId, payload);
+    } catch (error) {
+      // A concurrent submit with the same key won the unique column.
+      if (
+        !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+        error.code !== 'P2002' ||
+        !(await this.leadConvertReplay(
+          id,
+          creationIdempotencyKey,
+          creationPayloadHash,
+        ))
+      ) {
+        throw error;
+      }
+      return {
+        ...(await this.findOne(id, scope)),
+        idempotentReplay: true as const,
+      };
+    }
     return this.findOne(id, scope);
+  }
+
+  /**
+   * Spec 1B — the order already created with this conversion key: true for
+   * this lead's order; an archived order or another lead / payload → 409.
+   */
+  private async leadConvertReplay(
+    leadId: string,
+    creationIdempotencyKey: string | null,
+    creationPayloadHash: string,
+  ): Promise<boolean> {
+    if (!creationIdempotencyKey) return false;
+    const stored = await this.prisma.storeOrder.findUnique({
+      where: { creationIdempotencyKey },
+      select: {
+        id: true,
+        leadId: true,
+        deletedAt: true,
+        creationPayloadHash: true,
+      },
+    });
+    if (!stored) return false;
+    assertReplayable(stored, creationPayloadHash);
+    if (stored.leadId !== leadId) throw idempotencyKeyReused();
+    return true;
   }
 
   async closeWithoutPurchase(

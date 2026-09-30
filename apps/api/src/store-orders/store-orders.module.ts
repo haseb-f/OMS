@@ -23,6 +23,7 @@ import { StoreOrderCollectionModule } from '../accounting/store-order-collection
 import { AccountMappingModule } from '../accounting/account-mapping/account-mapping.module';
 import { StoreOrderPaymentDeclarationService } from './payment-declaration/store-order-payment-declaration.service';
 import { AgentLedgerModule } from '../agents/finance/agent-ledger.module';
+import { StoreOrderDuplicatesModule } from './duplicates/store-order-duplicates.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { AgentLedgerModule } from '../agents/finance/agent-ledger.module';
     StoreOrderCollectionModule,
     AccountMappingModule,
     AgentLedgerModule,
+    StoreOrderDuplicatesModule,
   ],
   controllers: [
     StoreOrdersController,

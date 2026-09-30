@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   StreamableFile,
   UploadedFile,
   UseGuards,
@@ -16,6 +17,8 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import type { Response } from 'express';
+import { StoreOrderDuplicateReviewStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
@@ -39,6 +42,11 @@ import { CreateStoreOrderReceiptDto } from './dto/create-store-order-receipt.dto
 import { ATTACHMENT_MAX_BYTES } from '../common/storage/file-validation';
 import { DeclareStoreOrderPaymentDto } from './dto/declare-store-order-payment.dto';
 import { StoreOrderPaymentDeclarationService } from './payment-declaration/store-order-payment-declaration.service';
+import { StoreOrderDuplicatesService } from './duplicates/store-order-duplicates.service';
+import {
+  payloadFingerprint,
+  scopedCreationKey,
+} from './duplicates/duplicate-outcome';
 
 /** Recording pickup steps: store staff (`store-orders.edit`) or shipping staff (`shipping.edit`) — any-of. */
 const PICKUP_PERMISSIONS = ['store-orders.edit', 'shipping.edit'] as const;
@@ -55,27 +63,70 @@ export class StoreOrdersController {
     private readonly storeOrdersService: StoreOrdersService,
     private readonly permissionsResolver: PermissionsResolverService,
     private readonly declarations: StoreOrderPaymentDeclarationService,
+    private readonly duplicates: StoreOrderDuplicatesService,
   ) {}
 
+  /**
+   * Manual create (Spec 1B): a retry with the same form key returns the
+   * first order (200, `idempotentReplay`); otherwise the duplicate check is
+   * enforced before anything is written.
+   */
   @Post()
   async create(
     @Body() dto: CreateStoreOrderDto,
     @CurrentUser() user: JwtPayload,
+    @Res({ passthrough: true }) res: Response,
   ) {
+    const creationIdempotencyKey = scopedCreationKey(
+      'store-order',
+      user.sub,
+      dto.creationIdempotencyKey,
+    );
+    const creationPayloadHash = payloadFingerprint(dto);
+    const replay = await this.storeOrdersService.findCreationReplay(
+      creationIdempotencyKey,
+      user.sub,
+      creationPayloadHash,
+    );
+    if (replay) {
+      res.status(200);
+      return replay;
+    }
+    const duplicate = await this.duplicates.enforce(
+      {
+        // Every supplied number — the Partner dedup matches phone AND mobile.
+        phones: [dto.partner.phone, dto.partner.mobile],
+        name: dto.partner.name,
+        countryId: dto.partner.countryId,
+      },
+      { kind: 'COMPANY', userId: user.sub },
+      dto.duplicateResolution,
+    );
+    const options = { creationIdempotencyKey, creationPayloadHash, duplicate };
     // An optional declaration on create needs the same any-of permission as
     // the standalone declaration endpoint.
     const declaration = dto.declaration;
-    if (!declaration) return this.storeOrdersService.create(dto, user.sub);
-    const actor = await this.declarations.resolveActor(user.sub);
-    return this.storeOrdersService.create(dto, user.sub, (tx, orderId) =>
-      this.declarations.declareInTx(
-        tx,
-        orderId,
-        declaration,
-        declaration.idempotencyKey,
-        actor,
-      ),
+    const actor = declaration
+      ? await this.declarations.resolveActor(user.sub)
+      : null;
+    const created = await this.storeOrdersService.create(
+      dto,
+      user.sub,
+      declaration && actor
+        ? (tx, orderId) =>
+            this.declarations.declareInTx(
+              tx,
+              orderId,
+              declaration,
+              declaration.idempotencyKey,
+              actor,
+            )
+        : undefined,
+      undefined,
+      options,
     );
+    if ('idempotentReplay' in created) res.status(200);
+    return created;
   }
 
   @Get()
@@ -85,7 +136,7 @@ export class StoreOrdersController {
   ) {
     return this.storeOrdersService.findAll(
       query,
-      user.sub,
+      await this.resolveListScopeUser(query, user),
       await this.resolveIncludeProfitability(query, user),
     );
   }
@@ -102,9 +153,40 @@ export class StoreOrdersController {
   ) {
     return this.storeOrdersService.findAllIds(
       query,
-      user.sub,
+      await this.resolveListScopeUser(query, user),
       await this.resolveIncludeProfitability(query, user),
     );
+  }
+
+  /**
+   * Spec 1B duplicate review queue: filtering by `duplicateReviewStatus`
+   * needs `store-orders.duplicate_review`, and the reviewer sees flagged
+   * orders across every sales scope (both sides of a cross-scope match).
+   * Every other list keeps the caller's own sales scope.
+   */
+  private async resolveListScopeUser(
+    query: FindStoreOrdersQueryDto,
+    user: JwtPayload,
+  ): Promise<string | undefined> {
+    // NONE is an ordinary filter — only the review queue (flagged orders)
+    // widens the scope.
+    if (
+      !query.duplicateReviewStatus ||
+      query.duplicateReviewStatus === StoreOrderDuplicateReviewStatus.NONE
+    ) {
+      return user.sub;
+    }
+    if (
+      !(await this.permissionsResolver.hasPermission(
+        user.sub,
+        'store-orders.duplicate_review',
+      ))
+    ) {
+      throw new ForbiddenException(
+        'Missing permission "store-orders.duplicate_review".',
+      );
+    }
+    return undefined;
   }
 
   /**

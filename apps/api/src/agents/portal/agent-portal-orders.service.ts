@@ -134,7 +134,7 @@ export class AgentPortalOrdersService {
       },
       { userId: agent.userId, agent },
     );
-    return this.detail(agent, created.id);
+    return this.withReplayFlag(created, await this.detail(agent, created.id));
   }
 
   async convertLead(
@@ -147,7 +147,14 @@ export class AgentPortalOrdersService {
       this.stripInternalFields(dto),
       { userId: agent.userId, agent },
     );
-    return this.detail(agent, created.id);
+    return this.withReplayFlag(created, await this.detail(agent, created.id));
+  }
+
+  /** Spec 1B — a retried submit keeps its `idempotentReplay` flag through the portal shape. */
+  private withReplayFlag<T extends object>(created: object, detail: T) {
+    return 'idempotentReplay' in created
+      ? { ...detail, idempotentReplay: true as const }
+      : detail;
   }
 
   async declare(

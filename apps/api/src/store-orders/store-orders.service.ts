@@ -89,6 +89,12 @@ import {
 import { assertCompanyOwnedProduct } from '../products/assert-company-owned-products.util';
 import { BULK_LIMITS } from '../common/bulk/bulk-limits';
 import {
+  assertReplayable,
+  duplicateOrderColumns,
+  logDuplicateDecision,
+  type DuplicateOutcome,
+} from './duplicates/duplicate-outcome';
+import {
   agentOrderActivityDetails,
   agentOrderColumns,
   agentOrderInitialStage,
@@ -252,6 +258,19 @@ const ORDER_LIST_INCLUDE = {
 } satisfies Prisma.StoreOrderInclude;
 
 /**
+ * Round 5 Spec 1B — what a create path decided before persisting: the
+ * namespaced client key (a retry returns the first order) and the enforced
+ * duplicate check outcome (existing customer to reuse, review flag, timeline
+ * row). Always server-derived, never a client field.
+ */
+export interface StoreOrderCreateOptions {
+  creationIdempotencyKey?: string | null;
+  /** `payloadFingerprint` of the request — a reused key with other data is refused. */
+  creationPayloadHash?: string | null;
+  duplicate?: DuplicateOutcome | null;
+}
+
+/**
  * Independent storefront/marketplace order pipeline — never routed through
  * the Lead->SalesOrder pipeline (`leads/`, `sales-orders/`) and never part
  * of the B2B Sales pipeline (`sales/`). See the schema's `StoreOrder` model
@@ -306,7 +325,16 @@ export class StoreOrdersService {
      * snapshot, price breakdown, lines and owner are taken from it.
      */
     agentOrder?: AgentOrderPersistInput,
+    options: StoreOrderCreateOptions = {},
   ) {
+    const creationKey = options.creationIdempotencyKey ?? null;
+    const payloadHash = options.creationPayloadHash ?? null;
+    const replay = await this.findCreationReplay(
+      creationKey,
+      agentOrder ? undefined : userId,
+      payloadHash,
+    );
+    if (replay) return replay;
     if (agentOrder && (dto.externalOrderId || dto.payment)) {
       throw new BadRequestException(
         'Agent orders take no external order id or direct payment.',
@@ -340,14 +368,33 @@ export class StoreOrdersService {
     // Agent orders never go through the shared Partner dedup (S1): the
     // customer is resolved among that agent's own customers inside the
     // transaction, and no existing Partner is ever updated.
+    // Spec 1B: a customer confirmed through the duplicate check (phone match,
+    // or "same customer" on a name match) is reused as-is.
+    const confirmedPartnerId = options.duplicate?.partnerId ?? null;
     const partnerId = agentOrder
-      ? null
-      : (
-          await this.partnersService.findOrCreateWithRole(
-            { ...dto.partner, role: PartnerRoleType.CUSTOMER },
-            userId,
-          )
-        ).partner.id;
+      ? confirmedPartnerId
+      : confirmedPartnerId
+        ? (
+            await this.partnersService.useExistingWithRole(
+              confirmedPartnerId,
+              PartnerRoleType.CUSTOMER,
+              userId,
+            )
+          ).id
+        : options.duplicate?.reviewPending
+          ? // Cross-scope (another agent's customer): never adopted.
+            (
+              await this.partnersService.createSeparateCustomer(
+                dto.partner,
+                userId,
+              )
+            ).id
+          : (
+              await this.partnersService.findOrCreateWithRole(
+                { ...dto.partner, role: PartnerRoleType.CUSTOMER },
+                userId,
+              )
+            ).partner.id;
 
     const internalOrderId =
       await this.numberingEngine.generateNumber('STORE_ORDER');
@@ -425,6 +472,11 @@ export class StoreOrdersService {
             createdBy: userId,
             updatedBy: userId,
             ...(agentOrder ? agentOrderColumns(agentOrder) : {}),
+            ...duplicateOrderColumns(
+              creationKey,
+              options.duplicate,
+              payloadHash,
+            ),
             items: {
               create: agentOrder
                 ? agentOrderItems(agentOrder)
@@ -448,6 +500,7 @@ export class StoreOrdersService {
         if (agentOrder) {
           await this.logAgentOrderCreated(tx, created.id, agentOrder, userId);
         }
+        await logDuplicateDecision(tx, created.id, options.duplicate, userId);
 
         if (dto.payment) {
           assertCanAcceptPayment(
@@ -484,8 +537,46 @@ export class StoreOrdersService {
           'Invalid product, employee, or currency reference.',
         );
       }
+      // A concurrent submit with the same key won the unique column.
+      if (
+        creationKey &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const concurrent = await this.findCreationReplay(
+          creationKey,
+          agentOrder ? undefined : userId,
+          payloadHash,
+        );
+        if (concurrent) return concurrent;
+      }
       throw error;
     }
+  }
+
+  /**
+   * Spec 1B idempotent submission — the order already created with this
+   * namespaced key (re-read through the caller's scope), flagged
+   * `idempotentReplay: true`; null when the key is new. An archived order
+   * (ORDER_KEY_ALREADY_USED) or a different payload (IDEMPOTENCY_KEY_REUSED)
+   * is a 409.
+   */
+  async findCreationReplay(
+    creationIdempotencyKey: string | null | undefined,
+    userId?: string,
+    payloadHash?: string | null,
+  ) {
+    if (!creationIdempotencyKey) return null;
+    const existing = await this.prisma.storeOrder.findUnique({
+      where: { creationIdempotencyKey },
+      select: { id: true, deletedAt: true, creationPayloadHash: true },
+    });
+    if (!existing) return null;
+    const orderId = assertReplayable(existing, payloadHash);
+    return {
+      ...(await this.findOne(orderId, userId)),
+      idempotentReplay: true as const,
+    };
   }
 
   /** Breakdown + audited shipping override on the order timeline (spec §5). */
@@ -639,12 +730,14 @@ export class StoreOrdersService {
       | 'dateFrom'
       | 'dateTo'
       | 'agentId'
+      | 'duplicateReviewStatus'
     >,
   ): Promise<Prisma.StoreOrderWhereInput> {
     const where: Prisma.StoreOrderWhereInput = {
       deletedAt: null,
       partnerId: query.partnerId,
       agentId: query.agentId,
+      duplicateReviewStatus: query.duplicateReviewStatus,
       paymentStatus: prismaEnumFilter(query.paymentStatus),
       declaredPaymentStatus: prismaEnumFilter(query.declaredPaymentStatus),
       shippingStage: prismaEnumFilter(query.shippingStage),
@@ -912,6 +1005,7 @@ export class StoreOrdersService {
       | 'dateFrom'
       | 'dateTo'
       | 'agentId'
+      | 'duplicateReviewStatus'
       | 'sortBy'
       | 'sortOrder'
       | 'limit'

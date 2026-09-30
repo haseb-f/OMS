@@ -6,9 +6,11 @@ import docUiEn from "./modules/doc-ui.en";
 import feedbackEn from "./modules/feedback.en";
 import productCommissionEn from "./modules/product-commission.en";
 import agentPricingEn from "./modules/agent-pricing.en";
+import orderDuplicatesEn from "./modules/order-duplicates.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
+  orderDuplicates: orderDuplicatesEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
@@ -156,6 +158,8 @@ const en = {
    * for the (currently unused) secondary locale.
    */
   errors: {
+    DUPLICATE_ACKNOWLEDGEMENT_REQUIRED:
+      "A customer with these details already exists — choose how to continue, then save again.",
     VALIDATION_ERROR: "Check the information you entered and try again.",
     VALIDATION_ERROR_FIELD: 'The value in "{field}" isn\'t valid. Check it, then try saving again.',
     DUPLICATE:
@@ -268,6 +272,7 @@ const en = {
       export: "Export",
       import: "Import",
       manage: "Manage",
+      duplicateReview: "Duplicate review",
     },
     modules: {
       dashboard: "Dashboard",

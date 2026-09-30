@@ -1,3 +1,4 @@
+import type { DuplicateResolution } from "./order-duplicates-service";
 import { apiClient } from "./api-client";
 import { buildQueryString as buildQuery } from "@/lib/query-string";
 import type {
@@ -264,10 +265,15 @@ export interface CreateOrderInput extends PricingInput {
   customer: { name: string; mobile?: string; countryId?: string; city?: string; address?: string };
   notes?: string;
   idempotencyKey: string;
+  /** Round 5 Spec 1B — the answer to the duplicate customer warning. */
+  duplicateResolution?: DuplicateResolution;
 }
 
 export interface ConvertLeadInput extends PricingInput {
   notes?: string;
+  /** Spec 1B — one key per form instance. */
+  idempotencyKey?: string;
+  duplicateResolution?: DuplicateResolution;
 }
 
 export interface QuoteIssue {

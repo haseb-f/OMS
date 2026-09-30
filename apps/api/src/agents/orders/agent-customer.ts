@@ -8,6 +8,31 @@ import {
 import type { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import type { AgentCustomerSnapshot } from '../common/agent-terms';
 
+/** The S1 "belongs to this agent's business" rule (see `resolveAgentCustomerPartner`), as a Partner where-fragment (also used by the Spec 1B duplicate check). */
+export function agentOwnedCustomerWhere(
+  agentId: string,
+): Prisma.PartnerWhereInput {
+  return {
+    deletedAt: null,
+    roles: { every: { role: PartnerRoleType.CUSTOMER } },
+    storeOrders: { every: { agentId } },
+    leads: { every: { agentId } },
+    AND: [
+      {
+        OR: [
+          { storeOrders: { some: { agentId } } },
+          { leads: { some: { agentId } } },
+        ],
+      },
+    ],
+    agent: { is: null },
+    salesQuotations: { none: {} },
+    salesOrders: { none: {} },
+    salesInvoices: { none: {} },
+    salesReturns: { none: {} },
+  };
+}
+
 /**
  * Agent customer → Partner (security finding S1).
  *
@@ -39,24 +64,8 @@ export async function resolveAgentCustomerPartner(
   if (customer.mobile) {
     const match = await tx.partner.findFirst({
       where: {
-        deletedAt: null,
+        ...agentOwnedCustomerWhere(agentId),
         OR: [{ mobile: customer.mobile }, { phone: customer.mobile }],
-        roles: { every: { role: PartnerRoleType.CUSTOMER } },
-        storeOrders: { every: { agentId } },
-        leads: { every: { agentId } },
-        AND: [
-          {
-            OR: [
-              { storeOrders: { some: { agentId } } },
-              { leads: { some: { agentId } } },
-            ],
-          },
-        ],
-        agent: { is: null },
-        salesQuotations: { none: {} },
-        salesOrders: { none: {} },
-        salesInvoices: { none: {} },
-        salesReturns: { none: {} },
       },
       orderBy: { createdAt: 'asc' },
       select: { id: true },

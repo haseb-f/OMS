@@ -75,6 +75,9 @@ first: number, date, status, total] }`.
   variants): `{ kind: 'NAME', candidates: [...] }` — soft warning.
 - **Cross-scope match** (record outside the caller's scope — another agent's, or a company customer
   seen from an agent user): `{ kind: 'PHONE', crossScope: true }` only — no name, id or orders.
+  Integrator decision (2026-09-30): for internal/company orders a customer owned by an agent (no
+  company order of its own) is also cross-scope — it is never attached to a company order; the order
+  gets a new customer and `duplicateReviewStatus = PENDING`, and the reviewer sees both sides.
 
 Create endpoints accept `duplicateResolution`:
 `{ decision: 'USE_EXISTING_CUSTOMER' | 'INTENTIONAL_NEW_ORDER' | 'DIFFERENT_CUSTOMER', customerId? }`.

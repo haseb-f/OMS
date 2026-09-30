@@ -218,6 +218,8 @@ const REVIEWED_MUTATING_SKIPS: Record<string, string> = {
     'Any-of store-orders.edit / store-orders.manage / sales.receipts.create — StoreOrderPaymentDeclarationService.resolveActor throws 403 otherwise, and findOne applies the order visibility scope.',
   'store-orders/store-orders.controller.ts POST :id/pickup/:code':
     'Any-of store-orders.edit / shipping.edit — the controller checks PICKUP_PERMISSIONS and throws 403 before transitionPickup.',
+  'store-orders/duplicates/store-order-duplicates.controller.ts POST duplicate-check':
+    'Read-only duplicate check (no write) for any order creator: StoreOrderDuplicatesService.internalScope requires store-orders.create or crm.leads.convert (with agentId: agents.edit, or store-orders.create + agents.view) and throws 403 otherwise.',
   'agents/orders/agent-orders.controller.ts POST':
     'Internal agent order: AgentOrdersService.assertInternalCreate requires agents.edit, or store-orders.create + agents.view (403 otherwise); agent users never reach this internal route.',
   'agents/orders/agent-orders.controller.ts POST leads/:leadId/convert':

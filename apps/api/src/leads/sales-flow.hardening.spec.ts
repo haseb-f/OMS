@@ -309,8 +309,16 @@ describe('Sales Flow Hardening', () => {
 
   async function productIds() {
     const products = await prisma.product.findMany({
-      where: { deletedAt: null, isSellable: true, status: 'ACTIVE' },
+      // Company products only — agent-owned goods are refused on company
+      // leads (S2), and other specs leave agent fixtures behind.
+      where: {
+        deletedAt: null,
+        isSellable: true,
+        status: 'ACTIVE',
+        ownerAgentId: null,
+      },
       select: { id: true },
+      orderBy: { createdAt: 'asc' },
       take: 2,
     });
     if (!products.length) throw new Error('A sellable product is required.');

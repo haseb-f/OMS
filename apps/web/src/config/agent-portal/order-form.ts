@@ -202,10 +202,17 @@ export function buildCreateOrderInput(
   };
 }
 
-export function buildConvertLeadInput(state: OrderFormState): ConvertLeadInput | null {
+export function buildConvertLeadInput(
+  state: OrderFormState,
+  idempotencyKey?: string,
+): ConvertLeadInput | null {
   const pricing = buildPricingInput(state);
   if (!pricing) return null;
-  return { ...pricing, ...(trimmedOrUndefined(state.notes) ? { notes: state.notes.trim() } : {}) };
+  return {
+    ...pricing,
+    ...(trimmedOrUndefined(state.notes) ? { notes: state.notes.trim() } : {}),
+    ...(idempotencyKey ? { idempotencyKey } : {}),
+  };
 }
 
 /**
@@ -225,9 +232,7 @@ export type WorkedHintKind = "included" | "includedService" | "added" | "addedSe
  * (e.g. "1,000 incl. 100 shipping = 900 products + 100 shipping"), built
  * only from the server's quote — null when there is no breakdown yet.
  */
-export function workedHint(
-  quote: Pick<OrderQuote, "breakdown"> | null,
-): {
+export function workedHint(quote: Pick<OrderQuote, "breakdown"> | null): {
   kind: WorkedHintKind;
   total: number;
   merchandise: number;

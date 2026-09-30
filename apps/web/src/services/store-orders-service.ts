@@ -1,3 +1,4 @@
+import type { DuplicateResolution, DuplicateReviewStatus } from "./order-duplicates-service";
 import { apiClient } from "./api-client";
 import { buildQueryString } from "@/lib/query-string";
 
@@ -286,6 +287,8 @@ export interface StoreOrderRow {
   payableTotal?: string | null;
   agentDispatchedAt?: string | null;
   agentEarnedAt?: string | null;
+  /** Spec 1B — PENDING when flagged for cross-scope duplicate review. */
+  duplicateReviewStatus?: DuplicateReviewStatus;
 }
 
 export interface StoreOrderListParams {
@@ -309,6 +312,8 @@ export interface StoreOrderListParams {
   lossMaking?: boolean;
   /** Agents milestone — orders of one owner agent. */
   agentId?: string;
+  /** Spec 1B duplicate review queue (`store-orders.duplicate_review`). */
+  duplicateReviewStatus?: DuplicateReviewStatus;
 }
 
 export interface StoreOrderListResult {
@@ -392,7 +397,11 @@ export const storeOrdersService = {
     items: { productId: string; quantity: number; unitPrice: number }[];
     /** Optional Sales declaration recorded atomically with the order — never an accounting voucher. */
     declaration?: PaymentDeclarationInput & { idempotencyKey: string };
-  }) => apiClient.post<StoreOrderRow>("/store-orders", dto),
+    /** Spec 1B — one key per create-form instance (a retry returns the first order). */
+    creationIdempotencyKey?: string;
+    /** Spec 1B — the answer to the duplicate customer warning. */
+    duplicateResolution?: DuplicateResolution;
+  }) => apiClient.post<StoreOrderRow & { idempotentReplay?: true }>("/store-orders", dto),
   addNote: (id: string, note: string) =>
     apiClient.post<StoreOrderRow>(`/store-orders/${id}/notes`, { text: note }),
   /**

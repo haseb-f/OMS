@@ -6,9 +6,11 @@ import docUiAr from "./modules/doc-ui.ar";
 import feedbackAr from "./modules/feedback.ar";
 import productCommissionAr from "./modules/product-commission.ar";
 import agentPricingAr from "./modules/agent-pricing.ar";
+import orderDuplicatesAr from "./modules/order-duplicates.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
+  orderDuplicates: orderDuplicatesAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
@@ -160,6 +162,8 @@ const ar = {
    * backend identified one; every message still ends with what to do next.
    */
   errors: {
+    DUPLICATE_ACKNOWLEDGEMENT_REQUIRED:
+      "يوجد عميل مسجل بنفس البيانات — اختر طريقة المتابعة ثم احفظ مرة أخرى.",
     VALIDATION_ERROR: "تحقق من البيانات المدخلة وحاول مرة أخرى.",
     VALIDATION_ERROR_FIELD:
       'القيمة المدخلة في حقل "{field}" غير صالحة. تحقق منها ثم حاول الحفظ مرة أخرى.',
@@ -269,6 +273,7 @@ const ar = {
       export: "تصدير",
       import: "استيراد",
       manage: "إدارة",
+      duplicateReview: "مراجعة التكرار",
     },
     modules: {
       dashboard: "لوحة التحكم",

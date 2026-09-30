@@ -789,15 +789,18 @@ describe('Agents B1 — admin + orders (integration)', () => {
         'CURRENCY_MISMATCH',
       );
       const key = randomUUID();
-      const first = await orders.createAgentOrder(
-        orderInput({ idempotencyKey: key }),
-        { userId: adminId },
-      );
-      const again = await orders.createAgentOrder(
-        orderInput({ idempotencyKey: key }),
-        { userId: adminId },
-      );
+      // A retry resends the same form (Spec 1B: another payload under the
+      // same key is refused).
+      const retried = orderInput({ idempotencyKey: key });
+      const first = await orders.createAgentOrder(retried, { userId: adminId });
+      const again = await orders.createAgentOrder(retried, { userId: adminId });
       expect(again.id).toBe(first.id);
+      await expectCode(
+        orders.createAgentOrder(orderInput({ idempotencyKey: key }), {
+          userId: adminId,
+        }),
+        'IDEMPOTENCY_KEY_REUSED',
+      );
     });
 
     it('declarations: full = payable incl. shipping, destination rules, partial never opens the gate', async () => {
@@ -1151,8 +1154,10 @@ describe('Agents B1 — admin + orders (integration)', () => {
 
       // Same agent, same mobile → the agent's own customer is reused and
       // never rewritten (the new address lives on the new order only).
+      // (Spec 1B: the repeat is an acknowledged new order for that customer.)
       const second = await agentOrderBy(salesCtx, {
         customer: { ...typed, address: 'Second address' },
+        duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' },
       });
       expect(second.partnerId).toBe(first.partnerId);
       expect(
@@ -1169,10 +1174,13 @@ describe('Agents B1 — admin + orders (integration)', () => {
           lines: [{ productId: agentBProductId, quantity: 1, lineAmount: 50 }],
           fulfillmentMethod: 'PICKUP',
           customer: typed,
+          // Spec 1B: cross-scope match → created in agent B, flagged for review.
+          duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' },
         }),
         { userId: adminId },
       );
       expect(other.agentId).toBe(agentBId);
+      expect(other.duplicateReviewStatus).toBe('PENDING');
       expect([first.partnerId, company.id]).not.toContain(other.partnerId);
 
       // Lead conversion follows the same rule.
@@ -1187,6 +1195,7 @@ describe('Agents B1 — admin + orders (integration)', () => {
         {
           pricingMode: 'SHIPPING_ADDED',
           lines: [{ productId: physicalId, quantity: 1, lineAmount: 100 }],
+          duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' },
         },
         { userId: salesCtx.userId, agent: salesCtx },
       );
