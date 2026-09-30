@@ -165,6 +165,8 @@ const en = {
     ORDER_VERSION_CONFLICT: "This order was changed meanwhile. Reload to see the latest version.",
     AMENDMENT_BLOCKED: "The amendment cannot be saved — review the listed reasons.",
     AMENDMENT_ACKNOWLEDGEMENT_REQUIRED: "Confirm every listed impact, then save again.",
+    AMENDMENT_PREVIEW_STALE: "The impact changed since your review — check it again, then save.",
+    STORE_ORDER_ALREADY_INVOICED: "This order is already invoiced by another invoice.",
     AMENDMENT_NO_CHANGES: "Nothing to amend — change at least one field.",
     AGENT_ORDER_CUSTOMER_SWITCH:
       "An agent order's customer is identified by the typed name and mobile — correct those instead.",

@@ -169,6 +169,7 @@ describe("per-user browser storage", () => {
     localStorage.setItem("oms.partners.recentOwners", '["p2"]');
     localStorage.setItem("oms.sidebar.authorizedItems", '["x"]');
     localStorage.setItem("oms.print-job.abc", "{}");
+    localStorage.setItem("oms.orderDetail.u1.storeOrder.openSections", "{}");
     localStorage.setItem("oms.locale", '"ar"');
     sessionStorage.setItem("oms.navTrail", "[]");
     clearPerUserBrowserStorage();
@@ -176,6 +177,7 @@ describe("per-user browser storage", () => {
     expect(localStorage.getItem("oms.partners.recentOwners")).toBeNull();
     expect(localStorage.getItem("oms.sidebar.authorizedItems")).toBeNull();
     expect(localStorage.getItem("oms.print-job.abc")).toBeNull();
+    expect(localStorage.getItem("oms.orderDetail.u1.storeOrder.openSections")).toBeNull();
     expect(sessionStorage.getItem("oms.navTrail")).toBeNull();
     expect(localStorage.getItem("oms.locale")).toBe('"ar"');
   });

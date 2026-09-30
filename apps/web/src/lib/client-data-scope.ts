@@ -120,7 +120,8 @@ const PER_USER_LOCAL_KEYS = [
   "oms.partners.recentEmployees",
   "oms.partners.recentOwners",
 ];
-const PER_USER_LOCAL_PREFIXES = ["oms.print-job.", "oms.partners.recent"];
+/** `oms.orderDetail.` — which order-detail sections a user keeps open (spec 1C). */
+const PER_USER_LOCAL_PREFIXES = ["oms.print-job.", "oms.partners.recent", "oms.orderDetail."];
 /** sessionStorage: the record trail (labels + unsaved editor drafts). */
 const PER_USER_SESSION_KEYS = ["oms.navTrail", "oms.navRestore"];
 /** The user id the per-user storage above currently belongs to. */

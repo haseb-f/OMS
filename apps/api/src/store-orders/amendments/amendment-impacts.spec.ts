@@ -1,5 +1,6 @@
 import {
   amendmentImpact,
+  lineAllocationBlocked,
   amendmentWindow,
   missingAcknowledgements,
   touchesInvoice,
@@ -91,5 +92,43 @@ describe('amendment impacts', () => {
         'DECLARATION_REEVALUATED',
       ]),
     ).toEqual([]);
+  });
+});
+
+describe('investment allocation guard (review MEDIUM 7)', () => {
+  const guard = (over: Partial<Parameters<typeof lineAllocationBlocked>[0]>) =>
+    lineAllocationBlocked({
+      removed: false,
+      changed: false,
+      allocationStatuses: [],
+      reallocationStatuses: [],
+      ...over,
+    });
+
+  it('an ACTIVE allocation blocks any change, including the agreed amount', () => {
+    expect(guard({ changed: true, allocationStatuses: ['ACTIVE'] })).toBe(true);
+    expect(guard({ changed: false, allocationStatuses: ['ACTIVE'] })).toBe(
+      false,
+    );
+  });
+
+  it('reversed allocations and closed reallocations do not block a change', () => {
+    expect(
+      guard({
+        changed: true,
+        allocationStatuses: ['REVERSED'],
+        reallocationStatuses: ['COMPLETED', 'REJECTED'],
+      }),
+    ).toBe(false);
+    expect(guard({ changed: true, reallocationStatuses: ['PENDING'] })).toBe(
+      true,
+    );
+  });
+
+  it('removing a line is blocked while any allocation row references it', () => {
+    expect(guard({ removed: true, allocationStatuses: ['REVERSED'] })).toBe(
+      true,
+    );
+    expect(guard({ removed: true })).toBe(false);
   });
 });

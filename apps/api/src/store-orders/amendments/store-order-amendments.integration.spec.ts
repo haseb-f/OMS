@@ -23,6 +23,7 @@ import { PermissionsResolverService } from '../../permissions/permissions-resolv
 import { WorkflowStatusResolverService } from '../../workflow/workflow-status-resolver.service';
 import { ExchangeRatesService } from '../../accounting/fx/exchange-rates.service';
 import { StoreOrderShipmentsService } from '../shipments/store-order-shipments.service';
+import { SalesInvoicesService } from '../../sales/invoices/sales-invoices.service';
 import { AgentsService } from '../../agents/admin/agents.service';
 import { AgentAgreementsService } from '../../agents/admin/agent-agreements.service';
 import { AgentUsersService } from '../../agents/admin/agent-users.service';
@@ -206,6 +207,7 @@ describe('Spec 1A — order amendments (HTTP integration)', () => {
       expectedVersion: number;
       reason?: string;
       acknowledgements?: string[];
+      impactsFingerprint?: string;
     },
     base = '/store-orders',
   ) =>
@@ -784,11 +786,179 @@ describe('Spec 1A — order amendments (HTTP integration)', () => {
     await expect(shipments.markShipped(order.id)).rejects.toMatchObject({
       response: { code: 'LABEL_REISSUE_REQUIRED' },
     });
+    // Review HIGH 1 — imports / sheet sync cannot record the flagged
+    // parcel as shipped either, unless the same update brings a new label.
+    await expect(
+      shipments.setStatus(order.id, 'SHIPPED'),
+    ).rejects.toMatchObject({
+      response: { code: 'LABEL_REISSUE_REQUIRED' },
+    });
+    await expect(
+      shipments.setStatus(order.id, 'DELIVERED'),
+    ).rejects.toMatchObject({
+      response: { code: 'LABEL_REISSUE_REQUIRED' },
+    });
     await shipments.setLabel(order.id, 'https://labels.test/new.pdf');
     expect(
       (await prisma.shipment.findUniqueOrThrow({ where: { id: shipment.id } }))
         .labelReissueRequired,
     ).toBe(false);
+  });
+
+  // ── Review findings ─────────────────────────────────────────────────────
+
+  it('HIGH 1 — an import that brings a new label ships the flagged parcel and clears the flag', async () => {
+    const order = await companyOrder();
+    const shipment = await addShipment(
+      order.id,
+      'LABEL_CREATED',
+      `TRK-${next()}`,
+    );
+    await prisma.shipment.update({
+      where: { id: shipment.id },
+      data: { labelReissueRequired: true },
+    });
+    const shipments = moduleRef.get(StoreOrderShipmentsService, {
+      strict: false,
+    });
+    await shipments.setStatus(order.id, 'SHIPPED', undefined, {
+      labelReissued: true,
+    });
+    const after = await prisma.shipment.findUniqueOrThrow({
+      where: { id: shipment.id },
+    });
+    expect(after).toMatchObject({
+      status: 'SHIPPED',
+      labelReissueRequired: false,
+    });
+  });
+
+  it('MEDIUM 6 — COD with a label issued: a total change needs the label reissued; prepaid does not', async () => {
+    const cod = await companyOrder();
+    await prisma.storeOrder.update({
+      where: { id: cod.id },
+      data: { paymentType: 'CASH_ON_DELIVERY' },
+    });
+    await addShipment(cod.id, 'LABEL_CREATED', `TRK-${next()}`);
+    expect(
+      codes((await preview(users.sales, cod.id, amountChange(cod, 90))).body),
+    ).toContain('LABEL_REISSUE_REQUIRED');
+    const prepaid = await companyOrder();
+    await addShipment(prepaid.id, 'LABEL_CREATED', `TRK-${next()}`);
+    expect(
+      codes(
+        (await preview(users.sales, prepaid.id, amountChange(prepaid, 90)))
+          .body,
+      ),
+    ).not.toContain('LABEL_REISSUE_REQUIRED');
+    // Switching prepaid → COD changes what the carrier collects.
+    expect(
+      codes(
+        (
+          await preview(users.sales, prepaid.id, {
+            paymentType: 'CASH_ON_DELIVERY',
+          })
+        ).body,
+      ),
+    ).toContain('LABEL_REISSUE_REQUIRED');
+  });
+
+  it('MEDIUM 5/8 — customer switch: another address is a destination change; out-of-scope customers are refused', async () => {
+    const order = await companyOrder();
+    await addShipment(order.id, 'LABEL_CREATED', `TRK-${next()}`);
+    const other = await prisma.partner.create({
+      data: {
+        partnerNumber: `AMD-P-${next()}`,
+        name: `Amend other ${tag}`,
+        city: 'Alexandria',
+        address: 'Other street',
+        countryId: egId,
+        roles: { create: { role: 'CUSTOMER' } },
+      },
+    });
+    const switched = await preview(users.sales, order.id, {
+      customer: { partnerId: other.id },
+      destination: {
+        countryId: egId,
+        city: 'Alexandria',
+        address: 'Other street',
+      },
+    });
+    expect(codes(switched.body)).toEqual(
+      expect.arrayContaining(['LABEL_REISSUE_REQUIRED']),
+    );
+    expect(codes(switched.body)).not.toContain('CUSTOMER_OUT_OF_SCOPE');
+
+    // An own-scope user may not attach another owner's customer.
+    const own = await internalUser('own', [
+      'store-orders.view',
+      'store-orders.create',
+      'store-orders.edit',
+      'store-orders.amend',
+    ]);
+    const ownOrder = await post(own, '/store-orders', {
+      partner: {
+        name: `Own customer ${next()}`,
+        phone: phone(),
+        countryId: egId,
+      },
+      currencyId,
+      source: 'MANUAL',
+      items: [{ productId, quantity: 1, unitPrice: 100 }],
+    });
+    expect(ownOrder.status).toBe(201);
+    const foreign = await preview(own, ownOrder.body.id, {
+      customer: { partnerId: order.partnerId },
+    });
+    expect(foreign.status).toBe(200);
+    expect(codes(foreign.body)).toContain('CUSTOMER_OUT_OF_SCOPE');
+    expect(foreign.body.canCommit).toBe(false);
+  });
+
+  it('MEDIUM 4 — a cancelled store-order invoice cannot return to draft while another invoice exists', async () => {
+    const order = await companyOrder();
+    const cancelled = await prisma.salesInvoice.create({
+      data: {
+        invoiceNumber: `AMD-INV-${next()}`,
+        partnerId: order.partnerId,
+        storeOrderId: order.id,
+        status: 'CANCELLED',
+      },
+    });
+    const active = await prisma.salesInvoice.create({
+      data: {
+        invoiceNumber: `AMD-INV-${next()}`,
+        partnerId: order.partnerId,
+        storeOrderId: order.id,
+        status: 'CONFIRMED',
+      },
+    });
+    const invoices = moduleRef.get(SalesInvoicesService, { strict: false });
+    await expect(invoices.returnToDraft(cancelled.id)).rejects.toMatchObject({
+      response: { code: 'STORE_ORDER_ALREADY_INVOICED' },
+    });
+    expect(
+      (
+        await prisma.salesInvoice.findUniqueOrThrow({
+          where: { id: cancelled.id },
+        })
+      ).status,
+    ).toBe('CANCELLED');
+    expect(active.status).toBe('CONFIRMED');
+  });
+
+  it('LOW — a commit against a changed impact set is a stale preview (409)', async () => {
+    const order = await companyOrder();
+    const changes = amountChange(order, 80);
+    const first = await preview(users.sales, order.id, changes);
+    await addPayment(order.id, 100, PaymentStatus.VERIFIED);
+    const stale = await commit(users.sales, order.id, {
+      changes,
+      expectedVersion: 0,
+      impactsFingerprint: first.body.impactsFingerprint,
+    });
+    expect(stale.status).toBe(409);
+    expect(stale.body.code).toBe('AMENDMENT_PREVIEW_STALE');
   });
 
   // ── Acceptance 7 — agent orders ─────────────────────────────────────────
@@ -889,9 +1059,60 @@ describe('Spec 1A — order amendments (HTTP integration)', () => {
       // The W2 re-pricing on assignment is a commercial mutation too.
       expect(assignedOrder.version).toBe(2);
 
+      // Review HIGH 3 — an amount-only amendment never re-reads live
+      // tariffs: an agreement edit after submission changes nothing.
+      await prisma.agentShippingRate.updateMany({
+        where: {
+          agreement: { agentId: agentAId },
+          deliveryChannel: 'CARRIER',
+          paymentType: 'PREPAID',
+        },
+        data: { amount: 99 },
+      });
+      const amountOnly = {
+        items: [
+          {
+            itemId: assignedOrder.items[0].id,
+            productId: agentProductId,
+            quantity: 2,
+            agreedAmount: 650,
+          },
+        ],
+      };
+      const frozenPreview = await preview(users.sales, order.id, amountOnly);
+      expect(frozenPreview.body.totals.next).toBe('675.00');
+      expect(codes(frozenPreview.body)).not.toContain(
+        'AGENT_SHIPPING_REPRICED',
+      );
+      expect(
+        (
+          await commit(users.sales, order.id, {
+            changes: amountOnly,
+            expectedVersion: 2,
+          })
+        ).status,
+      ).toBe(201);
+      const frozen = await loadOrder(order.id);
+      const frozenSnap =
+        frozen.agentTermsSnapshot as unknown as AgentOrderSnapshot;
+      expect(frozenSnap.agentShippingCharge).toMatchObject({
+        amount: 25,
+        source: 'TARIFF',
+        deliveryChannel: 'CARRIER',
+      });
+      expect(frozenSnap.agentShippingCharge?.byChannel?.CARRIER?.amount).toBe(
+        25,
+      );
+      expect(Number(frozen.shippingCharge)).toBe(25);
+      expect(Number(frozen.payableTotal)).toBe(675);
+
+      // Review HIGH 2 — with the delivery method chosen, the preview shows
+      // the payable the confirmed fee yields and the commit ends there, with
+      // declared / Finance statuses computed on it.
       const cod = await preview(users.sales, order.id, {
         paymentType: 'CASH_ON_DELIVERY',
       });
+      expect(cod.body.totals.next).toBe('685.00');
       const repriced = cod.body.impacts.find(
         (i: { code: string }) => i.code === 'AGENT_SHIPPING_REPRICED',
       );
@@ -901,13 +1122,16 @@ describe('Spec 1A — order amendments (HTTP integration)', () => {
       });
       const internal = await commit(users.sales, order.id, {
         changes: { paymentType: 'CASH_ON_DELIVERY' },
-        expectedVersion: 2,
+        expectedVersion: frozen.version,
+        impactsFingerprint: cod.body.impactsFingerprint,
       });
       expect(internal.status).toBe(201);
       const final = await loadOrder(order.id);
       expect(final.shippingPricingStatus).toBe('CONFIRMED');
       expect(Number(final.shippingCharge)).toBe(35);
-      expect(Number(final.payableTotal)).toBe(735);
+      expect(Number(final.payableTotal)).toBe(685);
+      // Declared 725 (set above, no claim rows) → recomputed on 685: unpaid.
+      expect(final.declaredPaymentStatus).toBe('UNPAID');
       expect(internal.body.version).toBe(final.version);
     });
 

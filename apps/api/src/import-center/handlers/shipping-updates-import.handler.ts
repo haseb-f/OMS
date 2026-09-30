@@ -514,7 +514,11 @@ export class ShippingUpdatesImportHandler
 
   private async applyUpdate(
     order: { id: string },
-    current: { id: string; status: ShipmentStatus | null } | null,
+    current: {
+      id: string;
+      status: ShipmentStatus | null;
+      trackingNumber?: string | null;
+    } | null,
     catalogStatus: { id: string; code: string; name: string },
     trackingNumber: string | undefined,
     shippingCompanyId: string | undefined,
@@ -552,11 +556,18 @@ export class ShippingUpdatesImportHandler
           }
           await this.shipmentsService.createReshipment(order.id, tx);
         }
+        // Spec 1A — a new label or tracking in the same row answers an
+        // amendment's reissue request; otherwise a flagged parcel cannot be
+        // recorded as shipped.
+        const labelReissued =
+          !!labelUrl ||
+          (!!trackingNumber && trackingNumber !== current?.trackingNumber);
         let updated = await this.shipmentsService.applyCatalogStatus(
           order.id,
           catalogStatus.id,
           catalogStatus.code,
           tx,
+          { labelReissued },
         );
         if (shippingCompanyId) {
           updated = await tx.shipment.update({
@@ -567,13 +578,16 @@ export class ShippingUpdatesImportHandler
         if (trackingNumber) {
           updated = await tx.shipment.update({
             where: { id: updated.id },
-            data: { trackingNumber },
+            data: {
+              trackingNumber,
+              ...(labelReissued ? { labelReissueRequired: false } : {}),
+            },
           });
         }
         if (labelUrl) {
           updated = await tx.shipment.update({
             where: { id: updated.id },
-            data: { labelUrl },
+            data: { labelUrl, labelReissueRequired: false },
           });
         }
         if (notes) {

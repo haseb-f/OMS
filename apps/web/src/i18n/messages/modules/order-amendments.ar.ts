@@ -55,6 +55,7 @@ const orderAmendmentsAr = {
   infoTitle: "ما الذي سيتغير",
   acknowledgeHint: "حدّد كل التأكيدات للحفظ.",
   success: "تم تعديل الطلب (الإصدار {version}).",
+  stale: "تغيّر الأثر منذ مراجعتك — راجعه مرة أخرى ثم احفظ.",
   invoiceRegenerated: "صدرت الفاتورة الجديدة {number}.",
   conflict: {
     title: "تغيّر الطلب في الأثناء",
@@ -63,6 +64,9 @@ const orderAmendmentsAr = {
     reload: "إعادة تحميل الطلب",
   },
   impact: {
+    unknown: "لهذا التغيير أثر يحتاج مراجعة — أعد تحميل الطلب ثم حاول مرة أخرى.",
+    AGENT_SHIPPING_OVERRIDE_DROPPED:
+      "لم يعد رسم الشحن اليدوي {previous} ساريًا — يُعاد تسعير الشحن من الاتفاقية للوجهة / طريقة الدفع الجديدة.",
     ORDER_LOCKED_AFTER_DELIVERY:
       "الطلب {orderNumber} مُسلَّم أو مُستلَم أو مُرتجع أو ملغى أو مؤرشف — استخدم مسارات الإرجاع أو الاسترداد أو التسوية.",
     ORDER_IN_TRANSIT:
@@ -80,16 +84,14 @@ const orderAmendmentsAr = {
       "اعكس أو استرد الدفعة {payment} ({amount} {currency}) أولًا — الدفعة المرحّلة أو المطابقة تُبقي عملة الطلب.",
     CURRENCY_DECLARATIONS_REVIEW:
       "تبقى {count} إفادة دفع بعملة {currency}؛ يُعلَّم الطلب لمراجعة المالية.",
-    INVOICE_DRAFT_CANCELLED:
-      "ستُلغى مسودة الفاتورة {invoice} وتصدر فاتورة جديدة من الطلب المعدّل.",
+    INVOICE_DRAFT_CANCELLED: "ستُلغى مسودة الفاتورة {invoice} وتصدر فاتورة جديدة من الطلب المعدّل.",
     INVOICE_POSTED:
       "فاتورة المبيعات {invoice} مرحّلة ولا تُعدَّل أبدًا. صحّحها بمرتجع مبيعات يشير إلى {invoice}، وسجّل الفرق كطلب منفصل.",
     CUSTOMER_PERMISSION_REQUIRED: "تصحيح اسم العميل أو هاتفه أو بريده يتطلب صلاحية تعديل العملاء.",
     CUSTOMER_OUT_OF_SCOPE: "لا يمكن ربط هذا العميل بطلب للشركة — اختر عميلًا للشركة.",
     CUSTOMER_PHONE_IN_USE:
       "هذا الهاتف لعميل آخر ({customer}) — انقل الطلب إلى ذلك العميل بدلًا من ذلك.",
-    CUSTOMER_MASTER_SHARED:
-      "سجل العميل مشترك مع {count} طلب آخر — يسري التصحيح عليها جميعًا.",
+    CUSTOMER_MASTER_SHARED: "سجل العميل مشترك مع {count} طلب آخر — يسري التصحيح عليها جميعًا.",
     CUSTOMER_DUPLICATE_REVIEW:
       "الجوال الجديد يطابق عميلًا خارج نطاقك — يبقى للطلب عميله ويُعلَّم لمراجعة التكرار.",
     CUSTOMER_RELINKED: "الجوال الجديد للعميل المسجل {customer} — يُربط الطلب بذلك العميل.",
@@ -102,7 +104,32 @@ const orderAmendmentsAr = {
       "لا توجد تعرفة شحن في الاتفاقية لطريقة التوصيل المحددة ({deliveryChannel}) × {paymentType} × الوجهة الجديدة — أضفها للاتفاقية أو اطلب من الشحن اختيار طريقة أخرى أولًا.",
     AGENT_REQUOTED:
       "أُعيد التسعير وفق الاتفاقية {agreement}: المستحق {previous} ← {next}. تُستبدل لقطة العمولة وتبقى السابقة في السجل.",
-    AGENT_SHIPPING_REPRICED: "رسم شحن الوكيل {previous} ({previousStatus}) ← {next} ({nextStatus}).",
+    AGENT_SHIPPING_REPRICED:
+      "رسم شحن الوكيل {previous} ({previousStatus}) ← {next} ({nextStatus}).",
+  },
+  pricingIssue: {
+    generic: "تعذّر إعادة تسعير الطلب ({code}) — راجع الأسطر والوجهة.",
+    SHIPPING_RATE_REQUIRED: "لا يوجد سعر شحن في الاتفاقية لهذه الوجهة.",
+    SHIPPING_COUNTRY_REQUIRED: "حدد دولة الشحن.",
+    AGENT_SHIPPING_CHARGE_NOT_CONFIGURED:
+      "لا يوجد سعر شحن في الاتفاقية لهذه الوجهة لتحديد رسم شحن الوكيل.",
+    AGENT_SHIPPING_DIFFERENCE_PENDING_DECISION:
+      "شحن العميل يختلف عن رسم شحن الوكيل — معالجة الفرق بانتظار قرار الإدارة.",
+    AGENT_SHIPPING_EXCEEDS_TOTAL:
+      "رسم الشحن ({fee}) لا يترك مبلغًا للمنتجات ضمن الإجمالي المتفق عليه ({agreedTotal}).",
+    PRODUCT_NOT_AVAILABLE: "أحد المنتجات غير متاح للبيع.",
+    MIXED_OWNER_ORDER: "يجب أن تكون كل المنتجات ملك وكيل هذا الطلب.",
+    NO_ACTIVE_AGREEMENT: "لا توجد اتفاقية سارية للوكيل في تاريخ الطلب.",
+    CURRENCY_MISMATCH: "عملة الطلب يجب أن تساوي عملة الاتفاقية.",
+    AGENT_COMMISSION_RATE_MISSING: "لا توجد نسبة عمولة مُعدّة لهذا النوع من الأصناف.",
+    AGENT_ITEM_TYPE_REQUIRED: "أحد الأصناف بلا نوع (منتج / خدمة).",
+    LINE_AMOUNT_REQUIRED: "أدخل المبلغ المتفق عليه لكل سطر.",
+    AGREED_TOTAL_REQUIRED: "أدخل الإجمالي المتفق عليه (شامل الشحن).",
+    CHARGES_EXCEED_TOTAL: "رسوم الشحن والخدمة تتجاوز الإجمالي المتفق عليه.",
+    MERCHANDISE_NOT_POSITIVE: "يجب أن يكون مبلغ البضاعة أكبر من صفر.",
+    INVALID_AMOUNT: "أحد المبالغ غير صالح.",
+    INVALID_QUANTITY: "إحدى الكميات غير صالحة.",
+    CUSTOMER_MOBILE_INVALID: "رقم جوال العميل غير صالح.",
   },
   nextAction: {
     RESOLVE_DUPLICATE: "حسم مراجعة التكرار",

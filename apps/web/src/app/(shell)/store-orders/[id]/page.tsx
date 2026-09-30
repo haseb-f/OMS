@@ -108,8 +108,9 @@ import { isImageAttachmentMime } from "@/lib/order-attachments";
 import type { MessageKey } from "@/i18n/translate";
 
 const ACTIVITY_PREVIEW = 8;
-/** Remembered per browser user: which detail sections stay open (spec 1C). */
-const SECTIONS_KEY = "oms.storeOrderDetail.openSections";
+/** Remembered per user (per-user browser storage): which detail sections stay open (spec 1C). */
+const sectionsKey = (userId: string | undefined) =>
+  `oms.orderDetail.${userId ?? "anonymous"}.storeOrder.openSections`;
 type SectionKey = "payments" | "shipments" | "history" | "technical";
 
 const NEXT_ACTION_ICON: Partial<Record<NextActionKind, LucideIcon>> = {
@@ -223,13 +224,12 @@ function StoreOrderDetailContent() {
   const [shippingEditOpen, setShippingEditOpen] = useState(false);
   const [shippingCompanies, setShippingCompanies] = useState<ShippingCompanyOption[]>([]);
   const [amendOpen, setAmendOpen] = useState(false);
-  const [amendProducts, setAmendProducts] = useState<SearchableSelectOption[]>([]);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [handOverOpen, setHandOverOpen] = useState(false);
   const [customerTotal, setCustomerTotal] = useState<number | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [openSections, setOpenSections] = useLocalStorage<Partial<Record<SectionKey, boolean>>>(
-    SECTIONS_KEY,
+    sectionsKey(user?.id),
     {},
   );
   const [preview, setPreview] = useState<{
@@ -430,30 +430,36 @@ function StoreOrderDetailContent() {
     setShippingEditOpen(true);
   };
 
-  /** Company orders pick among company-owned sellable products, agent orders among the agent's own. */
-  const openAmend = () => {
-    if (!order) return;
-    setAmendOpen(true);
-    const products = order.agentId
-      ? agentsService.products.list(order.agentId).then((result) =>
-          result.items
-            .filter((product) => product.status === "ACTIVE" && product.isSellable)
-            .map((product) => ({
-              value: product.id,
-              label: product.displayName || product.name,
-              description: product.sku,
-            })),
+  /** Company orders search company-owned sellable products, agent orders the agent's own. */
+  const searchAmendProducts = async (query: string): Promise<SearchableSelectOption[]> => {
+    if (!order) return [];
+    const needle = query.trim().toLocaleLowerCase();
+    if (order.agentId) {
+      const result = await agentsService.products.list(order.agentId);
+      return result.items
+        .filter((product) => product.status === "ACTIVE" && product.isSellable)
+        .filter(
+          (product) =>
+            !needle ||
+            [product.name, product.displayName, product.nameEn, product.sku]
+              .filter(Boolean)
+              .some((text) => String(text).toLocaleLowerCase().includes(needle)),
         )
-      : productsService.catalog({ pageSize: 200, isSellable: true }).then((result) =>
-          result.items
-            .filter((product) => !product.ownerAgentId)
-            .map((product) => ({
-              value: product.id,
-              label: product.name,
-              description: product.sku,
-            })),
-        );
-    products.then(setAmendProducts).catch(() => setAmendProducts([]));
+        .slice(0, 50)
+        .map((product) => ({
+          value: product.id,
+          label: product.displayName || product.name,
+          description: product.sku,
+        }));
+    }
+    const result = await productsService.catalog({
+      search: query.trim() || undefined,
+      pageSize: 50,
+      isSellable: true,
+    });
+    return result.items
+      .filter((product) => !product.ownerAgentId)
+      .map((product) => ({ value: product.id, label: product.name, description: product.sku }));
   };
 
   const runPickup = async (code: "READY_FOR_PICKUP" | "COLLECTED") => {
@@ -1149,7 +1155,7 @@ function StoreOrderDetailContent() {
                 icon: PenLine,
                 testId: "order-amend",
                 hidden: !canAmend || (Boolean(order.agentId) && !hasPermission("agents.view")),
-                onSelect: openAmend,
+                onSelect: () => setAmendOpen(true),
               },
             ]}
             more={[
@@ -1227,7 +1233,7 @@ function StoreOrderDetailContent() {
         order={amendableFromStoreOrder(order)}
         client={storeOrdersService.amendments}
         options={{
-          products: amendProducts,
+          searchProducts: searchAmendProducts,
           countries: countries.map((country) => ({
             value: country.id,
             label: locale === "en" && country.nameEn ? country.nameEn : country.name,

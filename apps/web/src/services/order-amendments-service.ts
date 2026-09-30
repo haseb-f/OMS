@@ -39,6 +39,8 @@ export interface AmendmentPreview {
   canCommit: boolean;
   impacts: AmendmentImpact[];
   requiredAcknowledgements: string[];
+  /** Echo on commit — a changed impact set since the preview is a 409 AMENDMENT_PREVIEW_STALE. */
+  impactsFingerprint: string;
   totals: { currency: string; previous: string; next: string };
 }
 
@@ -47,6 +49,7 @@ export interface AmendmentCommitInput {
   expectedVersion: number;
   reason: string;
   acknowledgements: string[];
+  impactsFingerprint?: string;
 }
 
 export interface AmendmentCommitResult<TOrder> {

@@ -25,19 +25,29 @@ export interface ImpactView {
 
 type Translate = (key: MessageKey, params?: Record<string, string | number>) => string;
 
-/** Codes whose server message is already the precise, bilingual explanation. */
-const SERVER_TEXT_CODES = new Set(["AGENT_PRICING_INVALID"]);
-
-/** Localized impact text: `orderAmendments.impact.<CODE>` with the impact params, else the server text. */
+/**
+ * Localized impact text: `orderAmendments.impact.<CODE>` with the impact
+ * params. A re-quote problem (AGENT_PRICING_INVALID) is named by its issue
+ * code (`orderAmendments.pricingIssue.<issueCode>`); only the UI-language half
+ * of a bilingual server message is ever shown, never English in the Arabic UI.
+ */
 export function impactText(impact: AmendmentImpact, t: Translate, locale: Locale): string {
-  const serverText = uiLanguagePart(impact.message, locale) ?? impact.message;
-  if (SERVER_TEXT_CODES.has(impact.code)) return serverText;
-  const key = `orderAmendments.impact.${impact.code}` as MessageKey;
   const params = Object.fromEntries(
     Object.entries(impact.params ?? {}).map(([name, value]) => [name, value ?? "—"]),
   ) as Record<string, string | number>;
+  if (impact.code === "AGENT_PRICING_INVALID") {
+    const issueKey = `orderAmendments.pricingIssue.${String(params.issueCode)}` as MessageKey;
+    const issue = t(issueKey, params);
+    if (issue !== issueKey) return issue;
+    return (
+      uiLanguagePart(impact.message, locale) ??
+      t("orderAmendments.pricingIssue.generic", { code: String(params.issueCode) })
+    );
+  }
+  const key = `orderAmendments.impact.${impact.code}` as MessageKey;
   const text = t(key, params);
-  return text === key ? serverText : text;
+  if (text !== key) return text;
+  return uiLanguagePart(impact.message, locale) ?? t("orderAmendments.impact.unknown");
 }
 
 export function buildImpactView(

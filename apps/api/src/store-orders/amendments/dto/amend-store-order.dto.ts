@@ -158,6 +158,12 @@ export class AmendmentCommitDto extends AmendmentPreviewDto {
   @MaxLength(1000)
   reason!: string;
 
+  /** `impactsFingerprint` of the preview the user confirmed — a different impact set is a 409. */
+  @IsString()
+  @IsOptional()
+  @MaxLength(64)
+  impactsFingerprint?: string;
+
   /** Codes of the non-blocking impacts the user acknowledged. */
   @IsArray()
   @IsString({ each: true })

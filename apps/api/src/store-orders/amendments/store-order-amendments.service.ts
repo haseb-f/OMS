@@ -35,7 +35,10 @@ import { assertCompanyOwnedProduct } from '../../products/assert-company-owned-p
 import {
   AgentOrdersService,
   type AgentOrderActor,
+  type FrozenShipping,
 } from '../../agents/orders/agent-orders.service';
+import { SalesScopeService } from '../../sales-scope/sales-scope.service';
+import { createHash } from 'node:crypto';
 import {
   agentOrderColumns,
   agentOrderInitialStage,
@@ -55,6 +58,7 @@ import { agentNotFound } from '../../agents/common/agent-visibility';
 import {
   amendmentImpact,
   amendmentWindow,
+  lineAllocationBlocked,
   blockingImpacts,
   hasAnyChange,
   missingAcknowledgements,
@@ -79,6 +83,22 @@ export interface AmendmentActor {
 
 export const ORDER_AMENDED_ACTIVITY = 'ORDER_AMENDED';
 export const LABEL_REISSUE_ACTIVITY = 'LABEL_REISSUE_REQUIRED';
+const AMENDMENT_DISCREPANCY_SUFFIX = ' (order amendment).';
+
+/** Stable digest of the previewed impacts (codes + amounts) — a changed set is a stale preview. */
+export function impactsFingerprint(impacts: AmendmentImpact[]): string {
+  const canonical = impacts.map((i) => [
+    i.code,
+    i.severity,
+    Object.keys(i.params ?? {})
+      .sort()
+      .map((key) => [key, i.params[key]]),
+  ]);
+  return createHash('sha256')
+    .update(JSON.stringify(canonical))
+    .digest('hex')
+    .slice(0, 32);
+}
 
 const EPSILON = 0.005;
 const DRAFT_INVOICE_STATUSES: SalesDocumentStatus[] = [
@@ -118,6 +138,8 @@ const ORDER_SELECT = {
   declaredPaymentStatus: true,
   declaredAmount: true,
   paymentStatus: true,
+  paymentDiscrepancy: true,
+  paymentDiscrepancyReason: true,
   updatedAt: true,
   updatedBy: true,
   currency: { select: { id: true, code: true } },
@@ -145,7 +167,8 @@ const ORDER_SELECT = {
       unitPrice: true,
       agreedAmount: true,
       product: { select: { name: true, displayName: true } },
-      _count: { select: { investmentAllocations: true, reallocations: true } },
+      investmentAllocations: { select: { status: true } },
+      reallocations: { select: { status: true } },
     },
   },
   shipments: {
@@ -260,6 +283,7 @@ export class StoreOrderAmendmentsService {
     private readonly statusResolver: WorkflowStatusResolverService,
     private readonly paymentSync: StoreOrderPaymentSyncService,
     private readonly agentFulfillment: AgentFulfillmentService,
+    private readonly salesScope: SalesScopeService,
   ) {}
 
   // ── Public operations ───────────────────────────────────────────────────
@@ -291,6 +315,19 @@ export class StoreOrderAmendmentsService {
           throw await this.versionConflict(tx, head);
         }
         const plan = await this.plan(tx, orderId, dto.changes, actor);
+        // The acknowledgements were given for the previewed amounts: a
+        // different impact set (e.g. a payment posted meanwhile) is stale.
+        if (
+          dto.impactsFingerprint &&
+          dto.impactsFingerprint !== impactsFingerprint(plan.impacts)
+        ) {
+          throw new ConflictException({
+            code: 'AMENDMENT_PREVIEW_STALE',
+            message:
+              'The impact of this amendment changed since the preview — review it again.',
+            details: { impacts: plan.impacts },
+          });
+        }
         const blocking = blockingImpacts(plan.impacts);
         if (blocking.length > 0) {
           throw new UnprocessableEntityException({
@@ -425,7 +462,7 @@ export class StoreOrderAmendmentsService {
         ? changes.customer.partnerId
         : null;
     const customerBase = switchToPartnerId
-      ? await this.switchTarget(db, switchToPartnerId, impacts)
+      ? await this.switchTarget(db, switchToPartnerId, actor, impacts)
       : customerBefore;
     const customerAfter: CustomerSnapshotView = { ...customerBase };
     if (changes.destination) {
@@ -475,11 +512,16 @@ export class StoreOrderAmendmentsService {
     let agentQuote: AgentOrderPersistInput | null = null;
     let currencyCode = order.currency.code;
 
-    const destinationChanged =
-      !!changes.destination &&
-      (customerAfter.countryId !== customerBase.countryId ||
-        (customerAfter.city ?? '') !== (customerBase.city ?? '') ||
-        (customerAfter.address ?? '') !== (customerBase.address ?? ''));
+    // The shipping destination is the order's effective address: switching
+    // to a customer with another address moves the parcel too.
+    const differs = (a: CustomerSnapshotView, b: CustomerSnapshotView) =>
+      a.countryId !== b.countryId ||
+      (a.city ?? '') !== (b.city ?? '') ||
+      (a.address ?? '') !== (b.address ?? '');
+    const destinationChanged = differs(customerAfter, customerBefore);
+    /** Company customer master address to write (differs from that customer's own record). */
+    const partnerAddressChanged =
+      !!changes.destination && differs(customerAfter, customerBase);
 
     const kinds: AmendmentChangeKinds = {
       items: false,
@@ -531,6 +573,21 @@ export class StoreOrderAmendmentsService {
         address: customerAfter.address,
       };
     } else if (isAgentOrder) {
+      // Spec 2 freeze: without a destination / payment type / method change
+      // the order keeps its shipping terms and frozen per-channel tariffs.
+      const frozenShipping =
+        kinds.destination || kinds.paymentType || kinds.fulfillmentMethod
+          ? null
+          : this.frozenShipping(order);
+      if (!frozenShipping && order.shippingChargeSource === 'MANUAL') {
+        impacts.push(
+          amendmentImpact(
+            'AGENT_SHIPPING_OVERRIDE_DROPPED',
+            `The manual shipping charge ${money(num(order.shippingCharge))} no longer applies — shipping is re-priced from the agreement for the new destination / payment type.`,
+            { previous: money(num(order.shippingCharge)) },
+          ),
+        );
+      }
       const quote = await this.agentOrders.quoteAmendment(
         {
           pricingMode:
@@ -553,19 +610,12 @@ export class StoreOrderAmendmentsService {
           serviceCharge: num(order.serviceCharge),
           currencyId: changes.currencyId,
           agentId: order.agentId!,
-          ...(order.shippingChargeSource === 'MANUAL'
-            ? {
-                shippingChargeOverride: num(order.shippingCharge),
-                shippingOverrideReason:
-                  order.shippingOverrideReason ?? undefined,
-              }
-            : {}),
         },
         this.agentActor(actor),
         {
           orderDate: order.orderDate,
           employeeId: order.employeeId,
-          keepShippingOverride: order.shippingChargeSource === 'MANUAL',
+          frozenShipping,
           customer: {
             name: customerAfter.name,
             mobile: customerAfter.phone,
@@ -579,6 +629,7 @@ export class StoreOrderAmendmentsService {
         impacts.push(
           amendmentImpact('AGENT_PRICING_INVALID', issue.message, {
             issueCode: issue.code,
+            lineKey: issue.lineKey ?? null,
           }),
         );
       }
@@ -618,16 +669,23 @@ export class StoreOrderAmendmentsService {
     } else {
       lines = await this.companyLines(db, order, requested);
       total = lines.reduce((sum, line) => sum + line.agreedAmount, 0);
-      if (kinds.currency) {
-        const currency = await db.currency.findFirst({
-          where: { id: currencyId },
-          select: { code: true },
-        });
-        if (!currency) {
-          throw new BadRequestException(`Currency ${currencyId} not found.`);
-        }
-        currencyCode = currency.code;
+    }
+    const nextCurrencyId = agentQuote?.currencyId ?? currencyId;
+    if (nextCurrencyId !== order.currencyId) {
+      kinds.currency = true;
+      const currency = await db.currency.findFirst({
+        where: { id: nextCurrencyId },
+        select: { code: true },
+      });
+      if (!currency) {
+        throw new BadRequestException(`Currency ${nextCurrencyId} not found.`);
       }
+      currencyCode = currency.code;
+    }
+    // Shipping already chose the delivery method: the payable is the one the
+    // confirmed fee yields (the commit re-resolves it the same way).
+    if (isAgentOrder && agentQuote) {
+      total = this.agentPricingImpacts(order, agentQuote, impacts);
     }
     total = Math.round(total * 100) / 100;
 
@@ -652,17 +710,6 @@ export class StoreOrderAmendmentsService {
           'ORDER_IN_TRANSIT',
           'The shipment is on its way — items, quantities, address and fulfillment method cannot change; use a return / reshipment. Prices and customer contact can still change.',
           { tracking: latest?.trackingNumber ?? null },
-        ),
-      );
-    } else if (
-      latest?.status === 'LABEL_CREATED' &&
-      touchesShippedContents(kinds)
-    ) {
-      impacts.push(
-        amendmentImpact(
-          'LABEL_REISSUE_REQUIRED',
-          `Label ${latest.trackingNumber ?? `#${latest.attemptNumber}`} must be cancelled and reissued.`,
-          { tracking: latest.trackingNumber ?? `#${latest.attemptNumber}` },
         ),
       );
     }
@@ -697,7 +744,6 @@ export class StoreOrderAmendmentsService {
           ),
         );
       }
-      if (agentQuote) this.agentPricingImpacts(order, agentQuote, impacts);
     }
 
     // ── Totals and payments ──
@@ -711,6 +757,24 @@ export class StoreOrderAmendmentsService {
         ),
       );
     }
+    // A label carries the contents, the address and — cash on delivery — the
+    // amount the carrier collects: any of them changing needs a new label.
+    const collectionChanged =
+      kinds.paymentType || (paymentType === 'CASH_ON_DELIVERY' && totalChanged);
+    if (
+      window === 'OPEN' &&
+      latest?.status === 'LABEL_CREATED' &&
+      (touchesShippedContents(kinds) || collectionChanged)
+    ) {
+      impacts.push(
+        amendmentImpact(
+          'LABEL_REISSUE_REQUIRED',
+          `Label ${latest.trackingNumber ?? `#${latest.attemptNumber}`} must be cancelled and reissued.`,
+          { tracking: latest.trackingNumber ?? `#${latest.attemptNumber}` },
+        ),
+      );
+    }
+    this.allocationImpacts(order, lines, impacts);
     if (totalChanged) {
       impacts.push(
         amendmentImpact(
@@ -802,7 +866,7 @@ export class StoreOrderAmendmentsService {
       }
     } else {
       const partnerId = switchToPartnerId ?? order.partnerId;
-      const correction = kinds.customerCorrection || kinds.destination;
+      const correction = kinds.customerCorrection || partnerAddressChanged;
       if (correction) {
         partnerUpdate = await this.companyCustomerImpacts(
           db,
@@ -810,12 +874,29 @@ export class StoreOrderAmendmentsService {
           partnerId,
           customerBase,
           customerAfter,
-          kinds,
+          { ...kinds, destination: partnerAddressChanged },
           actor,
           impacts,
         );
       }
     }
+
+    const knownNames = new Set(order.items.map((item) => item.productId));
+    const addedIds = [
+      ...new Set(
+        lines.map((l) => l.productId).filter((id) => !knownNames.has(id)),
+      ),
+    ];
+    const productNames = new Map(
+      addedIds.length
+        ? (
+            await db.product.findMany({
+              where: { id: { in: addedIds } },
+              select: { id: true, name: true, displayName: true },
+            })
+          ).map((p) => [p.id, p.displayName || p.name] as const)
+        : [],
+    );
 
     // A locked order shows only the lock.
     const finalImpacts =
@@ -830,7 +911,7 @@ export class StoreOrderAmendmentsService {
       impacts: finalImpacts,
       lines,
       total,
-      currencyId: agentQuote?.currencyId ?? currencyId,
+      currencyId: nextCurrencyId,
       currencyCode,
       paymentType,
       fulfillmentMethod,
@@ -850,6 +931,7 @@ export class StoreOrderAmendmentsService {
         customerBefore,
         customerAfter,
         {
+          productNames,
           currencyCode,
           paymentType,
           fulfillmentMethod,
@@ -959,35 +1041,32 @@ export class StoreOrderAmendmentsService {
     });
   }
 
+  /**
+   * Re-quote impacts of an agent order and the payable it ends at: with the
+   * delivery method already chosen, the commit re-resolves the fee for that
+   * channel (`AgentShippingPricingService`), so the preview applies the same
+   * `repriceForConfirmedFee` and reports that payable — never the
+   * provisional one.
+   */
   private agentPricingImpacts(
     order: LoadedOrder,
     quote: AgentOrderPersistInput,
     impacts: AmendmentImpact[],
-  ) {
-    impacts.push(
-      amendmentImpact(
-        'AGENT_REQUOTED',
-        `Re-quoted under agreement ${quote.agentTermsSnapshot.agreementNumber}: payable ${money(num(order.payableTotal))} → ${money(quote.payableTotal)}; the commission snapshot is replaced (the previous one is kept in the amendment history).`,
-        {
-          agreement: quote.agentTermsSnapshot.agreementNumber,
-          previous: money(num(order.payableTotal)),
-          next: money(quote.payableTotal),
-        },
-      ),
-    );
+  ): number {
     const snapshot =
       order.agentTermsSnapshot as unknown as AgentOrderSnapshot | null;
     const before = snapshot?.agentShippingCharge ?? null;
     const after = quote.agentShippingCharge;
-    // Shipping already chose the delivery method: price from that channel.
     const company = order.shipments[0]?.shippingCompany ?? null;
     let status = quote.shippingPricingStatus;
     let fee = after?.amount ?? null;
+    let payable = quote.payableTotal;
     if (
       company &&
       after?.byChannel &&
       quote.fulfillmentMethod === 'SHIPPING' &&
-      !quote.digitalOnly
+      !quote.digitalOnly &&
+      quote.shippingPricingStatus !== 'NOT_APPLICABLE'
     ) {
       const channel = deliveryChannelOf(company.type);
       const tariff = after.byChannel[channel];
@@ -999,37 +1078,53 @@ export class StoreOrderAmendmentsService {
             { deliveryChannel: channel, paymentType: quote.paymentType },
           ),
         );
-        return;
+        return payable;
       }
-      if (quote.pricingMode === 'SHIPPING_INCLUDED') {
-        const repriced = repriceForConfirmedFee({
-          mode: 'SHIPPING_INCLUDED',
-          merchandiseAmount: quote.merchandiseAmount,
-          taxAmount: quote.taxAmount,
-          serviceCharge: quote.serviceCharge,
-          shippingCharge: quote.shippingCharge,
-          payableTotal: quote.payableTotal,
-          lines: quote.lines.map((line, index) => ({
-            id: String(index),
-            quantity: line.quantity,
-            amount: line.agreedAmount,
-          })),
-          fee: tariff.amount,
-        });
-        if (repriced.kind === 'REFUSED') {
-          impacts.push(
-            amendmentImpact(
-              'AGENT_PRICING_INVALID',
-              `The shipping fee (${money(repriced.fee)}) leaves no merchandise amount within the agreed total (${money(repriced.agreedTotal)}).`,
-              { issueCode: repriced.code },
-            ),
-          );
-          return;
-        }
+      const repriced = repriceForConfirmedFee({
+        mode: quote.pricingMode,
+        merchandiseAmount: quote.merchandiseAmount,
+        taxAmount: quote.taxAmount,
+        serviceCharge: quote.serviceCharge,
+        shippingCharge: quote.shippingCharge,
+        payableTotal: quote.payableTotal,
+        lines: quote.lines.map((line, index) => ({
+          id: String(index),
+          quantity: line.quantity,
+          amount: line.agreedAmount,
+        })),
+        fee: tariff.amount,
+      });
+      if (repriced.kind === 'REFUSED') {
+        impacts.push(
+          amendmentImpact(
+            'AGENT_PRICING_INVALID',
+            `رسم الشحن (${money(repriced.fee)}) لا يترك مبلغًا للمنتجات ضمن الإجمالي المتفق عليه (${money(repriced.agreedTotal)}) — The shipping fee (${money(repriced.fee)}) leaves no merchandise amount within the agreed total (${money(repriced.agreedTotal)}).`,
+            {
+              issueCode: repriced.code,
+              fee: money(repriced.fee),
+              agreedTotal: money(repriced.agreedTotal),
+            },
+          ),
+        );
+        return payable;
       }
+      // A higher confirmed payable (shipping added) waits for the customer's
+      // agreement; until then the provisional payable stands.
+      if (repriced.kind === 'APPLY') payable = repriced.payableTotal;
       status = 'CONFIRMED';
       fee = tariff.amount;
     }
+    impacts.push(
+      amendmentImpact(
+        'AGENT_REQUOTED',
+        `Re-quoted under agreement ${quote.agentTermsSnapshot.agreementNumber}: payable ${money(num(order.payableTotal))} → ${money(payable)}; the commission snapshot is replaced (the previous one is kept in the amendment history).`,
+        {
+          agreement: quote.agentTermsSnapshot.agreementNumber,
+          previous: money(num(order.payableTotal)),
+          next: money(payable),
+        },
+      ),
+    );
     const feeChanged =
       (before?.amount ?? null) !== fee ||
       order.shippingPricingStatus !== status;
@@ -1046,6 +1141,63 @@ export class StoreOrderAmendmentsService {
           },
         ),
       );
+    }
+    return payable;
+  }
+
+  /** The order's current shipping terms, carried forward by a re-quote (Spec 2 freeze). */
+  private frozenShipping(order: LoadedOrder): FrozenShipping {
+    const snapshot =
+      order.agentTermsSnapshot as unknown as AgentOrderSnapshot | null;
+    const lines = snapshot?.lines;
+    return {
+      digitalOnly: lines ? lines.every((line) => !line.inventoryLine) : false,
+      charge: num(order.shippingCharge),
+      source: order.shippingChargeSource ?? 'NONE',
+      rateAmount:
+        order.shippingRateAmount == null ? null : num(order.shippingRateAmount),
+      overrideReason: order.shippingOverrideReason,
+      agentShippingCharge: snapshot?.agentShippingCharge ?? null,
+      shippingPricingStatus: order.shippingPricingStatus,
+    };
+  }
+
+  /**
+   * Investment allocations pin a sold line (quantity, product, amount): a
+   * change needs the allocation reversed first; a removal is impossible
+   * while any allocation row references the line.
+   */
+  private allocationImpacts(
+    order: LoadedOrder,
+    lines: NextLine[],
+    impacts: AmendmentImpact[],
+  ) {
+    const next = new Map(
+      lines.filter((l) => l.itemId).map((l) => [l.itemId!, l]),
+    );
+    for (const item of order.items) {
+      const line = next.get(item.id);
+      const blocked = lineAllocationBlocked({
+        removed: !line,
+        changed:
+          !!line &&
+          (line.productId !== item.productId ||
+            line.quantity !== item.quantity ||
+            !sameMoney(line.agreedAmount, storeOrderLineAmount(item))),
+        allocationStatuses: item.investmentAllocations.map((a) => a.status),
+        reallocationStatuses: item.reallocations.map((r) => r.status),
+      });
+      if (blocked) {
+        const product =
+          item.product?.displayName || item.product?.name || item.productId;
+        impacts.push(
+          amendmentImpact(
+            'LINE_HAS_ALLOCATIONS',
+            `Line ${product} is allocated to an investment opportunity — reverse that allocation first.`,
+            { product },
+          ),
+        );
+      }
     }
   }
 
@@ -1160,6 +1312,7 @@ export class StoreOrderAmendmentsService {
   private async switchTarget(
     db: Db,
     partnerId: string,
+    actor: AmendmentActor,
     impacts: AmendmentImpact[],
   ): Promise<CustomerSnapshotView> {
     const partner = await db.partner.findFirst({
@@ -1193,7 +1346,11 @@ export class StoreOrderAmendmentsService {
     const agentOwned =
       partner.agent != null ||
       (partner.storeOrders.length > 0 && partner._count.storeOrders === 0);
-    if (agentOwned || !partner.roles.some((r) => r.role === 'CUSTOMER')) {
+    if (
+      agentOwned ||
+      !partner.roles.some((r) => r.role === 'CUSTOMER') ||
+      !(await this.customerInSalesScope(db, partner.id, actor.userId))
+    ) {
       impacts.push(
         amendmentImpact(
           'CUSTOMER_OUT_OF_SCOPE',
@@ -1210,6 +1367,36 @@ export class StoreOrderAmendmentsService {
       city: partner.city,
       address: partner.address,
     };
+  }
+
+  /**
+   * The sales scope of the caller (same rule as the order lists and the
+   * duplicate check): all-scope users, a customer with an order the caller
+   * may open, or a customer with no order and no lead outside the scope.
+   */
+  private async customerInSalesScope(
+    db: Db,
+    partnerId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const scope = await this.salesScope.resolve(userId);
+    if (scope.kind === 'ALL') return true;
+    const visible = await db.storeOrder.count({
+      where: {
+        partnerId,
+        deletedAt: null,
+        agentId: null,
+        ...this.salesScope.storeOrderWhere(scope),
+      },
+    });
+    if (visible > 0) return true;
+    const [orders, foreignLeads] = await Promise.all([
+      db.storeOrder.count({ where: { partnerId, deletedAt: null } }),
+      db.lead.count({
+        where: { partnerId, NOT: this.salesScope.leadWhere(scope) },
+      }),
+    ]);
+    return orders === 0 && foreignLeads === 0;
   }
 
   /** E.164 against the destination country (then without one); invalid → 400. */
@@ -1333,29 +1520,6 @@ export class StoreOrderAmendmentsService {
     if (plan.kinds.items || plan.kinds.amounts || plan.agentQuote) {
       const keep = new Set(plan.lines.map((l) => l.itemId).filter(Boolean));
       const removed = order.items.filter((item) => !keep.has(item.id));
-      const touched = new Set([
-        ...removed.map((i) => i.id),
-        ...plan.lines
-          .filter((l) => {
-            const item = order.items.find((i) => i.id === l.itemId);
-            return (
-              item &&
-              (item.productId !== l.productId || item.quantity !== l.quantity)
-            );
-          })
-          .map((l) => l.itemId!),
-      ]);
-      const allocated = order.items.find(
-        (item) =>
-          touched.has(item.id) &&
-          item._count.investmentAllocations + item._count.reallocations > 0,
-      );
-      if (allocated) {
-        throw new UnprocessableEntityException({
-          code: 'LINE_HAS_ALLOCATIONS',
-          message: `Line ${allocated.product?.displayName || allocated.product?.name || allocated.productId} is allocated to an investment opportunity — reverse that allocation first.`,
-        });
-      }
       if (removed.length > 0) {
         await tx.storeOrderItem.deleteMany({
           where: { id: { in: removed.map((i) => i.id) } },
@@ -1476,7 +1640,22 @@ export class StoreOrderAmendmentsService {
       }
     }
 
-    // Payment state: declarations kept, re-evaluated; posted payments untouched.
+    // Agent order with a chosen delivery method: re-resolve the tariff.
+    if (
+      plan.agentQuote &&
+      latest?.shippingCompany &&
+      plan.fulfillmentMethod === 'SHIPPING' &&
+      !order.agentDispatchedAt
+    ) {
+      await this.agentFulfillment.onShippingCompanyAssigned(
+        tx,
+        order.id,
+        userId,
+      );
+    }
+
+    // Payment state (after the final payable is known): declarations kept,
+    // re-evaluated; posted payments untouched.
     const declared = await recomputeDeclaredPaymentStatus(tx, order.id);
     const discrepancies: string[] = [];
     if (declared && declared.declaredAmount > declared.total + EPSILON) {
@@ -1495,25 +1674,24 @@ export class StoreOrderAmendmentsService {
         data: {
           paymentDiscrepancy: true,
           paymentDiscrepancyReason:
-            `${discrepancies.join('. ')} (order amendment).`.slice(0, 1000),
+            `${discrepancies.join('. ')}${AMENDMENT_DISCREPANCY_SUFFIX}`.slice(
+              0,
+              1000,
+            ),
         },
+      });
+    } else if (
+      order.paymentDiscrepancy &&
+      order.paymentDiscrepancyReason?.endsWith(AMENDMENT_DISCREPANCY_SUFFIX)
+    ) {
+      // A discrepancy an earlier amendment raised is resolved by this one
+      // (Finance-raised discrepancies are never cleared here).
+      await tx.storeOrder.update({
+        where: { id: order.id },
+        data: { paymentDiscrepancy: false, paymentDiscrepancyReason: null },
       });
     }
     await this.paymentSync.recompute(order.id, tx);
-
-    // Agent order with a chosen delivery method: re-resolve the tariff.
-    if (
-      plan.agentQuote &&
-      latest?.shippingCompany &&
-      plan.fulfillmentMethod === 'SHIPPING' &&
-      !order.agentDispatchedAt
-    ) {
-      await this.agentFulfillment.onShippingCompanyAssigned(
-        tx,
-        order.id,
-        userId,
-      );
-    }
 
     const { version } = await tx.storeOrder.findUniqueOrThrow({
       where: { id: order.id },
@@ -1622,6 +1800,7 @@ export class StoreOrderAmendmentsService {
       version: plan.order.version,
       canCommit: blocking.length === 0,
       impacts: plan.impacts,
+      impactsFingerprint: impactsFingerprint(plan.impacts),
       requiredAcknowledgements: [
         ...new Set(
           plan.impacts
@@ -1670,6 +1849,7 @@ export class StoreOrderAmendmentsService {
     customerBefore: CustomerSnapshotView,
     customerAfter: CustomerSnapshotView,
     next: {
+      productNames: Map<string, string>;
       currencyCode: string;
       paymentType: string;
       fulfillmentMethod: string;
@@ -1755,6 +1935,7 @@ export class StoreOrderAmendmentsService {
         lineDiffs.push({
           kind: 'ADDED',
           productId: line.productId,
+          product: next.productNames.get(line.productId) ?? line.productId,
           new: {
             quantity: line.quantity,
             agreedAmount: money(line.agreedAmount),

@@ -44,6 +44,7 @@ export const AMENDMENT_IMPACT_SEVERITY = {
   AGENT_SHIPPING_TARIFF_MISSING: 'BLOCKING',
   AGENT_REQUOTED: 'INFO',
   AGENT_SHIPPING_REPRICED: 'INFO',
+  AGENT_SHIPPING_OVERRIDE_DROPPED: 'INFO',
 } as const satisfies Record<string, AmendmentSeverity>;
 
 export type AmendmentImpactCode = keyof typeof AMENDMENT_IMPACT_SEVERITY;
@@ -169,3 +170,30 @@ export function missingAcknowledgements(
 /** Two-decimal money text for impact messages. */
 export const money = (value: number) =>
   (Math.round(value * 100) / 100).toFixed(2);
+
+/**
+ * An investment allocation pins a sold line. ACTIVE allocations and open
+ * reallocations (PENDING / APPROVED) block any change of product, quantity
+ * or agreed amount; removing the line is blocked while ANY allocation row
+ * (even a reversed one — it stays as history) references it.
+ */
+export function lineAllocationBlocked(input: {
+  removed: boolean;
+  changed: boolean;
+  allocationStatuses: string[];
+  reallocationStatuses: string[];
+}): boolean {
+  if (input.removed) {
+    return (
+      input.allocationStatuses.length > 0 ||
+      input.reallocationStatuses.length > 0
+    );
+  }
+  if (!input.changed) return false;
+  return (
+    input.allocationStatuses.some((status) => status !== 'REVERSED') ||
+    input.reallocationStatuses.some(
+      (status) => status === 'PENDING' || status === 'APPROVED',
+    )
+  );
+}

@@ -111,3 +111,26 @@ describe("amendment impact view-model (spec 1A preview)", () => {
     );
   });
 });
+
+describe("re-quote problems are shown by code, never English in the Arabic UI (review LOW)", () => {
+  it("maps the issue code to localized text with its params", () => {
+    const refused = impact(
+      "AGENT_PRICING_INVALID",
+      "BLOCKING",
+      { issueCode: "AGENT_SHIPPING_EXCEEDS_TOTAL", fee: "35.00", agreedTotal: "30.00" },
+      "English only text",
+    );
+    expect(impactText(refused, t, "en")).toBe(
+      "The shipping fee (35.00) leaves no merchandise amount within the agreed total (30.00).",
+    );
+    expect(impactText(refused, tAr, "ar")).toContain("35.00");
+    const unknown = impact(
+      "AGENT_PRICING_INVALID",
+      "BLOCKING",
+      { issueCode: "NEW_CODE" },
+      "English only",
+    );
+    expect(impactText(unknown, tAr, "ar")).toContain("NEW_CODE");
+    expect(impactText(unknown, tAr, "ar")).not.toContain("English");
+  });
+});

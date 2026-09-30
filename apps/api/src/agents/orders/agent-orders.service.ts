@@ -133,6 +133,8 @@ interface PreparedOrder {
     itemType: 'PRODUCT' | 'SERVICE' | null;
   }>;
   breakdown: AgentPricingBreakdown | null;
+  /** Configured rate stored on the order (a frozen amendment keeps the order's own). */
+  shippingRateAmount: number | null;
   /** A3/A6 — the predetermined agent shipping charge (PREDETERMINED_CHARGE policy only). */
   agentShippingCharge: AgentShippingChargeSnapshot | null;
   /** Spec 2 — whether that charge is final or waits for the delivery method. */
@@ -144,8 +146,26 @@ interface PreparedOrder {
 interface PrepareOptions {
   /** Amendment re-quote: price on the order's own date, not "now". */
   orderDate?: Date;
-  /** Amendment re-quote: the order's existing (audited) shipping override stays allowed. */
-  keepAuthorizedOverride?: boolean;
+  /**
+   * Amendment re-quote without a destination / payment type / fulfillment
+   * change: the shipping terms already on the order (customer shipping,
+   * source, override reason, the agent shipping snapshot with its frozen
+   * per-channel tariffs, pricing status) are carried forward unchanged —
+   * Spec 2 freeze; live tariffs are never re-read. Ignored when the new
+   * lines change whether the order ships at all.
+   */
+  frozenShipping?: FrozenShipping;
+}
+
+/** The shipping terms of an existing agent order (see `PrepareOptions.frozenShipping`). */
+export interface FrozenShipping {
+  digitalOnly: boolean;
+  charge: number;
+  source: 'NONE' | 'RATE' | 'MANUAL';
+  rateAmount: number | null;
+  overrideReason: string | null;
+  agentShippingCharge: AgentShippingChargeSnapshot | null;
+  shippingPricingStatus: 'NOT_APPLICABLE' | 'PENDING_METHOD' | 'CONFIRMED';
 }
 
 /** Round 5 Spec 1A — the re-quote of an amended agent order (no writes). */
@@ -708,7 +728,8 @@ export class AgentOrdersService {
     order: {
       orderDate: Date;
       employeeId: string | null;
-      keepShippingOverride: boolean;
+      /** Carry the order's shipping terms forward (no destination / payment type / method change). */
+      frozenShipping: FrozenShipping | null;
       customer: {
         name: string;
         mobile: string | null;
@@ -721,7 +742,7 @@ export class AgentOrdersService {
     const resolved = await this.resolveActor(actor);
     const prepared = await this.prepare(input, resolved, {
       orderDate: order.orderDate,
-      keepAuthorizedOverride: order.keepShippingOverride,
+      frozenShipping: order.frozenShipping ?? undefined,
     });
     let customer: AgentCustomerSnapshot | null = null;
     try {
@@ -977,10 +998,11 @@ export class AgentOrdersService {
     // Shipping (spec §5): configured rate, or a permitted + audited override.
     const digitalOnly =
       lines.length > 0 && lines.every((line) => !line.isInventoryItem);
-    // An amendment keeps a shipping override that was authorized at entry.
-    const overrideAllowed =
-      options.keepAuthorizedOverride === true ||
-      (await this.canOverrideShipping(actor));
+    const frozen =
+      options.frozenShipping?.digitalOnly === digitalOnly
+        ? options.frozenShipping
+        : null;
+    const overrideAllowed = await this.canOverrideShipping(actor);
     const shipping: PreparedOrder['shipping'] = {
       rate: null,
       charge: null,
@@ -990,7 +1012,12 @@ export class AgentOrdersService {
     let shippingOverrideReason: string | null = null;
     let submissionTariff: SubmissionTariff | null = null;
     const override = input.shippingChargeOverride;
-    if (
+    if (frozen) {
+      // Amendment: the order's own shipping terms, unchanged (Spec 2 freeze).
+      shipping.charge = frozen.charge;
+      shipping.source = frozen.source;
+      shippingOverrideReason = frozen.overrideReason;
+    } else if (
       digitalOnly ||
       fulfillmentMethod === StoreOrderFulfillmentMethod.PICKUP
     ) {
@@ -1086,7 +1113,13 @@ export class AgentOrdersService {
     let agentShippingCharge: AgentShippingChargeSnapshot | null = null;
     let shippingPricingStatus: PreparedOrder['shippingPricingStatus'] =
       'NOT_APPLICABLE';
-    if (agreement?.shippingPolicy === 'PREDETERMINED_CHARGE' && breakdown) {
+    if (frozen) {
+      agentShippingCharge = frozen.agentShippingCharge;
+      shippingPricingStatus = frozen.shippingPricingStatus;
+    } else if (
+      agreement?.shippingPolicy === 'PREDETERMINED_CHARGE' &&
+      breakdown
+    ) {
       const noShipment =
         digitalOnly || fulfillmentMethod === StoreOrderFulfillmentMethod.PICKUP;
       const rate = noShipment ? 0 : (shipping.rate?.amount ?? null);
@@ -1155,6 +1188,9 @@ export class AgentOrdersService {
       commissionRates,
       agentShippingCharge,
       shippingPricingStatus,
+      shippingRateAmount: frozen
+        ? frozen.rateAmount
+        : (shipping.rate?.amount ?? null),
     };
   }
 
@@ -1270,7 +1306,7 @@ export class AgentOrdersService {
       taxAmount: breakdown.taxAmount,
       shippingCharge: breakdown.shippingCharge,
       shippingChargeSource: prepared.shipping.source ?? 'NONE',
-      shippingRateAmount: prepared.shipping.rate?.amount ?? null,
+      shippingRateAmount: prepared.shippingRateAmount,
       shippingOverrideReason: prepared.shippingOverrideReason,
       serviceCharge: breakdown.serviceCharge,
       payableTotal: breakdown.payableTotal,

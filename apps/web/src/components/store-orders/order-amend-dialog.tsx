@@ -9,8 +9,12 @@ import {
   FormCardSection,
   FormCardStack,
 } from "@/components/shared/form-card/form-card";
-import { SearchableSelect, type SearchableSelectOption } from "@/components/shared/searchable-select";
+import {
+  SearchableSelect,
+  type SearchableSelectOption,
+} from "@/components/shared/searchable-select";
 import { MoneyInput } from "@/components/shared/money-input";
+import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { IconActionButton } from "@/components/shared/icon-action-button";
 import { SegmentedRadioGroup } from "@/components/documents/segmented-radio-group";
 import { PartnerPicker } from "@/components/business/partner-picker";
@@ -43,7 +47,8 @@ import { formatDateTime } from "@/lib/date";
 import { reportApiError, reportSuccess } from "@/lib/toast";
 
 export interface AmendDialogOptions {
-  products: SearchableSelectOption[];
+  /** Server-side product search (company catalog / the agent's own products). */
+  searchProducts: (query: string) => Promise<SearchableSelectOption[]>;
   countries: SearchableSelectOption[];
   /** Company orders only (agent orders use the agreement currency). */
   currencies?: SearchableSelectOption[];
@@ -154,6 +159,7 @@ function AmendDialogBody<TOrder>({
         expectedVersion: preview.version,
         reason: draft.reason.trim(),
         acknowledgements: [...acknowledged],
+        impactsFingerprint: preview.impactsFingerprint,
       });
       reportSuccess(t("orderAmendments.success", { version: result.version }), {
         description: result.invoiceRegeneration
@@ -175,14 +181,19 @@ function AmendDialogBody<TOrder>({
       // preview: show the fresh impact list instead of a bare toast.
       const impacts = (error instanceof ApiError &&
         (error.details as { impacts?: AmendmentPreview["impacts"] } | undefined)?.impacts) as
-        | AmendmentPreview["impacts"]
-        | undefined;
+        AmendmentPreview["impacts"] | undefined;
       if (impacts && preview) {
-        setPreview({
-          ...preview,
-          impacts,
-          canCommit: !impacts.some((i) => i.severity === "BLOCKING"),
-        });
+        // Fresh impacts → fresh confirmations; the next commit re-previews.
+        setAcknowledged(new Set());
+        try {
+          setPreview(await client.preview(order.id, diff.changes));
+        } catch {
+          setPreview({
+            ...preview,
+            impacts,
+            canCommit: !impacts.some((i) => i.severity === "BLOCKING"),
+          });
+        }
       }
       reportApiError(error, "common.failedToSave");
     } finally {
@@ -267,7 +278,9 @@ function AmendDialogBody<TOrder>({
                 <PartnerPicker
                   role="CUSTOMER"
                   value={
-                    draft.partnerId ? { id: draft.partnerId, name: draft.partnerName } as never : null
+                    draft.partnerId
+                      ? ({ id: draft.partnerId, name: draft.partnerName } as never)
+                      : null
                   }
                   onChange={(partner) =>
                     patch({
@@ -374,16 +387,21 @@ function AmendDialogBody<TOrder>({
                 >
                   <div className="col-span-2 flex min-w-0 flex-col gap-1 sm:col-span-1">
                     <Label className="sm:sr-only">{t("orderAmendments.fields.product")}</Label>
-                    <SearchableSelect
-                      aria-label={t("orderAmendments.fields.product")}
-                      value={line.productId}
-                      options={options.products}
-                      selectedLabel={line.productName || undefined}
-                      onValueChange={(value) =>
+                    <EntityCombobox<SearchableSelectOption>
+                      id={`${fieldId}-product-${line.key}`}
+                      value={
+                        line.productId ? { value: line.productId, label: line.productName } : null
+                      }
+                      onSearch={options.searchProducts}
+                      getId={(option) => option.value}
+                      getTitle={(option) => option.label}
+                      getSubtitle={(option) => option.description}
+                      placeholder={t("orderAmendments.fields.product")}
+                      triggerProps={{ "aria-label": t("orderAmendments.fields.product") }}
+                      onChange={(option) =>
                         patchLine(line.key, {
-                          productId: value,
-                          productName:
-                            options.products.find((option) => option.value === value)?.label ?? "",
+                          productId: option?.value ?? "",
+                          productName: option?.label ?? "",
                         })
                       }
                     />

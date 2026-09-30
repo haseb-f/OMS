@@ -74,17 +74,16 @@ type Return = PortalOrderDetail["returns"][number];
 export default function AgentOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { t, locale } = useLocale();
-  const { hasPermission } = useUserContext();
+  const { hasPermission, user } = useUserContext();
   const [order, setOrder] = useState<PortalOrderDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [declareOpen, setDeclareOpen] = useState(false);
   const [amendOpen, setAmendOpen] = useState(false);
   const [amendments, setAmendments] = useState<AmendmentHistoryRow[] | null>(null);
-  const [products, setProducts] = useState<SearchableSelectOption[]>([]);
   const [countries, setCountries] = useState<SearchableSelectOption[]>([]);
   // Spec 1C — secondary sections collapsed by default, remembered per user.
   const [openSections, setOpenSections] = useLocalStorage<Record<string, boolean>>(
-    "oms.agentOrderDetail.openSections",
+    `oms.orderDetail.${user?.id ?? "anonymous"}.agentOrder.openSections`,
     {},
   );
   const sectionProps = (key: string) => ({
@@ -124,18 +123,6 @@ export default function AgentOrderDetailPage() {
   const openAmend = () => {
     setAmendOpen(true);
     agentPortalService
-      .products({ pageSize: 200 })
-      .then((page) =>
-        setProducts(
-          page.items.map((product) => ({
-            value: product.id,
-            label: localizedName(product, locale),
-            description: product.sku,
-          })),
-        ),
-      )
-      .catch(() => setProducts([]));
-    agentPortalService
       .countries()
       .then((rows) =>
         setCountries(
@@ -143,6 +130,17 @@ export default function AgentOrderDetailPage() {
         ),
       )
       .catch(() => setCountries([]));
+  };
+  const searchProducts = async (query: string): Promise<SearchableSelectOption[]> => {
+    const page = await agentPortalService.products({
+      search: query.trim() || undefined,
+      pageSize: 50,
+    });
+    return page.items.map((product) => ({
+      value: product.id,
+      label: localizedName(product, locale),
+      description: product.sku,
+    }));
   };
   // Spec 2 — the order owner / agent admin records the customer's agreement.
   const canConfirmTotal = hasPermission("agent.orders.create") && !cancelled;
@@ -612,7 +610,7 @@ export default function AgentOrderDetailPage() {
         order={amendableFromPortalOrder(order, (product) => localizedName(product, locale))}
         client={agentPortalService.orders.amendments}
         options={{
-          products,
+          searchProducts,
           countries,
           canSwitchCustomer: false,
           canCorrectIdentity: true,

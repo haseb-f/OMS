@@ -169,6 +169,8 @@ const ar = {
     ORDER_VERSION_CONFLICT: "تغيّر هذا الطلب في الأثناء. أعد التحميل لرؤية أحدث إصدار.",
     AMENDMENT_BLOCKED: "لا يمكن حفظ التعديل — راجع الأسباب المذكورة.",
     AMENDMENT_ACKNOWLEDGEMENT_REQUIRED: "أكّد كل الآثار المذكورة ثم احفظ مرة أخرى.",
+    AMENDMENT_PREVIEW_STALE: "تغيّر الأثر منذ مراجعتك — راجعه مرة أخرى ثم احفظ.",
+    STORE_ORDER_ALREADY_INVOICED: "هذا الطلب مفوتر بالفعل بفاتورة أخرى.",
     AMENDMENT_NO_CHANGES: "لا يوجد ما يُعدَّل — غيّر حقلًا واحدًا على الأقل.",
     AGENT_ORDER_CUSTOMER_SWITCH:
       "عميل طلب الوكيل يُحدَّد بالاسم والجوال المكتوبين — صحّحهما بدلًا من ذلك.",

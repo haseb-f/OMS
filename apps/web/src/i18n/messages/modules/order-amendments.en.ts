@@ -16,7 +16,8 @@ const orderAmendmentsEn = {
   },
   fields: {
     switchCustomer: "Customer",
-    switchCustomerHint: "Choose another existing customer, or correct this customer's details below.",
+    switchCustomerHint:
+      "Choose another existing customer, or correct this customer's details below.",
     name: "Customer name",
     phone: "Phone",
     email: "Email",
@@ -55,6 +56,7 @@ const orderAmendmentsEn = {
   infoTitle: "What will change",
   acknowledgeHint: "Tick every confirmation to save.",
   success: "Order amended (version {version}).",
+  stale: "The impact changed since your review — check it again, then save.",
   invoiceRegenerated: "New invoice {number} issued.",
   conflict: {
     title: "The order was changed meanwhile",
@@ -63,6 +65,9 @@ const orderAmendmentsEn = {
     reload: "Reload order",
   },
   impact: {
+    unknown: "This change has an effect that needs review — reload the order and try again.",
+    AGENT_SHIPPING_OVERRIDE_DROPPED:
+      "The manual shipping charge {previous} no longer applies — shipping is re-priced from the agreement for the new destination / payment type.",
     ORDER_LOCKED_AFTER_DELIVERY:
       "Order {orderNumber} is delivered, collected, returned, cancelled or archived — use the return, refund or adjustment workflows.",
     ORDER_IN_TRANSIT:
@@ -94,7 +99,8 @@ const orderAmendmentsEn = {
       "The customer record is shared by {count} other order(s) — the correction applies everywhere.",
     CUSTOMER_DUPLICATE_REVIEW:
       "The new mobile matches a customer outside your scope — the order keeps its own customer and is flagged for duplicate review.",
-    CUSTOMER_RELINKED: "The new mobile belongs to the existing customer {customer} — the order is linked to that customer.",
+    CUSTOMER_RELINKED:
+      "The new mobile belongs to the existing customer {customer} — the order is linked to that customer.",
     LINE_HAS_ALLOCATIONS:
       "A removed or changed line is allocated to an investment opportunity — reverse that allocation first.",
     AGENT_COMMISSION_EARNED:
@@ -110,6 +116,30 @@ const orderAmendmentsEn = {
     AGENT_SHIPPING_REPRICED:
       "Agent shipping fee {previous} ({previousStatus}) → {next} ({nextStatus}).",
   },
+  pricingIssue: {
+    generic: "The order cannot be re-priced ({code}) — review the lines and destination.",
+    SHIPPING_RATE_REQUIRED: "The agreement has no shipping rate for this destination.",
+    SHIPPING_COUNTRY_REQUIRED: "Choose the shipping destination country.",
+    AGENT_SHIPPING_CHARGE_NOT_CONFIGURED:
+      "The agreement has no shipping rate for this destination to set the agent shipping fee.",
+    AGENT_SHIPPING_DIFFERENCE_PENDING_DECISION:
+      "The customer shipping differs from the agent shipping fee — settling the difference awaits the owner's decision.",
+    AGENT_SHIPPING_EXCEEDS_TOTAL:
+      "The shipping fee ({fee}) leaves no merchandise amount within the agreed total ({agreedTotal}).",
+    PRODUCT_NOT_AVAILABLE: "A product is not available for sale.",
+    MIXED_OWNER_ORDER: "The products must all belong to this order's agent.",
+    NO_ACTIVE_AGREEMENT: "The agent has no agreement in force on the order date.",
+    CURRENCY_MISMATCH: "The order currency must equal the agreement currency.",
+    AGENT_COMMISSION_RATE_MISSING: "No commission rate is configured for this item type.",
+    AGENT_ITEM_TYPE_REQUIRED: "An item has no item type (product / service).",
+    LINE_AMOUNT_REQUIRED: "Enter the agreed amount of every line.",
+    AGREED_TOTAL_REQUIRED: "Enter the agreed total (shipping included).",
+    CHARGES_EXCEED_TOTAL: "Shipping and service charges exceed the agreed total.",
+    MERCHANDISE_NOT_POSITIVE: "The merchandise amount must be greater than zero.",
+    INVALID_AMOUNT: "An amount is not valid.",
+    INVALID_QUANTITY: "A quantity is not valid.",
+    CUSTOMER_MOBILE_INVALID: "The customer mobile number is not valid.",
+  },
   nextAction: {
     RESOLVE_DUPLICATE: "Resolve duplicate review",
     CONFIRM_CUSTOMER_TOTAL: "Confirm customer total",
@@ -124,7 +154,8 @@ const orderAmendmentsEn = {
     MARK_COLLECTED: "Mark collected",
     GENERATE_INVOICE: "Generate invoice",
     handedOverTitle: "Mark the parcel handed over to the carrier?",
-    handedOverDescription: "The shipment moves to Shipped. Items and address cannot be amended afterwards.",
+    handedOverDescription:
+      "The shipment moves to Shipped. Items and address cannot be amended afterwards.",
     handedOver: "Shipment marked as shipped.",
   },
   detail: {
@@ -146,7 +177,8 @@ const orderAmendmentsEn = {
       PENDING_CUSTOMER: "Customer confirmation pending",
     },
     duplicateReview: "Duplicate review pending",
-    labelReissue: "Label {tracking} must be cancelled and reissued — the order was amended after it was issued.",
+    labelReissue:
+      "Label {tracking} must be cancelled and reissued — the order was amended after it was issued.",
     sections: {
       payments: "Payments & financial history",
       shipments: "Shipment history",
