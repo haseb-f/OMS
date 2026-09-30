@@ -51,7 +51,6 @@ export async function loadSalesByPeriod(): Promise<SalesByPeriod> {
 export interface PendingFigures {
   paymentReview: number | null;
   bank: { unmatched: number; review: number } | null;
-  cashFlow: CashFlowSummary | null;
 }
 
 /** Payment review queue + bank matching queues, each only when the user may see it. */
@@ -59,7 +58,7 @@ export async function loadPendingFigures(
   showPaymentReview: boolean,
   showBank: boolean,
 ): Promise<PendingFigures> {
-  const [pending, matched, bankCounts, cashFlow] = await Promise.all([
+  const [pending, matched, bankCounts] = await Promise.all([
     showPaymentReview
       ? paymentsReviewService.list({ status: "PENDING", page: 1, pageSize: 1 })
       : null,
@@ -67,7 +66,6 @@ export async function loadPendingFigures(
       ? paymentsReviewService.list({ status: "MATCHED", page: 1, pageSize: 1 })
       : null,
     showBank ? bankTransactionsService.statusCounts() : null,
-    showBank ? bankTransactionsService.cashFlowSummary() : null,
   ]);
   return {
     // The review queue's default view is exactly PENDING + MATCHED.
@@ -81,8 +79,15 @@ export async function loadPendingFigures(
             (bankCounts.POTENTIAL ?? 0),
         }
       : null,
-    cashFlow,
   };
+}
+
+/**
+ * The bank matching panel's summary — loaded on its own so that a failure of
+ * this heavier call never hides the attention queues (and vice versa).
+ */
+export function loadBankMatchingSummary(): Promise<CashFlowSummary> {
+  return bankTransactionsService.cashFlowSummary();
 }
 
 // ── Pure shaping (unit-tested in dashboard-data.spec.ts) ───────────────────

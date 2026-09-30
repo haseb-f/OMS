@@ -17,6 +17,7 @@ import {
 import {
   SALES_PERIODS,
   buildAttentionQueues,
+  loadBankMatchingSummary,
   loadPendingFigures,
   loadSalesByPeriod,
   summarizeBankMatching,
@@ -53,8 +54,13 @@ export function DashboardOverview({ access }: { access: DashboardAccess }) {
     () => () => loadPendingFigures(access.paymentReview, access.bank),
     [access.paymentReview, access.bank],
   );
+  const bankLoader = useMemo(
+    () => () => (access.bank ? loadBankMatchingSummary() : Promise.resolve(null)),
+    [access.bank],
+  );
   const sales = useLoad(salesLoader);
   const pending = useLoad(pendingLoader);
+  const bank = useLoad(bankLoader);
 
   const salesData = sales.state.status === "ready" ? sales.state.data : null;
   const pendingData = pending.state.status === "ready" ? pending.state.data : null;
@@ -116,7 +122,10 @@ export function DashboardOverview({ access }: { access: DashboardAccess }) {
     />
   );
 
-  const bankSummary = pendingData?.cashFlow ? summarizeBankMatching(pendingData.cashFlow) : null;
+  const bankSummary =
+    bank.state.status === "ready" && bank.state.data
+      ? summarizeBankMatching(bank.state.data)
+      : null;
 
   return (
     <PageWorkspace
@@ -150,9 +159,14 @@ export function DashboardOverview({ access }: { access: DashboardAccess }) {
                 <ActivityPanel data={salesData} />
               </div>
             ) : null}
-            {bankSummary ? (
+            {access.bank ? (
               <div className="min-w-0 max-lg:order-4">
-                <BankMatchingPanel summary={bankSummary} />
+                <BankMatchingPanel
+                  summary={bankSummary}
+                  loading={bank.state.status === "loading"}
+                  failed={bank.state.status === "error"}
+                  onRetry={() => void bank.retry()}
+                />
               </div>
             ) : null}
           </div>
