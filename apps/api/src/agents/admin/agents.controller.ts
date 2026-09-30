@@ -20,6 +20,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { AgentsService } from './agents.service';
 import { AgentAgreementsService } from './agent-agreements.service';
 import { AgentDestinationsService } from './agent-destinations.service';
+import { AgentProductsService } from './agent-products.service';
 import { AgentCommissionRatesService } from '../commission/agent-commission-rates.service';
 import { SetProductCommissionDto } from '../commission/dto/commission-setting.dto';
 import {
@@ -52,6 +53,7 @@ export class AgentsController {
     private readonly agreements: AgentAgreementsService,
     private readonly destinations: AgentDestinationsService,
     private readonly commissionRates: AgentCommissionRatesService,
+    private readonly agentProducts: AgentProductsService,
   ) {}
 
   // ── Item commission settings (commission-policy.md A4) ───────────────────
@@ -129,6 +131,42 @@ export class AgentsController {
     @Query() query: AgentStockQueryDto,
   ) {
     return this.agents.getStock(id, query);
+  }
+
+  // ── Products tab (spec-2-agent-pricing.md 2A) ───────────────────────────
+
+  @Get(':id/products')
+  products(@Param('id', ParseUUIDPipe) id: string) {
+    return this.agentProducts.list(id);
+  }
+
+  /** Company-owned products that can be linked (searchable). */
+  @Get(':id/products/linkable')
+  linkableProducts(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('search') search?: string,
+  ) {
+    return this.agentProducts.linkable(id, search);
+  }
+
+  @Post(':id/products/:productId/link')
+  @PermissionAction('edit')
+  linkProduct(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('productId', ParseUUIDPipe) productId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.agentProducts.link(id, productId, user.sub);
+  }
+
+  @Post(':id/products/:productId/unlink')
+  @PermissionAction('edit')
+  unlinkProduct(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('productId', ParseUUIDPipe) productId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.agentProducts.unlink(id, productId, user.sub);
   }
 
   // ── Agreements ──────────────────────────────────────────────────────────
