@@ -16,6 +16,17 @@ import { formatMoney } from "@/lib/money";
 import type { MessageKey } from "@/i18n/translate";
 import type { PortalOrderRow } from "@/services/agent-portal-service";
 
+/** Spec 2 — a money figure that is provisional until Shipping selects the delivery method. */
+function PricedCell({ row, value }: { row: PortalOrderRow; value: number }) {
+  const { t } = useLocale();
+  const money = <MoneyValue value={value} currency={row.currency} />;
+  return row.shippingPricingStatus === "PENDING_METHOD" ? (
+    <StackedCell primary={money} secondary={t("agentPricing.status.PENDING_METHOD")} />
+  ) : (
+    money
+  );
+}
+
 function MethodCell({ method }: { method: PortalOrderRow["fulfillmentMethod"] }) {
   const { t } = useLocale();
   return <>{t(`agentPortal.status.method.${method}`)}</>;
@@ -91,10 +102,7 @@ export function buildPortalOrderColumns(): ColumnDef<PortalOrderRow, unknown>[] 
         row.original.breakdown.shippingCharge == null ? (
           "—"
         ) : (
-          <MoneyValue
-            value={row.original.breakdown.shippingCharge}
-            currency={row.original.currency}
-          />
+          <PricedCell row={row.original} value={row.original.breakdown.shippingCharge} />
         ),
     },
     {
@@ -107,7 +115,7 @@ export function buildPortalOrderColumns(): ColumnDef<PortalOrderRow, unknown>[] 
       enableSorting: false,
       accessorFn: (row) => row.breakdown.payableTotal,
       cell: ({ row }) => (
-        <MoneyValue value={row.original.breakdown.payableTotal} currency={row.original.currency} />
+        <PricedCell row={row.original} value={row.original.breakdown.payableTotal} />
       ),
     },
     {

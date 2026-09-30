@@ -5,8 +5,10 @@ import fxSettingsAr from "./modules/fx-settings.ar";
 import docUiAr from "./modules/doc-ui.ar";
 import feedbackAr from "./modules/feedback.ar";
 import productCommissionAr from "./modules/product-commission.ar";
+import agentPricingAr from "./modules/agent-pricing.ar";
 const ar = {
   productCommission: productCommissionAr,
+  agentPricing: agentPricingAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,

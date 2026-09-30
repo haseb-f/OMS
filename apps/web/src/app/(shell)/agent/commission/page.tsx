@@ -6,7 +6,7 @@ import { AgentCommissionReportView } from "@/components/agents/agent-commission-
 import { agentPortalService } from "@/services/agent-portal-service";
 import { useLocale } from "@/providers/locale-provider";
 
-/** Agent portal — item-level commission and shipping recovery (commission-policy.md A7). */
+/** Agent portal — item-level commission and shipping recovery (commission-policy.md A7); no carrier cost (spec 2E). */
 export default function AgentCommissionPage() {
   const { t } = useLocale();
   const load = useCallback(
@@ -18,7 +18,7 @@ export default function AgentCommissionPage() {
     <PageWorkspace
       dense
       title={t("agents.commission.report.title")}
-      description={t("agents.commission.report.description")}
+      description={t("agentPricing.report.portalDescription")}
     >
       <AgentCommissionReportView
         load={load}

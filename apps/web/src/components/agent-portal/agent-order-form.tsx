@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Loader2, Plus, Trash2 } from "lucide-react";
+import { AlertCircle, Loader2, PackageOpen, Plus, Trash2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -266,6 +267,8 @@ export function AgentOrderForm({
             shippingSource={readyQuote.shipping.source}
             shippingRate={readyQuote.shipping.rate}
             rateScope={readyQuote.shipping.rateScope}
+            provisional={readyQuote.shippingPricingStatus === "PENDING_METHOD"}
+            mode={readyQuote.breakdown.mode}
           />
         ) : null}
         {hint ? (
@@ -547,6 +550,15 @@ export function AgentOrderForm({
               </EnterpriseButton>
             }
           >
+            {products && products.length === 0 ? (
+              <Alert tone="info">
+                <PackageOpen />
+                <div className="flex flex-col gap-0.5">
+                  <AlertTitle>{t("agentPricing.emptyCatalog.title")}</AlertTitle>
+                  <AlertDescription>{t("agentPricing.emptyCatalog.agent")}</AlertDescription>
+                </div>
+              </Alert>
+            ) : null}
             <ul className="flex flex-col gap-2">
               {state.lines.map((line, index) => {
                 const product = productById.get(line.productId);
