@@ -119,6 +119,8 @@ export class AgentPortalService {
           orderBy: [{ countryId: 'asc' }, { city: 'asc' }],
           select: {
             city: true,
+            deliveryChannel: true,
+            paymentType: true,
             amount: true,
             country: {
               select: { id: true, name: true, nameEn: true, code: true },
@@ -161,6 +163,8 @@ export class AgentPortalService {
             shippingRates: rates.map((r) => ({
               country: r.country,
               city: r.city || null,
+              deliveryChannel: r.deliveryChannel,
+              paymentType: r.paymentType,
               amount: Number(r.amount),
             })),
           }
@@ -396,10 +400,12 @@ export class AgentPortalService {
     agent: AgentRequestContext,
     query: AgentPortalStatementQueryDto,
   ) {
-    return this.commissionReport.report(agent.agentId, {
-      from: query.from,
-      to: query.to,
-    });
+    // PORTAL audience: no carrier cost, no margin (spec 2E).
+    return this.commissionReport.report(
+      agent.agentId,
+      { from: query.from, to: query.to },
+      'PORTAL',
+    );
   }
 
   /** Same data as the statement, plus print metadata for the shared statement template. */
