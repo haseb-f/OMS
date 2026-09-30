@@ -51,6 +51,24 @@ Details: `specs/usability-financial-reports/tables-selection.md` ("Built-in sele
 | API build                             | success                                                                                                                                                                                                                           |
 | Independent review                    | 1 HIGH (bulk Unmatch could reverse a CONFIRMED charge from a stale list), 1 MEDIUM (stale record cache), 3 LOW — all fixed with server-side guards under the row lock, fresh re-reads and id de-duplication; 2 new API unit tests |
 
+**Browser pass (one, local production build of this branch on :3031 against the local API,
+`tmp/ux/probe.mjs`, AR-light / EN-dark / 390px AR):**
+
+- Sales invoices: selection menu lists all four scopes («تحديد هذه الصفحة 20»، «تحديد كل النتائج
+  المطابقة 55»، «تحديد عدد معين...»، «إلغاء التحديد»); the strip shows Archive · Print selected ·
+  Export selected · "1 selected on this page" · Clear.
+- Carrier Reconciliation (two local demo charges tagged `DEMO-UX-20260930-*`, UNMATCHED): strip
+  shows Confirm matches · Unmatch · Print selected; bulk Confirm refused with the "none eligible"
+  info toast, no dialog, no request.
+- Toast ×: labelled («إغلاق الإشعار» / "Dismiss notification"), inside the card, at the logical end
+  corner in both directions.
+- Sidebar item radius 10px. Horizontal overflow 0 on every page and viewport; no page errors.
+- **Known limitation (unchanged by this pass):** below the table breakpoint, generic lists render
+  cards without checkboxes, so bulk actions on phones exist only where a page's own mobile card
+  offers selection (e.g. Store Orders).
+- The branch's Vercel Preview (https://oms-fjbtni728-haseb-f-s-projects.vercel.app) is behind
+  Vercel SSO, so it was not browsed by the release owner.
+
 No Prisma migration in this pass. No financial record was created or changed; the browser probe is
 read-only (never confirms, archives or submits).
 
