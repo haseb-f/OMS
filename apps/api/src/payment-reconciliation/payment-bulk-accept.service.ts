@@ -4,6 +4,7 @@ import {
   bulkFailure,
   type BulkItemsResult,
 } from '../common/bulk/bulk-item-result';
+import { PrismaService } from '../prisma/prisma.service';
 import { PaymentMatchingService } from './payment-matching.service';
 import { PaymentStatementsService } from './payment-statements.service';
 import type { BulkAcceptMatchesDto } from './dto/bulk-accept-matches.dto';
@@ -37,6 +38,7 @@ export interface BulkAcceptOutcome extends BulkAcceptPlan {
 @Injectable()
 export class PaymentBulkAcceptService {
   constructor(
+    private readonly prisma: PrismaService,
     private readonly matching: PaymentMatchingService,
     private readonly statements: PaymentStatementsService,
   ) {}
@@ -63,6 +65,38 @@ export class PaymentBulkAcceptService {
     };
     for (const item of items) {
       try {
+        if (!dto.dryRun) {
+          // A retry of a line this action already confirmed: report the
+          // recorded outcome instead of re-planning a now-matched line.
+          const replay = await this.matching.findConfirmedReplay(
+            `${dto.idempotencyKey}:${item.statementLineId}`,
+          );
+          const posting = replay?.postings[0];
+          const allocated = replay?.matches[0];
+          if (replay && posting && allocated) {
+            const recorded = await this.prisma.payment.findUniqueOrThrow({
+              where: { id: posting.paymentId },
+              select: {
+                paymentNumber: true,
+                currency: { select: { code: true } },
+                storeOrder: { select: { internalOrderId: true } },
+              },
+            });
+            result.succeeded.push({
+              id: item.statementLineId,
+              providerReference: null,
+              paymentId: posting.paymentId,
+              paymentNumber: recorded.paymentNumber,
+              orderNumber: recorded.storeOrder?.internalOrderId ?? null,
+              amount: allocated.amount,
+              currencyCode: recorded.currency.code,
+              posted: posting.posted,
+              receiptId: posting.receiptId,
+              replayed: true,
+            });
+            continue;
+          }
+        }
         const plan = await this.plan(methodId, item);
         if (dto.dryRun) {
           result.succeeded.push(plan);
@@ -101,8 +135,11 @@ export class PaymentBulkAcceptService {
       methodId,
       item.statementLineId,
     );
-    if (result.blockedReason) {
-      throw new BulkItemError('NOT_MATCHABLE', result.blockedReason);
+    if (result.blockedCode) {
+      throw new BulkItemError(
+        result.blockedCode,
+        result.blockedReason ?? result.blockedCode,
+      );
     }
     const top = result.candidates[0];
     if (!top) {
@@ -115,6 +152,25 @@ export class PaymentBulkAcceptService {
       throw new BulkItemError(
         'AMBIGUOUS',
         'Several claims match this transaction equally well — pick the right one explicitly.',
+      );
+    }
+    // Bulk acceptance needs hard identity evidence: an exact provider/payment
+    // reference or order number — phone or name never posts in bulk — and a
+    // provider status known to be a success.
+    if (
+      !top.reasons.some(
+        (reason) => reason.signal === 'REFERENCE' || reason.signal === 'ORDER',
+      )
+    ) {
+      throw new BulkItemError(
+        'NO_REFERENCE_MATCH',
+        `The best suggestion (${top.claim.paymentNumber}) matches without an exact reference or order number — confirm it explicitly after review.`,
+      );
+    }
+    if (result.line.providerStatusClass !== 'SUCCESS') {
+      throw new BulkItemError(
+        'STATUS_UNVERIFIED',
+        'The provider status is not a known successful payment — confirm it explicitly after review.',
       );
     }
     if (top.strength !== 'STRONG' || !top.amountMatches) {

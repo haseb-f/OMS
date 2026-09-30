@@ -16,10 +16,11 @@ export const BULK_LIMITS = {
   /** `POST leads/bulk-status` — `BulkChangeLeadStatusDto`. */
   leadStatusChangeMax: 5_000,
   /**
-   * `POST payments/bulk/confirm|reject` — every item runs through the
-   * single-record service in its own transaction, so the batch stays small.
+   * `POST payments/bulk/confirm|reject` and `…/matches/bulk-accept` — every
+   * item runs through the single-record service in its own transaction, one
+   * after another, so one request must finish well inside the serverless
+   * function limit (60 s). The web client sends larger selections in chunks.
    */
-  paymentBulkActionMax: 200,
-  /** `POST payment-reconciliation/methods/:methodId/matches/bulk-accept`. */
-  statementBulkAcceptMax: 100,
+  paymentBulkActionMax: 50,
+  statementBulkAcceptMax: 50,
 } as const;

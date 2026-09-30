@@ -5,7 +5,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
-  FinancialTransactionStatus,
   PaymentMatchStatus,
   PaymentSettlementDocStatus,
   PaymentSettlementStatus,
@@ -36,6 +35,7 @@ import {
 } from './suggestion.util';
 import type { ConfirmMatchDto } from './dto/payment-reconciliation.dto';
 import {
+  findReversalReceipt,
   matchReversalEffect,
   receiptPredatesMatching as receiptPredates,
 } from './match-reversal.util';
@@ -167,6 +167,24 @@ function describeStatementLine(line: StatementLineRow) {
 }
 
 export type StatementLineView = ReturnType<typeof describeStatementLine>;
+
+/** Why a statement line takes no suggestions (translated by the client). */
+export type SuggestionBlockedCode =
+  'PROVIDER_STATUS_FAILED' | 'LINE_NOT_UNMATCHED' | 'LINE_FULLY_ALLOCATED';
+
+function describeBlocked(
+  code: SuggestionBlockedCode,
+  line: { status: PaymentStatementLineStatus; providerStatus: string | null },
+): string {
+  switch (code) {
+    case 'PROVIDER_STATUS_FAILED':
+      return `Provider status "${line.providerStatus ?? ''}" is not a successful payment — it cannot be matched.`;
+    case 'LINE_NOT_UNMATCHED':
+      return `Line is ${line.status}; only unmatched lines take suggestions.`;
+    default:
+      return 'Line is fully allocated.';
+  }
+}
 export type SuggestionView = ScoredCandidate & { claim: ClaimView };
 
 export interface ConfirmMatchResult {
@@ -341,16 +359,19 @@ export class PaymentMatchingService {
       target.remaining <= 0 ||
       statusClass === 'FAILED'
     ) {
+      const blockedCode: SuggestionBlockedCode =
+        statusClass === 'FAILED'
+          ? 'PROVIDER_STATUS_FAILED'
+          : line.status !== PaymentStatementLineStatus.UNMATCHED
+            ? 'LINE_NOT_UNMATCHED'
+            : 'LINE_FULLY_ALLOCATED';
       return {
         ...base,
         candidates: [] as SuggestionView[],
         ambiguous: false,
-        blockedReason:
-          statusClass === 'FAILED'
-            ? `Provider status "${line.providerStatus}" is not a successful payment — it cannot be matched.`
-            : line.status !== PaymentStatementLineStatus.UNMATCHED
-              ? `الحركة في حالة ${line.status === 'MATCHED' ? 'مطابقة' : line.status === 'EXCEPTION' ? 'استثناء' : line.status === 'IGNORED' ? 'متجاهلة' : line.status}؛ الاقتراحات للحركات غير المطابقة فقط — Line is ${line.status}; only unmatched lines take suggestions.`
-              : 'الحركة موزّعة بالكامل — Line is fully allocated.',
+        // A stable code the client translates; the English sentence stays for API clients/logs.
+        blockedCode: blockedCode as SuggestionBlockedCode | null,
+        blockedReason: describeBlocked(blockedCode, line) as string | null,
       };
     }
 
@@ -398,7 +419,8 @@ export class PaymentMatchingService {
     return {
       ...base,
       ambiguous: ranked.ambiguous,
-      blockedReason: null,
+      blockedCode: null as SuggestionBlockedCode | null,
+      blockedReason: null as string | null,
       candidates: ranked.candidates.map((scored) => ({
         ...scored,
         claim: describeClaim(
@@ -526,20 +548,13 @@ export class PaymentMatchingService {
       orderBy: { confirmedAt: 'asc' },
       include: { statementLine: { include: STATEMENT_LINE_INCLUDE } },
     });
-    const receiptLink = await this.prisma.paymentReceiptLink.findUnique({
-      where: { paymentId: claim.id },
-      select: {
-        financialTransaction: {
-          select: {
-            id: true,
-            transactionNumber: true,
-            status: true,
-            createdAt: true,
-          },
-        },
-      },
+    const receipt = await findReversalReceipt(this.prisma, {
+      id: claim.id,
+      receiptLink: await this.prisma.paymentReceiptLink.findUnique({
+        where: { paymentId: claim.id },
+        select: { financialTransactionId: true },
+      }),
     });
-    const receipt = receiptLink?.financialTransaction ?? null;
     const journalEntry = receipt
       ? await this.prisma.journalEntry.findFirst({
           where: { sourceType: 'CUSTOMER_RECEIPT', sourceId: receipt.id },
@@ -664,8 +679,16 @@ export class PaymentMatchingService {
 
   // ----------------------------------------------------------------- confirm
 
+  /** A confirm already recorded under this idempotency key (a retry), or null. */
+  async findConfirmedReplay(
+    idempotencyKey: string,
+  ): Promise<ConfirmMatchResult | null> {
+    const replay = await this.findReplay(this.prisma, idempotencyKey);
+    return replay ? (replay.metadata as unknown as ConfirmMatchResult) : null;
+  }
+
   private async findReplay(
-    tx: Prisma.TransactionClient,
+    tx: Prisma.TransactionClient | PrismaService,
     idempotencyKey: string,
   ) {
     return tx.paymentActivity.findFirst({
@@ -1080,32 +1103,7 @@ export class PaymentMatchingService {
         // Cancel the posted receipt (reversal JE) when the claim was posted.
         let cancelledReceipt: { id: string; transactionNumber: string } | null =
           null;
-        const receipt = payment.receiptLink
-          ? await tx.financialTransaction.findUnique({
-              where: { id: payment.receiptLink.financialTransactionId },
-              select: {
-                id: true,
-                type: true,
-                status: true,
-                transactionNumber: true,
-                createdAt: true,
-              },
-            })
-          : await tx.financialTransaction.findFirst({
-              where: {
-                deletedAt: null,
-                type: 'CUSTOMER_RECEIPT',
-                status: { not: FinancialTransactionStatus.CANCELLED },
-                notes: `STORE_ORDER_PAYMENT:${payment.id}`,
-              },
-              select: {
-                id: true,
-                type: true,
-                status: true,
-                transactionNumber: true,
-                createdAt: true,
-              },
-            });
+        const receipt = await findReversalReceipt(tx, payment);
         // A receipt posted BEFORE this claim was first matched (normal Finance
         // review) was never created by reconciliation: the correction only
         // unlinks the statement line and leaves that receipt and the

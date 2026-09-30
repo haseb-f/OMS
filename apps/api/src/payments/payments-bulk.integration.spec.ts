@@ -406,8 +406,13 @@ describeDb('Payments bulk actions (local DB)', () => {
       methodId: reconMethodId,
       reference: `ST-${tag}`,
     });
-    // Name + amount only ⇒ MEDIUM — never accepted in bulk.
+    // Name + amount only ⇒ no reference/order identity — never accepted in bulk.
     const nameOnly = await makeClaim(77, { methodId: reconMethodId });
+    // Exact reference, but the provider status is not a known success.
+    const unverified = await makeClaim(44, {
+      methodId: reconMethodId,
+      reference: `UV-${tag}`,
+    });
     // Same reference but the claim is in another currency than the line.
     await makeClaim(55, {
       methodId: reconMethodId,
@@ -422,11 +427,13 @@ describeDb('Payments bulk actions (local DB)', () => {
       { Ref: `NM-${tag}`, Amount: '77', Name: partnerName },
       { Ref: `FX-${tag}`, Amount: '55', Currency: otherCurrencyCode },
       { Ref: `CH-${tag}`, Amount: '33' },
+      { Ref: `UV-${tag}`, Amount: '44', Status: 'PROCESSING' },
     ]);
     const strongLine = await lineByRef(`ST-${tag}`);
     const nameLine = await lineByRef(`NM-${tag}`);
     const fxLine = await lineByRef(`FX-${tag}`);
     const changedLine = await lineByRef(`CH-${tag}`);
+    const unverifiedLine = await lineByRef(`UV-${tag}`);
 
     const dry = await accept.bulkAccept(
       reconMethodId,
@@ -436,6 +443,7 @@ describeDb('Payments bulk actions (local DB)', () => {
           { statementLineId: strongLine.id },
           { statementLineId: nameLine.id },
           { statementLineId: fxLine.id },
+          { statementLineId: unverifiedLine.id },
         ],
       },
       userId,
@@ -449,7 +457,8 @@ describeDb('Payments bulk actions (local DB)', () => {
       }),
     ]);
     const dryFailures = new Map(dry.failed.map((row) => [row.id, row.code]));
-    expect(dryFailures.get(nameLine.id)).toBe('NOT_STRONG');
+    expect(dryFailures.get(nameLine.id)).toBe('NO_REFERENCE_MATCH');
+    expect(dryFailures.get(unverifiedLine.id)).toBe('STATUS_UNVERIFIED');
     expect(dryFailures.get(fxLine.id)).toBe('NO_SUGGESTION');
     expect((await lineByRef(`ST-${tag}`)).status).toBe('UNMATCHED');
     expect(await receiptCount(strong.id)).toBe(0);
@@ -479,7 +488,7 @@ describeDb('Payments bulk actions (local DB)', () => {
     ]);
     const failures = new Map(commit.failed.map((row) => [row.id, row.code]));
     expect(commit.failed).toHaveLength(3);
-    expect(failures.get(nameLine.id)).toBe('NOT_STRONG');
+    expect(failures.get(nameLine.id)).toBe('NO_REFERENCE_MATCH');
     expect(failures.get(fxLine.id)).toBe('NO_SUGGESTION');
     expect(failures.get(changedLine.id)).toBe('SUGGESTION_CHANGED');
 
@@ -492,7 +501,15 @@ describeDb('Payments bulk actions (local DB)', () => {
       (await prisma.payment.findUniqueOrThrow({ where: { id: changed.id } }))
         .status,
     ).toBe(PaymentStatus.PENDING);
+    expect(
+      (
+        await prisma.payment.findUniqueOrThrow({
+          where: { id: unverified.id },
+        })
+      ).status,
+    ).toBe(PaymentStatus.PENDING);
 
+    // Same key: the recorded outcome comes back as a replay, nothing posts again.
     const retry = await accept.bulkAccept(
       reconMethodId,
       {
@@ -501,8 +518,26 @@ describeDb('Payments bulk actions (local DB)', () => {
       },
       userId,
     );
-    expect(retry.succeeded).toHaveLength(0);
-    expect(retry.failed[0].code).toBe('NOT_MATCHABLE');
+    expect(retry.failed).toHaveLength(0);
+    expect(retry.succeeded).toEqual([
+      expect.objectContaining({
+        id: strongLine.id,
+        paymentId: strong.id,
+        paymentNumber: strong.paymentNumber,
+        replayed: true,
+        posted: true,
+      }),
+    ]);
+    // A new action on the now-matched line is refused with a stable code.
+    const again = await accept.bulkAccept(
+      reconMethodId,
+      {
+        idempotencyKey: `other-${tag}`,
+        items: [{ statementLineId: strongLine.id }],
+      },
+      userId,
+    );
+    expect(again.failed[0].code).toBe('LINE_NOT_UNMATCHED');
     expect(await receiptCount(strong.id)).toBe(1);
     expect(
       await prisma.paymentMatch.count({ where: { paymentId: strong.id } }),
@@ -550,6 +585,25 @@ describeDb('Payments bulk actions (local DB)', () => {
     });
     expect(listed.items[0].matches[0].reversalEffect).toBe('REVERSE_POSTING');
 
+    // A receipt posted before PaymentReceiptLink existed (tagged only by its
+    // notes) is found by the same lookup reverseMatch uses.
+    await prisma.paymentReceiptLink.delete({ where: { paymentId: claim.id } });
+    const legacyListed = await overview.listLines(reconMethodId, {
+      search: `PN-${tag}`,
+    });
+    expect(legacyListed.items[0].matches[0].reversalEffect).toBe(
+      'REVERSE_POSTING',
+    );
+    expect(legacyListed.items[0].matches[0].receipt?.id).toBeTruthy();
+    expect(legacyListed.items[0].matches[0].journalEntry?.entryNumber).toBe(
+      after.journalEntry?.entryNumber,
+    );
+    const legacyView = await matching.claimLines(reconMethodId, claim.id);
+    expect(legacyView.activeMatches[0].reversalEffect).toBe('REVERSE_POSTING');
+    expect(legacyView.journalEntry?.entryNumber).toBe(
+      after.journalEntry?.entryNumber,
+    );
+
     // A partial allocation posts nothing ⇒ reversing it is only an unmatch.
     const partial = await makeClaim(90, {
       methodId: reconMethodId,
@@ -576,17 +630,34 @@ describeDb('Payments bulk actions (local DB)', () => {
     expect(context.debitAccount?.code).toBe(clearingCode);
     expect(context.debitAccount?.source).toBe('PAYMENT_METHOD');
     expect(context.customer?.name).toBe(partnerName);
-    expect(context.journalEntry?.entryNumber).toBe(
-      after.journalEntry?.entryNumber,
-    );
+
+    // Matched manually (no statement) on a review-confirmed method.
+    const manual = await makeClaim(25);
+    await payments.match(manual.id, { matchedById: userId });
 
     // This user holds no reconciliation permission: statement stages are withheld.
     const summary = await review.summary(userId);
     expect(summary.unmatchedLines).toBeNull();
     expect(summary.exceptions).toBeNull();
+    // Only claims confirmable from review count as "awaiting confirmation";
+    // reconciliation-method MATCHED claims are finished in their workspace.
+    expect(summary.awaitingConfirmation.totals[currencyCode]?.count).toBe(1);
     expect(
-      summary.awaitingConfirmation.totals[currencyCode]?.count,
+      summary.partiallyAllocated.totals[currencyCode]?.count,
     ).toBeGreaterThan(0);
+    expect(
+      summary.partiallyAllocated.methods.some((m) => m.id === reconMethodId),
+    ).toBe(true);
+    const confirmable = await payments.findAll({
+      status: PaymentStatus.MATCHED,
+      reconciled: 'false',
+      pageSize: 200,
+    });
+    expect(confirmable.items.some((row) => row.id === manual.id)).toBe(true);
+    expect(confirmable.items.some((row) => row.id === partial.id)).toBe(false);
+    expect(
+      confirmable.items.find((row) => row.id === manual.id)?.activeMatchCount,
+    ).toBe(0);
     expect(
       summary.awaitingSettlement.methods.some((m) => m.id === reconMethodId),
     ).toBe(true);

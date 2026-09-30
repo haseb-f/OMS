@@ -1,4 +1,4 @@
-import { FinancialTransactionStatus } from '@prisma/client';
+import { FinancialTransactionStatus, Prisma } from '@prisma/client';
 
 /**
  * What reversing ("correcting") a statement match actually does — the single
@@ -41,4 +41,41 @@ export function matchReversalEffect(
     receipt.status === FinancialTransactionStatus.CONFIRMED
     ? 'REVERSE_POSTING'
     : 'UNMATCH';
+}
+
+const REVERSAL_RECEIPT_SELECT = {
+  id: true,
+  type: true,
+  status: true,
+  transactionNumber: true,
+  createdAt: true,
+} satisfies Prisma.FinancialTransactionSelect;
+
+/**
+ * The claim's Customer Receipt as `reverseMatch` sees it: the linked receipt,
+ * or — for claims posted before `PaymentReceiptLink` existed — the live
+ * receipt tagged `STORE_ORDER_PAYMENT:<paymentId>`. The read side uses the
+ * same lookup so a legacy receipt is labelled "Reverse posting" too.
+ */
+export function findReversalReceipt(
+  client: Prisma.TransactionClient,
+  payment: {
+    id: string;
+    receiptLink: { financialTransactionId: string } | null;
+  },
+) {
+  return payment.receiptLink
+    ? client.financialTransaction.findUnique({
+        where: { id: payment.receiptLink.financialTransactionId },
+        select: REVERSAL_RECEIPT_SELECT,
+      })
+    : client.financialTransaction.findFirst({
+        where: {
+          deletedAt: null,
+          type: 'CUSTOMER_RECEIPT',
+          status: { not: FinancialTransactionStatus.CANCELLED },
+          notes: `STORE_ORDER_PAYMENT:${payment.id}`,
+        },
+        select: REVERSAL_RECEIPT_SELECT,
+      });
 }

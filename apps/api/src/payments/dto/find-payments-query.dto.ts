@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsEnum, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 import { PaymentSettlementStatus, PaymentStatus } from '@prisma/client';
 
 export class FindPaymentsQueryDto {
@@ -14,6 +14,15 @@ export class FindPaymentsQueryDto {
     typeof value === 'string' ? value.split(',') : value,
   )
   settlementStatus?: PaymentSettlementStatus[];
+
+  /**
+   * `false`: only payments Finance confirms from review (no method, or a
+   * method without statement reconciliation); `true`: only reconciliation
+   * methods. Omitted: both.
+   */
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  reconciled?: 'true' | 'false';
 
   @Type(() => Number)
   @IsInt()

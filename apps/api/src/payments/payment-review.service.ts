@@ -65,11 +65,10 @@ export class PaymentReviewService {
       await Promise.all([
         this.prisma.currency.findMany({ select: { id: true, code: true } }),
         this.prisma.paymentMethod.findMany({
-          where: { deletedAt: null },
-          select: { id: true, name: true },
+          select: { id: true, name: true, requiresReconciliation: true },
         }),
         this.prisma.payment.groupBy({
-          by: ['status', 'currencyId'],
+          by: ['status', 'currencyId', 'paymentMethodId'],
           where: {
             deletedAt: null,
             status: {
@@ -104,15 +103,27 @@ export class PaymentReviewService {
 
     const declared = emptyStage();
     const awaitingConfirmation = emptyStage();
+    const partiallyAllocated = emptyStage();
     const disputed = emptyStage();
     for (const group of claimGroups) {
+      const method = group.paymentMethodId
+        ? methodById.get(group.paymentMethodId)
+        : undefined;
+      // MATCHED claims of a reconciliation method are finished in its
+      // workspace (allocate the rest); only the others can be confirmed from
+      // review, so they are the "awaiting confirmation" stage.
       const stage =
         group.status === PaymentStatus.PENDING
           ? declared
           : group.status === PaymentStatus.MATCHED
-            ? awaitingConfirmation
+            ? method?.requiresReconciliation
+              ? partiallyAllocated
+              : awaitingConfirmation
             : disputed;
       stage.count += group._count._all;
+      if (stage === partiallyAllocated) {
+        addMethod(stage, method, group._count._all);
+      }
       addCurrencyTotal(
         stage.totals,
         code.get(group.currencyId) ?? '?',
@@ -183,9 +194,10 @@ export class PaymentReviewService {
 
     return {
       declared,
+      awaitingConfirmation,
+      partiallyAllocated,
       unmatchedLines,
       exceptions,
-      awaitingConfirmation,
       awaitingSettlement,
       disputed,
     };
