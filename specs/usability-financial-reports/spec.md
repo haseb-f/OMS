@@ -1,6 +1,6 @@
 # Usability refinements & financial report correctness
 
-Status: in progress (2026-09-29). Owner brief: "OMS — USABILITY REFINEMENTS & FINANCIAL REPORT CORRECTNESS".
+Status: **released** — `f75db61`, `19f34b2` (Production-verified, `verification.md`); completion items (toast ×, selection scopes, cross-page bulk actions, phone selection) released in `8a67de9`/`61a5124`, verified on Production 2026-09-30 (`specs/cross-session-completion/register.md`). Open owner points P4–P12 only (`specs/cross-session-completion/decisions-ar.md`). Originally started 2026-09-29. Owner brief: "OMS — USABILITY REFINEMENTS & FINANCIAL REPORT CORRECTNESS".
 Design baseline: `specs/enterprise-ui-overhaul/design-system.md` §12 (approved Round 3/4). The rejected
 `round4-proposal.md` is NOT an input.
 

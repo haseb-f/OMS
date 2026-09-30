@@ -1,6 +1,6 @@
 # Spec — Agents / Fulfillment Partners (الوكلاء)
 
-**Status: ACTIVE** (2026-09-28). Owner brief: [`brief.md`](brief.md). Discovery: §1. Design: §2–§10.
+**Status: ACTIVE — released, BLOCKED on owner decision D1** (Production: `923b4b4`…`2c21c75`; 8 Production acceptance scenarios blocked until the three GL accounts are chosen; D2–D6 and the shipping-difference policy await confirmation — `specs/cross-session-completion/decisions-ar.md`). Started 2026-09-28. Owner brief: [`brief.md`](brief.md). Discovery: §1. Design: §2–§10.
 Open decisions: §11.
 **Amended 2026-09-29 by [`commission-policy.md`](commission-policy.md)** — per-class commission rates,
 item overrides and actual carrier-cost reimbursement supersede the single rate (§2) and the flat
