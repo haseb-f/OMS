@@ -420,6 +420,8 @@ function StoreOrdersPageContent() {
         </p>
       )}
       <EnterpriseDataTable
+        // Own bulk Print/Export (store-order print rows, cross-page resolve).
+        builtInSelectionActions={false}
         tableId="store-orders"
         printTitle={t("storeOrders.title")}
         columns={columns}

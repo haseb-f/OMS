@@ -511,11 +511,30 @@ export class CarrierReconciliationService {
    * Reversal (Part 4/13) — clears the match; if the charge was CONFIRMED,
    * this also removes it as that Shipment's authoritative actual cost.
    */
-  async unmatch(id: string, userId?: string) {
+  async unmatch(
+    id: string,
+    userId?: string,
+    options: { proposedOnly?: boolean } = {},
+  ) {
     const charge = await this.findOne(id);
     const updated = await this.prisma.$transaction(
       async (tx) => {
         await tx.$queryRaw`SELECT id FROM carrier_charges WHERE id = ${id}::uuid FOR UPDATE`;
+        if (options.proposedOnly) {
+          // Re-read under the lock: the list the user acted on may be stale.
+          const current = await tx.carrierCharge.findUniqueOrThrow({
+            where: { id },
+            select: { reconciliationState: true },
+          });
+          if (current.reconciliationState === 'CONFIRMED') {
+            throw new ConflictException(
+              'This charge is CONFIRMED — unmatch it individually from its row.',
+            );
+          }
+          if (current.reconciliationState === 'UNMATCHED') {
+            throw new ConflictException('This charge is already UNMATCHED.');
+          }
+        }
         return tx.carrierCharge.update({
           where: { id },
           data: {
@@ -549,11 +568,16 @@ export class CarrierReconciliationService {
    * alongside it. Carrier charges are company cost only — they never
    * create an agent deduction (commission-policy.md A6).
    */
-  async confirm(id: string, userId?: string) {
+  async confirm(id: string, userId?: string, expectedShipmentId?: string) {
     const charge = await this.findOne(id);
     if (!charge.shipmentId) {
       throw new BadRequestException(
         'Match this charge to a Shipment before confirming it.',
+      );
+    }
+    if (expectedShipmentId && charge.shipmentId !== expectedShipmentId) {
+      throw new ConflictException(
+        'The charge was rematched meanwhile — reload and try again.',
       );
     }
     const shipmentId = charge.shipmentId;

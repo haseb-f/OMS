@@ -26,7 +26,11 @@ import {
   exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
-import { MultiSelectFilter, useMatchingSelection } from "@/components/shared/data-table";
+import {
+  MultiSelectFilter,
+  useMatchingSelection,
+  useSelectedRecords,
+} from "@/components/shared/data-table";
 import {
   journalEntriesService,
   type JournalEntryRow,
@@ -63,7 +67,7 @@ function JournalEntriesPageContent() {
   const { hasPermission, user } = useUserContext();
   const { activeCompany } = useCompany();
   const printCompany = usePrintCompany();
-  const { printList, runPrint } = usePrintEngine();
+  const { runPrint } = usePrintEngine();
 
   const [items, setItems] = useState<JournalEntryRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -80,16 +84,15 @@ function JournalEntriesPageContent() {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  // Cross-page selection (Part 7) — see the identical comment in
-  // sales/orders/page.tsx: `items` only ever holds the current page, so
-  // every page fetched is merged into this cache instead of discarded.
-  const [itemsCache, setItemsCache] = useState<Record<string, JournalEntryRow>>({});
   const usersById = useUsersLookup();
   const [journals, setJournals] = useState<JournalRow[]>([]);
   const [postTarget, setPostTarget] = useState<JournalEntryRow | null>(null);
   const [reverseTarget, setReverseTarget] = useState<JournalEntryRow | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<JournalEntryRow | null>(null);
-  const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
+  const [bulkArchive, setBulkArchive] = useState<{
+    targets: JournalEntryRow[];
+    skipped: number;
+  } | null>(null);
 
   useEffect(() => {
     journalsService
@@ -118,10 +121,6 @@ function JournalEntriesPageContent() {
       const result = await journalEntriesService.list({ ...listFilters, page, pageSize });
       setItems(result.items);
       setTotal(result.total);
-      setItemsCache((cache) => ({
-        ...cache,
-        ...Object.fromEntries(result.items.map((item) => [item.id, item])),
-      }));
     } catch (error) {
       reportApiError(error, "errors.loadFailed");
     } finally {
@@ -380,35 +379,28 @@ function JournalEntriesPageContent() {
     "createdBy",
   ];
 
-  const selectedIds = Object.keys(rowSelection);
-  const selectedItems = selectedIds.map((id) => itemsCache[id]).filter((item) => !!item);
-  const selectedArchivable = selectedItems.filter((item) =>
-    JOURNAL_ENTRY_ARCHIVABLE_STATUSES.includes(item.status),
-  );
-  const hasUncachedSelection = selectedIds.length > selectedItems.length;
+  const { selectedIds, selectedRecords, resolve } = useSelectedRecords({
+    items,
+    rowSelection,
+    fetchAllRows,
+    query: matching.queryKey,
+  });
+  const isArchivable = (item: JournalEntryRow) =>
+    JOURNAL_ENTRY_ARCHIVABLE_STATUSES.includes(item.status);
+  // Every selected record known -> disable when none is archivable; otherwise
+  // the selection reaches past loaded pages and is resolved on click.
+  const archiveDisabled =
+    selectedRecords.length === selectedIds.length && !selectedRecords.some(isArchivable);
 
-  const handleBulkPrint = () => {
-    if (selectedItems.length === 0) return;
-    printList({
-      variant: "list",
-      title: t("accounting.journalEntries.title"),
-      company: {
-        name: printCompany.name,
-        logoUrl: printCompany.logoUrl ?? null,
-      },
-      printedByName: user?.fullName ?? null,
-      columns: exportColumnsFromKeys(columns, exportColumnKeys, t),
-      rows: selectedItems.map(toPrintRow),
-    });
-  };
-
-  const handleBulkExport = () => {
-    if (selectedItems.length === 0) return;
-    exportRowsToCsv(
-      selectedItems.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
-      exportColumnKeys,
-      "journal-entries-selected.csv",
-    );
+  const handleBulkArchiveRequested = async () => {
+    const records = await resolve();
+    if (!records) return;
+    const targets = records.filter(isArchivable);
+    if (targets.length === 0) {
+      toast.info(t("table.bulkNoneEligible"));
+      return;
+    }
+    setBulkArchive({ targets, skipped: records.length - targets.length });
   };
 
   // Shared select-all rules (tables-selection.md): stale results dropped,
@@ -427,8 +419,10 @@ function JournalEntriesPageContent() {
     );
 
   const handleBulkArchiveConfirmed = async () => {
-    setBulkArchiveOpen(false);
-    const result = await journalEntriesService.bulkArchive(selectedIds);
+    if (!bulkArchive) return;
+    const { targets } = bulkArchive;
+    setBulkArchive(null);
+    const result = await journalEntriesService.bulkArchive(targets.map((item) => item.id));
     if (result.failed.length === 0) {
       toast.success(
         t("accounting.journalEntries.toasts.bulkArchived", { count: result.succeeded.length }),
@@ -551,13 +545,9 @@ function JournalEntriesPageContent() {
         isSelectingAllMatching={matching.isSelectingAllMatching}
         bulkActions={
           <SalesListBulkActions
-            onPrint={handleBulkPrint}
-            onExport={handleBulkExport}
-            onArchive={() => setBulkArchiveOpen(true)}
-            archiveDisabled={!hasUncachedSelection && selectedArchivable.length === 0}
+            onArchive={() => void handleBulkArchiveRequested()}
+            archiveDisabled={archiveDisabled}
             labels={{
-              print: t("table.print"),
-              export: t("table.export"),
               archive: t("common.archive"),
             }}
           />
@@ -610,13 +600,17 @@ function JournalEntriesPageContent() {
       />
 
       <ConfirmationDialog
-        open={bulkArchiveOpen}
-        onOpenChange={setBulkArchiveOpen}
+        open={!!bulkArchive}
+        onOpenChange={(open) => !open && setBulkArchive(null)}
         tone="destructive"
         title={t("accounting.journalEntries.bulk.archiveConfirmTitle", {
-          count: hasUncachedSelection ? selectedIds.length : selectedArchivable.length,
+          count: bulkArchive?.targets.length ?? 0,
         })}
-        description={t("accounting.journalEntries.confirmArchiveDescription")}
+        description={
+          bulkArchive?.skipped
+            ? `${t("accounting.journalEntries.confirmArchiveDescription")} ${t("table.bulkIneligibleSkipped", { count: bulkArchive.skipped })}`
+            : t("accounting.journalEntries.confirmArchiveDescription")
+        }
         confirmLabel={t("common.archive")}
         cancelLabel={t("common.close")}
         onConfirm={handleBulkArchiveConfirmed}

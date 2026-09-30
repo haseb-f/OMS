@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, Download, Printer } from "lucide-react";
+import { Archive } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { RowActionsMenu, type RowAction } from "@/components/shared/data-table";
 
@@ -16,58 +16,30 @@ export type SalesDocumentRowAction = RowAction;
 export const SalesDocumentRowActionsMenu = RowActionsMenu;
 
 /**
- * The one bulk-actions row every Sales document list reuses (Print/Export/
- * Archive) — rendered inside `EnterpriseDataTable`'s `bulkActions` slot,
- * which only appears once at least one row is selected.
+ * The Archive action every document list adds to `EnterpriseDataTable`'s
+ * bulk strip. Print/Export of the selection are built into the table itself
+ * ("Print selected" / "Export selected"), so they are never repeated here.
  */
 export function SalesListBulkActions({
-  onPrint,
-  onExport,
   onArchive,
   archiveDisabled,
   labels,
 }: {
-  onPrint: () => void;
-  onExport: () => void;
-  onArchive?: () => void;
+  onArchive: () => void;
   archiveDisabled?: boolean;
-  labels: { print: string; export: string; archive: string };
+  labels: { archive: string };
 }) {
   return (
-    <>
-      <EnterpriseButton
-        type="button"
-        variant="outline"
-        size="sm"
-        className="gap-1.5"
-        onClick={onPrint}
-      >
-        <Printer className="size-3.5" />
-        {labels.print}
-      </EnterpriseButton>
-      <EnterpriseButton
-        type="button"
-        variant="outline"
-        size="sm"
-        className="gap-1.5"
-        onClick={onExport}
-      >
-        <Download className="size-3.5" />
-        {labels.export}
-      </EnterpriseButton>
-      {onArchive && (
-        <EnterpriseButton
-          type="button"
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          disabled={archiveDisabled}
-          onClick={onArchive}
-        >
-          <Archive className="size-3.5" />
-          {labels.archive}
-        </EnterpriseButton>
-      )}
-    </>
+    <EnterpriseButton
+      type="button"
+      variant="outline"
+      size="sm"
+      className="gap-1.5"
+      disabled={archiveDisabled}
+      onClick={onArchive}
+    >
+      <Archive className="size-3.5" />
+      {labels.archive}
+    </EnterpriseButton>
   );
 }

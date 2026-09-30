@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { Banknote, CheckCircle2, FileDown, Link2, Unlink, UploadCloud } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { HeaderActions } from "@/components/shared/header-actions";
@@ -13,7 +13,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
-import { RowActionsMenu } from "@/components/shared/data-table";
+import {
+  RowActionsMenu,
+  useBulkLimitGuard,
+  useSelectedRecords,
+} from "@/components/shared/data-table";
+import { EnterpriseButton } from "@/components/ui/button";
+import { BULK_LIMITS } from "@/lib/bulk-limits";
+import { reportBulkResult, runBulkSequential } from "@/lib/bulk-run";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { CarrierChargeMatchDialog } from "@/components/shared/carrier-charge-match-dialog";
 import { SelectFilter } from "@/components/shared/data-table/select-filter";
@@ -37,6 +44,21 @@ import {
 } from "@/lib/carrier-charge-status";
 import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
+
+/** Bulk "Confirm matches": a matched charge with a shipment, not yet confirmed (same rule as the row action; the server re-checks each). */
+function canBulkConfirm(row: CarrierChargeRow) {
+  return (
+    Boolean(row.shipmentId) &&
+    (row.reconciliationState === "MATCHED" || row.reconciliationState === "REVIEW_REQUIRED")
+  );
+}
+
+/** Bulk "Unmatch" rejects proposed matches only — a CONFIRMED charge is unmatched one at a time from its row. */
+function canBulkUnmatch(row: CarrierChargeRow) {
+  return row.reconciliationState === "MATCHED" || row.reconciliationState === "REVIEW_REQUIRED";
+}
+
+type BulkKind = "confirm" | "unmatch";
 
 /** Filter order (same as the previous dropdown). */
 const CARRIER_RECONCILIATION_STATES: CarrierReconciliationStateValue[] = [
@@ -79,6 +101,15 @@ function CarrierReconciliationContent() {
   const [paidTarget, setPaidTarget] = useState<CarrierChargeRow | null>(null);
   const [paidReference, setPaidReference] = useState("");
   const [isMarkingPaid, setIsMarkingPaid] = useState(false);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [bulk, setBulk] = useState<{
+    kind: BulkKind;
+    targets: CarrierChargeRow[];
+    skipped: number;
+  } | null>(null);
+  const [isResolvingBulk, setIsResolvingBulk] = useState(false);
+  const [isRunningBulk, setIsRunningBulk] = useState(false);
+  const withinBulkLimit = useBulkLimitGuard();
 
   const listFilters = useMemo(
     () => ({
@@ -118,6 +149,47 @@ function CarrierReconciliationContent() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  const selection = useSelectedRecords({ items, rowSelection, fetchAllRows, query: listFilters });
+
+  /** Resolves the whole selection (every page), keeps the eligible records and opens the confirmation with exact counts. */
+  const startBulk = async (kind: BulkKind) => {
+    if (!withinBulkLimit(selection.selectedIds.length, BULK_LIMITS.carrierChargeBulkMax)) return;
+    setIsResolvingBulk(true);
+    try {
+      // Always re-read: eligibility must reflect current states, not a cached page.
+      const records = await selection.resolve({ fresh: true });
+      if (!records) return;
+      const eligible = records.filter(kind === "confirm" ? canBulkConfirm : canBulkUnmatch);
+      if (eligible.length === 0) {
+        toast.info(t(`carrierReconciliation.bulk.noneEligible.${kind}`));
+        return;
+      }
+      setBulk({ kind, targets: eligible, skipped: records.length - eligible.length });
+    } finally {
+      setIsResolvingBulk(false);
+    }
+  };
+
+  const runBulk = async () => {
+    if (!bulk) return;
+    setIsRunningBulk(true);
+    const result = await runBulkSequential(bulk.targets, (row) =>
+      bulk.kind === "confirm"
+        ? carrierReconciliationService.confirm(row.id, row.shipmentId ?? undefined)
+        : carrierReconciliationService.unmatch(row.id, { proposedOnly: true }),
+    );
+    setIsRunningBulk(false);
+    reportBulkResult(result, {
+      success: (count) => t(`carrierReconciliation.bulk.done.${bulk.kind}`, { count }),
+      partial: (succeeded, failed) =>
+        t("carrierReconciliation.bulk.partial", { succeeded, failed }),
+      label: (row) => row.trackingNumber || row.carrierReference || row.shipmentReference || row.id,
+    });
+    setBulk(null);
+    setRowSelection({});
+    void load();
+  };
 
   const columns = useMemo<ColumnDef<CarrierChargeRow, unknown>[]>(
     () => [
@@ -406,6 +478,41 @@ function CarrierReconciliationContent() {
         }
         isLoading={isLoading}
         getRowId={(row) => row.id}
+        rowSelection={rowSelection}
+        onRowSelectionChange={setRowSelection}
+        selectionResetKey={listFilters}
+        bulkActions={
+          canConfirm || canMatch ? (
+            <>
+              {canConfirm ? (
+                <EnterpriseButton
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={isResolvingBulk}
+                  onClick={() => void startBulk("confirm")}
+                >
+                  <CheckCircle2 className="size-3.5" aria-hidden />
+                  {t("carrierReconciliation.bulk.action.confirm")}
+                </EnterpriseButton>
+              ) : null}
+              {canMatch ? (
+                <EnterpriseButton
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={isResolvingBulk}
+                  onClick={() => void startBulk("unmatch")}
+                >
+                  <Unlink className="size-3.5" aria-hidden />
+                  {t("carrierReconciliation.bulk.action.unmatch")}
+                </EnterpriseButton>
+              ) : null}
+            </>
+          ) : undefined
+        }
         emptyTitle={t("carrierReconciliation.empty")}
         onRefresh={load}
       />
@@ -512,6 +619,32 @@ function CarrierReconciliationContent() {
             })
             .finally(() => setIsMarkingPaid(false));
         }}
+      />
+
+      <ConfirmationDialog
+        open={bulk != null}
+        onOpenChange={(open) => {
+          if (!open && !isRunningBulk) setBulk(null);
+        }}
+        tone={bulk?.kind === "unmatch" ? "warning" : undefined}
+        title={
+          bulk
+            ? t(`carrierReconciliation.bulk.title.${bulk.kind}`, { count: bulk.targets.length })
+            : ""
+        }
+        description={
+          bulk ? (
+            <>
+              {t(`carrierReconciliation.bulk.description.${bulk.kind}`)}
+              {bulk.skipped > 0 ? (
+                <> {t("carrierReconciliation.bulk.skipped", { count: bulk.skipped })}</>
+              ) : null}
+            </>
+          ) : null
+        }
+        confirmLabel={bulk ? t(`carrierReconciliation.bulk.action.${bulk.kind}`) : undefined}
+        isConfirming={isRunningBulk}
+        onConfirm={() => void runBulk()}
       />
     </PageWorkspace>
   );

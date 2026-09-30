@@ -298,6 +298,41 @@ describe('CarrierReconciliationService', () => {
     );
   });
 
+  it('unmatch({ proposedOnly }) refuses a charge that is CONFIRMED under the lock (bulk reject never reverses an approved cost)', async () => {
+    const { service, prisma } = makeService({
+      chargeFindFirst: jest.fn().mockResolvedValue({
+        id: 'charge-1',
+        shipmentId: 'shipment-1',
+        reconciliationState: 'MATCHED',
+      }),
+    });
+    (
+      prisma.carrierCharge as { findUniqueOrThrow: jest.Mock }
+    ).findUniqueOrThrow.mockResolvedValue({ reconciliationState: 'CONFIRMED' });
+
+    await expect(
+      service.unmatch('charge-1', 'user-1', { proposedOnly: true }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(
+      (prisma.carrierCharge as { update: jest.Mock }).update,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('confirm() with an expected Shipment refuses a charge rematched meanwhile', async () => {
+    const { service } = makeService({
+      chargeFindFirst: jest.fn().mockResolvedValue({
+        id: 'charge-1',
+        shipmentId: 'shipment-2',
+        reconciliationState: 'MATCHED',
+        chargeKind: 'BASE',
+      }),
+    });
+
+    await expect(
+      service.confirm('charge-1', 'user-1', 'shipment-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
   it('confirm() succeeds and writes an audit entry when nothing else is CONFIRMED for that Shipment', async () => {
     const { service, activityLog } = makeService({
       chargeFindFirst: jest

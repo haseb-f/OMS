@@ -189,3 +189,45 @@ use `border-table-divider`, so dividers are hairlines a step firmer than surface
 - **Cost Explorer rows.** `app/(shell)/expenses/cost-explorer/page.tsx` passes `onClick` to every
   row, so all rows now show the pointer and hover. Only rows in the ORDER dimension navigate; that
   page should pass `interactive={dimension === "ORDER"}`.
+
+## Built-in selection tools and bulk actions (2026-09-29, cross-session completion)
+
+Every `EnterpriseDataTable` now carries the selection tools itself (`builtInSelectionActions`, default
+on), so no list needs to rebuild them:
+
+- **Menu scopes.** "Select this page", "Select all matching results", "Select a specific number…"
+  (first N in the current deterministic sort) and "Clear selection". A caller's own
+  `onSelectAllMatching` / `selectCustomCount` (server `…/ids` endpoints) still win; otherwise the
+  table provides them from its in-memory rows (client mode) or the page's bounded `fetchAllRows`
+  (server mode, `FETCH_ALL_ROW_CAP` = 5,000; a larger match set selects the first 5,000 and says
+  so). Tables with neither never show a scope they cannot deliver. A built-in "all matching"
+  result is a `MatchingSelectionSnapshot` for the current query, so the strip reads "All N
+  matching results selected" only while that exact set is selected.
+- **Print selected / Export selected.** Shown in the bulk strip whenever rows are selected
+  (export only on tables that already export). They act on exactly the selected records across
+  pages: missing records are fetched with the current query, and if any still can't be found the
+  job stops with «تعذّر تجهيز كل السجلات المحددة.» instead of printing fewer rows than stated. The
+  print sheet notes "Selected rows only: N". Pages whose own bulk component already prints/exports
+  pass `builtInSelectionActions={false}` — only Store Orders, whose own Print/Export already
+  resolve the whole selection with store-order print rows.
+- **Selected records across pages.** `useSelectedRecords` (`data-table/use-selected-records.ts`)
+  is the one resolver for bulk actions: the document lists (sales ×5, purchasing ×5, journal
+  entries, inventory movements, physical count) previously archived/printed only the selected rows
+  on the loaded page. They now resolve the whole selection first, show the exact eligible count in
+  the confirmation, name how many selected records are ineligible and skipped, and archive only
+  eligible ones.
+- **Carrier Reconciliation.** New bulk "Confirm matches" (`carrier-reconciliation.confirm`) and
+  "Unmatch" (`carrier-reconciliation.match`). Eligibility mirrors the row actions; bulk Unmatch
+  only rejects proposed matches (MATCHED / REVIEW_REQUIRED) — a CONFIRMED charge is reversed one at
+  a time from its row. Each record is one server request (`lib/bulk-run.ts`): the server re-checks
+  permission and state and rejects repeats (`This charge is already CONFIRMED.`), so a retry or
+  double click can never apply twice. Partial failures list the first three references with the
+  server's reason. Client cap `BULK_LIMITS.carrierChargeBulkMax` = 500. The server enforces the
+  bulk rules itself, under the row lock, so a stale list can never widen them: bulk Unmatch sends
+  `proposedOnly` (409 for a charge CONFIRMED meanwhile) and bulk Confirm sends
+  `expectedShipmentId` (409 for a charge rematched meanwhile). Eligibility is always judged on a
+  fresh fetch (`resolve({ fresh: true })`), and remembered records are dropped whenever the list
+  reloads.
+- **Not added (deliberately).** No bulk operation was invented where the domain has none: posted
+  journals, payroll runs, fiscal periods, agent statements/payouts, stock and report tables get
+  only Print/Export selected.

@@ -26,7 +26,11 @@ import {
   exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
-import { MultiSelectFilter, MultiEntityFilter } from "@/components/shared/data-table";
+import {
+  MultiSelectFilter,
+  MultiEntityFilter,
+  useSelectedRecords,
+} from "@/components/shared/data-table";
 import { ClearFiltersButton } from "@/components/shared/data-table/clear-filters-button";
 import {
   supplierPaymentsService,
@@ -62,7 +66,7 @@ function SupplierPaymentsPageContent() {
   const { hasPermission, user } = useUserContext();
   const { activeCompany } = useCompany();
   const printCompany = usePrintCompany();
-  const { printList, runPrint } = usePrintEngine();
+  const { runPrint } = usePrintEngine();
 
   const [items, setItems] = useState<FinancialTransactionRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -85,7 +89,10 @@ function SupplierPaymentsPageContent() {
   const usersById = useUsersLookup();
   const [cancelTarget, setCancelTarget] = useState<FinancialTransactionRow | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<FinancialTransactionRow | null>(null);
-  const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
+  const [bulkArchive, setBulkArchive] = useState<{
+    targets: FinancialTransactionRow[];
+    skipped: number;
+  } | null>(null);
 
   const listFilters = useMemo(
     () => ({
@@ -325,39 +332,36 @@ function SupplierPaymentsPageContent() {
     "createdBy",
   ];
 
-  const selectedItems = items.filter((item) => rowSelection[item.id]);
-  const selectedArchivable = selectedItems.filter((item) =>
-    TRANSACTION_ARCHIVABLE_STATUSES.includes(item.status),
-  );
+  const { selectedIds, selectedRecords, resolve } = useSelectedRecords({
+    items,
+    rowSelection,
+    fetchAllRows,
+    query: listFilters,
+  });
+  const isArchivable = (item: FinancialTransactionRow) =>
+    TRANSACTION_ARCHIVABLE_STATUSES.includes(item.status);
+  // Every selected record known -> disable when none is archivable; otherwise
+  // the selection reaches past loaded pages and is resolved on click.
+  const archiveDisabled =
+    selectedRecords.length === selectedIds.length && !selectedRecords.some(isArchivable);
 
-  const handleBulkPrint = () => {
-    if (selectedItems.length === 0) return;
-    printList({
-      variant: "list",
-      title: t("purchasing.payments.title"),
-      company: {
-        name: printCompany.name,
-        logoUrl: printCompany.logoUrl ?? null,
-      },
-      printedByName: user?.fullName ?? null,
-      columns: exportColumnsFromKeys(columns, exportColumnKeys, t),
-      rows: selectedItems.map(toPrintRow),
-    });
-  };
-
-  const handleBulkExport = () => {
-    if (selectedItems.length === 0) return;
-    exportRowsToCsv(
-      selectedItems.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
-      exportColumnKeys,
-      "supplier-payment-vouchers-selected.csv",
-    );
+  const handleBulkArchiveRequested = async () => {
+    const records = await resolve();
+    if (!records) return;
+    const targets = records.filter(isArchivable);
+    if (targets.length === 0) {
+      toast.info(t("table.bulkNoneEligible"));
+      return;
+    }
+    setBulkArchive({ targets, skipped: records.length - targets.length });
   };
 
   const handleBulkArchiveConfirmed = async () => {
-    setBulkArchiveOpen(false);
+    if (!bulkArchive) return;
+    const { targets } = bulkArchive;
+    setBulkArchive(null);
     let failures = 0;
-    for (const item of selectedArchivable) {
+    for (const item of targets) {
       try {
         await supplierPaymentsService.archive(item.id);
       } catch {
@@ -365,9 +369,7 @@ function SupplierPaymentsPageContent() {
       }
     }
     if (failures === 0) {
-      toast.success(
-        t("financialTransactions.toasts.bulkArchived", { count: selectedArchivable.length }),
-      );
+      toast.success(t("financialTransactions.toasts.bulkArchived", { count: targets.length }));
     } else {
       toast.error(t("financialTransactions.toasts.bulkArchiveFailed", { count: failures }));
     }
@@ -479,13 +481,9 @@ function SupplierPaymentsPageContent() {
         selectionResetKey={listFilters}
         bulkActions={
           <SalesListBulkActions
-            onPrint={handleBulkPrint}
-            onExport={handleBulkExport}
-            onArchive={() => setBulkArchiveOpen(true)}
-            archiveDisabled={selectedArchivable.length === 0}
+            onArchive={() => void handleBulkArchiveRequested()}
+            archiveDisabled={archiveDisabled}
             labels={{
-              print: t("table.print"),
-              export: t("table.export"),
               archive: t("common.archive"),
             }}
           />
@@ -528,13 +526,17 @@ function SupplierPaymentsPageContent() {
       />
 
       <ConfirmationDialog
-        open={bulkArchiveOpen}
-        onOpenChange={setBulkArchiveOpen}
+        open={!!bulkArchive}
+        onOpenChange={(open) => !open && setBulkArchive(null)}
         tone="destructive"
         title={t("financialTransactions.bulk.archiveConfirmTitle", {
-          count: selectedArchivable.length,
+          count: bulkArchive?.targets.length ?? 0,
         })}
-        description={t("financialTransactions.confirmArchiveDescription")}
+        description={
+          bulkArchive?.skipped
+            ? `${t("financialTransactions.confirmArchiveDescription")} ${t("table.bulkIneligibleSkipped", { count: bulkArchive.skipped })}`
+            : t("financialTransactions.confirmArchiveDescription")
+        }
         confirmLabel={t("common.archive")}
         cancelLabel={t("common.close")}
         onConfirm={handleBulkArchiveConfirmed}

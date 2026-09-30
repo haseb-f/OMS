@@ -715,8 +715,21 @@ const en = {
     bulkRowsUnavailable: "Couldn't prepare every selected record.",
     bulkRowsUnavailableDetail:
       "Only {resolved} of {selected} selected records were found. Refresh the list or narrow the selection, then try again.",
+    bulkIneligibleSkipped: "{count} selected records aren't eligible and will be skipped.",
+    bulkNoneEligible: "None of the selected records can be archived in their current status.",
     usePageSelection: "Use current page selection only",
     clearSelection: "Clear selection",
+    printSelected: "Print selected",
+    exportSelected: "Export selected",
+    exportedSelected: "Exported {count} selected rows.",
+    printSelectionNote: "Selected rows only: {count}.",
+    customCountTitle: "Select a number of rows",
+    customCountLabel: "Number of rows",
+    customCountHint:
+      "The first {count} rows matching the current filters, in the current sort order, will be selected.",
+    customCountConfirm: "Select rows",
+    customCountInvalid: "Enter a whole number greater than zero.",
+    customCountPartial: "Only {count} matching rows were available — all of them are selected.",
     rowsPerPage: "Rows per page",
     pageOf: "Page {page} of {pageCount}",
     goToFirstPage: "Go to first page",
@@ -3545,6 +3558,31 @@ const en = {
       description:
         "This becomes the CONFIRMED ACTUAL shipping cost for that Shipment Attempt in Order Economics — it always wins over the operationally-entered cost.",
       saved: "Carrier charge confirmed as the authoritative shipping cost.",
+    },
+    bulk: {
+      action: { confirm: "Confirm matches", unmatch: "Unmatch" },
+      title: {
+        confirm: "Confirm {count} matched charges?",
+        unmatch: "Unmatch {count} charges?",
+      },
+      description: {
+        confirm:
+          "Each charge becomes the actual carrier cost of its shipment (company shipping expense and order profitability only — never an agent deduction). The server re-checks every charge.",
+        unmatch:
+          "The proposed matches are rejected and the charges return to Unmatched. Confirmed charges are never unmatched in bulk — use the row action.",
+      },
+      skipped: "{count} selected charges aren't eligible and will be skipped.",
+      noneEligible: {
+        confirm:
+          "None of the selected charges can be confirmed — only matched charges with a shipment, not yet confirmed.",
+        unmatch:
+          "None of the selected charges can be unmatched in bulk — only proposed (matched or review) matches.",
+      },
+      done: {
+        confirm: "{count} charges confirmed.",
+        unmatch: "{count} charges unmatched.",
+      },
+      partial: "{succeeded} succeeded, {failed} failed:",
     },
     unmatchDialog: {
       title: "Unmatch this Charge?",

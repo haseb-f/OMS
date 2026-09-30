@@ -18,14 +18,11 @@ import { getColumnDisplayValue, RowActionsMenu } from "@/components/shared/data-
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { StatusBadge } from "@/components/business/status-badge";
-import { SalesListBulkActions } from "@/components/sales";
 import { CreateCountDialog } from "./create-count-dialog";
 import { CountDetailDialog } from "./count-detail-dialog";
 import { physicalCountService, type PhysicalCountListRow } from "@/services/physical-count-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { usePrintCompany } from "@/components/print/print-brand";
-import { usePrintEngine } from "@/hooks/use-print-engine";
 import { reportApiError } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
@@ -41,9 +38,7 @@ const STATUS_TONE: Record<string, "success" | "neutral" | "warning"> = {
 
 function PhysicalCountPageContent() {
   const { t } = useLocale();
-  const { hasPermission, user } = useUserContext();
-  const printCompany = usePrintCompany();
-  const { printList } = usePrintEngine();
+  const { hasPermission } = useUserContext();
   const canCreate = hasPermission("inventory.physical-count.create");
   const [rows, setRows] = useState<PhysicalCountListRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -166,32 +161,6 @@ function PhysicalCountPageContent() {
   const toExportRow = (row: PhysicalCountListRow) =>
     Object.fromEntries(columns.map((c) => [c.id!, getColumnDisplayValue(c, row, t)]));
 
-  const selectedRows = filteredRows.filter((row) => rowSelection[row.id]);
-
-  const handleBulkPrint = () => {
-    if (selectedRows.length === 0) return;
-    printList({
-      variant: "list",
-      title: t("nav.inventoryPhysicalCount"),
-      company: {
-        name: printCompany.name,
-        logoUrl: printCompany.logoUrl ?? null,
-      },
-      printedByName: user?.fullName ?? null,
-      columns: exportColumnsFromKeys(columns, exportKeys, t),
-      rows: selectedRows.map((row) => toExportRow(row)),
-    });
-  };
-
-  const handleBulkExport = () => {
-    if (selectedRows.length === 0) return;
-    exportRowsToCsv(
-      selectedRows.map((row) => toExportRow(row)) as unknown as Record<string, unknown>[],
-      exportKeys,
-      "physical-count-selected.csv",
-    );
-  };
-
   return (
     <PageWorkspace
       dense
@@ -221,17 +190,6 @@ function PhysicalCountPageContent() {
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
         selectionResetKey={dateRange}
-        bulkActions={
-          <SalesListBulkActions
-            onPrint={handleBulkPrint}
-            onExport={handleBulkExport}
-            labels={{
-              print: t("table.print"),
-              export: t("table.export"),
-              archive: t("common.archive"),
-            }}
-          />
-        }
         exportColumns={exportColumnsFromKeys(columns, exportKeys, t)}
         onExport={(keys, labels) =>
           exportRowsToCsv(

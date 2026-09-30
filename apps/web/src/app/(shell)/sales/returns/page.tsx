@@ -22,6 +22,7 @@ import {
   buildDocumentDetailRegions,
   documentDetailLabels,
   toDocumentLineItems,
+  useSelectedRecords,
 } from "@/components/shared/data-table";
 import { ClearFiltersButton } from "@/components/shared/data-table/clear-filters-button";
 import {
@@ -57,7 +58,7 @@ function SalesReturnsPageContent() {
   const { user } = useUserContext();
   const { activeCompany } = useCompany();
   const printCompany = usePrintCompany();
-  const { printList, runPrint } = usePrintEngine();
+  const { runPrint } = usePrintEngine();
 
   const [items, setItems] = useState<SalesReturnRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -80,7 +81,10 @@ function SalesReturnsPageContent() {
   const usersById = useUsersLookup();
   const [cancelTarget, setCancelTarget] = useState<SalesReturnRow | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<SalesReturnRow | null>(null);
-  const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
+  const [bulkArchive, setBulkArchive] = useState<{
+    targets: SalesReturnRow[];
+    skipped: number;
+  } | null>(null);
 
   const listFilters = useMemo(
     () => ({
@@ -226,39 +230,35 @@ function SalesReturnsPageContent() {
     [router, usersById, activeCompany, user],
   );
 
-  const selectedItems = items.filter((item) => rowSelection[item.id]);
-  const selectedArchivable = selectedItems.filter((item) =>
-    RETURN_ARCHIVABLE_STATUSES.includes(item.status),
-  );
+  const { selectedIds, selectedRecords, resolve } = useSelectedRecords({
+    items,
+    rowSelection,
+    fetchAllRows,
+    query: listFilters,
+  });
+  const isArchivable = (item: SalesReturnRow) => RETURN_ARCHIVABLE_STATUSES.includes(item.status);
+  // Every selected record known -> disable when none is archivable; otherwise
+  // the selection reaches past loaded pages and is resolved on click.
+  const archiveDisabled =
+    selectedRecords.length === selectedIds.length && !selectedRecords.some(isArchivable);
 
-  const handleBulkPrint = () => {
-    if (selectedItems.length === 0) return;
-    printList({
-      variant: "list",
-      title: t("sales.returns.title"),
-      company: {
-        name: printCompany.name,
-        logoUrl: printCompany.logoUrl ?? null,
-      },
-      printedByName: user?.fullName ?? null,
-      columns: exportColumnsFromKeys(returnColumns, returnExportColumns, t),
-      rows: selectedItems.map(toPrintRow),
-    });
-  };
-
-  const handleBulkExport = () => {
-    if (selectedItems.length === 0) return;
-    exportRowsToCsv(
-      selectedItems.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
-      returnExportColumns,
-      "sales-returns-selected.csv",
-    );
+  const handleBulkArchiveRequested = async () => {
+    const records = await resolve();
+    if (!records) return;
+    const targets = records.filter(isArchivable);
+    if (targets.length === 0) {
+      toast.info(t("table.bulkNoneEligible"));
+      return;
+    }
+    setBulkArchive({ targets, skipped: records.length - targets.length });
   };
 
   const handleBulkArchiveConfirmed = async () => {
-    setBulkArchiveOpen(false);
+    if (!bulkArchive) return;
+    const { targets } = bulkArchive;
+    setBulkArchive(null);
     let failures = 0;
-    for (const item of selectedArchivable) {
+    for (const item of targets) {
       try {
         await salesReturnsService.archive(item.id);
       } catch {
@@ -266,7 +266,7 @@ function SalesReturnsPageContent() {
       }
     }
     if (failures === 0) {
-      toast.success(t("sales.returns.toasts.bulkArchived", { count: selectedArchivable.length }));
+      toast.success(t("sales.returns.toasts.bulkArchived", { count: targets.length }));
     } else {
       toast.error(t("sales.returns.toasts.bulkArchiveFailed", { count: failures }));
     }
@@ -366,13 +366,9 @@ function SalesReturnsPageContent() {
         selectionResetKey={listFilters}
         bulkActions={
           <SalesListBulkActions
-            onPrint={handleBulkPrint}
-            onExport={handleBulkExport}
-            onArchive={() => setBulkArchiveOpen(true)}
-            archiveDisabled={selectedArchivable.length === 0}
+            onArchive={() => void handleBulkArchiveRequested()}
+            archiveDisabled={archiveDisabled}
             labels={{
-              print: t("table.print"),
-              export: t("table.export"),
               archive: t("common.archive"),
             }}
           />
@@ -428,11 +424,17 @@ function SalesReturnsPageContent() {
       />
 
       <ConfirmationDialog
-        open={bulkArchiveOpen}
-        onOpenChange={setBulkArchiveOpen}
+        open={!!bulkArchive}
+        onOpenChange={(open) => !open && setBulkArchive(null)}
         tone="destructive"
-        title={t("sales.returns.bulk.archiveConfirmTitle", { count: selectedArchivable.length })}
-        description={t("sales.returns.confirmArchiveDescription")}
+        title={t("sales.returns.bulk.archiveConfirmTitle", {
+          count: bulkArchive?.targets.length ?? 0,
+        })}
+        description={
+          bulkArchive?.skipped
+            ? `${t("sales.returns.confirmArchiveDescription")} ${t("table.bulkIneligibleSkipped", { count: bulkArchive.skipped })}`
+            : t("sales.returns.confirmArchiveDescription")
+        }
         confirmLabel={t("common.archive")}
         cancelLabel={t("common.close")}
         onConfirm={handleBulkArchiveConfirmed}

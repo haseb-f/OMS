@@ -32,7 +32,6 @@ import {
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { StatusBadge } from "@/components/business/status-badge";
-import { SalesListBulkActions } from "@/components/sales";
 import { productsService } from "@/services/products-service";
 import { createMasterDataService } from "@/services/master-data-service";
 import { OpeningInventoryDialog } from "./opening-inventory-dialog";
@@ -43,8 +42,6 @@ import type { ProductRow } from "@/services/products-service";
 import type { WarehouseRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { usePrintCompany } from "@/components/print/print-brand";
-import { usePrintEngine } from "@/hooks/use-print-engine";
 import { reportApiError } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
 import { formatAmount } from "@/lib/money";
@@ -91,9 +88,7 @@ const MOVEMENT_TYPES = [
 
 function InventoryMovementsPageContent() {
   const { t } = useLocale();
-  const { hasPermission, user } = useUserContext();
-  const printCompany = usePrintCompany();
-  const { printList } = usePrintEngine();
+  const { hasPermission } = useUserContext();
   const canCreate = hasPermission("inventory.movements.create");
   const [rows, setRows] = useState<InventoryMovementRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -339,32 +334,6 @@ function InventoryMovementsPageContent() {
   const toExportRow = (row: InventoryMovementRow) =>
     Object.fromEntries(columns.map((c) => [c.id!, getColumnDisplayValue(c, row, t)]));
 
-  const selectedRows = filteredRows.filter((row) => rowSelection[row.id]);
-
-  const handleBulkPrint = () => {
-    if (selectedRows.length === 0) return;
-    printList({
-      variant: "list",
-      title: t("nav.inventoryMovements"),
-      company: {
-        name: printCompany.name,
-        logoUrl: printCompany.logoUrl ?? null,
-      },
-      printedByName: user?.fullName ?? null,
-      columns: exportColumnsFromKeys(columns, exportKeys, t),
-      rows: selectedRows.map((row) => toExportRow(row)),
-    });
-  };
-
-  const handleBulkExport = () => {
-    if (selectedRows.length === 0) return;
-    exportRowsToCsv(
-      selectedRows.map((row) => toExportRow(row)) as unknown as Record<string, unknown>[],
-      exportKeys,
-      "inventory-movements-selected.csv",
-    );
-  };
-
   return (
     <PageWorkspace
       dense
@@ -499,17 +468,6 @@ function InventoryMovementsPageContent() {
           typeFilter,
           referenceFilter,
         }}
-        bulkActions={
-          <SalesListBulkActions
-            onPrint={handleBulkPrint}
-            onExport={handleBulkExport}
-            labels={{
-              print: t("table.print"),
-              export: t("table.export"),
-              archive: t("common.archive"),
-            }}
-          />
-        }
         exportColumns={exportColumnsFromKeys(columns, exportKeys, t)}
         onExport={(keys, labels) =>
           exportRowsToCsv(

@@ -15,4 +15,10 @@ export const BULK_LIMITS = {
   storeOrderShippingStatusMax: 1_000,
   /** `POST /leads/bulk-status`. */
   leadStatusChangeMax: 5_000,
+  /**
+   * Client-only: Carrier Reconciliation bulk confirm / unmatch run one
+   * per-record request each (the server validates every charge), so the
+   * batch is kept to what finishes promptly.
+   */
+  carrierChargeBulkMax: 500,
 } as const;

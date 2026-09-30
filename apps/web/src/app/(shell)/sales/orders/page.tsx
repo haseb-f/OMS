@@ -25,6 +25,7 @@ import {
   documentDetailLabels,
   toDocumentLineItems,
   useMatchingSelection,
+  useSelectedRecords,
 } from "@/components/shared/data-table";
 import { ClearFiltersButton } from "@/components/shared/data-table/clear-filters-button";
 import {
@@ -60,7 +61,7 @@ function SalesOrdersPageContent() {
   const { hasPermission, user } = useUserContext();
   const { activeCompany } = useCompany();
   const printCompany = usePrintCompany();
-  const { printList, runPrint } = usePrintEngine();
+  const { runPrint } = usePrintEngine();
 
   const [items, setItems] = useState<SalesOrderRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -80,17 +81,13 @@ function SalesOrdersPageContent() {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  // Cross-page selection (Part 7) — `rowSelection` itself is already ID-keyed
-  // and survives pagination (see `EnterpriseDataTable`'s `getRowId`), but
-  // `items` only ever holds the CURRENT page. Bulk print/export need the
-  // actual row data (customer name, totals, ...), not just IDs, so every
-  // page fetched is merged into this cache instead of being discarded —
-  // a row selected on page 1 keeps its data available after paging to 2.
-  const [itemsCache, setItemsCache] = useState<Record<string, SalesOrderRow>>({});
   const usersById = useUsersLookup();
   const [cancelTarget, setCancelTarget] = useState<SalesOrderRow | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<SalesOrderRow | null>(null);
-  const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
+  const [bulkArchive, setBulkArchive] = useState<{
+    targets: SalesOrderRow[];
+    skipped: number;
+  } | null>(null);
 
   const listFilters = useMemo(
     () => ({
@@ -112,10 +109,6 @@ function SalesOrdersPageContent() {
       const result = await salesOrdersService.list({ ...listFilters, page, pageSize });
       setItems(result.items);
       setTotal(result.total);
-      setItemsCache((cache) => ({
-        ...cache,
-        ...Object.fromEntries(result.items.map((item) => [item.id, item])),
-      }));
     } catch (error) {
       reportApiError(error, "errors.loadFailed");
     } finally {
@@ -237,40 +230,27 @@ function SalesOrdersPageContent() {
     [router, usersById, activeCompany, user],
   );
 
-  const selectedIds = Object.keys(rowSelection);
-  // Only rows actually fetched (this session) have data in the cache — a
-  // huge "select all matching" set can include IDs never paged through.
-  // Print/Export need real row data, so they operate on the subset that's
-  // actually available; Archive is ID-only and works on the full selection
-  // regardless (the backend enforces the archivable-status rule per row).
-  const selectedItems = selectedIds.map((id) => itemsCache[id]).filter((item) => !!item);
-  const selectedArchivable = selectedItems.filter((item) =>
-    ORDER_ARCHIVABLE_STATUSES.includes(item.status),
-  );
-  const hasUncachedSelection = selectedIds.length > selectedItems.length;
+  const { selectedIds, selectedRecords, resolve } = useSelectedRecords({
+    items,
+    rowSelection,
+    fetchAllRows,
+    query: matching.queryKey,
+  });
+  const isArchivable = (item: SalesOrderRow) => ORDER_ARCHIVABLE_STATUSES.includes(item.status);
+  // Every selected record known -> disable when none is archivable; otherwise
+  // the selection reaches past loaded pages and is resolved on click.
+  const archiveDisabled =
+    selectedRecords.length === selectedIds.length && !selectedRecords.some(isArchivable);
 
-  const handleBulkPrint = () => {
-    if (selectedItems.length === 0) return;
-    printList({
-      variant: "list",
-      title: t("sales.orders.title"),
-      company: {
-        name: printCompany.name,
-        logoUrl: printCompany.logoUrl ?? null,
-      },
-      printedByName: user?.fullName ?? null,
-      columns: exportColumnsFromKeys(orderColumns, orderExportColumns, t),
-      rows: selectedItems.map(toPrintRow),
-    });
-  };
-
-  const handleBulkExport = () => {
-    if (selectedItems.length === 0) return;
-    exportRowsToCsv(
-      selectedItems.map((item) => toPrintRow(item)) as unknown as Record<string, unknown>[],
-      orderExportColumns,
-      "sales-orders-selected.csv",
-    );
+  const handleBulkArchiveRequested = async () => {
+    const records = await resolve();
+    if (!records) return;
+    const targets = records.filter(isArchivable);
+    if (targets.length === 0) {
+      toast.info(t("table.bulkNoneEligible"));
+      return;
+    }
+    setBulkArchive({ targets, skipped: records.length - targets.length });
   };
 
   // Shared select-all rules (tables-selection.md): stale results dropped,
@@ -289,11 +269,10 @@ function SalesOrdersPageContent() {
     );
 
   const handleBulkArchiveConfirmed = async () => {
-    setBulkArchiveOpen(false);
-    // Send every selected ID, not just the cache-known archivable subset —
-    // a "select all matching" selection can include rows never fetched, and
-    // `archive()` already enforces the status rule per row server-side.
-    const result = await salesOrdersService.bulkArchive(selectedIds);
+    if (!bulkArchive) return;
+    const { targets } = bulkArchive;
+    setBulkArchive(null);
+    const result = await salesOrdersService.bulkArchive(targets.map((item) => item.id));
     if (result.failed.length === 0) {
       toast.success(t("sales.orders.toasts.bulkArchived", { count: result.succeeded.length }));
     } else {
@@ -408,17 +387,9 @@ function SalesOrdersPageContent() {
         isSelectingAllMatching={matching.isSelectingAllMatching}
         bulkActions={
           <SalesListBulkActions
-            onPrint={handleBulkPrint}
-            onExport={handleBulkExport}
-            onArchive={() => setBulkArchiveOpen(true)}
-            // Fully known from cache -> disable when nothing archivable;
-            // partially unknown (a "select all matching" set reaching past
-            // fetched pages) -> never block the attempt, the backend sorts
-            // out which of the selected rows are actually archivable.
-            archiveDisabled={!hasUncachedSelection && selectedArchivable.length === 0}
+            onArchive={() => void handleBulkArchiveRequested()}
+            archiveDisabled={archiveDisabled}
             labels={{
-              print: t("table.print"),
-              export: t("table.export"),
               archive: t("common.archive"),
             }}
           />
@@ -474,13 +445,17 @@ function SalesOrdersPageContent() {
       />
 
       <ConfirmationDialog
-        open={bulkArchiveOpen}
-        onOpenChange={setBulkArchiveOpen}
+        open={!!bulkArchive}
+        onOpenChange={(open) => !open && setBulkArchive(null)}
         tone="destructive"
         title={t("sales.orders.bulk.archiveConfirmTitle", {
-          count: hasUncachedSelection ? selectedIds.length : selectedArchivable.length,
+          count: bulkArchive?.targets.length ?? 0,
         })}
-        description={t("sales.orders.confirmArchiveDescription")}
+        description={
+          bulkArchive?.skipped
+            ? `${t("sales.orders.confirmArchiveDescription")} ${t("table.bulkIneligibleSkipped", { count: bulkArchive.skipped })}`
+            : t("sales.orders.confirmArchiveDescription")
+        }
         confirmLabel={t("common.archive")}
         cancelLabel={t("common.close")}
         onConfirm={handleBulkArchiveConfirmed}

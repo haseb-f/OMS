@@ -86,10 +86,18 @@ export const carrierReconciliationService = {
     }>(`/carrier-reconciliation/shipment-candidates${buildQueryString({ orderNumber })}`),
   match: (id: string, shipmentId: string) =>
     apiClient.post<CarrierChargeRow>(`/carrier-reconciliation/${id}/match`, { shipmentId }),
-  unmatch: (id: string) =>
-    apiClient.post<CarrierChargeRow>(`/carrier-reconciliation/${id}/unmatch`),
-  confirm: (id: string) =>
-    apiClient.post<CarrierChargeRow>(`/carrier-reconciliation/${id}/confirm`),
+  /** `proposedOnly` (bulk reject): the server refuses a charge that is CONFIRMED by then. */
+  unmatch: (id: string, options?: { proposedOnly?: boolean }) =>
+    apiClient.post<CarrierChargeRow>(
+      `/carrier-reconciliation/${id}/unmatch`,
+      options?.proposedOnly ? { proposedOnly: true } : undefined,
+    ),
+  /** `expectedShipmentId` (bulk confirm): the server refuses a charge rematched since the user reviewed it. */
+  confirm: (id: string, expectedShipmentId?: string) =>
+    apiClient.post<CarrierChargeRow>(
+      `/carrier-reconciliation/${id}/confirm`,
+      expectedShipmentId ? { expectedShipmentId } : undefined,
+    ),
   markPaid: (id: string, reference: string) =>
     apiClient.post<CarrierChargeRow>(`/carrier-reconciliation/${id}/mark-paid`, { reference }),
 };

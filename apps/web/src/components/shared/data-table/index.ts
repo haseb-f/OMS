@@ -25,6 +25,7 @@ export {
   type SelectionScope,
 } from "./bulk-selection";
 export { useMatchingSelection, useBulkLimitGuard } from "./use-matching-selection";
+export { useSelectedRecords, selectedIdsOf, orderSelectedIds } from "./use-selected-records";
 export { SelectCustomCountDialog, type SelectCustomCountCopy } from "./select-custom-count-dialog";
 export { RowActionsMenu, type RowAction } from "./row-actions-menu";
 export { RowIdentityLink } from "./row-identity-link";

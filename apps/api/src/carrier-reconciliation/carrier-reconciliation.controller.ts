@@ -23,7 +23,9 @@ import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 import { CarrierReconciliationService } from './carrier-reconciliation.service';
 import {
   MarkCarrierChargePaidDto,
+  ConfirmCarrierChargeDto,
   MatchCarrierChargeDto,
+  UnmatchCarrierChargeDto,
 } from './dto/match-carrier-charge.dto';
 
 const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
@@ -111,15 +113,25 @@ export class CarrierReconciliationController {
   @Post(':id/unmatch')
   @HttpCode(200)
   @PermissionAction('match')
-  unmatch(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    return this.service.unmatch(id, user.sub);
+  unmatch(
+    @Param('id') id: string,
+    @Body() dto: UnmatchCarrierChargeDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.unmatch(id, user.sub, {
+      proposedOnly: dto?.proposedOnly === true,
+    });
   }
 
   @Post(':id/confirm')
   @HttpCode(200)
   @PermissionAction('confirm')
-  confirm(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    return this.service.confirm(id, user.sub);
+  confirm(
+    @Param('id') id: string,
+    @Body() dto: ConfirmCarrierChargeDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.confirm(id, user.sub, dto?.expectedShipmentId);
   }
 
   /** Finance records the company paid the carrier (tracking only — commission-policy.md A6). */

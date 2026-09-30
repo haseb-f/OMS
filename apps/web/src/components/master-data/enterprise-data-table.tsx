@@ -80,6 +80,9 @@ import {
   getTableSelectionScope,
   SelectionScopeSummary,
   selectionQuerySignature,
+  createMatchingSelectionSnapshot,
+  toRowSelection,
+  useSelectedRecords,
   type MatchingSelectionSnapshot,
   getColumnDisplayValue,
   resolveColumnLayout,
@@ -108,7 +111,7 @@ import { useUserContext } from "@/providers/user-context";
 import { bidiLineClass, isStackedCellNode } from "@/components/shared/stacked-cell";
 import { cn } from "@/lib/utils";
 import { useElementWidth } from "@/hooks/use-element-width";
-import { toast } from "@/lib/toast";
+import { reportApiError, toast } from "@/lib/toast";
 import type { GenericListPrintPayload } from "@/types/print-engine";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -239,6 +242,7 @@ export function EnterpriseDataTable<TData>({
   onClearFilters,
   selectionResetKey,
   matchingSelection,
+  builtInSelectionActions = true,
 }: {
   columns: ColumnDef<TData, unknown>[];
   data: TData[];
@@ -364,6 +368,17 @@ export function EnterpriseDataTable<TData>({
    * never inferred from the selected count reaching `totalCount`.
    */
   matchingSelection?: MatchingSelectionSnapshot | null;
+  /**
+   * Built-in selection tools (default on): when rows are selected the bulk
+   * strip offers "Print selected" (and "Export selected" when the table has
+   * an export), always for exactly the selected records across pages; and
+   * the header menu offers "Select all matching" / "Select a specific
+   * number" when the caller wires none of its own — from the in-memory rows
+   * (client mode) or the bounded `fetchAllRows` (server mode). Pass `false`
+   * only on a page whose own `bulkActions` already print/export the
+   * selection.
+   */
+  builtInSelectionActions?: boolean;
 }) {
   const { t, direction, locale } = useLocale();
   const router = useRouter();
@@ -618,27 +633,48 @@ export function EnterpriseDataTable<TData>({
 
   const [customCountDialogOpen, setCustomCountDialogOpen] = useState(false);
 
+  // Built-in "select all matching" / "first N" (see `builtInSelectionActions`):
+  // only where the caller wires none of its own, and only where every
+  // matching row can actually be listed — in memory, or via `fetchAllRows`.
+  const canBuiltInScope = builtInSelectionActions && (!isServerMode || Boolean(fetchAllRows));
+  const builtInSelectAll = !onSelectAllMatching && canBuiltInScope;
+  const builtInCustomCount = !selectCustomCount && canBuiltInScope;
+  const [builtInSnapshot, setBuiltInSnapshot] = useState<MatchingSelectionSnapshot | null>(null);
+  const [isBuiltInSelecting, setIsBuiltInSelecting] = useState(false);
+  const builtInScopeRef = useRef<{
+    selectAll: () => Promise<void>;
+    selectFirst: (count: number) => Promise<void>;
+  } | null>(null);
+  const effectiveMatchingSelection =
+    matchingSelection ?? (builtInSnapshot?.query === selectionQueryKey ? builtInSnapshot : null);
+
   const selectionColumn = useMemo(
     () =>
       createSelectionColumn<TData>(
         { selectAll: t("table.selectAll"), selectRow: t("table.selectRow") },
         {
-          onSelectAllMatching,
-          isSelectingAllMatching,
-          onRequestCustomCount: selectCustomCount
-            ? () => setCustomCountDialogOpen(true)
-            : undefined,
+          onSelectAllMatching:
+            onSelectAllMatching ??
+            (builtInSelectAll ? () => builtInScopeRef.current?.selectAll() : undefined),
+          isSelectingAllMatching: isSelectingAllMatching || isBuiltInSelecting,
+          onRequestCustomCount:
+            selectCustomCount || builtInCustomCount
+              ? () => setCustomCountDialogOpen(true)
+              : undefined,
           onClearSelection: () => handleRowSelectionChange({}),
-          matchingSelection,
+          matchingSelection: effectiveMatchingSelection,
         },
       ),
     [
       t,
       onSelectAllMatching,
+      builtInSelectAll,
       isSelectingAllMatching,
+      isBuiltInSelecting,
       selectCustomCount,
+      builtInCustomCount,
       handleRowSelectionChange,
-      matchingSelection,
+      effectiveMatchingSelection,
     ],
   );
 
@@ -840,7 +876,7 @@ export function EnterpriseDataTable<TData>({
   // page" down-scope; the up-scope lives in the header's scope menu (TASK-064).
   const { scope: selectionScope, count: selectedCount } = getTableSelectionScope(
     table,
-    matchingSelection,
+    effectiveMatchingSelection,
   );
   const isAllMatchingSelected = selectionScope === "allMatching";
   // Density is ONE lever: `<Table density>` re-points the row-height and
@@ -1097,6 +1133,124 @@ export function EnterpriseDataTable<TData>({
     ).finally(() => setIsPreparingPrint(false));
   };
 
+  // ── Built-in selection tools (`builtInSelectionActions`) ────────────────
+  const selectedRecords = useSelectedRecords<TData>({
+    items: data,
+    rowSelection: effectiveRowSelection,
+    getId: resolveRowId,
+    fetchAllRows,
+    query: selectionQueryKey,
+  });
+
+  /** Every row matching the current query in the current sort — in memory (client) or via the bounded `fetchAllRows` (server). `null` when the query moved on meanwhile. */
+  const loadMatchingIds = async (): Promise<{ ids: string[]; total: number } | null> => {
+    if (!isServerMode) {
+      const ids = table.getPrePaginationRowModel().rows.map((row) => row.id);
+      return { ids, total: ids.length };
+    }
+    if (!fetchAllRows) return null;
+    const requestedFor = lastSelectionQueryKey.current;
+    const result = await fetchAllRows();
+    if (lastSelectionQueryKey.current !== requestedFor) return null;
+    // Offset paging can repeat a row when records are inserted mid-fetch;
+    // duplicates must never make a short set look complete.
+    const ids = [...new Set(result.rows.map((row, index) => resolveRowId(row, index)))];
+    return { ids, total: result.total };
+  };
+
+  const runBuiltInSelection = async (select: (ids: string[], total: number) => void) => {
+    setIsBuiltInSelecting(true);
+    try {
+      const matching = await loadMatchingIds();
+      if (matching) select(matching.ids, matching.total);
+    } catch (error) {
+      reportApiError(error, "errors.selectFailed");
+    } finally {
+      setIsBuiltInSelecting(false);
+    }
+  };
+
+  const selectAllMatchingBuiltIn = () =>
+    runBuiltInSelection((ids, total) => {
+      if (isServerMode) {
+        setBuiltInSnapshot(
+          createMatchingSelectionSnapshot(lastSelectionQueryKey.current, { ids, total }),
+        );
+      }
+      handleRowSelectionChange(toRowSelection(ids));
+      if (ids.length < total) {
+        toast.info(t("table.selectionTruncated", { count: ids.length, total }));
+      }
+    });
+
+  /** "First N" in the current deterministic sort order. */
+  const selectFirstBuiltIn = (count: number) =>
+    runBuiltInSelection((ids) => {
+      const picked = ids.slice(0, count);
+      handleRowSelectionChange(toRowSelection(picked));
+      if (picked.length < count) {
+        toast.info(t("table.customCountPartial", { count: picked.length }));
+      }
+    });
+
+  useEffect(() => {
+    builtInScopeRef.current = {
+      selectAll: selectAllMatchingBuiltIn,
+      selectFirst: selectFirstBuiltIn,
+    };
+  });
+
+  /** Exactly the selected records, in the list's current order; `null` (with a reason already shown) when some can't be resolved. */
+  const resolveSelectedRows = async (): Promise<TData[] | null> => {
+    if (!isServerMode) {
+      const rows = table
+        .getPrePaginationRowModel()
+        .rows.filter((row) => row.getIsSelected())
+        .map((row) => row.original);
+      if (rows.length === selectedCount) return rows;
+    }
+    return selectedRecords.resolve();
+  };
+
+  const handlePrintSelected = () => {
+    if (selectedCount === 0) return;
+    setIsPreparingPrint(true);
+    void runPrint(
+      "list",
+      async () => {
+        const rows = await resolveSelectedRows();
+        if (!rows) return null;
+        return buildPrintPayload(rows, {
+          notes: [t("table.printSelectionNote", { count: rows.length })],
+        });
+      },
+      "table.loadFailed",
+    ).finally(() => setIsPreparingPrint(false));
+  };
+
+  const canExportList = Boolean(exportColumns && exportColumns.length > 0 && onExport);
+  const [exportScope, setExportScope] = useState<"list" | "selection">("list");
+  const exportSelected = async (keys: string[], labels: ExportColumn[]) => {
+    const rows = await resolveSelectedRows();
+    if (!rows) return;
+    const leafById = new Map(
+      table.getAllLeafColumns().map((column) => [column.id, column.columnDef] as const),
+    );
+    const records = rows.map((row) =>
+      Object.fromEntries(
+        keys.map((key) => {
+          const column = leafById.get(key);
+          const value = column
+            ? getColumnDisplayValue(column, row, t)
+            : (row as Record<string, unknown>)[key];
+          return [key, value];
+        }),
+      ),
+    );
+    exportRowsToCsv(records, keys, `${tableId}-selected.csv`, labels);
+    toast.success(t("table.exportedSelected", { count: rows.length }));
+  };
+
   // The table's own utilities, behind the shared overflow menu. These are
   // occasional controls; keeping them out of the strip leaves the filters
   // that actually drive the list as the only labelled things in it.
@@ -1119,8 +1273,11 @@ export function EnterpriseDataTable<TData>({
       key: "export",
       label: t("table.export"),
       icon: Download,
-      hidden: !(exportColumns && exportColumns.length > 0 && onExport),
-      onSelect: () => setExportDialogOpen(true),
+      hidden: !canExportList,
+      onSelect: () => {
+        setExportScope("list");
+        setExportDialogOpen(true);
+      },
     },
     {
       key: "reset-layout",
@@ -1162,7 +1319,8 @@ export function EnterpriseDataTable<TData>({
     onClearFilters ?? reportedFilterStates.find((state) => state.activeCount > 0)?.onClear;
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
-  const bulkStripOpen = selectedCount > 0 && Boolean(bulkActions);
+  const hasBulkStrip = Boolean(bulkActions) || builtInSelectionActions;
+  const bulkStripOpen = selectedCount > 0 && hasBulkStrip;
   const pageRows = table.getRowModel().rows;
   const hasRows = pageRows.length > 0;
 
@@ -1344,7 +1502,40 @@ export function EnterpriseDataTable<TData>({
               the footer) sits beside them, and "Clear" trails at the end. */}
           {bulkStripOpen ? (
             <div className="absolute inset-0 z-(--z-sticky) flex items-center gap-x-3 overflow-x-auto bg-table-row-selected px-3 whitespace-nowrap sm:px-4">
-              <div className="flex shrink-0 items-center gap-2">{bulkActions}</div>
+              <div className="flex shrink-0 items-center gap-2">
+                {bulkActions}
+                {builtInSelectionActions ? (
+                  <>
+                    <EnterpriseButton
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={isPreparingPrint}
+                      aria-busy={isPreparingPrint || undefined}
+                      onClick={handlePrintSelected}
+                    >
+                      <Printer className="size-3.5" aria-hidden />
+                      {t("table.printSelected")}
+                    </EnterpriseButton>
+                    {canExportList ? (
+                      <EnterpriseButton
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => {
+                          setExportScope("selection");
+                          setExportDialogOpen(true);
+                        }}
+                      >
+                        <Download className="size-3.5" aria-hidden />
+                        {t("table.exportSelected")}
+                      </EnterpriseButton>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
               <span
                 className="text-caption font-medium"
                 aria-live="polite"
@@ -1945,7 +2136,7 @@ export function EnterpriseDataTable<TData>({
         </OverflowTooltipRegion>
 
         <ListFooter>
-          <EnterprisePagination table={table} showSelectionCount={!bulkActions} />
+          <EnterprisePagination table={table} showSelectionCount={!hasBulkStrip} />
         </ListFooter>
       </ListSurface>
 
@@ -1983,7 +2174,9 @@ export function EnterpriseDataTable<TData>({
           open={exportDialogOpen}
           onOpenChange={setExportDialogOpen}
           columns={exportColumns}
-          onExport={onExport}
+          onExport={(keys, labels) =>
+            exportScope === "selection" ? void exportSelected(keys, labels) : onExport(keys, labels)
+          }
         />
       )}
 
@@ -1995,7 +2188,7 @@ export function EnterpriseDataTable<TData>({
         />
       )}
 
-      {selectCustomCount && (
+      {selectCustomCount ? (
         <SelectCustomCountDialog
           open={customCountDialogOpen}
           onOpenChange={setCustomCountDialogOpen}
@@ -2006,7 +2199,24 @@ export function EnterpriseDataTable<TData>({
             setCustomCountDialogOpen(false);
           }}
         />
-      )}
+      ) : builtInCustomCount ? (
+        <SelectCustomCountDialog
+          open={customCountDialogOpen}
+          onOpenChange={setCustomCountDialogOpen}
+          isSubmitting={isBuiltInSelecting}
+          copy={{
+            title: t("table.customCountTitle"),
+            countLabel: t("table.customCountLabel"),
+            hint: (count) => t("table.customCountHint", { count }),
+            confirmLabel: t("table.customCountConfirm"),
+            invalidMessage: t("table.customCountInvalid"),
+          }}
+          onConfirm={async (count) => {
+            await builtInScopeRef.current?.selectFirst(count);
+            setCustomCountDialogOpen(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
