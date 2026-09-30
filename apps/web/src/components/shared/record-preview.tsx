@@ -14,6 +14,7 @@ import {
   type RecordPreview,
 } from "@/config/traceability/record-previews";
 import { pushOrigin } from "@/lib/navigation-origin";
+import { claimTerm, paymentTerm } from "@/config/payments/payment-vocabulary";
 import { formatAmount, formatMoney } from "@/lib/money";
 import {
   Table,
@@ -81,8 +82,22 @@ export function recordStatusLabel(
   return translated === key ? status.replaceAll("_", " ").toLowerCase() : translated;
 }
 
-function RecordStatus({ status }: { status: string | null | undefined }) {
+function RecordStatus({
+  kind,
+  status,
+  settlementStatus,
+}: {
+  kind?: TraceKind;
+  status: string | null | undefined;
+  settlementStatus?: string | null;
+}) {
   const { t } = useLocale();
+  // Payments speak the one payment vocabulary (spec 3A), never raw codes.
+  const term = kind === "PAYMENT" && status ? claimTerm({ status, settlementStatus }) : null;
+  if (term) {
+    const definition = paymentTerm(term);
+    return <StatusBadge label={t(definition.labelKey)} tone={definition.tone} />;
+  }
   const label = recordStatusLabel(t, status);
   return label ? (
     <StatusBadge label={label} tone={RECORD_STATUS_TONE[status ?? ""] ?? "neutral"} />
@@ -186,6 +201,7 @@ export function RelatedRecordLink({
   id,
   number,
   status,
+  settlementStatus,
   originLabel,
   variant = "chip",
   showKind = variant === "chip",
@@ -195,6 +211,8 @@ export function RelatedRecordLink({
   id: string;
   number: string;
   status?: string | null;
+  /** Payments only: a posted claim shows its settlement state once it has one. */
+  settlementStatus?: string | null;
   originLabel?: string;
   variant?: "chip" | "inline";
   showKind?: boolean;
@@ -222,7 +240,9 @@ export function RelatedRecordLink({
         <code dir="ltr" className="truncate text-caption text-foreground">
           {number}
         </code>
-        {variant === "chip" ? <RecordStatus status={status} /> : null}
+        {variant === "chip" ? (
+          <RecordStatus kind={kind} status={status} settlementStatus={settlementStatus} />
+        ) : null}
       </button>
       {open ? (
         <RecordPreviewDialog
@@ -438,13 +458,13 @@ function JournalLinesPreview({ journal }: { journal: NonNullable<RecordPreview["
   );
 }
 
-function StatusRow({ status }: { status: string | null | undefined }) {
+function StatusRow({ kind, status }: { kind: TraceKind; status: string | null | undefined }) {
   const { t } = useLocale();
   if (!status) return null;
   return (
     <div className="flex items-center gap-2 text-caption">
       <span className="text-muted-foreground">{t("docFlow.preview.status")}</span>
-      <RecordStatus status={status} />
+      <RecordStatus kind={kind} status={status} />
     </div>
   );
 }
@@ -473,7 +493,7 @@ function PreviewBody({ record }: { record: TraceRecord }) {
   }
   return (
     <div className="flex flex-col gap-3">
-      <StatusRow status={preview.status ?? record.status} />
+      <StatusRow kind={record.kind} status={preview.status ?? record.status} />
       <PreviewFields preview={preview} />
       {preview.journal ? <JournalLinesPreview journal={preview.journal} /> : null}
     </div>
@@ -489,7 +509,7 @@ function TracePreviewBody({ record, originLabel }: { record: TraceRecord; origin
   }
   return (
     <div className="flex flex-col gap-3">
-      <StatusRow status={record.status ?? result.record?.status} />
+      <StatusRow kind={record.kind} status={record.status ?? result.record?.status} />
       <TraceGroups result={result} originLabel={originLabel} />
     </div>
   );
