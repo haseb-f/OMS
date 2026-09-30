@@ -2,7 +2,19 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Loader2, Plus, Trash2 } from "lucide-react";
+import {
+  AlertCircle,
+  Banknote,
+  CreditCard,
+  Loader2,
+  PackageCheck,
+  PackagePlus,
+  Plus,
+  Store,
+  Trash2,
+  Truck,
+  type LucideIcon,
+} from "lucide-react";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +67,15 @@ import { OrderBreakdown } from "./order-breakdown";
 const QUOTE_DEBOUNCE_MS = 400;
 
 const PRICING_MODES: PricingMode[] = ["SHIPPING_ADDED", "SHIPPING_INCLUDED"];
+/** Leading icons of the segmented choices (design-system §12.12). */
+const CHOICE_ICON: Record<FulfillmentMethod | PaymentType | PricingMode, LucideIcon> = {
+  SHIPPING: Truck,
+  PICKUP: Store,
+  PREPAID: CreditCard,
+  CASH_ON_DELIVERY: Banknote,
+  SHIPPING_ADDED: PackagePlus,
+  SHIPPING_INCLUDED: PackageCheck,
+};
 
 const HINT_KEYS: Record<WorkedHintKind, MessageKey> = {
   included: "agentPortal.orderForm.breakdown.hintIncluded",
@@ -448,6 +469,7 @@ export function AgentOrderForm({
                   options={(["SHIPPING", "PICKUP"] as const).map((value) => ({
                     value,
                     label: t(`agentPortal.status.method.${value}`),
+                    icon: CHOICE_ICON[value],
                   }))}
                 />
               </div>
@@ -462,6 +484,7 @@ export function AgentOrderForm({
                   options={(["PREPAID", "CASH_ON_DELIVERY"] as const).map((value) => ({
                     value,
                     label: t(`agentPortal.status.paymentType.${value}`),
+                    icon: CHOICE_ICON[value],
                   }))}
                 />
               </div>
@@ -475,6 +498,7 @@ export function AgentOrderForm({
               options={PRICING_MODES.map((value) => ({
                 value,
                 label: t(`agentPortal.orderForm.modes.${value}`),
+                icon: CHOICE_ICON[value],
               }))}
             />
             <p className="text-caption text-muted-foreground">

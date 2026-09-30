@@ -64,7 +64,7 @@ const ICON_TONE = {
 } as const;
 
 const ROW_LINK =
-  "flex min-w-0 items-center gap-3 px-3 outline-none transition-colors duration-(--duration-base) ease-(--ease-standard) hover:bg-table-row-hover focus-visible:bg-table-row-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-ring";
+  "flex min-w-0 items-center gap-3 px-3 outline-none transition-colors duration-(--duration-base) ease-(--ease-standard) hover:bg-surface-soft-row-hover focus-visible:bg-surface-soft-row-hover motion-reduce:transition-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-ring";
 
 /**
  * Needs attention (design-system §12.6): the actionable queues as one list —

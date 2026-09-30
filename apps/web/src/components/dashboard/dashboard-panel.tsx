@@ -41,6 +41,7 @@ export function DashboardPanel({
   return (
     <EnterpriseCard
       size="sm"
+      surface="soft"
       role="region"
       aria-labelledby={id}
       aria-busy={busy || undefined}

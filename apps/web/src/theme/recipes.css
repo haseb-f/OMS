@@ -32,15 +32,26 @@ html[dir="ltr"] :is(h1, h2) {
 
 [data-slot="insight-card"] {
   --tone: var(--insight-neutral);
+  --tone-strength: var(--surface-soft-tone-strength);
   --accent-edge: 3px;
+  /* Round 5 soft tile (§12.12): the tone tints the top of the tile by a few
+     percent and fades into the card — restrained, never a coloured block. */
   background-color: var(--card);
-  border-color: var(--border);
-  box-shadow: var(--shadow-card);
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--tone) var(--tone-strength), var(--surface-soft)),
+    var(--card)
+  );
+  border-color: var(--surface-soft-border);
+  box-shadow: var(--surface-soft-shadow);
   color: var(--card-foreground);
   transition:
     border-color var(--duration-base) var(--ease-standard),
-    background-color var(--duration-base) var(--ease-standard),
     box-shadow var(--duration-base) var(--ease-standard);
+}
+/* Neutral tiles take the plain soft surface (no grey cast). */
+[data-slot="insight-card"][data-tone="neutral"] {
+  --tone-strength: 0%;
 }
 [data-slot="insight-card"][data-tone="info"] {
   --tone: var(--insight-info);
@@ -78,12 +89,12 @@ html[dir="ltr"] :is(h1, h2) {
 [data-slot="insight-card"][data-emphasis] {
   box-shadow:
     inset var(--accent-edge) 0 0 var(--tone),
-    var(--shadow-card);
+    var(--surface-soft-shadow);
 }
 [dir="rtl"] [data-slot="insight-card"][data-emphasis] {
   box-shadow:
     inset calc(var(--accent-edge) * -1) 0 0 var(--tone),
-    var(--shadow-card);
+    var(--surface-soft-shadow);
 }
 [data-slot="insight-card"][data-emphasis] [data-slot="insight-value"] {
   color: var(--tone);
@@ -93,21 +104,21 @@ html[dir="ltr"] :is(h1, h2) {
   transition: color var(--duration-base) var(--ease-standard);
 }
 
-/* Interactive tiles: hover and keyboard focus read the same. */
+/* Interactive tiles: hover and keyboard focus read the same — border and
+   shadow only (Round 5): no fill change, no transform, no layout shift. */
 [data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible) {
-  border-color: color-mix(in oklab, var(--tone) 55%, var(--input-hover));
-  background-color: color-mix(in oklab, var(--tone) 4%, var(--card));
-  box-shadow: var(--insight-lift);
+  border-color: color-mix(in oklab, var(--tone) 45%, var(--surface-soft-hover-border));
+  box-shadow: var(--surface-soft-shadow-hover);
 }
 [data-slot="insight-card"][data-interactive][data-emphasis]:is(:hover, :focus-visible) {
   box-shadow:
     inset var(--accent-edge) 0 0 var(--tone),
-    var(--insight-lift);
+    var(--surface-soft-shadow-hover);
 }
 [dir="rtl"] [data-slot="insight-card"][data-interactive][data-emphasis]:is(:hover, :focus-visible) {
   box-shadow:
     inset calc(var(--accent-edge) * -1) 0 0 var(--tone),
-    var(--insight-lift);
+    var(--surface-soft-shadow-hover);
 }
 [data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible)
   [data-slot="insight-action"] {
@@ -120,11 +131,20 @@ html[dir="ltr"] :is(h1, h2) {
    container and any wrap (4 → 2 × 2 on phones) stays correct. */
 [data-slot="insight-group"] {
   background-color: var(--card);
-  border-color: var(--border);
-  box-shadow: var(--shadow-card);
+  background-image: var(--surface-soft-gradient);
+  border-color: var(--surface-soft-border);
+  box-shadow: var(--surface-soft-shadow);
 }
+/* Cells sit on the group's one soft surface; only a toned cell adds its own
+   faint top tint. */
 [data-slot="insight-group"] > [data-slot="insight-card"],
 [data-slot="insight-group"] > * > [data-slot="insight-card"] {
+  background-color: transparent;
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--tone) var(--tone-strength), transparent),
+    transparent
+  );
   border: 0;
   border-radius: 0;
   box-shadow:
@@ -235,7 +255,8 @@ html[dir="ltr"] :is(h1, h2) {
   [data-state="open"]
 ),
 :is([data-button][data-variant="field"], [data-slot="select-trigger"]):not(:disabled):active {
-  background-color: var(--selector-active);
+  /* Round 5: open / pressed sinks to the pressed fill (§12.12). */
+  background-color: var(--control-pressed);
   /* Open = accent edge only. The halo is reserved for keyboard focus, so an
      open trigger never stacks a second halo beside the focused search box
      inside its popover. */
@@ -289,6 +310,16 @@ html[dir="ltr"] :is(h1, h2) {
   :is(.text-placeholder, [data-placeholder]) {
   color: var(--placeholder);
   font-weight: var(--trigger-placeholder-weight);
+}
+/* On the pressed fill of an open trigger the placeholder steps up to the
+   muted tone so it keeps 4.5:1 (Round 5). */
+[data-slot="select-trigger"][data-placeholder]:is([aria-expanded="true"], [data-state="open"]),
+:is([data-button][data-variant="field"], [data-slot="select-trigger"]):is(
+    [aria-expanded="true"],
+    [data-state="open"]
+  )
+  :is(.text-placeholder, [data-placeholder]) {
+  color: var(--muted-foreground);
 }
 
 /* The one trigger chevron (`TriggerChevron`): fixed size, subtle colour,
@@ -356,6 +387,37 @@ html[dir="ltr"] :is(h1, h2) {
 [data-slot="card"] {
   box-shadow: var(--shadow-card);
 }
+/* Round 5 soft surface (`EnterpriseCard surface="soft"`, §12.12): a calm
+   Clarity-like panel — a cool 2-3% tint fading into white at the top, a
+   translucent hairline, a whisper shadow. Hover / focus inside change the
+   border (and, for clickable cards, the shadow) only; radius stays
+   --radius-surface; no blur, no transform. */
+[data-slot="card"][data-surface="soft"] {
+  background-color: var(--card);
+  background-image: var(--surface-soft-gradient);
+  border-color: var(--surface-soft-border);
+  box-shadow: var(--surface-soft-shadow);
+  transition:
+    border-color var(--duration-base) var(--ease-standard),
+    box-shadow var(--duration-base) var(--ease-standard);
+}
+[data-slot="card"][data-surface="soft"]:is(:hover, :has(:focus-visible)) {
+  border-color: var(--surface-soft-hover-border);
+}
+[data-slot="card"][data-surface="soft"][data-clickable="true"]:is(:hover, :focus-visible) {
+  box-shadow: var(--surface-soft-shadow-hover);
+}
+/* A metric group or a list inside a soft panel shares the panel's surface. */
+[data-slot="card"][data-surface="soft"] [data-slot="insight-group"] {
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="card"][data-surface="soft"] {
+    transition: none;
+  }
+}
 
 /* Badges: Geist subtle pills. */
 [data-slot="badge"] {
@@ -396,32 +458,75 @@ html[dir="ltr"] :is(h1, h2) {
   background-color: rgb(0 0 0 / 0.32);
 }
 
-/* Segmented control (period switch etc.): a recessed track; the selected
-   segment is a raised white control — the choice reads at a glance. */
-[data-slot="toggle-group"] {
+/* Segmented control (period switch, form choices): a recessed track ringed
+   like every neutral control (same edge, radius and 32px/40px height as a
+   `ButtonGroup`, §12.12); the selected segment is a raised white control in
+   foreground 600 — the choice reads at a glance. Colour/shadow only. */
+:is([data-slot="toggle-group"], [data-slot="segmented-radio-group"]) {
   gap: 2px;
   padding: 2px;
   border-radius: var(--radius-control);
   background-color: var(--segment-track);
-  box-shadow: inset 0 0 0 1px var(--border);
+  box-shadow: inset 0 0 0 1px var(--control-border);
 }
-[data-slot="toggle-group-item"] {
-  height: calc(var(--control-height-md) - 4px);
+[data-slot="segmented-radio-group"][aria-invalid="true"] {
+  box-shadow:
+    inset 0 0 0 1px var(--destructive),
+    0 0 0 3px color-mix(in oklab, var(--destructive) 14%, transparent);
+}
+:is([data-slot="toggle-group-item"], [data-slot="segmented-radio-item"]) {
   border-color: transparent;
-  border-radius: 6px;
+  border-radius: calc(var(--radius-control) - 2px);
   background-color: transparent;
   color: var(--muted-foreground);
+  font-weight: 500;
+  box-shadow: none;
+  transition:
+    color var(--duration-base) var(--ease-standard),
+    background-color var(--duration-base) var(--ease-standard);
 }
-[data-slot="toggle-group-item"]:not(:disabled):hover {
+:is([data-slot="toggle-group-item"], [data-slot="segmented-radio-item"]):not(:disabled):hover {
+  background-color: color-mix(in oklab, var(--segment-on) 55%, transparent);
   color: var(--foreground);
 }
-[data-slot="toggle-group-item"]:is([data-state="on"], [data-on]) {
+:is([data-slot="toggle-group-item"], [data-slot="segmented-radio-item"]):is(
+  [data-state="on"],
+  [data-state="checked"],
+  [data-on]
+),
+:is([data-slot="toggle-group-item"], [data-slot="segmented-radio-item"]):is(
+    [data-state="on"],
+    [data-state="checked"],
+    [data-on]
+  ):not(:disabled):hover {
   border-color: transparent;
   background-color: var(--segment-on);
   color: var(--foreground);
+  font-weight: 600;
   box-shadow:
     0 0 0 1px var(--control-border),
     var(--control-shadow);
+}
+:is([data-slot="toggle-group-item"], [data-slot="segmented-radio-item"]) svg {
+  color: currentColor;
+  opacity: 0.8;
+}
+:is([data-slot="toggle-group-item"], [data-slot="segmented-radio-item"]):is(
+    [data-state="on"],
+    [data-state="checked"]
+  )
+  svg {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is([data-slot="toggle-group-item"], [data-slot="segmented-radio-item"]) {
+    transition: none;
+  }
+}
+
+/* The view switch is always one control height (form segments size themselves). */
+[data-slot="toggle-group-item"] {
+  height: calc(var(--control-height-md) - 4px);
 }
 
 /* Tabs (default): Geist underline tabs. */

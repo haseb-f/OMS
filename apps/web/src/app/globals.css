@@ -110,6 +110,9 @@
   --color-border-strong: var(--border-strong);
   --color-focus-ring: var(--focus-ring);
   --color-surface-sunken: var(--surface-sunken);
+  --color-surface-soft: var(--surface-soft);
+  --color-surface-soft-border: var(--surface-soft-border);
+  --color-surface-soft-row-hover: var(--surface-soft-row-hover);
   --color-table-surface: var(--table-surface);
   --color-table-divider: var(--table-divider);
   --color-table-header: var(--table-header);
@@ -328,6 +331,20 @@
   --insight-profit: var(--report-profit);
   --insight-loss: var(--report-loss);
   --insight-lift: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 14px -6px rgb(0 0 0 / 0.14);
+  /* Soft surfaces (Round 5, design-system §12.12) — Clarity-like calm panels
+     on the white canvas: a 2-3% cool tint of the brand canvas, a translucent
+     navy hairline and a top-to-bottom gradient of at most 3%. Translucency
+     comes from the tint, never a backdrop blur. Hover changes the border and
+     shadow only. */
+  --surface-soft: color-mix(in oklab, var(--brand-canvas) 32%, var(--card));
+  --surface-soft-border: color-mix(in oklab, var(--brand-navy) 11%, transparent);
+  --surface-soft-hover-border: color-mix(in oklab, var(--brand-navy) 20%, transparent);
+  --surface-soft-gradient: linear-gradient(180deg, var(--surface-soft), var(--card) 5.5rem);
+  --surface-soft-shadow: 0 1px 2px rgb(4 32 60 / 0.04);
+  --surface-soft-shadow-hover: 0 1px 2px rgb(4 32 60 / 0.05), 0 6px 16px -8px rgb(4 32 60 / 0.16);
+  /* Per-tone tint of a soft tile (mixed with `--insight-*`). */
+  --surface-soft-tone-strength: 4%;
+  --surface-soft-row-hover: color-mix(in oklab, var(--brand-canvas) 55%, var(--card));
   --form-card-width-narrow: 32.5rem;
   --form-card-width: 40rem;
 }
@@ -467,6 +484,13 @@
   --segment-on: #262626;
   --shadow-modal: 0 0 0 1px rgb(255 255 255 / 0.05), 0 24px 48px -12px rgb(0 0 0 / 0.8);
   --insight-lift: 0 0 0 1px rgb(255 255 255 / 0.03), 0 8px 18px -8px rgb(0 0 0 / 0.75);
+  --surface-soft: color-mix(in oklab, #52a8ff 3%, var(--card));
+  --surface-soft-border: color-mix(in oklab, white 8%, transparent);
+  --surface-soft-hover-border: color-mix(in oklab, white 15%, transparent);
+  --surface-soft-shadow: 0 0 #0000;
+  --surface-soft-shadow-hover: 0 0 0 1px rgb(255 255 255 / 0.03), 0 8px 18px -8px rgb(0 0 0 / 0.75);
+  --surface-soft-tone-strength: 6%;
+  --surface-soft-row-hover: color-mix(in oklab, #52a8ff 6%, var(--card));
 }
 
 @layer base {

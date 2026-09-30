@@ -452,3 +452,26 @@
     display: none !important;
   }
 }
+
+/* Round 5 soft surfaces (design-system §12.12) print plain: white, a 1px
+   rule, no gradient, tint or shadow — paper never carries screen decoration. */
+@media print {
+  :root,
+  .dark {
+    --surface-soft: #ffffff;
+    --surface-soft-gradient: none;
+    --surface-soft-border: #cfcfcf;
+    --surface-soft-hover-border: #cfcfcf;
+    --surface-soft-shadow: none;
+    --surface-soft-shadow-hover: none;
+    --surface-soft-tone-strength: 0%;
+  }
+  :is(
+    [data-slot="card"][data-surface="soft"],
+    [data-slot="insight-group"],
+    [data-slot="insight-card"]
+  ):not([data-print-sheet] *) {
+    background: #ffffff !important;
+    box-shadow: none !important;
+  }
+}

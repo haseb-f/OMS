@@ -829,6 +829,7 @@ const en = {
       buttons: "Buttons",
       selectors: "Selectors",
       inputs: "Text fields",
+      toolbars: "Toolbar filters and segmented choices",
       primary: "Save",
       confirm: "Approve",
       outline: "Secondary",
@@ -1691,6 +1692,11 @@ const en = {
       header: {
         switchReport: "Switch report",
         reportActions: "Report actions",
+        collapseHeader: "Collapse report header",
+        expandHeader: "Expand report header",
+        showFilters: "Show filters",
+        warningsCount: "{count} warnings",
+        warningsTitle: "Needs attention",
         moreFilters: "More filters",
         allDates: "All dates",
         asOfToday: "As of today",
@@ -2875,6 +2881,7 @@ const en = {
         success: "Lead closed without purchase.",
       },
       lifecycle: {
+        label: "Status",
         active: "Active",
         converted: "Converted",
         closed: "Closed / Archived",

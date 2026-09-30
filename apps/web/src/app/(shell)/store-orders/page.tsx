@@ -7,6 +7,7 @@ import { Plus, UserSearch } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { HeaderActions } from "@/components/shared/header-actions";
 import { EnterpriseButton } from "@/components/ui/button";
+import { Toggle } from "@/components/ui/toggle";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { SyncButton } from "@/components/shared/sync-button";
 import {
@@ -543,17 +544,16 @@ function StoreOrdersPageContent() {
                     label: t(`storeOrders.profitability.costStateValues.${state}`),
                   }))}
                 />
-                <EnterpriseButton
-                  type="button"
-                  variant={lossMakingFilter ? "secondary" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    setLossMakingFilter(!lossMakingFilter);
+                <Toggle
+                  size="default"
+                  pressed={lossMakingFilter}
+                  onPressedChange={(pressed) => {
+                    setLossMakingFilter(pressed);
                     setPage(1);
                   }}
                 >
                   {t("storeOrders.profitability.lossMakingFilter")}
-                </EnterpriseButton>
+                </Toggle>
               </>
             )}
             {(paymentStatusFilter.length > 0 ||

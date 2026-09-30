@@ -31,7 +31,10 @@ function block(selector) {
   }
   const body = css.slice(start, j).replace(/\/\*[\s\S]*?\*\//g, "");
   const vars = {};
-  for (const m of body.matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)) vars[m[1]] = m[2].trim();
+  for (const m of body.matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)) {
+    // Prettier wraps long color-mix() values over several lines — flatten them.
+    vars[m[1]] = m[2].replace(/\s+/g, " ").replace(/\(\s+/g, "(").replace(/\s+\)/g, ")").trim();
+  }
   return vars;
 }
 
@@ -231,6 +234,56 @@ const PAIRS = [
   // Round 2's tonal-selector rule is superseded (§12.4): selectors are white
   // like inputs and are told apart by the chevron checked above.
   ["sidebar rail on sidebar", "var(--sidebar-rail)", "var(--sidebar)", UI],
+  // Round 5 (design-system §12.12): soft surfaces keep every text tone AA.
+  ["soft surface text", "var(--foreground)", "var(--surface-soft)", TEXT, "var(--card)"],
+  [
+    "soft surface muted text",
+    "var(--muted-foreground)",
+    "var(--surface-soft)",
+    TEXT,
+    "var(--card)",
+  ],
+  ["soft surface placeholder", "var(--placeholder)", "var(--surface-soft)", TEXT, "var(--card)"],
+  [
+    "soft row hover muted text",
+    "var(--muted-foreground)",
+    "var(--surface-soft-row-hover)",
+    TEXT,
+    "var(--card)",
+  ],
+  // Round 5 toolbars: a filter's name stays muted on the applied tint.
+  [
+    "filter label on applied tint",
+    "var(--muted-foreground)",
+    "var(--primary-soft)",
+    TEXT,
+    "var(--card)",
+  ],
+  ["filter value on applied tint", "var(--primary)", "var(--primary-soft)", TEXT, "var(--card)"],
+  ["open trigger value", "var(--foreground)", "var(--control-pressed)", TEXT, "var(--card)"],
+  [
+    "open trigger placeholder",
+    "var(--muted-foreground)",
+    "var(--control-pressed)",
+    TEXT,
+    "var(--card)",
+  ],
+  [
+    "open trigger filter label",
+    "var(--muted-foreground)",
+    "var(--control-pressed)",
+    TEXT,
+    "var(--card)",
+  ],
+  ["open trigger chevron", "var(--foreground)", "var(--control-pressed)", UI, "var(--card)"],
+  ["segment selected text", "var(--foreground)", "var(--segment-on)", TEXT, "var(--card)"],
+  [
+    "segment unselected text",
+    "var(--muted-foreground)",
+    "var(--segment-track)",
+    TEXT,
+    "var(--card)",
+  ],
 ];
 
 let failed = 0;

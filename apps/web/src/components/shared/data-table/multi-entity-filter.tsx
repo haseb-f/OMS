@@ -90,11 +90,8 @@ export function MultiEntityFilter<T>({
     return rows;
   }, [values, options, getId]);
 
-  const triggerLabel = (() => {
-    if (values.length === 0) return label;
-    if (values.length === 1) return getTitle(values[0]!);
-    return t("table.filterSelectedCount", { count: values.length });
-  })();
+  // "Name: Value" for one value; the name + a count badge for several.
+  const triggerValue = values.length === 1 ? getTitle(values[0]!) : undefined;
 
   const toggle = (item: T) => {
     const id = getId(item);
@@ -115,9 +112,10 @@ export function MultiEntityFilter<T>({
     >
       <PopoverTrigger asChild>
         <FilterTrigger
-          label={triggerLabel}
+          label={label}
+          value={triggerValue}
           isActive={values.length > 0}
-          count={values.length}
+          count={values.length > 1 ? values.length : undefined}
           aria-expanded={open}
           className={className}
         />

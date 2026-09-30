@@ -6,13 +6,24 @@ function EnterpriseCard({
   className,
   size = "default",
   clickable = false,
+  surface = "default",
   ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm"; clickable?: boolean }) {
+}: React.ComponentProps<"div"> & {
+  size?: "default" | "sm";
+  clickable?: boolean;
+  /**
+   * `soft` (Round 5, design-system §12.12): the calm dashboard panel — a
+   * faint cool tint fading into white, a translucent hairline; hover changes
+   * the border only. The look lives in the `[data-surface="soft"]` recipe.
+   */
+  surface?: "default" | "soft";
+}) {
   return (
     <div
       data-slot="card"
       data-size={size}
       data-clickable={clickable}
+      data-surface={surface === "soft" ? "soft" : undefined}
       className={cn(
         // Flat on-page surface: one crisp 1px border, no gradient fill and no
         // resting shadow. Elevation is reserved for genuinely floating layers

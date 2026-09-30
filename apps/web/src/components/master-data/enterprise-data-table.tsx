@@ -57,6 +57,8 @@ import {
   ListFooter,
   ListSurface,
   ListToolbar,
+  ListToolbarGroup,
+  ListToolbarSeparator,
   useViewportFill,
 } from "@/components/shared/data-table/list-surface";
 import { OverflowTooltipRegion } from "@/components/shared/data-table/overflow-tooltip";
@@ -1454,7 +1456,10 @@ export function EnterpriseDataTable<TData>({
             </div>
             {filterBar ? (
               <FilterBarProvider value={inlineFilterContext}>
-                <div className="hidden @3xl/enterprise-table:contents">{filterBar}</div>
+                <ListToolbarSeparator className="sm:hidden @3xl/enterprise-table:block" />
+                <ListToolbarGroup className="hidden @3xl/enterprise-table:flex">
+                  {filterBar}
+                </ListToolbarGroup>
                 <EnterpriseButton
                   type="button"
                   variant="outline"
@@ -1478,7 +1483,8 @@ export function EnterpriseDataTable<TData>({
                 </EnterpriseButton>
               </FilterBarProvider>
             ) : null}
-            <div className="ms-auto flex shrink-0 items-center gap-1">
+            <ListToolbarGroup className="ms-auto shrink-0 flex-nowrap">
+              <ListToolbarSeparator className="me-1" />
               {onRefresh && (
                 <IconActionButton
                   label={t("table.refresh")}
@@ -1499,7 +1505,7 @@ export function EnterpriseDataTable<TData>({
               {/* Print/import/export/reset are occasional: as labelled
                   buttons they outweighed the filters they sat beside. */}
               <RowActionsMenu label={t("table.options")} actions={tableOptions} />
-            </div>
+            </ListToolbarGroup>
           </div>
 
           {/* Contextual bulk-action strip — overlays the toolbar row in place

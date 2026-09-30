@@ -828,6 +828,7 @@ const ar = {
       buttons: "الأزرار",
       selectors: "قوائم الاختيار",
       inputs: "الحقول النصية",
+      toolbars: "فلاتر شريط الأدوات والاختيارات المجزأة",
       primary: "حفظ",
       confirm: "اعتماد",
       outline: "ثانوي",
@@ -1682,6 +1683,11 @@ const ar = {
       header: {
         switchReport: "تبديل التقرير",
         reportActions: "إجراءات التقرير",
+        collapseHeader: "طي رأس التقرير",
+        expandHeader: "توسيع رأس التقرير",
+        showFilters: "عرض الفلاتر",
+        warningsCount: "{count} تنبيهات",
+        warningsTitle: "يحتاج انتباهًا",
         moreFilters: "فلاتر إضافية",
         allDates: "كل التواريخ",
         asOfToday: "كما في اليوم",
@@ -2851,6 +2857,7 @@ const ar = {
         success: "تم إغلاق الليد بدون شراء.",
       },
       lifecycle: {
+        label: "الحالة",
         active: "نشطة",
         converted: "محوّلة",
         closed: "مغلقة / مؤرشفة",

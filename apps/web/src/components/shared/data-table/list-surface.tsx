@@ -68,17 +68,53 @@ export function ListSurface({
   );
 }
 
-/** Filter/search strip pinned to the top of a `ListSurface`. `relative` so a bulk-action strip can overlay it in place. */
+/**
+ * Filter/search strip pinned to the top of a `ListSurface` (design-system
+ * §12.12): the card surface with a bottom hairline — never a grey band —
+ * 8px between groups (search · filters · view controls), 4px inside a group
+ * (`ListToolbarGroup`), a hairline `ListToolbarSeparator` between groups.
+ * `relative` so a bulk-action strip can overlay it in place.
+ */
 export function ListToolbar({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
+      data-slot="list-toolbar"
       className={cn(
-        "relative flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border bg-muted/30 px-3 py-1.5 sm:px-4",
+        "relative flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-card px-3 py-1.5 sm:px-4",
         className,
       )}
     >
       {children}
     </div>
+  );
+}
+
+/** Related toolbar controls (the filters, the view controls): 4px apart, wrapping together. */
+export function ListToolbarGroup({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      data-slot="list-toolbar-group"
+      className={cn("flex min-w-0 flex-wrap items-center gap-1", className)}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** A 20px hairline between toolbar groups; hidden on phones, where groups wrap onto rows. */
+export function ListToolbarSeparator({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      data-slot="list-toolbar-separator"
+      className={cn("hidden h-5 w-px shrink-0 self-center bg-border sm:block", className)}
+    />
   );
 }
 
