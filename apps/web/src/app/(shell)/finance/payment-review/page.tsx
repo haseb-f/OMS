@@ -123,6 +123,8 @@ function PaymentReviewPageContent() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
+  /** Committed (already debounced by the table) search term — sent to the API. */
+  const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [summary, setSummary] = useState<PaymentReviewSummary | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -160,6 +162,12 @@ function PaymentReviewPageContent() {
     }
     return status ? { status } : null;
   }, [stage, status]);
+  const searchTerm = search.trim() || undefined;
+  /** Every filter the current rows answer to — the selection/bulk scope. */
+  const selectionQuery = useMemo(
+    () => ({ listQuery, search: searchTerm }),
+    [listQuery, searchTerm],
+  );
 
   const stageHref = useCallback(
     (next: ReviewListStage | null) => {
@@ -185,8 +193,18 @@ function PaymentReviewPageContent() {
     try {
       if (!listQuery) {
         const [pending, matched] = await Promise.all([
-          paymentsReviewService.list({ status: "PENDING", page: 1, pageSize: 100 }),
-          paymentsReviewService.list({ status: "MATCHED", page: 1, pageSize: 100 }),
+          paymentsReviewService.list({
+            status: "PENDING",
+            search: searchTerm,
+            page: 1,
+            pageSize: 100,
+          }),
+          paymentsReviewService.list({
+            status: "MATCHED",
+            search: searchTerm,
+            page: 1,
+            pageSize: 100,
+          }),
         ]);
         const merged = [...pending.items, ...matched.items].sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -194,7 +212,12 @@ function PaymentReviewPageContent() {
         setItems(merged.slice((page - 1) * pageSize, page * pageSize));
         setTotal(pending.total + matched.total);
       } else {
-        const result = await paymentsReviewService.list({ ...listQuery, page, pageSize });
+        const result = await paymentsReviewService.list({
+          ...listQuery,
+          search: searchTerm,
+          page,
+          pageSize,
+        });
         setItems(result.items);
         setTotal(result.total);
       }
@@ -203,7 +226,7 @@ function PaymentReviewPageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [listQuery, page, pageSize]);
+  }, [listQuery, searchTerm, page, pageSize]);
 
   const reloadAll = useCallback(async () => {
     await Promise.all([load(), loadSummary()]);
@@ -213,7 +236,12 @@ function PaymentReviewPageContent() {
   const fetchAllRows = useCallback(async () => {
     const fetchQuery = (query: NonNullable<typeof listQuery>) =>
       fetchAllPages((nextPage, nextPageSize) =>
-        paymentsReviewService.list({ ...query, page: nextPage, pageSize: nextPageSize }),
+        paymentsReviewService.list({
+          ...query,
+          search: searchTerm,
+          page: nextPage,
+          pageSize: nextPageSize,
+        }),
       );
     if (listQuery) return fetchQuery(listQuery);
     const [pending, matched] = await Promise.all([
@@ -226,7 +254,7 @@ function PaymentReviewPageContent() {
         .slice(0, FETCH_ALL_ROW_CAP),
       total: pending.total + matched.total,
     };
-  }, [listQuery]);
+  }, [listQuery, searchTerm]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -242,7 +270,7 @@ function PaymentReviewPageContent() {
     items,
     rowSelection,
     fetchAllRows,
-    query: listQuery,
+    query: selectionQuery,
   });
 
   const runExclusive = useCallback(async (id: string, work: () => Promise<void>) => {
@@ -627,7 +655,13 @@ function PaymentReviewPageContent() {
           onRefresh={() => void reloadAll()}
           rowSelection={canConfirm ? rowSelection : undefined}
           onRowSelectionChange={canConfirm ? setRowSelection : undefined}
-          selectionResetKey={listQuery}
+          selectionResetKey={selectionQuery}
+          search={search}
+          onSearchChange={(value) => {
+            setSearch(value);
+            setPage(1);
+          }}
+          searchPlaceholder={t("finance.paymentReview.searchPlaceholder")}
           bulkActions={
             canConfirm ? (
               <>

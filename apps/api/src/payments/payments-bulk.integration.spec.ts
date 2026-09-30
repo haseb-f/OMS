@@ -662,4 +662,26 @@ describeDb('Payments bulk actions (local DB)', () => {
       summary.awaitingSettlement.methods.some((m) => m.id === reconMethodId),
     ).toBe(true);
   });
+
+  it('review list search: payment number, order number, reference and customer name', async () => {
+    const claim = await makeClaim(40, { reference: `REF-SRCH-${tag}` });
+    const order = await prisma.storeOrder.findUniqueOrThrow({
+      where: { id: claim.storeOrderId! },
+    });
+    const ids = async (search: string) =>
+      (await payments.findAll({ search, pageSize: 200 })).items.map(
+        (row) => row.id,
+      );
+    expect(await ids(claim.paymentNumber.toLowerCase())).toContain(claim.id);
+    expect(await ids(order.internalOrderId)).toContain(claim.id);
+    expect(await ids(`ref-srch-${tag}`)).toContain(claim.id);
+    expect(await ids(partnerName)).toContain(claim.id);
+    expect(await ids(`NO-SUCH-${tag}`)).toHaveLength(0);
+    // Search narrows, never widens, the other filters.
+    const rejected = await payments.findAll({
+      search: claim.paymentNumber,
+      status: PaymentStatus.REJECTED,
+    });
+    expect(rejected.total).toBe(0);
+  });
 });

@@ -191,6 +191,8 @@ export const paymentsReviewService = {
       settlementStatus?: PaymentSettlementFilter[];
       /** "false": confirmable from review (no reconciliation method); "true": reconciliation methods only. */
       reconciled?: "true" | "false";
+      /** Payment/order number, reference, sender or customer name. */
+      search?: string;
       page?: number;
       pageSize?: number;
     } = {},

@@ -4753,6 +4753,7 @@ const en = {
       description:
         "Confirm & post or reject customer-reported payments. Confirming posts one customer receipt and its journal entry in a single step.",
       queue: "Review queue",
+      searchPlaceholder: "Payment #, order #, reference or customer",
       fields: {
         number: "Payment",
         customer: "Customer",

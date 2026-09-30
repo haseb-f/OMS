@@ -194,6 +194,7 @@ export class PaymentsService {
               ],
             }
           : {}),
+      ...(query.search ? { AND: [paymentSearchWhere(query.search)] } : {}),
     };
     const [items, total] = await Promise.all([
       this.prisma.payment.findMany({
@@ -923,4 +924,21 @@ export class PaymentsService {
       return note;
     });
   }
+}
+
+/** Review-list search: payment/order number, reference, sender and customer name. */
+function paymentSearchWhere(search: string): Prisma.PaymentWhereInput {
+  const contains = { contains: search, mode: 'insensitive' as const };
+  return {
+    OR: [
+      { paymentNumber: contains },
+      { referenceNumber: contains },
+      { senderName: contains },
+      { storeOrder: { internalOrderId: contains } },
+      { storeOrder: { externalOrderId: contains } },
+      { storeOrder: { partner: { name: contains } } },
+      { lead: { leadNumber: contains } },
+      { lead: { customerName: contains } },
+    ],
+  };
 }
