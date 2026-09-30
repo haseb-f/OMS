@@ -13,7 +13,7 @@ import { ConflictException } from '@nestjs/common';
 const matchedAt = new Date('2026-09-20T10:00:00Z');
 const receipt = (
   createdAt: string,
-  status = FinancialTransactionStatus.CONFIRMED,
+  status: FinancialTransactionStatus = FinancialTransactionStatus.CONFIRMED,
 ) => ({
   createdAt: new Date(createdAt),
   status,
