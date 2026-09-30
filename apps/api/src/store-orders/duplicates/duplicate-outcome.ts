@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { ConflictException } from '@nestjs/common';
 import { StoreOrderDuplicateReviewStatus, type Prisma } from '@prisma/client';
 
@@ -44,7 +45,9 @@ export interface DuplicateCustomerSummary {
 }
 
 export interface DuplicateNameCandidate extends DuplicateCustomerSummary {
-  orderCount: number;
+  hasOrders: boolean;
+  /** Null for an own-scope user without `customers.lookup_global`. */
+  orderCount: number | null;
   lastOrderDate: Date | null;
 }
 
@@ -107,9 +110,13 @@ export function scopedCreationKey(
 export function duplicateOrderColumns(
   creationIdempotencyKey: string | null | undefined,
   outcome: DuplicateOutcome | null | undefined,
+  creationPayloadHash?: string | null,
 ) {
   return {
     ...(creationIdempotencyKey ? { creationIdempotencyKey } : {}),
+    ...(creationIdempotencyKey && creationPayloadHash
+      ? { creationPayloadHash }
+      : {}),
     ...(outcome?.reviewPending
       ? { duplicateReviewStatus: StoreOrderDuplicateReviewStatus.PENDING }
       : {}),
@@ -168,4 +175,86 @@ export function duplicateAcknowledgementRequired(
     message: `${text[0]} — ${text[1]}`,
     details: { duplicate },
   });
+}
+
+/** Fields that never belong to a create payload's identity (keys, the duplicate answer). */
+const FINGERPRINT_OMIT = new Set([
+  'idempotencyKey',
+  'creationIdempotencyKey',
+  'duplicateResolution',
+]);
+
+function stableJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableJson);
+  if (value instanceof Date) return value.toISOString();
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.keys(value)
+        .filter(
+          (key) =>
+            !FINGERPRINT_OMIT.has(key) &&
+            (value as Record<string, unknown>)[key] !== undefined,
+        )
+        .sort()
+        .map((key) => [
+          key,
+          stableJson((value as Record<string, unknown>)[key]),
+        ]),
+    );
+  }
+  if (typeof value === 'string') return value.trim();
+  return value;
+}
+
+/**
+ * sha256 of the normalized create payload (key-sorted, trimmed strings,
+ * undefined dropped, keys and the duplicate answer excluded): a retry of the
+ * same form matches; the same key reused for another payload does not.
+ */
+export function payloadFingerprint(payload: unknown): string {
+  return createHash('sha256')
+    .update(JSON.stringify(stableJson(payload)))
+    .digest('hex');
+}
+
+/** The key already created an order that has since been archived. */
+export function orderKeyAlreadyUsed() {
+  return new ConflictException({
+    code: 'ORDER_KEY_ALREADY_USED',
+    message:
+      'مفتاح الإرسال مستخدم لطلب مؤرشف — أعد فتح النموذج لإنشاء طلب جديد — This submission key belongs to an archived order. Reopen the form to create a new order.',
+  });
+}
+
+/** The same key arrived with a different payload. */
+export function idempotencyKeyReused() {
+  return new ConflictException({
+    code: 'IDEMPOTENCY_KEY_REUSED',
+    message:
+      'تم استخدام مفتاح الإرسال لطلب ببيانات مختلفة — أعد فتح النموذج — This submission key was already used for different order data. Reopen the form and submit again.',
+  });
+}
+
+/**
+ * Replay decision for a stored key: the archived order → 409
+ * ORDER_KEY_ALREADY_USED; a different payload fingerprint → 409
+ * IDEMPOTENCY_KEY_REUSED; otherwise the order id to replay.
+ */
+export function assertReplayable(
+  existing: {
+    id: string;
+    deletedAt: Date | null;
+    creationPayloadHash: string | null;
+  },
+  payloadHash: string | null | undefined,
+): string {
+  if (existing.deletedAt) throw orderKeyAlreadyUsed();
+  if (
+    payloadHash &&
+    existing.creationPayloadHash &&
+    existing.creationPayloadHash !== payloadHash
+  ) {
+    throw idempotencyKeyReused();
+  }
+  return existing.id;
 }

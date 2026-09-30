@@ -108,6 +108,8 @@ export interface LeadConvertPayload {
   agentOrder?: AgentOrderPersistInput;
   /** Round 5 Spec 1B — set only by server services (never an HTTP body): the namespaced create-form key. */
   creationIdempotencyKey?: string | null;
+  /** Spec 1B — `payloadFingerprint` of the conversion request. */
+  creationPayloadHash?: string | null;
   /** Spec 1B — the enforced duplicate check outcome (existing customer, review flag, timeline row). */
   duplicate?: DuplicateOutcome | null;
 }
@@ -802,6 +804,8 @@ export class WorkflowEngineService {
           },
           userId,
           tx,
+          // Cross-scope (an agent-owned customer): never adopted.
+          { skipPhoneMatch: !!payload?.duplicate?.reviewPending },
         );
 
     await tx.lead.update({
@@ -898,6 +902,7 @@ export class WorkflowEngineService {
         ...duplicateOrderColumns(
           payload?.creationIdempotencyKey,
           payload?.duplicate,
+          payload?.creationPayloadHash,
         ),
         items: {
           create: lines.map((line) => ({
@@ -1111,6 +1116,7 @@ export class WorkflowEngineService {
     },
     userId: string,
     tx: Prisma.TransactionClient,
+    options: { skipPhoneMatch?: boolean } = {},
   ): Promise<string> {
     if (lead.partnerId) {
       const existing = await tx.partner.findFirst({
@@ -1135,13 +1141,15 @@ export class WorkflowEngineService {
       return existing.id;
     }
 
-    const phoneMatch = await tx.partner.findFirst({
-      where: {
-        deletedAt: null,
-        OR: [{ phone: lead.mobileNumber }, { mobile: lead.mobileNumber }],
-      },
-      include: { roles: true, customerProfile: true },
-    });
+    const phoneMatch = options.skipPhoneMatch
+      ? null
+      : await tx.partner.findFirst({
+          where: {
+            deletedAt: null,
+            OR: [{ phone: lead.mobileNumber }, { mobile: lead.mobileNumber }],
+          },
+          include: { roles: true, customerProfile: true },
+        });
 
     if (phoneMatch) {
       if (!phoneMatch.roles.some((r) => r.role === PartnerRoleType.CUSTOMER)) {

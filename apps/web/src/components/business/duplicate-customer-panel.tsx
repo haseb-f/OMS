@@ -139,11 +139,13 @@ export function DuplicateCustomerPanel({
                             {candidate.phoneMasked}
                           </bdi>
                         ) : null}
-                        {candidate.phoneMasked ? " · " : null}
-                        {t("orderDuplicates.name.candidate", {
-                          count: candidate.orderCount,
-                          date: formatDate(candidate.lastOrderDate),
-                        })}
+                        {candidate.phoneMasked && candidate.orderCount != null ? " · " : null}
+                        {candidate.orderCount != null
+                          ? t("orderDuplicates.name.candidate", {
+                              count: candidate.orderCount,
+                              date: formatDate(candidate.lastOrderDate),
+                            })
+                          : null}
                       </span>
                     </span>
                     <EnterpriseButton

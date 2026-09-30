@@ -89,6 +89,7 @@ import {
 import { assertCompanyOwnedProduct } from '../products/assert-company-owned-products.util';
 import { BULK_LIMITS } from '../common/bulk/bulk-limits';
 import {
+  assertReplayable,
   duplicateOrderColumns,
   logDuplicateDecision,
   type DuplicateOutcome,
@@ -264,6 +265,8 @@ const ORDER_LIST_INCLUDE = {
  */
 export interface StoreOrderCreateOptions {
   creationIdempotencyKey?: string | null;
+  /** `payloadFingerprint` of the request — a reused key with other data is refused. */
+  creationPayloadHash?: string | null;
   duplicate?: DuplicateOutcome | null;
 }
 
@@ -325,9 +328,11 @@ export class StoreOrdersService {
     options: StoreOrderCreateOptions = {},
   ) {
     const creationKey = options.creationIdempotencyKey ?? null;
+    const payloadHash = options.creationPayloadHash ?? null;
     const replay = await this.findCreationReplay(
       creationKey,
       agentOrder ? undefined : userId,
+      payloadHash,
     );
     if (replay) return replay;
     if (agentOrder && (dto.externalOrderId || dto.payment)) {
@@ -376,12 +381,20 @@ export class StoreOrdersService {
               userId,
             )
           ).id
-        : (
-            await this.partnersService.findOrCreateWithRole(
-              { ...dto.partner, role: PartnerRoleType.CUSTOMER },
-              userId,
-            )
-          ).partner.id;
+        : options.duplicate?.reviewPending
+          ? // Cross-scope (another agent's customer): never adopted.
+            (
+              await this.partnersService.createSeparateCustomer(
+                dto.partner,
+                userId,
+              )
+            ).id
+          : (
+              await this.partnersService.findOrCreateWithRole(
+                { ...dto.partner, role: PartnerRoleType.CUSTOMER },
+                userId,
+              )
+            ).partner.id;
 
     const internalOrderId =
       await this.numberingEngine.generateNumber('STORE_ORDER');
@@ -459,7 +472,11 @@ export class StoreOrdersService {
             createdBy: userId,
             updatedBy: userId,
             ...(agentOrder ? agentOrderColumns(agentOrder) : {}),
-            ...duplicateOrderColumns(creationKey, options.duplicate),
+            ...duplicateOrderColumns(
+              creationKey,
+              options.duplicate,
+              payloadHash,
+            ),
             items: {
               create: agentOrder
                 ? agentOrderItems(agentOrder)
@@ -529,6 +546,7 @@ export class StoreOrdersService {
         const concurrent = await this.findCreationReplay(
           creationKey,
           agentOrder ? undefined : userId,
+          payloadHash,
         );
         if (concurrent) return concurrent;
       }
@@ -539,20 +557,24 @@ export class StoreOrdersService {
   /**
    * Spec 1B idempotent submission — the order already created with this
    * namespaced key (re-read through the caller's scope), flagged
-   * `idempotentReplay: true`; null when the key is new.
+   * `idempotentReplay: true`; null when the key is new. An archived order
+   * (ORDER_KEY_ALREADY_USED) or a different payload (IDEMPOTENCY_KEY_REUSED)
+   * is a 409.
    */
   async findCreationReplay(
     creationIdempotencyKey: string | null | undefined,
     userId?: string,
+    payloadHash?: string | null,
   ) {
     if (!creationIdempotencyKey) return null;
     const existing = await this.prisma.storeOrder.findUnique({
       where: { creationIdempotencyKey },
-      select: { id: true, deletedAt: true },
+      select: { id: true, deletedAt: true, creationPayloadHash: true },
     });
-    if (!existing || existing.deletedAt) return null;
+    if (!existing) return null;
+    const orderId = assertReplayable(existing, payloadHash);
     return {
-      ...(await this.findOne(existing.id, userId)),
+      ...(await this.findOne(orderId, userId)),
       idempotentReplay: true as const,
     };
   }

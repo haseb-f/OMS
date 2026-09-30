@@ -18,6 +18,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import type { Response } from 'express';
+import { StoreOrderDuplicateReviewStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
@@ -42,7 +43,10 @@ import { ATTACHMENT_MAX_BYTES } from '../common/storage/file-validation';
 import { DeclareStoreOrderPaymentDto } from './dto/declare-store-order-payment.dto';
 import { StoreOrderPaymentDeclarationService } from './payment-declaration/store-order-payment-declaration.service';
 import { StoreOrderDuplicatesService } from './duplicates/store-order-duplicates.service';
-import { scopedCreationKey } from './duplicates/duplicate-outcome';
+import {
+  payloadFingerprint,
+  scopedCreationKey,
+} from './duplicates/duplicate-outcome';
 
 /** Recording pickup steps: store staff (`store-orders.edit`) or shipping staff (`shipping.edit`) — any-of. */
 const PICKUP_PERMISSIONS = ['store-orders.edit', 'shipping.edit'] as const;
@@ -78,9 +82,11 @@ export class StoreOrdersController {
       user.sub,
       dto.creationIdempotencyKey,
     );
+    const creationPayloadHash = payloadFingerprint(dto);
     const replay = await this.storeOrdersService.findCreationReplay(
       creationIdempotencyKey,
       user.sub,
+      creationPayloadHash,
     );
     if (replay) {
       res.status(200);
@@ -88,14 +94,15 @@ export class StoreOrdersController {
     }
     const duplicate = await this.duplicates.enforce(
       {
-        phone: dto.partner.phone ?? dto.partner.mobile,
+        // Every supplied number — the Partner dedup matches phone AND mobile.
+        phones: [dto.partner.phone, dto.partner.mobile],
         name: dto.partner.name,
         countryId: dto.partner.countryId,
       },
       { kind: 'COMPANY', userId: user.sub },
       dto.duplicateResolution,
     );
-    const options = { creationIdempotencyKey, duplicate };
+    const options = { creationIdempotencyKey, creationPayloadHash, duplicate };
     // An optional declaration on create needs the same any-of permission as
     // the standalone declaration endpoint.
     const declaration = dto.declaration;
@@ -161,7 +168,14 @@ export class StoreOrdersController {
     query: FindStoreOrdersQueryDto,
     user: JwtPayload,
   ): Promise<string | undefined> {
-    if (!query.duplicateReviewStatus) return user.sub;
+    // NONE is an ordinary filter — only the review queue (flagged orders)
+    // widens the scope.
+    if (
+      !query.duplicateReviewStatus ||
+      query.duplicateReviewStatus === StoreOrderDuplicateReviewStatus.NONE
+    ) {
+      return user.sub;
+    }
     if (
       !(await this.permissionsResolver.hasPermission(
         user.sub,

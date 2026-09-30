@@ -789,15 +789,18 @@ describe('Agents B1 — admin + orders (integration)', () => {
         'CURRENCY_MISMATCH',
       );
       const key = randomUUID();
-      const first = await orders.createAgentOrder(
-        orderInput({ idempotencyKey: key }),
-        { userId: adminId },
-      );
-      const again = await orders.createAgentOrder(
-        orderInput({ idempotencyKey: key }),
-        { userId: adminId },
-      );
+      // A retry resends the same form (Spec 1B: another payload under the
+      // same key is refused).
+      const retried = orderInput({ idempotencyKey: key });
+      const first = await orders.createAgentOrder(retried, { userId: adminId });
+      const again = await orders.createAgentOrder(retried, { userId: adminId });
       expect(again.id).toBe(first.id);
+      await expectCode(
+        orders.createAgentOrder(orderInput({ idempotencyKey: key }), {
+          userId: adminId,
+        }),
+        'IDEMPOTENCY_KEY_REUSED',
+      );
     });
 
     it('declarations: full = payable incl. shipping, destination rules, partial never opens the gate', async () => {

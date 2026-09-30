@@ -53,7 +53,12 @@ export class StoreOrderDuplicateReviewService {
 
   async detail(orderId: string) {
     const order = await this.prisma.storeOrder.findFirst({
-      where: { id: orderId, deletedAt: null },
+      // Only orders that were ever flagged are reviewable.
+      where: {
+        id: orderId,
+        deletedAt: null,
+        duplicateReviewStatus: { not: StoreOrderDuplicateReviewStatus.NONE },
+      },
       select: {
         ...REVIEW_ORDER_SELECT,
         partner: {
@@ -63,14 +68,24 @@ export class StoreOrderDuplicateReviewService {
             name: true,
             phone: true,
             mobile: true,
+            country: { select: { code: true } },
           },
         },
       },
     });
     if (!order) throw new NotFoundException('Store Order not found');
 
+    // The customer's own country first, then the primary markets (the same
+    // fallback order as the global customer lookup).
+    const regions = [order.partner.country?.code, 'SA', 'EG', 'AE', null];
     const phones = [order.partner.mobile, order.partner.phone]
-      .map((value) => this.phones.normalizeToE164(value))
+      .map((value) => {
+        for (const region of regions) {
+          const e164 = this.phones.normalizeToE164(value, region);
+          if (e164) return e164;
+        }
+        return null;
+      })
       .filter((value): value is string => !!value);
     const others = (
       await Promise.all(
@@ -101,7 +116,13 @@ export class StoreOrderDuplicateReviewService {
     return {
       order: {
         ...this.presentOrder(order),
-        customer: order.partner,
+        customer: {
+          id: order.partner.id,
+          partnerNumber: order.partner.partnerNumber,
+          name: order.partner.name,
+          phone: order.partner.phone,
+          mobile: order.partner.mobile,
+        },
         duplicateReviewStatus: order.duplicateReviewStatus,
         reviewedBy: order.duplicateReviewedBy,
         reviewedAt: order.duplicateReviewedAt,
@@ -146,7 +167,13 @@ export class StoreOrderDuplicateReviewService {
       });
       if (updated.count === 0) {
         const exists = await tx.storeOrder.findFirst({
-          where: { id: orderId, deletedAt: null },
+          where: {
+            id: orderId,
+            deletedAt: null,
+            duplicateReviewStatus: {
+              not: StoreOrderDuplicateReviewStatus.NONE,
+            },
+          },
           select: { id: true },
         });
         if (!exists) throw new NotFoundException('Store Order not found');

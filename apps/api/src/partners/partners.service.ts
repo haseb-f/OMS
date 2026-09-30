@@ -143,11 +143,16 @@ export class PartnersService extends MasterDataCrudService<
   async create(
     dto: CreatePartnerDto,
     userId?: string,
+    /**
+     * Round 5 Spec 1B only (`createSeparateCustomer`): the phone belongs to
+     * another agent's customer, which a company order must never adopt.
+     */
+    options: { skipPhoneDedup?: boolean } = {},
   ): Promise<PartnerWithRelations> {
     const phone = await this.normalizePartnerPhone(dto.phone, dto.countryId);
     const mobile = await this.normalizePartnerPhone(dto.mobile, dto.countryId);
     await this.assertNoDuplicate(
-      [phone, mobile],
+      options.skipPhoneDedup ? [] : [phone, mobile],
       dto.email ?? undefined,
       dto.taxNumber,
       dto.commercialRegistration,
@@ -533,6 +538,20 @@ export class PartnersService extends MasterDataCrudService<
       );
     }
     return hasRole ? full : this.assignRole(partnerId, role, userId);
+  }
+
+  /**
+   * Round 5 Spec 1B — a new CUSTOMER for a company order whose phone matched
+   * only an agent-owned customer (cross-scope): the agent's Partner is never
+   * adopted; email / tax number / CR dedup still applies.
+   */
+  async createSeparateCustomer(
+    dto: Omit<FindOrCreatePartnerDto, 'role'>,
+    userId?: string,
+  ) {
+    return this.create({ ...dto, roles: [PartnerRoleType.CUSTOMER] }, userId, {
+      skipPhoneDedup: true,
+    });
   }
 
   /** Reused by every Sales/Purchasing document service — "no inactive partners, and only ones holding the right role" enforced once here. */

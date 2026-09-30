@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { GlobalLookupAction, GlobalLookupMethod, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PartnersService } from '../../partners/partners.service';
 import { PhoneNumberService } from '../../common/phone/phone-number.service';
@@ -29,8 +29,10 @@ import {
 
 /**
  * Whose customers and orders the caller may see:
- *  - COMPANY — an internal user creating a company order: the shared
- *    Partner master; orders narrowed by the caller's sales scope.
+ *  - COMPANY — an internal user creating a company order: customers with at
+ *    least one company order (an agent-owned customer is cross-scope and is
+ *    never attached to a company order); orders narrowed by the caller's
+ *    sales scope.
  *  - AGENT — an agent order (agent user, or internal staff entering one for
  *    the agent): only that agent's own customers (the S1 rule); orders
  *    narrowed by the agent visibility (`null` = internal staff: all of that
@@ -38,10 +40,17 @@ import {
  */
 export type DuplicateScope =
   | { kind: 'COMPANY'; userId: string }
-  | { kind: 'AGENT'; agentId: string; visibility: AgentVisibility | null };
+  | {
+      kind: 'AGENT';
+      agentId: string;
+      userId: string;
+      visibility: AgentVisibility | null;
+    };
 
 export interface DuplicateCheckInput {
   phone?: string | null;
+  /** Several numbers of one customer (phone and mobile) — the first match wins. */
+  phones?: Array<string | null | undefined>;
   name?: string | null;
   /** Phone country — resolves a local number to E.164. */
   countryId?: string | null;
@@ -79,6 +88,8 @@ interface Evaluation {
   partnerNumber?: string;
   /** Latest order numbers of that customer inside the customer scope — for the audit row only, never returned. */
   orderNumbers?: string[];
+  /** A phone match reaching outside the caller's scope — audited on a check. */
+  audit?: { phone: string; partnerId: string };
 }
 
 /**
@@ -129,7 +140,7 @@ export class StoreOrderDuplicatesService {
         select: { id: true },
       });
       if (!agent) throw agentNotFound('Agent');
-      return { kind: 'AGENT', agentId, visibility: null };
+      return { kind: 'AGENT', agentId, userId, visibility: null };
     }
     const allowed = await Promise.all(
       ['store-orders.create', 'crm.leads.convert'].map(has),
@@ -147,17 +158,35 @@ export class StoreOrderDuplicatesService {
     return {
       kind: 'AGENT',
       agentId: agent.agentId,
+      userId: agent.userId,
       visibility: await resolveAgentVisibility(agent, this.permissions),
     };
   }
 
   // ── Check ───────────────────────────────────────────────────────────────
 
+  /**
+   * A phone check that reaches a customer outside the caller's scope (a
+   * cross-scope match, or orders of other owners) is written to
+   * `GlobalLookupAudit`, like the global customer lookup.
+   */
   async check(
     input: DuplicateCheckInput,
     scope: DuplicateScope,
   ): Promise<DuplicateCheckResult> {
-    return (await this.evaluate(input, scope)).result;
+    const { result, audit } = await this.evaluate(input, scope);
+    if (audit) {
+      await this.prisma.globalLookupAudit.create({
+        data: {
+          userId: scope.userId,
+          action: GlobalLookupAction.GLOBAL_CUSTOMER_LOOKUP,
+          method: GlobalLookupMethod.PHONE,
+          queryValue: audit.phone,
+          matchedPartnerId: audit.partnerId,
+        },
+      });
+    }
+    return result;
   }
 
   /**
@@ -259,8 +288,14 @@ export class StoreOrderDuplicatesService {
     input: DuplicateCheckInput,
     scope: DuplicateScope,
   ): Promise<Evaluation> {
-    const phone = await this.normalizePhone(input.phone, input.countryId);
-    if (phone) {
+    const raw = [input.phone, ...(input.phones ?? [])].filter(
+      (value): value is string => !!value?.trim(),
+    );
+    const checked = new Set<string>();
+    for (const value of raw) {
+      const phone = await this.normalizePhone(value, input.countryId);
+      if (!phone || checked.has(phone)) continue;
+      checked.add(phone);
       const matched = await this.phoneEvaluation(phone, scope);
       if (matched) return matched;
     }
@@ -308,21 +343,21 @@ export class StoreOrderDuplicatesService {
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
     if (!customers.length) return null;
 
-    const inScopeIds =
-      scope.kind === 'COMPANY'
-        ? customers.map((c) => c.id)
-        : (
-            await this.prisma.partner.findMany({
-              where: {
-                id: { in: customers.map((c) => c.id) },
-                ...agentOwnedCustomerWhere(scope.agentId),
-              },
-              select: { id: true },
-            })
-          ).map((row) => row.id);
+    const inScopeIds = (
+      await this.prisma.partner.findMany({
+        where: {
+          id: { in: customers.map((c) => c.id) },
+          ...this.customerScopeWhere(scope),
+        },
+        select: { id: true },
+      })
+    ).map((row) => row.id);
     const customer = customers.find((c) => inScopeIds.includes(c.id));
     if (!customer) {
-      return { result: { kind: 'PHONE', crossScope: true } };
+      return {
+        result: { kind: 'PHONE', crossScope: true },
+        audit: { phone, partnerId: customers[0].id },
+      };
     }
 
     const customerOrders: Prisma.StoreOrderWhereInput = {
@@ -353,9 +388,13 @@ export class StoreOrderDuplicatesService {
       .map((order) => this.summarize(order))
       .sort((a, b) => Number(b.active) - Number(a.active))
       .slice(0, MAX_LISTED_ORDERS);
+    const otherOrdersCount = Math.max(totalCount - visibleCount, 0);
     return {
       partnerNumber: customer.partnerNumber,
       orderNumbers: latest.map((row) => row.internalOrderId),
+      ...(otherOrdersCount > 0
+        ? { audit: { phone, partnerId: customer.id } }
+        : {}),
       result: {
         kind: 'PHONE',
         crossScope: false,
@@ -365,9 +404,19 @@ export class StoreOrderDuplicatesService {
           phoneMasked: maskPhone(customer.mobile ?? customer.phone),
         },
         orders,
-        otherOrdersCount: Math.max(totalCount - visibleCount, 0),
+        otherOrdersCount,
       },
     };
+  }
+
+  /** Customers inside the caller's customer scope (see `DuplicateScope`). */
+  private customerScopeWhere(scope: DuplicateScope): Prisma.PartnerWhereInput {
+    return scope.kind === 'AGENT'
+      ? agentOwnedCustomerWhere(scope.agentId)
+      : {
+          deletedAt: null,
+          storeOrders: { some: { agentId: null, deletedAt: null } },
+        };
   }
 
   private async visibleOrdersWhere(
@@ -394,20 +443,24 @@ export class StoreOrderDuplicatesService {
   ): Promise<DuplicateNameCandidate[]> {
     const key = personNameKey(name);
     if (key.length < MIN_NAME_KEY_LENGTH) return [];
+    // The scope narrows the SQL itself, so LIMIT never drops in-scope rows.
+    const scopeSql =
+      scope.kind === 'AGENT'
+        ? Prisma.sql`EXISTS (SELECT 1 FROM "store_orders" o WHERE o."partner_id" = p."id" AND o."deleted_at" IS NULL AND o."agent_id" = ${scope.agentId}::uuid)
+            AND NOT EXISTS (SELECT 1 FROM "store_orders" o WHERE o."partner_id" = p."id" AND o."agent_id" IS DISTINCT FROM ${scope.agentId}::uuid)`
+        : Prisma.sql`EXISTS (SELECT 1 FROM "store_orders" o WHERE o."partner_id" = p."id" AND o."deleted_at" IS NULL AND o."agent_id" IS NULL)`;
     const rows = await this.prisma.$queryRaw<{ id: string }[]>(
       Prisma.sql`SELECT p."id"::text AS id FROM "partners" p
         WHERE p."deleted_at" IS NULL
           AND ${personNameKeySql('p."name"')} = ${key}
-          AND EXISTS (SELECT 1 FROM "store_orders" o WHERE o."partner_id" = p."id" AND o."deleted_at" IS NULL)
+          AND ${scopeSql}
         LIMIT 50`,
     );
     if (!rows.length) return [];
     const partners = await this.prisma.partner.findMany({
       where: {
         id: { in: rows.map((row) => row.id) },
-        ...(scope.kind === 'AGENT'
-          ? agentOwnedCustomerWhere(scope.agentId)
-          : { deletedAt: null }),
+        ...this.customerScopeWhere(scope),
       },
       select: { id: true, name: true, phone: true, mobile: true },
     });
@@ -423,20 +476,42 @@ export class StoreOrderDuplicatesService {
       _max: { orderDate: true },
     });
     const statsById = new Map(stats.map((row) => [row.partnerId, row]));
+    const detailed = await this.showsCandidateHistory(scope);
     return partners
       .map((partner) => ({
-        id: partner.id,
-        name: partner.name,
-        phoneMasked: maskPhone(partner.mobile ?? partner.phone),
+        partner,
         orderCount: statsById.get(partner.id)?._count._all ?? 0,
         lastOrderDate: statsById.get(partner.id)?._max.orderDate ?? null,
       }))
-      .filter((candidate) => candidate.orderCount > 0)
+      .filter((row) => row.orderCount > 0)
       .sort(
         (a, b) =>
           (b.lastOrderDate?.getTime() ?? 0) - (a.lastOrderDate?.getTime() ?? 0),
       )
-      .slice(0, MAX_NAME_CANDIDATES);
+      .slice(0, MAX_NAME_CANDIDATES)
+      .map(({ partner, orderCount, lastOrderDate }) => ({
+        id: partner.id,
+        name: partner.name,
+        phoneMasked: maskPhone(partner.mobile ?? partner.phone),
+        hasOrders: true,
+        orderCount: detailed ? orderCount : null,
+        lastOrderDate: detailed ? lastOrderDate : null,
+      }));
+  }
+
+  /**
+   * Order counts / dates of a same-name company customer are shown only to
+   * users who see beyond their own orders (team / all scope) or hold
+   * `customers.lookup_global`; an own-scope user sees name + masked phone.
+   */
+  private async showsCandidateHistory(scope: DuplicateScope) {
+    if (scope.kind === 'AGENT') return true;
+    const sales = await this.salesScope.resolve(scope.userId);
+    if (sales.kind === 'ALL' || sales.kind === 'TEAM') return true;
+    return this.permissions.hasPermission(
+      scope.userId,
+      'customers.lookup_global',
+    );
   }
 
   private summarize(

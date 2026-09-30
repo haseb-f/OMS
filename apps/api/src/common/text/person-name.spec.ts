@@ -22,6 +22,20 @@ describe('personNameKey (Spec 1B name-only duplicate match)', () => {
     same('علاء', 'علا');
   });
 
+  it('folds decomposed hamza / maddah marks, Persian letters and ZWNJ', () => {
+    const hamzaAbove = String.fromCharCode(0x0654);
+    const hamzaBelow = String.fromCharCode(0x0655);
+    const maddah = String.fromCharCode(0x0653);
+    const zwnj = String.fromCharCode(0x200c);
+    same(`ا${hamzaAbove}حمد`, 'أحمد');
+    same(`ا${hamzaBelow}براهيم`, 'ابراهيم');
+    same(`ا${maddah}منة`, 'امنه');
+    same(`مو${hamzaAbove}من`, 'مؤمن');
+    same('علی', 'علي');
+    same('کمال', 'كمال');
+    same(`عبد${zwnj}الله`, 'عبدالله');
+  });
+
   it('ignores diacritics and tatweel', () => {
     same('مُحَمَّد', 'محمد');
     same('محـــمد', 'محمد');

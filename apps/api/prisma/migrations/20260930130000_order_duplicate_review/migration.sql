@@ -10,6 +10,7 @@ CREATE TYPE "StoreOrderDuplicateReviewStatus" AS ENUM ('NONE', 'PENDING', 'CONFI
 
 -- AlterTable
 ALTER TABLE "store_orders" ADD COLUMN     "creation_idempotency_key" TEXT,
+ADD COLUMN     "creation_payload_hash" TEXT,
 ADD COLUMN     "duplicate_review_note" TEXT,
 ADD COLUMN     "duplicate_review_status" "StoreOrderDuplicateReviewStatus" NOT NULL DEFAULT 'NONE',
 ADD COLUMN     "duplicate_reviewed_at" TIMESTAMP(3),

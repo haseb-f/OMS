@@ -34,7 +34,9 @@ export interface DuplicateCustomerSummary {
 }
 
 export interface DuplicateNameCandidate extends DuplicateCustomerSummary {
-  orderCount: number;
+  hasOrders: boolean;
+  /** Null for an own-scope user without `customers.lookup_global`. */
+  orderCount: number | null;
   lastOrderDate: string | null;
 }
 

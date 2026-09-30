@@ -47,7 +47,12 @@ import {
 import { findArabicNormalizedIds } from '../common/text/arabic-search.query';
 import { BULK_LIMITS } from '../common/bulk/bulk-limits';
 import { StoreOrderDuplicatesService } from '../store-orders/duplicates/store-order-duplicates.service';
-import { scopedCreationKey } from '../store-orders/duplicates/duplicate-outcome';
+import {
+  assertReplayable,
+  idempotencyKeyReused,
+  payloadFingerprint,
+  scopedCreationKey,
+} from '../store-orders/duplicates/duplicate-outcome';
 
 const SEARCH_FIELDS = [
   'leadNumber',
@@ -841,7 +846,13 @@ export class LeadsService {
       userId,
       dto.idempotencyKey,
     );
-    if (lead.storeOrder) {
+    const creationPayloadHash = payloadFingerprint({ leadId: id, ...dto });
+    const replayed = await this.leadConvertReplay(
+      id,
+      creationIdempotencyKey,
+      creationPayloadHash,
+    );
+    if (replayed || lead.storeOrder) {
       return { ...lead, idempotentReplay: true as const };
     }
     const duplicate = await this.duplicates.enforce(
@@ -853,7 +864,7 @@ export class LeadsService {
       { kind: 'COMPANY', userId },
       dto.duplicateResolution,
     );
-    await this.workflowEngine.convertLead(id, userId, {
+    const payload = {
       items: dto.items,
       paymentType: dto.paymentType,
       fulfillmentMethod: dto.fulfillmentMethod,
@@ -870,9 +881,55 @@ export class LeadsService {
       address: dto.address,
       notes: dto.notes,
       creationIdempotencyKey,
+      creationPayloadHash,
       duplicate,
-    });
+    };
+    try {
+      await this.workflowEngine.convertLead(id, userId, payload);
+    } catch (error) {
+      // A concurrent submit with the same key won the unique column.
+      if (
+        !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+        error.code !== 'P2002' ||
+        !(await this.leadConvertReplay(
+          id,
+          creationIdempotencyKey,
+          creationPayloadHash,
+        ))
+      ) {
+        throw error;
+      }
+      return {
+        ...(await this.findOne(id, scope)),
+        idempotentReplay: true as const,
+      };
+    }
     return this.findOne(id, scope);
+  }
+
+  /**
+   * Spec 1B — the order already created with this conversion key: true for
+   * this lead's order; an archived order or another lead / payload → 409.
+   */
+  private async leadConvertReplay(
+    leadId: string,
+    creationIdempotencyKey: string | null,
+    creationPayloadHash: string,
+  ): Promise<boolean> {
+    if (!creationIdempotencyKey) return false;
+    const stored = await this.prisma.storeOrder.findUnique({
+      where: { creationIdempotencyKey },
+      select: {
+        id: true,
+        leadId: true,
+        deletedAt: true,
+        creationPayloadHash: true,
+      },
+    });
+    if (!stored) return false;
+    assertReplayable(stored, creationPayloadHash);
+    if (stored.leadId !== leadId) throw idempotencyKeyReused();
+    return true;
   }
 
   async closeWithoutPurchase(

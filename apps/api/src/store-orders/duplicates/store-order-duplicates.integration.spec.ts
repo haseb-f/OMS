@@ -21,6 +21,8 @@ import { AgentsService } from '../../agents/admin/agents.service';
 import { AgentAgreementsService } from '../../agents/admin/agent-agreements.service';
 import { AgentUsersService } from '../../agents/admin/agent-users.service';
 import type { CreateAgreementDto } from '../../agents/admin/dto/agreement.dto';
+import { Prisma } from '@prisma/client';
+import { personNameKey, personNameKeySql } from '../../common/text/person-name';
 
 /**
  * Round 5 Spec 1B — duplicate warning + idempotent order submission over the
@@ -49,6 +51,7 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
   let productAId: string;
   let productBId: string;
   let agentAId: string;
+  const createdProductIds: string[] = [];
 
   type Actor = { id: string; token: string };
   const users: Record<
@@ -190,7 +193,12 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
           },
         })
       ).id;
-    companyProductId = await makeProduct('CO', null);
+    const trackProduct = async (suffix: string, owner: string | null) => {
+      const id = await makeProduct(suffix, owner);
+      createdProductIds.push(id);
+      return id;
+    };
+    companyProductId = await trackProduct('CO', null);
 
     const sales = [
       'store-orders.view',
@@ -247,7 +255,7 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
       );
       const agreement = await agreements.create(agent.id, terms, admin.id);
       await agreements.activate(agent.id, agreement.id, admin.id);
-      const productId = await makeProduct(`AG${suffix}`, agent.id);
+      const productId = await trackProduct(`AG${suffix}`, agent.id);
       const created = await agentUsers.create(
         agent.id,
         {
@@ -286,6 +294,14 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
   });
 
   afterAll(async () => {
+    // Never leave sellable fixtures behind for specs that pick "any active
+    // product" (archived, not deleted — orders still reference them).
+    if (prisma && createdProductIds.length) {
+      await prisma.product.updateMany({
+        where: { id: { in: createdProductIds } },
+        data: { deletedAt: new Date(), status: 'INACTIVE' },
+      });
+    }
     await app?.close();
   });
 
@@ -405,6 +421,47 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
       expect(res.status).toBe(409);
     });
 
+    it('checks every supplied number — a new phone with an existing mobile is a match', async () => {
+      const res = await post(users.empB, '/store-orders', {
+        ...orderBody({ name: customer.name, phone: phone() }),
+        partner: {
+          name: customer.name,
+          phone: phone(),
+          mobile: p1,
+          countryId: egId,
+        },
+      });
+      expect(res.status).toBe(409);
+      expect(res.body.details.duplicate.customer.id).toBe(firstOrder.partnerId);
+      // An empty phone is absent, not a number.
+      const empty = await post(users.empB, '/store-orders', {
+        ...orderBody({ name: customer.name, phone: phone() }),
+        partner: {
+          name: customer.name,
+          phone: '',
+          mobile: p1,
+          countryId: egId,
+        },
+      });
+      expect(empty.status).toBe(409);
+    });
+
+    it('audits a check that reaches another owner’s orders', async () => {
+      const before = new Date();
+      await post(users.empB, '/store-orders/duplicate-check', {
+        phone: p1,
+        countryId: egId,
+      });
+      const audit = await prisma.globalLookupAudit.findFirst({
+        where: {
+          userId: users.empB.id,
+          matchedPartnerId: firstOrder.partnerId,
+          createdAt: { gte: before },
+        },
+      });
+      expect(audit).not.toBeNull();
+    });
+
     it('lead conversion enforces the same gate and reuses the customer', async () => {
       const lead = await leads.create({
         customerName: `Lead For Returning ${tag}`,
@@ -452,6 +509,20 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
       expect(
         await prisma.storeOrder.count({ where: { leadId: lead.id } }),
       ).toBe(1);
+
+      // The same dialog key on another lead is refused, never a replay.
+      const other = await leads.create({
+        customerName: `Other Lead ${tag}`,
+        mobileNumber: phone(),
+        countryId: egId,
+        currencyId,
+        source: LeadSource.MANUAL,
+        quantity: 1,
+        salesEmployeeId: users.empA.id,
+      });
+      const reused = await post(users.empA, `/leads/${other.id}/convert`, body);
+      expect(reused.status).toBe(409);
+      expect(reused.body.code).toBe('IDEMPOTENCY_KEY_REUSED');
     });
   });
 
@@ -476,12 +547,43 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
         name: typedName,
         countryId: egId,
       });
+      // Own-scope user: name + masked phone only, no order history.
       expect(res.body).toMatchObject({
         kind: 'NAME',
         candidates: [
-          expect.objectContaining({ id: existingPartnerId, orderCount: 1 }),
+          expect.objectContaining({
+            id: existingPartnerId,
+            hasOrders: true,
+            orderCount: null,
+            lastOrderDate: null,
+          }),
         ],
       });
+      const manager = await post(
+        users.manager,
+        '/store-orders/duplicate-check',
+        { phone: phone(), name: typedName, countryId: egId },
+      );
+      expect(manager.body.candidates).toEqual([
+        expect.objectContaining({ id: existingPartnerId, orderCount: 1 }),
+      ]);
+    });
+
+    it('SQL and JS name keys agree', async () => {
+      const samples = [
+        storedName,
+        typedName,
+        `ا${String.fromCharCode(0x0654)}حمد`,
+        `مو${String.fromCharCode(0x0654)}من علی`,
+        `کمال${String.fromCharCode(0x200c)}الدين`,
+        'مُحَمَّد  فاطمة',
+      ];
+      for (const sample of samples) {
+        const [row] = await prisma.$queryRaw<{ k: string }[]>(
+          Prisma.sql`SELECT ${personNameKeySql('v.n')} AS k FROM (VALUES (${sample}::text)) AS v(n)`,
+        );
+        expect(row.k).toBe(personNameKey(sample));
+      }
     });
 
     it('never merges on name alone', async () => {
@@ -736,6 +838,137 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
     });
   });
 
+  // ── Review fixes: scope of NONE, agent-owned customers on company orders
+
+  describe('review queue scope and agent-owned customers', () => {
+    const agentPhone = phone();
+    const agentLeadPhone = phone();
+    let agentPartnerId: string;
+    let agentLeadPartnerId: string;
+    let companyOrderId: string;
+
+    const agentCustomer = async (mobile: string) => {
+      const agentOrder = await post(
+        users.agentA,
+        '/agent-portal/orders',
+        agentOrderBody(productAId, { name: `Agent Owned ${tag}`, mobile }),
+      );
+      expect(agentOrder.status).toBe(201);
+      return (
+        await prisma.storeOrder.findUniqueOrThrow({
+          where: { id: agentOrder.body.id },
+        })
+      ).partnerId;
+    };
+
+    beforeAll(async () => {
+      agentPartnerId = await agentCustomer(agentPhone);
+      agentLeadPartnerId = await agentCustomer(agentLeadPhone);
+    });
+
+    it('an agent-owned customer is cross-scope for a company order: new customer, flagged', async () => {
+      const check = await post(users.empA, '/store-orders/duplicate-check', {
+        phone: agentPhone,
+        countryId: egId,
+      });
+      expect(check.body).toEqual({ kind: 'PHONE', crossScope: true });
+
+      const refused = await post(
+        users.empA,
+        '/store-orders',
+        orderBody({ name: `Company Buyer ${tag}`, phone: agentPhone }),
+      );
+      expect(refused.status).toBe(409);
+
+      const created = await post(
+        users.empA,
+        '/store-orders',
+        orderBody(
+          { name: `Company Buyer ${tag}`, phone: agentPhone },
+          { duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' } },
+        ),
+      );
+      expect(created.status).toBe(201);
+      expect(created.body.partnerId).not.toBe(agentPartnerId);
+      expect(created.body.duplicateReviewStatus).toBe('PENDING');
+      companyOrderId = created.body.id;
+
+      // The agent's customer was not touched (no company order attached).
+      expect(
+        await prisma.storeOrder.count({
+          where: { partnerId: agentPartnerId, agentId: null },
+        }),
+      ).toBe(0);
+
+      const detail = await get(
+        users.reviewer,
+        `/store-orders/${companyOrderId}/duplicate-review`,
+      );
+      expect(detail.status).toBe(200);
+      expect(
+        detail.body.matches.map(
+          (match: { customer: { id: string } }) => match.customer.id,
+        ),
+      ).toContain(agentPartnerId);
+    });
+
+    it('company lead conversion never adopts the agent-owned customer either', async () => {
+      const lead = await leads.create({
+        customerName: `Lead Agent Phone ${tag}`,
+        mobileNumber: agentLeadPhone,
+        countryId: egId,
+        currencyId,
+        source: LeadSource.MANUAL,
+        quantity: 1,
+        salesEmployeeId: users.empA.id,
+      });
+      const res = await post(users.empA, `/leads/${lead.id}/convert`, {
+        items: [{ productId: companyProductId, quantity: 1, agreedAmount: 90 }],
+        paymentType: 'PREPAID',
+        declarationKind: 'UNPAID',
+        duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' },
+      });
+      expect(res.status).toBe(200);
+      const order = await prisma.storeOrder.findUniqueOrThrow({
+        where: { leadId: lead.id },
+      });
+      expect(order.partnerId).not.toBe(agentLeadPartnerId);
+      expect(order.duplicateReviewStatus).toBe('PENDING');
+    });
+
+    it('duplicateReviewStatus=NONE keeps the caller’s own sales scope', async () => {
+      const res = await get(
+        users.empA,
+        '/store-orders?duplicateReviewStatus=NONE&pageSize=200',
+      );
+      expect(res.status).toBe(200);
+      expect(
+        res.body.items.every(
+          (row: { employeeId: string | null }) =>
+            row.employeeId === users.empA.id,
+        ),
+      ).toBe(true);
+      const ids = await get(
+        users.empA,
+        '/store-orders/ids?duplicateReviewStatus=NONE',
+      );
+      expect(ids.status).toBe(200);
+    });
+
+    it('an order that was never flagged has no duplicate review (404)', async () => {
+      const plain = await post(
+        users.empA,
+        '/store-orders',
+        orderBody({ name: `Plain ${tag}`, phone: phone() }),
+      );
+      const res = await get(
+        users.reviewer,
+        `/store-orders/${plain.body.id}/duplicate-review`,
+      );
+      expect(res.status).toBe(404);
+    });
+  });
+
   // ── Acceptance 9 — double click / retry with the same key ─────────────
 
   describe('idempotent submission', () => {
@@ -767,6 +1000,30 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
       });
       expect(other.status).toBe(201);
       expect(other.body.id).not.toBe(first.body.id);
+    });
+
+    it('manual create: the same key with other data, or of an archived order, is refused', async () => {
+      const key = `form-${tag}-3`;
+      const body = orderBody(
+        { name: `Key Reuse ${tag}`, phone: phone() },
+        { creationIdempotencyKey: key },
+      );
+      const first = await post(users.empA, '/store-orders', body);
+      expect(first.status).toBe(201);
+      const changed = await post(users.empA, '/store-orders', {
+        ...body,
+        notes: 'different order',
+      });
+      expect(changed.status).toBe(409);
+      expect(changed.body.code).toBe('IDEMPOTENCY_KEY_REUSED');
+
+      await prisma.storeOrder.update({
+        where: { id: first.body.id },
+        data: { deletedAt: new Date() },
+      });
+      const archived = await post(users.empA, '/store-orders', body);
+      expect(archived.status).toBe(409);
+      expect(archived.body.code).toBe('ORDER_KEY_ALREADY_USED');
     });
 
     it('manual create: a concurrent double submit creates one order', async () => {

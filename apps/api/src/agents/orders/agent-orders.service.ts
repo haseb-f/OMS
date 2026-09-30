@@ -52,7 +52,11 @@ import {
   StoreOrderDuplicatesService,
   type DuplicateScope,
 } from '../../store-orders/duplicates/store-order-duplicates.service';
-import { scopedCreationKey } from '../../store-orders/duplicates/duplicate-outcome';
+import {
+  assertReplayable,
+  payloadFingerprint,
+  scopedCreationKey,
+} from '../../store-orders/duplicates/duplicate-outcome';
 import { AgentCommissionRatesService } from '../commission/agent-commission-rates.service';
 import {
   AgentCommissionRateMissingError,
@@ -240,8 +244,12 @@ export class AgentOrdersService {
     const idempotencyMarker = input.idempotencyKey?.trim()
       ? `agent-order:${agentId}:${input.idempotencyKey.trim()}`
       : null;
+    const creationPayloadHash = payloadFingerprint(input);
     if (idempotencyMarker) {
-      const existing = await this.findByIdempotency(idempotencyMarker);
+      const existing = await this.findByIdempotency(
+        idempotencyMarker,
+        creationPayloadHash,
+      );
       if (existing) return this.replayed(existing);
     }
     // Spec 1B — duplicate customer check inside the agent's scope.
@@ -296,7 +304,11 @@ export class AgentOrdersService {
           }
         },
         agentOrder,
-        { creationIdempotencyKey: idempotencyMarker, duplicate },
+        {
+          creationIdempotencyKey: idempotencyMarker,
+          creationPayloadHash,
+          duplicate,
+        },
       );
     } catch (error) {
       if (error instanceof DuplicateAgentOrder) {
@@ -404,6 +416,7 @@ export class AgentOrdersService {
         lead.agentId!,
         input.idempotencyKey,
       ),
+      creationPayloadHash: payloadFingerprint({ leadId, ...input }),
       duplicate,
       agentOrder,
       countryId: effective.countryId,
@@ -1149,16 +1162,20 @@ export class AgentOrdersService {
   ): Promise<DuplicateScope> {
     return actor.isAgentUser
       ? this.duplicates.agentScope(actor.agent!)
-      : { kind: 'AGENT', agentId, visibility: null };
+      : { kind: 'AGENT', agentId, userId: actor.userId, visibility: null };
   }
 
-  private async findByIdempotency(marker: string): Promise<string | null> {
-    // Spec 1B: the marker is also the order's `creationIdempotencyKey`.
+  private async findByIdempotency(
+    marker: string,
+    payloadHash?: string,
+  ): Promise<string | null> {
+    // Spec 1B: the marker is also the order's `creationIdempotencyKey`
+    // (archived order / different payload → 409).
     const keyed = await this.prisma.storeOrder.findUnique({
       where: { creationIdempotencyKey: marker },
-      select: { id: true, deletedAt: true },
+      select: { id: true, deletedAt: true, creationPayloadHash: true },
     });
-    if (keyed && !keyed.deletedAt) return keyed.id;
+    if (keyed) return assertReplayable(keyed, payloadHash);
     const row = await this.prisma.storeOrderActivity.findFirst({
       where: {
         action: 'AGENT_ORDER_IDEMPOTENCY',

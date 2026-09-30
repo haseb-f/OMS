@@ -4993,6 +4993,8 @@ model StoreOrder {
   /// `agent-order:<agent>:<key>`). A retried submit with the same key returns
   /// this order instead of creating a second one.
   creationIdempotencyKey String?                         @unique @map("creation_idempotency_key")
+  /// Spec 1B — sha256 of the normalized create payload; the same key with a different payload is refused.
+  creationPayloadHash    String?                         @map("creation_payload_hash")
   /// Spec 1B — PENDING when the customer's phone matched a record outside
   /// the creator's scope (another agent's customer, or a company customer
   /// seen from an agent). Resolved by `store-orders.duplicate_review`.

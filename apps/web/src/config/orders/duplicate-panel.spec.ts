@@ -42,7 +42,14 @@ const crossScope: DuplicateCheckResult = { kind: "PHONE", crossScope: true };
 const nameMatch: DuplicateCheckResult = {
   kind: "NAME",
   candidates: [
-    { id: "n1", name: "أحمد", phoneMasked: null, orderCount: 2, lastOrderDate: "2026-03-01" },
+    {
+      id: "n1",
+      name: "أحمد",
+      phoneMasked: null,
+      hasOrders: true,
+      orderCount: 2,
+      lastOrderDate: "2026-03-01",
+    },
   ],
 };
 
