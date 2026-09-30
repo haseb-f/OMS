@@ -60,14 +60,44 @@ export interface AgentLineSnapshot {
  */
 export interface AgentShippingChargeSnapshot {
   amount: number;
-  source: 'RATE' | 'PICKUP' | 'DIGITAL_ONLY';
+  /**
+   * RATE = resolved at submission; TARIFF = resolved when Shipping chose the
+   * delivery method (spec-2-agent-pricing.md 2B); PICKUP / DIGITAL_ONLY = 0.
+   */
+  source: 'RATE' | 'TARIFF' | 'PICKUP' | 'DIGITAL_ONLY';
   rateId: string | null;
+  /** Spec 2 — true while the delivery method is unknown (estimate only). */
+  provisional?: boolean;
+  /** Channel the amount was resolved for (null = same fee for every channel). */
+  deliveryChannel?: 'CARRIER' | 'INTERNAL_COURIER' | null;
+  paymentType?: 'PREPAID' | 'CASH_ON_DELIVERY';
+  /** Destination the tariff is resolved for (re-resolution uses it). */
+  countryId?: string | null;
+  city?: string | null;
+  shippingCompanyId?: string | null;
+  resolvedAt?: string;
+  resolvedBy?: string | null;
+}
+
+/**
+ * Spec 2 — a shipping-added order whose confirmed payable rose above the
+ * provisional one: the customer must agree before it is billed.
+ */
+export interface AgentCustomerTotalChange {
+  previousShippingCharge: number;
+  previousPayableTotal: number;
+  proposedShippingCharge: number;
+  proposedPayableTotal: number;
+  requestedAt: string;
+  confirmedAt?: string;
+  confirmedBy?: string;
 }
 
 export interface AgentOrderSnapshot extends AgentTermsSnapshot {
   customer?: AgentCustomerSnapshot;
   lines?: AgentLineSnapshot[];
   agentShippingCharge?: AgentShippingChargeSnapshot | null;
+  customerTotalChange?: AgentCustomerTotalChange | null;
 }
 
 export function snapshotAgreementTerms(

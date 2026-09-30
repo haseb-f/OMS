@@ -22,6 +22,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { AgentOrdersService } from './agent-orders.service';
 import {
   AgentOrderPricingDto,
+  ConfirmCustomerTotalDto,
   ConvertAgentLeadDto,
   CreateAgentOrderDto,
   DeclareAgentOrderPaymentDto,
@@ -80,6 +81,33 @@ export class AgentOrdersController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.orders.declareAgentOrderPayment(orderId, dto, {
+      userId: user.sub,
+    });
+  }
+
+  /**
+   * Spec 2 — shipping pricing state + internal shipping economics
+   * (contractual fee vs actual carrier cost → margin). `agents.view`.
+   */
+  @Get(':orderId/shipping-pricing')
+  @PermissionAction('view')
+  shippingPricing(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.orders.shippingPricing(orderId, { userId: user.sub });
+  }
+
+  /** Spec 2 — "Customer agreed to pay {new total}" (`agents.edit`, checked in the service). */
+  @Post(':orderId/customer-total/confirm')
+  @HttpCode(200)
+  @SkipPermissionCheck()
+  confirmCustomerTotal(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @Body() dto: ConfirmCustomerTotalDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.orders.confirmCustomerTotal(orderId, dto, {
       userId: user.sub,
     });
   }

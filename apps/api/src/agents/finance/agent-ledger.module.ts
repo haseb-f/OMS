@@ -6,6 +6,7 @@ import { InventoryModule } from '../../inventory/inventory.module';
 import { AgentLedgerService } from './agent-ledger.service';
 import { AgentFulfillmentService } from './agent-fulfillment.service';
 import { AgentCollectionHooksService } from './agent-collection-hooks.service';
+import { AgentShippingPricingService } from '../pricing/agent-shipping-pricing.service';
 
 /**
  * Agent ledger core + the hooks other modules call inside their own
@@ -25,11 +26,13 @@ import { AgentCollectionHooksService } from './agent-collection-hooks.service';
     AgentLedgerService,
     AgentFulfillmentService,
     AgentCollectionHooksService,
+    AgentShippingPricingService,
   ],
   exports: [
     AgentLedgerService,
     AgentFulfillmentService,
     AgentCollectionHooksService,
+    AgentShippingPricingService,
   ],
 })
 export class AgentLedgerModule {}

@@ -39,6 +39,7 @@ import {
   agentNotFoundError,
 } from '../common/agent-errors';
 import { AgentLedgerService } from './agent-ledger.service';
+import { AgentShippingPricingService } from '../pricing/agent-shipping-pricing.service';
 import {
   commissionReversalAmount,
   returnedLineAmount,
@@ -74,6 +75,7 @@ const ORDER_SELECT = {
   agentTermsSnapshot: true,
   agentDispatchedAt: true,
   agentEarnedAt: true,
+  customerTotalStatus: true,
   merchandiseAmount: true,
   shippingCharge: true,
   serviceCharge: true,
@@ -191,6 +193,7 @@ export class AgentFulfillmentService {
     private readonly numbering: NumberingEngineService,
     private readonly inventory: InventoryService,
     private readonly ledger: AgentLedgerService,
+    private readonly shippingPricing: AgentShippingPricingService,
   ) {}
 
   async loadOrder(tx: Tx | PrismaService, storeOrderId: string) {
@@ -270,9 +273,29 @@ export class AgentFulfillmentService {
     );
   }
 
+  /**
+   * Spec 2 — Shipping assigned the shipping company of an agent order's
+   * shipment: resolve the contractual shipping fee for that delivery channel
+   * (refused when the agreement has no tariff). No-op for company orders.
+   */
+  async onShippingCompanyAssigned(
+    tx: Tx,
+    storeOrderId: string,
+    userId?: string,
+  ) {
+    await this.shippingPricing.onShippingCompanyAssigned(
+      tx,
+      storeOrderId,
+      userId,
+    );
+  }
+
   /** Issues the order's agent stock once (SALES_DELIVERY, referenceType STORE_ORDER). */
   async dispatch(tx: Tx, order: AgentOrderContext, userId?: string) {
     if (order.agentDispatchedAt) return false;
+    // Spec 2: the tariff is re-resolved and frozen at dispatch; an order
+    // whose fee still waits for the delivery method never leaves.
+    await this.shippingPricing.beforeDispatch(tx, order.id, userId);
     const inventoryItems = order.items.filter((item) =>
       this.isInventoryLine(order, item),
     );
@@ -376,6 +399,9 @@ export class AgentFulfillmentService {
     const order = await this.loadOrder(tx, storeOrderId);
     if (!order?.agentId || order.agentEarnedAt || order.deletedAt) return false;
     if (order.fulfillmentStatus?.code === 'CANCELLED') return false;
+    // Spec 2: a shipping-added total awaiting the customer's agreement is
+    // not final — earning waits for the confirmation (which retries it).
+    if (order.customerTotalStatus === 'CONFIRMATION_REQUIRED') return false;
     const terms = this.snapshotOf(order);
     const event = terms.commissionEarningEvent;
     let earns = false;

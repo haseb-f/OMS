@@ -77,6 +77,14 @@ export class StoreOrderShipmentOperationsService {
           shippingCompanyId,
           tx,
         );
+      // Spec 2 (R5 W2 hook): an agent order's contractual shipping fee is
+      // resolved for this company's delivery channel — refused when the
+      // agreement has no tariff. No-op for company orders.
+      await this.agentFulfillment.onShippingCompanyAssigned(
+        tx,
+        storeOrderId,
+        userId,
+      );
       if (created) {
         await this.activityService.log(
           storeOrderId,
