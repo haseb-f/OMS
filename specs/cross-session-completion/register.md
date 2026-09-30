@@ -125,3 +125,41 @@ http://localhost:3036 against a review API on :3035 using the local dev DB only;
 end-to-end with the local seed account (`apps/api/prisma/seed.ts`).
 
 Decisions awaiting the owner: `decisions-ar.md`.
+
+## Round close (2026-09-30) — approved dashboard released
+
+| SHA              | Content                                                                         | Production                      |
+| ---------------- | ------------------------------------------------------------------------------- | ------------------------------- |
+| `fec9e16`        | dashboard redesign (owner visual approval 2026-09-30 on the local review build) | —                               |
+| `8497e88`        | review fix: bank summary loads independently; bank panel loading/error states   | deployment 6753153566 — success |
+| next docs commit | guides, screenshots, this record                                                | docs only                       |
+
+**Gates on the final integrated tree (8497e88):** web typecheck clean, lint 0 errors, 68 files /
+474 tests, production build OK; API typecheck clean, lint clean, 1,709/1,710 in the full parallel
+run — the one failure (`import-center/sync/data-synchronization.spec.ts`, 212 s under load) passes
+alone 33/33 and the API code is identical to `63df5a6`, which passed 1,710/1,710; API build OK.
+
+**Independent review (dashboard, permission-sensitive):** no permission leak; every section keeps
+its previous gate and its endpoint is permission-guarded server-side. Fixed before release: MEDIUM-1
+(one failing cash-flow call hid the attention queues) and MEDIUM-2 (bank panel silently missing).
+Recorded, not changed:
+
+- attention "unmatched" counts both directions (work queue) while the bank panel is incoming-only;
+- ranking is hidden for own-scope users (part of the approved design; they lose the self-rank line);
+- carried over from main: follow-up queue links point to `/crm/leads` for store-orders-only users;
+  `/sales/performance` has JwtAuthGuard only (data is scope-limited server-side).
+
+**Production browser verification (8497e88, QA admin, `tmp/ux/dashboard-probe.mjs`):** AR light,
+AR dark, EN light, 390px AR — all five sections render; requests on load: 3 × sales performance,
+1 × cash-flow summary, 1 × status counts, 2 × payments; period switch adds no request; no failed
+request, overflow 0, no page errors. Screenshots: `docs/user-guide/evidence/dashboard-20260930/`.
+Earlier UX items re-checked on the same SHA (`probe.mjs`, `mobile-probe.mjs`): Print/Export
+selected, four selection scopes, sidebar 10px, phone selection bar + "all matching" + wrapping strip
+— overflow 0, no page errors.
+
+- **Not verified on Production:** external-agent redirect from `/` (the demo-agent credential
+  available here is for the local demo agents; login did not complete) — code path unchanged and
+  confirmed by review; Carrier Reconciliation bulk actions (0 charges on Production; verified
+  locally with tagged demo charges).
+
+**Repository alignment:** `origin/main` = deployed SHA; worktrees reconciled below.
