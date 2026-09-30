@@ -90,9 +90,11 @@ model User {
 
   /// Store Orders + Shipping Operations — independent order pipeline, not
   /// routed through Lead/SalesOrder. See the StoreOrder model comment.
-  storeOrdersAsEmployee    StoreOrder[]         @relation("StoreOrderEmployee")
-  storeOrderReceiptUploads StoreOrderReceipt[]
-  storeOrderActivities     StoreOrderActivity[]
+  storeOrdersAsEmployee      StoreOrder[]         @relation("StoreOrderEmployee")
+  /// Round 5 Spec 1B — orders whose cross-scope duplicate review this user resolved.
+  storeOrderDuplicateReviews StoreOrder[]         @relation("StoreOrderDuplicateReviewer")
+  storeOrderReceiptUploads   StoreOrderReceipt[]
+  storeOrderActivities       StoreOrderActivity[]
 
   statusHistoryChanges       StatusHistory[]    @relation("StatusHistoryChangedBy")
   workflowApprovalsRequested WorkflowApproval[] @relation("WorkflowApprovalRequestedBy")
@@ -4894,6 +4896,14 @@ enum StoreOrderFulfillmentMethod {
   PICKUP
 }
 
+/// Round 5 Spec 1B — cross-scope duplicate review of a created order.
+enum StoreOrderDuplicateReviewStatus {
+  NONE
+  PENDING
+  CONFIRMED_DISTINCT
+  CONFIRMED_DUPLICATE
+}
+
 model StoreOrder {
   id String @id @default(uuid()) @db.Uuid
 
@@ -4978,6 +4988,20 @@ model StoreOrder {
   /// Set once when the agreement's earning event is reached.
   agentEarnedAt     DateTime? @map("agent_earned_at")
 
+  /// Round 5 Spec 1B — the create form's client key, namespaced by channel
+  /// and actor (`store-order:<user>:<key>`, `lead-convert:<user>:<key>`,
+  /// `agent-order:<agent>:<key>`). A retried submit with the same key returns
+  /// this order instead of creating a second one.
+  creationIdempotencyKey String?                         @unique @map("creation_idempotency_key")
+  /// Spec 1B — PENDING when the customer's phone matched a record outside
+  /// the creator's scope (another agent's customer, or a company customer
+  /// seen from an agent). Resolved by `store-orders.duplicate_review`.
+  duplicateReviewStatus  StoreOrderDuplicateReviewStatus @default(NONE) @map("duplicate_review_status")
+  duplicateReviewedById  String?                         @map("duplicate_reviewed_by_id") @db.Uuid
+  duplicateReviewedBy    User?                           @relation("StoreOrderDuplicateReviewer", fields: [duplicateReviewedById], references: [id])
+  duplicateReviewedAt    DateTime?                       @map("duplicate_reviewed_at")
+  duplicateReviewNote    String?                         @map("duplicate_review_note")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by") @db.Uuid
@@ -5012,6 +5036,7 @@ model StoreOrder {
   @@index([orderDate])
   @@index([employeeId])
   @@index([agentId, createdAt])
+  @@index([duplicateReviewStatus, createdAt])
   @@map("store_orders")
 }
 

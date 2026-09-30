@@ -350,6 +350,9 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       // lookup outside the caller's own scope, read-only, distinct from
       // `store-orders.manage`'s full cross-owner browse+edit capability.
       { action: 'lookup_global', name: 'orders.lookup_global' },
+      // Round 5 Spec 1B — resolve orders flagged for cross-scope duplicate
+      // review; the reviewer sees both sides regardless of sales scope.
+      { action: 'duplicate_review', name: 'store-orders.duplicate_review' },
       // ADR-0018 (Order Economics M2) — COGS/margin/contribution data is
       // company-sensitive in a way plain order status/customer/shipping
       // fields are not; a Sales Agent holding `store-orders.view` must
