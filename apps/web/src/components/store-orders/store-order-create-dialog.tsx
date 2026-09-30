@@ -66,6 +66,7 @@ import {
   type StoreOrderCreateFormValues,
 } from "@/config/store-orders/store-order-create-schema";
 import { useLocale } from "@/providers/locale-provider";
+import { localizedName } from "@/lib/localized-name";
 import { useUserContext } from "@/providers/user-context";
 import { useCountries, useCurrencies } from "@/hooks/use-reference-data";
 import { toast, reportApiError, reportSuccess } from "@/lib/toast";
@@ -114,7 +115,7 @@ export function StoreOrderCreateDialog({
   /** Set when opened from the Global Lookup dialog's "Add New Order" action — reuses this Customer instead of prompting for one. */
   prefillCustomer?: StoreOrderCreatePrefillCustomer | null;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { hasPermission } = useUserContext();
   // Same any-of rule the API applies to payment declarations.
   const canDeclarePayment =
@@ -530,7 +531,7 @@ export function StoreOrderCreateDialog({
                 optional
                 items={countries}
                 getId={(country) => country.id}
-                getTitle={(country) => country.name}
+                getTitle={(country) => localizedName(country, locale)}
                 getSearchText={(country) =>
                   [country.name, country.nameEn, country.code, country.iso3, country.callingCode]
                     .filter(Boolean)

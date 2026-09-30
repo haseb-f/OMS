@@ -72,7 +72,11 @@ import {
   isReadyForShipping,
   paymentRecordStatusBadge,
 } from "@/config/store-orders/status";
-import { shipmentStatusLabelKey, shipmentStatusTone } from "@/config/shipping/shipment-status";
+import {
+  shipmentStatusLabelKey,
+  shipmentStatusTone,
+  shippingStatusName,
+} from "@/config/shipping/shipment-status";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { usePrintCompany } from "@/components/print/print-brand";
@@ -582,8 +586,8 @@ function StoreOrderDetailContent() {
             <DetailFieldRow
               label={t("shipping.fields.status")}
               value={
-                latestShipmentRow?.shippingStatus?.name ??
-                order.shippingStatus?.name ??
+                shippingStatusName(latestShipmentRow?.shippingStatus, t) ??
+                shippingStatusName(order.shippingStatus, t) ??
                 t(SHIPPING_STAGE_LABEL_KEY[order.shippingStage])
               }
             />

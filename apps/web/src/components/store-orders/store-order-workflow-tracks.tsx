@@ -1,5 +1,6 @@
 "use client";
 
+import { shippingStatusName } from "@/config/shipping/shipment-status";
 import {
   WorkflowTracks,
   type WorkflowTrack,
@@ -222,8 +223,10 @@ export function StoreOrderWorkflowTracks({
       : null,
     meta: pickup
       ? t(FULFILLMENT_METHOD_LABEL_KEY.PICKUP)
-      : order.shippingStatus?.name
-        ? t("workflowTracker.shippingMeta", { status: order.shippingStatus.name })
+      : order.shippingStatus
+        ? t("workflowTracker.shippingMeta", {
+            status: shippingStatusName(order.shippingStatus, t) ?? "",
+          })
         : null,
   };
 

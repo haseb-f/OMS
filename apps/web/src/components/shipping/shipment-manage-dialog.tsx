@@ -20,6 +20,7 @@ import {
   shipmentStatusLabelKey,
   shipmentStatusTone,
   catalogStatusTone,
+  shippingStatusName,
 } from "@/config/shipping/shipment-status";
 import { storeOrdersService } from "@/services/store-orders-service";
 import {
@@ -204,7 +205,10 @@ export function ShipmentManageDialog({
               {t("shipping.manage.currentStatus")}
             </span>
             <StatusBadge
-              label={shipment.shippingStatus?.name ?? t(shipmentStatusLabelKey(shipment.status))}
+              label={
+                shippingStatusName(shipment.shippingStatus, t) ??
+                t(shipmentStatusLabelKey(shipment.status))
+              }
               tone={
                 shipment.shippingStatus
                   ? catalogStatusTone(shipment.shippingStatus.color)

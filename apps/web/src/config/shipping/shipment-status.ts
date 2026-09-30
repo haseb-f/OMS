@@ -89,6 +89,22 @@ export function shipmentStatusTone(status: ShipmentStatusValue | null): StatusTo
   return status ? SHIPMENT_STATUS_TONE[status] : SHIPMENT_STATUS_TONE[DEFAULT_SHIPPING_STATUS];
 }
 
+/**
+ * Display name of a catalog `ShippingStatus` row. The row stores only an
+ * Arabic `name`, so the seeded system codes speak the UI language through
+ * i18n; admin-created statuses keep their own name.
+ */
+export function shippingStatusName(
+  status: { code?: string | null; name: string } | null | undefined,
+  t: (key: MessageKey) => string,
+): string | undefined {
+  if (!status) return undefined;
+  const code = status.code as ShipmentStatusValue | undefined;
+  return code && code in SHIPMENT_STATUS_LABEL_KEY
+    ? t(SHIPMENT_STATUS_LABEL_KEY[code])
+    : status.name;
+}
+
 /** Admin-configured catalog color → semantic tone (shared mapper; unknown keys are neutral). */
 export function catalogStatusTone(color: string | null | undefined): StatusTone {
   return toneFromColorKey(color);
