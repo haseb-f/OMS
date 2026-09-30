@@ -33,6 +33,11 @@ import { derivedUnitPrice } from '../store-orders/store-order-line-amount';
 import { declarePaymentInTx } from '../store-orders/payment-declaration/payment-declaration.core';
 import { ORDER_PAYMENT_STATUS_CODE } from './workflow-status-map';
 import { resolveAgentCustomerPartner } from '../agents/orders/agent-customer';
+import {
+  duplicateOrderColumns,
+  logDuplicateDecision,
+  type DuplicateOutcome,
+} from '../store-orders/duplicates/duplicate-outcome';
 import { assertCompanyOwnedProducts } from '../products/assert-company-owned-products.util';
 import {
   agentOrderActivityDetails,
@@ -101,6 +106,10 @@ export interface LeadConvertPayload {
    * agent lead converts only with it; a company lead never takes it.
    */
   agentOrder?: AgentOrderPersistInput;
+  /** Round 5 Spec 1B — set only by server services (never an HTTP body): the namespaced create-form key. */
+  creationIdempotencyKey?: string | null;
+  /** Spec 1B — the enforced duplicate check outcome (existing customer, review flag, timeline row). */
+  duplicate?: DuplicateOutcome | null;
 }
 
 /**
@@ -774,15 +783,26 @@ export class WorkflowEngineService {
     // Agent leads (S1): the customer is resolved among the agent's own
     // customers only — never the shared phone match, never an update of an
     // existing Partner (the typed customer is frozen on the order snapshot).
+    // Spec 1B: a customer confirmed through the duplicate check is reused
+    // (a lead already linked to a Partner keeps that Partner).
+    const confirmedPartnerId = payload?.duplicate?.partnerId ?? null;
     const partnerId = agentOrder
-      ? await resolveAgentCustomerPartner(
+      ? (confirmedPartnerId ??
+        (await resolveAgentCustomerPartner(
           tx,
           this.numberingEngine,
           agentOrder.agentId,
           agentOrder.customer,
           userId,
-        )
-      : await this.resolvePartnerForLead(shippingLead, userId, tx);
+        )))
+      : await this.resolvePartnerForLead(
+          {
+            ...shippingLead,
+            partnerId: shippingLead.partnerId ?? confirmedPartnerId,
+          },
+          userId,
+          tx,
+        );
 
     await tx.lead.update({
       where: { id: leadId },
@@ -875,6 +895,10 @@ export class WorkflowEngineService {
         updatedBy: userId,
         source: this.mapLeadSource(lead.source),
         ...(agentOrder ? agentOrderColumns(agentOrder) : {}),
+        ...duplicateOrderColumns(
+          payload?.creationIdempotencyKey,
+          payload?.duplicate,
+        ),
         items: {
           create: lines.map((line) => ({
             productId: line.productId,
@@ -915,6 +939,7 @@ export class WorkflowEngineService {
         performedById: userId,
       },
     });
+    await logDuplicateDecision(tx, storeOrder.id, payload?.duplicate, userId);
 
     const declarationKind =
       payload?.declarationKind ??

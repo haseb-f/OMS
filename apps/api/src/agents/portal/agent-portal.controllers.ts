@@ -40,6 +40,8 @@ import {
 import { AgentPortalService } from './agent-portal.service';
 import { AgentPortalOrdersService } from './agent-portal-orders.service';
 import { AgentPortalTeamService } from './agent-portal-team.service';
+import { StoreOrderDuplicatesService } from '../../store-orders/duplicates/store-order-duplicates.service';
+import { AgentDuplicateCheckDto } from '../../store-orders/duplicates/dto/duplicate.dto';
 import {
   AgentPortalOrdersQueryDto,
   AgentPortalPageQueryDto,
@@ -187,7 +189,24 @@ export class AgentPortalLeadsController {
 
 @AgentPortalController('/orders')
 export class AgentPortalOrdersController {
-  constructor(private readonly orders: AgentPortalOrdersService) {}
+  constructor(
+    private readonly orders: AgentPortalOrdersService,
+    private readonly duplicates: StoreOrderDuplicatesService,
+  ) {}
+
+  /**
+   * Round 5 Spec 1B — duplicate customer check inside the caller's agent.
+   * A match outside it returns only `{ kind: 'PHONE', crossScope: true }`.
+   */
+  @Post('duplicate-check')
+  @HttpCode(200)
+  @RequireAnyAgentPermission('agent.orders.create', 'agent.leads.convert')
+  async duplicateCheck(
+    @CurrentAgent() agent: AgentRequestContext,
+    @Body() dto: AgentDuplicateCheckDto,
+  ) {
+    return this.duplicates.check(dto, await this.duplicates.agentScope(agent));
+  }
 
   @Post('quote')
   @HttpCode(200)

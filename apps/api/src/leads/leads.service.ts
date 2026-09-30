@@ -46,6 +46,8 @@ import {
 } from '../sales-scope/sales-scope.service';
 import { findArabicNormalizedIds } from '../common/text/arabic-search.query';
 import { BULK_LIMITS } from '../common/bulk/bulk-limits';
+import { StoreOrderDuplicatesService } from '../store-orders/duplicates/store-order-duplicates.service';
+import { scopedCreationKey } from '../store-orders/duplicates/duplicate-outcome';
 
 const SEARCH_FIELDS = [
   'leadNumber',
@@ -142,6 +144,7 @@ export class LeadsService {
     private readonly workflowEngine: WorkflowEngineService,
     private readonly salesScope: SalesScopeService,
     private readonly leadFollowUpTypesService: LeadFollowUpTypesService,
+    private readonly duplicates: StoreOrderDuplicatesService,
   ) {}
 
   /** Resolves `dto.countryId` to its ISO2 code and validates/normalizes `dto.mobileNumber` against it — the country-aware check `@IsPhoneNumber()` on the DTO can't do (it has no access to the sibling `countryId`). Returns the E.164 value every caller should use in place of the raw input. */
@@ -830,7 +833,26 @@ export class LeadsService {
     userId: string,
     scope: SalesScope,
   ) {
-    await this.findOne(id, scope);
+    const lead = await this.findOne(id, scope);
+    // Spec 1B — a retried submit (same dialog key) or an already converted
+    // lead returns the lead with its order, never a second order.
+    const creationIdempotencyKey = scopedCreationKey(
+      'lead-convert',
+      userId,
+      dto.idempotencyKey,
+    );
+    if (lead.storeOrder) {
+      return { ...lead, idempotentReplay: true as const };
+    }
+    const duplicate = await this.duplicates.enforce(
+      {
+        phone: lead.mobileNumber,
+        name: lead.customerName,
+        countryId: lead.countryId,
+      },
+      { kind: 'COMPANY', userId },
+      dto.duplicateResolution,
+    );
     await this.workflowEngine.convertLead(id, userId, {
       items: dto.items,
       paymentType: dto.paymentType,
@@ -847,6 +869,8 @@ export class LeadsService {
       city: dto.city,
       address: dto.address,
       notes: dto.notes,
+      creationIdempotencyKey,
+      duplicate,
     });
     return this.findOne(id, scope);
   }

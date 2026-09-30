@@ -56,6 +56,7 @@ describe('LeadsService list filters', () => {
       {} as never,
       salesScope,
       {} as never,
+      {} as never,
     );
     return { service, findMany, $queryRaw };
   }

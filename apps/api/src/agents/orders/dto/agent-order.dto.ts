@@ -20,6 +20,7 @@ import {
 import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
 import { emptyToUndefined } from '../../../common/transforms/empty-to-undefined';
 import { DECLARATION_KINDS } from '../../../store-orders/dto/declare-store-order-payment.dto';
+import { DuplicateResolutionDto } from '../../../store-orders/duplicates/dto/duplicate.dto';
 
 export class AgentOrderLineDto {
   @IsUUID()
@@ -225,6 +226,12 @@ export class CreateAgentOrderDto extends AgentOrderPricingDto {
   @Type(() => AgentOrderDeclarationDto)
   @IsOptional()
   declaration?: AgentOrderDeclarationDto;
+
+  /** Round 5 Spec 1B — the answer to the duplicate customer warning. */
+  @ValidateNested()
+  @Type(() => DuplicateResolutionDto)
+  @IsOptional()
+  duplicateResolution?: DuplicateResolutionDto;
 }
 
 export class ConvertAgentLeadDto extends AgentOrderPricingDto {
@@ -239,6 +246,18 @@ export class ConvertAgentLeadDto extends AgentOrderPricingDto {
   @Type(() => AgentDeclarationFieldsDto)
   @IsOptional()
   declaration?: AgentDeclarationFieldsDto;
+
+  /** Round 5 Spec 1B — one key per form instance (the lead converts once regardless). */
+  @IsString()
+  @MaxLength(100)
+  @IsOptional()
+  idempotencyKey?: string;
+
+  /** Spec 1B — the answer to the duplicate customer warning. */
+  @ValidateNested()
+  @Type(() => DuplicateResolutionDto)
+  @IsOptional()
+  duplicateResolution?: DuplicateResolutionDto;
 }
 
 export class DeclareAgentOrderPaymentDto extends AgentOrderDeclarationDto {}

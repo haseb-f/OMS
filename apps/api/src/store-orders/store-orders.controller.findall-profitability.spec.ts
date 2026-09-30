@@ -19,6 +19,7 @@ describe('StoreOrdersController.findAll — profitability authorization', () => 
       storeOrdersService as never,
       permissionsResolver as never,
       {} as never,
+      {} as never,
     );
     return { controller, storeOrdersService, permissionsResolver };
   }
@@ -96,6 +97,7 @@ describe('StoreOrdersController.findAllIds — same profitability decision as fi
     const controller = new StoreOrdersController(
       storeOrdersService as never,
       permissionsResolver as never,
+      {} as never,
       {} as never,
     );
     return { controller, storeOrdersService };

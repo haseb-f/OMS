@@ -1151,8 +1151,10 @@ describe('Agents B1 — admin + orders (integration)', () => {
 
       // Same agent, same mobile → the agent's own customer is reused and
       // never rewritten (the new address lives on the new order only).
+      // (Spec 1B: the repeat is an acknowledged new order for that customer.)
       const second = await agentOrderBy(salesCtx, {
         customer: { ...typed, address: 'Second address' },
+        duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' },
       });
       expect(second.partnerId).toBe(first.partnerId);
       expect(
@@ -1169,10 +1171,13 @@ describe('Agents B1 — admin + orders (integration)', () => {
           lines: [{ productId: agentBProductId, quantity: 1, lineAmount: 50 }],
           fulfillmentMethod: 'PICKUP',
           customer: typed,
+          // Spec 1B: cross-scope match → created in agent B, flagged for review.
+          duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' },
         }),
         { userId: adminId },
       );
       expect(other.agentId).toBe(agentBId);
+      expect(other.duplicateReviewStatus).toBe('PENDING');
       expect([first.partnerId, company.id]).not.toContain(other.partnerId);
 
       // Lead conversion follows the same rule.
@@ -1187,6 +1192,7 @@ describe('Agents B1 — admin + orders (integration)', () => {
         {
           pricingMode: 'SHIPPING_ADDED',
           lines: [{ productId: physicalId, quantity: 1, lineAmount: 100 }],
+          duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' },
         },
         { userId: salesCtx.userId, agent: salesCtx },
       );

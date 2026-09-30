@@ -3,6 +3,7 @@ import { StoreOrdersModule } from '../../store-orders/store-orders.module';
 import { WorkflowModule } from '../../workflow/workflow.module';
 import { LeadsModule } from '../../leads/leads.module';
 import { AgentCommissionModule } from '../commission/agent-commission.module';
+import { StoreOrderDuplicatesModule } from '../../store-orders/duplicates/store-order-duplicates.module';
 import {
   AgentOrdersController,
   AgentWorkspaceOrdersController,
@@ -17,6 +18,7 @@ import { AgentLeadsService } from './agent-leads.service';
     WorkflowModule,
     LeadsModule,
     AgentCommissionModule,
+    StoreOrderDuplicatesModule,
   ],
   controllers: [AgentOrdersController, AgentWorkspaceOrdersController],
   providers: [AgentOrdersService, AgentLeadsService],

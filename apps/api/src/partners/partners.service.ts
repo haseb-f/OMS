@@ -497,24 +497,42 @@ export class PartnersService extends MasterDataCrudService<
       dto.commercialRegistration,
     );
     if (existing) {
-      const full = await this.findOne(existing.id);
-      const hasRole = full.roles.some((r) => r.role === role);
-      if (
-        !hasRole &&
-        !options.mayExtendSensitiveIdentity &&
-        full.roles.some((r) => SENSITIVE_IDENTITY_ROLES.has(r.role))
-      ) {
-        throw new ForbiddenException(
-          `This contact belongs to an existing partner that cannot be given the ${role} role from Quick Create. Ask a user with Partner edit permission to add the role.`,
-        );
-      }
-      const partner = hasRole
-        ? full
-        : await this.assignRole(existing.id, role, userId);
+      const partner = await this.useExistingWithRole(
+        existing.id,
+        role,
+        userId,
+        options,
+      );
       return { partner, created: false };
     }
     const partner = await this.create({ ...rest, roles: [role] }, userId);
     return { partner, created: true };
+  }
+
+  /**
+   * Reuses an already-identified Partner (dedup match, or a customer the
+   * user explicitly confirmed — Round 5 Spec 1B) and adds `role` when it is
+   * missing, with the same sensitive-identity guard as Quick Create. Never
+   * updates the Partner's own fields.
+   */
+  async useExistingWithRole(
+    partnerId: string,
+    role: PartnerRoleType,
+    userId?: string,
+    options: { mayExtendSensitiveIdentity?: boolean } = {},
+  ) {
+    const full = await this.findOne(partnerId);
+    const hasRole = full.roles.some((r) => r.role === role);
+    if (
+      !hasRole &&
+      !options.mayExtendSensitiveIdentity &&
+      full.roles.some((r) => SENSITIVE_IDENTITY_ROLES.has(r.role))
+    ) {
+      throw new ForbiddenException(
+        `This contact belongs to an existing partner that cannot be given the ${role} role from Quick Create. Ask a user with Partner edit permission to add the role.`,
+      );
+    }
+    return hasRole ? full : this.assignRole(partnerId, role, userId);
   }
 
   /** Reused by every Sales/Purchasing document service — "no inactive partners, and only ones holding the right role" enforced once here. */
