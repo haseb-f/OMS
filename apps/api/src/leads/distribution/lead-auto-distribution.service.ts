@@ -169,6 +169,13 @@ export class LeadAutoDistributionService {
           where: { policyId: policy.id },
         })
       : null;
+    // R6 (spec C3) — the team the policy is scoped to (null = whole company).
+    const team = policy?.teamId
+      ? await this.prisma.salesTeam.findFirst({
+          where: { id: policy.teamId },
+          select: { id: true, name: true },
+        })
+      : null;
 
     let failureReason: string | null = state?.lastFailureMessage ?? null;
     let failureCode: string | null = state?.lastFailureCode ?? null;
@@ -207,6 +214,10 @@ export class LeadAutoDistributionService {
           }
         : null,
       eligible,
+      /** R6 — size of the Round Robin pool the next drain would use. */
+      eligibleCount: eligible.length,
+      /** R6 — team scope of the policy; null = company-wide. */
+      team: team ?? null,
       pendingEligibleCount,
       lastRun: state
         ? {

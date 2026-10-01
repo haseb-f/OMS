@@ -767,7 +767,7 @@ describe('Sales Funnel Engine', () => {
       await expect(
         leads.addFollowUp(
           leadB.id,
-          { outcome: 'called', note: 'nope' },
+          { outcome: 'answered', note: 'nope' },
           a.id,
           scopeA,
         ),
@@ -958,7 +958,7 @@ describe('Sales Funnel Engine', () => {
       await leads.addFollowUp(
         lead.id,
         {
-          outcome: 'no answer',
+          outcome: 'noAnswer',
           note: 'retry',
           followUpAt: overdue.toISOString(),
         },
@@ -1140,7 +1140,7 @@ describe('Sales Funnel Engine', () => {
       await leads.firstOpen(lead.id, owner.id, ownerScope);
       await leads.addFollowUp(
         lead.id,
-        { outcome: 'qualified soon', note: 'ok' },
+        { outcome: 'callback', note: 'ok' },
         owner.id,
         ownerScope,
       );

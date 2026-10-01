@@ -1592,6 +1592,17 @@ model Lead {
   /// First owner detail-open that moved NEW → IN_PROGRESS. Idempotency gate.
   firstOpenedAt  DateTime? @map("first_opened_at")
 
+  /// R6 — the lead's current follow-up classification: the outcome code
+  /// (`LEAD_FOLLOW_UP_OUTCOMES`, src/leads/follow-up-outcomes.ts) of its
+  /// latest follow-up that recorded one. History stays in `LeadFollowUp`.
+  /// "Latest" = greatest `COALESCE(completedAt, createdAt)` (ties: createdAt,
+  /// id); `followUpAt` is the NEXT scheduled contact, never the contact time.
+  /// Written only by `LeadsService.addFollowUp` (same transaction) and the
+  /// one-time backfill in migration 20261001143000_r6_lead_follow_up_outcome.
+  followUpOutcome   String?   @map("follow_up_outcome")
+  /// When that latest outcome was recorded (the ordering key above).
+  followUpOutcomeAt DateTime? @map("follow_up_outcome_at")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by") @db.Uuid
@@ -1613,6 +1624,7 @@ model Lead {
   @@index([countryId])
   @@index([assignedAt])
   @@index([nextFollowUpAt])
+  @@index([followUpOutcome])
   @@index([source])
   @@index([customerClassificationId])
   @@index([noPurchaseReasonId])

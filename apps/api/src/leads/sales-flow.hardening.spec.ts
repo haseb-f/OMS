@@ -510,7 +510,7 @@ describe('Sales Flow Hardening', () => {
       await leads.addFollowUp(
         lead.id,
         {
-          outcome: 'NO_ANSWER',
+          outcome: 'noAnswer',
           note: 'first call',
           followUpAt: new Date().toISOString(),
         },

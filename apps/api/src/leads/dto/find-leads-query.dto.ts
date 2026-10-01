@@ -10,6 +10,15 @@ import {
 } from 'class-validator';
 import { LeadSource } from '@prisma/client';
 import { MasterDataQueryDto } from '../../master-data/dto/master-data-query.dto';
+import { LEAD_FOLLOW_UP_OUTCOMES } from '../follow-up-outcomes';
+
+/** Follow-up classification filter values: the outcome codes, or `none` (no outcome yet). */
+export const LEAD_FOLLOW_UP_OUTCOME_FILTERS = [
+  ...LEAD_FOLLOW_UP_OUTCOMES,
+  'none',
+] as const;
+export type LeadFollowUpOutcomeFilter =
+  (typeof LEAD_FOLLOW_UP_OUTCOME_FILTERS)[number];
 
 export const LEAD_LIFECYCLE_FILTERS = [
   'active',
@@ -96,4 +105,16 @@ export class FindLeadsQueryDto extends MasterDataQueryDto {
   @IsIn(LEAD_FOLLOW_UP_FILTERS)
   @IsOptional()
   followUpFilter?: LeadFollowUpFilter;
+
+  /** R6 (spec C1) — follow-up classification (`Lead.followUpOutcome`), comma-separated. */
+  @Transform(({ value }): string[] | undefined => {
+    if (value == null || value === '') return undefined;
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item));
+    }
+    return String(value).split(',');
+  })
+  @IsIn(LEAD_FOLLOW_UP_OUTCOME_FILTERS, { each: true })
+  @IsOptional()
+  followUpOutcomes?: LeadFollowUpOutcomeFilter[];
 }
