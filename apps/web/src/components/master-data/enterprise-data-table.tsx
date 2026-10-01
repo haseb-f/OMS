@@ -97,10 +97,15 @@ import {
   SelectCustomCountDialog,
   type RowAction,
   type ColumnImportance,
+  type ColumnType,
   type TableDetailRegion,
   type SelectCustomCountCopy,
 } from "@/components/shared/data-table";
 import { applySemanticCellContent } from "@/components/shared/data-table/semantic-cell";
+import { useColumnWidthPreference } from "@/components/shared/data-table/column-width-preferences";
+import { toPrintColumn } from "@/components/shared/data-table/print-columns";
+import { useCopyToClipboard } from "@/components/shared/use-copy-to-clipboard";
+import { COPY_REVEAL_CLASS, CopyButton } from "@/components/shared/copy-button";
 import { useLocale } from "@/providers/locale-provider";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useRestorableState } from "@/hooks/use-restorable-state";
@@ -157,7 +162,51 @@ function measureCellNeed(td: HTMLElement): number {
   });
   return Math.ceil(padding + content + 4);
 }
+
+/**
+ * Auto-fit (double-click a resize handle): the width a body cell's content
+ * needs on one line, independent of the column's current width — the
+ * content box is measured at `max-content` and restored in the same frame.
+ */
+function measureCellIntrinsicWidth(td: HTMLElement): number {
+  const child = td.firstElementChild as HTMLElement | null;
+  if (!child) return 0;
+  const style = getComputedStyle(td);
+  const padding =
+    (Number.parseFloat(style.paddingInlineStart) || 0) +
+    (Number.parseFloat(style.paddingInlineEnd) || 0);
+  const { width, maxWidth } = child.style;
+  child.style.width = "max-content";
+  child.style.maxWidth = "none";
+  const content = child.getBoundingClientRect().width;
+  child.style.width = width;
+  child.style.maxWidth = maxWidth;
+  return Math.ceil(padding + content + 4);
+}
+
 const MAX_COLUMN_WIDTH = 640;
+
+/**
+ * Column types whose values people paste elsewhere (R6 B2): a phone into a
+ * dialer/chat, a reference into a search or a message. Their cells carry the
+ * shared inline copy button, whatever renders the cell.
+ */
+const COPYABLE_COLUMN_TYPES: ReadonlySet<ColumnType> = new Set(["phone", "reference"]);
+
+/** The text a cell's copy button copies, or null when the cell has none. */
+export function cellCopyText(type: ColumnType | undefined, displayValue: string): string | null {
+  if (!type || !COPYABLE_COLUMN_TYPES.has(type)) return null;
+  const text = displayValue.trim();
+  return text && text !== "—" ? text : null;
+}
+
+/** Keyboard resize step (px); Shift moves four steps. */
+const RESIZE_KEY_STEP = 16;
+
+/** Clamps a requested column width to the resize bounds. */
+export function clampColumnWidth(width: number, minWidth: number): number {
+  return Math.round(Math.min(MAX_COLUMN_WIDTH, Math.max(minWidth, width)));
+}
 
 export type SortOrder = "asc" | "desc";
 export type TableDensity = UiTableDensity;
@@ -397,10 +446,9 @@ export function EnterpriseDataTable<TData>({
   // Enterprise Data Grid (TASK-060B Part 3) — column width/order/pinning/
   // filters persisted per user per table, same `oms.table.${tableId}.*`
   // localStorage convention as the pre-existing visibility/density state.
-  const [columnWidths, setColumnWidths] = useLocalStorage<Record<string, number>>(
-    `oms.table.${tableId}.columnWidths`,
-    {},
-  );
+  // Widths are a per-USER preference (R6 B4): `oms.table.<userId>.<tableId>.
+  // columnWidths`, adopting the old device-wide key once.
+  const [columnWidths, setColumnWidths] = useColumnWidthPreference(tableId, user?.id);
   const [columnPinning, setColumnPinning] = useLocalStorage<ColumnPinningState>(
     `oms.table.${tableId}.columnPinning`,
     {},
@@ -462,7 +510,9 @@ export function EnterpriseDataTable<TData>({
 
   const beginResize = useCallback(
     (columnId: string, event: React.PointerEvent, currentWidth: number, minWidth: number) => {
+      // A resize never sorts, selects or starts a text selection.
       event.preventDefault();
+      event.stopPropagation();
       resizeState.current = {
         columnId,
         startX: event.clientX,
@@ -476,10 +526,7 @@ export function EnterpriseDataTable<TData>({
         if (!active) return;
         const rawDelta = moveEvent.clientX - active.startX;
         const delta = direction === "rtl" ? -rawDelta : rawDelta;
-        const next = Math.min(
-          MAX_COLUMN_WIDTH,
-          Math.max(active.minWidth, active.startWidth + delta),
-        );
+        const next = clampColumnWidth(active.startWidth + delta, active.minWidth);
         setColumnWidths((previous) => ({ ...previous, [active.columnId]: next }));
       };
       const handleUp = () => {
@@ -496,28 +543,61 @@ export function EnterpriseDataTable<TData>({
 
   const headerRefs = useRef<Record<string, HTMLTableCellElement | null>>({});
 
+  // Double-click a value to copy it: the shared copy hook (R6 B2) — the toast
+  // confirms because a cell has no button to show the check; a blocked
+  // clipboard explains itself instead of failing silently.
+  const { copy: copyCellValue } = useCopyToClipboard({ successToast: t("table.copied") });
   const handleCopyCell = useCallback(
     (value: string) => {
-      if (!value) return;
-      navigator.clipboard?.writeText(value).then(
-        () => toast.success(t("table.copied")),
-        () => undefined,
-      );
+      if (value) void copyCellValue(value);
     },
-    [t],
+    [copyCellValue],
   );
 
-  const resetColumnWidth = useCallback(
-    (columnId: string) => {
-      setColumnWidths((previous) => {
-        if (!(columnId in previous)) return previous;
-        const next = { ...previous };
-        delete next[columnId];
-        return next;
-      });
+  /** Double-click a resize handle: fit the column to its header and the rendered values. */
+  const autoFitColumn = useCallback(
+    (columnId: string, minWidth: number) => {
+      const th = headerRefs.current[columnId];
+      const tableElement = th?.closest("table");
+      if (!th || !tableElement) return;
+      let need = measureHeaderNeed(th);
+      tableElement
+        .querySelectorAll<HTMLElement>(`tbody td[data-column-id="${CSS.escape(columnId)}"]`)
+        .forEach((td) => {
+          if (td.offsetWidth > 0 && !td.hasAttribute("colspan")) {
+            need = Math.max(need, measureCellIntrinsicWidth(td));
+          }
+        });
+      const width = clampColumnWidth(need, minWidth);
+      setColumnWidths((previous) => ({ ...previous, [columnId]: width }));
     },
     [setColumnWidths],
   );
+
+  /** Arrow keys on a focused handle (RTL-aware: the arrow toward the column's end edge grows it); Enter auto-fits. */
+  const handleResizeKey = useCallback(
+    (columnId: string, event: React.KeyboardEvent, currentWidth: number, minWidth: number) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        autoFitColumn(columnId, minWidth);
+        return;
+      }
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      event.stopPropagation();
+      const towardEnd = (event.key === "ArrowRight") === (direction === "ltr");
+      const step = RESIZE_KEY_STEP * (event.shiftKey ? 4 : 1);
+      const width = clampColumnWidth(currentWidth + (towardEnd ? step : -step), minWidth);
+      setColumnWidths((previous) => ({ ...previous, [columnId]: width }));
+    },
+    [autoFitColumn, direction, setColumnWidths],
+  );
+
+  const hasCustomColumnWidths = Object.keys(columnWidths).length > 0;
+  const resetColumnWidths = useCallback(() => {
+    setColumnWidths({});
+    toast.success(t("controls.table.columnWidthsReset"));
+  }, [setColumnWidths, t]);
 
   const resetLayout = useCallback(() => {
     setColumnVisibility({});
@@ -1083,10 +1163,14 @@ export function EnterpriseDataTable<TData>({
         logoUrl: printCompany.logoUrl ?? null,
       },
       printedByName: user?.fullName ?? null,
-      columns: printableColumns.map((column) => ({
-        key: column.id!,
-        label: column.meta?.titleKey ? t(column.meta.titleKey) : (column.id ?? ""),
-      })),
+      // Print geometry comes from the column TYPE (narrow dates/references/
+      // amounts, flexible text) — never from the user's screen widths.
+      columns: printableColumns.map((column) =>
+        toPrintColumn(
+          { id: column.id!, meta: column.meta },
+          column.meta?.titleKey ? t(column.meta.titleKey) : (column.id ?? ""),
+        ),
+      ),
       rows: rowsToPrint.map((row) =>
         Object.fromEntries(
           printableColumns.map((column) => [column.id!, getColumnDisplayValue(column, row, t)]),
@@ -1495,6 +1579,7 @@ export function EnterpriseDataTable<TData>({
                 table={table}
                 density={density}
                 onDensityChange={setDensity}
+                onResetColumnWidths={hasCustomColumnWidths ? resetColumnWidths : undefined}
               />
               {/* Print/import/export/reset are occasional: as labelled
                   buttons they outweighed the filters they sat beside. */}
@@ -1708,8 +1793,11 @@ export function EnterpriseDataTable<TData>({
                         {detailCells.length > 0 ? (
                           <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
                             {detailCells.map((cell) => {
-                              const numeric = isNumericColumnType(
-                                layoutById.get(cell.column.id)?.type,
+                              const cellType = layoutById.get(cell.column.id)?.type;
+                              const numeric = isNumericColumnType(cellType);
+                              const copyText = cellCopyText(
+                                cellType,
+                                getColumnDisplayValue(cell.column.columnDef, row.original, t),
                               );
                               return (
                                 <div key={cell.id} className={cn("min-w-0", numeric && "text-end")}>
@@ -1722,11 +1810,23 @@ export function EnterpriseDataTable<TData>({
                                     className={cn(
                                       "min-w-0 text-table",
                                       numeric ? "tabular-nums whitespace-nowrap" : "truncate",
+                                      copyText && "flex items-center gap-0.5",
                                     )}
                                   >
-                                    <bdi className={numeric ? undefined : bidiLineClass}>
+                                    <bdi
+                                      className={cn(
+                                        numeric ? undefined : bidiLineClass,
+                                        copyText && "min-w-0 truncate",
+                                      )}
+                                    >
                                       {renderCell(cell)}
                                     </bdi>
+                                    {copyText ? (
+                                      <CopyButton
+                                        value={copyText}
+                                        labelKind={cellType === "phone" ? "phone" : "reference"}
+                                      />
+                                    ) : null}
                                   </dd>
                                 </div>
                               );
@@ -1816,7 +1916,7 @@ export function EnterpriseDataTable<TData>({
                           // <thead>) so pinned body cells (--z-pinned) pass
                           // under the header row (--z-sticky) and pinned
                           // header cells (--z-sticky-corner) sit above both.
-                          "sticky top-0 z-(--z-sticky) min-w-0 px-0",
+                          "group/th sticky top-0 z-(--z-sticky) min-w-0 px-0",
                           tableColumnInsetClass(
                             index,
                             headerGroup.headers.length,
@@ -1837,33 +1937,56 @@ export function EnterpriseDataTable<TData>({
                         {header.isPlaceholder
                           ? null
                           : flexRender(header.column.columnDef.header, header.getContext())}
-                        {isResizable && (
-                          <div
-                            role="separator"
-                            aria-orientation="vertical"
-                            aria-label={t("table.resizeColumn")}
-                            onPointerDown={(event) =>
-                              beginResize(
-                                header.id,
-                                event,
-                                headerRefs.current[header.id]?.getBoundingClientRect().width ??
-                                  estimateColumnWidth(header.id),
-                                // Amounts are never clipped: a numeric column
-                                // can't be dragged narrower than its preset.
-                                isNumericColumnType(layout?.type)
-                                  ? Math.max(MIN_COLUMN_WIDTH, layout?.minWidth ?? 0)
-                                  : MIN_COLUMN_WIDTH,
-                              )
-                            }
-                            onDoubleClick={() => resetColumnWidth(header.id)}
-                            className={cn(
-                              // Straddles the column boundary (1px visible, 8px hit area via negative
-                              // end-margin) — a bare 1-2px line is nearly unhittable with a real mouse.
-                              "absolute inset-y-0 end-0 z-[1] -me-1 w-2 cursor-col-resize touch-none select-none before:absolute before:inset-y-0 before:start-1/2 before:w-px before:-translate-x-1/2 before:bg-transparent hover:before:bg-primary/50",
-                              resizingColumnId === header.id && "before:bg-primary",
-                            )}
-                          />
-                        )}
+                        {isResizable &&
+                          (() => {
+                            // Amounts are never clipped: a numeric column
+                            // can't be made narrower than its preset.
+                            const minWidth = isNumericColumnType(layout?.type)
+                              ? Math.max(MIN_COLUMN_WIDTH, layout?.minWidth ?? 0)
+                              : MIN_COLUMN_WIDTH;
+                            const currentWidth = () =>
+                              headerRefs.current[header.id]?.getBoundingClientRect().width ||
+                              estimateColumnWidth(header.id);
+                            const shownWidth = Math.round(
+                              columnWidths[header.id] ??
+                                fittedWidths?.[header.id] ??
+                                estimateColumnWidth(header.id),
+                            );
+                            const titleKey = header.column.columnDef.meta?.titleKey;
+                            const columnTitle = titleKey ? t(titleKey) : header.id;
+                            return (
+                              <div
+                                role="separator"
+                                tabIndex={0}
+                                aria-orientation="vertical"
+                                aria-label={t("controls.table.resizeHandle", {
+                                  column: columnTitle,
+                                })}
+                                aria-valuenow={shownWidth}
+                                aria-valuemin={minWidth}
+                                aria-valuemax={MAX_COLUMN_WIDTH}
+                                title={t("controls.table.resizeHint")}
+                                data-resizing={resizingColumnId === header.id || undefined}
+                                onPointerDown={(event) =>
+                                  beginResize(header.id, event, currentWidth(), minWidth)
+                                }
+                                onClick={(event) => event.stopPropagation()}
+                                onDoubleClick={(event) => {
+                                  event.stopPropagation();
+                                  autoFitColumn(header.id, minWidth);
+                                }}
+                                onKeyDown={(event) =>
+                                  handleResizeKey(header.id, event, currentWidth(), minWidth)
+                                }
+                                className={cn(
+                                  // Straddles the column boundary: an 8px hit area
+                                  // (negative end margin) around a hairline that
+                                  // shows on header hover and keyboard focus.
+                                  "absolute inset-y-0 end-0 z-[1] -me-1 w-2 cursor-col-resize touch-none select-none outline-none before:absolute before:inset-y-1 before:start-1/2 before:w-px before:-translate-x-1/2 before:rounded-full before:bg-transparent group-hover/th:before:bg-border-strong hover:before:w-0.5 hover:before:bg-primary/60 focus-visible:before:inset-y-0 focus-visible:before:w-0.5 focus-visible:before:bg-focus-ring data-resizing:before:inset-y-0 data-resizing:before:w-0.5 data-resizing:before:bg-primary",
+                                )}
+                              />
+                            );
+                          })()}
                       </TableHead>
                     );
                   })}
@@ -1975,12 +2098,12 @@ export function EnterpriseDataTable<TData>({
                           const rawContent = columnsWithExplicitCell.has(cell.column.id)
                             ? flexRender(cell.column.columnDef.cell, cell.getContext())
                             : cell.renderValue<ReactNode>();
-                          const rendered = applySemanticCellContent(rawContent, layout?.type);
                           const isIdentity = Boolean(cell.column.columnDef.meta?.identity);
                           // Only the identity column navigates. The row itself
                           // stays inert so the checkbox, chevron and actions menu
                           // sharing it keep unambiguous hit areas.
                           const identityHref = isIdentity ? rowHref : null;
+                          const rendered = applySemanticCellContent(rawContent, layout?.type);
                           const content = identityHref ? (
                             <RowIdentityLink href={identityHref}>{rendered}</RowIdentityLink>
                           ) : (
@@ -1995,6 +2118,11 @@ export function EnterpriseDataTable<TData>({
                           const displayValue = isUtility
                             ? ""
                             : getColumnDisplayValue(cell.column.columnDef, row.original, t);
+                          // Phone/reference cells carry the inline copy button —
+                          // never inside the identity link (no button in an <a>).
+                          const copyText = identityHref
+                            ? null
+                            : cellCopyText(layout?.type, displayValue);
                           const pin = getPinProps(cell.column.id, "body");
                           return (
                             <TableCell
@@ -2051,24 +2179,41 @@ export function EnterpriseDataTable<TData>({
                                 // the box still sits at the cell's start. A
                                 // full-width end/center box keeps the cell's
                                 // direction and isolates its content instead.
-                                <div
-                                  data-overflow-tip=""
-                                  className={cn(
-                                    tableCellContentClass,
-                                    layout?.align === "end" && "block w-full text-end",
-                                    layout?.align === "center" && "block w-full text-center",
-                                    layout?.align !== "end" &&
-                                      layout?.align !== "center" &&
-                                      "[unicode-bidi:plaintext]",
-                                  )}
-                                  onDoubleClick={() => handleCopyCell(displayValue)}
-                                >
-                                  {layout?.align === "end" || layout?.align === "center" ? (
-                                    <bdi>{content}</bdi>
+                                (() => {
+                                  const value = (
+                                    <div
+                                      data-overflow-tip=""
+                                      className={cn(
+                                        tableCellContentClass,
+                                        layout?.align === "end" && "block w-full text-end",
+                                        layout?.align === "center" && "block w-full text-center",
+                                        layout?.align !== "end" &&
+                                          layout?.align !== "center" &&
+                                          "[unicode-bidi:plaintext]",
+                                      )}
+                                      onDoubleClick={() => handleCopyCell(displayValue)}
+                                    >
+                                      {layout?.align === "end" || layout?.align === "center" ? (
+                                        <bdi>{content}</bdi>
+                                      ) : (
+                                        content
+                                      )}
+                                    </div>
+                                  );
+                                  // The value truncates; the copy button never does.
+                                  return copyText ? (
+                                    <div className="group/copy flex min-w-0 items-center gap-0.5">
+                                      {value}
+                                      <CopyButton
+                                        value={copyText}
+                                        labelKind={layout?.type === "phone" ? "phone" : "reference"}
+                                        className={COPY_REVEAL_CLASS}
+                                      />
+                                    </div>
                                   ) : (
-                                    content
-                                  )}
-                                </div>
+                                    value
+                                  );
+                                })()
                               )}
                             </TableCell>
                           );

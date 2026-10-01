@@ -1,12 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Check, Copy } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
+import { CopyButton } from "@/components/shared/copy-button";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocale } from "@/providers/locale-provider";
-import { toast } from "@/lib/toast";
 
 /**
  * One-time presentation of a server-generated password. Never used as a
@@ -21,23 +19,6 @@ export function GeneratedPasswordDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useLocale();
-  const [copiedPassword, setCopiedPassword] = useState<string | null>(null);
-  const copied = copiedPassword !== null && copiedPassword === password;
-
-  const copy = async () => {
-    if (!password) return;
-    try {
-      if (!navigator.clipboard?.writeText) {
-        throw new Error("clipboard unavailable");
-      }
-      await navigator.clipboard.writeText(password);
-      setCopiedPassword(password);
-      window.setTimeout(() => setCopiedPassword(null), 2000);
-    } catch {
-      toast.error(t("settings.users.passwordDialog.copyFailed"));
-    }
-  };
-
   return (
     <EnterpriseModal
       open={!!password}
@@ -61,28 +42,12 @@ export function GeneratedPasswordDialog({
           onFocus={(event) => event.currentTarget.select()}
           aria-label={t("settings.users.fields.password")}
         />
-        <EnterpriseButton
-          type="button"
-          variant="outline"
+        <CopyButton
+          variant="button"
           size="sm"
-          className="shrink-0"
-          onClick={() => void copy()}
-          aria-label={
-            copied
-              ? t("settings.users.passwordDialog.copied")
-              : t("settings.users.passwordDialog.copyTooltip")
-          }
-          title={
-            copied
-              ? t("settings.users.passwordDialog.copied")
-              : t("settings.users.passwordDialog.copyTooltip")
-          }
-        >
-          {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-          {copied
-            ? t("settings.users.passwordDialog.copied")
-            : t("settings.users.passwordDialog.copy")}
-        </EnterpriseButton>
+          value={password}
+          label={t("settings.users.fields.password")}
+        />
       </div>
     </EnterpriseModal>
   );

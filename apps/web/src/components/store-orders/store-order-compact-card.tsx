@@ -108,7 +108,13 @@ export function StoreOrderCompactCard({
         <div className="min-w-0">
           <dt className="text-caption text-muted-foreground">{t("storeOrders.fields.phone")}</dt>
           <dd className="text-body font-medium">
-            {phone ? <SemanticValue kind="phone">{phone}</SemanticValue> : "—"}
+            {phone ? (
+              <SemanticValue kind="phone" copyable>
+                {phone}
+              </SemanticValue>
+            ) : (
+              "—"
+            )}
           </dd>
         </div>
         <div className="min-w-0">

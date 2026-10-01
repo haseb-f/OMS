@@ -281,6 +281,7 @@ export default function AgentOrderDetailPage() {
     <DetailWorkspace
       title={order.customer?.name ?? order.internalOrderId}
       reference={order.internalOrderId}
+      copyValue={order.internalOrderId}
       meta={
         <>
           {formatDate(order.orderDate)}
@@ -564,7 +565,9 @@ export default function AgentOrderDetailPage() {
                   label={t("agentPortal.orderForm.fields.mobile")}
                   value={
                     order.customer.mobile ? (
-                      <SemanticValue kind="phone">{order.customer.mobile}</SemanticValue>
+                      <SemanticValue kind="phone" copyable>
+                        {order.customer.mobile}
+                      </SemanticValue>
                     ) : null
                   }
                 />

@@ -59,6 +59,7 @@ export default function AgentLeadDetailPage() {
     <DetailWorkspace
       title={lead.customerName}
       reference={lead.leadNumber}
+      copyValue={lead.leadNumber}
       meta={formatDateTime(lead.createdAt)}
       status={<LeadStatusBadge status={lead.status} />}
       actions={
@@ -97,7 +98,11 @@ export default function AgentLeadDetailPage() {
             />
             <DetailField
               label={t("agentPortal.leads.fields.mobile")}
-              value={<SemanticValue kind="phone">{lead.mobileNumber}</SemanticValue>}
+              value={
+                <SemanticValue kind="phone" copyable>
+                  {lead.mobileNumber}
+                </SemanticValue>
+              }
             />
             <DetailField
               label={t("agentPortal.leads.fields.country")}

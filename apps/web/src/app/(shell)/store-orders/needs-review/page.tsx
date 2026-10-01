@@ -30,6 +30,7 @@ import {
 } from "@/services/import-jobs-service";
 import { useLocale } from "@/providers/locale-provider";
 import { reportApiError, toast } from "@/lib/toast";
+import { bulkOutcomeFromIds, reportBulkOutcome } from "@/lib/bulk-run";
 
 const IMPORT_TYPE = "STORE_ORDERS";
 
@@ -184,16 +185,18 @@ function NeedsReviewContent() {
 
   const selectedIds = Object.keys(rowSelection);
 
+  /** Failed rows are named by their sheet row number in the bulk summary. */
+  const rowLabel = (id: string) => {
+    const row = rows.find((candidate) => candidate.id === id);
+    return row ? `#${row.rowNumber}` : null;
+  };
+
   const handleBulkConfirm = async () => {
     if (!selectedJobId || selectedIds.length === 0) return;
     const result = await importJobsService.bulkConfirmRows(selectedJobId, selectedIds);
-    if (result.failed.length === 0) {
-      toast.success(
-        t("storeOrders.needsReview.toasts.bulkConfirmed", { count: result.succeeded.length }),
-      );
-    } else {
-      toast.error(t("storeOrders.needsReview.toasts.bulkFailed", { count: result.failed.length }));
-    }
+    reportBulkOutcome(bulkOutcomeFromIds(result, rowLabel), (count) =>
+      t("storeOrders.needsReview.toasts.bulkConfirmed", { count }),
+    );
     setRowSelection({});
     void loadRows();
   };
@@ -205,13 +208,9 @@ function NeedsReviewContent() {
       reasonCode: reasonCode as ImportRowRejectionReasonCode,
       note: reasonCode === "OTHER" ? reasonNote.trim() : undefined,
     });
-    if (result.failed.length === 0) {
-      toast.success(
-        t("storeOrders.needsReview.toasts.bulkRejected", { count: result.succeeded.length }),
-      );
-    } else {
-      toast.error(t("storeOrders.needsReview.toasts.bulkFailed", { count: result.failed.length }));
-    }
+    reportBulkOutcome(bulkOutcomeFromIds(result, rowLabel), (count) =>
+      t("storeOrders.needsReview.toasts.bulkRejected", { count }),
+    );
     setRowSelection({});
     resetReason();
     void loadRows();
