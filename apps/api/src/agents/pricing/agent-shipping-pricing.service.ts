@@ -224,6 +224,7 @@ export class AgentShippingPricingService {
             ?.listAmount ?? null,
       })),
       fee: tariff.amount,
+      manualShippingCharge: order.shippingChargeSource === 'MANUAL',
     });
     if (repriced.kind === 'REFUSED') {
       throw agentUnprocessable(
@@ -266,7 +267,21 @@ export class AgentShippingPricingService {
       data.shippingCharge = repriced.shippingCharge;
       data.merchandiseAmount = repriced.merchandiseAmount;
       data.payableTotal = repriced.payableTotal;
-      data.shippingChargeSource = 'RATE';
+      if (order.shippingChargeSource !== 'MANUAL') {
+        data.shippingChargeSource = 'RATE';
+      } else {
+        // O1 — the agreed manual customer shipping stands; the company bears
+        // the shortfall / keeps the excess against the confirmed fee.
+        const difference =
+          Math.round(previousShipping * 100) - Math.round(tariff.amount * 100);
+        if (difference !== 0) {
+          notes.push(
+            difference < 0
+              ? `company bears ${money(-difference / 100)} (customer shipping ${money(previousShipping)} vs agent fee ${money(tariff.amount)})`
+              : `company keeps ${money(difference / 100)} (customer shipping ${money(previousShipping)} vs agent fee ${money(tariff.amount)})`,
+          );
+        }
+      }
       if (repriced.discountAmount != null) {
         data.discountAmount = repriced.discountAmount;
       }

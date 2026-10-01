@@ -163,6 +163,36 @@ describe('agent shipping tariff resolution (spec 2B)', () => {
 });
 
 describe('customer-side effect of the confirmed fee (spec 2B)', () => {
+  it.each([
+    ['below the fee (company bears 20)', 80],
+    ['above the fee (company keeps 20)', 120],
+  ])(
+    'O1 — a manual customer shipping charge %s stays exactly as agreed',
+    (_label, manual) => {
+      for (const mode of ['SHIPPING_ADDED', 'SHIPPING_INCLUDED'] as const) {
+        const result = repriceForConfirmedFee({
+          mode,
+          merchandiseAmount: 1000,
+          taxAmount: 0,
+          serviceCharge: 0,
+          shippingCharge: manual,
+          payableTotal: 1000 + manual,
+          lines: [{ id: 'a', quantity: 1, amount: 1000 }],
+          fee: 100,
+          manualShippingCharge: true,
+        });
+        expect(result).toEqual({
+          kind: 'APPLY',
+          shippingCharge: manual,
+          merchandiseAmount: 1000,
+          payableTotal: 1000 + manual,
+          lines: null,
+          discountAmount: null,
+        });
+      }
+    },
+  );
+
   it('INCLUDED: agreed total 500, fee 35 → merchandise 465, shipping 35, total unchanged', () => {
     const result = repriceForConfirmedFee({
       mode: 'SHIPPING_INCLUDED',
