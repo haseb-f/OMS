@@ -285,10 +285,18 @@ export function commissionReversalByLine(
 }
 
 /**
- * A6: the customer shipping the company collects and retains settles the
- * predetermined agent shipping charge — the agent is never charged it a
- * second time. A difference between the two is not settled here: it needs
- * the owner's decision (commission-policy.md A6 / C1).
+ * Owner decision O1 (D-R5-1, 2026-10-01) — platform policy, not per
+ * agreement: a difference between the customer shipping collected (C) and
+ * the contractual agent shipping fee (F) is borne / kept by the company.
+ */
+export const AGENT_SHIPPING_DIFFERENCE_BORNE_BY = 'COMPANY' as const;
+
+/**
+ * A6 + O1: the customer shipping the company collects and retains settles
+ * the predetermined agent shipping charge — the agent is never charged it a
+ * second time. The agent's economics are always as if C = F: a shortfall
+ * (C < F) is borne by the company and an excess (C > F) is kept by the
+ * company, so no extra agent debit or credit is ever derived from it.
  */
 export function settleAgentShipping(input: {
   customerShipping: number;
@@ -301,9 +309,9 @@ export function settleAgentShipping(input: {
     retained: fromMinor(customer),
     /** Part of the agent shipping charge settled by the retained amount. */
     appliedToAgentShippingCharge: fromMinor(Math.min(customer, charge)),
-    /** customer − predetermined; non-zero ⇒ decision required. */
+    /** customer − predetermined; the company bears / keeps it (O1). */
     difference: fromMinor(customer - charge),
-    needsDecision: customer !== charge,
+    differenceBorneBy: AGENT_SHIPPING_DIFFERENCE_BORNE_BY,
   };
 }
 

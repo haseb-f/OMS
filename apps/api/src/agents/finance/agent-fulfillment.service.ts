@@ -567,6 +567,8 @@ export class AgentFulfillmentService {
     // commission-policy.md A6: under PREDETERMINED_CHARGE the customer
     // shipping (company money) is retained and settles the predetermined
     // agent shipping charge — the agent is never charged it a second time.
+    // O1: a difference is borne / kept by the company (recorded on the
+    // basis only — no extra agent debit or credit).
     const predetermined =
       shippingPolicyOf(terms) === 'PREDETERMINED_CHARGE'
         ? terms.agentShippingCharge
@@ -596,6 +598,7 @@ export class AgentFulfillmentService {
                   appliedToAgentShippingCharge:
                     settlement.appliedToAgentShippingCharge,
                   difference: settlement.difference,
+                  differenceBorneBy: settlement.differenceBorneBy,
                 }
               : {}),
           },

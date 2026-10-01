@@ -115,6 +115,8 @@ const agentPricingAr = {
       ESTIMATE: "تكلفة ناقل تقديرية",
     },
     marginUnavailable: "غير قابل للمقارنة بعد",
+    differenceBorne: "نقص الشحن (تتحمله الشركة)",
+    differenceKept: "زيادة الشحن (للشركة)",
     internalOnly: "داخلي فقط — لا يظهر للوكيل.",
   },
   customerTotal: {

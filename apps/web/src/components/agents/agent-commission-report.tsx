@@ -59,7 +59,8 @@ const CARRIER_TONE: Record<CarrierCostStage, "neutral" | "info" | "warning"> = {
 };
 const SETTLEMENT_TONE: Record<ShippingSettlement, "success" | "warning" | "neutral"> = {
   SETTLED: "success",
-  DIFFERENCE: "warning",
+  COMPANY_BEARS_SHORTFALL: "warning",
+  COMPANY_KEEPS_EXCESS: "neutral",
   NO_AGENT_CHARGE: "neutral",
 };
 

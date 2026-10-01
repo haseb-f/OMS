@@ -77,22 +77,58 @@ describe('agent commission (commission-policy.md)', () => {
     });
   });
 
-  it('A6 — retained customer shipping settles the predetermined charge; a difference needs a decision', () => {
+  it('A6 + O1 — retained customer shipping settles the predetermined charge; the company bears / keeps a difference', () => {
     expect(
       settleAgentShipping({ customerShipping: 100, predeterminedCharge: 100 }),
     ).toEqual({
       retained: 100,
       appliedToAgentShippingCharge: 100,
       difference: 0,
-      needsDecision: false,
+      differenceBorneBy: 'COMPANY',
     });
     expect(
       settleAgentShipping({ customerShipping: 80, predeterminedCharge: 100 }),
-    ).toMatchObject({ difference: -20, needsDecision: true });
+    ).toEqual({
+      retained: 80,
+      appliedToAgentShippingCharge: 80,
+      difference: -20,
+      differenceBorneBy: 'COMPANY',
+    });
+    expect(
+      settleAgentShipping({ customerShipping: 120, predeterminedCharge: 100 }),
+    ).toEqual({
+      retained: 120,
+      appliedToAgentShippingCharge: 100,
+      difference: 20,
+      differenceBorneBy: 'COMPANY',
+    });
     expect(
       settleAgentShipping({ customerShipping: 0, predeterminedCharge: 0 }),
-    ).toMatchObject({ retained: 0, needsDecision: false });
+    ).toMatchObject({ retained: 0, difference: 0 });
   });
+
+  it.each([
+    [80, 100],
+    [120, 100],
+    [100, 100],
+  ])(
+    'O1 — sales 1,000 @35%%, customer shipping %d vs fee %d ⇒ agent entitlement 650',
+    (customerShipping, predeterminedShippingCharge) => {
+      const example = commissionExample({
+        productSales: 1_000,
+        serviceSales: 0,
+        productRatePercent: 35,
+        serviceRatePercent: 25,
+        customerShipping,
+        predeterminedShippingCharge,
+      });
+      expect(example.agentEntitlement).toBe(650);
+      expect(example.companyRetains).toBe(350 + customerShipping);
+      expect(example.shippingDifference).toBe(
+        customerShipping - predeterminedShippingCharge,
+      );
+    },
+  );
 
   it('A2 — class is the explicit item type (never the stock flag); A4 — agreement rate by type', () => {
     expect(rate('PRODUCT')).toEqual({

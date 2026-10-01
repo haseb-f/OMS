@@ -112,8 +112,8 @@ Pickup and digital-only orders: no automatic physical shipping fee (unchanged).
 
 Unchanged mechanics (A6): at earning, one `CUSTOMER_SHIPPING_RETAINED` entry = customer shipping,
 applied against the **resolved** contractual fee; no separate shipping debit. Difference ≠ 0 is
-still refused (`AGENT_SHIPPING_DIFFERENCE_PENDING_DECISION`) — the single open business question
-(D-R5-1 below). Carrier invoice imports update actual cost and internal margin only; they never
+allowed since owner decision O1 (2026-10-01): the company bears the shortfall / keeps the excess,
+recorded on the basis (`differenceBorneBy: 'COMPANY'`). Carrier invoice imports update actual cost and internal margin only; they never
 create an agent ledger entry (regression test). Commission rates, item overrides and snapshots are
 unchanged; the commission basis is documented on each commission line (existing).
 
@@ -132,7 +132,7 @@ unchanged; the commission basis is documented on each commission line (existing)
 manual shipping override). Example: fee SAR 25, customer charged SAR 20 (difference −5) or SAR 30
 (+5). Options: (a) the agent bears the shortfall / receives the excess; (b) the company bears the
 shortfall / keeps the excess; (c) retain only up to the fee, excess goes to the agent, shortfall
-charged to the agent. **Current behavior until answered:** refused with both amounts shown.
+charged to the agent. **Answered 2026-10-01 — option (b)** (`amendment-owner-decisions-20261001.md` O1).
 
 ## Acceptance
 

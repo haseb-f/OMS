@@ -139,8 +139,9 @@ export function ShippingPricingNotice({
 /**
  * Internal order detail — the three shipping amounts kept apart (spec 2B):
  * customer shipping, the contractual agent shipping fee (with its delivery
- * method, provisional until chosen) and, internal only, the actual carrier
- * cost and the company shipping margin.
+ * method, provisional until chosen) and, internal only, the shipping
+ * difference the company bears / keeps (O1), the actual carrier cost and the
+ * company shipping margin.
  */
 export function InternalShippingPricingSection({
   pricing,
@@ -200,6 +201,16 @@ export function InternalShippingPricingSection({
           value={fee ? <MoneyValue value={fee.amount} currency={currency} /> : null}
         />
         <DetailField label={t("agentPricing.panel.method")} value={method} />
+        {economics.difference && Math.abs(economics.difference.amount) >= 0.005 ? (
+          <DetailField
+            label={
+              economics.difference.amount < 0
+                ? t("agentPricing.panel.differenceBorne")
+                : t("agentPricing.panel.differenceKept")
+            }
+            value={<MoneyValue value={Math.abs(economics.difference.amount)} currency={currency} />}
+          />
+        ) : null}
         <DetailField label={t("agentPricing.panel.carrierCost")} value={carrier} />
         <DetailField
           label={

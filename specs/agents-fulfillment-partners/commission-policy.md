@@ -92,11 +92,12 @@ single rate with order-level rounding.
 
 ## A6. Shipping settlement
 
-- **Customer shipping ≠ predetermined charge** (e.g. a permitted manual shipping override): under
-  `PREDETERMINED_CHARGE` the order is **refused** (`AGENT_SHIPPING_DIFFERENCE_PENDING_DECISION`) with
-  both amounts shown. Proposed treatments for the owner's decision (not enabled): (a) the agent bears
-  a shortfall / receives an excess; (b) the company bears/keeps the difference; (c) cap the retained
-  amount at the predetermined charge. Nothing is invented meanwhile.
+- **Customer shipping ≠ predetermined charge** (e.g. a permitted manual shipping override) —
+  decided 2026-10-01 (owner decision O1, `order-operations-r5/amendment-owner-decisions-20261001.md`):
+  allowed; the **company bears a shortfall and keeps an excess** (platform policy). One
+  `CUSTOMER_SHIPPING_RETAINED` = customer shipping, basis `{ agentShippingCharge,
+appliedToAgentShippingCharge: min(C, F), difference: C − F, differenceBorneBy: 'COMPANY' }`; no extra
+  agent debit or credit, so the agent's entitlement is as if C = F. The agent sees C and F only.
 - **Equal amounts** (the normal case): at the earning event one `CUSTOMER_SHIPPING_RETAINED` debit
   (= customer shipping) is recorded, with basis
   `{ agentShippingCharge, appliedToAgentShippingCharge, difference: 0 }` — no further agent shipping

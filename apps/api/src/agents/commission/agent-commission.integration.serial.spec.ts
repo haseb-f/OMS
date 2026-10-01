@@ -627,6 +627,71 @@ describeDb('Agent commission and shipping policy (local DB)', () => {
     });
   });
 
+  it.each([
+    [80, -20, 80],
+    [120, 20, 100],
+  ])(
+    'O1 — fee 100, customer shipping %d ⇒ entitlement 650, one retained entry, difference %d borne / kept by the company',
+    async (customerShipping, difference, applied) => {
+      const agent = await makeAgent();
+      const product = await makeProduct(true, agent.id, 'PRODUCT');
+      const order = await makeOrder({
+        agentId: agent.id,
+        terms: PREDETERMINED,
+        shipping: customerShipping,
+        agentShippingCharge: { amount: 100, source: 'RATE', rateId: null },
+        lines: [
+          {
+            productId: product,
+            quantity: 1,
+            amount: 1_000,
+            inventoryLine: true,
+            commission: PRODUCT35,
+          },
+        ],
+      });
+      await pay(order, 1_000 + customerShipping);
+      await shipAndDeliver(order.id);
+
+      const charges = await entries({
+        storeOrderId: order.id,
+        entryType: { notIn: ['COLLECTION_RECEIVED', 'COLLECTION_BY_AGENT'] },
+      });
+      // No extra agent debit for a shortfall, no agent credit for an excess.
+      expect(
+        charges.map((e) => [e.entryType, Number(e.debit), Number(e.credit)]),
+      ).toEqual([
+        ['COMMISSION', 350, 0],
+        ['CUSTOMER_SHIPPING_RETAINED', customerShipping, 0],
+      ]);
+      expect(charges[1].basis).toMatchObject({
+        shippingCharge: customerShipping,
+        agentShippingCharge: 100,
+        appliedToAgentShippingCharge: applied,
+        difference,
+        differenceBorneBy: 'COMPANY',
+      });
+      expect((await position(agent.id)).balance).toBe(650);
+
+      const internal = await report.report(agent.id, {});
+      expect(internal.summary.netEntitlement).toBe(650);
+      expect(internal.orders[0].shipping).toMatchObject({
+        customerShipping,
+        agentShippingCharge: 100,
+        difference,
+        differenceBorneBy: 'COMPANY',
+      });
+      // The agent sees C and F only — never the difference attribution.
+      const portal = await report.report(agent.id, {}, 'PORTAL');
+      expect(portal.orders[0].shipping).toMatchObject({
+        customerShipping,
+        agentShippingCharge: 100,
+      });
+      expect(portal.orders[0].shipping).not.toHaveProperty('difference');
+      expect(portal.orders[0].shipping).not.toHaveProperty('differenceBorneBy');
+    },
+  );
+
   it('A6 — actual carrier costs (base, late surcharge, credit, re-import, unmatch) never touch the agent ledger', async () => {
     const before = await entries({ agentId: shipAgent.id });
     const base = await carrierCharge(shipShipmentId, 60, 'BASE');
@@ -771,6 +836,8 @@ describeDb('Agent commission and shipping policy (local DB)', () => {
       'AGENT_ITEM_TYPE_REQUIRED',
     );
 
+    // O1 (owner decision 2026-10-01) — a customer shipping that differs from
+    // the agent shipping fee is allowed (was refused while D-R5-1 was open).
     const difference = await orders.quote(
       input({
         shippingChargeOverride: 80,
@@ -778,10 +845,8 @@ describeDb('Agent commission and shipping policy (local DB)', () => {
       }),
       actor,
     );
-    expect(difference.valid).toBe(false);
-    expect(difference.issues.map((i) => i.code)).toContain(
-      'AGENT_SHIPPING_DIFFERENCE_PENDING_DECISION',
-    );
+    expect(difference.valid).toBe(true);
+    expect(difference.agentShippingCharge).toMatchObject({ amount: 100 });
 
     // Preview before activation — the owner's shipping example.
     const draft = await agreements.create(

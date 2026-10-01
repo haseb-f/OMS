@@ -787,7 +787,8 @@ const agentsAr = {
       settlement: "التسوية",
       settlements: {
         SETTLED: "سدّده شحن العميل",
-        DIFFERENCE: "فرق — بانتظار قرار",
+        COMPANY_BEARS_SHORTFALL: "مسوّى — الشركة تتحمل النقص",
+        COMPANY_KEEPS_EXCESS: "مسوّى — الزيادة للشركة",
         NO_AGENT_CHARGE: "لا رسم على الوكيل",
       },
       carrierCost: "تكلفة شركة الشحن الفعلية (على الشركة)",

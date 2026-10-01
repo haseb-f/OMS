@@ -297,7 +297,9 @@ export interface CommissionReportOrder {
     agentShippingCharge: number | null;
     /** Retained from collected funds; settles the agent shipping charge. */
     retained: number;
-    difference: number | null;
+    /** O1 — customer − agent charge, borne / kept by the company. Internal report only. */
+    difference?: number | null;
+    differenceBorneBy?: "COMPANY" | null;
     /** Actual carrier cost — company expense, never an agent deduction. Internal report only. */
     carrier?: CarrierCostStages;
     /** Contractual fee − carrier cost (company shipping margin). Internal report only. */
@@ -755,6 +757,9 @@ export interface ShippingPricingView {
 export interface InternalShippingPricing extends ShippingPricingView {
   economics: {
     contractualFee: number | null;
+    customerShipping: number | null;
+    /** O1 — C − F: negative = the company bears the shortfall, positive = it keeps the excess. */
+    difference: { amount: number; borneBy: "COMPANY" } | null;
     carrierCost: { estimate: number; actualByCurrency: CurrencyAmount[] };
     margin: ShippingMargin;
   };

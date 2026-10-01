@@ -26,7 +26,15 @@ describe("commission report helpers", () => {
 
   it("shows how the retained customer shipping settled the agent shipping charge", () => {
     expect(shippingSettlement({ agentShippingCharge: 100, difference: 0 })).toBe("SETTLED");
-    expect(shippingSettlement({ agentShippingCharge: 100, difference: -20 })).toBe("DIFFERENCE");
+    // O1 — the company bears a shortfall and keeps an excess.
+    expect(shippingSettlement({ agentShippingCharge: 100, difference: -20 })).toBe(
+      "COMPANY_BEARS_SHORTFALL",
+    );
+    expect(shippingSettlement({ agentShippingCharge: 100, difference: 20 })).toBe(
+      "COMPANY_KEEPS_EXCESS",
+    );
+    // Portal rows carry no difference: the agent always sees "settled".
+    expect(shippingSettlement({ agentShippingCharge: 100 })).toBe("SETTLED");
     expect(shippingSettlement({ agentShippingCharge: null, difference: null })).toBe(
       "NO_AGENT_CHARGE",
     );

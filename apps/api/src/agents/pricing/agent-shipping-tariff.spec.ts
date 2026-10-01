@@ -342,6 +342,19 @@ describe('shipping pricing view and internal economics (spec 2B/2E)', () => {
       ],
     );
     expect(otherCurrency.margin).toEqual({ amount: null, basis: null });
+    // O1 — internal economics show C, F and the company's difference.
+    const short = agentShippingEconomics(
+      { agentTermsSnapshot: snapshot, shippingCharge: 20 },
+      'SAR',
+      [],
+    );
+    expect(short.customerShipping).toBe(20);
+    expect(short.contractualFee).toBe(25);
+    expect(short.difference).toEqual({ amount: -5, borneBy: 'COMPANY' });
+    expect(
+      agentShippingEconomics({ agentTermsSnapshot: snapshot }, 'SAR', [])
+        .difference,
+    ).toBeNull();
   });
 
   it('view: paid vs new payable → outstanding, and no carrier/margin keys', () => {
