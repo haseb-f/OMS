@@ -393,41 +393,25 @@ export function detectRegionFromInput(rawInput: string): CountryCode | null {
   return (parsed?.country as CountryCode | undefined) ?? null;
 }
 
-const LAST_PHONE_COUNTRY_KEY = "oms.lastPhoneCountry";
-
-/** Remembers the phone country of the last successfully saved manual entry — a per-browser convenience, never business data. */
-export function rememberPhoneCountry(iso2: string | null | undefined): void {
-  if (!iso2 || !isSupportedRegion(iso2)) return;
-  try {
-    window.localStorage.setItem(LAST_PHONE_COUNTRY_KEY, iso2.toUpperCase());
-  } catch {
-    /* storage blocked — the default simply falls back to the browser region */
-  }
-}
+/**
+ * Owner decision O2 (2026-10-01): every phone input defaults to Saudi Arabia
+ * (+966) unless the user picks another country. Neither the last-used
+ * country nor the browser region influences the default of a new entry.
+ */
+export const DEFAULT_PHONE_COUNTRY = "SA" satisfies CountryCode;
 
 /**
- * Smart default for a new phone entry: the last-used phone country, else the
- * browser's own region (e.g. "ar-EG" → EG) — only if the form actually offers
- * that country. Returns null rather than guessing.
+ * Default phone country of a new entry — Saudi Arabia, when the form offers
+ * it (`available` = the form's own country codes; omit to allow any).
  */
-export function preferredPhoneCountry(available: readonly string[]): string | null {
-  const offered = new Set(available.map((code) => code.toUpperCase()));
-  let remembered: string | null = null;
-  try {
-    remembered = window.localStorage.getItem(LAST_PHONE_COUNTRY_KEY);
-  } catch {
-    remembered = null;
-  }
-  if (remembered && offered.has(remembered)) return remembered;
-  const languages =
-    typeof navigator === "undefined" ? [] : (navigator.languages ?? [navigator.language]);
-  for (const tag of languages) {
-    try {
-      const region = new Intl.Locale(tag).maximize().region;
-      if (region && offered.has(region)) return region;
-    } catch {
-      /* malformed locale tag */
-    }
-  }
-  return null;
+export function defaultPhoneCountry(available?: readonly string[]): string | null {
+  if (!available) return DEFAULT_PHONE_COUNTRY;
+  return available.some((code) => code.toUpperCase() === DEFAULT_PHONE_COUNTRY)
+    ? DEFAULT_PHONE_COUNTRY
+    : null;
+}
+
+/** The country a phone field works with: the selected one, else the default (O2). */
+export function phoneCountryOrDefault(countryCode: string | null | undefined): string {
+  return countryCode?.trim() ? countryCode : DEFAULT_PHONE_COUNTRY;
 }

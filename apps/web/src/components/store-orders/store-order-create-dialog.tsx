@@ -40,7 +40,7 @@ import {
 import { FieldLabel, FieldMessage, Form } from "@/components/ui/form";
 import { PartnerPicker } from "@/components/business/partner-picker";
 import { PhoneCountrySelector } from "@/components/shared/phone-country-selector";
-import { parsePhone, preferredPhoneCountry, rememberPhoneCountry } from "@/services/phone-service";
+import { defaultPhoneCountry, parsePhone } from "@/services/phone-service";
 import { storeOrdersService, type StoreOrderRow } from "@/services/store-orders-service";
 import {
   PaymentDeclarationFields,
@@ -194,11 +194,11 @@ export function StoreOrderCreateDialog({
   const customerName = useWatch({ control: form.control, name: "customerName" });
   const customerPhone = useWatch({ control: form.control, name: "customerPhone" });
   const paymentType = useWatch({ control: form.control, name: "paymentType" });
-  // Smart default (last-used phone country, else the browser region) — used
-  // only until the user picks a phone or shipping country, and never marks
-  // the form dirty, so closing an untouched dialog stays silent.
+  // O2 default (Saudi Arabia) — used only until the user picks a phone or
+  // shipping country, and never marks the form dirty, so closing an
+  // untouched dialog stays silent.
   const defaultPhoneCountryId = useMemo(() => {
-    const code = preferredPhoneCountry(countries.map((country) => country.code));
+    const code = defaultPhoneCountry(countries.map((country) => country.code));
     return code ? (countries.find((country) => country.code === code)?.id ?? "") : "";
   }, [countries]);
   const phoneCountryId = phoneCountryOverride ?? (countryId || defaultPhoneCountryId);
@@ -428,7 +428,6 @@ export function StoreOrderCreateDialog({
         href: `/store-orders/${created.id}`,
       });
       onOpenChange(false);
-      rememberPhoneCountry(phoneCountryCode);
       onCreated(created);
     } catch (error) {
       // The server found a customer the panel had not answered — reopen it.
