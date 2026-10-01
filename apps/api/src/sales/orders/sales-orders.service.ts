@@ -1,4 +1,5 @@
 import { BULK_LIMITS } from '../../common/bulk/bulk-limits';
+import { listOrderBy } from '../../common/query/list-order-by';
 import {
   BadRequestException,
   Injectable,
@@ -237,7 +238,7 @@ export class SalesOrdersService {
           partner: true,
           currency: true,
         },
-        orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
+        orderBy: listOrderBy(query),
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -254,6 +255,7 @@ export class SalesOrdersService {
       this.prisma.salesOrderDocument.findMany({
         where,
         select: { id: true },
+        orderBy: listOrderBy(query),
         take: BULK_LIMITS.selectIdsMax,
       }),
       this.prisma.salesOrderDocument.count({ where }),

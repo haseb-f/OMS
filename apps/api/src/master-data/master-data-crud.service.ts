@@ -6,6 +6,7 @@ import { uniqueFieldFromPrismaError } from '../common/errors/prisma-unique-field
 import { findArabicNormalizedIds } from '../common/text/arabic-search.query';
 import { MasterDataActivityLogService } from './master-data-activity-log.service';
 import { MasterDataQueryDto } from './dto/master-data-query.dto';
+import { listOrderBy } from '../common/query/list-order-by';
 
 /** The minimal shape every Prisma model delegate exposes — enough to drive generic CRUD. */
 export interface MasterDataDelegate<TEntity> {
@@ -104,6 +105,25 @@ export abstract class MasterDataCrudService<
     );
   }
 
+  /**
+   * The list's sort with an `id` tie-break: rows sharing a sort value (same
+   * name, same date) always come back in the same order, so pages never
+   * overlap or skip and "first N" is reproducible.
+   */
+  protected buildOrderBy(
+    query: Pick<MasterDataQueryDto, 'sortBy' | 'sortOrder'>,
+  ): Record<string, 'asc' | 'desc'>[] {
+    const sortBy =
+      query.sortBy &&
+      (!this.sortableFields || this.sortableFields.includes(query.sortBy))
+        ? query.sortBy
+        : this.defaultSortField;
+    return listOrderBy(
+      { sortBy, sortOrder: query.sortOrder },
+      { sortBy, sortOrder: 'asc' },
+    );
+  }
+
   async findAll(
     query: MasterDataQueryDto,
     extraWhere: Record<string, unknown> = {},
@@ -115,12 +135,7 @@ export abstract class MasterDataCrudService<
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const where = await this.buildWhere(query, extraWhere, searchFields);
-    const sortBy =
-      query.sortBy &&
-      (!this.sortableFields || this.sortableFields.includes(query.sortBy))
-        ? query.sortBy
-        : this.defaultSortField;
-    const orderBy = { [sortBy]: query.sortOrder ?? 'asc' };
+    const orderBy = this.buildOrderBy(query);
 
     const [items, total] = await Promise.all([
       this.delegate.findMany({
@@ -152,7 +167,13 @@ export abstract class MasterDataCrudService<
       this.delegate.findMany({
         where,
         select: { id: true },
-        take: SELECT_ALL_MATCHING_CAP,
+        // Same order as the list, so "first N" is exactly the first N rows
+        // the user sees (and "all matching" truncates deterministically).
+        orderBy: this.buildOrderBy(query),
+        take: Math.min(
+          query.limit ?? SELECT_ALL_MATCHING_CAP,
+          SELECT_ALL_MATCHING_CAP,
+        ),
       }),
       this.delegate.count({ where }),
     ]);
