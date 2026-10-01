@@ -244,6 +244,89 @@ function paymentActions(moduleName: string): PermissionActionDef[] {
   ];
 }
 
+/** R6 — الإعدادات section: system administration + the per-domain setup keys. */
+const SETTINGS_SECTION = {
+  sectionKey: 'settings',
+  sectionLabelKey: 'permissions.sections.settings',
+} as const;
+
+/**
+ * R6 (spec A.3) — Settings are granted per business domain. Each domain has
+ * `settings.<domain>.view` / `settings.<domain>.manage`; the domain key is an
+ * ADDITIONAL way to be allowed — every existing granular key keeps working.
+ */
+export const SETTINGS_DOMAINS = [
+  'general',
+  'finance',
+  'shipping',
+  'costs',
+  'crm',
+  'integrations',
+] as const;
+
+export type SettingsDomain = (typeof SETTINGS_DOMAINS)[number];
+
+/**
+ * The catalog modules (setup controllers' `@PermissionModule` keys) whose
+ * configuration actions each domain grants — scoped to that domain only.
+ * User administration (`settings.manage`) deliberately belongs to no domain:
+ * a domain key must never let its holder grant themselves more access.
+ * `integrations` has no setup API yet — its key gates the Integrations page.
+ */
+export const SETTINGS_DOMAIN_MODULES: Record<
+  SettingsDomain,
+  readonly string[]
+> = {
+  general: ['departments', 'job-titles', 'numbering'],
+  finance: [
+    'payment-methods',
+    'payment-terms',
+    'payment-sources',
+    'currencies',
+    'taxes',
+    'journals',
+    'fiscal-configuration',
+    'cost-allocation-rules',
+    'receiving-accounts',
+  ],
+  shipping: [
+    'shipping-companies',
+    'shipping-statuses',
+    'fulfillment-cost-rules',
+  ],
+  costs: ['cost-components'],
+  crm: [
+    'customer-classifications',
+    'no-purchase-reasons',
+    'lead-follow-up-types',
+    'workflow-statuses',
+    'workflow-transitions',
+  ],
+  integrations: [],
+};
+
+/**
+ * Configuration actions a domain key covers. Operational actions on the same
+ * modules (e.g. cost-allocation `run`/`post`) stay with their own keys.
+ */
+const SETTINGS_DOMAIN_ACTIONS = {
+  view: ['view'],
+  manage: ['view', 'create', 'edit', 'delete', 'manage'],
+} as const;
+
+function settingsDomainModuleKey(domain: SettingsDomain) {
+  return `settings-${domain}`;
+}
+
+const SETTINGS_DOMAIN_LABEL_KEYS: Record<SettingsDomain, string> = {
+  general: 'permissions.modules.settingsGeneral',
+  finance: 'permissions.modules.settingsFinance',
+  shipping: 'permissions.modules.settingsShipping',
+  costs: 'permissions.modules.settingsCosts',
+  crm: 'permissions.modules.settingsCrm',
+  integrations: 'permissions.modules.settingsIntegrations',
+};
+
 export const PERMISSION_CATALOG: PermissionModuleDef[] = [
   {
     key: 'dashboard',
@@ -952,13 +1035,25 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     actions: [{ action: 'manage', name: 'accounting.fiscal-years.manage' }],
   },
   {
+    // Users & permissions administration and system-wide policies (e.g. the
+    // inventory valuation method) — never part of a settings domain.
     key: 'settings',
     labelKey: 'permissions.modules.settings',
+    ...SETTINGS_SECTION,
     actions: [
       { action: 'view', name: 'settings.view' },
       { action: 'manage', name: 'settings.manage' },
     ],
   },
+  ...SETTINGS_DOMAINS.map((domain): PermissionModuleDef => ({
+    key: settingsDomainModuleKey(domain),
+    labelKey: SETTINGS_DOMAIN_LABEL_KEYS[domain],
+    ...SETTINGS_SECTION,
+    actions: [
+      { action: 'view', name: `settings.${domain}.view` },
+      { action: 'manage', name: `settings.${domain}.manage` },
+    ],
+  })),
   {
     // Shipping Operations list/board — its own module (`shipping` sidebar
     // item, `GET /shipping`), separate from `store-orders` since a user can
@@ -1445,6 +1540,13 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'reports.inventory': 'reports.view',
   'import-center': 'datamanagement.view',
   settings: 'settings.view',
+  // R6 — every settings domain key reveals the Settings section.
+  'settings.general': 'settings.view',
+  'settings.finance': 'settings.view',
+  'settings.shipping': 'settings.view',
+  'settings.costs': 'settings.view',
+  'settings.crm': 'settings.view',
+  'settings.integrations': 'settings.view',
   'masterdata.departments': 'settings.view',
   'masterdata.customer-classifications': 'settings.view',
   'masterdata.no-purchase-reasons': 'settings.view',
@@ -1613,4 +1715,53 @@ export function withAuthorizationImpliedPermissions(names: string[]): string[] {
     }
   }
   return [...result];
+}
+
+/**
+ * R6 (spec A.3) — expands settings-domain keys into the granular setup keys
+ * they stand for, at RESOLVE time only (guards + `/auth/me`), never persisted:
+ * revoking the domain key revokes everything it granted, and the stored grant
+ * list keeps showing exactly what an administrator ticked.
+ *
+ * - `settings.<domain>.view`   → `view` of every module of that domain
+ * - `settings.<domain>.manage` → the domain's view key + every configuration
+ *   action (view/create/edit/delete/manage) of those modules
+ * - any domain key             → `settings.view` (reveals the section)
+ *
+ * Only the named domain's modules are touched; operational actions on the
+ * same modules (e.g. cost-allocation `run`/`post`) and user administration
+ * (`settings.manage`) are never implied.
+ */
+export function withSettingsDomainGrants(names: Iterable<string>): string[] {
+  const result = new Set(names);
+  for (const domain of SETTINGS_DOMAINS) {
+    const manage = result.has(`settings.${domain}.manage`);
+    const view = manage || result.has(`settings.${domain}.view`);
+    if (!view) continue;
+    result.add('settings.view');
+    result.add(`settings.${domain}.view`);
+    const actions: readonly string[] = manage
+      ? SETTINGS_DOMAIN_ACTIONS.manage
+      : SETTINGS_DOMAIN_ACTIONS.view;
+    for (const moduleKey of SETTINGS_DOMAIN_MODULES[domain]) {
+      const catalogModule = PERMISSION_CATALOG.find((m) => m.key === moduleKey);
+      for (const action of catalogModule?.actions ?? []) {
+        if (actions.includes(action.action)) result.add(action.name);
+      }
+    }
+  }
+  return [...result];
+}
+
+/** The settings domain a granular setup permission belongs to (null when none) — used by the migration mapping and its tests. */
+export function settingsDomainOfPermission(
+  name: string,
+): SettingsDomain | null {
+  for (const domain of SETTINGS_DOMAINS) {
+    for (const moduleKey of SETTINGS_DOMAIN_MODULES[domain]) {
+      const catalogModule = PERMISSION_CATALOG.find((m) => m.key === moduleKey);
+      if (catalogModule?.actions.some((a) => a.name === name)) return domain;
+    }
+  }
+  return null;
 }

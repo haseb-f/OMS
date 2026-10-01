@@ -180,7 +180,8 @@ export class AgentPortalService {
   /**
    * Agent-wide dashboard for `agent.records.view_all`; otherwise order
    * counts/sales over the caller's own orders. Money figures (sales,
-   * returns, collections, balance, payouts) only with `agent.statement.view`.
+   * returns, collections, balance, payouts) only with `agent.statement.view`;
+   * in OWN scope only the caller's own sales — never agent-level money.
    */
   async dashboard(agent: AgentRequestContext) {
     const [visibility, canSeeMoney] = await Promise.all([
@@ -197,10 +198,13 @@ export class AgentPortalService {
       agent: full.agent,
       fulfillment: own?.fulfillment ?? full.fulfillment,
       sales: canSeeMoney ? (own?.sales ?? full.sales) : null,
+      // R6 (spec A.5) — collections, statement position and payouts are
+      // agent-level money that cannot be attributed to one seller: in OWN
+      // scope they are never sent (the UI hides null blocks).
       returns: canSeeMoney && !own ? full.returns : null,
-      collections: canSeeMoney ? full.collections : null,
-      position: canSeeMoney ? full.position : null,
-      payouts: canSeeMoney ? full.payouts : null,
+      collections: canSeeMoney && !own ? full.collections : null,
+      position: canSeeMoney && !own ? full.position : null,
+      payouts: canSeeMoney && !own ? full.payouts : null,
     };
   }
 

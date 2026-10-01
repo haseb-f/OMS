@@ -383,6 +383,44 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
       expect(quote.status).toBe(403);
     });
 
+    it('R6 A.3: agent tokens get 403 on internal settings writes, even with a stored domain row', async () => {
+      const domainKey = await prisma.permission.upsert({
+        where: { name: 'settings.finance.manage' },
+        update: {},
+        create: {
+          name: 'settings.finance.manage',
+          description: 'Permission Matrix: settings.finance.manage',
+        },
+      });
+      // A stray internal row on an agent user must never authorize anything.
+      await prisma.userPermission.create({
+        data: { userId: users.adminA.id, permissionId: domainKey.id },
+      });
+      resolver.invalidate(users.adminA.id);
+      try {
+        for (const path of [
+          '/payment-methods',
+          '/number-series',
+          '/shipping-companies',
+          '/cost-components',
+          '/workflow/transitions',
+        ]) {
+          const res = await post(users.adminA.token, path);
+          expect([path, res.status]).toEqual([path, 403]);
+        }
+        const patch = await request(http)
+          .patch('/accounting/posting-settings')
+          .set('Authorization', `Bearer ${users.adminA.token}`)
+          .send({});
+        expect(patch.status).toBe(403);
+      } finally {
+        await prisma.userPermission.deleteMany({
+          where: { userId: users.adminA.id, permissionId: domainKey.id },
+        });
+        resolver.invalidate(users.adminA.id);
+      }
+    });
+
     it('agent token without a bearer or with a forged agentId is refused', async () => {
       expect((await request(http).get('/agent-portal/me')).status).toBe(401);
       const forged = agentToken({
@@ -771,6 +809,56 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
       expect(admin.body.fulfillment.total).toBe(2);
       expect(admin.body.sales.totalOrderValue).toBe(2100);
       expect(admin.body.position).not.toBeNull();
+    });
+
+    it('R6 A.5: OWN scope with statement.view gets own sales only — never agent-level money', async () => {
+      const statementView = await prisma.permission.findUniqueOrThrow({
+        where: { name: 'agent.statement.view' },
+      });
+      await prisma.userPermission.create({
+        data: { userId: users.salesA1.id, permissionId: statementView.id },
+      });
+      resolver.invalidate(users.salesA1.id);
+      try {
+        const sales = await get(users.salesA1.token, '/agent-portal/dashboard');
+        expect(sales.status).toBe(200);
+        expect(sales.body.scope).toBe('OWN');
+        // Own orders only (both agent-A orders belong to salesA1).
+        expect(sales.body.sales.totalOrderValue).toBe(2100);
+        expect(sales.body.returns).toBeNull();
+        expect(sales.body.collections).toBeNull();
+        expect(sales.body.position).toBeNull();
+        expect(sales.body.payouts).toBeNull();
+        // A second Sales user of the same agent with statement.view sees
+        // only their own (zero) sales — never salesA1's.
+        await prisma.userPermission.create({
+          data: { userId: users.salesA2.id, permissionId: statementView.id },
+        });
+        resolver.invalidate(users.salesA2.id);
+        const sales2 = await get(
+          users.salesA2.token,
+          '/agent-portal/dashboard',
+        );
+        expect(sales2.body.sales.totalOrderValue).toBe(0);
+        expect(sales2.body.collections).toBeNull();
+        // Agent Admin of the same agent keeps the whole-agent view.
+        const admin = await get(users.adminA.token, '/agent-portal/dashboard');
+        expect(admin.body.scope).toBe('ALL');
+        expect(admin.body.collections).not.toBeNull();
+        expect(admin.body.payouts).not.toBeNull();
+        // Agent B's Admin sees only agent B.
+        const adminB = await get(users.adminB.token, '/agent-portal/dashboard');
+        expect(adminB.body.agent.id).toBe(agentBId);
+      } finally {
+        await prisma.userPermission.deleteMany({
+          where: {
+            userId: { in: [users.salesA1.id, users.salesA2.id] },
+            permissionId: statementView.id,
+          },
+        });
+        resolver.invalidate(users.salesA1.id);
+        resolver.invalidate(users.salesA2.id);
+      }
     });
 
     it('payout detail is read-only, own agent only, with evidence', async () => {
