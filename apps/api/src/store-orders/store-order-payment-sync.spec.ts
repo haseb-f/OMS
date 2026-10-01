@@ -17,6 +17,8 @@ describe('StoreOrderPaymentSyncService — payment/fulfillment separation', () =
       payment: {
         aggregate: jest.fn().mockResolvedValue({ _sum: { amount: 100 } }),
       },
+      // R6 SHIP — the queue handoff runs in its own transaction.
+      $transaction: jest.fn().mockResolvedValue(undefined),
     };
     const statusResolver = {
       paymentStatusId: jest.fn().mockReturnValue('pay-status-id'),
@@ -42,5 +44,7 @@ describe('StoreOrderPaymentSyncService — payment/fulfillment separation', () =
     expect(data.shippingStage).toBeUndefined();
     expect(data.fulfillmentStatus).toBeUndefined();
     expect(statusResolver.fulfillmentStatusId).not.toHaveBeenCalled();
+    // Verified PAID only offers the order to the Shipping queue (R6 SHIP).
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PaymentStatus, Prisma } from '@prisma/client';
+import { evaluateShippingReadiness } from '../../store-orders/shipments/shipping-handoff';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import type { AgentRequestContext } from '../../auth/guards/jwt-auth.guard';
@@ -307,6 +308,8 @@ export class AgentPortalOrdersService {
         shippingRateAmount: true,
         shippingOverrideReason: true,
         shippingStage: true,
+        deletedAt: true,
+        paymentStatusDef: { select: { code: true } },
         paymentDiscrepancyReason: true,
         lead: { select: { id: true, leadNumber: true } },
         items: {
@@ -511,6 +514,14 @@ export class AgentPortalOrdersService {
       fulfillment: {
         status: order.fulfillmentStatus,
         shippingStage: order.shippingStage,
+        /**
+         * R6 SHIP — read-only: why a shipping order has not reached the
+         * company Shipping team yet (blocker code only; null = in Shipping).
+         */
+        shippingBlocker:
+          order.fulfillmentMethod === 'SHIPPING' && order.shipments.length === 0
+            ? evaluateShippingReadiness(order).blocker
+            : null,
         dispatchedAt: order.agentDispatchedAt,
         earnedAt: order.agentEarnedAt,
         /** No inventory line (frozen stock flag): nothing to ship — completed once earned. */

@@ -73,6 +73,10 @@ import { OrderEconomicsService } from './order-economics/order-economics.service
 import { AccountMappingService } from '../accounting/account-mapping/account-mapping.service';
 import { evaluateFulfillmentGate } from './store-order-fulfillment-gate';
 import {
+  ensureShippingQueued,
+  readShippingHandoff,
+} from './shipments/shipping-handoff';
+import {
   recomputeDeclaredPaymentStatus,
   resolvePaymentSourceId,
   standingClaimsTotal,
@@ -531,6 +535,10 @@ export class StoreOrdersService {
         }
 
         if (afterCreate) await afterCreate(tx, created.id);
+
+        // R6 SHIP hook — an eligible shipping order goes straight into the
+        // internal Shipping queue (company and agent orders alike).
+        await ensureShippingQueued(tx, created.id, { actorId: userId });
 
         return created;
       });
@@ -1379,6 +1387,9 @@ export class StoreOrdersService {
         where: { id },
         data: { deletedAt: new Date(), updatedBy: userId },
       });
+      // R6 SHIP hook — an archived order leaves the Shipping queue when no
+      // one has worked on its attempt yet (worked attempts are kept).
+      await ensureShippingQueued(tx, id, { actorId: userId });
       await this.activityService.log(
         id,
         StoreOrderActivityType.ORDER_ARCHIVED,
@@ -1519,6 +1530,15 @@ export class StoreOrdersService {
    * Central fulfillment gate — see `evaluateFulfillmentGate`: PREPAID needs a
    * full paid declaration OR verified payment; COD may ship before payment.
    */
+  /**
+   * R6 SHIP — is this order in the internal Shipping queue, and if not, why
+   * (archived, cancelled, pickup, nothing to ship, prepaid awaiting payment).
+   */
+  async shippingHandoff(id: string, userId?: string) {
+    await this.findOne(id, userId);
+    return readShippingHandoff(this.prisma, id);
+  }
+
   async canFulfill(id: string) {
     const order = await this.findOne(id);
     return evaluateFulfillmentGate({
