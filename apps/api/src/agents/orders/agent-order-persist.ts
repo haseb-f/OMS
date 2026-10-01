@@ -54,9 +54,13 @@ export interface AgentOrderPersistInput {
     inventoryLine: boolean;
     /** Commission class, source and rate resolved at submission (commission-policy.md A5). */
     commission: AgentLineCommissionRate;
+    /** List price × quantity at submission (null = no list price). */
+    listAmount: number | null;
   }>;
   /** Predetermined agent shipping charge (PREDETERMINED_CHARGE policy), else null. */
   agentShippingCharge: AgentShippingChargeSnapshot | null;
+  /** Spec 2 — PENDING_METHOD until Shipping selects the delivery method. */
+  shippingPricingStatus: 'NOT_APPLICABLE' | 'PENDING_METHOD' | 'CONFIRMED';
 }
 
 /** Agreement terms + typed customer + per-line stock flags, written once. */
@@ -67,6 +71,7 @@ export function agentOrderSnapshot(
     productId: line.productId,
     inventoryLine: line.inventoryLine,
     commission: line.commission,
+    listAmount: line.listAmount,
   }));
   return {
     ...input.agentTermsSnapshot,
@@ -94,6 +99,7 @@ export function agentOrderColumns(input: AgentOrderPersistInput) {
     shippingOverrideReason: input.shippingOverrideReason,
     serviceCharge: input.serviceCharge,
     payableTotal: input.payableTotal,
+    shippingPricingStatus: input.shippingPricingStatus,
   } satisfies Partial<Prisma.StoreOrderUncheckedCreateInput>;
 }
 
@@ -140,6 +146,11 @@ export function agentOrderActivityDetails(
     `service ${money(input.serviceCharge)}`,
     `tax ${money(input.taxAmount)}`,
     `payable ${money(input.payableTotal)}`,
+    ...(input.shippingPricingStatus === 'PENDING_METHOD'
+      ? [
+          `shipping provisional — final when Shipping selects the delivery method`,
+        ]
+      : []),
   ];
   return parts.join(' · ');
 }

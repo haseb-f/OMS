@@ -9,6 +9,7 @@ import {
   paymentStageTone,
   verificationTone,
 } from "@/config/agent-portal/labels";
+import { claimVerificationTerm, paymentTerm } from "@/config/payments/payment-vocabulary";
 import { useLocale } from "@/providers/locale-provider";
 import type {
   CatalogStatus,
@@ -61,7 +62,7 @@ export function VerificationBadge({ verification }: { verification: ClaimVerific
   const { t } = useLocale();
   return (
     <StatusBadge
-      label={t(`agentPortal.status.verification.${verification}`)}
+      label={t(paymentTerm(claimVerificationTerm(verification)).labelKey)}
       tone={verificationTone(verification)}
     />
   );

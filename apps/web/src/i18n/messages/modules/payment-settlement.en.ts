@@ -38,12 +38,6 @@ const paymentSettlementEn = {
     carrying: "Carrying value",
     lines: "Claims",
   },
-  claimStatus: {
-    NOT_APPLICABLE: "Not applicable",
-    AWAITING_SETTLEMENT: "Awaiting settlement",
-    PARTIALLY_SETTLED: "Partially settled",
-    SETTLED: "Settled",
-  },
   docStatus: {
     ALL: "All statuses",
     POSTED: "Posted",

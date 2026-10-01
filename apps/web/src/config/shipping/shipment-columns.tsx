@@ -8,7 +8,7 @@ import { StackedCell } from "@/components/shared/stacked-cell";
 import { JournalTraceCell } from "@/components/accounting/journal-trace-cell";
 import { ShipmentAttachmentsPopover } from "@/components/shipping/shipment-attachments-popover";
 import { formatDate } from "@/lib/date";
-import { shipmentStatusLabelKey } from "./shipment-status";
+import { shipmentStatusLabelKey, shippingStatusName } from "./shipment-status";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import type { ShipmentListRow } from "@/services/shipping-service";
@@ -146,7 +146,8 @@ export function buildShipmentColumns(
       meta: {
         titleKey: "shipping.fields.status",
         // Print / preview text = the badge the cell shows (catalog status, else the lifecycle label).
-        displayValue: (row, t) => row.shippingStatus?.name ?? t(shipmentStatusLabelKey(row.status)),
+        displayValue: (row, t) =>
+          shippingStatusName(row.shippingStatus, t) ?? t(shipmentStatusLabelKey(row.status)),
       },
       enableSorting: false,
       cell: ({ row }) => <ShippingStatusQuickCell row={row.original} ctx={handlers.quickEdit} />,

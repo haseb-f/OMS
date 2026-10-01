@@ -1,15 +1,23 @@
 import paymentDeclarationEn from "./modules/payment-declaration.en";
 import paymentReconciliationEn from "./modules/payment-reconciliation.en";
 import paymentSettlementEn from "./modules/payment-settlement.en";
+import paymentVocabularyEn from "./modules/payment-vocabulary.en";
 import fxSettingsEn from "./modules/fx-settings.en";
 import docUiEn from "./modules/doc-ui.en";
 import feedbackEn from "./modules/feedback.en";
 import productCommissionEn from "./modules/product-commission.en";
+import agentPricingEn from "./modules/agent-pricing.en";
+import orderDuplicatesEn from "./modules/order-duplicates.en";
+import orderAmendmentsEn from "./modules/order-amendments.en";
 const en = {
   productCommission: productCommissionEn,
+  agentPricing: agentPricingEn,
+  orderDuplicates: orderDuplicatesEn,
+  orderAmendments: orderAmendmentsEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
+  paymentVocabulary: paymentVocabularyEn,
   fxSettings: fxSettingsEn,
   docUi: docUiEn,
   feedback: feedbackEn,
@@ -154,6 +162,19 @@ const en = {
    * for the (currently unused) secondary locale.
    */
   errors: {
+    ORDER_VERSION_CONFLICT: "This order was changed meanwhile. Reload to see the latest version.",
+    AMENDMENT_BLOCKED: "The amendment cannot be saved — review the listed reasons.",
+    AMENDMENT_ACKNOWLEDGEMENT_REQUIRED: "Confirm every listed impact, then save again.",
+    AMENDMENT_PREVIEW_STALE: "The impact changed since your review — check it again, then save.",
+    STORE_ORDER_ALREADY_INVOICED: "This order is already invoiced by another invoice.",
+    AMENDMENT_NO_CHANGES: "Nothing to amend — change at least one field.",
+    AGENT_ORDER_CUSTOMER_SWITCH:
+      "An agent order's customer is identified by the typed name and mobile — correct those instead.",
+    CUSTOMER_PHONE_INVALID: "The customer phone number is not valid.",
+    LINE_HAS_ALLOCATIONS:
+      "A removed or changed line is allocated to an investment opportunity — reverse that allocation first.",
+    DUPLICATE_ACKNOWLEDGEMENT_REQUIRED:
+      "A customer with these details already exists — choose how to continue, then save again.",
     VALIDATION_ERROR: "Check the information you entered and try again.",
     VALIDATION_ERROR_FIELD: 'The value in "{field}" isn\'t valid. Check it, then try saving again.',
     DUPLICATE:
@@ -266,6 +287,8 @@ const en = {
       export: "Export",
       import: "Import",
       manage: "Manage",
+      duplicateReview: "Duplicate review",
+      amend: "Amend order",
     },
     modules: {
       dashboard: "Dashboard",
@@ -428,7 +451,7 @@ const en = {
     financeJournalEntries: "Journal Entries",
     financeCustomerReceipts: "Receipts",
     financeSupplierPayments: "Payments",
-    financePaymentReview: "Payment Review",
+    financePaymentReview: "Payments review",
     financeFiscalPeriods: "Fiscal Years & Periods",
     financeOpeningBalances: "Opening Balances",
     financeYearClosing: "Year Closing",
@@ -3898,12 +3921,6 @@ const en = {
         amount: "Amount",
         paid: "Paid",
         remaining: "Remaining",
-        recordStatus: {
-          PENDING: "Awaiting confirmation",
-          MATCHED: "Matched — not posted",
-          VERIFIED: "Confirmed & posted",
-          REJECTED: "Rejected",
-        },
         add: "Add Payment",
         addTitle: "Add Payment",
         addDescription:
@@ -4759,6 +4776,7 @@ const en = {
       description:
         "Confirm & post or reject customer-reported payments. Confirming posts one customer receipt and its journal entry in a single step.",
       queue: "Review queue",
+      searchPlaceholder: "Payment #, order #, reference or customer",
       fields: {
         number: "Payment",
         customer: "Customer",

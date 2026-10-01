@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -141,6 +142,16 @@ export class UpsertShippingRateDto {
   @IsOptional()
   @MaxLength(120)
   city?: string;
+
+  /** Spec 2 — ANY (default) matches every delivery channel. */
+  @IsOptional()
+  @IsIn(['ANY', 'CARRIER', 'INTERNAL_COURIER'])
+  deliveryChannel?: 'ANY' | 'CARRIER' | 'INTERNAL_COURIER';
+
+  /** Spec 2 — ANY (default) matches every payment type. */
+  @IsOptional()
+  @IsIn(['ANY', 'PREPAID', 'CASH_ON_DELIVERY'])
+  paymentType?: 'ANY' | 'PREPAID' | 'CASH_ON_DELIVERY';
 
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })

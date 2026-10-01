@@ -9,9 +9,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
 import type { DeclaredPaymentStatus } from "./declaration-logic";
+import { PaymentSettlementBadge } from "@/components/payments/payment-term-badge";
 import {
   DECLARED_STATUS_TONE,
-  SETTLEMENT_TONE,
   VERIFICATION_TONE,
   declaredStatusLabelKey,
   financeVerificationState,
@@ -26,16 +26,24 @@ interface PanelClaim {
 }
 
 /** Order-level discrepancy flag raised by Finance after fulfillment started. */
+/** Marker the amendment workflow appends to the discrepancy it records (Spec 1A). */
+const AMENDMENT_DISCREPANCY_SUFFIX = " (order amendment).";
+
 export function PaymentDiscrepancyAlert({ reason }: { reason?: string | null }) {
   const { t } = useLocale();
+  // An amendment-raised discrepancy gets its own localized explanation; the
+  // English detail line lives in the order's amendment history instead.
+  const fromAmendment = !!reason?.endsWith(AMENDMENT_DISCREPANCY_SUFFIX);
   return (
     <Alert tone="warning">
       <AlertTriangle />
       <div className="flex flex-col gap-0.5">
         <AlertTitle>{t("paymentDeclaration.discrepancy.title")}</AlertTitle>
         <AlertDescription>
-          {t("paymentDeclaration.discrepancy.description")}
-          {reason ? <span className="block">{reason}</span> : null}
+          {fromAmendment
+            ? t("paymentDeclaration.discrepancy.amendmentDescription")
+            : t("paymentDeclaration.discrepancy.description")}
+          {reason && !fromAmendment ? <span className="block">{reason}</span> : null}
         </AlertDescription>
       </div>
     </Alert>
@@ -123,12 +131,7 @@ export function OrderPaymentStatusPanel({
             </p>
             <DetailFieldRow
               label={t("common.status")}
-              value={
-                <StatusBadge
-                  label={t(`paymentDeclaration.settlement.${settlement}` as MessageKey)}
-                  tone={SETTLEMENT_TONE[settlement]}
-                />
-              }
+              value={<PaymentSettlementBadge status={settlement} />}
             />
           </div>
         ) : null}

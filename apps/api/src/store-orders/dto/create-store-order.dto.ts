@@ -9,6 +9,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 import {
@@ -21,6 +22,7 @@ import { FindOrCreatePartnerDto } from '../../partners/dto/find-or-create-partne
 import { CreateStoreOrderItemDto } from './create-store-order-item.dto';
 import { CreateStoreOrderPaymentDto } from './create-store-order-payment.dto';
 import { CreateOrderPaymentDeclarationDto } from './declare-store-order-payment.dto';
+import { DuplicateResolutionDto } from '../duplicates/dto/duplicate.dto';
 
 /** The store order's counterparty is always CUSTOMER-role — `role` is fixed server-side, never accepted from the caller. */
 export class StoreOrderPartnerDto extends OmitType(FindOrCreatePartnerDto, [
@@ -96,4 +98,20 @@ export class CreateStoreOrderDto {
   @Type(() => CreateOrderPaymentDeclarationDto)
   @IsOptional()
   declaration?: CreateOrderPaymentDeclarationDto;
+
+  /**
+   * Round 5 Spec 1B — one key per create-form instance: a retried or double
+   * submit with the same key returns the first order (`idempotentReplay`).
+   * Manual create only (namespaced by the caller server-side).
+   */
+  @IsString()
+  @MaxLength(100)
+  @IsOptional()
+  creationIdempotencyKey?: string;
+
+  /** Spec 1B — the answer to the duplicate warning (manual create only). */
+  @ValidateNested()
+  @Type(() => DuplicateResolutionDto)
+  @IsOptional()
+  duplicateResolution?: DuplicateResolutionDto;
 }

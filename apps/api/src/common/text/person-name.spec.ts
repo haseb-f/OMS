@@ -1,0 +1,60 @@
+import { personNameKey } from './person-name';
+
+describe('personNameKey (Spec 1B name-only duplicate match)', () => {
+  const same = (a: string, b: string) =>
+    expect(personNameKey(a)).toBe(personNameKey(b));
+
+  it('treats alef / hamza-on-alef forms as one letter', () => {
+    same('أحمد', 'احمد');
+    same('إبراهيم', 'ابراهيم');
+    same('آمنة', 'امنه');
+    same('ٱلسيد', 'السيد');
+  });
+
+  it('treats ya / alef maqsura and ta marbuta / ha as equal', () => {
+    same('مصطفى', 'مصطفي');
+    same('فاطمة', 'فاطمه');
+  });
+
+  it('folds hamza carriers and drops a standalone hamza', () => {
+    same('مؤمن', 'مومن');
+    same('هانئ', 'هاني');
+    same('علاء', 'علا');
+  });
+
+  it('folds decomposed hamza / maddah marks, Persian letters and ZWNJ', () => {
+    const hamzaAbove = String.fromCharCode(0x0654);
+    const hamzaBelow = String.fromCharCode(0x0655);
+    const maddah = String.fromCharCode(0x0653);
+    const zwnj = String.fromCharCode(0x200c);
+    same(`ا${hamzaAbove}حمد`, 'أحمد');
+    same(`ا${hamzaBelow}براهيم`, 'ابراهيم');
+    same(`ا${maddah}منة`, 'امنه');
+    same(`مو${hamzaAbove}من`, 'مؤمن');
+    same('علی', 'علي');
+    same('کمال', 'كمال');
+    same(`عبد${zwnj}الله`, 'عبدالله');
+  });
+
+  it('ignores diacritics and tatweel', () => {
+    same('مُحَمَّد', 'محمد');
+    same('محـــمد', 'محمد');
+  });
+
+  it('ignores whitespace and case', () => {
+    same('عبد الله', 'عبدالله');
+    same('  Ahmed   Ali ', 'ahmed ali');
+    same('AHMED ALI', 'ahmedali');
+  });
+
+  it('keeps different names different', () => {
+    expect(personNameKey('أحمد علي')).not.toBe(personNameKey('أحمد عمر'));
+    expect(personNameKey('Sara')).not.toBe(personNameKey('Sarah'));
+  });
+
+  it('returns an empty key for empty input', () => {
+    expect(personNameKey('')).toBe('');
+    expect(personNameKey(null)).toBe('');
+    expect(personNameKey('   ')).toBe('');
+  });
+});

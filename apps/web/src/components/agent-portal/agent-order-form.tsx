@@ -8,6 +8,7 @@ import {
   CreditCard,
   Loader2,
   PackageCheck,
+  PackageOpen,
   PackagePlus,
   Plus,
   Store,
@@ -15,6 +16,7 @@ import {
   Truck,
   type LucideIcon,
 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +65,9 @@ import { useLocale } from "@/providers/locale-provider";
 import { formatMoney } from "@/lib/money";
 import { reportApiError, reportSuccess } from "@/lib/toast";
 import { OrderBreakdown } from "./order-breakdown";
+import { DuplicateCustomerPanel } from "@/components/business/duplicate-customer-panel";
+import { useDuplicateCheck } from "@/hooks/use-duplicate-check";
+import { duplicateFromError, orderDuplicatesService } from "@/services/order-duplicates-service";
 
 const QUOTE_DEBOUNCE_MS = 400;
 
@@ -146,6 +151,14 @@ export function AgentOrderForm({
   // One idempotency key per form instance: a retried or double submit returns the first order.
   const [idempotencyKey] = useState(() => newIdempotencyKey());
   const requestSeq = useRef(0);
+  // Round 5 Spec 1B — duplicate customer warning inside the caller's agent.
+  const duplicates = useDuplicateCheck({
+    phone: lead ? lead.mobileNumber : state.mobile,
+    name: lead ? lead.customerName : state.customerName,
+    countryId: lead ? (lead.country?.id ?? null) : state.countryId,
+    enabled: true,
+    check: orderDuplicatesService.checkAsAgent,
+  });
 
   useEffect(() => {
     agentPortalService
@@ -216,7 +229,8 @@ export function AgentOrderForm({
     quoteIssues.filter((issue) => issue.lineKey === String(index));
   const shippingApplies = state.fulfillmentMethod === "SHIPPING" && !readyQuote?.digitalOnly;
   const overrideAllowed = !!readyQuote?.shipping.overrideAllowed && shippingApplies;
-  const canSubmit = errors.length === 0 && quoteCurrent && !!readyQuote?.valid && !isSaving;
+  const canSubmit =
+    errors.length === 0 && quoteCurrent && !!readyQuote?.valid && !isSaving && !duplicates.blocked;
   const hint = quoteCurrent ? workedHint(readyQuote) : null;
   const money = (value: number) => formatMoney(value, currency?.code ?? null);
 
@@ -239,9 +253,18 @@ export function AgentOrderForm({
     if (!canSubmit) return;
     setIsSaving(true);
     try {
+      const resolution = duplicates.resolution
+        ? { duplicateResolution: duplicates.resolution }
+        : {};
       const created = lead
-        ? await agentPortalService.leads.convert(lead.id, buildConvertLeadInput(state)!)
-        : await agentPortalService.orders.create(buildCreateOrderInput(state, idempotencyKey)!);
+        ? await agentPortalService.leads.convert(lead.id, {
+            ...buildConvertLeadInput(state, idempotencyKey)!,
+            ...resolution,
+          })
+        : await agentPortalService.orders.create({
+            ...buildCreateOrderInput(state, idempotencyKey)!,
+            ...resolution,
+          });
       const href = `/agent/orders/${created.id}`;
       reportSuccess(
         t("agentPortal.orderForm.toasts.created", { number: created.internalOrderId }),
@@ -254,6 +277,9 @@ export function AgentOrderForm({
       );
       router.push(href);
     } catch (error) {
+      // A customer the panel had not answered — reopen it.
+      const duplicate = duplicateFromError(error);
+      if (duplicate) duplicates.applyServerResult(duplicate);
       reportApiError(error, "agentPortal.orderForm.toasts.createFailed");
       setIsSaving(false);
     }
@@ -287,6 +313,8 @@ export function AgentOrderForm({
             shippingSource={readyQuote.shipping.source}
             shippingRate={readyQuote.shipping.rate}
             rateScope={readyQuote.shipping.rateScope}
+            provisional={readyQuote.shippingPricingStatus === "PENDING_METHOD"}
+            mode={readyQuote.breakdown.mode}
           />
         ) : null}
         {hint ? (
@@ -334,6 +362,9 @@ export function AgentOrderForm({
           ) : null}
           {lead ? t("agentPortal.orderForm.convertSubmit") : t("agentPortal.orderForm.submit")}
         </EnterpriseButton>
+        {duplicates.blocked && duplicates.state.status === "ready" ? (
+          <p className="text-caption text-destructive">{t("orderDuplicates.required")}</p>
+        ) : null}
         {showErrors && errors.length > 0 ? (
           <ul className="flex flex-col gap-0.5">
             {errors.map((error) => (
@@ -364,6 +395,11 @@ export function AgentOrderForm({
                   .filter(Boolean)
                   .join(" · ")}
               </p>
+              <DuplicateCustomerPanel
+                state={duplicates.state}
+                onChoose={duplicates.choose}
+                orderHref={(id) => `/agent/orders/${id}`}
+              />
             </FormSection>
           ) : (
             <FormSection title={t("agentPortal.orderForm.sections.customer")}>
@@ -451,6 +487,12 @@ export function AgentOrderForm({
                   onChange={(event) => set({ address: event.target.value })}
                 />
               </FormCardField>
+              <DuplicateCustomerPanel
+                state={duplicates.state}
+                onChoose={duplicates.choose}
+                orderHref={(id) => `/agent/orders/${id}`}
+                onEditDetails={() => document.getElementById(`${fieldId}-mobile`)?.focus()}
+              />
             </FormSection>
           )}
 
@@ -571,6 +613,15 @@ export function AgentOrderForm({
               </EnterpriseButton>
             }
           >
+            {products && products.length === 0 ? (
+              <Alert tone="info">
+                <PackageOpen />
+                <div className="flex flex-col gap-0.5">
+                  <AlertTitle>{t("agentPricing.emptyCatalog.title")}</AlertTitle>
+                  <AlertDescription>{t("agentPricing.emptyCatalog.agent")}</AlertDescription>
+                </div>
+              </Alert>
+            ) : null}
             <ul className="flex flex-col gap-2">
               {state.lines.map((line, index) => {
                 const product = productById.get(line.productId);

@@ -33,6 +33,8 @@ const ACTION_LABEL_KEY: Record<string, MessageKey> = {
   export: "permissions.actions.export",
   import: "permissions.actions.import",
   manage: "permissions.actions.manage",
+  duplicate_review: "permissions.actions.duplicateReview",
+  amend: "permissions.actions.amend",
 };
 
 /**

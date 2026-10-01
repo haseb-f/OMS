@@ -3,6 +3,8 @@ import {
   createProductCommissionSchema,
   isValidCommissionRate,
   toProductCommissionInput,
+  commissionDraftInput,
+  commissionDraftInvalid,
 } from "./product-commission-form";
 
 const schema = createProductCommissionSchema((key) => key);
@@ -48,5 +50,23 @@ describe("product commission form", () => {
         reason: " back to agreement ",
       }),
     ).toEqual({ source: "INHERIT", effectiveFrom: "2026-10-01", reason: "back to agreement" });
+  });
+});
+
+describe("commission draft saved with a new agent product (spec 2A)", () => {
+  it("inherits without a request and sends an override effective today (0% included)", () => {
+    expect(commissionDraftInput({ source: "INHERIT", rate: "" }, "2026-09-30")).toBeNull();
+    expect(commissionDraftInput({ source: "OVERRIDE", rate: "0" }, "2026-09-30")).toEqual({
+      source: "OVERRIDE",
+      ratePercent: 0,
+      effectiveFrom: "2026-09-30",
+    });
+  });
+
+  it("refuses an override without a valid rate", () => {
+    expect(commissionDraftInvalid({ source: "OVERRIDE", rate: "" })).toBe(true);
+    expect(commissionDraftInvalid({ source: "OVERRIDE", rate: "120" })).toBe(true);
+    expect(commissionDraftInvalid({ source: "OVERRIDE", rate: "12.5" })).toBe(false);
+    expect(commissionDraftInvalid({ source: "INHERIT", rate: "" })).toBe(false);
   });
 });

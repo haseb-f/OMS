@@ -30,10 +30,16 @@ import {
   type ProductCommissionSetting,
 } from "@/services/product-commission-service";
 import {
+  commissionDraftInvalid,
   createProductCommissionSchema,
   toProductCommissionInput,
+  type ProductCommissionDraft,
   type ProductCommissionFormValues,
 } from "./product-commission-form";
+import { SegmentedRadioGroup } from "@/components/documents/segmented-radio-group";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { FieldMessage } from "@/components/ui/form";
 
 const formatRate = (rate: number) => `${formatNumber(rate, { maxDecimals: 4 })}%`;
 
@@ -267,6 +273,70 @@ export function ProductCommissionSection({ productId }: { productId: string }) {
           empty={t("productCommission.history.empty")}
         />
       </ModalFieldFullWidth>
+    </ModalSection>
+  );
+}
+
+/**
+ * Spec 2 (R5) 2A — commission choice for an agent-owned product that has no
+ * setting yet (a new product, or one just assigned to an agent): inherit the
+ * agreement or an item override, saved together with the product.
+ */
+export function ProductCommissionDraftSection({
+  value,
+  onChange,
+  showErrors,
+}: {
+  value: ProductCommissionDraft;
+  onChange: (value: ProductCommissionDraft) => void;
+  showErrors: boolean;
+}) {
+  const { t } = useLocale();
+  const rateId = "product-commission-draft-rate";
+  const invalid = showErrors && commissionDraftInvalid(value);
+  return (
+    <ModalSection
+      title={t("agentPricing.commissionDraft.title")}
+      description={t("agentPricing.commissionDraft.description")}
+      columns={2}
+    >
+      <div className="flex flex-col gap-1.5">
+        <Label>{t("agentPricing.commissionDraft.source")}</Label>
+        <SegmentedRadioGroup
+          aria-label={t("agentPricing.commissionDraft.source")}
+          value={value.source}
+          onValueChange={(source) => onChange({ ...value, source })}
+          options={(["INHERIT", "OVERRIDE"] as const).map((source) => ({
+            value: source,
+            label: t(`productCommission.sourceValue.${source}`),
+          }))}
+        />
+      </div>
+      {value.source === "OVERRIDE" ? (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={rateId}>
+            {t("agentPricing.commissionDraft.ratePercent")}{" "}
+            <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id={rateId}
+            dir="ltr"
+            inputMode="decimal"
+            value={value.rate}
+            aria-invalid={invalid || undefined}
+            onChange={(event) => onChange({ ...value, rate: event.target.value })}
+          />
+          {invalid ? (
+            <FieldMessage announce={false}>
+              {t("agentPricing.commissionDraft.rateRequired")}
+            </FieldMessage>
+          ) : (
+            <p className="text-caption text-muted-foreground">
+              {t("agentPricing.commissionDraft.zeroHint")}
+            </p>
+          )}
+        </div>
+      ) : null}
     </ModalSection>
   );
 }

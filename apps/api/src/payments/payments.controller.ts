@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
   UploadedFile,
@@ -32,6 +33,12 @@ import { RejectPaymentDto } from './dto/reject-payment.dto';
 import { DisputePaymentDto } from './dto/dispute-payment.dto';
 import { FindPaymentsQueryDto } from './dto/find-payments-query.dto';
 import { SetActualFeeDto } from './dto/set-actual-fee.dto';
+import {
+  BulkConfirmPaymentsDto,
+  BulkRejectPaymentsDto,
+} from './dto/bulk-payment-action.dto';
+import { PaymentReviewService } from './payment-review.service';
+import { PaymentsBulkService } from './payments-bulk.service';
 import { ATTACHMENT_MAX_BYTES } from '../common/storage/file-validation';
 import { AttachmentsService } from '../common/storage/attachments.service';
 
@@ -50,6 +57,8 @@ export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
     private readonly attachments: AttachmentsService,
+    private readonly review: PaymentReviewService,
+    private readonly bulk: PaymentsBulkService,
   ) {}
 
   @Post()
@@ -62,9 +71,49 @@ export class PaymentsController {
     return this.paymentsService.findAll(query);
   }
 
+  // Static routes are declared BEFORE the `:id` routes on purpose: Express
+  // matches in registration order, so `review-summary` / `bulk` never reach
+  // `GET :id` / `POST :id/confirm` / `POST :id/reject` as an id.
+
+  /** Payments review stage strip: counts + amounts per currency (statement stages only with reconciliation view). */
+  @Get('review-summary')
+  @PermissionAction('view')
+  reviewSummary(@CurrentUser() user: JwtPayload) {
+    return this.review.summary(user.sub);
+  }
+
+  /** Bulk Confirm & Post — each id through `confirm` in its own transaction; per-item results. */
+  @Post('bulk/confirm')
+  @HttpCode(200)
+  @PermissionAction('confirm')
+  bulkConfirm(
+    @Body() dto: BulkConfirmPaymentsDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.bulk.confirmMany(dto.ids, user.sub);
+  }
+
+  /** Bulk reject declarations with one shared reason — each id through `reject`. */
+  @Post('bulk/reject')
+  @HttpCode(200)
+  @PermissionAction('confirm')
+  bulkReject(
+    @Body() dto: BulkRejectPaymentsDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.bulk.rejectMany(dto.ids, dto.rejectionReason, user.sub);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.paymentsService.findOne(id);
+  }
+
+  /** Match panel — the declaration side (order, customer, evidence, debit account, receipt/JE). */
+  @Get(':id/review-context')
+  @PermissionAction('view')
+  reviewContext(@Param('id', ParseUUIDPipe) id: string) {
+    return this.review.context(id);
   }
 
   @Post(':id/match')

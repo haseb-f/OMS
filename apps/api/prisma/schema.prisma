@@ -90,9 +90,12 @@ model User {
 
   /// Store Orders + Shipping Operations — independent order pipeline, not
   /// routed through Lead/SalesOrder. See the StoreOrder model comment.
-  storeOrdersAsEmployee    StoreOrder[]         @relation("StoreOrderEmployee")
-  storeOrderReceiptUploads StoreOrderReceipt[]
-  storeOrderActivities     StoreOrderActivity[]
+  storeOrdersAsEmployee      StoreOrder[]          @relation("StoreOrderEmployee")
+  /// Round 5 Spec 1B — orders whose cross-scope duplicate review this user resolved.
+  storeOrderDuplicateReviews StoreOrder[]          @relation("StoreOrderDuplicateReviewer")
+  storeOrderAmendments       StoreOrderAmendment[] @relation("StoreOrderAmendmentActor")
+  storeOrderReceiptUploads   StoreOrderReceipt[]
+  storeOrderActivities       StoreOrderActivity[]
 
   statusHistoryChanges       StatusHistory[]    @relation("StatusHistoryChangedBy")
   workflowApprovalsRequested WorkflowApproval[] @relation("WorkflowApprovalRequestedBy")
@@ -2036,6 +2039,14 @@ model Shipment {
   notes String?
 
   isReship Boolean @default(false) @map("is_reship")
+
+  /// Round 5 Spec 1A — an amendment changed items / address / fulfillment
+  /// after this label was issued (LABEL_CREATED, not handed over): the label
+  /// must be cancelled and reissued. Cleared when a new label is set; the
+  /// shipment cannot be marked shipped while it is set.
+  labelReissueRequired      Boolean   @default(false) @map("label_reissue_required")
+  labelReissueRequestedAt   DateTime? @map("label_reissue_requested_at")
+  labelReissueRequestedById String?   @map("label_reissue_requested_by_id") @db.Uuid
 
   /// Data Synchronization (Google Sheets / CSV shipping updates) conflict
   /// detection — stamped only by `ShippingUpdatesImportHandler` right after
@@ -4894,6 +4905,14 @@ enum StoreOrderFulfillmentMethod {
   PICKUP
 }
 
+/// Round 5 Spec 1B — cross-scope duplicate review of a created order.
+enum StoreOrderDuplicateReviewStatus {
+  NONE
+  PENDING
+  CONFIRMED_DISTINCT
+  CONFIRMED_DUPLICATE
+}
+
 model StoreOrder {
   id String @id @default(uuid()) @db.Uuid
 
@@ -4973,10 +4992,37 @@ model StoreOrder {
   serviceCharge          Decimal?               @map("service_charge") @db.Decimal(12, 2)
   payableTotal           Decimal?               @map("payable_total") @db.Decimal(12, 2)
 
+  /// Spec 2 — agent shipping tariff state (PREDETERMINED_CHARGE agent orders).
+  shippingPricingStatus StoreOrderShippingPricingStatus @default(NOT_APPLICABLE) @map("shipping_pricing_status")
+  /// Spec 2 — customer agreement to a higher confirmed payable (shipping added).
+  customerTotalStatus   StoreOrderCustomerTotalStatus   @default(NONE) @map("customer_total_status")
+
   /// Set once when agent stock is issued (shipment SHIPPED / pickup handover).
   agentDispatchedAt DateTime? @map("agent_dispatched_at")
   /// Set once when the agreement's earning event is reached.
   agentEarnedAt     DateTime? @map("agent_earned_at")
+
+  /// Round 5 Spec 1B — the create form's client key, namespaced by channel
+  /// and actor (`store-order:<user>:<key>`, `lead-convert:<user>:<key>`,
+  /// `agent-order:<agent>:<key>`). A retried submit with the same key returns
+  /// this order instead of creating a second one.
+  creationIdempotencyKey String?                         @unique @map("creation_idempotency_key")
+  /// Spec 1B — sha256 of the normalized create payload; the same key with a different payload is refused.
+  creationPayloadHash    String?                         @map("creation_payload_hash")
+  /// Spec 1B — PENDING when the customer's phone matched a record outside
+  /// the creator's scope (another agent's customer, or a company customer
+  /// seen from an agent). Resolved by `store-orders.duplicate_review`.
+  duplicateReviewStatus  StoreOrderDuplicateReviewStatus @default(NONE) @map("duplicate_review_status")
+  duplicateReviewedById  String?                         @map("duplicate_reviewed_by_id") @db.Uuid
+  duplicateReviewedBy    User?                           @relation("StoreOrderDuplicateReviewer", fields: [duplicateReviewedById], references: [id])
+  duplicateReviewedAt    DateTime?                       @map("duplicate_reviewed_at")
+  duplicateReviewNote    String?                         @map("duplicate_review_note")
+
+  /// Round 5 Spec 1A — optimistic concurrency. Every amendment and every
+  /// other mutation that changes commercial data (line amounts, customer
+  /// total confirmation, agent tariff re-pricing) increments it; a stale
+  /// `expectedVersion` on an amendment is a 409 ORDER_VERSION_CONFLICT.
+  version Int @default(0)
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -4985,6 +5031,7 @@ model StoreOrder {
   deletedAt DateTime? @map("deleted_at")
 
   agentReturns AgentOrderReturn[]
+  amendments   StoreOrderAmendment[]
 
   items      StoreOrderItem[]
   receipts   StoreOrderReceipt[]
@@ -5012,6 +5059,7 @@ model StoreOrder {
   @@index([orderDate])
   @@index([employeeId])
   @@index([agentId, createdAt])
+  @@index([duplicateReviewStatus, createdAt])
   @@map("store_orders")
 }
 
@@ -5113,6 +5161,45 @@ model StoreOrderActivity {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("store_order_activities")
+}
+
+/// Round 5 Spec 1A — who amended an order.
+enum StoreOrderAmendmentActorType {
+  INTERNAL
+  AGENT
+}
+
+/// Round 5 Spec 1A — append-only amendment audit (never updated or deleted,
+/// same convention as StoreOrderActivity). One row per committed amendment:
+/// the field / line diffs, the impacts shown in the preview with the
+/// acknowledgements given, and the commercial snapshot before the change
+/// (agent terms, pricing breakdown, lines) so a re-quote is always traceable.
+model StoreOrderAmendment {
+  id String @id @default(uuid()) @db.Uuid
+
+  storeOrderId String     @map("store_order_id") @db.Uuid
+  storeOrder   StoreOrder @relation(fields: [storeOrderId], references: [id])
+
+  /// `StoreOrder.version` after this amendment.
+  version Int
+  reason  String
+
+  actorId   String?                      @map("actor_id") @db.Uuid
+  actor     User?                        @relation("StoreOrderAmendmentActor", fields: [actorId], references: [id])
+  actorType StoreOrderAmendmentActorType @map("actor_type")
+
+  /// field → { old, new } plus line diffs.
+  changes          Json
+  /// Impact codes with severity, and the acknowledged codes.
+  impacts          Json
+  /// Commercial state before the amendment (totals, lines, agent snapshot).
+  previousSnapshot Json @map("previous_snapshot")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([storeOrderId, version])
+  @@index([storeOrderId, createdAt])
+  @@map("store_order_amendments")
 }
 
 // ---------------------------------------------------------------------------
@@ -9474,17 +9561,53 @@ model AgentAgreement {
 
 /// Configured customer shipping charge by destination (the "configured rate").
 model AgentShippingRate {
-  id          String         @id @default(uuid()) @db.Uuid
-  agreementId String         @map("agreement_id") @db.Uuid
-  agreement   AgentAgreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
-  countryId   String         @map("country_id") @db.Uuid
-  country     Country        @relation(fields: [countryId], references: [id])
+  id              String                       @id @default(uuid()) @db.Uuid
+  agreementId     String                       @map("agreement_id") @db.Uuid
+  agreement       AgentAgreement               @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  countryId       String                       @map("country_id") @db.Uuid
+  country         Country                      @relation(fields: [countryId], references: [id])
   /// Empty string = whole country; a city row wins over the country row.
-  city        String         @default("")
-  amount      Decimal        @db.Decimal(12, 2)
+  city            String                       @default("")
+  /// Spec 2 tariff dimensions — ANY matches every channel / payment type;
+  /// the most specific row wins (city → channel → payment type).
+  deliveryChannel AgentShippingDeliveryChannel @default(ANY) @map("delivery_channel")
+  paymentType     AgentShippingPaymentType     @default(ANY) @map("payment_type")
+  amount          Decimal                      @db.Decimal(12, 2)
 
-  @@unique([agreementId, countryId, city])
+  @@unique([agreementId, countryId, city, deliveryChannel, paymentType], map: "agent_shipping_rates_tariff_key")
   @@map("agent_shipping_rates")
+}
+
+/// Spec 2 — how a shipment is delivered (from ShippingCompany.type).
+enum AgentShippingDeliveryChannel {
+  ANY
+  /// ShippingCompany.type EXTERNAL_COMPANY.
+  CARRIER
+  /// ShippingCompany.type INTERNAL_DELIVERY.
+  INTERNAL_COURIER
+}
+
+/// Spec 2 — payment arrangement a tariff applies to.
+enum AgentShippingPaymentType {
+  ANY
+  PREPAID
+  CASH_ON_DELIVERY
+}
+
+/// Spec 2 — whether an agent order's contractual shipping fee is final.
+enum StoreOrderShippingPricingStatus {
+  /// Company orders and agreements without the predetermined charge.
+  NOT_APPLICABLE
+  /// The fee depends on the delivery channel Shipping has not chosen yet (provisional estimate).
+  PENDING_METHOD
+  CONFIRMED
+}
+
+/// Spec 2 — shipping-added orders whose confirmed payable rose above the provisional one.
+enum StoreOrderCustomerTotalStatus {
+  NONE
+  CONFIRMATION_REQUIRED
+  CONFIRMED
 }
 
 /// Which payment methods an agent's Sales may choose, and who owns the money.

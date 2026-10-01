@@ -11,6 +11,7 @@ import {
   Min,
 } from 'class-validator';
 import {
+  StoreOrderDuplicateReviewStatus,
   StoreOrderPaymentStatus,
   StoreOrderDeclaredPaymentStatus,
   StoreOrderShippingStage,
@@ -27,6 +28,15 @@ export class FindStoreOrdersQueryDto {
   /** Agents milestone — only orders of this owner agent (internal staff filter). */
   @IsOptionalUuid()
   agentId?: string;
+
+  /**
+   * Round 5 Spec 1B — the duplicate review queue. Requires
+   * `store-orders.duplicate_review`; the reviewer sees flagged orders of
+   * every scope (checked in the controller).
+   */
+  @IsEnum(StoreOrderDuplicateReviewStatus)
+  @IsOptional()
+  duplicateReviewStatus?: StoreOrderDuplicateReviewStatus;
 
   /** Matches the Customer's phone OR mobile — never the Order's own key (rule: "Phone is the CUSTOMER matching key, never the Order key"). */
   @IsString()

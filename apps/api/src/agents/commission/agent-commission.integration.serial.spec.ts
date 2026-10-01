@@ -650,7 +650,7 @@ describeDb('Agent commission and shipping policy (local DB)', () => {
     expect((await position(shipAgent.id)).balance).toBe(650);
     const r = await report.report(shipAgent.id, {});
     // Company expense, reported apart (base 60 − credit 10).
-    expect(r.orders[0].shipping.carrier.approvedByCurrency).toEqual([
+    expect(r.orders[0].shipping.carrier?.approvedByCurrency).toEqual([
       { currencyCode: code, amount: 50 },
     ]);
     expect(r.summary.netEntitlement).toBe(650);

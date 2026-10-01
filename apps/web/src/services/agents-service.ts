@@ -91,11 +91,18 @@ export interface AgentRow {
   activeAgreement: AgentActiveAgreementRef | null;
 }
 
+/** Spec 2 (R5) — how a shipment is delivered (from the shipping company type). */
+export type TariffDeliveryChannel = "ANY" | "CARRIER" | "INTERNAL_COURIER";
+/** Spec 2 (R5) — payment arrangement a tariff applies to. */
+export type TariffPaymentType = "ANY" | "PREPAID" | "CASH_ON_DELIVERY";
+
 export interface AgentShippingRate {
   id: string;
   agreementId: string;
   countryId: string;
   city: string;
+  deliveryChannel: TariffDeliveryChannel;
+  paymentType: TariffPaymentType;
   amount: string;
   country: { id: string; code: string; name: string; nameEn: string | null } | null;
 }
@@ -243,8 +250,8 @@ export interface AgentCommissionReport {
     shippingRetained: number;
     otherCharges: number;
     netEntitlement: number;
-    /** Actual carrier cost (company expense) still pending per order. */
-    carrierCost: {
+    /** Actual carrier cost (company expense) still pending per order — internal report only. */
+    carrierCost?: {
       ordersWithEstimateOnly: number;
       ordersAwaitingApproval: number;
     };
@@ -291,11 +298,18 @@ export interface CommissionReportOrder {
     /** Retained from collected funds; settles the agent shipping charge. */
     retained: number;
     difference: number | null;
-    /** Actual carrier cost — company expense, never an agent deduction. */
-    carrier: CarrierCostStages;
+    /** Actual carrier cost — company expense, never an agent deduction. Internal report only. */
+    carrier?: CarrierCostStages;
+    /** Contractual fee − carrier cost (company shipping margin). Internal report only. */
+    margin?: ShippingMargin | null;
   };
   otherCharges: number;
   netEntitlement: number;
+}
+
+export interface ShippingMargin {
+  amount: number | null;
+  basis: "ACTUAL" | "ESTIMATE" | null;
 }
 
 export interface CarrierCostStages {
@@ -678,6 +692,74 @@ export interface Paged<T> {
 const base = "/agents";
 const finance = "/agent-finance";
 
+/** Products tab row (spec 2A): item type, status and the commission in force today. */
+export interface AgentProductRow {
+  id: string;
+  sku: string;
+  name: string;
+  nameEn: string | null;
+  displayName: string;
+  itemType: "PRODUCT" | "SERVICE" | null;
+  status: "DRAFT" | "ACTIVE" | "INACTIVE";
+  isSellable: boolean;
+  isInventoryItem: boolean;
+  commission: {
+    source: "OVERRIDE" | "AGREEMENT" | null;
+    ratePercent: number | null;
+    /** Why no rate applies (NO_ACTIVE_AGREEMENT, AGENT_ITEM_TYPE_REQUIRED, AGENT_COMMISSION_RATE_MISSING). */
+    missing: string | null;
+  };
+}
+
+export interface AgentProductsResult {
+  agreement: { id: string; agreementNumber: string } | null;
+  items: AgentProductRow[];
+}
+
+export type AgentLinkableProduct = Omit<AgentProductRow, "commission">;
+
+/**
+ * Spec 2 (R5) pricing state of an agent order — customer shipping and the
+ * contractual agent shipping fee. Shared by the portal and internal screens;
+ * never carries carrier cost or margin.
+ */
+export interface ShippingPricingView {
+  status: "NOT_APPLICABLE" | "PENDING_METHOD" | "CONFIRMED";
+  provisional: boolean;
+  customerTotalStatus: "NONE" | "CONFIRMATION_REQUIRED" | "CONFIRMED";
+  pricingMode: "SHIPPING_ADDED" | "SHIPPING_INCLUDED" | null;
+  agentShippingFee: {
+    amount: number;
+    provisional: boolean;
+    source: "RATE" | "TARIFF" | "PICKUP" | "DIGITAL_ONLY";
+    deliveryChannel: "CARRIER" | "INTERNAL_COURIER" | null;
+    paymentType: "PREPAID" | "CASH_ON_DELIVERY" | null;
+    resolvedAt: string | null;
+  } | null;
+  merchandiseAmount: number | null;
+  customerShipping: number | null;
+  payableTotal: number | null;
+  customerTotalChange: {
+    previousShippingCharge: number;
+    previousPayableTotal: number;
+    proposedShippingCharge: number;
+    proposedPayableTotal: number;
+    requestedAt: string;
+    confirmedAt: string | null;
+  } | null;
+  paidAmount: number;
+  outstanding: number | null;
+}
+
+/** INTERNAL ONLY — contractual fee vs actual carrier cost → company shipping margin. */
+export interface InternalShippingPricing extends ShippingPricingView {
+  economics: {
+    contractualFee: number | null;
+    carrierCost: { estimate: number; actualByCurrency: CurrencyAmount[] };
+    margin: ShippingMargin;
+  };
+}
+
 export const agentsService = {
   list: (
     params: { search?: string; status?: AgentStatus; page?: number; pageSize?: number } = {},
@@ -724,7 +806,13 @@ export const agentsService = {
     upsertRate: (
       agentId: string,
       agreementId: string,
-      dto: { countryId: string; city?: string; amount: number },
+      dto: {
+        countryId: string;
+        city?: string;
+        deliveryChannel?: TariffDeliveryChannel;
+        paymentType?: TariffPaymentType;
+        amount: number;
+      },
     ) =>
       apiClient.put<AgentAgreement>(
         `${base}/${agentId}/agreements/${agreementId}/shipping-rates`,
@@ -734,6 +822,29 @@ export const agentsService = {
       apiClient.delete<AgentAgreement>(
         `${base}/${agentId}/agreements/${agreementId}/shipping-rates/${rateId}`,
       ),
+  },
+
+  /** Products tab (spec 2A) — link / unlink go through the product update path. */
+  products: {
+    list: (agentId: string) => apiClient.get<AgentProductsResult>(`${base}/${agentId}/products`),
+    linkable: (agentId: string, search?: string) =>
+      apiClient.get<AgentLinkableProduct[]>(
+        `${base}/${agentId}/products/linkable${buildQueryString({ search })}`,
+      ),
+    link: (agentId: string, productId: string) =>
+      apiClient.post<unknown>(`${base}/${agentId}/products/${productId}/link`),
+    unlink: (agentId: string, productId: string) =>
+      apiClient.post<unknown>(`${base}/${agentId}/products/${productId}/unlink`),
+  },
+
+  /** Agent order shipping pricing (spec 2B) — internal view includes the shipping economics. */
+  orderPricing: {
+    get: (orderId: string) =>
+      apiClient.get<InternalShippingPricing>(`/agent-orders/${orderId}/shipping-pricing`),
+    confirmCustomerTotal: (orderId: string, expectedPayableTotal: number) =>
+      apiClient.post<InternalShippingPricing>(`/agent-orders/${orderId}/customer-total/confirm`, {
+        expectedPayableTotal,
+      }),
   },
 
   destinations: {

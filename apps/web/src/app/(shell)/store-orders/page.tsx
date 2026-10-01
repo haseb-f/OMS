@@ -37,6 +37,7 @@ import {
   type StoreOrderCreatePrefillCustomer,
 } from "@/components/store-orders/store-order-create-dialog";
 import { GlobalLookupDialog } from "@/components/store-orders/global-lookup-dialog";
+import { DuplicateReviewDialog } from "@/components/store-orders/duplicate-review-dialog";
 import { buildStoreOrderDetailRegions } from "@/components/store-orders/store-order-expanded-detail";
 import { StoreOrderMobileCard } from "@/components/store-orders/store-order-mobile-card";
 import {
@@ -86,6 +87,7 @@ function StoreOrdersPageContent() {
   const canGlobalLookup =
     hasPermission("customers.lookup_global") || hasPermission("orders.lookup_global");
   const canViewProfitability = hasPermission("orders.profitability.view");
+  const canReviewDuplicates = hasPermission("store-orders.duplicate_review");
 
   const [items, setItems] = useState<StoreOrderRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -116,6 +118,12 @@ function StoreOrdersPageContent() {
   );
   const [costStateFilter, setCostStateFilter] = usePathRestorableState<string[]>("costState", []);
   const [lossMakingFilter, setLossMakingFilter] = usePathRestorableState("lossMaking", false);
+  // Round 5 Spec 1B — the duplicate review queue (reviewers see every scope).
+  const [duplicateReviewFilter, setDuplicateReviewFilter] = usePathRestorableState(
+    "duplicateReview",
+    false,
+  );
+  const [reviewTarget, setReviewTarget] = useState<StoreOrderRow | null>(null);
   const [profitabilityFilterCapped, setProfitabilityFilterCapped] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -145,6 +153,9 @@ function StoreOrdersPageContent() {
       shippingStage: shippingStageFilter as StoreOrderShippingStageValue[],
       source: sourceFilter as StoreOrderSourceValue[],
       agentId: agentFilter || undefined,
+      ...(canReviewDuplicates && duplicateReviewFilter
+        ? { duplicateReviewStatus: "PENDING" as const }
+        : {}),
       dateFrom: dateRange.from ? toISODate(dateRange.from) : undefined,
       dateTo: dateRange.to ? toISODate(dateRange.to) : undefined,
       ...(canViewProfitability
@@ -162,6 +173,8 @@ function StoreOrdersPageContent() {
       shippingStageFilter,
       sourceFilter,
       agentFilter,
+      canReviewDuplicates,
+      duplicateReviewFilter,
       dateRange,
       canViewProfitability,
       costStateFilter,
@@ -240,6 +253,7 @@ function StoreOrdersPageContent() {
         onView: (row) => router.push(`/store-orders/${row.id}`),
         onEdit: (row) => router.push(`/store-orders/${row.id}`),
         onArchive: (row) => setArchiveTarget(row),
+        onResolveDuplicate: (row) => setReviewTarget(row),
         includeProfitability: canViewProfitability,
       }),
     [router, canViewProfitability],
@@ -556,6 +570,20 @@ function StoreOrdersPageContent() {
                 </Toggle>
               </>
             )}
+            {canReviewDuplicates && (
+              <EnterpriseButton
+                type="button"
+                variant={duplicateReviewFilter ? "secondary" : "outline"}
+                size="sm"
+                aria-pressed={duplicateReviewFilter}
+                onClick={() => {
+                  setDuplicateReviewFilter(!duplicateReviewFilter);
+                  setPage(1);
+                }}
+              >
+                {t("orderDuplicates.review.filter")}
+              </EnterpriseButton>
+            )}
             {(paymentStatusFilter.length > 0 ||
               declaredStatusFilter ||
               shippingStageFilter.length > 0 ||
@@ -563,6 +591,7 @@ function StoreOrdersPageContent() {
               agentFilter ||
               costStateFilter.length > 0 ||
               lossMakingFilter ||
+              duplicateReviewFilter ||
               dateRange.from ||
               dateRange.to) && (
               <EnterpriseButton
@@ -577,6 +606,7 @@ function StoreOrdersPageContent() {
                   setAgentFilter("");
                   setCostStateFilter([]);
                   setLossMakingFilter(false);
+                  setDuplicateReviewFilter(false);
                   setDateRange(EMPTY_DATE_RANGE);
                   setPage(1);
                 }}
@@ -691,6 +721,17 @@ function StoreOrdersPageContent() {
         isConfirming={isArchiving}
         onConfirm={() => void handleArchive()}
       />
+
+      {canReviewDuplicates && (
+        <DuplicateReviewDialog
+          orderId={reviewTarget?.id ?? null}
+          open={!!reviewTarget}
+          onOpenChange={(open) => {
+            if (!open) setReviewTarget(null);
+          }}
+          onResolved={() => void load()}
+        />
+      )}
 
       <BulkShippingStatusDialog
         open={bulkShippingDialogOpen}

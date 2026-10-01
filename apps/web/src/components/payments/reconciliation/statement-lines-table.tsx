@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Ban, GitCompareArrows, RotateCcw, Undo2 } from "lucide-react";
+import { Ban, GitCompareArrows, RotateCcw, Undo2, Unlink } from "lucide-react";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
 import { RowActionsMenu, type RowAction } from "@/components/shared/data-table";
 import { SelectFilter } from "@/components/shared/data-table/select-filter";
-import { StatusBadge } from "@/components/business/status-badge";
+import { StatementLineBadge } from "@/components/payments/payment-term-badge";
+import { paymentTerm, statementLineTerm } from "@/config/payments/payment-vocabulary";
+import { isSettled } from "@/components/payments/match-panel/match-panel-model";
 import { MoneyValue } from "@/components/shared/money-value";
 import { RelatedRecordLink } from "@/components/shared/record-preview";
 import { formatDate } from "@/lib/date";
@@ -20,7 +22,6 @@ import {
   type StatementLineMatch,
   type StatementLineStatus,
 } from "@/services/payment-reconciliation-service";
-import { LINE_STATUS_TONE } from "./reconciliation-model";
 import { ReasonDialog } from "./reason-dialog";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 
@@ -35,6 +36,7 @@ export function MatchTrail({ match }: { match: StatementLineMatch }) {
         id={match.payment.id}
         number={match.payment.paymentNumber}
         status={match.payment.status}
+        settlementStatus={match.payment.settlementStatus}
       />
       {match.storeOrder ? (
         <RelatedRecordLink
@@ -149,6 +151,23 @@ export function StatementLinesTable({
     onChanged?.();
   }, [load, onChanged]);
 
+  const isReversal = (match: StatementLineMatch) => match.reversalEffect === "REVERSE_POSTING";
+  const correctionSentence = (match: StatementLineMatch) => {
+    const line = pending?.kind === "reverse" ? pending.line : null;
+    const params = {
+      amount: formatMoney(match.amount, line?.currency.code),
+      reference: line?.providerReference ?? line?.orderReference ?? "—",
+      payment: match.payment.paymentNumber,
+    };
+    return isReversal(match)
+      ? t("paymentVocabulary.effect.reversePosting", {
+          ...params,
+          receipt: match.receipt?.transactionNumber ?? "—",
+          journal: match.journalEntry?.entryNumber ?? "—",
+        })
+      : t("paymentVocabulary.effect.unmatch", params);
+  };
+
   const reopen = useCallback(
     async (line: StatementLine) => {
       try {
@@ -234,10 +253,7 @@ export function StatementLinesTable({
         meta: { titleKey: "paymentReconciliation.fields.status" as MessageKey },
         cell: ({ row }) => (
           <div className="flex min-w-0 flex-col gap-0.5">
-            <StatusBadge
-              label={t(`paymentReconciliation.status.${row.original.status}`)}
-              tone={LINE_STATUS_TONE[row.original.status]}
-            />
+            <StatementLineBadge status={row.original.status} />
             {row.original.exceptionReason ? (
               <span className="text-caption text-muted-foreground">
                 {row.original.exceptionReason}
@@ -324,15 +340,25 @@ export function StatementLinesTable({
             },
             ...line.matches
               .filter((match) => match.status === "ACTIVE")
-              .map<RowAction>((match, index) => ({
-                key: `reverse-${match.id}`,
-                label: `${t("paymentReconciliation.exceptions.reverse")} · ${match.payment.paymentNumber}`,
-                icon: Undo2,
-                destructive: true,
-                separatorBefore: index === 0,
-                hidden: !canCorrect,
-                onSelect: () => setPending({ kind: "reverse", line, match }),
-              })),
+              .map<RowAction>((match, index) => {
+                // Labelled by what the server will actually do (shared rule with reverseMatch).
+                const reverse = match.reversalEffect === "REVERSE_POSTING";
+                const settled = isSettled(match.payment.settlementStatus);
+                const label = reverse
+                  ? `${t("paymentVocabulary.action.reversePosting")} · ${match.journalEntry?.entryNumber ?? match.payment.paymentNumber}`
+                  : `${t("paymentVocabulary.action.unmatch")} · ${match.payment.paymentNumber}`;
+                return {
+                  key: `reverse-${match.id}`,
+                  // Invalid stays visible, disabled, with its reason.
+                  label: settled ? `${label} — ${t("paymentVocabulary.reason.settled")}` : label,
+                  icon: reverse ? Undo2 : Unlink,
+                  destructive: reverse,
+                  separatorBefore: index === 0,
+                  hidden: !canCorrect,
+                  disabled: settled,
+                  onSelect: () => setPending({ kind: "reverse", line, match }),
+                };
+              }),
           ];
           if (actions.every((action) => action.hidden)) return null;
           return <RowActionsMenu label={t("common.actions")} actions={actions} />;
@@ -376,7 +402,7 @@ export function StatementLinesTable({
               allLabel={t("paymentReconciliation.status.ALL")}
               options={statuses.map((value) => ({
                 value,
-                label: t(`paymentReconciliation.status.${value}`),
+                label: t(paymentTerm(statementLineTerm(value)).labelKey),
               }))}
             />
           ) : undefined
@@ -439,10 +465,20 @@ export function StatementLinesTable({
       <ReasonDialog
         open={pending?.kind === "reverse"}
         onOpenChange={(open) => !open && setPending(null)}
-        tone="destructive"
-        title={t("paymentReconciliation.exceptions.reverseTitle")}
-        description={t("paymentReconciliation.exceptions.reverseDescription")}
-        confirmLabel={t("paymentReconciliation.exceptions.reverse")}
+        tone={pending?.kind === "reverse" && isReversal(pending.match) ? "destructive" : "warning"}
+        title={
+          pending?.kind === "reverse"
+            ? isReversal(pending.match)
+              ? `${t("paymentVocabulary.action.reversePosting")}${pending.match.journalEntry ? ` · ${pending.match.journalEntry.entryNumber}` : ""}`
+              : t("paymentVocabulary.action.unmatch")
+            : ""
+        }
+        description={pending?.kind === "reverse" ? correctionSentence(pending.match) : undefined}
+        confirmLabel={
+          pending?.kind === "reverse" && isReversal(pending.match)
+            ? t("paymentVocabulary.action.reversePosting")
+            : t("paymentVocabulary.action.unmatch")
+        }
         onConfirm={async (reason) => {
           if (pending?.kind !== "reverse") return;
           try {

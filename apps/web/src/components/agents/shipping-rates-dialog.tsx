@@ -19,17 +19,27 @@ import {
 } from "@/components/shared/data-table/compact-detail-table";
 import { IconActionButton } from "@/components/shared/icon-action-button";
 import { MoneyValue } from "@/components/shared/money-value";
+import { SegmentedRadioGroup } from "@/components/documents/segmented-radio-group";
 import {
   agentsService,
   type AgentAgreement,
   type AgentShippingRate,
+  type TariffDeliveryChannel,
+  type TariffPaymentType,
 } from "@/services/agents-service";
+import { TARIFF_CELLS, tariffMatrix, type TariffMatrixRow } from "@/config/agents/shipping-tariffs";
 import { useCountries } from "@/hooks/use-reference-data";
 import { useLocale } from "@/providers/locale-provider";
 import { reportApiError, toast } from "@/lib/toast";
 
+const CHANNELS: TariffDeliveryChannel[] = ["ANY", "CARRIER", "INTERNAL_COURIER"];
+const PAYMENT_TYPES: TariffPaymentType[] = ["ANY", "PREPAID", "CASH_ON_DELIVERY"];
+
 /**
- * Customer shipping rates of one agreement, by country (+ optional city).
+ * Agent shipping tariffs of one agreement (spec-2-agent-pricing.md 2B):
+ * destination (country + optional city) x delivery channel x payment type.
+ * The matrix shows the fee each combination resolves to (most specific row
+ * wins) so a missing combination is visible before Shipping meets it.
  * Editable only while the agreement is a DRAFT; read-only afterwards.
  */
 export function ShippingRatesDialog({
@@ -52,6 +62,8 @@ export function ShippingRatesDialog({
   const [countryId, setCountryId] = useState("");
   const [city, setCity] = useState("");
   const [amount, setAmount] = useState("");
+  const [deliveryChannel, setDeliveryChannel] = useState<TariffDeliveryChannel>("ANY");
+  const [paymentType, setPaymentType] = useState<TariffPaymentType>("ANY");
   const [isSaving, setIsSaving] = useState(false);
   const editable = canManage && agreement.status === "DRAFT";
   const currency = agreement.currency?.code ?? "";
@@ -79,12 +91,13 @@ export function ShippingRatesDialog({
       const updated = await agentsService.agreements.upsertRate(agentId, agreement.id, {
         countryId,
         city: city.trim() || undefined,
+        deliveryChannel,
+        paymentType,
         amount: value,
       });
       apply(updated);
-      setCity("");
       setAmount("");
-      toast.success(t("agents.agreements.toasts.rateSaved"));
+      toast.success(t("agentPricing.tariffs.saved"));
     } catch (error) {
       reportApiError(error, "common.failedToSave");
     } finally {
@@ -102,20 +115,56 @@ export function ShippingRatesDialog({
     }
   };
 
+  const countryName = (countryIdValue: string) => {
+    const row = rates.find((rate) => rate.countryId === countryIdValue)?.country;
+    return (locale === "en" ? row?.nameEn : null) ?? row?.name ?? countryIdValue;
+  };
+  const destination = (row: { countryId: string; city: string }) => (
+    <span className="flex flex-col">
+      <span>{countryName(row.countryId)}</span>
+      <span className="text-caption text-muted-foreground">
+        {row.city || t("agents.agreements.rates.wholeCountry")}
+      </span>
+    </span>
+  );
+  const matrix = useMemo(() => tariffMatrix(rates), [rates]);
+  const matrixColumns: CompactDetailColumn<TariffMatrixRow<AgentShippingRate>>[] = [
+    { id: "destination", header: t("agentPricing.tariffs.destination"), cell: destination },
+    ...TARIFF_CELLS.map((cell) => ({
+      id: cell.key,
+      align: "end" as const,
+      header: (
+        <span className="flex flex-col items-end leading-tight">
+          <span>{t(`agentPricing.tariffs.channels.${cell.channel}`)}</span>
+          <span className="text-micro font-normal text-muted-foreground">
+            {t(`agentPricing.tariffs.paymentTypes.${cell.paymentType}`)}
+          </span>
+        </span>
+      ),
+      cell: (row: TariffMatrixRow<AgentShippingRate>) => {
+        const resolved = row.cells[cell.key];
+        return resolved ? (
+          <MoneyValue value={resolved.amount} currency={currency} />
+        ) : (
+          <span className="text-caption text-warning-soft-foreground">
+            {t("agentPricing.tariffs.notConfigured")}
+          </span>
+        );
+      },
+    })),
+  ];
+
   const columns: CompactDetailColumn<AgentShippingRate>[] = [
+    { id: "destination", header: t("agentPricing.tariffs.destination"), cell: destination },
     {
-      id: "country",
-      header: t("agents.agreements.rates.country"),
-      cell: (rate) =>
-        (locale === "en" ? rate.country?.nameEn : null) ?? rate.country?.name ?? rate.countryId,
+      id: "channel",
+      header: t("agentPricing.tariffs.channel"),
+      cell: (rate) => t(`agentPricing.tariffs.channels.${rate.deliveryChannel}`),
     },
     {
-      id: "city",
-      header: t("agents.agreements.rates.city"),
-      cell: (rate) =>
-        rate.city || (
-          <span className="text-muted-foreground">{t("agents.agreements.rates.wholeCountry")}</span>
-        ),
+      id: "paymentType",
+      header: t("agentPricing.tariffs.paymentType"),
+      cell: (rate) => t(`agentPricing.tariffs.paymentTypes.${rate.paymentType}`),
     },
     {
       id: "amount",
@@ -143,10 +192,10 @@ export function ShippingRatesDialog({
     <EnterpriseModal
       open
       onOpenChange={onOpenChange}
-      size="md"
+      size="lg"
       layout="form-card"
-      title={t("agents.agreements.rates.title")}
-      description={`${agreement.agreementNumber} · ${t("agents.agreements.rates.description")}`}
+      title={t("agentPricing.tariffs.title")}
+      description={`${agreement.agreementNumber} · ${t("agentPricing.tariffs.description")}`}
       footer={
         <EnterpriseButton
           type="button"
@@ -160,7 +209,7 @@ export function ShippingRatesDialog({
     >
       <FormCardStack>
         {editable ? (
-          <FormCardSection title={t("agents.agreements.rates.add")}>
+          <FormCardSection title={t("agentPricing.tariffs.add")}>
             <FormCardRow>
               <FormCardField
                 size="md"
@@ -205,6 +254,30 @@ export function ShippingRatesDialog({
                 />
               </FormCardField>
             </FormCardRow>
+            <FormCardRow>
+              <FormCardField size="md" label={t("agentPricing.tariffs.channel")}>
+                <SegmentedRadioGroup
+                  aria-label={t("agentPricing.tariffs.channel")}
+                  value={deliveryChannel}
+                  onValueChange={setDeliveryChannel}
+                  options={CHANNELS.map((value) => ({
+                    value,
+                    label: t(`agentPricing.tariffs.channels.${value}`),
+                  }))}
+                />
+              </FormCardField>
+              <FormCardField size="md" label={t("agentPricing.tariffs.paymentType")}>
+                <SegmentedRadioGroup
+                  aria-label={t("agentPricing.tariffs.paymentType")}
+                  value={paymentType}
+                  onValueChange={setPaymentType}
+                  options={PAYMENT_TYPES.map((value) => ({
+                    value,
+                    label: t(`agentPricing.tariffs.paymentTypes.${value}`),
+                  }))}
+                />
+              </FormCardField>
+            </FormCardRow>
             <div>
               <EnterpriseButton
                 type="button"
@@ -214,7 +287,7 @@ export function ShippingRatesDialog({
                 disabled={isSaving || !countryId || amount.trim() === ""}
                 onClick={() => void add()}
               >
-                {t("agents.agreements.rates.add")}
+                {t("agentPricing.tariffs.add")}
               </EnterpriseButton>
             </div>
           </FormCardSection>
@@ -223,12 +296,28 @@ export function ShippingRatesDialog({
             {t("agents.agreements.rates.readOnly")}
           </p>
         )}
-        <CompactDetailTable
-          columns={columns}
-          rows={rates}
-          rowKey={(rate) => rate.id}
-          empty={t("agents.agreements.rates.empty")}
-        />
+        {matrix.length > 0 ? (
+          <FormCardSection title={t("agentPricing.tariffs.matrixTitle")}>
+            <p className="text-caption text-muted-foreground">
+              {t("agentPricing.tariffs.matrixHint")}
+            </p>
+            <CompactDetailTable
+              columns={matrixColumns}
+              rows={matrix}
+              rowKey={(row) => row.key}
+              stacked
+            />
+          </FormCardSection>
+        ) : null}
+        <FormCardSection title={t("agentPricing.tariffs.rowsTitle")}>
+          <CompactDetailTable
+            columns={columns}
+            rows={rates}
+            rowKey={(rate) => rate.id}
+            empty={t("agents.agreements.rates.empty")}
+            stacked
+          />
+        </FormCardSection>
       </FormCardStack>
     </EnterpriseModal>
   );

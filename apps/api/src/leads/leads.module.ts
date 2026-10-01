@@ -13,6 +13,7 @@ import { LeadAutoDistributionService } from './distribution/lead-auto-distributi
 import { NumberingModule } from '../numbering/numbering.module';
 import { WorkflowModule } from '../workflow/workflow.module';
 import { LeadFollowUpTypesModule } from '../lead-follow-up-types/lead-follow-up-types.module';
+import { StoreOrderDuplicatesModule } from '../store-orders/duplicates/store-order-duplicates.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { LeadFollowUpTypesModule } from '../lead-follow-up-types/lead-follow-up-
     NumberingModule,
     WorkflowModule,
     LeadFollowUpTypesModule,
+    StoreOrderDuplicatesModule,
   ],
   controllers: [
     LeadsController,

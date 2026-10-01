@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
+  FinancialTransactionStatus,
   PaymentMatchStatus,
   PaymentSettlementStatus,
   PaymentStatementLineStatus,
@@ -9,23 +10,17 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import type { FindStatementLinesQueryDto } from './dto/payment-reconciliation.dto';
 import { COMPANY_CASH_CLAIM } from '../agents/finance/agent-payment-scope';
+import {
+  findReversalReceipt,
+  matchReversalEffect,
+} from './match-reversal.util';
 
-type CurrencyTotals = Record<string, { count: number; amount: number }>;
+import {
+  addCurrencyTotal as addTotal,
+  type CurrencyTotals,
+} from '../common/money/currency-totals';
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
-
-function addTotal(
-  bucket: CurrencyTotals,
-  code: string,
-  count: number,
-  amount: number,
-) {
-  const current = bucket[code] ?? { count: 0, amount: 0 };
-  bucket[code] = {
-    count: current.count + count,
-    amount: round2(current.amount + amount),
-  };
-}
 
 /**
  * Read side of the reconciliation workspace: the method list with
@@ -259,6 +254,7 @@ export class PaymentReconciliationService {
                           id: true,
                           transactionNumber: true,
                           status: true,
+                          createdAt: true,
                         },
                       },
                     },
@@ -271,12 +267,56 @@ export class PaymentReconciliationService {
       }),
     ]);
 
-    const receiptIds = lines.flatMap((line) =>
-      line.matches.flatMap((match) =>
-        match.payment.receiptLink
-          ? [match.payment.receiptLink.financialTransaction.id]
-          : [],
+    // Claims posted before PaymentReceiptLink existed: the same fallback
+    // lookup reverseMatch uses, so their receipt, JE and "Reverse posting"
+    // label show here too.
+    const unlinkedIds = [
+      ...new Set(
+        lines.flatMap((line) =>
+          line.matches
+            .filter(
+              (match) =>
+                match.status === PaymentMatchStatus.ACTIVE &&
+                !match.payment.receiptLink,
+            )
+            .map((match) => match.payment.id),
+        ),
       ),
+    ];
+    const legacyReceipts = new Map(
+      await Promise.all(
+        unlinkedIds.map(
+          async (id) =>
+            [
+              id,
+              await findReversalReceipt(this.prisma, {
+                id,
+                receiptLink: null,
+              }),
+            ] as const,
+        ),
+      ),
+    );
+    const receiptOf = (payment: {
+      id: string;
+      receiptLink: {
+        financialTransaction: {
+          id: string;
+          transactionNumber: string;
+          status: FinancialTransactionStatus;
+          createdAt: Date;
+        };
+      } | null;
+    }) =>
+      payment.receiptLink?.financialTransaction ??
+      legacyReceipts.get(payment.id) ??
+      null;
+
+    const receiptIds = lines.flatMap((line) =>
+      line.matches.flatMap((match) => {
+        const receipt = receiptOf(match.payment);
+        return receipt ? [receipt.id] : [];
+      }),
     );
     const journalEntries = receiptIds.length
       ? await this.prisma.journalEntry.findMany({
@@ -297,6 +337,30 @@ export class PaymentReconciliationService {
         });
       }
     }
+
+    // What "correct match" would do per claim (shared rule with reverseMatch).
+    const matchedPaymentIds = [
+      ...new Set(
+        lines.flatMap((line) =>
+          line.matches
+            .filter((match) => match.status === PaymentMatchStatus.ACTIVE)
+            .map((match) => match.payment.id),
+        ),
+      ),
+    ];
+    const firstActive = matchedPaymentIds.length
+      ? await this.prisma.paymentMatch.groupBy({
+          by: ['paymentId'],
+          where: {
+            paymentId: { in: matchedPaymentIds },
+            status: PaymentMatchStatus.ACTIVE,
+          },
+          _min: { confirmedAt: true },
+        })
+      : [];
+    const firstActiveByPayment = new Map(
+      firstActive.map((row) => [row.paymentId, row._min.confirmedAt]),
+    );
 
     return {
       total,
@@ -330,8 +394,7 @@ export class PaymentReconciliationService {
           rawRow: line.rawRow,
         },
         matches: line.matches.map((match) => {
-          const receipt =
-            match.payment.receiptLink?.financialTransaction ?? null;
+          const receipt = receiptOf(match.payment);
           return {
             id: match.id,
             amount: Number(match.amount),
@@ -357,7 +420,18 @@ export class PaymentReconciliationService {
             customer: match.payment.storeOrder?.partner ?? null,
             receipt:
               receipt && match.status === PaymentMatchStatus.ACTIVE
-                ? receipt
+                ? {
+                    id: receipt.id,
+                    transactionNumber: receipt.transactionNumber,
+                    status: receipt.status,
+                  }
+                : null,
+            reversalEffect:
+              match.status === PaymentMatchStatus.ACTIVE
+                ? matchReversalEffect(
+                    receipt,
+                    firstActiveByPayment.get(match.payment.id),
+                  )
                 : null,
             journalEntry:
               receipt && match.status === PaymentMatchStatus.ACTIVE

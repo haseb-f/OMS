@@ -4,14 +4,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Archive,
+  CheckCircle2,
   FileText,
   Image as ImageIcon,
+  PackageCheck,
+  PenLine,
   Pencil,
   Printer,
   Receipt,
+  ShieldQuestion,
   Trash2,
   Truck,
   Wallet,
+  type LucideIcon,
 } from "lucide-react";
 import { PaymentDeclarationDialog } from "@/components/payments/declaration/payment-declaration-dialog";
 import {
@@ -19,23 +24,29 @@ import {
   PaymentDiscrepancyAlert,
 } from "@/components/payments/declaration/order-payment-status-panel";
 import { StoreOrderPickupPanel } from "@/components/store-orders/store-order-pickup-panel";
-import { StoreOrderWorkflowTracks } from "@/components/store-orders/store-order-workflow-tracks";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { SetPaymentFeeDialog } from "@/components/store-orders/set-payment-fee-dialog";
 import { StoreOrderEditAssignmentDialog } from "@/components/store-orders/store-order-edit-assignment-dialog";
-import { StoreOrderEditCustomerDialog } from "@/components/store-orders/store-order-edit-customer-dialog";
 import { StoreOrderEditNotesDialog } from "@/components/store-orders/store-order-edit-notes-dialog";
 import { StoreOrderLineAmountsDialog } from "@/components/store-orders/store-order-line-amounts-dialog";
+import { DuplicateReviewDialog } from "@/components/store-orders/duplicate-review-dialog";
+import { OrderAmendDialog } from "@/components/store-orders/order-amend-dialog";
+import { OrderAmendmentHistory } from "@/components/store-orders/order-amendment-history";
+import {
+  OrderCardNotice,
+  StoreOrderCompactCard,
+} from "@/components/store-orders/store-order-compact-card";
+import {
+  StoreOrderWorkflowTracks,
+  storeOrderFulfillmentCode,
+} from "@/components/store-orders/store-order-workflow-tracks";
 import { ShipmentManageDialog } from "@/components/shipping/shipment-manage-dialog";
 import {
-  DetailField,
+  CollapsibleDetailSection,
   DetailFieldRow,
-  DetailGroup,
-  DetailSplitLayout,
   RecordHighlightsHeader,
 } from "@/components/shared/detail-workspace";
 import { CompactDetailTable } from "@/components/shared/data-table";
-import { HeaderActions } from "@/components/shared/header-actions";
+import { HeaderActions, type ActionSpec } from "@/components/shared/header-actions";
 import { EmptyState } from "@/components/shared/empty-state";
 import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
@@ -45,7 +56,6 @@ import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { TableCell } from "@/components/ui/table";
 import { StatusBadge } from "@/components/business/status-badge";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { PermissionGate } from "@/components/shared/permission-gate";
@@ -54,6 +64,11 @@ import { RelatedRecordLink } from "@/components/shared/record-preview";
 import { IconActionButton } from "@/components/shared/icon-action-button";
 import { FileDropField } from "@/components/shared/form-fields";
 import { AttachmentPreviewDialog } from "@/components/business/attachment-preview-dialog";
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
+import { AgentOrderPanel } from "@/components/agents/agent-order-panel";
+import { AgentBadge } from "@/components/agents/agent-options";
+import { PaymentMatchPanel } from "@/components/payments/match-panel/payment-match-panel";
+import type { SearchableSelectOption } from "@/components/shared/searchable-select";
 import { attachmentsService } from "@/services/attachments-service";
 import {
   storeOrdersService,
@@ -62,36 +77,67 @@ import {
   type StoreOrderShipmentRow,
   type StoreOrderPaymentRow,
 } from "@/services/store-orders-service";
+import { productsService } from "@/services/products-service";
+import { agentsService } from "@/services/agents-service";
+import type { AmendmentHistoryRow } from "@/services/order-amendments-service";
 import {
   shippingCompaniesService,
   type ShippingCompanyOption,
 } from "@/services/shipping-companies-service";
 import type { ShipmentListRow } from "@/services/shipping-service";
+import { isReadyForShipping, paymentRecordStatusBadge } from "@/config/store-orders/status";
 import {
-  SHIPPING_STAGE_LABEL_KEY,
-  isReadyForShipping,
-  paymentRecordStatusBadge,
-} from "@/config/store-orders/status";
-import { shipmentStatusLabelKey, shipmentStatusTone } from "@/config/shipping/shipment-status";
+  shipmentStatusLabelKey,
+  shipmentStatusTone,
+  shippingStatusName,
+} from "@/config/shipping/shipment-status";
+import { computeNextAction, type NextActionKind } from "@/config/store-orders/next-action";
+import {
+  orderFulfillmentBadge,
+  orderPaymentBadge,
+} from "@/config/store-orders/order-status-badges";
+import { amendableFromStoreOrder } from "@/config/store-orders/amendment-draft";
+import { useCountries, useCurrencies } from "@/hooks/use-reference-data";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { usePrintCompany } from "@/components/print/print-brand";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { buildPackageSlipPayload } from "@/config/store-orders/package-slip-print";
-import { toast, reportApiError } from "@/lib/toast";
+import { toast, reportApiError, reportSuccess } from "@/lib/toast";
 import { formatDate, formatDateTime } from "@/lib/date";
+import { formatMoney } from "@/lib/money";
 import { formatFileSize } from "@/lib/format-file-size";
 import { isImageAttachmentMime } from "@/lib/order-attachments";
-import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
-import { AgentOrderPanel } from "@/components/agents/agent-order-panel";
-import { AgentBadge } from "@/components/agents/agent-options";
 import type { MessageKey } from "@/i18n/translate";
 
 const ACTIVITY_PREVIEW = 8;
+/** Remembered per user (per-user browser storage): which detail sections stay open (spec 1C). */
+const sectionsKey = (userId: string | undefined) =>
+  `oms.orderDetail.${userId ?? "anonymous"}.storeOrder.openSections`;
+type SectionKey = "payments" | "shipments" | "history" | "technical";
 
-function toShipmentListRow(order: StoreOrderRow, shipment: StoreOrderShipmentRow): ShipmentListRow {
+const NEXT_ACTION_ICON: Partial<Record<NextActionKind, LucideIcon>> = {
+  RESOLVE_DUPLICATE: ShieldQuestion,
+  CONFIRM_CUSTOMER_TOTAL: CheckCircle2,
+  SET_AMOUNTS: Pencil,
+  REISSUE_LABEL: Truck,
+  DECLARE_PAYMENT: Wallet,
+  ASSIGN_SHIPPING: Truck,
+  MARK_HANDED_OVER: PackageCheck,
+  UPDATE_SHIPMENT: Truck,
+  MARK_READY_FOR_PICKUP: PackageCheck,
+  MARK_COLLECTED: PackageCheck,
+  GENERATE_INVOICE: FileText,
+};
+
+/** The shipment dialog's row; with no shipment yet, assigning the company creates attempt #1. */
+function toShipmentListRow(
+  order: StoreOrderRow,
+  shipment: StoreOrderShipmentRow | null,
+): ShipmentListRow {
   return {
-    id: shipment.id,
+    id: shipment?.id ?? "",
     storeOrderId: order.id,
     storeOrder: {
       id: order.id,
@@ -106,47 +152,55 @@ function toShipmentListRow(order: StoreOrderRow, shipment: StoreOrderShipmentRow
           }
         : null,
     },
-    attemptNumber: shipment.attemptNumber,
-    shippingCompanyId: shipment.shippingCompanyId,
-    shippingCompany: shipment.shippingCompany ?? null,
-    trackingNumber: shipment.trackingNumber,
-    labelUrl: shipment.labelUrl,
-    status: shipment.status,
-    shippingStatus: shipment.shippingStatus,
-    shippingCost: shipment.shippingCost,
-    shippedAt: shipment.shippedAt,
-    deliveredAt: shipment.deliveredAt,
-    createdAt: shipment.createdAt,
-    // Always the latest attempt here (see `latestShipmentRow` at the call
-    // site) — this flag only matters for the flat Shipping list's per-row
-    // quick-edit gating, not this detail-page dialog.
+    attemptNumber: shipment?.attemptNumber ?? 1,
+    shippingCompanyId: shipment?.shippingCompanyId ?? null,
+    shippingCompany: shipment?.shippingCompany ?? null,
+    trackingNumber: shipment?.trackingNumber ?? null,
+    labelUrl: shipment?.labelUrl ?? null,
+    status: shipment?.status ?? null,
+    shippingStatus: shipment?.shippingStatus ?? null,
+    shippingCost: shipment?.shippingCost ?? null,
+    shippedAt: shipment?.shippedAt ?? null,
+    deliveredAt: shipment?.deliveredAt ?? null,
+    createdAt: shipment?.createdAt ?? order.createdAt,
     isCurrentAttempt: true,
-  };
+  } as ShipmentListRow;
 }
 
+/**
+ * Store Order detail — Round 5 spec 1C compact layout: identity header with
+ * separate Payment and Fulfillment badges, ONE computed next action, Amend
+ * and a compact overflow; one compact order card; everything else is
+ * progressive disclosure (remembered per user). Profitability stays an
+ * internal-only tab.
+ */
 function StoreOrderDetailContent() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { t } = useLocale();
-  const isMobile = useIsMobile();
+  const { t, locale } = useLocale();
   const { hasPermission, user } = useUserContext();
   const printCompany = usePrintCompany();
   const { runPrint } = usePrintEngine();
+  const countries = useCountries();
+  const currencies = useCurrencies();
   const [isPreparingSlip, setIsPreparingSlip] = useState(false);
   const canEdit = hasPermission("store-orders.edit");
+  const canAmend = hasPermission("store-orders.amend");
   const canGenerateInvoiceAction = hasPermission("store-orders.generate_invoice") || canEdit;
   const canArchive = hasPermission("store-orders.archive");
   const canViewProfitability = hasPermission("orders.profitability.view");
   const canEditProfitabilityCosts = hasPermission("orders.profitability.editCosts");
   const canEditCustomer = hasPermission("partners.edit");
-  // Declaring a customer payment: Sales (store-orders.edit) OR Finance (sales.receipts.create).
   const canDeclarePayment = canEdit || hasPermission("sales.receipts.create");
-  // Recording pickup steps: store staff or shipping staff.
   const canRecordPickup = canEdit || hasPermission("shipping.edit");
+  const canManageShipping = canEdit || hasPermission("shipping.edit");
+  const canReviewDuplicates = hasPermission("store-orders.duplicate_review");
+  const canReviewPayments = hasPermission("sales.receipts.view");
 
   const [order, setOrder] = useState<StoreOrderRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activities, setActivities] = useState<StoreOrderActivityEntry[] | null>(null);
+  const [amendments, setAmendments] = useState<AmendmentHistoryRow[] | null>(null);
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [noteError, setNoteError] = useState<string | null>(null);
@@ -165,15 +219,23 @@ function StoreOrderDetailContent() {
     claimed?: string;
     remainingToClaim?: string;
     fullySettled?: boolean;
-    canAcceptPayment?: boolean;
   } | null>(null);
   const [feeDialogPayment, setFeeDialogPayment] = useState<StoreOrderPaymentRow | null>(null);
+  const [panelPaymentId, setPanelPaymentId] = useState<string | null>(null);
   const [assignmentOpen, setAssignmentOpen] = useState(false);
-  const [customerEditOpen, setCustomerEditOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [lineAmountsOpen, setLineAmountsOpen] = useState(false);
   const [shippingEditOpen, setShippingEditOpen] = useState(false);
   const [shippingCompanies, setShippingCompanies] = useState<ShippingCompanyOption[]>([]);
+  const [amendOpen, setAmendOpen] = useState(false);
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const [handOverOpen, setHandOverOpen] = useState(false);
+  const [customerTotal, setCustomerTotal] = useState<number | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [openSections, setOpenSections] = useLocalStorage<Partial<Record<SectionKey, boolean>>>(
+    sectionsKey(user?.id),
+    {},
+  );
   const [preview, setPreview] = useState<{
     title: string;
     mimeType: string | null;
@@ -182,48 +244,72 @@ function StoreOrderDetailContent() {
 
   useBreadcrumbLabel(order?.internalOrderId ?? null);
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      setOrder(await storeOrdersService.get(params.id));
-      storeOrdersService
-        .paymentContext(params.id)
-        .then(setPaymentContext)
-        .catch(() => setPaymentContext(null));
-    } catch (error) {
-      reportApiError(error, "common.loadFailed");
-      setOrder(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [params.id]);
-
-  const loadActivities = useCallback(async () => {
-    try {
-      setActivities(await storeOrdersService.activities(params.id));
-    } catch {
-      setActivities([]);
-    }
-  }, [params.id]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadActivities();
-  }, [loadActivities]);
-
-  const refreshOrder = async () => {
-    const [next] = await Promise.all([storeOrdersService.get(params.id), loadActivities()]);
-    setOrder(next);
+  const loadPaymentContext = useCallback(() => {
     storeOrdersService
       .paymentContext(params.id)
       .then(setPaymentContext)
       .catch(() => setPaymentContext(null));
+  }, [params.id]);
+
+  const loadHistory = async () => {
+    const [activity, amended] = await Promise.all([
+      storeOrdersService.activities(params.id).catch(() => []),
+      storeOrdersService.amendments.history(params.id).catch(() => []),
+    ]);
+    setActivities(activity);
+    setAmendments(amended);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    storeOrdersService
+      .get(params.id)
+      .then((loaded) => {
+        if (cancelled) return;
+        setOrder(loaded);
+        storeOrdersService
+          .paymentContext(params.id)
+          .then(setPaymentContext)
+          .catch(() => setPaymentContext(null));
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        reportApiError(error, "common.loadFailed");
+        setOrder(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([
+      storeOrdersService.activities(params.id).catch(() => []),
+      storeOrdersService.amendments.history(params.id).catch(() => []),
+    ]).then(([activity, amended]) => {
+      if (cancelled) return;
+      setActivities(activity);
+      setAmendments(amended);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
+
+  const refreshOrder = async () => {
+    const [next] = await Promise.all([storeOrdersService.get(params.id), loadHistory()]);
+    setOrder(next);
+    loadPaymentContext();
+  };
+
+  const sectionProps = (key: SectionKey) => ({
+    open: openSections[key] === true,
+    onOpenChange: (open: boolean) => setOpenSections((prev) => ({ ...prev, [key]: open })),
+  });
 
   const handleAddNote = async () => {
     if (!order) return;
@@ -246,10 +332,7 @@ function StoreOrderDetailContent() {
     }
   };
 
-  // Package slip (A5): reads the server's fulfillment gate so the collection
-  // instruction follows the authorized payment rule; printing changes nothing.
-  // The preview tab opens inside the click (before the gate is fetched);
-  // runPrint closes it and shows the API reason if loading fails.
+  // Package slip: reads the server's fulfillment gate; printing changes nothing.
   const handlePrintSlip = () => {
     if (!order) return;
     setIsPreparingSlip(true);
@@ -298,7 +381,6 @@ function StoreOrderDetailContent() {
         await storeOrdersService.receipts.upload(order.id, file);
       }
       setPendingFiles([]);
-      setUploadProgress(null);
       toast.success(t("storeOrders.detail.receipts.attached"));
       await refreshOrder();
     } catch (error) {
@@ -348,10 +430,99 @@ function StoreOrderDetailContent() {
     void shippingCompaniesService
       .listOptions()
       .then(setShippingCompanies)
-      .catch(() => {
-        setShippingCompanies([]);
-      });
+      .catch(() => setShippingCompanies([]));
     setShippingEditOpen(true);
+  };
+
+  /** Company orders search company-owned sellable products, agent orders the agent's own. */
+  const searchAmendProducts = async (query: string): Promise<SearchableSelectOption[]> => {
+    if (!order) return [];
+    const needle = query.trim().toLocaleLowerCase();
+    if (order.agentId) {
+      const result = await agentsService.products.list(order.agentId);
+      return result.items
+        .filter((product) => product.status === "ACTIVE" && product.isSellable)
+        .filter(
+          (product) =>
+            !needle ||
+            [product.name, product.displayName, product.nameEn, product.sku]
+              .filter(Boolean)
+              .some((text) => String(text).toLocaleLowerCase().includes(needle)),
+        )
+        .slice(0, 50)
+        .map((product) => ({
+          value: product.id,
+          label: product.displayName || product.name,
+          description: product.sku,
+        }));
+    }
+    const result = await productsService.catalog({
+      search: query.trim() || undefined,
+      pageSize: 50,
+      isSellable: true,
+    });
+    return result.items
+      .filter((product) => !product.ownerAgentId)
+      .map((product) => ({ value: product.id, label: product.name, description: product.sku }));
+  };
+
+  const runPickup = async (code: "READY_FOR_PICKUP" | "COLLECTED") => {
+    if (!order) return;
+    setActionBusy(true);
+    try {
+      setOrder(await storeOrdersService.transitionPickup(order.id, code));
+      toast.success(t("paymentDeclaration.pickup.success"));
+      void loadHistory();
+    } catch (error) {
+      reportApiError(error, "common.failedToSave");
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const markHandedOver = async () => {
+    const shipment = order?.shipments?.[0];
+    if (!order || !shipment) return;
+    setActionBusy(true);
+    try {
+      await storeOrdersService.shipments.ship(order.id, shipment.id);
+      reportSuccess(t("orderAmendments.nextAction.handedOver"));
+      setHandOverOpen(false);
+      await refreshOrder();
+    } catch (error) {
+      reportApiError(error, "common.failedToSave");
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const openCustomerTotal = async () => {
+    if (!order) return;
+    try {
+      const pricing = await agentsService.orderPricing.get(order.id);
+      setCustomerTotal(pricing.customerTotalChange?.proposedPayableTotal ?? null);
+    } catch (error) {
+      reportApiError(error, "common.loadFailed");
+    }
+  };
+
+  const confirmCustomerTotal = async () => {
+    if (!order || customerTotal == null) return;
+    setActionBusy(true);
+    try {
+      await agentsService.orderPricing.confirmCustomerTotal(order.id, customerTotal);
+      reportSuccess(
+        t("agentPricing.customerTotal.confirmed", {
+          total: formatMoney(customerTotal, order.currency?.code),
+        }),
+      );
+      setCustomerTotal(null);
+      await refreshOrder();
+    } catch (error) {
+      reportApiError(error, "common.failedToSave");
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   const timelineEntries: TimelineEntry[] = useMemo(
@@ -381,26 +552,87 @@ function StoreOrderDetailContent() {
     );
   }
 
-  const invoice = order.invoices?.[0] ?? null;
-  const canGenerateInvoice = order.paymentStatus === "FULLY_PAID_RECONCILED" && !invoice;
+  const invoice = order.invoices?.find((row) => row.status !== "CANCELLED") ?? null;
   const paidAmount = Number(paymentContext?.paid ?? 0);
   const remainingAmount = Number(
     paymentContext?.outstanding ?? Math.max(Number(order.total ?? 0) - paidAmount, 0),
   );
-  // Something is still declarable (the server re-validates against the order total).
   const canDeclareMore = paymentContext
     ? Number(paymentContext.remainingToClaim ?? paymentContext.outstanding) > 0.005 &&
       !paymentContext.fullySettled
     : order.declaredPaymentStatus !== "PAID";
   const isPickup = order.fulfillmentMethod === "PICKUP";
   const fulfillmentAllowed = isReadyForShipping(order);
-  const latestShipmentRow = order.shipments?.[0] ?? null;
-  const phone = order.partner?.phone || order.partner?.mobile || null;
+  const latestShipment = order.shipments?.[0] ?? null;
+  const duplicatePending = order.duplicateReviewStatus === "PENDING";
+
+  const next = computeNextAction({
+    total: Number(order.total ?? 0),
+    isAgentOrder: Boolean(order.agentId),
+    paymentType: order.paymentType,
+    declaredPaymentStatus: order.declaredPaymentStatus,
+    paymentStatus: order.paymentStatus,
+    fulfillmentMethod: order.fulfillmentMethod,
+    fulfillmentCode: storeOrderFulfillmentCode(order),
+    latestShipment: latestShipment
+      ? {
+          status: latestShipment.status,
+          hasCompany: Boolean(latestShipment.shippingCompanyId ?? latestShipment.shippingCompany),
+          labelReissueRequired: latestShipment.labelReissueRequired === true,
+        }
+      : null,
+    duplicateReviewPending: duplicatePending,
+    customerTotalConfirmationRequired: order.customerTotalStatus === "CONFIRMATION_REQUIRED",
+    hasActiveInvoice: Boolean(invoice),
+    canDeclareMore,
+    can: {
+      reviewDuplicates: canReviewDuplicates,
+      confirmCustomerTotal: hasPermission("agents.edit"),
+      setAmounts: canEdit,
+      declarePayment: canDeclarePayment,
+      manageShipping: canManageShipping,
+      recordPickup: canRecordPickup,
+      generateInvoice: canGenerateInvoiceAction,
+    },
+  });
+  const nextHandlers: Record<NextActionKind, () => void> = {
+    RESOLVE_DUPLICATE: () => setDuplicateOpen(true),
+    CONFIRM_CUSTOMER_TOTAL: () => void openCustomerTotal(),
+    SET_AMOUNTS: () => setLineAmountsOpen(true),
+    REISSUE_LABEL: openShippingEdit,
+    DECLARE_PAYMENT: () => setDeclareOpen(true),
+    AWAITING_FINANCE: () => undefined,
+    ASSIGN_SHIPPING: openShippingEdit,
+    MARK_HANDED_OVER: () => setHandOverOpen(true),
+    UPDATE_SHIPMENT: openShippingEdit,
+    MARK_READY_FOR_PICKUP: () => void runPickup("READY_FOR_PICKUP"),
+    MARK_COLLECTED: () => void runPickup("COLLECTED"),
+    GENERATE_INVOICE: () => void handleGenerateInvoice(),
+    NONE: () => undefined,
+  };
+  const primary: ActionSpec | undefined =
+    next.actionable && next.labelKey
+      ? {
+          key: "next-action",
+          label: t(next.labelKey),
+          icon: NEXT_ACTION_ICON[next.kind],
+          testId: "order-next-action",
+          disabled: actionBusy || isGeneratingInvoice,
+          onSelect: nextHandlers[next.kind],
+        }
+      : undefined;
+
+  const paymentBadge = orderPaymentBadge(order);
+  const fulfillmentBadge = orderFulfillmentBadge({
+    fulfillmentMethod: order.fulfillmentMethod,
+    fulfillmentStatus: order.fulfillmentStatus,
+    latestShipmentStatus: latestShipment?.status ?? null,
+    locale,
+  });
   const visibleActivity = showAllActivity
     ? timelineEntries
     : timelineEntries.slice(0, ACTIVITY_PREVIEW);
   const hiddenActivityCount = Math.max(0, timelineEntries.length - ACTIVITY_PREVIEW);
-  const shipmentForDialog = latestShipmentRow ? toShipmentListRow(order, latestShipmentRow) : null;
   const relatedRefreshKey = [
     order.paymentStatus,
     order.declaredPaymentStatus,
@@ -410,544 +642,139 @@ function StoreOrderDetailContent() {
     order.shipments?.map((row) => row.status).join(),
   ].join("|");
 
-  /** A 0.00 order that is not invoiced yet is missing its agreed price — offer the correction. */
-  const needsAgreedAmounts =
-    Number(order.total ?? 0) <= 0 &&
-    !(order.invoices ?? []).some((invoice) => invoice.status !== "CANCELLED");
-
-  const editButton = (label: string, onClick: () => void) =>
-    canEdit ? (
+  const editButton = (label: string, onClick: () => void, show = canEdit) =>
+    show ? (
       <IconActionButton label={label} onClick={onClick}>
         <Pencil className="size-3.5" />
       </IconActionButton>
     ) : null;
 
-  const overview = (
-    <DetailSplitLayout
-      main={
-        <>
-          <div className="overflow-hidden rounded-md border border-border bg-card">
-            <div className="flex items-center justify-between gap-2 border-b border-border/70 px-3 py-1.5">
-              <h2 className="text-caption font-semibold">
-                {t("storeOrders.detail.sections.items")}
-              </h2>
-              {needsAgreedAmounts
-                ? editButton(t("storeOrders.lineAmounts.action"), () => setLineAmountsOpen(true))
-                : null}
-            </div>
-            {order.items.length > 0 && isMobile ? (
-              <ul className="flex flex-col divide-y divide-border/60">
-                {order.items.map((item) => (
-                  <li
-                    key={item.id}
-                    data-testid="order-line"
-                    className="flex flex-col gap-1 px-3 py-2"
-                  >
-                    <span className="text-body font-medium [overflow-wrap:anywhere]">
-                      {item.product?.name ?? item.productId}
-                    </span>
-                    <div className="flex items-baseline justify-between gap-3 text-caption text-muted-foreground">
-                      <span>
-                        <SemanticValue kind="number">{item.quantity}</SemanticValue>
-                        {" × "}
-                        <MoneyValue
-                          value={item.unitPrice}
-                          currency={order.currency}
-                          className="font-normal"
-                        />
-                      </span>
-                      <MoneyValue
-                        value={
-                          item.agreedAmount != null
-                            ? Number(item.agreedAmount)
-                            : Number(item.unitPrice) * item.quantity
-                        }
-                        currency={order.currency}
-                        className="text-body text-foreground"
-                      />
-                    </div>
-                  </li>
-                ))}
-                <li className="flex items-baseline justify-between gap-3 bg-surface-sunken px-3 py-2 text-body font-semibold">
-                  <span>{t("storeOrders.fields.total")}</span>
-                  <MoneyValue value={order.total ?? "0"} currency={order.currency} />
-                </li>
-              </ul>
-            ) : order.items.length > 0 ? (
-              <div className="overflow-x-auto px-1 pb-1">
-                <CompactDetailTable
-                  columns={[
-                    {
-                      id: "product",
-                      header: t("storeOrders.detail.items.product"),
-                      cell: (item) => item.product?.name ?? item.productId,
-                    },
-                    {
-                      id: "quantity",
-                      header: t("storeOrders.detail.items.quantity"),
-                      align: "end",
-                      cell: (item) => <SemanticValue kind="number">{item.quantity}</SemanticValue>,
-                    },
-                    {
-                      id: "unitPrice",
-                      header: t("storeOrders.detail.items.unitPrice"),
-                      align: "end",
-                      cell: (item) => (
-                        <MoneyValue value={item.unitPrice} currency={order.currency} />
-                      ),
-                    },
-                    {
-                      id: "total",
-                      header: t("storeOrders.fields.total"),
-                      align: "end",
-                      cell: (item) => (
-                        <MoneyValue
-                          value={
-                            item.agreedAmount != null
-                              ? Number(item.agreedAmount)
-                              : Number(item.unitPrice) * item.quantity
-                          }
-                          currency={order.currency}
-                        />
-                      ),
-                    },
-                  ]}
-                  rows={order.items}
-                  rowKey={(item) => item.id}
-                  footer={
-                    <>
-                      <TableCell colSpan={3} className="px-2 py-1.5 text-end font-medium">
-                        {t("storeOrders.fields.total")}
-                      </TableCell>
-                      <TableCell className="px-2 py-1.5 text-end">
-                        <MoneyValue value={order.total ?? "0"} currency={order.currency} />
-                      </TableCell>
-                    </>
-                  }
-                />
-              </div>
-            ) : (
-              <p className="px-3 py-2 text-caption text-muted-foreground">
-                {t("common.noResults")}
-              </p>
-            )}
-          </div>
-
-          {/* Agents milestone — owner agent, price breakdown, no company invoice, returns. */}
-          {order.agentId || order.pricingMode ? (
-            <AgentOrderPanel order={order} onChanged={() => void refreshOrder()} />
-          ) : null}
-
-          {/* Invoice, payments + receipts, JEs (invoice, receipts, COGS/fulfilment),
-              shipments, stock movements and returns — each opens in place and
-              round-trips back here. */}
-          <RelatedRecordsPanel kind="STORE_ORDER" id={order.id} refreshKey={relatedRefreshKey} />
-
-          {order.paymentDiscrepancy ? (
-            <PaymentDiscrepancyAlert reason={order.paymentDiscrepancyReason} />
-          ) : null}
-          <OrderPaymentStatusPanel
-            declaredPaymentStatus={order.declaredPaymentStatus}
-            declaredAmount={order.declaredAmount}
-            paymentStatus={order.paymentStatus}
-            claims={order.payments ?? []}
-            verifiedAmount={paidAmount}
-            remainingAmount={remainingAmount}
-            currency={order.currency}
-            /* «إبلاغ دفع العميل» lives once, as the header primary (R2-08). */
-          />
-
-          {isPickup ? (
-            <StoreOrderPickupPanel
-              orderId={order.id}
-              fulfillmentStatusCode={order.fulfillmentStatus?.code}
-              canTransition={canRecordPickup}
-              paymentAllowsCollection={fulfillmentAllowed}
-              onChanged={() => void refreshOrder()}
-            />
-          ) : null}
-          <DetailGroup
-            className={isPickup ? "hidden" : undefined}
-            title={t("storeOrders.detail.sections.shipping")}
-            actions={
-              canEdit && latestShipmentRow
-                ? editButton(t("storeOrders.detail.edit.shippingTitle"), openShippingEdit)
-                : null
-            }
-          >
-            <DetailFieldRow
-              label={t("shipping.fields.status")}
-              value={
-                latestShipmentRow?.shippingStatus?.name ??
-                order.shippingStatus?.name ??
-                t(SHIPPING_STAGE_LABEL_KEY[order.shippingStage])
-              }
-            />
-            <DetailFieldRow
-              label={t("shipping.fields.shippingCompany")}
-              value={latestShipmentRow?.shippingCompany?.name}
-            />
-            <DetailFieldRow
-              label={t("shipping.fields.trackingNumber")}
-              value={latestShipmentRow?.trackingNumber}
-              ltr
-            />
-            {!fulfillmentAllowed && !latestShipmentRow ? (
-              <p className="py-1.5 text-caption text-muted-foreground">
-                {t("paymentDeclaration.gate.notReadyHint")}
-              </p>
-            ) : null}
-          </DetailGroup>
-        </>
-      }
-      sidebar={
-        <>
-          <DetailGroup
-            title={t("storeOrders.detail.sections.customer")}
-            actions={
-              canEditCustomer && order.partner
-                ? editButton(t("storeOrders.detail.edit.customerTitle"), () =>
-                    setCustomerEditOpen(true),
-                  )
-                : null
-            }
-          >
-            <DetailFieldRow label={t("storeOrders.fields.customer")} value={order.partner?.name} />
-            <DetailFieldRow
-              label={t("storeOrders.fields.phone")}
-              value={phone ? <SemanticValue kind="phone">{phone}</SemanticValue> : undefined}
-            />
-            <DetailFieldRow
-              label={t("storeOrders.createDialog.fields.customerEmail")}
-              value={
-                order.partner?.email ? (
-                  <SemanticValue kind="email">{order.partner.email}</SemanticValue>
-                ) : undefined
-              }
-            />
-            <DetailFieldRow
-              label={t("storeOrders.createDialog.fields.address")}
-              value={
-                order.partner?.address || order.partner?.city
-                  ? [order.partner.address, order.partner.city].filter(Boolean).join("، ")
-                  : undefined
-              }
-            />
-          </DetailGroup>
-          <DetailGroup
-            title={t("storeOrders.detail.sections.assignment")}
-            actions={editButton(t("storeOrders.detail.edit.assignmentTitle"), () =>
-              setAssignmentOpen(true),
-            )}
-          >
-            <DetailFieldRow
-              label={t("storeOrders.fields.employee")}
-              value={order.employee?.fullName}
-            />
-            <DetailFieldRow
-              label={t("storeOrders.fields.source")}
-              value={t(`storeOrders.source.${order.source}` as MessageKey)}
-            />
-            <DetailFieldRow
-              label={t("storeOrders.fields.sourceChannel")}
-              value={order.sourceChannel}
-            />
-          </DetailGroup>
-        </>
-      }
-    />
-  );
-
-  const details = (
-    <div className="flex flex-col gap-2">
-      <DetailGroup
-        title={t("storeOrders.detail.tabs.details")}
-        actions={editButton(t("storeOrders.detail.edit.notesTitle"), () => setNotesOpen(true))}
-      >
-        <DetailFieldRow
-          label={t("storeOrders.fields.externalOrderId")}
-          value={
-            order.externalOrderId ? (
-              <SemanticValue kind="id">{order.externalOrderId}</SemanticValue>
-            ) : undefined
-          }
-        />
-        <DetailFieldRow
-          label={t("storeOrders.fields.currency")}
-          value={order.currency?.code ?? order.currency?.name}
-          ltr
-        />
-        <DetailFieldRow label={t("storeOrders.fields.employee")} value={order.employee?.fullName} />
-        <DetailFieldRow
-          label={t("storeOrders.fields.source")}
-          value={
-            order.sourceChannel
-              ? `${t(`storeOrders.source.${order.source}` as MessageKey)} · ${order.sourceChannel}`
-              : t(`storeOrders.source.${order.source}` as MessageKey)
-          }
-        />
-        <DetailFieldRow label={t("common.createdAt")} value={formatDate(order.createdAt)} ltr />
-        <DetailFieldRow label={t("common.updatedAt")} value={formatDate(order.updatedAt)} ltr />
-        <DetailFieldRow
-          label={t("storeOrders.detail.sections.notes")}
-          value={order.notes ?? undefined}
-        />
-        {invoice ? (
-          <DetailFieldRow
-            label={t("storeOrders.detail.sections.invoice")}
-            value={
-              <RelatedRecordLink
-                kind="SALES_INVOICE"
-                id={invoice.id}
-                number={invoice.invoiceNumber}
-                status={invoice.status}
-                variant="inline"
-                originLabel={`${t("docFlow.kinds.STORE_ORDER")} ${order.internalOrderId}`}
-              />
-            }
-          />
-        ) : null}
-      </DetailGroup>
-
-      {order.payments && order.payments.length > 0 ? (
-        <div className="overflow-hidden rounded-md border border-border bg-card">
-          <div className="border-b border-border/70 px-3 py-1.5">
-            <h2 className="text-caption font-semibold">
-              {t("storeOrders.detail.sections.payments")}
-            </h2>
-          </div>
-          <div className="overflow-x-auto px-1 pb-1">
-            <CompactDetailTable
-              columns={[
-                {
-                  id: "number",
-                  header: t("storeOrders.detail.payments.number"),
-                  cell: (payment) => (
-                    <SemanticValue kind="id">{payment.paymentNumber}</SemanticValue>
-                  ),
-                },
-                {
-                  id: "date",
-                  header: t("storeOrders.detail.payments.date"),
-                  cell: (payment) => formatDate(payment.paymentDate),
-                },
-                {
-                  id: "method",
-                  header: t("paymentDeclaration.fields.method"),
-                  cell: (payment) => payment.paymentMethod?.name ?? payment.paymentSource?.name,
-                },
-                {
-                  id: "origin",
-                  header: t("paymentDeclaration.fields.origin"),
-                  cell: (payment) =>
-                    payment.origin
-                      ? t(`paymentDeclaration.origin.${payment.origin}` as MessageKey)
-                      : null,
-                },
-                {
-                  id: "amount",
-                  header: t("storeOrders.detail.payments.amount"),
-                  align: "end",
-                  cell: (payment) => (
-                    <MoneyValue value={payment.amount} currency={order.currency} />
-                  ),
-                },
-                {
-                  id: "status",
-                  header: t("common.status"),
-                  cell: (payment) => {
-                    const paymentStatus = paymentRecordStatusBadge(payment.status);
-                    const reason = payment.disputeReason ?? payment.rejectionReason;
-                    return (
-                      <span className="inline-flex flex-col items-start gap-0.5">
-                        <StatusBadge
-                          label={
-                            paymentStatus.labelKey
-                              ? t(paymentStatus.labelKey)
-                              : paymentStatus.fallback
-                          }
-                          tone={paymentStatus.tone}
-                        />
-                        {reason ? (
-                          <span className="text-caption text-muted-foreground">{reason}</span>
-                        ) : null}
-                      </span>
-                    );
-                  },
-                },
-                {
-                  id: "receipts",
-                  header: t("storeOrders.detail.payments.receipts"),
-                  cell: (payment) => {
-                    const count = payment.attachments?.length ?? 0;
-                    return count > 0
-                      ? t("storeOrders.detail.payments.receiptCount", { count: String(count) })
-                      : "—";
-                  },
-                },
-                {
-                  id: "fee",
-                  header: t("storeOrders.detail.payments.fee"),
-                  align: "end",
-                  cell: (payment) =>
-                    canEditProfitabilityCosts ? (
-                      <EnterpriseButton
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setFeeDialogPayment(payment)}
-                      >
-                        {payment.actualFeeAmount != null ? (
-                          <MoneyValue value={payment.actualFeeAmount} currency={order.currency} />
-                        ) : (
-                          t("storeOrders.detail.payments.setFee")
-                        )}
-                      </EnterpriseButton>
-                    ) : payment.actualFeeAmount != null ? (
-                      <MoneyValue value={payment.actualFeeAmount} currency={order.currency} />
-                    ) : (
-                      "—"
-                    ),
-                },
-              ]}
-              rows={order.payments}
-              rowKey={(payment) => payment.id}
-            />
-          </div>
-        </div>
-      ) : null}
-
-      {order.shipments && order.shipments.length > 0 ? (
-        <div className="overflow-hidden rounded-md border border-border bg-card">
-          <div className="border-b border-border/70 px-3 py-1.5">
-            <h2 className="text-caption font-semibold">
-              {t("storeOrders.detail.sections.shipmentHistory")}
-            </h2>
-          </div>
-          <div className="overflow-x-auto px-1 pb-1">
-            <CompactDetailTable
-              columns={[
-                {
-                  id: "attempt",
-                  header: t("storeOrders.detail.shipmentHistory.attempt"),
-                  cell: (shipment) => (
-                    <SemanticValue kind="number">#{shipment.attemptNumber}</SemanticValue>
-                  ),
-                },
-                {
-                  id: "company",
-                  header: t("shipping.fields.shippingCompany"),
-                  cell: (shipment) => shipment.shippingCompany?.name,
-                },
-                {
-                  id: "tracking",
-                  header: t("shipping.fields.trackingNumber"),
-                  cell: (shipment) =>
-                    shipment.trackingNumber ? (
-                      <SemanticValue kind="id">{shipment.trackingNumber}</SemanticValue>
-                    ) : null,
-                },
-                {
-                  id: "status",
-                  header: t("shipping.fields.status"),
-                  cell: (shipment) => (
-                    <StatusBadge
-                      label={t(shipmentStatusLabelKey(shipment.status))}
-                      tone={shipmentStatusTone(shipment.status)}
-                    />
-                  ),
-                },
-                {
-                  id: "createdAt",
-                  header: t("common.createdAt"),
-                  cell: (shipment) => formatDate(shipment.createdAt),
-                },
-              ]}
-              rows={[...order.shipments].sort((a, b) => a.attemptNumber - b.attemptNumber)}
-              rowKey={(shipment) => shipment.id}
-            />
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-
-  const activity = (
-    <div className="flex flex-col gap-3 rounded-md border border-border bg-card px-3 py-2">
-      {canEdit ? (
-        <div className="flex flex-col gap-2">
-          <Label>{t("storeOrders.detail.notes.addLabel")}</Label>
-          <Textarea
-            value={noteText}
-            onChange={(event) => {
-              setNoteText(event.target.value);
-              if (noteError) setNoteError(null);
-            }}
-            rows={2}
-            placeholder={t("storeOrders.detail.notes.placeholder")}
-          />
-          {noteError ? <p className="text-caption text-destructive">{noteError}</p> : null}
-          <EnterpriseButton
-            type="button"
-            size="sm"
-            className="w-fit"
-            disabled={!noteText.trim() || isSavingNote}
-            onClick={() => void handleAddNote()}
-          >
-            {t("storeOrders.detail.notes.save")}
-          </EnterpriseButton>
-        </div>
-      ) : null}
-      {activities === null ? (
-        <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
-      ) : visibleActivity.length === 0 ? (
-        <p className="text-caption text-muted-foreground">{t("common.noActivity")}</p>
-      ) : (
-        <>
-          <AuditTimeline entries={visibleActivity} />
-          {hiddenActivityCount > 0 && !showAllActivity ? (
+  const hasNotices =
+    duplicatePending || latestShipment?.labelReissueRequired === true || order.paymentDiscrepancy;
+  const notices = hasNotices ? (
+    <>
+      {duplicatePending ? (
+        <OrderCardNotice>
+          <span>{t("orderAmendments.detail.duplicateReview")}</span>
+          {canReviewDuplicates && next.kind !== "RESOLVE_DUPLICATE" ? (
             <EnterpriseButton
               type="button"
-              variant="ghost"
               size="sm"
-              className="w-fit"
-              onClick={() => setShowAllActivity(true)}
+              variant="outline"
+              onClick={() => setDuplicateOpen(true)}
             >
-              {t("storeOrders.detail.activity.showMore", { count: hiddenActivityCount })}
+              {t("orderAmendments.nextAction.RESOLVE_DUPLICATE")}
             </EnterpriseButton>
           ) : null}
-        </>
-      )}
-    </div>
-  );
-
-  const attachments = (
-    <div className="flex flex-col gap-3">
-      {canEdit ? (
-        <div className="rounded-md border border-border bg-card px-3 py-2">
-          <FileDropField
-            files={pendingFiles}
-            onFilesChange={setPendingFiles}
-            disabled={isAttachingReceipt}
-          />
-          {uploadProgress ? (
-            <p className="mt-2 text-caption text-muted-foreground">
-              {t("storeOrders.detail.receipts.uploading", { name: uploadProgress })}
-            </p>
-          ) : null}
-          <EnterpriseButton
-            type="button"
-            size="sm"
-            className="mt-2 w-fit"
-            disabled={pendingFiles.length === 0 || isAttachingReceipt}
-            onClick={() => void handleAttachReceipt()}
-          >
-            {t("storeOrders.detail.receipts.attach")}
-          </EnterpriseButton>
-        </div>
+        </OrderCardNotice>
       ) : null}
+      {latestShipment?.labelReissueRequired ? (
+        <OrderCardNotice>
+          {t("orderAmendments.detail.labelReissue", {
+            tracking: latestShipment.trackingNumber ?? `#${latestShipment.attemptNumber}`,
+          })}
+        </OrderCardNotice>
+      ) : null}
+      {order.paymentDiscrepancy ? (
+        <PaymentDiscrepancyAlert reason={order.paymentDiscrepancyReason} />
+      ) : null}
+    </>
+  ) : undefined;
+
+  const paymentsTable =
+    order.payments && order.payments.length > 0 ? (
+      <div className="overflow-x-auto">
+        <CompactDetailTable
+          stacked
+          columns={[
+            {
+              id: "number",
+              header: t("storeOrders.detail.payments.number"),
+              cell: (payment) =>
+                canReviewPayments ? (
+                  <EnterpriseButton
+                    type="button"
+                    variant="link"
+                    size="inline"
+                    onClick={() => setPanelPaymentId(payment.id)}
+                  >
+                    <SemanticValue kind="id">{payment.paymentNumber}</SemanticValue>
+                  </EnterpriseButton>
+                ) : (
+                  <SemanticValue kind="id">{payment.paymentNumber}</SemanticValue>
+                ),
+            },
+            {
+              id: "date",
+              header: t("storeOrders.detail.payments.date"),
+              cell: (payment) => formatDate(payment.paymentDate),
+            },
+            {
+              id: "method",
+              header: t("paymentDeclaration.fields.method"),
+              cell: (payment) => payment.paymentMethod?.name ?? payment.paymentSource?.name,
+            },
+            {
+              id: "amount",
+              header: t("storeOrders.detail.payments.amount"),
+              align: "end",
+              cell: (payment) => <MoneyValue value={payment.amount} currency={order.currency} />,
+            },
+            {
+              id: "status",
+              header: t("common.status"),
+              cell: (payment) => {
+                const status = paymentRecordStatusBadge(payment.status);
+                const reason = payment.disputeReason ?? payment.rejectionReason;
+                return (
+                  <span className="inline-flex flex-col items-start gap-0.5">
+                    <StatusBadge
+                      label={status.labelKey ? t(status.labelKey) : status.fallback}
+                      tone={status.tone}
+                    />
+                    {reason ? (
+                      <span className="text-caption text-muted-foreground">{reason}</span>
+                    ) : null}
+                  </span>
+                );
+              },
+            },
+            {
+              id: "fee",
+              header: t("storeOrders.detail.payments.fee"),
+              align: "end",
+              cell: (payment) =>
+                canEditProfitabilityCosts ? (
+                  <EnterpriseButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFeeDialogPayment(payment)}
+                  >
+                    {payment.actualFeeAmount != null ? (
+                      <MoneyValue value={payment.actualFeeAmount} currency={order.currency} />
+                    ) : (
+                      t("storeOrders.detail.payments.setFee")
+                    )}
+                  </EnterpriseButton>
+                ) : payment.actualFeeAmount != null ? (
+                  <MoneyValue value={payment.actualFeeAmount} currency={order.currency} />
+                ) : (
+                  "—"
+                ),
+            },
+          ]}
+          rows={order.payments}
+          rowKey={(payment) => payment.id}
+        />
+      </div>
+    ) : null;
+
+  const receipts = (
+    <div className="flex flex-col gap-2">
+      <h3 className="text-caption font-semibold">{t("storeOrders.detail.tabs.attachments")}</h3>
       {order.receipts && order.receipts.length > 0 ? (
-        <ul className="divide-y divide-border/60 rounded-md border border-border bg-card">
+        <ul className="divide-y divide-border/60 rounded-md border border-border">
           {order.receipts.map((receipt) => (
             <li key={receipt.id} className="flex items-center gap-2 px-3 py-2 text-sm">
               {isImageAttachmentMime(receipt.mimeType) ? (
@@ -961,16 +788,13 @@ function StoreOrderDetailContent() {
                   variant="link"
                   size="inline"
                   dir="ltr"
-                  className="h-auto truncate px-0 font-normal"
+                  className="h-auto max-w-full truncate px-0 font-normal"
                   onClick={() => void openReceipt(receipt)}
                 >
                   {receipt.fileName ?? receipt.fileUrl}
                 </EnterpriseButton>
                 <p className="text-caption text-muted-foreground">
                   {[
-                    receipt.mimeType?.includes("pdf")
-                      ? "PDF"
-                      : receipt.mimeType?.replace("image/", "").toUpperCase(),
                     formatFileSize(receipt.fileSizeBytes),
                     receipt.createdBy,
                     formatDate(receipt.createdAt),
@@ -995,63 +819,355 @@ function StoreOrderDetailContent() {
           {t("storeOrders.detail.receipts.empty")}
         </p>
       )}
+      {canEdit ? (
+        <div className="flex flex-col gap-2">
+          <FileDropField
+            files={pendingFiles}
+            onFilesChange={setPendingFiles}
+            disabled={isAttachingReceipt}
+          />
+          {uploadProgress ? (
+            <p className="text-caption text-muted-foreground">
+              {t("storeOrders.detail.receipts.uploading", { name: uploadProgress })}
+            </p>
+          ) : null}
+          <EnterpriseButton
+            type="button"
+            size="sm"
+            className="w-fit"
+            disabled={pendingFiles.length === 0 || isAttachingReceipt}
+            onClick={() => void handleAttachReceipt()}
+          >
+            {t("storeOrders.detail.receipts.attach")}
+          </EnterpriseButton>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const overview = (
+    <div className="flex min-w-0 flex-col gap-2">
+      <StoreOrderCompactCard
+        order={order}
+        paid={paidAmount}
+        outstanding={remainingAmount}
+        notices={notices}
+      />
+
+      {/* Agent orders — owner agent, shipping pricing notice, finance, returns. */}
+      {order.agentId ? (
+        <AgentOrderPanel
+          order={order}
+          onChanged={() => void refreshOrder()}
+          showBreakdown={false}
+        />
+      ) : null}
+
+      {isPickup ? (
+        <StoreOrderPickupPanel
+          orderId={order.id}
+          fulfillmentStatusCode={order.fulfillmentStatus?.code}
+          canTransition={canRecordPickup}
+          paymentAllowsCollection={fulfillmentAllowed}
+          onChanged={() => void refreshOrder()}
+        />
+      ) : null}
+
+      <CollapsibleDetailSection
+        title={t("orderAmendments.detail.sections.payments")}
+        summary={t("orderAmendments.detail.summary.payments", {
+          count: order.payments?.length ?? 0,
+        })}
+        testId="section-payments"
+        {...sectionProps("payments")}
+      >
+        <OrderPaymentStatusPanel
+          declaredPaymentStatus={order.declaredPaymentStatus}
+          declaredAmount={order.declaredAmount}
+          paymentStatus={order.paymentStatus}
+          claims={order.payments ?? []}
+          verifiedAmount={paidAmount}
+          remainingAmount={remainingAmount}
+          currency={order.currency}
+        />
+        {paymentsTable}
+        {invoice ? (
+          <DetailFieldRow
+            label={t("storeOrders.detail.sections.invoice")}
+            value={
+              <RelatedRecordLink
+                kind="SALES_INVOICE"
+                id={invoice.id}
+                number={invoice.invoiceNumber}
+                status={invoice.status}
+                variant="inline"
+                originLabel={`${t("docFlow.kinds.STORE_ORDER")} ${order.internalOrderId}`}
+              />
+            }
+          />
+        ) : null}
+        <RelatedRecordsPanel kind="STORE_ORDER" id={order.id} refreshKey={relatedRefreshKey} />
+        {receipts}
+      </CollapsibleDetailSection>
+
+      {!isPickup ? (
+        <CollapsibleDetailSection
+          title={t("orderAmendments.detail.sections.shipments")}
+          summary={
+            latestShipment
+              ? `${shippingStatusName(latestShipment.shippingStatus, t) ?? t(shipmentStatusLabelKey(latestShipment.status))} · ${t(
+                  "orderAmendments.detail.summary.shipments",
+                  { count: order.shipments?.length ?? 0 },
+                )}`
+              : undefined
+          }
+          actions={editButton(
+            t("storeOrders.detail.edit.shippingTitle"),
+            openShippingEdit,
+            canManageShipping && Boolean(latestShipment),
+          )}
+          testId="section-shipments"
+          {...sectionProps("shipments")}
+        >
+          {order.shipments && order.shipments.length > 0 ? (
+            <div className="overflow-x-auto">
+              <CompactDetailTable
+                stacked
+                columns={[
+                  {
+                    id: "attempt",
+                    header: t("storeOrders.detail.shipmentHistory.attempt"),
+                    cell: (shipment) => (
+                      <SemanticValue kind="number">#{shipment.attemptNumber}</SemanticValue>
+                    ),
+                  },
+                  {
+                    id: "company",
+                    header: t("shipping.fields.shippingCompany"),
+                    cell: (shipment) => shipment.shippingCompany?.name,
+                  },
+                  {
+                    id: "tracking",
+                    header: t("shipping.fields.trackingNumber"),
+                    cell: (shipment) =>
+                      shipment.trackingNumber ? (
+                        <SemanticValue kind="id">{shipment.trackingNumber}</SemanticValue>
+                      ) : null,
+                  },
+                  {
+                    id: "status",
+                    header: t("shipping.fields.status"),
+                    cell: (shipment) => (
+                      <StatusBadge
+                        label={
+                          shippingStatusName(shipment.shippingStatus, t) ??
+                          t(shipmentStatusLabelKey(shipment.status))
+                        }
+                        tone={shipmentStatusTone(shipment.status)}
+                      />
+                    ),
+                  },
+                  {
+                    id: "createdAt",
+                    header: t("common.createdAt"),
+                    cell: (shipment) => formatDate(shipment.createdAt),
+                  },
+                ]}
+                rows={[...order.shipments].sort((a, b) => a.attemptNumber - b.attemptNumber)}
+                rowKey={(shipment) => shipment.id}
+              />
+            </div>
+          ) : (
+            <p className="text-caption text-muted-foreground">
+              {fulfillmentAllowed
+                ? t("storeOrders.shippingStage.READY_FOR_SHIPPING")
+                : t("paymentDeclaration.gate.notReadyHint")}
+            </p>
+          )}
+        </CollapsibleDetailSection>
+      ) : null}
+
+      <CollapsibleDetailSection
+        title={t("orderAmendments.detail.sections.history")}
+        summary={t("orderAmendments.detail.summary.history", { count: amendments?.length ?? 0 })}
+        testId="section-history"
+        {...sectionProps("history")}
+      >
+        {/* Payment and fulfillment lifecycles as separate read-only trackers. */}
+        <StoreOrderWorkflowTracks order={order} />
+        <h3 className="border-t border-border/70 pt-2 text-caption font-semibold">
+          {t("orderAmendments.detail.amendments.title")}
+        </h3>
+        <OrderAmendmentHistory rows={amendments} />
+        <div className="flex flex-col gap-2 border-t border-border/70 pt-2">
+          {canEdit ? (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="order-note">{t("storeOrders.detail.notes.addLabel")}</Label>
+              <Textarea
+                id="order-note"
+                value={noteText}
+                onChange={(event) => {
+                  setNoteText(event.target.value);
+                  if (noteError) setNoteError(null);
+                }}
+                rows={2}
+                placeholder={t("storeOrders.detail.notes.placeholder")}
+              />
+              {noteError ? <p className="text-caption text-destructive">{noteError}</p> : null}
+              <EnterpriseButton
+                type="button"
+                size="sm"
+                className="w-fit"
+                disabled={!noteText.trim() || isSavingNote}
+                onClick={() => void handleAddNote()}
+              >
+                {t("storeOrders.detail.notes.save")}
+              </EnterpriseButton>
+            </div>
+          ) : null}
+          {activities === null ? (
+            <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
+          ) : visibleActivity.length === 0 ? (
+            <p className="text-caption text-muted-foreground">{t("common.noActivity")}</p>
+          ) : (
+            <>
+              <AuditTimeline entries={visibleActivity} />
+              {hiddenActivityCount > 0 && !showAllActivity ? (
+                <EnterpriseButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-fit"
+                  onClick={() => setShowAllActivity(true)}
+                >
+                  {t("storeOrders.detail.activity.showMore", { count: hiddenActivityCount })}
+                </EnterpriseButton>
+              ) : null}
+            </>
+          )}
+        </div>
+      </CollapsibleDetailSection>
+
+      <CollapsibleDetailSection
+        title={t("orderAmendments.detail.sections.technical")}
+        actions={editButton(t("storeOrders.detail.edit.notesTitle"), () => setNotesOpen(true))}
+        testId="section-technical"
+        {...sectionProps("technical")}
+      >
+        <div className="divide-y divide-border/60">
+          <DetailFieldRow
+            label={t("orderAmendments.detail.technical.orderId")}
+            value={<SemanticValue kind="id">{order.id}</SemanticValue>}
+            ltr
+          />
+          <DetailFieldRow
+            label={t("orderAmendments.detail.technical.version")}
+            value={String(order.version ?? 0)}
+            ltr
+          />
+          <DetailFieldRow
+            label={t("storeOrders.fields.externalOrderId")}
+            value={
+              order.externalOrderId ? (
+                <SemanticValue kind="id">{order.externalOrderId}</SemanticValue>
+              ) : undefined
+            }
+          />
+          <DetailFieldRow
+            label={t("storeOrders.fields.source")}
+            value={
+              order.sourceChannel
+                ? `${t(`storeOrders.source.${order.source}` as MessageKey)} · ${order.sourceChannel}`
+                : t(`storeOrders.source.${order.source}` as MessageKey)
+            }
+          />
+          <DetailFieldRow
+            label={t("storeOrders.fields.employee")}
+            value={
+              <span className="inline-flex items-center gap-1">
+                {order.employee?.fullName ?? "—"}
+                {editButton(t("storeOrders.detail.edit.assignmentTitle"), () =>
+                  setAssignmentOpen(true),
+                )}
+              </span>
+            }
+          />
+          <DetailFieldRow
+            label={t("storeOrders.fields.currency")}
+            value={order.currency?.code}
+            ltr
+          />
+          <DetailFieldRow label={t("common.createdAt")} value={formatDate(order.createdAt)} ltr />
+          <DetailFieldRow label={t("common.updatedAt")} value={formatDate(order.updatedAt)} ltr />
+          <DetailFieldRow
+            label={t("storeOrders.detail.sections.notes")}
+            value={order.notes ?? undefined}
+          />
+        </div>
+        {order.agentTermsSnapshot ? (
+          <details className="text-caption">
+            <summary className="cursor-pointer text-muted-foreground">
+              {t("orderAmendments.detail.technical.snapshot")}
+            </summary>
+            <pre
+              dir="ltr"
+              className="mt-1 max-h-64 overflow-auto rounded-sm bg-surface-sunken p-2 text-micro whitespace-pre-wrap [overflow-wrap:anywhere]"
+            >
+              {JSON.stringify(order.agentTermsSnapshot, null, 2)}
+            </pre>
+          </details>
+        ) : null}
+      </CollapsibleDetailSection>
     </div>
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-2">
+    <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-2">
       <RecordHighlightsHeader
-        identity={t("storeOrders.detail.sections.orderSummary")}
-        reference={order.internalOrderId}
+        identity={order.internalOrderId}
         status={
-          <>
-            {/* "مكرر" is the stored source-channel value for duplicates, not display text. */}
-            {order.sourceChannel === "مكرر" ? (
-              <StatusBadge label={t("docUi.statusStrip.duplicate")} tone="warning" />
-            ) : null}
+          <span className="flex flex-wrap items-center gap-1.5" data-testid="order-status-badges">
+            <StatusBadge
+              label={`${t("orderAmendments.detail.payment")}: ${
+                paymentBadge.labelKey ? t(paymentBadge.labelKey) : (paymentBadge.label ?? "")
+              }`}
+              tone={paymentBadge.tone}
+            />
+            <StatusBadge
+              label={`${t("orderAmendments.detail.fulfillment")}: ${
+                fulfillmentBadge.labelKey
+                  ? t(fulfillmentBadge.labelKey)
+                  : (fulfillmentBadge.label ?? "")
+              }`}
+              tone={fulfillmentBadge.tone}
+            />
             {order.agent ? <AgentBadge agent={order.agent} /> : null}
-            {paymentContext?.fullySettled ? (
-              <StatusBadge label={t("storeOrders.detail.payments.settled")} tone="success" />
+            {!next.actionable && next.labelKey ? (
+              <StatusBadge label={t(next.labelKey)} tone="neutral" />
             ) : null}
-          </>
+          </span>
         }
         meta={[
-          order.partner?.name,
+          order.agentTermsSnapshot?.customer?.name ?? order.partner?.name,
           order.orderDate ? formatDate(order.orderDate) : null,
           order.currency?.code,
         ]
           .filter(Boolean)
           .join(" · ")}
-        statusStrip={
-          // Payment and fulfillment as separate read-only trackers.
-          <StoreOrderWorkflowTracks order={order} className="border-t border-border/70 pt-2" />
-        }
-        metrics={
-          <>
-            <DetailField
-              label={t("storeOrders.fields.total")}
-              value={<MoneyValue value={order.total ?? "0"} currency={order.currency} />}
-            />
-            <DetailField
-              label={t("storeOrders.detail.payments.paid")}
-              value={<MoneyValue value={paidAmount} currency={order.currency} />}
-            />
-            <DetailField
-              label={t("storeOrders.detail.payments.remaining")}
-              value={<MoneyValue value={remainingAmount} currency={order.currency} />}
-            />
-          </>
-        }
         actions={
           <HeaderActions
-            primary={{
-              key: "declare-payment",
-              label: t("paymentDeclaration.action.declare"),
-              icon: Wallet,
-              hidden: !(canDeclarePayment && canDeclareMore),
-              onSelect: () => setDeclareOpen(true),
-            }}
+            primary={primary}
             secondary={[
+              {
+                key: "amend",
+                label: t("orderAmendments.action"),
+                icon: PenLine,
+                testId: "order-amend",
+                hidden: !canAmend || (Boolean(order.agentId) && !hasPermission("agents.view")),
+                onSelect: () => setAmendOpen(true),
+              },
+            ]}
+            more={[
               {
                 key: "print-slip",
                 label: t("printDocument.printSlipAction"),
@@ -1060,21 +1176,30 @@ function StoreOrderDetailContent() {
                 disabled: isPreparingSlip,
                 onSelect: handlePrintSlip,
               },
-            ]}
-            more={[
+              {
+                key: "declare-payment",
+                label: t("paymentDeclaration.action.declare"),
+                icon: Wallet,
+                hidden: !(canDeclarePayment && canDeclareMore) || next.kind === "DECLARE_PAYMENT",
+                onSelect: () => setDeclareOpen(true),
+              },
               {
                 key: "shipping",
                 label: t("storeOrders.detail.edit.shippingTitle"),
                 icon: Truck,
-                hidden: !canEdit || !latestShipmentRow,
+                hidden: !canManageShipping || !latestShipment || isPickup,
                 onSelect: openShippingEdit,
               },
               {
                 key: "generate-invoice",
                 label: t("storeOrders.detail.invoice.generate"),
                 icon: FileText,
-                // Agent orders never get a company invoice (spec §6) — the panel says so.
-                hidden: !canGenerateInvoiceAction || !canGenerateInvoice || !!order.agentId,
+                hidden:
+                  !canGenerateInvoiceAction ||
+                  order.paymentStatus !== "FULLY_PAID_RECONCILED" ||
+                  Boolean(invoice) ||
+                  Boolean(order.agentId) ||
+                  next.kind === "GENERATE_INVOICE",
                 disabled: isGeneratingInvoice,
                 onSelect: () => void handleGenerateInvoice(),
               },
@@ -1097,43 +1222,49 @@ function StoreOrderDetailContent() {
         }
       />
 
-      <EntityTabs
-        defaultValue="overview"
-        tabs={[
-          { value: "overview", label: t("storeOrders.detail.tabs.overview"), content: overview },
-          { value: "details", label: t("storeOrders.detail.tabs.details"), content: details },
-          {
-            value: "activity",
-            label: t("storeOrders.detail.tabs.activity"),
-            badge:
-              timelineEntries.length > 0 ? (
-                <span className="text-caption text-muted-foreground">{timelineEntries.length}</span>
-              ) : undefined,
-            content: activity,
-          },
-          {
-            value: "attachments",
-            label: t("storeOrders.detail.tabs.attachments"),
-            badge:
-              order.receipts && order.receipts.length > 0 ? (
-                <span className="text-caption text-muted-foreground">{order.receipts.length}</span>
-              ) : undefined,
-            content: attachments,
-          },
-          // Agent orders have no company economics (the goods are the agent's;
-          // the API answers 422 AGENT_ORDER_NO_COMPANY_ECONOMICS) — no tab, no call.
-          ...(canViewProfitability && !order.agentId
-            ? [
-                {
-                  value: "profitability",
-                  label: t("storeOrders.detail.tabs.profitability"),
-                  content: <OrderProfitabilityPanel storeOrderId={order.id} />,
-                },
-              ]
-            : []),
-        ]}
-      />
+      {canViewProfitability && !order.agentId ? (
+        <EntityTabs
+          defaultValue="overview"
+          tabs={[
+            { value: "overview", label: t("storeOrders.detail.tabs.overview"), content: overview },
+            {
+              value: "profitability",
+              label: t("storeOrders.detail.tabs.profitability"),
+              content: <OrderProfitabilityPanel storeOrderId={order.id} />,
+            },
+          ]}
+        />
+      ) : (
+        overview
+      )}
 
+      <OrderAmendDialog
+        order={amendableFromStoreOrder(order)}
+        client={storeOrdersService.amendments}
+        options={{
+          searchProducts: searchAmendProducts,
+          countries: countries.map((country) => ({
+            value: country.id,
+            label: locale === "en" && country.nameEn ? country.nameEn : country.name,
+            searchText: [country.name, country.nameEn, country.code].filter(Boolean).join(" "),
+          })),
+          currencies: currencies.map((currency) => ({
+            value: currency.id,
+            label: currency.code,
+            description: currency.name,
+          })),
+          canSwitchCustomer: !order.agentId,
+          canCorrectIdentity: Boolean(order.agentId) || canEditCustomer,
+        }}
+        open={amendOpen}
+        onOpenChange={setAmendOpen}
+        onAmended={(result) => {
+          setOrder(result.order);
+          loadPaymentContext();
+          void loadHistory();
+        }}
+        onReload={() => void refreshOrder()}
+      />
       <PaymentDeclarationDialog
         storeOrderId={order.id}
         orderCurrencyId={order.currencyId}
@@ -1141,6 +1272,11 @@ function StoreOrderDetailContent() {
         open={declareOpen}
         onOpenChange={setDeclareOpen}
         onDeclared={() => void refreshOrder()}
+      />
+      <PaymentMatchPanel
+        paymentId={panelPaymentId}
+        onOpenChange={(open) => !open && setPanelPaymentId(null)}
+        onChanged={() => void refreshOrder()}
       />
       <SetPaymentFeeDialog
         payment={feeDialogPayment}
@@ -1157,14 +1293,6 @@ function StoreOrderDetailContent() {
         onOpenChange={setAssignmentOpen}
         onSaved={() => void refreshOrder()}
       />
-      {order.partner ? (
-        <StoreOrderEditCustomerDialog
-          customer={order.partner}
-          open={customerEditOpen}
-          onOpenChange={setCustomerEditOpen}
-          onSaved={() => void refreshOrder()}
-        />
-      ) : null}
       <StoreOrderLineAmountsDialog
         orderId={order.id}
         open={lineAmountsOpen}
@@ -1179,13 +1307,42 @@ function StoreOrderDetailContent() {
         onSaved={() => void refreshOrder()}
       />
       <ShipmentManageDialog
-        shipment={shipmentForDialog}
+        shipment={shippingEditOpen ? toShipmentListRow(order, latestShipment) : null}
         open={shippingEditOpen}
         onOpenChange={setShippingEditOpen}
         onUpdated={() => void refreshOrder()}
         shippingCompanies={shippingCompanies}
       />
-
+      <DuplicateReviewDialog
+        orderId={duplicateOpen ? order.id : null}
+        open={duplicateOpen}
+        onOpenChange={setDuplicateOpen}
+        onResolved={() => void refreshOrder()}
+      />
+      <ConfirmationDialog
+        open={handOverOpen}
+        onOpenChange={setHandOverOpen}
+        title={t("orderAmendments.nextAction.handedOverTitle")}
+        description={t("orderAmendments.nextAction.handedOverDescription")}
+        confirmLabel={t("orderAmendments.nextAction.MARK_HANDED_OVER")}
+        cancelLabel={t("common.cancel")}
+        isConfirming={actionBusy}
+        onConfirm={() => void markHandedOver()}
+      />
+      <ConfirmationDialog
+        open={customerTotal != null}
+        onOpenChange={(open) => {
+          if (!open) setCustomerTotal(null);
+        }}
+        title={t("orderAmendments.nextAction.CONFIRM_CUSTOMER_TOTAL")}
+        description={t("agentPricing.customerTotal.confirmed", {
+          total: formatMoney(customerTotal ?? 0, order.currency?.code),
+        })}
+        confirmLabel={t("orderAmendments.nextAction.CONFIRM_CUSTOMER_TOTAL")}
+        cancelLabel={t("common.cancel")}
+        isConfirming={actionBusy}
+        onConfirm={() => void confirmCustomerTotal()}
+      />
       <ConfirmationDialog
         open={Boolean(removeReceiptId)}
         onOpenChange={(open) => {

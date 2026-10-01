@@ -1,14 +1,20 @@
 import type { StatusTone } from "@/components/business/status-badge";
 import type { MessageKey } from "@/i18n/translate";
+import {
+  declaredStatusTone,
+  paymentTerm,
+  settlementTerm,
+  verificationTone,
+  type FinanceVerificationState,
+} from "@/config/payments/payment-vocabulary";
 import type { DeclaredPaymentStatus } from "./declaration-logic";
+
+export type { FinanceVerificationState };
 
 /**
  * Three separate payment facts — never collapsed into one "Paid" flag:
  * what Sales DECLARED, what Finance VERIFIED/POSTED, and provider SETTLEMENT.
  */
-
-export type FinanceVerificationState =
-  "NONE" | "AWAITING" | "PARTIAL" | "VERIFIED" | "DISPUTED" | "REJECTED";
 
 export type SettlementState =
   "NOT_APPLICABLE" | "AWAITING_SETTLEMENT" | "PARTIALLY_SETTLED" | "SETTLED";
@@ -20,10 +26,11 @@ interface ClaimLike {
 
 export const DECLARED_STATUS_VALUES: DeclaredPaymentStatus[] = ["UNPAID", "PARTIALLY_PAID", "PAID"];
 
+/** Tones from the payment vocabulary: anything declared (not verified) reads as "declared". */
 export const DECLARED_STATUS_TONE: Record<DeclaredPaymentStatus, StatusTone> = {
-  UNPAID: "neutral",
-  PARTIALLY_PAID: "warning",
-  PAID: "info",
+  UNPAID: declaredStatusTone("UNPAID"),
+  PARTIALLY_PAID: declaredStatusTone("PARTIALLY_PAID"),
+  PAID: declaredStatusTone("PAID"),
 };
 
 export function declaredStatusLabelKey(status: DeclaredPaymentStatus | undefined): MessageKey {
@@ -35,12 +42,12 @@ export function declaredShortLabelKey(status: DeclaredPaymentStatus | undefined)
 }
 
 export const VERIFICATION_TONE: Record<FinanceVerificationState, StatusTone> = {
-  NONE: "neutral",
-  AWAITING: "warning",
-  PARTIAL: "info",
-  VERIFIED: "success",
-  DISPUTED: "destructive",
-  REJECTED: "destructive",
+  NONE: verificationTone("NONE"),
+  AWAITING: verificationTone("AWAITING"),
+  PARTIAL: verificationTone("PARTIAL"),
+  VERIFIED: verificationTone("VERIFIED"),
+  DISPUTED: verificationTone("DISPUTED"),
+  REJECTED: verificationTone("REJECTED"),
 };
 
 export function financeVerificationState(
@@ -60,11 +67,16 @@ export function financeVerificationState(
   return "NONE";
 }
 
+function settlementTone(state: SettlementState): StatusTone {
+  const term = settlementTerm(state);
+  return term ? paymentTerm(term).tone : "neutral";
+}
+
 export const SETTLEMENT_TONE: Record<SettlementState, StatusTone> = {
-  NOT_APPLICABLE: "neutral",
-  AWAITING_SETTLEMENT: "warning",
-  PARTIALLY_SETTLED: "info",
-  SETTLED: "success",
+  NOT_APPLICABLE: settlementTone("NOT_APPLICABLE"),
+  AWAITING_SETTLEMENT: settlementTone("AWAITING_SETTLEMENT"),
+  PARTIALLY_SETTLED: settlementTone("PARTIALLY_SETTLED"),
+  SETTLED: settlementTone("SETTLED"),
 };
 
 export function settlementState(claims: ClaimLike[]): SettlementState {

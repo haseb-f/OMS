@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { HandCoins } from "lucide-react";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
-import { StatusBadge } from "@/components/business/status-badge";
+import { PaymentSettlementBadge } from "@/components/payments/payment-term-badge";
+import { paymentTerm, settlementTerm } from "@/config/payments/payment-vocabulary";
 import { EnterpriseButton } from "@/components/ui/button";
 import { MoneyValue } from "@/components/shared/money-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
@@ -195,22 +196,18 @@ export function AwaitingSettlementTab({ methodId }: { methodId: string }) {
         meta: {
           titleKey: "paymentSettlement.fields.status" as MessageKey,
           importance: "medium",
-          displayValue: (row, tr) =>
-            tr(`paymentSettlement.claimStatus.${row.settlementStatus}` as MessageKey),
+          displayValue: (row, tr) => {
+            const term = settlementTerm(row.settlementStatus);
+            return term ? tr(paymentTerm(term).labelKey) : row.settlementStatus;
+          },
         },
         accessorFn: (row) => row.settlementStatus,
         cell: (info) => {
-          const status = info.row.original.settlementStatus;
-          return (
-            <StatusBadge
-              label={t(`paymentSettlement.claimStatus.${status}`)}
-              tone={status === "PARTIALLY_SETTLED" ? "warning" : "info"}
-            />
-          );
+          return <PaymentSettlementBadge status={info.row.original.settlementStatus} />;
         },
       },
     ],
-    [t],
+    [],
   );
 
   return (

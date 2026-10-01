@@ -16,6 +16,31 @@ import {
 import { isOperationalShipmentStatus } from '../../shipping/shipping-status.catalog';
 import { evaluateFulfillmentGate } from '../store-order-fulfillment-gate';
 
+/** Statuses a parcel reaches only after it left with its label. */
+const LEFT_WITH_LABEL = new Set<ShipmentStatus>([
+  ShipmentStatus.SHIPPED,
+  ShipmentStatus.OUT_FOR_DELIVERY,
+  ShipmentStatus.DELIVERED,
+]);
+
+/**
+ * Spec 1A — the order was amended after this label was issued: the parcel
+ * must not leave (or be recorded as having left) with the old label and
+ * contents until a new label / tracking is issued. Applies to the named
+ * operations and to imports / sheet sync alike.
+ */
+export function assertLabelCurrent(
+  shipment: { labelReissueRequired: boolean },
+  to: ShipmentStatus,
+) {
+  if (!shipment.labelReissueRequired || !LEFT_WITH_LABEL.has(to)) return;
+  throw new BadRequestException({
+    code: 'LABEL_REISSUE_REQUIRED',
+    message:
+      'تم تعديل الطلب بعد إصدار البوليصة — ألغِ البوليصة وأصدر بوليصة جديدة قبل الشحن — The order was amended after this label was issued: cancel it and issue a new label (or tracking) before shipping.',
+  });
+}
+
 /**
  * Store Orders shipping pipeline — copies the exact operational pattern of
  * the legacy `sales-orders/shipments/shipments.service.ts` (one shipping
@@ -177,6 +202,8 @@ export class StoreOrderShipmentsService {
       where: { id: shipment.id },
       data: await this.catalogStatusData(tx, ShipmentStatus.LABEL_CREATED, {
         labelUrl,
+        // Spec 1A — a new label answers an amendment's reissue request.
+        labelReissueRequired: false,
       }),
     });
   }
@@ -187,6 +214,7 @@ export class StoreOrderShipmentsService {
   ) {
     const { shipment } = await this.getOrCreateCurrent(storeOrderId, tx);
     this.assertTransition(shipment.status, ShipmentStatus.SHIPPED);
+    assertLabelCurrent(shipment, ShipmentStatus.SHIPPED);
     return tx.shipment.update({
       where: { id: shipment.id },
       data: await this.catalogStatusData(tx, ShipmentStatus.SHIPPED),
@@ -311,6 +339,8 @@ export class StoreOrderShipmentsService {
     storeOrderId: string,
     status: ShipmentStatus,
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
+    /** The same update supplies a new label / tracking (answers a reissue request). */
+    options: { labelReissued?: boolean } = {},
   ) {
     if (
       status === ShipmentStatus.RETURN_BEFORE_DELIVERY ||
@@ -321,9 +351,14 @@ export class StoreOrderShipmentsService {
       );
     }
     const { shipment } = await this.getOrCreateCurrent(storeOrderId, tx);
+    if (!options.labelReissued) assertLabelCurrent(shipment, status);
     return tx.shipment.update({
       where: { id: shipment.id },
-      data: await this.catalogStatusData(tx, status),
+      data: await this.catalogStatusData(
+        tx,
+        status,
+        options.labelReissued ? { labelReissueRequired: false } : {},
+      ),
     });
   }
 
@@ -337,9 +372,10 @@ export class StoreOrderShipmentsService {
     shippingStatusId: string,
     code: string,
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
+    options: { labelReissued?: boolean } = {},
   ) {
     if (isOperationalShipmentStatus(code)) {
-      return this.setStatus(storeOrderId, code, tx);
+      return this.setStatus(storeOrderId, code, tx, options);
     }
     const { shipment } = await this.getOrCreateCurrent(storeOrderId, tx);
     return tx.shipment.update({

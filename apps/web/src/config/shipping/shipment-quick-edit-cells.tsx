@@ -11,7 +11,12 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { useLocale } from "@/providers/locale-provider";
 import { storeOrdersService } from "@/services/store-orders-service";
-import { shipmentStatusLabelKey, shipmentStatusTone, catalogStatusTone } from "./shipment-status";
+import {
+  shipmentStatusLabelKey,
+  shipmentStatusTone,
+  catalogStatusTone,
+  shippingStatusName,
+} from "./shipment-status";
 import type { ShipmentListRow, ShippingStatusCatalogEntry } from "@/services/shipping-service";
 import type { ShippingCompanyOption } from "@/services/shipping-companies-service";
 import { reportApiError } from "@/lib/toast";
@@ -76,7 +81,7 @@ export function ShippingStatusQuickCell({
 
   const badge = (
     <StatusBadge
-      label={row.shippingStatus?.name ?? t(shipmentStatusLabelKey(row.status))}
+      label={shippingStatusName(row.shippingStatus, t) ?? t(shipmentStatusLabelKey(row.status))}
       tone={
         row.shippingStatus
           ? catalogStatusTone(row.shippingStatus.color)

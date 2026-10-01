@@ -1,15 +1,23 @@
 import paymentDeclarationAr from "./modules/payment-declaration.ar";
 import paymentReconciliationAr from "./modules/payment-reconciliation.ar";
 import paymentSettlementAr from "./modules/payment-settlement.ar";
+import paymentVocabularyAr from "./modules/payment-vocabulary.ar";
 import fxSettingsAr from "./modules/fx-settings.ar";
 import docUiAr from "./modules/doc-ui.ar";
 import feedbackAr from "./modules/feedback.ar";
 import productCommissionAr from "./modules/product-commission.ar";
+import agentPricingAr from "./modules/agent-pricing.ar";
+import orderDuplicatesAr from "./modules/order-duplicates.ar";
+import orderAmendmentsAr from "./modules/order-amendments.ar";
 const ar = {
   productCommission: productCommissionAr,
+  agentPricing: agentPricingAr,
+  orderDuplicates: orderDuplicatesAr,
+  orderAmendments: orderAmendmentsAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
+  paymentVocabulary: paymentVocabularyAr,
   fxSettings: fxSettingsAr,
   docUi: docUiAr,
   feedback: feedbackAr,
@@ -158,6 +166,18 @@ const ar = {
    * backend identified one; every message still ends with what to do next.
    */
   errors: {
+    ORDER_VERSION_CONFLICT: "تغيّر هذا الطلب في الأثناء. أعد التحميل لرؤية أحدث إصدار.",
+    AMENDMENT_BLOCKED: "لا يمكن حفظ التعديل — راجع الأسباب المذكورة.",
+    AMENDMENT_ACKNOWLEDGEMENT_REQUIRED: "أكّد كل الآثار المذكورة ثم احفظ مرة أخرى.",
+    AMENDMENT_PREVIEW_STALE: "تغيّر الأثر منذ مراجعتك — راجعه مرة أخرى ثم احفظ.",
+    STORE_ORDER_ALREADY_INVOICED: "هذا الطلب مفوتر بالفعل بفاتورة أخرى.",
+    AMENDMENT_NO_CHANGES: "لا يوجد ما يُعدَّل — غيّر حقلًا واحدًا على الأقل.",
+    AGENT_ORDER_CUSTOMER_SWITCH:
+      "عميل طلب الوكيل يُحدَّد بالاسم والجوال المكتوبين — صحّحهما بدلًا من ذلك.",
+    CUSTOMER_PHONE_INVALID: "رقم هاتف العميل غير صالح.",
+    LINE_HAS_ALLOCATIONS: "سطر محذوف أو معدّل مخصص لفرصة استثمار — اعكس ذلك التخصيص أولًا.",
+    DUPLICATE_ACKNOWLEDGEMENT_REQUIRED:
+      "يوجد عميل مسجل بنفس البيانات — اختر طريقة المتابعة ثم احفظ مرة أخرى.",
     VALIDATION_ERROR: "تحقق من البيانات المدخلة وحاول مرة أخرى.",
     VALIDATION_ERROR_FIELD:
       'القيمة المدخلة في حقل "{field}" غير صالحة. تحقق منها ثم حاول الحفظ مرة أخرى.',
@@ -267,6 +287,8 @@ const ar = {
       export: "تصدير",
       import: "استيراد",
       manage: "إدارة",
+      duplicateReview: "مراجعة التكرار",
+      amend: "تعديل الطلب بعد الإنشاء",
     },
     modules: {
       dashboard: "لوحة التحكم",
@@ -3868,12 +3890,6 @@ const ar = {
         amount: "المبلغ",
         paid: "المدفوع",
         remaining: "المتبقي",
-        recordStatus: {
-          PENDING: "بانتظار التأكيد",
-          MATCHED: "مطابقة — غير مرحّلة",
-          VERIFIED: "مؤكدة ومرحّلة",
-          REJECTED: "مرفوضة",
-        },
         add: "إضافة دفعة",
         addTitle: "إضافة دفعة",
         addDescription: "تسجيل دفعة عادية على هذا الطلب وإعادة تقييم حالة التسوية.",
@@ -4715,6 +4731,7 @@ const ar = {
       description:
         "أكّد ورحّل أو ارفض المدفوعات المبلّغ عنها من العميل. التأكيد يرحّل سند قبض واحدًا وقيد يوميته في خطوة واحدة.",
       queue: "قائمة المراجعة",
+      searchPlaceholder: "رقم الدفعة أو الطلب أو المرجع أو العميل",
       fields: {
         number: "الدفعة",
         customer: "العميل",

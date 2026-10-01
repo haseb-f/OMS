@@ -8,10 +8,12 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
+import { DuplicateResolutionDto } from '../../store-orders/duplicates/dto/duplicate.dto';
 
 export class LeadConvertLineDto {
   @IsUUID()
@@ -97,6 +99,18 @@ export class ConvertLeadDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  /** Round 5 Spec 1B — one key per convert-dialog instance; a retry returns the converted lead (`idempotentReplay`). */
+  @IsString()
+  @MaxLength(100)
+  @IsOptional()
+  idempotencyKey?: string;
+
+  /** Spec 1B — the answer to the duplicate warning for the lead's phone / name. */
+  @ValidateNested()
+  @Type(() => DuplicateResolutionDto)
+  @IsOptional()
+  duplicateResolution?: DuplicateResolutionDto;
 }
 
 export class CloseLeadWithoutPurchaseDto {

@@ -1,6 +1,11 @@
 import type { StatusTone } from "@/components/business/status-tone";
 import type { WorkflowTrackerState } from "@/components/shared/workflow-tracker";
 import type { MessageKey } from "@/i18n/translate";
+import {
+  claimVerificationTerm,
+  declaredStatusTone as vocabularyDeclaredTone,
+  paymentTerm,
+} from "@/config/payments/payment-vocabulary";
 import type {
   ClaimVerification,
   DeclaredPaymentStatus,
@@ -49,10 +54,9 @@ export const LEAD_STATUS_CODES = [
   "DISQUALIFIED",
 ] as const;
 
+/** Declared (not verified) — the shared payment vocabulary's "declared" tone. */
 export function declaredStatusTone(status: DeclaredPaymentStatus): StatusTone {
-  if (status === "PAID") return "info";
-  if (status === "PARTIALLY_PAID") return "warning";
-  return "neutral";
+  return vocabularyDeclaredTone(status);
 }
 
 export function financeStatusTone(status: FinancePaymentStatus): StatusTone {
@@ -70,18 +74,9 @@ export function financeStatusTone(status: FinancePaymentStatus): StatusTone {
   }
 }
 
+/** A claim's Finance state, toned by the shared payment vocabulary (rejected = neutral, disputed = destructive). */
 export function verificationTone(verification: ClaimVerification): StatusTone {
-  switch (verification) {
-    case "FINANCE_VERIFIED":
-      return "success";
-    case "FINANCE_MATCHED":
-      return "info";
-    case "REJECTED":
-    case "DISPUTED":
-      return "destructive";
-    default:
-      return "warning";
-  }
+  return paymentTerm(claimVerificationTerm(verification)).tone;
 }
 
 export function paymentStageTone(stage: PortalPaymentStage): StatusTone {
@@ -190,12 +185,4 @@ export function stageShares(
   }));
 }
 
-/** Name in the UI language when the record carries an English name. */
-export function localizedName(
-  record: { name: string; nameEn?: string | null; displayName?: string | null } | null | undefined,
-  locale: "ar" | "en",
-): string {
-  if (!record) return "";
-  if (locale === "en" && record.nameEn) return record.nameEn;
-  return record.displayName || record.name;
-}
+export { localizedName } from "@/lib/localized-name";

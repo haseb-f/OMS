@@ -1,5 +1,6 @@
 "use client";
 
+import { shippingStatusName } from "@/config/shipping/shipment-status";
 import { useCallback, useEffect, useId, useState } from "react";
 import { Info, PackageOpen, Undo2 } from "lucide-react";
 import { DetailSection } from "@/components/shared/detail-workspace";
@@ -34,7 +35,13 @@ import {
 } from "@/config/agents/agent-order";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { agentReturnsService, type AgentReturnRow } from "@/services/agents-service";
+import {
+  agentReturnsService,
+  agentsService,
+  type AgentReturnRow,
+  type InternalShippingPricing,
+} from "@/services/agents-service";
+import { InternalShippingPricingSection, ShippingPricingNotice } from "./shipping-pricing-panel";
 import type { StoreOrderItemRow, StoreOrderRow } from "@/services/store-orders-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -46,7 +53,14 @@ import { AgentPaymentStages, RecordRefundDialog } from "./agent-finance-dialogs"
 import { FieldNote } from "./field-note";
 
 /** Price breakdown of an order with a pricing mode (spec §5) — agent orders. */
-export function OrderPriceBreakdown({ order }: { order: StoreOrderRow }) {
+export function OrderPriceBreakdown({
+  order,
+  provisional = false,
+}: {
+  order: StoreOrderRow;
+  /** Spec 2 — the shipping figure is an estimate until Shipping selects the delivery method. */
+  provisional?: boolean;
+}) {
   const { t } = useLocale();
   const breakdown = agentOrderBreakdown(order);
   if (!breakdown) return null;
@@ -60,10 +74,14 @@ export function OrderPriceBreakdown({ order }: { order: StoreOrderRow }) {
     { label: t("agents.storeOrder.discount"), value: breakdown.discount },
     { label: t("agents.storeOrder.tax"), value: breakdown.tax },
     {
-      label: t("agents.storeOrder.shipping"),
+      label: provisional
+        ? `${t("agents.storeOrder.shipping")} (${t("agentPricing.shippingProvisional")})`
+        : t("agents.storeOrder.shipping"),
       value: breakdown.shipping,
       note: [
-        t(`agents.storeOrder.shippingSource.${breakdown.shippingSource}`),
+        provisional
+          ? t("agentPricing.provisionalNote")
+          : t(`agents.storeOrder.shippingSource.${breakdown.shippingSource}`),
         showRate
           ? t("agents.storeOrder.configuredRate", {
               amount: formatMoney(breakdown.shippingRate ?? 0, currency?.code),
@@ -120,9 +138,12 @@ export function OrderPriceBreakdown({ order }: { order: StoreOrderRow }) {
 export function AgentOrderPanel({
   order,
   onChanged,
+  showBreakdown = true,
 }: {
   order: StoreOrderRow;
   onChanged: () => void;
+  /** False when the page already shows the totals (spec 1C compact order card). */
+  showBreakdown?: boolean;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -133,6 +154,43 @@ export function AgentOrderPanel({
   const [refundOpen, setRefundOpen] = useState(false);
   const canViewFinance = hasPermission("agents.finance.view");
   const canRefund = hasPermission("agents.finance.adjust");
+  const canViewPricing = hasPermission("agents.view");
+  const canConfirmTotal = hasPermission("agents.edit");
+  const [pricing, setPricing] = useState<InternalShippingPricing | null>(null);
+
+  const loadPricing = useCallback(async () => {
+    if (!order.agentId || !canViewPricing) return;
+    try {
+      setPricing(await agentsService.orderPricing.get(order.id));
+    } catch {
+      setPricing(null);
+    }
+    // Reloaded whenever the order changes (e.g. Shipping assigned the company).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order.agentId, order.id, order.updatedAt, canViewPricing]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadPricing();
+  }, [loadPricing]);
+
+  const confirmCustomerTotal = async (expectedPayableTotal: number) => {
+    try {
+      const updated = await agentsService.orderPricing.confirmCustomerTotal(
+        order.id,
+        expectedPayableTotal,
+      );
+      setPricing(updated);
+      toast.success(
+        t("agentPricing.customerTotal.confirmed", {
+          total: formatMoney(expectedPayableTotal, order.currency?.code),
+        }),
+      );
+      onChanged();
+    } catch (error) {
+      reportApiError(error, "common.failedToSave");
+    }
+  };
 
   const loadReturns = useCallback(async () => {
     if (!canViewReturns) return;
@@ -148,7 +206,7 @@ export function AgentOrderPanel({
     void loadReturns();
   }, [loadReturns]);
 
-  if (!order.agentId) return <OrderPriceBreakdown order={order} />;
+  if (!order.agentId) return showBreakdown ? <OrderPriceBreakdown order={order} /> : null;
 
   const dispatched = !!order.agentDispatchedAt;
   const refundButton = canRefund ? (
@@ -203,7 +261,18 @@ export function AgentOrderPanel({
           <span>{t("agents.storeOrder.noInvoice")}</span>
         </AlertDescription>
       </Alert>
-      <OrderPriceBreakdown order={order} />
+      <ShippingPricingNotice
+        pricing={pricing}
+        currency={order.currency}
+        canConfirm={canConfirmTotal}
+        onConfirm={confirmCustomerTotal}
+      />
+      {showBreakdown ? (
+        <OrderPriceBreakdown order={order} provisional={pricing?.status === "PENDING_METHOD"} />
+      ) : null}
+      {pricing && pricing.status !== "NOT_APPLICABLE" ? (
+        <InternalShippingPricingSection pricing={pricing} currency={order.currency} />
+      ) : null}
       {canViewFinance || canRefund ? (
         canViewFinance ? (
           <AgentPaymentStages
@@ -392,7 +461,12 @@ function ReceiveReturnDialog({
     >
       <FormCardStack>
         <FormCardSection title={t("agents.storeOrder.returnsTitle")}>
-          <CompactDetailTable columns={columns} rows={order.items} rowKey={(item) => item.id} />
+          <CompactDetailTable
+            stacked
+            columns={columns}
+            rows={order.items}
+            rowKey={(item) => item.id}
+          />
           {showErrors && lines.length === 0 && !hasErrors ? (
             <p className="text-caption text-destructive">
               {t("agents.storeOrder.returnErrors.noLines")}
@@ -455,7 +529,7 @@ function ReceiveReturnDialog({
                   description: [
                     shipment.shippingCompany?.name,
                     shipment.trackingNumber,
-                    shipment.shippingStatus?.name ?? shipment.status,
+                    shippingStatusName(shipment.shippingStatus, t) ?? shipment.status,
                   ]
                     .filter(Boolean)
                     .join(" · "),

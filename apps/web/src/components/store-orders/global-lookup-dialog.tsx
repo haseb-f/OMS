@@ -232,6 +232,7 @@ export function GlobalLookupDialog({
                 className="w-fit gap-1.5"
                 onClick={() => {
                   onAddNewOrder({
+                    id: customerResult.id,
                     name: customerResult.name,
                     phone: customerResult.phone || customerResult.mobile,
                     countryId: customerResult.countryId,

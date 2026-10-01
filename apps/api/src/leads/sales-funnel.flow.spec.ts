@@ -343,10 +343,17 @@ describe('Sales Funnel Engine', () => {
 
   async function productId() {
     const product = await prisma.product.findFirst({
-      where: { deletedAt: null, isSellable: true, status: 'ACTIVE' },
+      // Company-owned only: agent-owned products are refused on company leads.
+      where: {
+        deletedAt: null,
+        isSellable: true,
+        status: 'ACTIVE',
+        ownerAgentId: null,
+      },
       select: { id: true },
+      orderBy: { createdAt: 'asc' },
     });
-    if (!product) throw new Error('A sellable product is required.');
+    if (!product) throw new Error('A sellable company product is required.');
     return product.id;
   }
 

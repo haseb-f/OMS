@@ -1,6 +1,13 @@
+import type { DuplicateResolution } from "./order-duplicates-service";
 import { apiClient } from "./api-client";
+import { orderAmendmentsClient } from "./order-amendments-service";
 import { buildQueryString as buildQuery } from "@/lib/query-string";
-import type { AgentCommissionReport } from "./agents-service";
+import type {
+  AgentCommissionReport,
+  ShippingPricingView,
+  TariffDeliveryChannel,
+  TariffPaymentType,
+} from "./agents-service";
 
 /**
  * External agent portal API (`/agent-portal/*`, specs/agents-fulfillment-partners §3, §10).
@@ -84,6 +91,8 @@ export interface CatalogStatus {
 export interface PortalShippingRate {
   country: CountryRef & { code: string };
   city: string | null;
+  deliveryChannel: TariffDeliveryChannel;
+  paymentType: TariffPaymentType;
   amount: number;
 }
 
@@ -257,10 +266,15 @@ export interface CreateOrderInput extends PricingInput {
   customer: { name: string; mobile?: string; countryId?: string; city?: string; address?: string };
   notes?: string;
   idempotencyKey: string;
+  /** Round 5 Spec 1B — the answer to the duplicate customer warning. */
+  duplicateResolution?: DuplicateResolution;
 }
 
 export interface ConvertLeadInput extends PricingInput {
   notes?: string;
+  /** Spec 1B — one key per form instance. */
+  idempotencyKey?: string;
+  duplicateResolution?: DuplicateResolution;
 }
 
 export interface QuoteIssue {
@@ -302,6 +316,8 @@ export interface OrderQuote {
     serviceCharge: number;
     payableTotal: number;
   } | null;
+  /** Spec 2 — PENDING_METHOD: the shipping fee is a provisional estimate. */
+  shippingPricingStatus: ShippingPricingView["status"];
 }
 
 export interface OrderBreakdown {
@@ -329,6 +345,8 @@ export interface PortalOrderRow {
   currency: CurrencyRef | null;
   itemCount: number;
   breakdown: OrderBreakdown;
+  shippingPricingStatus: ShippingPricingView["status"];
+  customerTotalStatus: ShippingPricingView["customerTotalStatus"];
   declaredPaymentStatus: DeclaredPaymentStatus;
   declaredAmount: number;
   financePaymentStatus: FinancePaymentStatus;
@@ -384,6 +402,8 @@ export interface PortalClaim {
 export interface PortalOrderDetail {
   id: string;
   internalOrderId: string;
+  /** Spec 1A — optimistic concurrency version (amendments). */
+  version: number;
   orderDate: string;
   createdAt: string;
   owner: { id: string; fullName: string } | null;
@@ -413,6 +433,8 @@ export interface PortalOrderDetail {
     lineAmount: number;
   }>;
   breakdown: OrderBreakdown;
+  /** Spec 2 — customer shipping + contractual fee (never carrier cost or margin). */
+  shippingPricing: ShippingPricingView;
   payment: {
     declaredPaymentStatus: DeclaredPaymentStatus;
     declaredAmount: number;
@@ -649,6 +671,13 @@ export const agentPortalService = {
     get: (id: string) => apiClient.get<PortalOrderDetail>(`${BASE}/orders/${id}`),
     declare: (id: string, input: DeclarationInput) =>
       apiClient.post<PortalOrderDetail>(`${BASE}/orders/${id}/payment-declaration`, input),
+    /** Round 5 Spec 1A — guided amendments (`agent.orders.edit`). */
+    amendments: orderAmendmentsClient<PortalOrderDetail>(`${BASE}/orders`),
+    /** Spec 2 — "Customer agreed to pay {total}" (order owner / agent admin). */
+    confirmCustomerTotal: (id: string, expectedPayableTotal: number) =>
+      apiClient.post<PortalOrderDetail>(`${BASE}/orders/${id}/customer-total/confirm`, {
+        expectedPayableTotal,
+      }),
   },
 
   /** Item-level commission and shipping settlement (commission-policy.md A7). */

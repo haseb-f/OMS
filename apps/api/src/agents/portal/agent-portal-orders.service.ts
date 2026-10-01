@@ -15,9 +15,11 @@ import { AgentStatementService } from '../finance/agent-statement.service';
 import type {
   AgentOrderPricingDto,
   ConvertAgentLeadDto,
+  ConfirmCustomerTotalDto,
   CreateAgentOrderDto,
   DeclareAgentOrderPaymentDto,
 } from '../orders/dto/agent-order.dto';
+import { agentShippingPricingView } from '../pricing/agent-shipping-pricing-view';
 import { periodBounds } from '../finance/agent-statement.service';
 import {
   isAgentOrderDigitalOnly,
@@ -40,6 +42,8 @@ const STATUS_SELECT = {
 const ORDER_LIST_SELECT = {
   id: true,
   internalOrderId: true,
+  /** Spec 1A — optimistic concurrency for amendments. */
+  version: true,
   orderDate: true,
   createdAt: true,
   fulfillmentMethod: true,
@@ -57,8 +61,10 @@ const ORDER_LIST_SELECT = {
   paymentDiscrepancy: true,
   agentDispatchedAt: true,
   agentEarnedAt: true,
+  shippingPricingStatus: true,
+  customerTotalStatus: true,
   currency: { select: { id: true, code: true } },
-  /** Only `.customer` is read (the customer as typed on this order — S1). */
+  /** Only `.customer` / the contractual shipping fee are read (the customer as typed on this order — S1). */
   agentTermsSnapshot: true,
   partner: { select: { name: true, mobile: true } },
   employee: { select: { id: true, fullName: true } },
@@ -130,7 +136,7 @@ export class AgentPortalOrdersService {
       },
       { userId: agent.userId, agent },
     );
-    return this.detail(agent, created.id);
+    return this.withReplayFlag(created, await this.detail(agent, created.id));
   }
 
   async convertLead(
@@ -143,7 +149,14 @@ export class AgentPortalOrdersService {
       this.stripInternalFields(dto),
       { userId: agent.userId, agent },
     );
-    return this.detail(agent, created.id);
+    return this.withReplayFlag(created, await this.detail(agent, created.id));
+  }
+
+  /** Spec 1B — a retried submit keeps its `idempotentReplay` flag through the portal shape. */
+  private withReplayFlag<T extends object>(created: object, detail: T) {
+    return 'idempotentReplay' in created
+      ? { ...detail, idempotentReplay: true as const }
+      : detail;
   }
 
   async declare(
@@ -152,6 +165,19 @@ export class AgentPortalOrdersService {
     dto: DeclareAgentOrderPaymentDto,
   ) {
     await this.orders.declareAgentOrderPayment(orderId, dto, {
+      userId: agent.userId,
+      agent,
+    });
+    return this.detail(agent, orderId);
+  }
+
+  /** Spec 2 — the agent (owner / admin) records the customer's agreement to the new total. */
+  async confirmCustomerTotal(
+    agent: AgentRequestContext,
+    orderId: string,
+    dto: ConfirmCustomerTotalDto,
+  ) {
+    await this.orders.confirmCustomerTotal(orderId, dto, {
       userId: agent.userId,
       agent,
     });
@@ -249,6 +275,9 @@ export class AgentPortalOrdersService {
         serviceCharge: num(row.serviceCharge),
         payableTotal: storeOrderPayableTotal(row),
       },
+      /** Spec 2 — PENDING_METHOD: shipping (and a shipping-added total) is provisional. */
+      shippingPricingStatus: row.shippingPricingStatus,
+      customerTotalStatus: row.customerTotalStatus,
       declaredPaymentStatus: row.declaredPaymentStatus,
       declaredAmount: Number(row.declaredAmount),
       financePaymentStatus: row.paymentStatus,
@@ -423,6 +452,7 @@ export class AgentPortalOrdersService {
     return {
       id: order.id,
       internalOrderId: order.internalOrderId,
+      version: order.version,
       orderDate: order.orderDate,
       createdAt: order.createdAt,
       owner: order.employee,
@@ -450,6 +480,11 @@ export class AgentPortalOrdersService {
         serviceCharge: num(order.serviceCharge),
         payableTotal,
       },
+      /** Spec 2 — customer shipping + contractual fee only (never carrier cost or margin). */
+      shippingPricing: agentShippingPricingView(
+        order,
+        confirmedAmount([PaymentStatus.VERIFIED]),
+      ),
       payment: {
         declaredPaymentStatus: order.declaredPaymentStatus,
         declaredAmount: Number(order.declaredAmount),

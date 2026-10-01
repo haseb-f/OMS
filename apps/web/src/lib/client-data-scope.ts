@@ -120,7 +120,8 @@ const PER_USER_LOCAL_KEYS = [
   "oms.partners.recentEmployees",
   "oms.partners.recentOwners",
 ];
-const PER_USER_LOCAL_PREFIXES = ["oms.print-job.", "oms.partners.recent"];
+/** `oms.orderDetail.` — which order-detail sections a user keeps open (spec 1C). */
+const PER_USER_LOCAL_PREFIXES = ["oms.print-job.", "oms.partners.recent", "oms.orderDetail."];
 /**
  * Device preferences — how THIS browser shows the app, not what a user did.
  * Deliberately kept across logout / user switch (listed so a new key is

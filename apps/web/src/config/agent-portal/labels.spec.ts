@@ -16,7 +16,9 @@ describe("agent portal labels", () => {
   it("never styles a declaration like a verification", () => {
     expect(verificationTone("DECLARED_AWAITING_FINANCE")).toBe("warning");
     expect(verificationTone("FINANCE_VERIFIED")).toBe("success");
-    expect(verificationTone("REJECTED")).toBe("destructive");
+    // Round 5 payment vocabulary: rejected = neutral, disputed = destructive.
+    expect(verificationTone("REJECTED")).toBe("neutral");
+    expect(verificationTone("DISPUTED")).toBe("destructive");
     expect(declaredStatusTone("PAID")).not.toBe("success");
   });
 

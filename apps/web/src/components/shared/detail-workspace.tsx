@@ -7,6 +7,8 @@ import {
   EnterpriseCardHeader,
   EnterpriseCardTitle,
 } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { TriggerChevron } from "@/components/ui/trigger-chevron";
 import { cn } from "@/lib/utils";
 
 export { BackButton } from "@/components/shared/back-button";
@@ -462,6 +464,58 @@ export function DetailFieldRow({
         {value}
       </div>
     </div>
+  );
+}
+
+/**
+ * Progressive-disclosure section of a detail page (Round 5 spec 1C): a
+ * DetailGroup-style card whose header is the toggle. Controlled, so a page
+ * can remember which sections a user keeps open. `summary` is a one-line
+ * hint shown in the header while collapsed (counts, latest state).
+ */
+export function CollapsibleDetailSection({
+  title,
+  summary,
+  actions,
+  open,
+  onOpenChange,
+  children,
+  className,
+  testId,
+}: {
+  title: string;
+  summary?: ReactNode;
+  /** Header actions — rendered outside the toggle so they never collapse it. */
+  actions?: ReactNode;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: ReactNode;
+  className?: string;
+  testId?: string;
+}) {
+  return (
+    <Collapsible open={open} onOpenChange={onOpenChange}>
+      <section
+        data-testid={testId}
+        className={cn("min-w-0 rounded-md border border-border bg-card", className)}
+      >
+        <div className="flex min-h-10 items-center gap-2 px-3 py-1.5">
+          <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-start outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <TriggerChevron kind="disclosure" size="sm" />
+            <h2 className="shrink-0 text-caption font-semibold tracking-tight">{title}</h2>
+            {!open && hasDetailValue(summary) ? (
+              <span className="min-w-0 truncate text-caption text-muted-foreground">{summary}</span>
+            ) : null}
+          </CollapsibleTrigger>
+          {actions ? <div className="flex shrink-0 items-center gap-1">{actions}</div> : null}
+        </div>
+        <CollapsibleContent>
+          <div className="flex min-w-0 flex-col gap-2 border-t border-border/70 px-3 py-2">
+            {children}
+          </div>
+        </CollapsibleContent>
+      </section>
+    </Collapsible>
   );
 }
 

@@ -28,7 +28,7 @@ const paymentDeclarationAr = {
     reference: "مرجع الدفع",
     currency: "العملة",
     submit: "حفظ الإبلاغ",
-    notVerifiedNote: "«أبلغ العميل بالدفع» ليس «تحققت المالية/مرحّل».",
+    notVerifiedNote: "«أبلغ العميل بالدفع» ليس «مؤكد ومُرحّل من المالية».",
     errors: {
       amountRequired: "أدخل المبلغ الذي دفعه العميل.",
       amountExceeds: "لا يمكن أن يتجاوز المبلغ المتبقي للإبلاغ.",
@@ -63,20 +63,14 @@ const paymentDeclarationAr = {
   verification: {
     NONE: "لا توجد مطالبات دفع بعد",
     AWAITING: "بانتظار مطابقة المالية",
-    PARTIAL: "تحقق/ترحيل جزئي",
-    VERIFIED: "تحققت المالية/مرحّل",
+    PARTIAL: "مؤكد ومُرحّل جزئيًا",
+    VERIFIED: "مؤكد ومُرحّل من المالية",
     DISPUTED: "معترض عليه من المالية",
     REJECTED: "مرفوض من المالية",
   },
-  settlement: {
-    NOT_APPLICABLE: "لا ينطبق",
-    AWAITING_SETTLEMENT: "بانتظار تسوية المزوّد",
-    PARTIALLY_SETTLED: "مسوّى جزئياً",
-    SETTLED: "مسوّى",
-  },
   fields: {
     declaredAmount: "المبلغ المُبلَغ عنه",
-    verifiedAmount: "المتحقق منه والمرحّل",
+    verifiedAmount: "المؤكد والمُرحّل",
     method: "الطريقة",
     origin: "أبلغ بواسطة",
     kind: "نوع الإبلاغ",
@@ -92,13 +86,12 @@ const paymentDeclarationAr = {
     FULL: "دفع كامل",
     PARTIAL: "جزئي",
   },
-  recordStatus: {
-    DISPUTED: "معترض عليه",
-  },
   discrepancy: {
     title: "تعارض في الدفع",
     description:
       "اعترضت المالية على دفعة أو رفضتها بعد بدء التنفيذ. عالج الأمر مع المالية — لم يتغير سجل الشحن.",
+    amendmentDescription:
+      "عُدِّل الطلب بعد الإبلاغ عن مدفوعات. يجب أن تراجع المالية المدفوعات المُبلغ عنها مقابل الطلب بعد التعديل — التفاصيل في قسم التعديلات والنشاط.",
   },
   gate: {
     notReadyHint:

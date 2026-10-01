@@ -17,7 +17,7 @@ import {
   SHIPPING_STAGE_TONE,
   financialStatusLabelKey,
 } from "@/config/store-orders/status";
-import { catalogStatusTone } from "@/config/shipping/shipment-status";
+import { catalogStatusTone, shippingStatusName } from "@/config/shipping/shipment-status";
 
 export function customerPhone(row: StoreOrderRow): string | null {
   return row.partner?.phone || row.partner?.mobile || null;
@@ -93,7 +93,9 @@ export function storeOrderPaymentText(order: StoreOrderRow, t: Translate): strin
 
 /** The Shipping cell's status label: the catalog status the screen shows, else the stage label. */
 export function storeOrderShippingLabel(order: StoreOrderRow, t: Translate): string {
-  return order.shippingStatus?.name ?? t(SHIPPING_STAGE_LABEL_KEY[order.shippingStage]);
+  return (
+    shippingStatusName(order.shippingStatus, t) ?? t(SHIPPING_STAGE_LABEL_KEY[order.shippingStage])
+  );
 }
 
 /** The Shipping cell as plain text (print / preview): status label and tracking number. */

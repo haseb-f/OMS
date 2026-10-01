@@ -681,6 +681,29 @@ export class SalesInvoicesService {
         `Sales Invoice ${invoice.invoiceNumber} is posted — correct it with a Sales Return, or Duplicate it to issue a corrected invoice.`,
       );
     }
+    // A cancelled Store Order invoice may have been replaced (order
+    // amendment → regenerated invoice): reviving it would invoice the order
+    // twice.
+    if (
+      invoice.status === SalesDocumentStatus.CANCELLED &&
+      invoice.storeOrderId
+    ) {
+      const active = await this.prisma.salesInvoice.findFirst({
+        where: {
+          storeOrderId: invoice.storeOrderId,
+          id: { not: invoice.id },
+          deletedAt: null,
+          status: { not: SalesDocumentStatus.CANCELLED },
+        },
+        select: { invoiceNumber: true },
+      });
+      if (active) {
+        throw new BadRequestException({
+          code: 'STORE_ORDER_ALREADY_INVOICED',
+          message: `Sales Invoice ${invoice.invoiceNumber} cannot return to draft — its Store Order is already invoiced by ${active.invoiceNumber}.`,
+        });
+      }
+    }
     return this.transition(
       id,
       [
