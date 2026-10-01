@@ -380,8 +380,11 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
       ),
     ).rejects.toThrow('رقم التتبع مطلوب لهذه الحالة.');
 
+    // R6 SHIP: the order sits in the queue (untouched attempt) — the rejected
+    // row never moved it.
     const current = await shipmentsService.getCurrent(order.id);
-    expect(current).toBeNull();
+    expect(current?.status ?? null).toBeNull();
+    expect(current?.trackingNumber ?? null).toBeNull();
   });
 
   // ---------------------------------------------------------------------
@@ -1386,7 +1389,9 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
 
         // Never fell back to the decoy order's External Order ID.
         const decoyShipment = await shipmentsService.getCurrent(decoyOrder.id);
-        expect(decoyShipment).toBeNull();
+        // R6 SHIP: only the decoy's untouched queue entry — never updated.
+        expect(decoyShipment?.status ?? null).toBeNull();
+        expect(decoyShipment?.trackingNumber ?? null).toBeNull();
       });
 
       it('lets a failed shipping row retry after the sheet is corrected', async () => {
@@ -1412,7 +1417,10 @@ describe('Shipping Sync (Two-Way Google Sheets Workflow)', () => {
           { runAs: 'SHIPPING_UPDATES' },
         );
         expect(firstCommit.errorCount).toBe(1);
-        expect(await shipmentsService.getCurrent(order.id)).toBeNull();
+        // R6 SHIP: untouched queue entry only — the failed row changed nothing.
+        const untouched = await shipmentsService.getCurrent(order.id);
+        expect(untouched?.status ?? null).toBeNull();
+        expect(untouched?.trackingNumber ?? null).toBeNull();
 
         // Employee corrects System Order ID to the real value and reruns.
         fakeSheets.rows[0]['System Order ID'] = order.internalOrderId;

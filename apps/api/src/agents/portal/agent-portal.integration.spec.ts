@@ -567,7 +567,8 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
       proofAttachmentId = claim.attachments[0].attachmentId;
       expect(
         declared.body.timeline.map((e: { event: string }) => e.event),
-      ).toEqual(['ORDER_CREATED', 'PAYMENT_DECLARED']);
+        // R6 SHIP: the full declaration sends the order to Shipping.
+      ).toEqual(['ORDER_CREATED', 'PAYMENT_DECLARED', 'SHIPMENT_CREATED']);
 
       const file = await get(
         users.salesA1.token,

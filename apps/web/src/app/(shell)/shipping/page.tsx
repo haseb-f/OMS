@@ -96,7 +96,6 @@ function ShippingPageContent() {
   useEffect(() => {
     const linked = new URLSearchParams(window.location.search).get("search");
     if (!linked) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSearch(linked);
     setStatusFilter([]);
     setCompanyFilter([]);
