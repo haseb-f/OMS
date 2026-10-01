@@ -76,8 +76,9 @@ first: number, date, status, total] }`.
 - **Cross-scope match** (record outside the caller's scope — another agent's, or a company customer
   seen from an agent user): `{ kind: 'PHONE', crossScope: true }` only — no name, id or orders.
   Integrator decision (2026-09-30): for internal/company orders a customer owned by an agent (no
-  company order of its own) is also cross-scope — it is never attached to a company order; the order
-  gets a new customer and `duplicateReviewStatus = PENDING`, and the reviewer sees both sides.
+  company order of its own) is also cross-scope. Superseded 2026-10-01 (owner decision O3): a
+  cross-scope match attaches the order to the existing customer (one phone = one customer) and sets
+  `duplicateReviewStatus = PENDING`; the reviewer sees the same customer's orders in the other scope.
 
 Create endpoints accept `duplicateResolution`:
 `{ decision: 'USE_EXISTING_CUSTOMER' | 'INTENTIONAL_NEW_ORDER' | 'DIFFERENT_CUSTOMER', customerId? }`.

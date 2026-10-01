@@ -145,11 +145,16 @@ export function DuplicateReviewDialog({
               <ul className="flex flex-col gap-3">
                 {detail.matches.map((match) => (
                   <li key={match.customer.id} className="flex flex-col gap-1">
-                    <p className="text-body">
-                      <bdi className="font-medium">{match.customer.name}</bdi>{" "}
+                    <p className="flex flex-wrap items-center gap-x-2 text-body">
+                      <bdi className="font-medium">{match.customer.name}</bdi>
                       <span dir="ltr" className="num text-caption text-muted-foreground">
                         {match.customer.partnerNumber}
                       </span>
+                      {match.sameCustomer ? (
+                        <EnterpriseBadge variant="info">
+                          {t("orderDuplicates.review.sameCustomer")}
+                        </EnterpriseBadge>
+                      ) : null}
                     </p>
                     <ul className="flex flex-col divide-y divide-border rounded-sm border border-border">
                       {match.orders.map((order) => (

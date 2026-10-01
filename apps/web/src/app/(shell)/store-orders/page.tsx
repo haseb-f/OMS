@@ -37,6 +37,7 @@ import {
 } from "@/components/store-orders/store-order-create-dialog";
 import { GlobalLookupDialog } from "@/components/store-orders/global-lookup-dialog";
 import { DuplicateReviewDialog } from "@/components/store-orders/duplicate-review-dialog";
+import { LegacyPhoneDuplicatesDialog } from "@/components/store-orders/legacy-phone-duplicates-dialog";
 import { buildStoreOrderDetailRegions } from "@/components/store-orders/store-order-expanded-detail";
 import { StoreOrderMobileCard } from "@/components/store-orders/store-order-mobile-card";
 import {
@@ -87,6 +88,7 @@ function StoreOrdersPageContent() {
     hasPermission("customers.lookup_global") || hasPermission("orders.lookup_global");
   const canViewProfitability = hasPermission("orders.profitability.view");
   const canReviewDuplicates = hasPermission("store-orders.duplicate_review");
+  const [legacyDuplicatesOpen, setLegacyDuplicatesOpen] = useState(false);
 
   const [items, setItems] = useState<StoreOrderRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -584,6 +586,16 @@ function StoreOrdersPageContent() {
                 {t("orderDuplicates.review.filter")}
               </EnterpriseButton>
             )}
+            {canReviewDuplicates && (
+              <EnterpriseButton
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setLegacyDuplicatesOpen(true)}
+              >
+                {t("orderDuplicates.review.legacy.action")}
+              </EnterpriseButton>
+            )}
             {(paymentStatusFilter.length > 0 ||
               declaredStatusFilter ||
               shippingStageFilter.length > 0 ||
@@ -721,6 +733,13 @@ function StoreOrdersPageContent() {
         isConfirming={isArchiving}
         onConfirm={() => void handleArchive()}
       />
+
+      {canReviewDuplicates && (
+        <LegacyPhoneDuplicatesDialog
+          open={legacyDuplicatesOpen}
+          onOpenChange={setLegacyDuplicatesOpen}
+        />
+      )}
 
       {canReviewDuplicates && (
         <DuplicateReviewDialog

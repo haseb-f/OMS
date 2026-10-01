@@ -93,7 +93,25 @@ export interface DuplicateReviewDetail {
   };
   matches: Array<{
     customer: { id: string; partnerNumber: string; name: string; phone: string | null };
+    /** O3 — the flagged order's own customer record: its orders in the other scope. */
+    sameCustomer: boolean;
     orders: DuplicateReviewOrder[];
+  }>;
+}
+
+/** O3 — customers sharing one phone, created before one phone = one customer (never merged automatically). */
+export interface LegacyPhoneDuplicateGroup {
+  phone: string;
+  keyOwnerId: string | null;
+  partners: Array<{
+    id: string;
+    partnerNumber: string;
+    name: string;
+    createdAt: string;
+    roles: string[];
+    orderCount: number;
+    /** New orders with this phone attach to this record. */
+    keyOwner: boolean;
   }>;
 }
 
@@ -116,6 +134,9 @@ export const orderDuplicatesService = {
     apiClient.post<DuplicateCheckResult>("/agent-portal/orders/duplicate-check", input),
   reviewDetail: (orderId: string) =>
     apiClient.get<DuplicateReviewDetail>(`/store-orders/${orderId}/duplicate-review`),
+  /** O3 — legacy duplicate customer groups (read-only report). */
+  phoneGroups: () =>
+    apiClient.get<LegacyPhoneDuplicateGroup[]>("/store-orders/duplicates/phone-groups"),
   resolveReview: (orderId: string, input: { decision: DuplicateReviewDecision; note?: string }) =>
     apiClient.post<DuplicateReviewDetail>(
       `/store-orders/${orderId}/duplicate-review/resolve`,

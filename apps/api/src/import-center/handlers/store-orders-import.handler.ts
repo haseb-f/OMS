@@ -16,7 +16,6 @@ import {
   listSheetReferenceMatch,
   type ListSheetColumnKey,
 } from '../list-sheet/list-sheet.catalog';
-import { masterDataAmbiguousMessage } from '../reference-data/match-reference-records';
 import {
   type ImportFieldDef,
   type ImportRowOptions,
@@ -206,8 +205,9 @@ interface LineItem {
  * same "never post from raw imported rows" rule that module already
  * follows.
  *
- * Phone matching reuses `PartnersService.lookupAllByPhone` /
- * `findOrCreate` (never a second matching engine). Google Sheets sync
+ * Phone matching reuses `PartnersService.findByPhone` /
+ * `findOrCreate` (never a second matching engine); O3 — an existing phone
+ * always attaches the order to its one customer. Google Sheets sync
  * treats a new External Order ID on an existing customer phone as a
  * phone-match review (default skip); explicit accept creates the order
  * with the `مكرر` channel badge. Manual Import Center uploads still
@@ -269,15 +269,9 @@ export class StoreOrdersImportHandler
       existingOrder,
     } = await this.validateGroup(rows);
 
-    const phoneMatches =
-      await this.partnersService.lookupAllByPhone(normalizedPhone);
-    if (phoneMatches.length > 1) {
-      throw new BadRequestException({
-        code: 'MASTER_DATA_AMBIGUOUS',
-        message: masterDataAmbiguousMessage('CUSTOMER', normalizedPhone),
-        field: 'Phone',
-      });
-    }
+    // O3 — one phone number = one customer: an existing phone (even a legacy
+    // duplicate) always resolves to its one customer (key owner, else the
+    // oldest record) inside `StoreOrdersService.create`; never ambiguous.
 
     if (existingOrder) {
       throw new BadRequestException({
@@ -378,11 +372,10 @@ export class StoreOrdersImportHandler
   }
 
   private async findPriorOrderForPhone(normalizedPhone: string) {
-    const phoneMatches =
-      await this.partnersService.lookupAllByPhone(normalizedPhone);
-    if (phoneMatches.length !== 1) return null;
+    const customer = await this.partnersService.findByPhone(normalizedPhone);
+    if (!customer) return null;
     return this.prisma.storeOrder.findFirst({
-      where: { partnerId: phoneMatches[0].id, deletedAt: null },
+      where: { partnerId: customer.id, deletedAt: null },
       orderBy: { orderDate: 'desc' },
       select: {
         internalOrderId: true,

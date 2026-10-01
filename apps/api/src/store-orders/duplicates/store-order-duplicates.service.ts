@@ -7,7 +7,8 @@ import { SalesScopeService } from '../../sales-scope/sales-scope.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { personNameKey, personNameKeySql } from '../../common/text/person-name';
 import { storeOrderPayableTotal } from '../store-order-line-amount';
-import { agentOwnedCustomerWhere } from '../../agents/orders/agent-customer';
+import { agentCustomerScopeWhere } from '../../agents/orders/agent-customer';
+import { readAgentCustomerSnapshot } from '../../agents/common/agent-terms';
 import {
   agentNotFound,
   agentStoreOrderWhere,
@@ -16,6 +17,7 @@ import {
 } from '../../agents/common/agent-visibility';
 import type { AgentRequestContext } from '../../auth/guards/jwt-auth.guard';
 import {
+  CROSS_SCOPE_REUSE_OUTCOME,
   DUPLICATE_ACTIVITY,
   NO_DUPLICATE,
   duplicateAcknowledgementRequired,
@@ -30,13 +32,14 @@ import {
 /**
  * Whose customers and orders the caller may see:
  *  - COMPANY — an internal user creating a company order: customers with at
- *    least one company order (an agent-owned customer is cross-scope and is
- *    never attached to a company order); orders narrowed by the caller's
- *    sales scope.
+ *    least one company order (an agent-owned customer is cross-scope: the
+ *    order is attached to it — O3, one phone = one customer — and flagged
+ *    for review); orders narrowed by the caller's sales scope.
  *  - AGENT — an agent order (agent user, or internal staff entering one for
- *    the agent): only that agent's own customers (the S1 rule); orders
- *    narrowed by the agent visibility (`null` = internal staff: all of that
- *    agent's orders). Anything else is cross-scope.
+ *    the agent): customers this agent has orders or leads with (the record
+ *    may be shared — O3); only that agent's orders, narrowed by the agent
+ *    visibility (`null` = internal staff: all of that agent's orders), and
+ *    the customer name as the agent typed it. Anything else is cross-scope.
  */
 export type DuplicateScope =
   | { kind: 'COMPANY'; userId: string }
@@ -90,6 +93,8 @@ interface Evaluation {
   orderNumbers?: string[];
   /** A phone match reaching outside the caller's scope — audited on a check. */
   audit?: { phone: string; partnerId: string };
+  /** O3 — the customer a cross-scope order is attached to (server-side only). */
+  crossScopePartnerId?: string;
 }
 
 /**
@@ -192,9 +197,10 @@ export class StoreOrderDuplicatesService {
   /**
    * The server-side gate. A phone match needs a decision (409
    * `DUPLICATE_ACKNOWLEDGEMENT_REQUIRED` with the same scoped payload) and
-   * always reuses the existing customer; a cross-scope match proceeds in the
-   * caller's own scope but is flagged for review; a name-only match links
-   * the existing customer only on an explicit "same customer".
+   * always reuses the existing customer — O3: also across scopes, where the
+   * order stays in the caller's scope, is attached to the one customer of
+   * that number and is flagged for review; a name-only match links the
+   * existing customer only on an explicit "same customer".
    */
   async enforce(
     input: DuplicateCheckInput,
@@ -205,6 +211,7 @@ export class StoreOrderDuplicatesService {
       result,
       partnerNumber,
       orderNumbers = [],
+      crossScopePartnerId,
     } = await this.evaluate(input, scope);
     if (result.kind === 'NONE') return NO_DUPLICATE;
 
@@ -213,15 +220,7 @@ export class StoreOrderDuplicatesService {
       if (resolution.decision === 'USE_EXISTING_CUSTOMER') {
         throw duplicateAcknowledgementRequired(result, 'STALE');
       }
-      return {
-        partnerId: null,
-        reviewPending: true,
-        activity: {
-          action: DUPLICATE_ACTIVITY.REVIEW_REQUESTED,
-          details:
-            'Customer phone matches a customer outside the creator’s scope — the order was created in the creator’s scope and flagged for duplicate review.',
-        },
-      };
+      return CROSS_SCOPE_REUSE_OUTCOME(crossScopePartnerId!);
     }
 
     if (result.kind === 'PHONE') {
@@ -323,13 +322,18 @@ export class StoreOrderDuplicatesService {
     );
   }
 
-  /** Partners holding this phone that have at least one order (a real customer history). */
+  /**
+   * Partners holding this phone that have at least one order (a real
+   * customer history). `lookupAllByPhone` lists the key owner (the one
+   * customer of the number — O3) first, then the oldest record.
+   */
   private async phoneEvaluation(
     phone: string,
     scope: DuplicateScope,
   ): Promise<Evaluation | null> {
     const matches = await this.partners.lookupAllByPhone(phone);
     if (!matches.length) return null;
+    const owner = matches[0];
     const withOrders = await this.prisma.storeOrder.groupBy({
       by: ['partnerId'],
       where: {
@@ -341,7 +345,21 @@ export class StoreOrderDuplicatesService {
     const customers = matches
       .filter((m) => ids.has(m.id))
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-    if (!customers.length) return null;
+    if (!customers.length) {
+      // O3 — a partner with no order yet. Company: reused silently (the
+      // Partner dedup). Agent: outside its own customers → cross-scope.
+      if (scope.kind === 'COMPANY') return null;
+      const own = await this.prisma.partner.count({
+        where: { id: owner.id, ...this.customerScopeWhere(scope) },
+      });
+      return own
+        ? null
+        : {
+            result: { kind: 'PHONE', crossScope: true },
+            audit: { phone, partnerId: owner.id },
+            crossScopePartnerId: owner.id,
+          };
+    }
 
     const inScopeIds = (
       await this.prisma.partner.findMany({
@@ -354,9 +372,11 @@ export class StoreOrderDuplicatesService {
     ).map((row) => row.id);
     const customer = customers.find((c) => inScopeIds.includes(c.id));
     if (!customer) {
+      // The one customer of the number: the key owner, else the oldest.
       return {
         result: { kind: 'PHONE', crossScope: true },
-        audit: { phone, partnerId: customers[0].id },
+        audit: { phone, partnerId: owner.id },
+        crossScopePartnerId: owner.id,
       };
     }
 
@@ -389,6 +409,10 @@ export class StoreOrderDuplicatesService {
       .sort((a, b) => Number(b.active) - Number(a.active))
       .slice(0, MAX_LISTED_ORDERS);
     const otherOrdersCount = Math.max(totalCount - visibleCount, 0);
+    const name =
+      scope.kind === 'AGENT'
+        ? await this.agentTypedName(customer.id, scope.agentId, customer.name)
+        : customer.name;
     return {
       partnerNumber: customer.partnerNumber,
       orderNumbers: latest.map((row) => row.internalOrderId),
@@ -400,7 +424,7 @@ export class StoreOrderDuplicatesService {
         crossScope: false,
         customer: {
           id: customer.id,
-          name: customer.name,
+          name,
           phoneMasked: maskPhone(customer.mobile ?? customer.phone),
         },
         orders,
@@ -409,10 +433,39 @@ export class StoreOrderDuplicatesService {
     };
   }
 
+  /**
+   * O3 — the customer record may be shared: an agent sees the name it typed
+   * on its latest order (snapshot), never the master record's; a customer
+   * known only from the agent's leads shows the master name (the agent's
+   * own lead entry created it).
+   */
+  private async agentTypedName(
+    partnerId: string,
+    agentId: string,
+    fallback: string,
+  ) {
+    const latest = await this.prisma.storeOrder.findFirst({
+      where: { partnerId, agentId, deletedAt: null },
+      orderBy: [{ orderDate: 'desc' }, { id: 'desc' }],
+      select: { agentTermsSnapshot: true },
+    });
+    if (!latest) {
+      const lead = await this.prisma.lead.findFirst({
+        where: { partnerId, agentId },
+        orderBy: { createdAt: 'desc' },
+        select: { customerName: true },
+      });
+      return lead?.customerName ?? fallback;
+    }
+    return (
+      readAgentCustomerSnapshot(latest.agentTermsSnapshot)?.name ?? fallback
+    );
+  }
+
   /** Customers inside the caller's customer scope (see `DuplicateScope`). */
   private customerScopeWhere(scope: DuplicateScope): Prisma.PartnerWhereInput {
     return scope.kind === 'AGENT'
-      ? agentOwnedCustomerWhere(scope.agentId)
+      ? agentCustomerScopeWhere(scope.agentId)
       : {
           deletedAt: null,
           storeOrders: { some: { agentId: null, deletedAt: null } },

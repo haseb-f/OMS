@@ -629,17 +629,21 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     expect(items).toHaveLength(2);
   });
 
-  it('rejects an ambiguous phone match as master-data ambiguity, without creating an order', async () => {
+  // O3 (owner decision 2026-10-01) — previously MASTER_DATA_AMBIGUOUS. A
+  // legacy duplicate phone now resolves to its one customer: the key owner
+  // (here: none keyed) else the oldest record.
+  it('attaches an order with a legacy duplicate phone to the oldest customer (no ambiguity, no new customer)', async () => {
     const sharedPhone = `+9665${Math.floor(10000000 + Math.random() * 89999999)}`;
     const country = await prisma.country.findFirstOrThrow({
       where: { deletedAt: null, isActive: true, code: 'SA' },
     });
-    await prisma.partner.create({
+    const oldest = await prisma.partner.create({
       data: {
         partnerNumber: `SOTEST-C-${randomUUID().slice(0, 8)}`,
         name: 'SO Import Test Customer Ambiguous A',
         phone: sharedPhone,
         countryId: country.id,
+        createdAt: new Date(Date.now() - 60_000),
       },
     });
     await prisma.partner.create({
@@ -652,19 +656,19 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     });
 
     const row = baseRow({ customerPhone: sharedPhone });
-    try {
-      await handler.importRow(row);
-      throw new Error('expected import to fail');
-    } catch (error) {
-      expect(error).toBeInstanceOf(BadRequestException);
-      expect((error as BadRequestException).getResponse()).toMatchObject({
-        code: 'MASTER_DATA_AMBIGUOUS',
-      });
-    }
-    const order = await prisma.storeOrder.findFirst({
-      where: { externalOrderId: row.externalOrderId },
+    const result = await handler.importRow(row);
+    const order = await prisma.storeOrder.findUniqueOrThrow({
+      where: { id: result.id },
     });
-    expect(order).toBeNull();
+    expect(order.partnerId).toBe(oldest.id);
+    expect(
+      await prisma.partner.count({
+        where: {
+          deletedAt: null,
+          OR: [{ phone: sharedPhone }, { mobile: sharedPhone }],
+        },
+      }),
+    ).toBe(2);
   });
 
   it('still rejects a repeated External Order ID on a manual import', async () => {

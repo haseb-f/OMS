@@ -71,7 +71,7 @@ export type DuplicateCheckResult =
 
 /** Server-derived result of the enforced check — never taken from a client field. */
 export interface DuplicateOutcome {
-  /** The existing customer the order must use (never set for a cross-scope match). */
+  /** The existing customer the order must use — also for a cross-scope match (O3); never returned to the caller. */
   partnerId: string | null;
   /** Cross-scope phone match: flag the order for an internal reviewer. */
   reviewPending: boolean;
@@ -92,6 +92,23 @@ export const DUPLICATE_ACTIVITY = {
   REVIEW_REQUESTED: 'DUPLICATE_REVIEW_REQUESTED',
   REVIEW_RESOLVED: 'DUPLICATE_REVIEW_RESOLVED',
 } as const;
+
+/**
+ * O3 — a phone match outside the creator's scope: the order is attached to
+ * the existing customer (one phone = one customer) and flagged for internal
+ * duplicate review.
+ */
+export const CROSS_SCOPE_REUSE_OUTCOME = (
+  partnerId: string,
+): DuplicateOutcome => ({
+  partnerId,
+  reviewPending: true,
+  activity: {
+    action: DUPLICATE_ACTIVITY.REVIEW_REQUESTED,
+    details:
+      'Customer phone matches a customer outside the creator’s scope — the order was attached to that customer (one phone = one customer) and flagged for duplicate review.',
+  },
+});
 
 /**
  * The client's per-form key, namespaced by channel and actor so two users

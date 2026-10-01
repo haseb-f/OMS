@@ -41,8 +41,9 @@ const orderDuplicatesEn = {
     description:
       "The customer's phone matched a customer outside the creator's scope. Compare both sides and record the decision.",
     thisOrder: "Flagged order",
-    matches: "Other customers with the same phone",
-    noMatches: "No other customer with this phone has orders now.",
+    matches: "Same phone in another scope",
+    noMatches: "No other order with this phone in another scope now.",
+    sameCustomer: "Same customer record — other scope",
     owner: "Owner",
     agent: "Agent",
     company: "Company",
@@ -58,6 +59,16 @@ const orderDuplicatesEn = {
     resolvedDuplicate: "Marked as duplicate — cancel the order from its page.",
     alreadyResolved: "Resolved by {name} · {date}",
     loadFailed: "Could not load the duplicate review.",
+    legacy: {
+      action: "Duplicate customers",
+      title: "Customers sharing a phone",
+      description:
+        "Records created before one phone = one customer. New orders with these phones attach to the record marked as current. Nothing is merged automatically — merge deliberately from the customers list.",
+      empty: "No customers share a phone number.",
+      current: "Current record",
+      orders: "{count} order(s)",
+      loadFailed: "Could not load the duplicate customers.",
+    },
     status: {
       NONE: "No review",
       PENDING: "Pending review",

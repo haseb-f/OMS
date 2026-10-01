@@ -1,106 +1,77 @@
-import {
-  PartnerEntityType,
-  PartnerRoleType,
-  PartnerSource,
-  PartnerStatus,
-  type Prisma,
-} from '@prisma/client';
+import { PartnerSource, type Prisma } from '@prisma/client';
 import type { NumberingEngineService } from '../../numbering/numbering-engine.service';
+import type { PhoneNumberService } from '../../common/phone/phone-number.service';
+import {
+  ensureCustomerRole,
+  findOrCreateCustomerPartnerTx,
+} from '../../partners/partner-phone-keys';
 import type { AgentCustomerSnapshot } from '../common/agent-terms';
 
-/** The S1 "belongs to this agent's business" rule (see `resolveAgentCustomerPartner`), as a Partner where-fragment (also used by the Spec 1B duplicate check). */
-export function agentOwnedCustomerWhere(
+/**
+ * The agent's customer scope for the duplicate check (Spec 1B, O3): a
+ * customer this agent already sold to (an order) or works with (a lead). The
+ * record may be shared with the company or other agents (one phone = one
+ * customer) — the agent still sees only its own orders and the customer as
+ * it typed it. A phone match outside this scope is cross-scope.
+ */
+export function agentCustomerScopeWhere(
   agentId: string,
 ): Prisma.PartnerWhereInput {
   return {
     deletedAt: null,
-    roles: { every: { role: PartnerRoleType.CUSTOMER } },
-    storeOrders: { every: { agentId } },
-    leads: { every: { agentId } },
-    AND: [
-      {
-        OR: [
-          { storeOrders: { some: { agentId } } },
-          { leads: { some: { agentId } } },
-        ],
-      },
+    OR: [
+      { storeOrders: { some: { agentId, deletedAt: null } } },
+      { leads: { some: { agentId } } },
     ],
-    agent: { is: null },
-    salesQuotations: { none: {} },
-    salesOrders: { none: {} },
-    salesInvoices: { none: {} },
-    salesReturns: { none: {} },
   };
 }
 
 /**
- * Agent customer → Partner (security finding S1).
+ * Agent customer → Partner.
  *
- * The company's Partner master is shared (phone / email / tax-number dedup
- * across every module). Agent flows must never adopt, update or add roles to
- * a shared Partner — that would let an agent overwrite a company customer's
- * address, attach its orders to an employee/investor identity, or probe who
- * exists (role-addition 403s). So an agent customer is deduplicated ONLY
- * among partners that belong to that same agent's business:
- *
- *  - the partner holds exactly the CUSTOMER role,
- *  - every store order and every lead of the partner belongs to this agent
- *    (and it has at least one of them), and
- *  - it is on no company document (sales quotation/order/invoice/return).
- *
- * Otherwise a new CUSTOMER partner is created (source API, person). The
- * matched partner is never updated: the customer as typed lives on the order
- * snapshot (`agentTermsSnapshot.customer`) and the portal shows only that.
+ * Owner decision O3 (2026-10-01, supersedes the S1 "own customers only"
+ * dedup): one phone number = one customer. The partner owning the mobile —
+ * in any scope (company, this agent, another agent) — is reused; otherwise a
+ * new CUSTOMER partner (source API, person) is created, race-safe through
+ * `partner_phone_keys`. Agent isolation stays at the order level: the
+ * matched partner is never updated (the customer as typed lives on the order
+ * snapshot `agentTermsSnapshot.customer`, which is all the portal shows), only
+ * a missing CUSTOMER role is added, and an employee / investor / agent
+ * identity is never extended from an agent flow (neutral 409). A match
+ * outside the agent's scope is flagged for internal duplicate review by the
+ * caller (`StoreOrderDuplicatesService`).
  *
  * `mobile` must already be normalized (E.164) by the caller.
+ * `confirmedPartnerId`: the customer the duplicate check resolved (in or
+ * outside the agent's scope) — reused with the same role guard.
  */
 export async function resolveAgentCustomerPartner(
   tx: Prisma.TransactionClient,
-  numbering: NumberingEngineService,
-  agentId: string,
+  deps: { numbering: NumberingEngineService; phones: PhoneNumberService },
   customer: AgentCustomerSnapshot,
   userId?: string,
+  confirmedPartnerId?: string | null,
 ): Promise<string> {
-  if (customer.mobile) {
-    const match = await tx.partner.findFirst({
-      where: {
-        ...agentOwnedCustomerWhere(agentId),
-        OR: [{ mobile: customer.mobile }, { phone: customer.mobile }],
-      },
-      orderBy: { createdAt: 'asc' },
-      select: { id: true },
+  if (confirmedPartnerId) {
+    await ensureCustomerRole(tx, confirmedPartnerId, userId, {
+      agentContext: true,
     });
-    if (match) return match.id;
+    return confirmedPartnerId;
   }
-  const partnerNumber = await numbering.generateNumber(
-    'PARTNER',
-    undefined,
+  const { partnerId } = await findOrCreateCustomerPartnerTx(
     tx,
-  );
-  const partner = await tx.partner.create({
-    data: {
-      partnerNumber,
+    deps,
+    {
       name: customer.name,
-      mobile: customer.mobile,
       phone: customer.mobile,
+      mobile: customer.mobile,
       countryId: customer.countryId,
       city: customer.city,
       address: customer.address,
-      entityType: PartnerEntityType.PERSON,
-      status: PartnerStatus.ACTIVE,
       source: PartnerSource.API,
-      createdBy: userId ?? null,
-      updatedBy: userId ?? null,
     },
-    select: { id: true },
-  });
-  await tx.partnerRoleAssignment.create({
-    data: {
-      partnerId: partner.id,
-      role: PartnerRoleType.CUSTOMER,
-      createdBy: userId ?? null,
-    },
-  });
-  await tx.customerProfile.create({ data: { partnerId: partner.id } });
-  return partner.id;
+    userId,
+    { agentContext: true },
+  );
+  return partnerId;
 }

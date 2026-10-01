@@ -981,7 +981,11 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
   // ── review fixes (S1, S6, S7, S8, countries, lead fulfillment) ─────────
 
   describe('review fixes', () => {
-    it('S1: order detail shows only the customer typed on the order; shared partners stay untouched', async () => {
+    // O3 (owner decision 2026-10-01): the order now joins the company
+    // customer holding the phone (was: a new customer); S1 still holds — the
+    // portal shows only what was typed, the record is never updated, and an
+    // investor / employee identity is never extended (neutral 409).
+    it('S1 + O3: the order joins the one customer of the phone; detail, list and search show only the typed customer', async () => {
       const mobile = phone();
       const company = await prisma.partner.create({
         data: {
@@ -991,23 +995,40 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
           phone: mobile,
           email: `company-${lower}@test.local`,
           address: 'COMPANY ADDRESS',
-          roles: { create: { role: 'INVESTOR' } },
+          roles: { create: { role: 'CUSTOMER' } },
         },
       });
-      const created = await post(users.salesA1.token, '/agent-portal/orders', {
+      const body = (customerMobile: string, extra: object = {}) => ({
         pricingMode: 'SHIPPING_ADDED',
         lines: [{ productId: productAId, quantity: 1, lineAmount: 200 }],
         countryId: egId,
         customer: {
           name: `Typed ${tag}`,
-          mobile,
+          mobile: customerMobile,
           countryId: egId,
           address: 'Typed address',
           email: 'ignored@test.local',
           taxNumber: 'IGNORED',
         },
+        ...extra,
       });
-      // No 403 role oracle about the investor match; a new customer instead.
+      // A customer outside the agent's scope: only { crossScope: true }.
+      const unacknowledged = await post(
+        users.salesA1.token,
+        '/agent-portal/orders',
+        body(mobile),
+      );
+      expect(unacknowledged.status).toBe(409);
+      expect(unacknowledged.body.details).toEqual({
+        duplicate: { kind: 'PHONE', crossScope: true },
+      });
+      const created = await post(
+        users.salesA1.token,
+        '/agent-portal/orders',
+        body(mobile, {
+          duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' },
+        }),
+      );
       expect(created.status).toBe(201);
       expect(created.body.customer).toEqual({
         name: `Typed ${tag}`,
@@ -1019,17 +1040,25 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
       const text = JSON.stringify(created.body);
       expect(text).not.toContain('COMPANY ADDRESS');
       expect(text).not.toContain(`company-${lower}@test.local`);
+      expect(text).not.toContain(`Company Person ${tag}`);
+      expect(text).not.toContain(company.id);
       const stored = await prisma.storeOrder.findUniqueOrThrow({
         where: { id: created.body.id },
-        select: { partnerId: true },
+        select: { partnerId: true, duplicateReviewStatus: true },
       });
-      expect(stored.partnerId).not.toBe(company.id);
+      expect(stored).toEqual({
+        partnerId: company.id,
+        duplicateReviewStatus: 'PENDING',
+      });
       const after = await prisma.partner.findUniqueOrThrow({
         where: { id: company.id },
         include: { roles: true },
       });
-      expect(after.address).toBe('COMPANY ADDRESS');
-      expect(after.roles.map((r) => r.role)).toEqual(['INVESTOR']);
+      expect(after).toMatchObject({
+        name: `Company Person ${tag}`,
+        address: 'COMPANY ADDRESS',
+      });
+      expect(after.roles.map((r) => r.role)).toEqual(['CUSTOMER']);
       const list = await get(
         users.salesA1.token,
         `/agent-portal/orders?search=${encodeURIComponent(`Typed ${tag}`)}`,
@@ -1038,6 +1067,42 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
         name: `Typed ${tag}`,
         mobile,
       });
+      // The master record's name is not searchable from the portal.
+      const byMaster = await get(
+        users.salesA1.token,
+        `/agent-portal/orders?search=${encodeURIComponent(`Company Person ${tag}`)}`,
+      );
+      expect(byMaster.body.items).toHaveLength(0);
+
+      // An investor identity is never extended from an agent flow.
+      const investorMobile = phone();
+      const investor = await prisma.partner.create({
+        data: {
+          partnerNumber: `PT-PS1I-${tag}`,
+          name: `Investor Person ${tag}`,
+          mobile: investorMobile,
+          phone: investorMobile,
+          roles: { create: { role: 'INVESTOR' } },
+        },
+      });
+      const refused = await post(
+        users.salesA1.token,
+        '/agent-portal/orders',
+        body(investorMobile, {
+          duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' },
+        }),
+      );
+      expect(refused.status).toBe(409);
+      expect(refused.body.code).toBe('CUSTOMER_PHONE_UNAVAILABLE');
+      expect(JSON.stringify(refused.body)).not.toContain('Investor');
+      expect(
+        (
+          await prisma.partner.findUniqueOrThrow({
+            where: { id: investor.id },
+            include: { roles: true },
+          })
+        ).roles.map((r) => r.role),
+      ).toEqual(['INVESTOR']);
     });
 
     it('S8: statement lines expose only whitelisted calculation inputs', async () => {

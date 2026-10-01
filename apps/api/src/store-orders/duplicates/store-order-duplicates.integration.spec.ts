@@ -726,7 +726,13 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
       expectNoLeak(refused.body);
     });
 
-    it('cross-scope: created in the caller’s scope, flagged for review', async () => {
+    // O3 (owner decision 2026-10-01) — previously a new customer for agent
+    // B. One phone = one customer: the order joins agent A's customer record,
+    // stays agent B's order and is flagged; agent B still sees nothing of A.
+    it('cross-scope: attached to the one customer of the phone, flagged for review, isolated', async () => {
+      const partnersBefore = await prisma.partner.count({
+        where: { OR: [{ phone: agentAPhone }, { mobile: agentAPhone }] },
+      });
       const res = await post(
         users.agentB,
         '/agent-portal/orders',
@@ -742,8 +748,89 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
         where: { id: res.body.id },
       });
       expect(order.duplicateReviewStatus).toBe('PENDING');
-      expect(order.partnerId).not.toBe(agentAPartnerId);
+      expect(order.partnerId).toBe(agentAPartnerId);
+      expect(
+        await prisma.partner.count({
+          where: { OR: [{ phone: agentAPhone }, { mobile: agentAPhone }] },
+        }),
+      ).toBe(partnersBefore);
       flaggedOrderId = order.id;
+
+      // Agent B sees its own order with the customer as it typed it…
+      const own = await get(users.agentB, `/agent-portal/orders/${order.id}`);
+      expect(own.status).toBe(200);
+      expect(own.body.customer.name).toBe(`Agent B Customer ${tag}`);
+      expectNoLeak(own.body);
+      // …never agent A's order, in the list or by id.
+      const list = await get(users.agentB, '/agent-portal/orders?pageSize=200');
+      expectNoLeak(list.body);
+      expect(
+        (await get(users.agentB, `/agent-portal/orders/${agentAOrder.id}`))
+          .status,
+      ).toBe(404);
+      // A repeat check is now in agent B's scope: its own order and typed
+      // name only.
+      const again = await post(
+        users.agentB,
+        '/agent-portal/orders/duplicate-check',
+        { phone: agentAPhone },
+      );
+      expect(again.body).toMatchObject({
+        kind: 'PHONE',
+        crossScope: false,
+        customer: { name: `Agent B Customer ${tag}` },
+        orders: [expect.objectContaining({ id: order.id })],
+        otherOrdersCount: 0,
+      });
+      expect(again.body.orders).toHaveLength(1);
+      const { customer: _shared, ...rest } = again.body as {
+        customer: unknown;
+      };
+      void _shared;
+      expectNoLeak(rest);
+    });
+
+    it('O3 — company → agent: the agent order joins the company customer, flagged, nothing of the company side leaks', async () => {
+      const res = await post(
+        users.agentA,
+        '/agent-portal/orders',
+        agentOrderBody(
+          productAId,
+          { name: `Agent A typed ${tag}`, mobile: companyPhone },
+          { duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' } },
+        ),
+      );
+      expect(res.status).toBe(201);
+      const companySecrets = [
+        companyOrder.internalOrderId,
+        companyOrder.partnerId,
+        `Company Secret ${tag}`,
+      ];
+      const list = await get(users.agentA, '/agent-portal/orders?pageSize=200');
+      const detail = await get(
+        users.agentA,
+        `/agent-portal/orders/${res.body.id}`,
+      );
+      for (const body of [res.body, list.body, detail.body]) {
+        const text = JSON.stringify(body);
+        for (const secret of companySecrets) {
+          expect(text).not.toContain(secret);
+        }
+      }
+      expect(detail.body.customer.name).toBe(`Agent A typed ${tag}`);
+      const order = await prisma.storeOrder.findUniqueOrThrow({
+        where: { id: res.body.id },
+      });
+      expect(order.partnerId).toBe(companyOrder.partnerId);
+      expect(order.duplicateReviewStatus).toBe('PENDING');
+      // The company customer record is unchanged.
+      expect(
+        (
+          await prisma.partner.findUniqueOrThrow({
+            where: { id: companyOrder.partnerId },
+          })
+        ).name,
+      ).toBe(`Company Secret ${tag}`);
     });
 
     it('the agent’s own customer is an in-scope match with its orders', async () => {
@@ -806,11 +893,14 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
       );
       expect(detail.status).toBe(200);
       expect(detail.body.order.duplicateReviewStatus).toBe('PENDING');
-      expect(
-        detail.body.matches.map(
-          (match: { customer: { id: string } }) => match.customer.id,
-        ),
-      ).toContain(agentAPartnerId);
+      // O3 — the other side is the same customer's orders in another scope.
+      expect(detail.body.matches[0]).toMatchObject({
+        customer: { id: agentAPartnerId },
+        sameCustomer: true,
+        orders: expect.arrayContaining([
+          expect.objectContaining({ id: agentAOrder.id }),
+        ]),
+      });
 
       const resolved = await post(
         users.reviewer,
@@ -866,7 +956,9 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
       agentLeadPartnerId = await agentCustomer(agentLeadPhone);
     });
 
-    it('an agent-owned customer is cross-scope for a company order: new customer, flagged', async () => {
+    // O3 — previously "new customer, flagged": the company order now joins
+    // the agent's customer record (one phone = one customer), flagged.
+    it('an agent-owned customer is cross-scope for a company order: same customer, flagged', async () => {
       const check = await post(users.empA, '/store-orders/duplicate-check', {
         phone: agentPhone,
         countryId: egId,
@@ -889,16 +981,16 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
         ),
       );
       expect(created.status).toBe(201);
-      expect(created.body.partnerId).not.toBe(agentPartnerId);
+      expect(created.body.partnerId).toBe(agentPartnerId);
       expect(created.body.duplicateReviewStatus).toBe('PENDING');
       companyOrderId = created.body.id;
 
-      // The agent's customer was not touched (no company order attached).
+      // The customer record now carries the company order too.
       expect(
         await prisma.storeOrder.count({
           where: { partnerId: agentPartnerId, agentId: null },
         }),
-      ).toBe(0);
+      ).toBe(1);
 
       const detail = await get(
         users.reviewer,
@@ -912,7 +1004,8 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
       ).toContain(agentPartnerId);
     });
 
-    it('company lead conversion never adopts the agent-owned customer either', async () => {
+    // O3 — previously "never adopts": the conversion joins the customer.
+    it('company lead conversion attaches to the agent’s customer too, flagged', async () => {
       const lead = await leads.create({
         customerName: `Lead Agent Phone ${tag}`,
         mobileNumber: agentLeadPhone,
@@ -932,7 +1025,7 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
       const order = await prisma.storeOrder.findUniqueOrThrow({
         where: { leadId: lead.id },
       });
-      expect(order.partnerId).not.toBe(agentLeadPartnerId);
+      expect(order.partnerId).toBe(agentLeadPartnerId);
       expect(order.duplicateReviewStatus).toBe('PENDING');
     });
 
