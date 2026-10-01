@@ -21,9 +21,8 @@ export interface ReportExportColumn {
   /** Numeric (money) column — written as a real number, never a formatted string. */
   numeric?: boolean;
   /**
-   * Display convention of a numeric column (Excel number format): minus,
-   * parentheses or a Dr/Cr side — zero shows "—". Unset keeps the plain
-   * `#,##0.00;-#,##0.00` format.
+   * Display convention of a numeric column (Excel number format): minus
+   * (default) or parentheses; a genuine zero shows `0.00`.
    */
   negative?: NegativeStyle;
 }
@@ -59,35 +58,17 @@ export interface ReportExportDocument {
     /** Column the label is written in (default: the first column). */
     labelKey?: string;
   };
-  /** Localized Dr/Cr side labels for `drcr` columns (default Dr / Cr). */
-  drcrLabels?: { debit: string; credit: string };
 }
 
 const MONEY_FORMAT = "#,##0.00;-#,##0.00";
 
-function excelLiteral(text: string): string {
-  return `"${text.replace(/"/g, "")}"`;
-}
-
 /**
  * The Excel number format of a numeric column — the same convention the
- * screen and print use (`formatAmount`), while the cell stays a raw number.
+ * screen and print use (`formatAmount`: a genuine zero reads `0.00`), while
+ * the cell stays a raw number (an empty cell when the value is missing).
  */
-export function excelNumberFormat(
-  column: ReportExportColumn,
-  drcrLabels: { debit: string; credit: string } = { debit: "Dr", credit: "Cr" },
-): string {
-  const zero = excelLiteral("—");
-  switch (column.negative) {
-    case "minus":
-      return `#,##0.00;-#,##0.00;${zero}`;
-    case "parens":
-      return `#,##0.00;(#,##0.00);${zero}`;
-    case "drcr":
-      return `#,##0.00 ${excelLiteral(drcrLabels.debit)};#,##0.00 ${excelLiteral(drcrLabels.credit)};${zero}`;
-    default:
-      return MONEY_FORMAT;
-  }
+export function excelNumberFormat(column: ReportExportColumn): string {
+  return column.negative === "parens" ? "#,##0.00;(#,##0.00);0.00" : MONEY_FORMAT;
 }
 
 function roundMoney(value: number): number {
@@ -201,7 +182,7 @@ export async function buildReportXlsx(document: ReportExportDocument): Promise<A
     0,
   );
   const numberFormats = document.columns.map((column) =>
-    column.numeric ? excelNumberFormat(column, document.drcrLabels) : null,
+    column.numeric ? excelNumberFormat(column) : null,
   );
   const writeRow = (
     values: ReportExportCell[],

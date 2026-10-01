@@ -22,6 +22,7 @@ import {
   type DateRangeValue,
 } from "@/components/shared/date-range-picker";
 import { MoneyValue } from "@/components/shared/money-value";
+import { ReportMoney } from "@/components/accounting/financial-report/report-money";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -45,7 +46,8 @@ import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { usePrintCompany } from "@/components/print/print-brand";
 import { useLocale } from "@/providers/locale-provider";
 import { apiErrorMessage } from "@/lib/toast";
-import { formatDate, formatDateRange, toISODate } from "@/lib/date";
+import { formatPeriod, toISODate } from "@/lib/date";
+import { formatBusinessDate } from "@/lib/business-date";
 import { formatMoney } from "@/lib/money";
 
 const EMPTY_RANGE: DateRangeValue = { from: null, to: null };
@@ -93,9 +95,9 @@ function DescriptionText({ line }: { line: PortalStatementLine }) {
   );
 }
 
-function AmountCell({ value, memo }: { value: number; memo: boolean }) {
-  if (!value) return <span className="text-muted-foreground">—</span>;
-  return <MoneyValue value={value} className={memo ? "text-muted-foreground" : undefined} />;
+/** Debit / credit / balance cells: the shared report formatter (0.00 for a genuine zero, red minus). */
+function AmountCell({ value, memo = false }: { value: number | null; memo?: boolean }) {
+  return <ReportMoney value={value} quiet={memo} />;
 }
 
 function buildLedgerColumns(): ColumnDef<PortalStatementLine, unknown>[] {
@@ -103,8 +105,8 @@ function buildLedgerColumns(): ColumnDef<PortalStatementLine, unknown>[] {
     {
       id: "date",
       meta: { titleKey: "agentPortal.statement.fields.date", type: "date", importance: "critical" },
-      accessorFn: (row) => formatDate(row.entryDate),
-      cell: ({ row }) => <span className="num">{formatDate(row.original.entryDate)}</span>,
+      accessorFn: (row) => formatBusinessDate(row.entryDate),
+      cell: ({ row }) => <span className="num">{formatBusinessDate(row.original.entryDate)}</span>,
     },
     {
       id: "type",
@@ -166,7 +168,7 @@ function buildLedgerColumns(): ColumnDef<PortalStatementLine, unknown>[] {
         importance: "critical",
       },
       accessorFn: (row) => row.balance,
-      cell: ({ row }) => <MoneyValue value={row.original.balance} />,
+      cell: ({ row }) => <AmountCell value={row.original.balance} />,
     },
   ];
 }
@@ -212,11 +214,13 @@ export default function AgentStatementPage() {
 
   const columns = useMemo(() => buildLedgerColumns(), []);
   const currency = statement?.currency ?? null;
-  const money = (value: number) => <MoneyValue value={value} currency={currency} />;
+  const money = (value: number | null) => (
+    <ReportMoney value={value} currency={currency?.code} align="inline" />
+  );
   const summary = statement?.summary;
   const periodLabel =
     query.from || query.to
-      ? formatDateRange(query.from ?? null, query.to ?? null)
+      ? formatPeriod(query.from, query.to, { from: t("datePicker.from"), to: t("datePicker.to") })
       : t("agentPortal.statement.allDates");
 
   const print = () =>
@@ -406,7 +410,7 @@ export default function AgentStatementPage() {
         onExport={(keys, labels) =>
           exportRowsToCsv(
             (statement?.lines ?? []).map((line) => ({
-              date: formatDate(line.entryDate),
+              date: formatBusinessDate(line.entryDate),
               type: `${t(entryTypeLabelKey(line.entryType))}${line.memo ? ` (${t("agentPortal.statement.memo")})` : ""}`,
               description:
                 line.memo && line.memoAmount != null

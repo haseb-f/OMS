@@ -46,11 +46,9 @@ export function summaryToText(
   summary: FinancialReportSummary | undefined,
   {
     currency,
-    drcrLabels,
     t,
   }: {
     currency: string;
-    drcrLabels: { debit: string; credit: string };
     t: (
       key:
         | "reports.finance.balanced"
@@ -66,9 +64,7 @@ export function summaryToText(
     label: item.label,
     value: formatAmount(item.value, {
       negative: item.negative ?? "minus",
-      zero: "dash",
-      drcrLabels,
-      currency: isZeroAmount(item.value) ? null : (item.currency ?? currency),
+      currency: item.currency ?? currency,
     }),
   }));
   const check = summary.check;
@@ -81,17 +77,14 @@ export function summaryToText(
           ? t("reports.finance.balanced")
           : `${t("reports.finance.unbalanced")} — ${t("reports.finance.discrepancy")} ${formatAmount(
               Math.abs(check.difference),
-              { zero: "dash", currency },
+              { currency },
             )}`;
     // The compared totals first (the figures the verdict is about), then the verdict.
     for (const side of check.sides ?? []) {
       items.push({
         id: `summary:check:${side.id}`,
         label: side.label,
-        value: formatAmount(side.value, {
-          zero: "dash",
-          currency: isZeroAmount(side.value) ? null : currency,
-        }),
+        value: formatAmount(side.value, { currency }),
       });
     }
     items.push({ id: "summary:check", label: check.label, value: verdict });

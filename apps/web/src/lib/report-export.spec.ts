@@ -47,7 +47,7 @@ function documentFor(locale: Locale) {
     t: (key: MessageKey) => translate(messages[locale], key),
     companyName: "OMS",
     printedByName: "QA",
-    dateRange: { from: new Date(2026, 0, 1), to: new Date(2026, 8, 30) },
+    period: "From 01 Jan 2026 · To 30 Sep 2026",
     printedAt: new Date(2026, 8, 21, 10, 0),
   });
 }
@@ -109,13 +109,7 @@ describe("report export carries scope, summary and hierarchy", () => {
         line({ id: "a", code: "1100", label: "نقدية", values: { closing: 1500 } }),
         line({ id: "b", code: "2100", label: "موردون", values: { closing: -1500 } }),
       ],
-      columns: [
-        {
-          key: "closing",
-          labelKey: "reports.finance.fields.closingBalance",
-          negative: "drcr",
-        },
-      ],
+      columns: [{ key: "closing", labelKey: "reports.finance.fields.closingBalance" }],
       footer: { values: { closing: 0 } },
       locale: "ar",
       direction: "rtl",
@@ -125,7 +119,6 @@ describe("report export carries scope, summary and hierarchy", () => {
       currency: "EGP",
       filters: [{ id: "filter:branch", label: "الفرع", value: "القاهرة" }],
       summary: [{ id: "summary:check", label: "المدين = الدائن", value: "متوازن" }],
-      drcrLabels: { debit: "مدين", credit: "دائن" },
       printedAt: new Date(2026, 8, 21, 10, 0),
     });
 
@@ -138,20 +131,92 @@ describe("report export carries scope, summary and hierarchy", () => {
     expect(meta.find((item) => item.id === "language")?.value).toBe("العربية");
   });
 
-  it("prints Dr/Cr sides, a dash for zero, indentation and row kinds", () => {
+  it("prints a minus for a credit balance (no Dr/Cr suffix), 0.00 for zero, indentation and row kinds", () => {
     const payload = toReportPrintPayload(tb(), { name: "OMS" }, null);
     expect(payload.rows.map((row) => row.closing)).toEqual([
-      "—",
-      "1,500.00 مدين",
-      "1,500.00 دائن",
-      "—",
+      "0.00",
+      "1,500.00",
+      "-1,500.00",
+      "0.00",
     ]);
     expect(String(payload.rows[1]?.account).startsWith(" ")).toBe(true);
     expect(payload.rows[3]?.account).toBe(translate(messages.ar, "reports.finance.totals"));
     expect(payload.rowKinds).toEqual(["parent", "detail", "detail", "grand-total"]);
     expect(payload.orientation).toBe("landscape");
-    expect(payload.subtitle).toContain("القاهرة");
-    expect(payload.subtitle).toContain("EGP");
+    const meta = payload.meta ?? [];
+    expect(meta).toContainEqual({ label: "الفرع", value: "القاهرة", ltr: false });
+    expect(meta.map((item) => item.value)).toContain("EGP");
+    // Company and printed at/by sit in the shared print header, not the strip.
+    expect(meta.map((item) => item.label)).not.toContain(t("reportExport.printedAt"));
+  });
+
+  it("prints blank (never 0.00) where a cell does not apply, 0.00 for a genuine zero", () => {
+    const document = buildFinancialReportDocument({
+      title: "GL",
+      lines: [
+        line({ id: "o", kind: "opening", label: "Opening", values: { balance: -10 } }),
+        line({ id: "p", label: "Narration", values: { debit: 0, credit: 5, balance: -15 } }),
+      ],
+      columns: [
+        { key: "debit", labelKey: "reports.finance.fields.debit" },
+        { key: "credit", labelKey: "reports.finance.fields.credit" },
+        { key: "balance", labelKey: "reports.finance.fields.balance" },
+      ],
+      locale: "en",
+      direction: "ltr",
+      t,
+      companyName: "OMS",
+      printedByName: null,
+    });
+    const payload = toReportPrintPayload(document, { name: "OMS" }, null);
+    expect(payload.rows.map((row) => [row.debit, row.credit, row.balance])).toEqual([
+      ["", "", "-10.00"],
+      ["0.00", "5.00", "-15.00"],
+    ]);
+    // Exports keep the raw numbers; a cell that does not apply stays empty.
+    const csv = buildReportCsv(document);
+    expect(csv).toContain('"0.00","5.00","-15.00"');
+    expect(csv).toContain('"  Opening",,,"-10.00"');
+  });
+
+  it("states the period with explicit From/To words and Cairo printed-at time", () => {
+    const meta = tb().meta ?? [];
+    // 21 Sep 2026 10:00 local → printed in Cairo time (whatever the test zone).
+    expect(meta.find((item) => item.id === "printedAt")?.value).toMatch(
+      /^21 Sep 2026 — \d{2}:\d{2}$/,
+    );
+    const en = documentFor("en").meta ?? [];
+    expect(en.find((item) => item.id === "period")?.value).toBe(
+      "From 01 Jan 2026 · To 30 Sep 2026",
+    );
+  });
+
+  it("gives a long label column (ledger narrations) a prose print column; short text stays on one line", () => {
+    const document = buildFinancialReportDocument({
+      title: "GL",
+      lines: [
+        line({
+          id: "p",
+          label: "Customer receipt for invoice INV-2026-000123 — bank transfer, partial settlement",
+          text: { entry: "JE-2026-000001" },
+          values: { debit: 100 },
+        }),
+      ],
+      columns: [{ key: "debit", labelKey: "reports.finance.fields.debit" }],
+      textColumns: [{ key: "entry", labelKey: "reports.finance.fields.entryNumber" }],
+      locale: "en",
+      direction: "ltr",
+      t,
+      companyName: "OMS",
+      printedByName: null,
+    });
+    const payload = toReportPrintPayload(document, { name: "OMS" }, null);
+    expect(payload.columns.find((column) => column.key === "account")).toMatchObject({
+      prose: true,
+    });
+    expect(payload.columns.find((column) => column.key === "text:entry")).toMatchObject({
+      nowrap: true,
+    });
   });
 
   it("keeps CSV numbers raw but indents the hierarchy", () => {
@@ -161,17 +226,11 @@ describe("report export carries scope, summary and hierarchy", () => {
   });
 
   it("gives Excel the same display convention through the number format", () => {
-    expect(
-      excelNumberFormat(
-        { key: "x", label: "x", numeric: true, negative: "drcr" },
-        {
-          debit: "Dr",
-          credit: "Cr",
-        },
-      ),
-    ).toBe('#,##0.00 "Dr";#,##0.00 "Cr";"—"');
+    expect(excelNumberFormat({ key: "x", label: "x", numeric: true, negative: "minus" })).toBe(
+      "#,##0.00;-#,##0.00",
+    );
     expect(excelNumberFormat({ key: "x", label: "x", numeric: true, negative: "parens" })).toBe(
-      '#,##0.00;(#,##0.00);"—"',
+      "#,##0.00;(#,##0.00);0.00",
     );
     expect(excelNumberFormat({ key: "x", label: "x", numeric: true })).toBe("#,##0.00;-#,##0.00");
   });

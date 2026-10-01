@@ -1,67 +1,60 @@
 "use client";
 
 import { formatAmountParts, type NegativeStyle } from "@/lib/money";
-import { useLocale } from "@/providers/locale-provider";
 import { clsx as cx } from "clsx";
-import { useDrCrLabels } from "./use-report-format";
 
 /**
- * The one money cell for financial reports, built on `formatAmountParts` —
- * the same text the summary, Excel, CSV and print produce.
+ * The one money cell for financial reports and statements (company and
+ * agent), built on `formatAmountParts` — the same text the summary, Excel,
+ * CSV and print produce.
  *
  * - Weight comes from the row kind (inherited), never from the cell.
- * - Zero is a quiet "—"; a missing value (not applicable) is blank.
- * - A negative always carries its sign in text (minus, parentheses or a
- *   Cr side). Color is reserved for genuinely adverse figures (`adverse`,
- *   e.g. a net loss) — a normal credit balance is never red.
- * - The block owns end alignment in the page direction (so it shares the
- *   header's end edge in RTL and LTR); only the digits run is `num`
- *   (tabular, isolated LTR). The Dr/Cr side sits in a fixed-width slot so
- *   figures stay aligned down the column.
+ * - A genuine zero is written at the report's precision (`0.00`, muted); a
+ *   value that is not available (`null`) is "—"; a value that does not apply
+ *   to the row (`undefined`, e.g. a section heading) is blank. A missing
+ *   value is never shown as `0.00`.
+ * - A negative is written with a minus sign and red text (the AA-safe
+ *   destructive text token). Balances are debit-positive: a credit balance
+ *   reads `-1,234.50` — the Debit/Credit columns beside it name the side, so
+ *   no Dr/Cr suffix is repeated on every row. Print stays monochrome (the
+ *   minus carries the meaning).
+ * - `align="end"` (default) owns end alignment in the page direction (table
+ *   cells); `inline` flows with the text (summary fields). Only the digits run
+ *   is `num` (tabular, isolated LTR).
  */
 export function ReportMoney({
   value,
   negative = "minus",
+  currency,
   quiet,
   adverse,
+  align = "end",
 }: {
-  value: number | undefined;
+  value: number | null | undefined;
   negative?: NegativeStyle;
+  /** ISO code written after the figure. */
+  currency?: string | null;
   /** De-emphasized (e.g. an expanded parent whose children show the detail). */
   quiet?: boolean;
-  /** A genuinely adverse figure (net loss, discrepancy). */
+  /** A genuinely adverse figure (net loss, discrepancy) — red even when positive. */
   adverse?: boolean;
+  align?: "end" | "inline";
 }) {
-  const drcrLabels = useDrCrLabels();
   const parts =
-    value === undefined ? null : formatAmountParts(value, { negative, zero: "dash", drcrLabels });
+    value === undefined ? null : formatAmountParts(value, { negative, zero: "zero", currency });
+  const red = adverse || parts?.isNegative;
   return (
     <span
       className={cx(
-        "block w-full text-end whitespace-nowrap",
+        align === "end" ? "block w-full text-end whitespace-nowrap" : "whitespace-nowrap",
         quiet && "text-muted-foreground",
         // The AA-safe red for text (solid --destructive is 4.0:1 on dark).
-        adverse && "text-destructive-soft-foreground",
-        parts?.isZero && "font-normal text-muted-foreground",
+        red && "text-destructive-soft-foreground",
+        (parts?.isZero || parts?.isMissing) && "font-normal text-muted-foreground",
       )}
     >
       {parts ? <span className="num">{parts.figure}</span> : null}
-      {negative === "drcr" ? <DrCrSlot side={parts?.side ?? ""} /> : null}
-    </span>
-  );
-}
-
-/** Fixed-width Dr/Cr slot at the logical end of a balance cell. */
-function DrCrSlot({ side }: { side: string }) {
-  const { locale } = useLocale();
-  return (
-    <span
-      className={cx(
-        "ms-1 inline-block text-start text-caption font-normal text-muted-foreground",
-        locale === "ar" ? "w-8" : "w-5",
-      )}
-    >
-      {side}
+      {parts?.currency ? <span className="ms-1">{parts.currency}</span> : null}
     </span>
   );
 }

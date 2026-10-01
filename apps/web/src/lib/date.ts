@@ -125,6 +125,38 @@ export function formatDateRange(
   return `${fromLabel} – ${toLabel}`;
 }
 
+/** Localized words of a period label (`From`/`To` · «من»/«إلى»). */
+export interface PeriodWords {
+  from: string;
+  to: string;
+}
+
+/**
+ * A report / statement period, labelled explicitly in the UI language:
+ * "From 01 Oct 2026 · To 31 Oct 2026" («من 01 Oct 2026 · إلى 31 Oct 2026»).
+ * A one-sided range states only its bound ("From 01 Oct 2026" / "To 31 Oct
+ * 2026"); no bounds give "" (the caller says "All dates") — a range is never
+ * invented. Calendar days (`YYYY-MM-DD` or a picker's local-midnight Date)
+ * keep their own day — never shifted through UTC.
+ */
+export function formatPeriod(
+  from: Date | string | null | undefined,
+  to: Date | string | null | undefined,
+  words: PeriodWords,
+): string {
+  const fromLabel = formatDate(from);
+  const toLabel = formatDate(to);
+  return [fromLabel && `${words.from} ${fromLabel}`, toLabel && `${words.to} ${toLabel}`]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/** A point-in-time report date: "As of 01 Oct 2026" («كما في 01 Oct 2026»); "" without a date. */
+export function formatAsOf(date: Date | string | null | undefined, asOfWord: string): string {
+  const label = formatDate(date);
+  return label ? `${asOfWord} ${label}` : "";
+}
+
 /**
  * Strictly parses "DD MMM YYYY" (canonical) or legacy "DD-MMM-YYYY".
  * Returns null on anything else, including a calendar-invalid date like 31 Feb 2026.

@@ -13,7 +13,7 @@ import {
   type DateRangeValue,
 } from "@/components/shared/date-range-picker";
 import { ErrorState } from "@/components/shared/error-state";
-import { MoneyValue } from "@/components/shared/money-value";
+import { ReportMoney } from "@/components/accounting/financial-report/report-money";
 import {
   CompactDetailTable,
   type CompactDetailColumn,
@@ -33,7 +33,7 @@ import type {
   CommissionReportOrder,
 } from "@/services/agents-service";
 import { useLocale } from "@/providers/locale-provider";
-import { formatDateRange, toISODate } from "@/lib/date";
+import { formatPeriod, toISODate } from "@/lib/date";
 import { formatAmount } from "@/lib/money";
 import { apiErrorMessage } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
@@ -125,7 +125,9 @@ export function AgentCommissionReportView({
     [currency, t, itemName, orderHref],
   );
   const periodLabel =
-    range.from || range.to ? formatDateRange(range.from, range.to) : t("agents.statement.allDates");
+    range.from || range.to
+      ? formatPeriod(range.from, range.to, { from: t("datePicker.from"), to: t("datePicker.to") })
+      : t("agents.statement.allDates");
 
   if (loadError) return <ErrorState description={loadError} onRetry={() => void reload()} />;
   const summary = report?.summary;
@@ -148,24 +150,19 @@ export function AgentCommissionReportView({
       id: "customerShipping",
       header: t("agents.commission.report.customerShipping"),
       align: "end",
-      cell: (row) => <MoneyValue value={row.shipping.customerShipping} currency={currency} />,
+      cell: (row) => <ReportMoney value={row.shipping.customerShipping} currency={currency} />,
     },
     {
       id: "agentShippingCharge",
       header: t("agents.commission.report.agentShippingCharge"),
       align: "end",
-      cell: (row) =>
-        row.shipping.agentShippingCharge == null ? (
-          "—"
-        ) : (
-          <MoneyValue value={row.shipping.agentShippingCharge} currency={currency} />
-        ),
+      cell: (row) => <ReportMoney value={row.shipping.agentShippingCharge} currency={currency} />,
     },
     {
       id: "retained",
       header: t("agents.commission.report.shippingRetained"),
       align: "end",
-      cell: (row) => <MoneyValue value={row.shipping.retained} currency={currency} />,
+      cell: (row) => <ReportMoney value={row.shipping.retained} currency={currency} />,
     },
     {
       id: "settlement",
@@ -209,12 +206,9 @@ export function AgentCommissionReportView({
             id: "margin",
             header: t("agentPricing.report.margin"),
             align: "end" as const,
-            cell: (row: CommissionReportOrder) =>
-              row.shipping.margin?.amount != null ? (
-                <MoneyValue value={row.shipping.margin.amount} currency={currency} />
-              ) : (
-                "—"
-              ),
+            cell: (row: CommissionReportOrder) => (
+              <ReportMoney value={row.shipping.margin?.amount ?? null} currency={currency} />
+            ),
           },
         ]
       : []),
@@ -222,13 +216,13 @@ export function AgentCommissionReportView({
       id: "commission",
       header: t("agents.commission.report.commission"),
       align: "end",
-      cell: (row) => <MoneyValue value={row.commissionNet} currency={currency} />,
+      cell: (row) => <ReportMoney value={row.commissionNet} currency={currency} />,
     },
     {
       id: "net",
       header: t("agents.commission.report.netEntitlement"),
       align: "end",
-      cell: (row) => <MoneyValue value={row.netEntitlement} currency={currency} />,
+      cell: (row) => <ReportMoney value={row.netEntitlement} currency={currency} />,
     },
   ];
 
@@ -367,12 +361,13 @@ export function AgentCommissionReportView({
               class: row.commissionClass
                 ? t(`agents.commission.classes.${row.commissionClass}` as MessageKey)
                 : "",
-              sales: formatAmount(row.salesAmount),
-              base: row.commissionBase != null ? formatAmount(row.commissionBase) : "",
-              rate: row.ratePercent != null ? `${formatAmount(row.ratePercent)}%` : "",
+              // Raw numbers (an empty cell when a value is missing).
+              sales: row.salesAmount,
+              base: row.commissionBase,
+              rate: row.ratePercent,
               source: t(`agents.commission.sources.${row.rateSource}` as MessageKey),
-              commission: formatAmount(row.commission),
-              reversed: formatAmount(row.commissionReversed),
+              commission: row.commission,
+              reversed: row.commissionReversed,
             })),
             keys,
             exportName,
@@ -409,10 +404,7 @@ function buildLineColumns(
     meta: { titleKey: `agents.commission.report.${id}` as MessageKey, type: "money", importance },
     enableSorting: false,
     accessorFn: (row) => get(row),
-    cell: ({ row }) => {
-      const value = get(row.original);
-      return value == null ? "—" : <MoneyValue value={value} currency={currency} />;
-    },
+    cell: ({ row }) => <ReportMoney value={get(row.original)} currency={currency} />,
   });
   return [
     {

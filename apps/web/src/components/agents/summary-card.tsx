@@ -1,11 +1,15 @@
 "use client";
 
 import { DetailSection } from "@/components/shared/detail-workspace";
-import { MoneyValue } from "@/components/shared/money-value";
+import { ReportMoney } from "@/components/accounting/financial-report/report-money";
 
-export type SummaryRow = { label: string; value: number | string; emphasis?: boolean };
+export type SummaryRow = { label: string; value: number | string | null; emphasis?: boolean };
 
-/** One summary card: label / amount rows, the emphasized row last (a total). */
+/**
+ * One summary card: label / amount rows, the emphasized row last (a total).
+ * Amounts use the shared statement formatter (`0.00` for a genuine zero,
+ * "—" when unavailable, red minus for a negative).
+ */
 export function SummaryCard({
   title,
   rows,
@@ -31,8 +35,8 @@ export function SummaryCard({
               {row.label}
             </dt>
             <dd className={row.emphasis ? "font-semibold" : undefined}>
-              {typeof row.value === "number" ? (
-                <MoneyValue value={row.value} currency={currency} />
+              {typeof row.value === "number" || row.value === null ? (
+                <ReportMoney value={row.value} currency={currency} align="inline" />
               ) : (
                 <span className="num">{row.value}</span>
               )}

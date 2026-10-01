@@ -31,7 +31,7 @@ import {
   FinancialReportHeader,
   useFinancialReportChrome,
 } from "./financial-report-header";
-import { useDrCrLabels, useReportCurrency } from "./use-report-format";
+import { useReportCurrency } from "./use-report-format";
 import {
   collectExpandableIds,
   defaultExpandedIds,
@@ -136,7 +136,6 @@ export function FinancialReport({
   const { user } = useUserContext();
   const filterOptions = useReportFilterOptions();
   const functionalCurrency = useReportCurrency();
-  const drcrLabels = useDrCrLabels();
   const currency = currencyOverride ?? functionalCurrency;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   /** A full-dataset load for print / export is in flight. */
@@ -218,8 +217,7 @@ export function FinancialReport({
       period: describeReportPeriod(filters, { asOf, t }),
       currency,
       filters: filterMeta,
-      summary: summaryToText(summary, { currency, drcrLabels, t }),
-      drcrLabels,
+      summary: summaryToText(summary, { currency, t }),
     });
   };
 

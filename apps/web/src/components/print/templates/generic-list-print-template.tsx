@@ -4,7 +4,7 @@ import { PrintPage } from "../print-page";
 import { PrintTable } from "../print-table";
 import { PrintDocumentHeader, PrintMetaStrip } from "../print-blocks";
 import { usePrintIdentity } from "../print-brand";
-import { formatDateTime } from "@/lib/date";
+import { formatBusinessDateTime } from "@/lib/business-date";
 import { useLocale } from "@/providers/locale-provider";
 import type { GenericListPrintPayload } from "@/types/print-engine";
 
@@ -19,7 +19,7 @@ function ListPrintTemplate({ payload }: { payload: GenericListPrintPayload }) {
   const { t } = useLocale();
   const orientation = payload.orientation ?? "landscape";
   const density = payload.columns.length > 7 || payload.rows.length > 40 ? "compact" : "normal";
-  const printedAt = formatDateTime(new Date());
+  const printedAt = formatBusinessDateTime(new Date());
   const identity = usePrintIdentity(payload.company);
   const count = payload.rows.length;
   const capped = !!payload.totalRowCount && payload.totalRowCount > count;

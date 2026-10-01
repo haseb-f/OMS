@@ -15,7 +15,7 @@ export {
 export { resolveReconciliationState, type ReconciliationState } from "./summary-format";
 export { ReportMoney } from "./report-money";
 export { findLine, resolveRowKinds } from "./types";
-export { loadFunctionalCurrency, useReportCurrency, useDrCrLabels } from "./use-report-format";
+export { loadFunctionalCurrency, useReportCurrency } from "./use-report-format";
 export type {
   FinancialReportCheck,
   FinancialReportCheckScope,

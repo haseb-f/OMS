@@ -26,7 +26,7 @@ export interface FinancialReportLine {
   accountType?: string;
   allowsPosting?: boolean;
   expandable: boolean;
-  /** Amounts by column key. A missing key renders blank (not applicable); 0 renders "—". */
+  /** Amounts by column key. A missing key renders blank (not applicable); 0 renders "0.00". */
   values: Record<string, number>;
   /** Plain-text values for `textColumns` (also what Excel/CSV/print export). */
   text?: Record<string, string>;
@@ -54,9 +54,9 @@ export interface FinancialReportColumn {
   labelKey: string;
   emphasize?: boolean;
   /**
-   * How a negative is written (default `minus`). Debit-positive balance
-   * columns (Trial Balance, ledgers, statements) use `drcr`, so a normal
-   * credit balance reads "1,234.00 Cr" instead of a red minus.
+   * How a negative is written (default `minus`, red on screen). Balance
+   * columns are debit-positive: a credit balance reads "-1,234.00" — the
+   * Debit/Credit columns name the side, so no Dr/Cr suffix is repeated.
    */
   negative?: NegativeStyle;
 }
@@ -87,7 +87,7 @@ export interface FinancialReportSummaryItem {
   /** A final balance/total — framed as the figure that counts. */
   emphasize?: boolean;
   tone?: FinancialReportSummaryTone;
-  /** Negative style (default `minus`; `drcr` for debit-positive balances). */
+  /** Negative style (default `minus`). */
   negative?: NegativeStyle;
   /** Currency of this tile when it differs from the report currency. */
   currency?: string;

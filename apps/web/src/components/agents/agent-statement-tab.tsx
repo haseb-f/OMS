@@ -14,7 +14,7 @@ import {
   type DateRangeValue,
 } from "@/components/shared/date-range-picker";
 import { ErrorState } from "@/components/shared/error-state";
-import { MoneyValue } from "@/components/shared/money-value";
+import { ReportMoney } from "@/components/accounting/financial-report/report-money";
 import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
@@ -38,8 +38,9 @@ import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { formatDate, formatDateRange, toISODate } from "@/lib/date";
-import { formatAmount, formatMoney } from "@/lib/money";
+import { formatPeriod, toISODate } from "@/lib/date";
+import { formatBusinessDate } from "@/lib/business-date";
+import { formatMoney } from "@/lib/money";
 import { apiErrorMessage } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 import { PayoutDetailDialog } from "./agent-payouts";
@@ -105,7 +106,7 @@ function DescriptionCell({ line, currency }: { line: AgentStatementLine; currenc
         {memo ? (
           <StatusBadge
             label={t("agents.statement.memoAmount", {
-              amount: formatMoney(line.memoAmount ?? 0, currency),
+              amount: formatMoney(line.memoAmount, currency),
             })}
             tone="neutral"
           />
@@ -132,12 +133,7 @@ function buildColumns(
     meta: { titleKey: `agents.statement.${id}`, type: "money", importance },
     enableSorting: false,
     accessorFn: (row) => row[id],
-    cell: ({ row }) =>
-      row.original[id] ? (
-        <MoneyValue value={row.original[id]} currency={currency} />
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      ),
+    cell: ({ row }) => <ReportMoney value={row.original[id]} quiet={isMemoLine(row.original)} />,
   });
   return [
     {
@@ -149,7 +145,7 @@ function buildColumns(
         minWidth: 96,
       },
       enableSorting: false,
-      accessorFn: (row) => formatDate(row.entryDate),
+      accessorFn: (row) => formatBusinessDate(row.entryDate),
     },
     {
       id: "reference",
@@ -185,7 +181,7 @@ function buildColumns(
       meta: { titleKey: "agents.statement.runningBalance", type: "money", importance: "critical" },
       enableSorting: false,
       accessorFn: (row) => row.balance,
-      cell: ({ row }) => <MoneyValue value={row.original.balance} currency={currency} />,
+      cell: ({ row }) => <ReportMoney value={row.original.balance} />,
     },
     {
       id: "posting",
@@ -271,7 +267,9 @@ export function AgentStatementTab({ agentId }: { agentId: string }) {
   const currency = statement?.currency?.code ?? statement?.agent.currency?.code ?? "";
   const columns = useMemo(() => buildColumns(currency, setPayoutId), [currency]);
   const periodLabel =
-    range.from || range.to ? formatDateRange(range.from, range.to) : t("agents.statement.allDates");
+    range.from || range.to
+      ? formatPeriod(range.from, range.to, { from: t("datePicker.from"), to: t("datePicker.to") })
+      : t("agents.statement.allDates");
 
   const print = () =>
     void runPrint("document", async () => {
@@ -289,16 +287,17 @@ export function AgentStatementTab({ agentId }: { agentId: string }) {
       });
     });
 
-  const exportRow = (line: AgentStatementLine): Record<string, string> => ({
-    date: formatDate(line.entryDate),
+  // CSV keeps raw numbers (an empty cell when a value is missing).
+  const exportRow = (line: AgentStatementLine): Record<string, string | number | null> => ({
+    date: formatBusinessDate(line.entryDate),
     reference: lineReference(line),
     type: t(`agents.entryType.${line.entryType}` as MessageKey),
     description: isMemoLine(line)
-      ? `${agentLedgerDescription(line, t)} (${t("agents.statement.memo")}: ${formatAmount(line.memoAmount ?? 0)})`
+      ? `${agentLedgerDescription(line, t)} (${t("agents.statement.memo")}: ${formatMoney(line.memoAmount)})`
       : agentLedgerDescription(line, t),
-    debit: formatAmount(line.debit),
-    credit: formatAmount(line.credit),
-    balance: formatAmount(line.balance),
+    debit: line.debit,
+    credit: line.credit,
+    balance: line.balance,
     posting: t(`agents.postingStatus.${line.postingStatus}` as MessageKey),
   });
 
@@ -477,9 +476,9 @@ export function AgentStatementTab({ agentId }: { agentId: string }) {
             }
             footerRow={{
               description: t("agents.statement.closing"),
-              debit: <MoneyValue value={statement.totals.debit} currency={currency} />,
-              credit: <MoneyValue value={statement.totals.credit} currency={currency} />,
-              balance: <MoneyValue value={statement.closingBalance} currency={currency} />,
+              debit: <ReportMoney value={statement.totals.debit} currency={currency} />,
+              credit: <ReportMoney value={statement.totals.credit} currency={currency} />,
+              balance: <ReportMoney value={statement.closingBalance} currency={currency} />,
             }}
           />
         </>

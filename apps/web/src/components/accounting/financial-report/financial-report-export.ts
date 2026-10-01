@@ -1,7 +1,7 @@
 import type { Locale } from "@/i18n/locales";
 import { localeLabel } from "@/i18n/locales";
 import type { MessageKey } from "@/i18n/translate";
-import { formatDateRange, formatDateTime } from "@/lib/date";
+import { formatBusinessDateTime } from "@/lib/business-date";
 import { formatAmount } from "@/lib/money";
 import type { ReportExportDocument, ReportExportRowKind } from "@/lib/report-export";
 import type { GenericListPrintPayload, PrintCompanyInfo } from "@/types/print-engine";
@@ -32,8 +32,10 @@ export interface FinancialReportExportInput {
   nameHeaderKey?: MessageKey;
   companyName: string;
   printedByName: string | null;
-  dateRange?: { from: Date | null; to: Date | null };
-  /** Overrides the period text (e.g. "As of 30 Sep 2026" for point-in-time reports). */
+  /**
+   * The period text, already labelled (`describeReportPeriod`: "From … · To …"
+   * or "As of …"); "" or absent → "All dates".
+   */
   period?: string;
   /** Report currency (ISO code). */
   currency?: string;
@@ -41,8 +43,6 @@ export interface FinancialReportExportInput {
   filters?: Array<{ id: string; label: string; value: string }>;
   /** Summary tiles + balance check, already formatted (`summaryToText`). */
   summary?: Array<{ id: string; label: string; value: string }>;
-  /** Localized Dr/Cr side labels for `drcr` columns. */
-  drcrLabels?: { debit: string; credit: string };
   printedAt?: Date;
 }
 
@@ -64,15 +64,12 @@ export function buildFinancialReportDocument(
   input: FinancialReportExportInput,
 ): ReportExportDocument {
   const { t } = input;
-  const period =
-    input.period ??
-    (input.dateRange ? formatDateRange(input.dateRange.from, input.dateRange.to) : "");
+  const period = input.period ?? "";
   const rowKinds = input.rowKinds ?? resolveRowKinds(input.lines, { hasFooter: !!input.footer });
   const exportedIds = new Set(input.lines.map((line) => line.id));
   return {
     title: input.title,
     direction: input.direction,
-    drcrLabels: input.drcrLabels,
     meta: [
       { id: "company", label: t("reportExport.company"), value: input.companyName },
       {
@@ -89,7 +86,8 @@ export function buildFinancialReportDocument(
       {
         id: "printedAt",
         label: t("reportExport.printedAt"),
-        value: formatDateTime(input.printedAt ?? new Date()),
+        // Cairo wall clock, whatever the browser zone.
+        value: formatBusinessDateTime(input.printedAt ?? new Date()),
       },
       ...(input.printedByName
         ? [{ id: "printedBy", label: t("reportExport.printedBy"), value: input.printedByName }]
@@ -155,13 +153,6 @@ export function buildFinancialReportDocument(
 /** Non-breaking indent for print (plain spaces collapse in HTML). */
 const PRINT_INDENT = "   ";
 
-/**
- * The print layout of the same export document (report variant, landscape).
- * Amounts use `formatAmount` with each column's convention — the same text
- * as the screen (Latin digits, "—" for zero, Dr/Cr sides). The subtitle
- * states the report's full scope: period, currency, language, every active
- * filter, the summary figures and the balance check.
- */
 /** Longest value that still prints on one line in a report text column. */
 const NOWRAP_MAX_CHARS = 20;
 
@@ -177,6 +168,15 @@ export function isShortTextColumn(rows: Record<string, unknown>[], key: string):
   return any;
 }
 
+/**
+ * The print layout of the same export document (report variant, landscape).
+ * Amounts use `formatAmount` with each column's convention — the same text
+ * as the screen (Latin digits, `0.00` for a genuine zero, a minus for a
+ * negative, blank when the cell does not apply). The meta strip states the
+ * report's full scope as label/value pairs: period, currency, language,
+ * every active filter, the summary figures and the balance check.
+ * Descriptive (prose) columns keep a minimum width and wrap by words.
+ */
 export function toReportPrintPayload(
   document: ReportExportDocument,
   company: PrintCompanyInfo,
@@ -193,14 +193,7 @@ export function toReportPrintPayload(
           const shown = rowId
             ? displayAmount({ id: rowId, values: { v: Number(raw) } }, "v").value
             : Number(raw);
-          return [
-            column.key,
-            formatAmount(shown, {
-              negative: column.negative ?? "minus",
-              zero: "dash",
-              drcrLabels: document.drcrLabels,
-            }),
-          ];
+          return [column.key, formatAmount(shown, { negative: column.negative ?? "minus" })];
         }
         const text = String(raw ?? "");
         return [
@@ -229,10 +222,11 @@ export function toReportPrintPayload(
     title: document.title,
     orientation: "landscape",
     // Company and printed at/by already sit in the shared print header.
-    subtitle: (document.meta ?? [])
+    meta: (document.meta ?? [])
       .filter((item) => !HEADER_IDS.has(item.id ?? ""))
-      .map((item) => `${item.label}: ${item.value}`)
-      .join("  ·  "),
+      // Figures (summary amounts) print as isolated LTR runs, so a minus
+      // stays in front of its digits on an Arabic sheet.
+      .map((item) => ({ label: item.label, value: item.value, ltr: /^[-(]?\d/.test(item.value) })),
     direction: document.direction,
     company,
     printedByName,
@@ -241,8 +235,13 @@ export function toReportPrintPayload(
       label: column.label,
       align: column.numeric ? ("end" as const) : ("start" as const),
       // Short code-like text (dates, entry / reference numbers, journal
-      // codes) stays on one line; prose columns keep wrapping.
-      ...(!column.numeric && isShortTextColumn(rows, column.key) ? { nowrap: true } : {}),
+      // codes) stays on one line; the label column (account names, ledger
+      // narrations) keeps a minimum width; every text column wraps by words.
+      ...(!column.numeric && isShortTextColumn(rows, column.key)
+        ? { nowrap: true }
+        : column.key === indentKey
+          ? { prose: true }
+          : {}),
     })),
     rows,
     rowKinds,

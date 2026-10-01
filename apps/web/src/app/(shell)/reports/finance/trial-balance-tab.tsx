@@ -72,16 +72,11 @@ export function TrialBalanceTab() {
     void load();
   }, [load]);
 
-  // Balances are debit-positive: shown with a Dr/Cr side, never a red minus.
+  // Balances are debit-positive: a credit balance reads with a minus sign
+  // (red on screen); the Debit/Credit columns name the side.
   const columns: FinancialReportColumn[] = [
     ...(includeOpeningBalance
-      ? [
-          {
-            key: "opening",
-            labelKey: "reports.finance.fields.openingBalance",
-            negative: "drcr" as const,
-          },
-        ]
+      ? [{ key: "opening", labelKey: "reports.finance.fields.openingBalance" }]
       : []),
     { key: "debit", labelKey: "reports.finance.fields.debit" },
     { key: "credit", labelKey: "reports.finance.fields.credit" },
@@ -89,7 +84,6 @@ export function TrialBalanceTab() {
       key: "closing",
       labelKey: "reports.finance.fields.closingBalance",
       emphasize: true,
-      negative: "drcr",
     },
   ];
 

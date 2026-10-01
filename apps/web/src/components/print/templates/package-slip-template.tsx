@@ -5,7 +5,7 @@ import { PrintPage } from "../print-page";
 import { PrintTable } from "../print-table";
 import { PrintQr, recordUrl } from "../print-blocks";
 import { usePrintIdentity } from "../print-brand";
-import { formatDateTime } from "@/lib/date";
+import { formatBusinessDateTime } from "@/lib/business-date";
 import { formatMoney } from "@/lib/money";
 import { messages } from "@/i18n/messages";
 import { translate, type MessageKey } from "@/i18n/translate";
@@ -73,7 +73,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 export function PackageSlipTemplate({ payload }: { payload: PackageSlipPayload }) {
   const { t } = useLocale();
   const b = useBilingual();
-  const printedAt = formatDateTime(new Date());
+  const printedAt = formatBusinessDateTime(new Date());
   const identity = usePrintIdentity(payload.company);
   const qrUrl = recordUrl(payload.recordPath);
   const pickup = payload.method === "PICKUP";

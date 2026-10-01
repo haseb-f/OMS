@@ -117,17 +117,17 @@ describe("summary", () => {
       {
         items: [
           { id: "debit", label: "Debit", value: 1500 },
-          { id: "closing", label: "Closing", value: -200, negative: "drcr" },
+          { id: "closing", label: "Closing", value: -200 },
           { id: "zero", label: "Zero", value: 0 },
         ],
         check: { balanced: false, difference: -12.5, label: "Debits = Credits" },
       },
-      { currency: "EGP", drcrLabels: { debit: "Dr", credit: "Cr" }, t },
+      { currency: "EGP", t },
     );
     expect(text).toEqual([
       { id: "summary:debit", label: "Debit", value: "1,500.00 EGP" },
-      { id: "summary:closing", label: "Closing", value: "200.00 Cr EGP" },
-      { id: "summary:zero", label: "Zero", value: "—" },
+      { id: "summary:closing", label: "Closing", value: "-200.00 EGP" },
+      { id: "summary:zero", label: "Zero", value: "0.00 EGP" },
       {
         id: "summary:check",
         label: "Debits = Credits",

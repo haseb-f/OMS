@@ -7,7 +7,6 @@ import { formatAmountParts } from "@/lib/money";
 import { useLocale } from "@/providers/locale-provider";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { InsightCard, InsightGroup } from "@/components/shared/insight-card";
-import { useDrCrLabels } from "./use-report-format";
 import {
   resolveReconciliationState,
   resolveSummaryTone,
@@ -51,19 +50,16 @@ const SLOT = "flex min-w-0 [&>*]:w-full";
 
 function Figure({
   figure,
-  side,
   className,
   summaryId,
 }: {
   figure: string;
-  side?: string;
   className?: string;
   summaryId?: string;
 }) {
   return (
     <span data-summary-id={summaryId} className="flex flex-wrap items-baseline gap-x-1.5">
       <span className={className}>{figure}</span>
-      {side ? <span className="text-caption font-normal text-muted-foreground">{side}</span> : null}
     </span>
   );
 }
@@ -73,13 +69,8 @@ const joinContext = (...parts: Array<string | undefined>) =>
 
 function ItemCard({ item, currency }: { item: FinancialReportSummaryItem; currency: string }) {
   const { direction } = useLocale();
-  const drcrLabels = useDrCrLabels();
   const tone = resolveSummaryTone(item.tone, item.value);
-  const parts = formatAmountParts(item.value, {
-    negative: item.negative ?? "minus",
-    zero: "dash",
-    drcrLabels,
-  });
+  const parts = formatAmountParts(item.value, { negative: item.negative ?? "minus" });
   return (
     <div
       id={`report-summary-${item.id}`}
@@ -97,11 +88,16 @@ function ItemCard({ item, currency }: { item: FinancialReportSummaryItem; curren
         value={
           <Figure
             figure={parts.figure}
-            side={parts.isZero ? "" : parts.side}
-            className={parts.isZero ? "text-muted-foreground" : FIGURE_TONE[tone]}
+            className={
+              parts.isZero
+                ? "text-muted-foreground"
+                : parts.isNegative
+                  ? FIGURE_TONE.loss
+                  : FIGURE_TONE[tone]
+            }
           />
         }
-        unit={parts.isZero ? undefined : (item.currency ?? currency)}
+        unit={item.currency ?? currency}
       />
     </div>
   );
@@ -115,7 +111,7 @@ function SideCard({
   currency: string;
 }) {
   const { direction } = useLocale();
-  const parts = formatAmountParts(side.value, { zero: "dash" });
+  const parts = formatAmountParts(side.value);
   return (
     <div
       data-slot="report-kpi"
@@ -130,10 +126,16 @@ function SideCard({
         value={
           <Figure
             figure={parts.figure}
-            className={parts.isZero ? "text-muted-foreground" : "text-foreground"}
+            className={
+              parts.isZero
+                ? "text-muted-foreground"
+                : parts.isNegative
+                  ? FIGURE_TONE.loss
+                  : "text-foreground"
+            }
           />
         }
-        unit={parts.isZero ? undefined : currency}
+        unit={currency}
       />
     </div>
   );
@@ -160,7 +162,7 @@ export function ReconciliationCard({
   const unbalanced = state === "unbalanced";
   let card: ReactNode;
   if (state === "unbalanced") {
-    const difference = formatAmountParts(Math.abs(check.difference), { zero: "dash" });
+    const difference = formatAmountParts(Math.abs(check.difference));
     card = (
       <InsightCard
         direction={direction}

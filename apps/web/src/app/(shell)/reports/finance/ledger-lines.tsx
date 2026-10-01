@@ -38,18 +38,14 @@ export interface LedgerBlockInput {
 }
 
 /**
- * Debit · Credit · Running balance — the balance is debit-positive, so it is
- * written with a Dr/Cr side (a credit balance is a side, never a red minus).
+ * Debit · Credit · Running balance — the balance is debit-positive: a credit
+ * balance reads with a minus sign (red on screen); the Debit/Credit columns
+ * name the side, so no Dr/Cr suffix is repeated on every row.
  */
 export const LEDGER_COLUMNS: FinancialReportColumn[] = [
   { key: "debit", labelKey: "reports.finance.fields.debit" },
   { key: "credit", labelKey: "reports.finance.fields.credit" },
-  {
-    key: "balance",
-    labelKey: "reports.finance.fields.runningBalance",
-    emphasize: true,
-    negative: "drcr",
-  },
+  { key: "balance", labelKey: "reports.finance.fields.runningBalance", emphasize: true },
 ];
 
 /** Opening · Debit · Credit · Closing tiles of one ledger block (account / partner statement). */
@@ -65,7 +61,6 @@ export function ledgerSummaryItems(
       id: "openingBalance",
       label: t("reports.finance.fields.openingBalance"),
       value: totals.openingBalance,
-      negative: "drcr",
     },
     { id: "periodDebit", label: t("reports.finance.fields.debit"), value: totals.periodDebit },
     { id: "periodCredit", label: t("reports.finance.fields.credit"), value: totals.periodCredit },
@@ -74,7 +69,6 @@ export function ledgerSummaryItems(
       label: t("reports.finance.fields.closingBalance"),
       value: totals.closingBalance,
       emphasize: true,
-      negative: "drcr",
     },
   ];
 }
@@ -102,7 +96,9 @@ export function buildLedgerBlock(
       level: 1,
       label: t("reports.finance.fields.openingBalance"),
       expandable: false,
-      values: { debit: 0, credit: 0, balance: block.openingBalance },
+      // An opening balance has no period debit/credit — those cells do not
+      // apply (blank), they are not a genuine zero.
+      values: { balance: block.openingBalance },
       children: [],
     },
     ...block.movements.map((movement): FinancialReportLine => ({

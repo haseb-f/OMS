@@ -47,8 +47,6 @@ describe("resolveReconciliationState", () => {
 });
 
 describe("reconciliation export text", () => {
-  const drcrLabels = { debit: "Dr", credit: "Cr" };
-
   it("writes report caveats (e.g. unclassified accounts) into print/export after the verdict", () => {
     const text = summaryToText(
       {
@@ -61,7 +59,7 @@ describe("reconciliation export text", () => {
           },
         ],
       },
-      { currency: "EGP", drcrLabels, t },
+      { currency: "EGP", t },
     );
     expect(text.at(-1)).toEqual({
       id: "summary:note:UNCLASSIFIED_ACCOUNTS",
@@ -85,18 +83,18 @@ describe("reconciliation export text", () => {
           ],
         },
       },
-      { currency: "EGP", drcrLabels, t },
+      { currency: "EGP", t },
     );
     expect(text).toEqual([
       {
         id: "summary:check:debit",
         label: "Debit total",
-        value: formatAmount(debit, { zero: "dash", currency: "EGP" }),
+        value: formatAmount(debit, { currency: "EGP" }),
       },
       {
         id: "summary:check:credit",
         label: "Credit total",
-        value: formatAmount(credit, { zero: "dash", currency: "EGP" }),
+        value: formatAmount(credit, { currency: "EGP" }),
       },
       { id: "summary:check", label: "Debits = Credits", value: "Balanced" },
     ]);
@@ -116,7 +114,7 @@ describe("reconciliation export text", () => {
           ],
         },
       },
-      { currency: "EGP", drcrLabels, t },
+      { currency: "EGP", t },
     );
     expect(text.map((row) => row.value)).toEqual([
       "1,248,750.00 EGP",
@@ -128,7 +126,7 @@ describe("reconciliation export text", () => {
   it("never states a verdict when not applicable", () => {
     const text = summaryToText(
       { items: [], check: { ...base, notApplicable: "Specific accounts selected" } },
-      { currency: "EGP", drcrLabels, t },
+      { currency: "EGP", t },
     );
     expect(text).toEqual([
       {

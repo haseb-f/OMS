@@ -120,6 +120,31 @@ describe("agent portal statement print", () => {
     expect(memo.description).toContain("Memo:");
   });
 
+  it("dates lines on the Cairo business day and never prints a missing memo amount as 0.00", () => {
+    const late = buildPortalStatementPrintPayload(
+      {
+        ...data,
+        lines: [
+          // 22:30Z on 30 Sep = 01:30 on 1 Oct in Cairo.
+          line({ id: "4", entryDate: "2026-09-30T22:30:00.000Z", memo: true, memoAmount: null }),
+        ],
+      },
+      {
+        title: "Agent statement",
+        partyLabel: "Agent",
+        periodLabel: "From 01 Sep 2026 · To 30 Sep 2026",
+        memoLabel: "Memo",
+        signNote: "",
+        company: { name: "OMS", logoUrl: null },
+        typeLabel: (type) => type,
+      },
+    );
+    expect(late.movements[0].date).toBe("01 Oct 2026");
+    expect(late.movements[0].description).toContain("Memo: —");
+    expect(late.movements[0].description).not.toContain("0.00");
+    expect(late.period).toBe("From 01 Sep 2026 · To 30 Sep 2026");
+  });
+
   it("links references to portal pages", () => {
     expect(portalLineHref(data.lines[0])).toBe("/agent/orders/o1");
     expect(portalLineHref(data.lines[2])).toBe("/agent/payouts/p1");

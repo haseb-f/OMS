@@ -15,7 +15,7 @@ import {
   type PrintTotalRow,
 } from "../print-blocks";
 import { usePrintIdentity } from "../print-brand";
-import { formatDateTime } from "@/lib/date";
+import { formatBusinessDateTime } from "@/lib/business-date";
 import { formatMoney } from "@/lib/money";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
@@ -77,7 +77,7 @@ function DocumentFamilyPrintTemplate({ payload }: { payload: DocumentPrintPayloa
   const { data, title, ledger } = payload;
   const { branding } = data.company;
   const orientation = branding.paperSize === "a4-landscape" ? "landscape" : "portrait";
-  const printedAt = formatDateTime(new Date());
+  const printedAt = formatBusinessDateTime(new Date());
   const qrUrl = recordUrl(payload.recordPath);
   const currency = data.currency;
   const money = (value: number) => formatMoney(value);
