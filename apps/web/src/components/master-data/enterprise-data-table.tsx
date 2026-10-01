@@ -1979,10 +1979,11 @@ export function EnterpriseDataTable<TData>({
                                   handleResizeKey(header.id, event, currentWidth(), minWidth)
                                 }
                                 className={cn(
-                                  // Straddles the column boundary: an 8px hit area
-                                  // (negative end margin) around a hairline that
-                                  // shows on header hover and keyboard focus.
-                                  "absolute inset-y-0 end-0 z-[1] -me-1 w-2 cursor-col-resize touch-none select-none outline-none before:absolute before:inset-y-1 before:start-1/2 before:w-px before:-translate-x-1/2 before:rounded-full before:bg-transparent group-hover/th:before:bg-border-strong hover:before:w-0.5 hover:before:bg-primary/60 focus-visible:before:inset-y-0 focus-visible:before:w-0.5 focus-visible:before:bg-focus-ring data-resizing:before:inset-y-0 data-resizing:before:w-0.5 data-resizing:before:bg-primary",
+                                  // An 8px hit area INSIDE the column's end edge (each
+                                  // sticky header cell paints over its neighbour, so
+                                  // an overhang would be unhittable) with a hairline
+                                  // on the edge, shown on header hover / focus.
+                                  "absolute inset-y-0 end-0 z-[1] w-2 cursor-col-resize touch-none select-none outline-none before:absolute before:inset-y-1 before:end-0 before:w-px before:rounded-full before:bg-transparent group-hover/th:before:bg-border-strong hover:before:w-0.5 hover:before:bg-primary/60 focus-visible:before:inset-y-0 focus-visible:before:w-0.5 focus-visible:before:bg-focus-ring data-resizing:before:inset-y-0 data-resizing:before:w-0.5 data-resizing:before:bg-primary",
                                 )}
                               />
                             );
