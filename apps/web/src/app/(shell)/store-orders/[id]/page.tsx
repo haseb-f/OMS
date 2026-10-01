@@ -86,7 +86,11 @@ import {
 } from "@/services/shipping-companies-service";
 import type { ShipmentListRow } from "@/services/shipping-service";
 import { isReadyForShipping, paymentRecordStatusBadge } from "@/config/store-orders/status";
-import { shipmentStatusLabelKey, shipmentStatusTone } from "@/config/shipping/shipment-status";
+import {
+  shipmentStatusLabelKey,
+  shipmentStatusTone,
+  shippingStatusName,
+} from "@/config/shipping/shipment-status";
 import { computeNextAction, type NextActionKind } from "@/config/store-orders/next-action";
 import {
   orderFulfillmentBadge,
@@ -910,7 +914,7 @@ function StoreOrderDetailContent() {
           title={t("orderAmendments.detail.sections.shipments")}
           summary={
             latestShipment
-              ? `${t(shipmentStatusLabelKey(latestShipment.status))} · ${t(
+              ? `${shippingStatusName(latestShipment.shippingStatus, t) ?? t(shipmentStatusLabelKey(latestShipment.status))} · ${t(
                   "orderAmendments.detail.summary.shipments",
                   { count: order.shipments?.length ?? 0 },
                 )}`
@@ -953,7 +957,10 @@ function StoreOrderDetailContent() {
                     header: t("shipping.fields.status"),
                     cell: (shipment) => (
                       <StatusBadge
-                        label={t(shipmentStatusLabelKey(shipment.status))}
+                        label={
+                          shippingStatusName(shipment.shippingStatus, t) ??
+                          t(shipmentStatusLabelKey(shipment.status))
+                        }
                         tone={shipmentStatusTone(shipment.status)}
                       />
                     ),

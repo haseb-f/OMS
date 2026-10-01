@@ -573,10 +573,14 @@ export class StoreOrderAmendmentsService {
         address: customerAfter.address,
       };
     } else if (isAgentOrder) {
-      // Spec 2 freeze: without a destination / payment type / method change
-      // the order keeps its shipping terms and frozen per-channel tariffs.
+      // Spec 2 freeze: without a destination / payment type / method /
+      // currency change the order keeps its shipping terms and frozen
+      // per-channel tariffs (a charge never carries into another currency).
       const frozenShipping =
-        kinds.destination || kinds.paymentType || kinds.fulfillmentMethod
+        kinds.destination ||
+        kinds.paymentType ||
+        kinds.fulfillmentMethod ||
+        kinds.currency
           ? null
           : this.frozenShipping(order);
       if (!frozenShipping && order.shippingChargeSource === 'MANUAL') {

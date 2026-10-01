@@ -44,6 +44,23 @@ const RESHIP_TRIGGER_STATUSES: ShipmentStatus[] = [
   ShipmentStatus.SHIPPED,
 ];
 
+/**
+ * Spec 1A — whether an import row answers an amendment's label-reissue
+ * request: only a label URL or tracking number that differs from the
+ * shipment's current one. A synced row repeating the old label is not a
+ * reissue, so a flagged parcel stays blocked from shipping.
+ */
+export function isLabelReissue(
+  current: { labelUrl?: string | null; trackingNumber?: string | null } | null,
+  labelUrl: string | undefined,
+  trackingNumber: string | undefined,
+): boolean {
+  return (
+    (!!labelUrl && labelUrl !== current?.labelUrl) ||
+    (!!trackingNumber && trackingNumber !== current?.trackingNumber)
+  );
+}
+
 /** Data Synchronization spec section 26 — never silently overwritten, always surfaced for a human decision. */
 const CONFLICT_MESSAGE =
   'تم تعديل الشحنة في النظام بعد آخر مزامنة، يرجى مراجعة التغيير قبل تطبيق تحديث الشيت.';
@@ -518,6 +535,7 @@ export class ShippingUpdatesImportHandler
       id: string;
       status: ShipmentStatus | null;
       trackingNumber?: string | null;
+      labelUrl?: string | null;
     } | null,
     catalogStatus: { id: string; code: string; name: string },
     trackingNumber: string | undefined,
@@ -558,10 +576,9 @@ export class ShippingUpdatesImportHandler
         }
         // Spec 1A — a new label or tracking in the same row answers an
         // amendment's reissue request; otherwise a flagged parcel cannot be
-        // recorded as shipped.
-        const labelReissued =
-          !!labelUrl ||
-          (!!trackingNumber && trackingNumber !== current?.trackingNumber);
+        // recorded as shipped. A synced row that still carries the old label
+        // URL is not a reissue.
+        const labelReissued = isLabelReissue(current, labelUrl, trackingNumber);
         let updated = await this.shipmentsService.applyCatalogStatus(
           order.id,
           catalogStatus.id,
@@ -587,7 +604,10 @@ export class ShippingUpdatesImportHandler
         if (labelUrl) {
           updated = await tx.shipment.update({
             where: { id: updated.id },
-            data: { labelUrl, labelReissueRequired: false },
+            data: {
+              labelUrl,
+              ...(labelReissued ? { labelReissueRequired: false } : {}),
+            },
           });
         }
         if (notes) {
