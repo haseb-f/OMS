@@ -692,6 +692,45 @@ describeDb('Agent commission and shipping policy (local DB)', () => {
     },
   );
 
+  it('O1 — customer shipping 0 with a fee of 100: no zero-amount entry, the company shortfall is on the commission basis', async () => {
+    const agent = await makeAgent();
+    const product = await makeProduct(true, agent.id, 'PRODUCT');
+    const order = await makeOrder({
+      agentId: agent.id,
+      terms: PREDETERMINED,
+      shipping: 0,
+      agentShippingCharge: { amount: 100, source: 'RATE', rateId: null },
+      lines: [
+        {
+          productId: product,
+          quantity: 1,
+          amount: 1_000,
+          inventoryLine: true,
+          commission: PRODUCT35,
+        },
+      ],
+    });
+    await pay(order, 1_000);
+    await shipAndDeliver(order.id);
+    const charges = await entries({
+      storeOrderId: order.id,
+      entryType: { notIn: ['COLLECTION_RECEIVED', 'COLLECTION_BY_AGENT'] },
+    });
+    expect(charges.map((e) => [e.entryType, Number(e.debit)])).toEqual([
+      ['COMMISSION', 350],
+    ]);
+    expect(charges[0].basis).toMatchObject({
+      shippingSettlement: {
+        shippingCharge: 0,
+        agentShippingCharge: 100,
+        appliedToAgentShippingCharge: 0,
+        difference: -100,
+        differenceBorneBy: 'COMPANY',
+      },
+    });
+    expect((await position(agent.id)).balance).toBe(650);
+  });
+
   it('A6 — actual carrier costs (base, late surcharge, credit, re-import, unmatch) never touch the agent ledger', async () => {
     const before = await entries({ agentId: shipAgent.id });
     const base = await carrierCharge(shipShipmentId, 60, 'BASE');
@@ -721,7 +760,7 @@ describeDb('Agent commission and shipping policy (local DB)', () => {
     expect(r.summary.netEntitlement).toBe(650);
   });
 
-  it('A2/A3/A6 — order submission: item type, predetermined charge, added/included, pickup, difference refused', async () => {
+  it('A2/A3/A6 — order submission: item type, predetermined charge, added/included, pickup, difference allowed (O1) but not below the fee for agent users', async () => {
     const agent = await makeAgent();
     const stocked = await makeProduct(true, agent.id, 'PRODUCT');
     const nonStock = await makeProduct(false, agent.id, 'PRODUCT');
@@ -847,6 +886,75 @@ describeDb('Agent commission and shipping policy (local DB)', () => {
     );
     expect(difference.valid).toBe(true);
     expect(difference.agentShippingCharge).toMatchObject({ amount: 100 });
+
+    // Integrator decision (O1 guard): an agent USER may not set the customer
+    // shipping below its fee (C ≥ F is fine); internal staff may.
+    const agentUser = await prisma.user.create({
+      data: {
+        email: `o1-agent-${tag}@test.local`.toLowerCase(),
+        username: `o1-agent-${tag}`.toLowerCase(),
+        fullName: `O1 agent ${tag}`,
+        passwordHash: 'x',
+        userType: 'AGENT',
+        agentRole: 'ADMIN',
+        agentId: agent.id,
+      },
+    });
+    const permission = await prisma.permission.upsert({
+      where: { name: 'agent.orders.override_shipping' },
+      create: { name: 'agent.orders.override_shipping' },
+      update: {},
+    });
+    await prisma.userPermission.create({
+      data: { userId: agentUser.id, permissionId: permission.id },
+    });
+    const agentActor = {
+      userId: agentUser.id,
+      agent: {
+        userId: agentUser.id,
+        agentId: agent.id,
+        agentRole: 'ADMIN' as const,
+      },
+    };
+    const below = await orders.quote(
+      input({
+        shippingChargeOverride: 80,
+        shippingOverrideReason: 'Customer discount',
+      }),
+      agentActor,
+    );
+    expect(below.valid).toBe(false);
+    expect(below.issues.map((i) => i.code)).toEqual([
+      'AGENT_SHIPPING_BELOW_FEE',
+    ]);
+    const belowIssue = below.issues.find(
+      (i) => i.code === 'AGENT_SHIPPING_BELOW_FEE',
+    );
+    expect(belowIssue?.message).toContain('100.00');
+    const above = await orders.quote(
+      input({
+        shippingChargeOverride: 120,
+        shippingOverrideReason: 'Express packaging',
+      }),
+      agentActor,
+    );
+    expect(above.valid).toBe(true);
+    const internalBelow = await orders.createAgentOrder(
+      input({
+        shippingChargeOverride: 80,
+        shippingOverrideReason: 'Goodwill',
+      }),
+      actor,
+    );
+    const audit = await prisma.storeOrderActivity.findFirst({
+      where: {
+        storeOrderId: internalBelow.id,
+        action: 'AGENT_SHIPPING_OVERRIDE',
+      },
+    });
+    expect(audit?.details).toContain(
+      'below the agent shipping fee 100.00; the company bears 20.00',
+    );
 
     // Preview before activation — the owner's shipping example.
     const draft = await agreements.create(

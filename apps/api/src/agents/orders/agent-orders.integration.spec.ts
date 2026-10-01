@@ -1102,9 +1102,10 @@ describe('Agents B1 — admin + orders (integration)', () => {
 
     // O3 (owner decision 2026-10-01) supersedes the S1 "dedup stays inside
     // the agent" rule: one phone = one customer across scopes. Still S1: a
-    // matched partner is never updated, and an employee / investor identity
-    // is never extended from an agent flow (neutral 409, no oracle).
-    it('S1 + O3: an agent customer reuses the one customer of a phone without updating it; employee identities are refused', async () => {
+    // matched partner is never updated. Integrator decision: no identity
+    // oracle — an employee record holding the phone is attached too (only the
+    // CUSTOMER role is added) and the order flagged for internal review.
+    it('S1 + O3: an agent customer reuses the one record of a phone without updating it, whatever its identity', async () => {
       const employeeMobile = phone();
       const company = await prisma.partner.create({
         data: {
@@ -1127,23 +1128,27 @@ describe('Agents B1 — admin + orders (integration)', () => {
         email: `leak-${lower}@test.local`,
         taxNumber: `TAX-${tag}`,
       } as CreateAgentOrderDto['customer'];
-      await expect(
-        agentOrderBy(salesCtx, {
-          customer: typed,
-          duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' },
-        }),
-      ).rejects.toMatchObject({
-        response: { code: 'CUSTOMER_PHONE_UNAVAILABLE' },
+      const onEmployee = await agentOrderBy(salesCtx, {
+        customer: typed,
+        duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' },
       });
+      expect(onEmployee.partnerId).toBe(company.id);
+      expect(onEmployee.duplicateReviewStatus).toBe('PENDING');
       const untouched = await prisma.partner.findUniqueOrThrow({
         where: { id: company.id },
         include: { roles: true },
       });
       expect(untouched).toMatchObject({
+        name: `Company Employee ${tag}`,
         address: 'COMPANY ADDRESS',
         city: 'Company City',
+        email: null,
+        taxNumber: null,
       });
-      expect(untouched.roles.map((r) => r.role)).toEqual(['EMPLOYEE']);
+      expect(untouched.roles.map((r) => r.role).sort()).toEqual([
+        'CUSTOMER',
+        'EMPLOYEE',
+      ]);
 
       const mobile = phone();
       const customer = { ...typed, mobile };

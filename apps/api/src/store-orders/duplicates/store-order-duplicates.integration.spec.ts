@@ -1019,6 +1019,7 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
         items: [{ productId: companyProductId, quantity: 1, agreedAmount: 90 }],
         paymentType: 'PREPAID',
         declarationKind: 'UNPAID',
+        city: `Lead City ${tag}`,
         duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' },
       });
       expect(res.status).toBe(200);
@@ -1027,6 +1028,15 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
       });
       expect(order.partnerId).toBe(agentLeadPartnerId);
       expect(order.duplicateReviewStatus).toBe('PENDING');
+      // A record shared with an agent scope is never rewritten by the
+      // company conversion's destination.
+      expect(
+        (
+          await prisma.partner.findUniqueOrThrow({
+            where: { id: agentLeadPartnerId },
+          })
+        ).city,
+      ).not.toBe(`Lead City ${tag}`);
     });
 
     it('duplicateReviewStatus=NONE keeps the caller’s own sales scope', async () => {

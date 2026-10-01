@@ -103,12 +103,13 @@ export interface DuplicateReviewDetail {
 export interface LegacyPhoneDuplicateGroup {
   phone: string;
   keyOwnerId: string | null;
+  /** Non-customer identities sharing the number are masked (`internalRecord`, no id / name / number). */
   partners: Array<{
-    id: string;
-    partnerNumber: string;
-    name: string;
+    id: string | null;
+    partnerNumber: string | null;
+    name: string | null;
+    internalRecord: boolean;
     createdAt: string;
-    roles: string[];
     orderCount: number;
     /** New orders with this phone attach to this record. */
     keyOwner: boolean;

@@ -65,6 +65,7 @@ const orderDuplicatesEn = {
       description:
         "Records created before one phone = one customer. New orders with these phones attach to the record marked as current. Nothing is merged automatically — merge deliberately from the customers list.",
       empty: "No customers share a phone number.",
+      internalRecord: "Internal record (not a customer)",
       current: "Current record",
       orders: "{count} order(s)",
       loadFailed: "Could not load the duplicate customers.",

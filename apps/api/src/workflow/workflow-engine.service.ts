@@ -815,7 +815,8 @@ export class WorkflowEngineService {
       !agentOrder &&
       (payload?.city !== undefined ||
         payload?.address !== undefined ||
-        payload?.countryId)
+        payload?.countryId) &&
+      (await this.isExclusiveCompanyCustomer(tx, partnerId))
     ) {
       await tx.partner.update({
         where: { id: partnerId },
@@ -1098,6 +1099,38 @@ export class WorkflowEngineService {
   }
 
   /**
+   * O3 — the conversion's destination may update the customer master only
+   * when it is exclusively a company customer (CUSTOMER role only, no agent
+   * order or agent lead): a record shared with an agent scope or another
+   * identity (employee, investor, supplier…) is never rewritten — the
+   * destination still lives on the order.
+   */
+  private async isExclusiveCompanyCustomer(
+    tx: Prisma.TransactionClient,
+    partnerId: string,
+  ) {
+    const partner = await tx.partner.findUniqueOrThrow({
+      where: { id: partnerId },
+      select: {
+        roles: { select: { role: true } },
+        agent: { select: { id: true } },
+        _count: {
+          select: {
+            storeOrders: { where: { agentId: { not: null } } },
+            leads: { where: { agentId: { not: null } } },
+          },
+        },
+      },
+    });
+    return (
+      !partner.agent &&
+      partner.roles.every((r) => r.role === PartnerRoleType.CUSTOMER) &&
+      partner._count.storeOrders === 0 &&
+      partner._count.leads === 0
+    );
+  }
+
+  /**
    * Partner resolution at conversion boundary — never at Lead create.
    * Reuses existing Partner matched by phone; otherwise creates Partner +
    * CUSTOMER role. All writes use the caller's transaction.
@@ -1153,7 +1186,6 @@ export class WorkflowEngineService {
         source: PartnerSource.LEAD_CONVERSION,
       },
       userId,
-      { agentContext: false },
     );
     return partnerId;
   }

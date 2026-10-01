@@ -122,6 +122,7 @@ const orderAmendmentsEn = {
     SHIPPING_COUNTRY_REQUIRED: "Choose the shipping destination country.",
     AGENT_SHIPPING_CHARGE_NOT_CONFIGURED:
       "The agreement has no shipping rate for this destination to set the agent shipping fee.",
+    AGENT_SHIPPING_BELOW_FEE: "The customer shipping cannot be below the agent shipping fee.",
     AGENT_SHIPPING_EXCEEDS_TOTAL:
       "The shipping fee ({fee}) leaves no merchandise amount within the agreed total ({agreedTotal}).",
     PRODUCT_NOT_AVAILABLE: "A product is not available for sale.",

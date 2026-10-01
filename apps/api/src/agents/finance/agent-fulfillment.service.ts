@@ -153,6 +153,15 @@ interface CommissionBasis {
   unclassifiedCommission?: number;
   /** commission-policy.md A5 — per-class totals of a per-line entry. */
   byClass?: Record<string, { sales: number; base: number; commission: number }>;
+  /** O1 — shipping settlement when no CUSTOMER_SHIPPING_RETAINED entry is written. */
+  shippingSettlement?: {
+    shippingCharge: number;
+    agentShippingCharge: number;
+    agentShippingChargeSource: string;
+    appliedToAgentShippingCharge: number;
+    difference: number;
+    differenceBorneBy: string;
+  };
 }
 
 type ReturnLineJson = {
@@ -505,6 +514,24 @@ export class AgentFulfillmentService {
         rate: this.lineRate(order, terms, item),
       })),
     );
+    const shipping = round2(Number(order.shippingCharge ?? 0));
+    // commission-policy.md A6: under PREDETERMINED_CHARGE the customer
+    // shipping (company money) is retained and settles the predetermined
+    // agent shipping charge — the agent is never charged it a second time.
+    // O1: a difference is borne / kept by the company (recorded on the
+    // basis only — no extra agent debit or credit).
+    const predetermined =
+      shippingPolicyOf(terms) === 'PREDETERMINED_CHARGE'
+        ? terms.agentShippingCharge
+        : null;
+    const settlement = predetermined
+      ? settleAgentShipping({
+          customerShipping: shipping,
+          predeterminedCharge: predetermined.amount,
+        })
+      : null;
+    const retainsShipping =
+      terms.customerShippingChargeOwner === 'COMPANY' && shipping > 0;
     const basis: CommissionBasis = {
       base: result.base,
       merchandise,
@@ -520,6 +547,24 @@ export class AgentFulfillmentService {
       ...(terms.commissionRatePercent != null &&
       terms.productCommissionRatePercent == null
         ? { ratePercent: terms.commissionRatePercent }
+        : {}),
+      // O1 — no customer shipping retained (e.g. C = 0) yet an agent fee:
+      // the company's shortfall is still recorded (no zero-amount entry).
+      ...(predetermined &&
+      settlement &&
+      !retainsShipping &&
+      predetermined.amount > 0
+        ? {
+            shippingSettlement: {
+              shippingCharge: shipping,
+              agentShippingCharge: predetermined.amount,
+              agentShippingChargeSource: predetermined.source,
+              appliedToAgentShippingCharge:
+                settlement.appliedToAgentShippingCharge,
+              difference: settlement.difference,
+              differenceBorneBy: settlement.differenceBorneBy,
+            },
+          }
         : {}),
     };
     const common = {
@@ -563,23 +608,7 @@ export class AgentFulfillmentService {
         })),
       });
     }
-    const shipping = round2(Number(order.shippingCharge ?? 0));
-    // commission-policy.md A6: under PREDETERMINED_CHARGE the customer
-    // shipping (company money) is retained and settles the predetermined
-    // agent shipping charge — the agent is never charged it a second time.
-    // O1: a difference is borne / kept by the company (recorded on the
-    // basis only — no extra agent debit or credit).
-    const predetermined =
-      shippingPolicyOf(terms) === 'PREDETERMINED_CHARGE'
-        ? terms.agentShippingCharge
-        : null;
-    const settlement = predetermined
-      ? settleAgentShipping({
-          customerShipping: shipping,
-          predeterminedCharge: predetermined.amount,
-        })
-      : null;
-    if (terms.customerShippingChargeOwner === 'COMPANY' && shipping > 0) {
+    if (retainsShipping) {
       await this.ledger.append(
         tx,
         {

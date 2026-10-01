@@ -1124,6 +1124,22 @@ export class AgentOrdersService {
       const noShipment =
         digitalOnly || fulfillmentMethod === StoreOrderFulfillmentMethod.PICKUP;
       const rate = noShipment ? 0 : (shipping.rate?.amount ?? null);
+      // O1 guard (integrator decision): an agent user may never set the
+      // customer shipping below its contractual fee — only internal staff
+      // with the override permission may (the company bears the shortfall).
+      if (
+        actor.isAgentUser &&
+        rate != null &&
+        shipping.source === 'MANUAL' &&
+        breakdown.shippingCharge < rate - 0.005
+      ) {
+        issues.push(
+          issue(
+            'AGENT_SHIPPING_BELOW_FEE',
+            `لا يمكن أن يقل شحن العميل عن رسم شحن الوكيل (${rate.toFixed(2)}) — The customer shipping cannot be below your agent shipping fee (${rate.toFixed(2)}).`,
+          ),
+        );
+      }
       if (rate == null) {
         issues.push(
           issue(
@@ -1354,6 +1370,8 @@ export class AgentOrdersService {
   }
 
   private async canOverrideShipping(actor: ResolvedActor) {
+    // Internal users never hold `agent.*` permissions (resolver rule): their
+    // override — including below the agent fee (O1) — is `agents.edit`.
     return this.resolver.hasPermission(
       actor.userId,
       actor.isAgentUser ? 'agent.orders.override_shipping' : 'agents.edit',

@@ -75,7 +75,8 @@ export function OMSPhoneInput({
 }) {
   const { t } = useLocale();
   // O2 — no selected country means the platform default (Saudi Arabia).
-  const countryCode = phoneCountryOrDefault(selectedCountryCode);
+  // A legacy value stored without "+" keeps the market it is valid for.
+  const countryCode = phoneCountryOrDefault(selectedCountryCode, value);
   const [draft, setDraft] = useState(() => phoneInputDisplayValue(value, countryCode));
   const [isFocused, setIsFocused] = useState(false);
   const [touched, setTouched] = useState(false);
@@ -279,5 +280,5 @@ export function isPhoneValidForCountry(
   countryCode: string | null | undefined,
 ): boolean {
   if (!value?.trim()) return false;
-  return parsePhone(value, phoneCountryOrDefault(countryCode)).isValid;
+  return parsePhone(value, phoneCountryOrDefault(countryCode, value)).isValid;
 }

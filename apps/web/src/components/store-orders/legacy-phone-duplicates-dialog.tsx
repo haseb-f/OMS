@@ -75,16 +75,24 @@ export function LegacyPhoneDuplicatesDialog({
                 {formatPhoneForDisplay(group.phone)}
               </bdi>
               <ul className="flex flex-col divide-y divide-border rounded-sm border border-border">
-                {group.partners.map((partner) => (
+                {group.partners.map((partner, index) => (
                   <li
-                    key={partner.id}
+                    key={partner.id ?? `internal-${index}`}
                     className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-2 py-1.5 text-caption"
                   >
                     <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <bdi className="text-foreground">{partner.name}</bdi>
-                      <span dir="ltr" className="num text-muted-foreground">
-                        {partner.partnerNumber}
-                      </span>
+                      {partner.internalRecord ? (
+                        <span className="text-muted-foreground">
+                          {t("orderDuplicates.review.legacy.internalRecord")}
+                        </span>
+                      ) : (
+                        <>
+                          <bdi className="text-foreground">{partner.name}</bdi>
+                          <span dir="ltr" className="num text-muted-foreground">
+                            {partner.partnerNumber}
+                          </span>
+                        </>
+                      )}
                       <span className="text-muted-foreground">{formatDate(partner.createdAt)}</span>
                     </span>
                     <span className="flex items-center gap-2">

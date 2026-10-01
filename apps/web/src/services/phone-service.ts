@@ -287,7 +287,7 @@ export function formatPhoneForDisplay(
 ): string {
   const raw = value?.trim() ?? "";
   if (!raw) return "";
-  const result = parsePhone(raw, defaultRegion);
+  const result = parsePhone(raw, defaultRegion ?? legacyPhoneRegion(raw));
   if (!result.isValid || !result.e164) return raw;
   return formatInternational(result.e164) ?? raw;
 }
@@ -411,7 +411,28 @@ export function defaultPhoneCountry(available?: readonly string[]): string | nul
     : null;
 }
 
-/** The country a phone field works with: the selected one, else the default (O2). */
-export function phoneCountryOrDefault(countryCode: string | null | undefined): string {
-  return countryCode?.trim() ? countryCode : DEFAULT_PHONE_COUNTRY;
+/** Primary markets tried, in order, for a legacy number stored without "+". */
+const LEGACY_PHONE_REGIONS = ["SA", "EG", "AE"] as const;
+
+/**
+ * The region a legacy stored value (no "+", e.g. "0501234567" or
+ * "01012345678") is valid for — Saudi Arabia first, then Egypt and the UAE;
+ * null for an E.164 value (it carries its own code) or nothing valid.
+ */
+export function legacyPhoneRegion(value: string | null | undefined): string | null {
+  const raw = value?.trim();
+  if (!raw || preparePhoneInput(raw).startsWith("+")) return null;
+  return LEGACY_PHONE_REGIONS.find((region) => parsePhone(raw, region).isValid) ?? null;
+}
+
+/**
+ * The country a phone field works with: the selected one; else, for a legacy
+ * value stored without "+", the market it is valid for; else the default (O2).
+ */
+export function phoneCountryOrDefault(
+  countryCode: string | null | undefined,
+  value?: string | null,
+): string {
+  if (countryCode?.trim()) return countryCode;
+  return legacyPhoneRegion(value) ?? DEFAULT_PHONE_COUNTRY;
 }

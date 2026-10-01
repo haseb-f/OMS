@@ -35,9 +35,9 @@ export function agentCustomerScopeWhere(
  * new CUSTOMER partner (source API, person) is created, race-safe through
  * `partner_phone_keys`. Agent isolation stays at the order level: the
  * matched partner is never updated (the customer as typed lives on the order
- * snapshot `agentTermsSnapshot.customer`, which is all the portal shows), only
- * a missing CUSTOMER role is added, and an employee / investor / agent
- * identity is never extended from an agent flow (neutral 409). A match
+ * snapshot `agentTermsSnapshot.customer`, which is all the portal shows) and
+ * only a missing CUSTOMER role is added — whatever the record's other roles,
+ * so the agent learns nothing about who holds the number. A match
  * outside the agent's scope is flagged for internal duplicate review by the
  * caller (`StoreOrderDuplicatesService`).
  *
@@ -53,9 +53,7 @@ export async function resolveAgentCustomerPartner(
   confirmedPartnerId?: string | null,
 ): Promise<string> {
   if (confirmedPartnerId) {
-    await ensureCustomerRole(tx, confirmedPartnerId, userId, {
-      agentContext: true,
-    });
+    await ensureCustomerRole(tx, confirmedPartnerId, userId);
     return confirmedPartnerId;
   }
   const { partnerId } = await findOrCreateCustomerPartnerTx(
@@ -71,7 +69,6 @@ export async function resolveAgentCustomerPartner(
       source: PartnerSource.API,
     },
     userId,
-    { agentContext: true },
   );
   return partnerId;
 }

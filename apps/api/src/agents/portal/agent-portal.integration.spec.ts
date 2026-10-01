@@ -983,8 +983,8 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
   describe('review fixes', () => {
     // O3 (owner decision 2026-10-01): the order now joins the company
     // customer holding the phone (was: a new customer); S1 still holds — the
-    // portal shows only what was typed, the record is never updated, and an
-    // investor / employee identity is never extended (neutral 409).
+    // portal shows only what was typed and the record is never updated. No
+    // identity oracle: an investor record answers exactly like a customer.
     it('S1 + O3: the order joins the one customer of the phone; detail, list and search show only the typed customer', async () => {
       const mobile = phone();
       const company = await prisma.partner.create({
@@ -1074,7 +1074,8 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
       );
       expect(byMaster.body.items).toHaveLength(0);
 
-      // An investor identity is never extended from an agent flow.
+      // An investor record holding the number: the same uniform answer, the
+      // order attached (CUSTOMER role added), flagged — no oracle.
       const investorMobile = phone();
       const investor = await prisma.partner.create({
         data: {
@@ -1085,24 +1086,44 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
           roles: { create: { role: 'INVESTOR' } },
         },
       });
-      const refused = await post(
+      const investorCheck = await post(
+        users.salesA1.token,
+        '/agent-portal/orders/duplicate-check',
+        { phone: investorMobile, countryId: egId },
+      );
+      expect(investorCheck.body).toEqual({ kind: 'PHONE', crossScope: true });
+      const unacked = await post(
+        users.salesA1.token,
+        '/agent-portal/orders',
+        body(investorMobile),
+      );
+      expect(unacked.status).toBe(409);
+      expect(unacked.body.details).toEqual(unacknowledged.body.details);
+      const onInvestor = await post(
         users.salesA1.token,
         '/agent-portal/orders',
         body(investorMobile, {
           duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' },
         }),
       );
-      expect(refused.status).toBe(409);
-      expect(refused.body.code).toBe('CUSTOMER_PHONE_UNAVAILABLE');
-      expect(JSON.stringify(refused.body)).not.toContain('Investor');
+      expect(onInvestor.status).toBe(201);
+      expect(JSON.stringify(onInvestor.body)).not.toContain('Investor');
+      expect(
+        await prisma.storeOrder.findUniqueOrThrow({
+          where: { id: onInvestor.body.id },
+          select: { partnerId: true, duplicateReviewStatus: true },
+        }),
+      ).toEqual({ partnerId: investor.id, duplicateReviewStatus: 'PENDING' });
       expect(
         (
           await prisma.partner.findUniqueOrThrow({
             where: { id: investor.id },
             include: { roles: true },
           })
-        ).roles.map((r) => r.role),
-      ).toEqual(['INVESTOR']);
+        ).roles
+          .map((r) => r.role)
+          .sort(),
+      ).toEqual(['CUSTOMER', 'INVESTOR']);
     });
 
     it('S8: statement lines expose only whitelisted calculation inputs', async () => {

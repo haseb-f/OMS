@@ -6,6 +6,7 @@ import {
   getPhonePlaceholder,
   normalizePhoneDigits,
   parsePhone,
+  legacyPhoneRegion,
   phoneCountryOrDefault,
   phoneInputDisplayValue,
   preparePhoneInput,
@@ -172,5 +173,18 @@ describe("phone-service default country (owner decision O2)", () => {
     expect(phoneCountryOrDefault("")).toBe("SA");
     // A national Saudi mobile typed with no country selected parses as +966.
     expect(parsePhone("0501234567", phoneCountryOrDefault(null)).e164).toBe("+966501234567");
+  });
+});
+
+describe("phone-service legacy values without '+' (O2 fallback)", () => {
+  it("keeps validating and displaying SA / EG / AE numbers stored without '+'", () => {
+    expect(legacyPhoneRegion("0501234567")).toBe("SA");
+    expect(legacyPhoneRegion("01012345678")).toBe("EG");
+    expect(legacyPhoneRegion("+201012345678")).toBeNull();
+    expect(phoneCountryOrDefault(null, "01012345678")).toBe("EG");
+    expect(phoneCountryOrDefault(null, "")).toBe("SA");
+    expect(phoneCountryOrDefault("AE", "01012345678")).toBe("AE");
+    expect(formatPhoneForDisplay("01012345678")).toBe("+20 10 12345678");
+    expect(formatPhoneForDisplay("0501234567")).toBe("+966 50 123 4567");
   });
 });

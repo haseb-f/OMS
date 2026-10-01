@@ -163,5 +163,12 @@ export function agentShippingOverrideDetails(
     input.shippingRateAmount == null
       ? 'no configured rate'
       : `configured rate ${input.shippingRateAmount.toFixed(2)}`;
-  return `Shipping charge overridden to ${input.shippingCharge.toFixed(2)} (${rate}) — reason: ${input.shippingOverrideReason ?? ''}`;
+  const fee = input.agentShippingCharge?.amount ?? null;
+  // O1 — an internal override below the agent shipping fee: the company
+  // bears the shortfall (audited here, visible in internal economics).
+  const below =
+    fee != null && input.shippingCharge < fee - 0.005
+      ? ` — below the agent shipping fee ${fee.toFixed(2)}; the company bears ${(fee - input.shippingCharge).toFixed(2)}`
+      : '';
+  return `Shipping charge overridden to ${input.shippingCharge.toFixed(2)} (${rate})${below} — reason: ${input.shippingOverrideReason ?? ''}`;
 }

@@ -32,6 +32,7 @@ import { FindPartnersQueryDto } from './dto/find-partners-query.dto';
 import {
   PartnerPhoneInUseError,
   claimPartnerPhoneKeys,
+  partnerPhoneKey,
   partnerPhoneKeys,
   releasePartnerPhoneKeys,
   syncPartnerPhoneKeys,
@@ -55,6 +56,15 @@ function phoneInUsePartnerId(error: unknown): string | null {
   return body.code === 'PARTNER_PHONE_IN_USE'
     ? (body.details?.partner?.id ?? null)
     : null;
+}
+
+/** IN-list batches (large backfills / reports). */
+function chunks<T>(values: T[], size = 1_000): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < values.length; i += size) {
+    out.push(values.slice(i, i + size));
+  }
+  return out;
 }
 
 const PARTNER_INCLUDE = {
@@ -381,36 +391,73 @@ export class PartnersService extends MasterDataCrudService<
     }
   }
 
-  /** Soft-delete releases the partner's phone keys (O3) — the number may be reused. */
+  /**
+   * Soft-delete (O3): the archive and the release of the partner's phone
+   * keys commit together — the number may then be reused.
+   */
   async archive(id: string, userId?: string) {
-    const archived = await super.archive(id, userId);
-    await releasePartnerPhoneKeys(this.prisma, id);
+    await this.findOne(id);
+    const archived = await this.prisma.$transaction(async (tx) => {
+      const partner = await tx.partner.update({
+        where: { id },
+        data: { deletedAt: new Date(), updatedBy: userId ?? null },
+      });
+      await releasePartnerPhoneKeys(tx, id);
+      return partner;
+    });
+    await this.activityLog.log(
+      this.entityType,
+      id,
+      'ARCHIVED',
+      `${this.entityLabel} archived`,
+      userId,
+    );
     return archived;
   }
 
-  /** Restore re-claims the numbers; refused (409) when another partner holds one now. */
+  /**
+   * Restore re-claims the numbers in the same transaction; refused (409)
+   * when another live partner holds one now.
+   */
   async restore(id: string, userId?: string) {
-    const partner = await this.prisma.partner.findFirst({
-      where: { id },
-      select: {
-        phone: true,
-        mobile: true,
-        country: { select: { code: true } },
-      },
-    });
-    if (partner) {
-      const conflict = await claimPartnerPhoneKeys(
-        this.prisma,
-        id,
-        partnerPhoneKeys(
-          this.phoneNumberService,
-          partner,
-          partner.country?.code,
-        ),
-      );
-      if (conflict) throw await this.phoneInUseConflict(conflict);
+    const existing = await this.prisma.partner.findFirst({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException(`${this.entityLabel} ${id} not found`);
     }
-    return super.restore(id, userId);
+    let restored: Prisma.PartnerGetPayload<object>;
+    try {
+      restored = await this.prisma.$transaction(async (tx) => {
+        const partner = await tx.partner.update({
+          where: { id },
+          data: { deletedAt: null, updatedBy: userId ?? null },
+          include: { country: { select: { code: true } } },
+        });
+        const conflict = await claimPartnerPhoneKeys(
+          tx,
+          id,
+          partnerPhoneKeys(
+            this.phoneNumberService,
+            partner,
+            partner.country?.code,
+          ),
+        );
+        if (conflict) throw conflict;
+        return partner;
+      });
+    } catch (error) {
+      if (error instanceof PartnerPhoneInUseError) {
+        throw await this.phoneInUseConflict(error);
+      }
+      throw error;
+    }
+    await this.activityLog.log(
+      this.entityType,
+      id,
+      'RESTORED',
+      `${this.entityLabel} restored`,
+      userId,
+    );
+    return restored;
   }
 
   private async createProfileForRole(
@@ -879,7 +926,11 @@ export class PartnersService extends MasterDataCrudService<
     const normalizedPhones = [
       ...new Set(
         phones
-          .map((p) => this.phoneNumberService.normalizeToE164(p, defaultRegion))
+          // O3 — same normalization as the phone keys (region, then the
+          // primary markets), so a lookup and a key never disagree.
+          .map((p) =>
+            partnerPhoneKey(this.phoneNumberService, p, defaultRegion),
+          )
           .filter((p): p is string => !!p),
       ),
     ];
@@ -891,11 +942,20 @@ export class PartnersService extends MasterDataCrudService<
         OR: [{ phone: { not: null } }, { mobile: { not: null } }],
         ...(excludingId ? { id: { not: excludingId } } : {}),
       },
+      include: { country: { select: { code: true } } },
     });
     const matches = candidates.filter((partner) => {
       const candidatePhones = [
-        this.phoneNumberService.normalizeToE164(partner.phone),
-        this.phoneNumberService.normalizeToE164(partner.mobile),
+        partnerPhoneKey(
+          this.phoneNumberService,
+          partner.phone,
+          partner.country?.code,
+        ),
+        partnerPhoneKey(
+          this.phoneNumberService,
+          partner.mobile,
+          partner.country?.code,
+        ),
       ];
       return candidatePhones.some(
         (value) => value !== null && normalizedPhones.includes(value),
@@ -964,30 +1024,51 @@ export class PartnersService extends MasterDataCrudService<
         byPhone.set(phone, group);
       }
     }
+    const isCustomer = (partner: (typeof partners)[number]) =>
+      partner.roles.some((r) => r.role === PartnerRoleType.CUSTOMER);
+    // Customer duplicates only; another identity sharing the number (an
+    // employee, investor, supplier…) is listed as a masked internal record.
     const duplicates = [...byPhone.entries()].filter(
-      ([, group]) => group.length > 1,
+      ([, group]) => group.length > 1 && group.some(isCustomer),
     );
-    const owners = new Map(
-      (
-        await this.prisma.partnerPhoneKey.findMany({
-          where: { phoneE164: { in: duplicates.map(([phone]) => phone) } },
-          select: { phoneE164: true, partnerId: true },
-        })
-      ).map((key) => [key.phoneE164, key.partnerId]),
-    );
-    return duplicates.map(([phone, group]) => ({
-      phone,
-      keyOwnerId: owners.get(phone) ?? null,
-      partners: group.map((partner) => ({
-        id: partner.id,
-        partnerNumber: partner.partnerNumber,
-        name: partner.name,
-        createdAt: partner.createdAt,
-        roles: partner.roles.map((r) => r.role),
-        orderCount: partner._count.storeOrders,
-        keyOwner: owners.get(phone) === partner.id,
-      })),
-    }));
+    const owners = new Map<string, string>();
+    for (const phones of chunks(duplicates.map(([phone]) => phone))) {
+      const keys = await this.prisma.partnerPhoneKey.findMany({
+        where: { phoneE164: { in: phones } },
+        select: { phoneE164: true, partnerId: true },
+      });
+      for (const key of keys) owners.set(key.phoneE164, key.partnerId);
+    }
+    return duplicates.map(([phone, group]) => {
+      const ownerId = owners.get(phone) ?? null;
+      return {
+        phone,
+        keyOwnerId: group.some((p) => p.id === ownerId && isCustomer(p))
+          ? ownerId
+          : null,
+        partners: group.map((partner) =>
+          isCustomer(partner)
+            ? {
+                id: partner.id,
+                partnerNumber: partner.partnerNumber,
+                name: partner.name,
+                internalRecord: false,
+                createdAt: partner.createdAt,
+                orderCount: partner._count.storeOrders,
+                keyOwner: ownerId === partner.id,
+              }
+            : {
+                id: null,
+                partnerNumber: null,
+                name: null,
+                internalRecord: true,
+                createdAt: partner.createdAt,
+                orderCount: partner._count.storeOrders,
+                keyOwner: ownerId === partner.id,
+              },
+        ),
+      };
+    });
   }
 
   /** Batch version — one DB fetch for a whole Store Orders sync run, never one query per row. */
@@ -999,21 +1080,28 @@ export class PartnersService extends MasterDataCrudService<
     if (targets.size === 0) return result;
     // O3 — the key owner of a number is its one customer; unkeyed legacy
     // rows fall back to the oldest record storing it.
-    const keyed = await this.prisma.partnerPhoneKey.findMany({
-      where: { phoneE164: { in: [...targets] }, partner: { deletedAt: null } },
-      select: { phoneE164: true, partner: true },
-    });
-    for (const key of keyed) result.set(key.phoneE164, key.partner);
+    for (const phones of chunks([...targets])) {
+      const keyed = await this.prisma.partnerPhoneKey.findMany({
+        where: { phoneE164: { in: phones }, partner: { deletedAt: null } },
+        select: { phoneE164: true, partner: true },
+      });
+      for (const key of keyed) result.set(key.phoneE164, key.partner);
+    }
     const candidates = await this.prisma.partner.findMany({
       where: {
         deletedAt: null,
         OR: [{ phone: { not: null } }, { mobile: { not: null } }],
       },
       orderBy: { createdAt: 'asc' },
+      include: { country: { select: { code: true } } },
     });
     for (const partner of candidates) {
       for (const raw of [partner.phone, partner.mobile]) {
-        const normalized = this.phoneNumberService.normalizeToE164(raw);
+        const normalized = partnerPhoneKey(
+          this.phoneNumberService,
+          raw,
+          partner.country?.code,
+        );
         if (normalized && targets.has(normalized) && !result.has(normalized)) {
           result.set(normalized, partner);
         }

@@ -9,6 +9,8 @@ import { partnerPhoneKeys } from './partner-phone-keys';
  * key; the others are returned as duplicate groups (never merged). A number
  * that already has a key keeps its owner. Idempotent and additive.
  */
+const IN_CHUNK = 1_000;
+
 export interface PhoneKeyBackfillPartner {
   id: string;
   partnerNumber: string;
@@ -56,10 +58,15 @@ export async function backfillPartnerPhoneKeys(
     ]),
   );
   const allPhones = [...keysOf.values()].flat().map((key) => key.phone);
-  const existing = await prisma.partnerPhoneKey.findMany({
-    where: { phoneE164: { in: allPhones } },
-    select: { phoneE164: true, partnerId: true },
-  });
+  const existing: Array<{ phoneE164: string; partnerId: string }> = [];
+  for (let i = 0; i < allPhones.length; i += IN_CHUNK) {
+    existing.push(
+      ...(await prisma.partnerPhoneKey.findMany({
+        where: { phoneE164: { in: allPhones.slice(i, i + IN_CHUNK) } },
+        select: { phoneE164: true, partnerId: true },
+      })),
+    );
+  }
   const owners = new Map(existing.map((key) => [key.phoneE164, key.partnerId]));
   const byId = new Map<string, PhoneKeyBackfillPartner>(
     partners.map((p) => [p.id, p]),
@@ -75,7 +82,10 @@ export async function backfillPartnerPhoneKeys(
   };
 
   for (const partner of partners) {
-    const keys = keysOf.get(partner.id) ?? [];
+    // Sorted claims everywhere — no lock-order deadlock with live writes.
+    const keys = [...(keysOf.get(partner.id) ?? [])].sort((a, b) =>
+      a.phone.localeCompare(b.phone),
+    );
     if (keys.length === 0) {
       withoutValidNumber += 1;
       continue;

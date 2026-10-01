@@ -201,7 +201,6 @@ describe('O3 — partner phone keys (integration)', () => {
                 source: PartnerSource.API,
               },
               null,
-              { agentContext: true },
             ),
           { maxWait: 30_000, timeout: 30_000 },
         ),
@@ -212,7 +211,7 @@ describe('O3 — partner phone keys (integration)', () => {
     expect(await holders(txNumber)).toHaveLength(1);
   });
 
-  it('agent flows reuse the one customer of a phone (any scope) without updating it; employee identities are never extended', async () => {
+  it('agent flows reuse the one record of a phone (any scope, any identity) without updating it — only the CUSTOMER role is added', async () => {
     const company = await partners.create({
       name: `Company customer ${tag}`,
       phone: phone(),
@@ -245,28 +244,79 @@ describe('O3 — partner phone keys (integration)', () => {
       countryId: egId,
       roles: [PartnerRoleType.EMPLOYEE],
     });
-    await expect(
-      prisma.$transaction((tx) =>
-        resolveAgentCustomerPartner(
-          tx,
-          { numbering, phones },
-          {
-            name: `Agent typed ${tag}`,
-            mobile: employee.phone!,
-            countryId: egId,
-            city: null,
-            address: null,
-          },
-        ),
+    // Integrator decision: no identity oracle — the employee record is the
+    // one record of the number, so the agent order attaches to it.
+    const attached = await prisma.$transaction((tx) =>
+      resolveAgentCustomerPartner(
+        tx,
+        { numbering, phones },
+        {
+          name: `Agent typed ${tag}`,
+          mobile: employee.phone!,
+          countryId: egId,
+          city: null,
+          address: null,
+        },
       ),
-    ).rejects.toMatchObject({
-      response: { code: 'CUSTOMER_PHONE_UNAVAILABLE' },
+    );
+    expect(attached).toBe(employee.id);
+    const employeeAfter = await prisma.partner.findUniqueOrThrow({
+      where: { id: employee.id },
+      include: { roles: true, customerProfile: true },
     });
+    expect(employeeAfter.name).toBe(employee.name);
+    expect(employeeAfter.roles.map((r) => r.role).sort()).toEqual([
+      'CUSTOMER',
+      'EMPLOYEE',
+    ]);
+    expect(employeeAfter.customerProfile).not.toBeNull();
+  });
+
+  it('a key left by a soft-deleted partner is stale: removed and re-claimed, never attached to the archived record', async () => {
+    const number = phone();
+    const archived = await prisma.partner.create({
+      data: {
+        partnerNumber: `O3-${tag}-${++seq}`,
+        name: `Archived stale ${tag}`,
+        mobile: number,
+        countryId: egId,
+      },
+    });
+    await prisma.partnerPhoneKey.create({
+      data: { phoneE164: number, partnerId: archived.id, kind: 'MOBILE' },
+    });
+    // Archived outside the service (no release) — the key is now stale.
+    await prisma.partner.update({
+      where: { id: archived.id },
+      data: { deletedAt: new Date() },
+    });
+    const result = await prisma.$transaction((tx) =>
+      findOrCreateCustomerPartnerTx(
+        tx,
+        { numbering, phones },
+        {
+          name: `Fresh ${tag}`,
+          mobile: number,
+          countryId: egId,
+          source: PartnerSource.API,
+        },
+        null,
+      ),
+    );
+    expect(result.created).toBe(true);
+    expect(result.partnerId).not.toBe(archived.id);
+    expect(
+      await prisma.partnerPhoneKey.findUnique({ where: { phoneE164: number } }),
+    ).toMatchObject({ partnerId: result.partnerId });
   });
 
   it('backfill: the oldest record of a shared number is keyed, the others reported; idempotent', async () => {
     const shared = phone();
-    const make = (name: string, minutesAgo: number) =>
+    const make = (
+      name: string,
+      minutesAgo: number,
+      role: PartnerRoleType = PartnerRoleType.CUSTOMER,
+    ) =>
       prisma.partner.create({
         data: {
           partnerNumber: `O3-${tag}-${++seq}`,
@@ -274,6 +324,7 @@ describe('O3 — partner phone keys (integration)', () => {
           mobile: shared,
           countryId: egId,
           createdAt: new Date(Date.now() - minutesAgo * 60_000),
+          roles: { create: { role } },
         },
       });
     const newest = await make('Backfill newest', 1);
@@ -296,13 +347,30 @@ describe('O3 — partner phone keys (integration)', () => {
     expect(second.inserted).toBe(0);
     expect(second.duplicateGroups).toHaveLength(1);
 
-    // The internal report lists the same group, owner marked.
+    // The internal report lists the same group, owner marked; another
+    // identity sharing the number is a masked internal record.
+    const employee = await make(
+      'Backfill employee',
+      5,
+      PartnerRoleType.EMPLOYEE,
+    );
     const groups = await partners.legacyPhoneDuplicateGroups();
     const group = groups.find((g) => g.phone === shared);
     expect(group?.keyOwnerId).toBe(oldest.id);
-    expect(group?.partners.map((p) => p.id).sort()).toEqual(
-      [newest.id, oldest.id, middle.id].sort(),
-    );
+    expect(
+      group?.partners
+        .map((p) => p.id)
+        .filter(Boolean)
+        .sort(),
+    ).toEqual([newest.id, oldest.id, middle.id].sort());
+    const internal = group?.partners.filter((p) => p.internalRecord) ?? [];
+    expect(internal).toHaveLength(1);
+    expect(internal[0]).toMatchObject({
+      id: null,
+      name: null,
+      partnerNumber: null,
+    });
+    expect(JSON.stringify(group)).not.toContain(employee.name);
     // New orders resolve to the key owner.
     expect((await partners.findByPhone(shared))?.id).toBe(oldest.id);
   });

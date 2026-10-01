@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { ConflictException } from '@nestjs/common';
 import {
   PartnerEntityType,
   PartnerPhoneKind,
@@ -27,12 +26,6 @@ type Db = Prisma.TransactionClient;
 
 /** Primary markets, in order — the fallback for a number stored without a country. */
 export const PHONE_KEY_FALLBACK_REGIONS = ['SA', 'EG', 'AE'] as const;
-
-/** Roles whose identity a customer flow must not extend (SEC-03 H3). */
-const SENSITIVE_IDENTITY_ROLES: ReadonlySet<PartnerRoleType> = new Set([
-  PartnerRoleType.EMPLOYEE,
-  PartnerRoleType.INVESTOR,
-]);
 
 export interface PartnerPhoneKeyInput {
   phone: string;
@@ -84,10 +77,24 @@ export function partnerPhoneKeys(
   return out;
 }
 
+async function insertPhoneKey(
+  db: Db,
+  partnerId: string,
+  key: PartnerPhoneKeyInput,
+) {
+  return db.$executeRaw`
+    INSERT INTO "partner_phone_keys" ("phone_e164", "partner_id", "kind")
+    VALUES (${key.phone}, ${partnerId}::uuid, ${key.kind}::"PartnerPhoneKind")
+    ON CONFLICT ("phone_e164") DO NOTHING`;
+}
+
 /**
- * Claims `keys` for `partnerId`. Returns the first number owned by another
- * partner (the numbers this call claimed are released again), else null.
- * Re-claiming a number the partner already owns is a no-op.
+ * Claims `keys` for `partnerId` — always in sorted number order, so two
+ * transactions claiming overlapping numbers never deadlock. Returns the
+ * first number owned by another live partner (the numbers this call claimed
+ * are released again), else null. A key left behind by a soft-deleted
+ * partner is stale: it is removed and the number re-claimed. Re-claiming a
+ * number the partner already owns is a no-op.
  */
 export async function claimPartnerPhoneKeys(
   db: Db,
@@ -95,11 +102,19 @@ export async function claimPartnerPhoneKeys(
   keys: PartnerPhoneKeyInput[],
 ): Promise<PartnerPhoneInUseError | null> {
   const claimed: string[] = [];
-  for (const key of keys) {
-    const inserted = await db.$executeRaw`
-      INSERT INTO "partner_phone_keys" ("phone_e164", "partner_id", "kind")
-      VALUES (${key.phone}, ${partnerId}::uuid, ${key.kind}::"PartnerPhoneKind")
-      ON CONFLICT ("phone_e164") DO NOTHING`;
+  const sorted = [...keys].sort((a, b) => a.phone.localeCompare(b.phone));
+  for (const key of sorted) {
+    let inserted = await insertPhoneKey(db, partnerId, key);
+    if (inserted !== 1) {
+      const stale = await db.partnerPhoneKey.deleteMany({
+        where: {
+          phoneE164: key.phone,
+          partnerId: { not: partnerId },
+          partner: { deletedAt: { not: null } },
+        },
+      });
+      if (stale.count > 0) inserted = await insertPhoneKey(db, partnerId, key);
+    }
     if (inserted === 1) {
       claimed.push(key.phone);
       continue;
@@ -162,42 +177,26 @@ export async function findPartnerIdByPhone(
   return stored?.id ?? null;
 }
 
-/** 409 for an agent context — never names or identifies the other record. */
-export function customerPhoneUnavailable() {
-  return new ConflictException({
-    code: 'CUSTOMER_PHONE_UNAVAILABLE',
-    message:
-      'لا يمكن استخدام رقم الجوال هذا لهذا العميل — تواصل مع مدير الوكلاء في الشركة — This phone number cannot be used for this customer. Contact the company’s agent manager.',
-  });
-}
-
 /**
- * Adds the CUSTOMER role (and profile) to a reused partner when missing.
- * `agentContext`: an agent flow may never extend an employee / investor /
- * agent identity — refused with the neutral 409 instead.
+ * Adds the CUSTOMER role (and profile) to a reused partner when missing —
+ * the order is attached to the one record of the number whatever its other
+ * roles (O3). Agent flows get no identity oracle: the match is a uniform
+ * cross-scope duplicate flagged for internal review; internal Quick Create
+ * keeps its explicit employee / investor guard (`useExistingWithRole`).
  */
 export async function ensureCustomerRole(
   db: Db,
   partnerId: string,
   userId: string | null | undefined,
-  options: { agentContext: boolean },
 ) {
   const partner = await db.partner.findUniqueOrThrow({
     where: { id: partnerId },
     select: {
       roles: { select: { role: true } },
       customerProfile: { select: { partnerId: true } },
-      agent: { select: { id: true } },
     },
   });
   if (partner.roles.some((r) => r.role === PartnerRoleType.CUSTOMER)) return;
-  if (
-    options.agentContext &&
-    (partner.agent ||
-      partner.roles.some((r) => SENSITIVE_IDENTITY_ROLES.has(r.role)))
-  ) {
-    throw customerPhoneUnavailable();
-  }
   await db.partnerRoleAssignment.create({
     data: {
       partnerId,
@@ -222,9 +221,10 @@ export interface CustomerPartnerInput {
 }
 
 /**
- * The customer behind an order inside the caller's transaction: the partner
- * owning the phone (any scope — O3) is reused as-is (never updated, only the
- * CUSTOMER role is added when missing); otherwise a new CUSTOMER partner is
+ * The customer behind an order inside the caller's transaction: the live
+ * partner owning the phone (any scope — O3; never an archived one) is reused
+ * as-is (never updated, only the CUSTOMER role is added when missing);
+ * otherwise a new CUSTOMER partner is
  * created after its numbers were claimed — a concurrent create of the same
  * number resolves to the winner.
  */
@@ -233,7 +233,6 @@ export async function findOrCreateCustomerPartnerTx(
   deps: { numbering: NumberingEngineService; phones: PhoneNumberService },
   input: CustomerPartnerInput,
   userId: string | null | undefined,
-  options: { agentContext: boolean },
 ): Promise<{ partnerId: string; created: boolean }> {
   const countryCode = input.countryId
     ? (
@@ -249,13 +248,13 @@ export async function findOrCreateCustomerPartnerTx(
     keys.map((key) => key.phone),
   );
   if (existing) {
-    await ensureCustomerRole(tx, existing, userId, options);
+    await ensureCustomerRole(tx, existing, userId);
     return { partnerId: existing, created: false };
   }
   const id = randomUUID();
   const conflict = await claimPartnerPhoneKeys(tx, id, keys);
   if (conflict) {
-    await ensureCustomerRole(tx, conflict.partnerId, userId, options);
+    await ensureCustomerRole(tx, conflict.partnerId, userId);
     return { partnerId: conflict.partnerId, created: false };
   }
   const partnerNumber = await deps.numbering.generateNumber(

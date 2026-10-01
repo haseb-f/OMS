@@ -162,8 +162,15 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
       select: { id: true },
     });
     const customerIds = customers.map((c) => c.id);
+    // O3 — a fixed test phone may resolve to an existing customer of the
+    // shared dev DB (one phone = one customer): clean up by test product too.
     const orders = await prisma.storeOrder.findMany({
-      where: { partnerId: { in: customerIds } },
+      where: {
+        OR: [
+          { partnerId: { in: customerIds } },
+          { items: { some: { product: { sku: { startsWith: 'SOTEST-' } } } } },
+        ],
+      },
       select: { id: true },
     });
     const orderIds = orders.map((o) => o.id);
@@ -487,22 +494,22 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
   // -------------------------------------------------------------------
   // Bare Country Calling Code Must Normalize Automatically
   // -------------------------------------------------------------------
-  it('accepts a Saudi phone with a bare calling code and no "+" (966564345678)', async () => {
-    const row = baseRow({ customerPhone: '966564345678' });
+  it('accepts a Saudi phone with a bare calling code and no "+" (966566345679)', async () => {
+    const row = baseRow({ customerPhone: '966566345679' });
     const result = await handler.importRow(row);
     const order = await prisma.storeOrder.findUniqueOrThrow({
       where: { id: result.id },
       include: { partner: true },
     });
-    expect(order.partner.phone).toBe('+966564345678');
+    expect(order.partner.phone).toBe('+966566345679');
   });
 
   it('accepts every required Saudi representation of the same subscriber number', async () => {
     const variants = [
-      '+966564345678',
-      '00966564345678',
-      '0564345678',
-      '564345678',
+      '+966566345679',
+      '00966566345679',
+      '0566345679',
+      '566345679',
     ];
     for (const customerPhone of variants) {
       const row = baseRow({ customerPhone });
@@ -511,7 +518,7 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
         where: { id: result.id },
         include: { partner: true },
       });
-      expect(order.partner.phone).toBe('+966564345678');
+      expect(order.partner.phone).toBe('+966566345679');
     }
   });
 
@@ -529,7 +536,7 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     await expect(handler.importRow(row)).rejects.toThrow(countryName);
 
     // Never incorrectly rejected for a genuinely valid bare-calling-code value.
-    const validRow = baseRow({ customerPhone: '966564345678' });
+    const validRow = baseRow({ customerPhone: '966566345679' });
     await expect(handler.importRow(validRow)).resolves.toBeDefined();
   });
 
