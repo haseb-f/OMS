@@ -1,7 +1,7 @@
 /** agentPortal namespace (en) — the external agent portal (specs/agents-fulfillment-partners §10). */
 const agentPortalEn = {
   nav: {
-    dashboard: "Agent dashboard",
+    dashboard: "Dashboard",
     leads: "Leads",
     orders: "Orders",
     stock: "Stock",
@@ -89,7 +89,7 @@ const agentPortalEn = {
     role: { ADMIN: "Agent admin", SALES: "Sales" },
   },
   dashboard: {
-    title: "Agent dashboard",
+    title: "Dashboard",
     description: "Your orders, collections and balance at a glance.",
     fulfillmentTitle: "Fulfillment progress",
     moneyTitle: "Sales and balance",

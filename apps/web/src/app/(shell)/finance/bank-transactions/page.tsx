@@ -331,7 +331,7 @@ function CashFlowPageContent() {
   return (
     <PageWorkspace
       dense
-      title={t("masterData.bankTransactions.title")}
+      title={t("nav.financeBankTransactions")}
       description={t("masterData.bankTransactions.description")}
       meta={
         summary ? (
@@ -440,7 +440,7 @@ function CashFlowPageContent() {
 
       <EnterpriseDataTable
         tableId={`bank-transactions-${direction.toLowerCase()}`}
-        printTitle={t("masterData.bankTransactions.title")}
+        printTitle={t("nav.financeBankTransactions")}
         columns={columns}
         data={items}
         isLoading={isLoading}

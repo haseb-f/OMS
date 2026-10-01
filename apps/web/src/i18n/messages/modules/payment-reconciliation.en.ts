@@ -1,7 +1,7 @@
 /** payment-reconciliation namespace (en) — owned by one implementer to avoid shared-file edit races. */
 const paymentReconciliationEn = {
-  nav: { title: "Payment reconciliation" },
-  title: "Payment reconciliation",
+  nav: { title: "Collection Review" },
+  title: "Collection Review",
   description:
     "Provider statements matched against Sales payment claims — one workspace per payment method that requires reconciliation.",
   list: {
