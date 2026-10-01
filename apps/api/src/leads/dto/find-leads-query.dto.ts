@@ -118,3 +118,18 @@ export class FindLeadsQueryDto extends MasterDataQueryDto {
   @IsOptional()
   followUpOutcomes?: LeadFollowUpOutcomeFilter[];
 }
+
+/**
+ * `GET /leads/ids` (Smart Selection). `pageSize` here means "the first N"
+ * and must stay undefined when the caller omits it — "select all matching"
+ * sends no `pageSize`, and the list default (20) would silently truncate the
+ * selection to one page. class-transformer instantiates the DTO and then
+ * assigns only the keys present in the query, so clearing the inherited
+ * default in the constructor is enough.
+ */
+export class FindLeadIdsQueryDto extends FindLeadsQueryDto {
+  constructor() {
+    super();
+    this.pageSize = undefined;
+  }
+}

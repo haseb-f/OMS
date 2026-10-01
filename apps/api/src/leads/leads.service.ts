@@ -431,6 +431,8 @@ export class LeadsService {
    */
   async findAllIds(query: FindLeadsQueryDto, scope: SalesScope) {
     const where = await this.buildLeadWhere(query, scope);
+    // No `pageSize` = "select all matching" (FindLeadIdsQueryDto keeps it
+    // undefined); a given one = "the first N". Both capped at selectIdsMax.
     const take = Math.min(
       query.pageSize ?? BULK_LIMITS.selectIdsMax,
       BULK_LIMITS.selectIdsMax,

@@ -27,7 +27,10 @@ import { BulkAssignLeadsDto } from './dto/bulk-assign-leads.dto';
 import { BulkChangeLeadStatusDto } from './dto/bulk-change-lead-status.dto';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
 import { CreateLeadAssignmentDto } from './assignments/dto/create-lead-assignment.dto';
-import { FindLeadsQueryDto } from './dto/find-leads-query.dto';
+import {
+  FindLeadIdsQueryDto,
+  FindLeadsQueryDto,
+} from './dto/find-leads-query.dto';
 import { ActivateDistributionDto } from './dto/activate-distribution.dto';
 import { ReleaseHeldDistributionDto } from './dto/release-held-distribution.dto';
 import { CreateLeadFollowUpDto } from './dto/create-lead-follow-up.dto';
@@ -64,7 +67,7 @@ export class LeadsController {
 
   @Get('ids')
   async findAllIds(
-    @Query() query: FindLeadsQueryDto,
+    @Query() query: FindLeadIdsQueryDto,
     @CurrentUser() user: JwtPayload,
   ) {
     const scope = await this.salesScope.resolve(user.sub);
