@@ -685,6 +685,7 @@ function StoreOrderDetailContent() {
     order.payments && order.payments.length > 0 ? (
       <div className="overflow-x-auto">
         <CompactDetailTable
+          stacked
           columns={[
             {
               id: "number",
@@ -931,6 +932,7 @@ function StoreOrderDetailContent() {
           {order.shipments && order.shipments.length > 0 ? (
             <div className="overflow-x-auto">
               <CompactDetailTable
+                stacked
                 columns={[
                   {
                     id: "attempt",

@@ -604,12 +604,13 @@ function AmendDialogBody<TOrder>({
             </Alert>
           ) : null}
           <p className="text-body font-medium">
-            {preview.totals.previous === preview.totals.next
+            {preview.totals.previous === preview.totals.next &&
+            preview.totals.previousCurrency === preview.totals.currency
               ? t("orderAmendments.totalsUnchanged", {
                   next: `${preview.totals.next} ${preview.totals.currency}`,
                 })
               : t("orderAmendments.totals", {
-                  previous: `${preview.totals.previous} ${preview.totals.currency}`,
+                  previous: `${preview.totals.previous} ${preview.totals.previousCurrency}`,
                   next: `${preview.totals.next} ${preview.totals.currency}`,
                 })}
           </p>

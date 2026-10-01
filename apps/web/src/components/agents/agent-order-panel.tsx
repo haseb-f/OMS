@@ -461,7 +461,12 @@ function ReceiveReturnDialog({
     >
       <FormCardStack>
         <FormCardSection title={t("agents.storeOrder.returnsTitle")}>
-          <CompactDetailTable columns={columns} rows={order.items} rowKey={(item) => item.id} />
+          <CompactDetailTable
+            stacked
+            columns={columns}
+            rows={order.items}
+            rowKey={(item) => item.id}
+          />
           {showErrors && lines.length === 0 && !hasErrors ? (
             <p className="text-caption text-destructive">
               {t("agents.storeOrder.returnErrors.noLines")}

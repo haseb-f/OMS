@@ -31,6 +31,7 @@ import {
   type CompactDetailColumn,
 } from "@/components/shared/data-table/compact-detail-table";
 import { StatusBadge } from "@/components/business/status-badge";
+import { orderPaymentBadge } from "@/config/store-orders/order-status-badges";
 import { OrderBreakdown } from "@/components/agent-portal/order-breakdown";
 import { ShippingPricingNotice } from "@/components/agents/shipping-pricing-panel";
 import { PortalFileList } from "@/components/agent-portal/portal-files";
@@ -170,6 +171,11 @@ export default function AgentOrderDetailPage() {
         statusCode: order.fulfillment.status?.code,
       })
     : null;
+  const paymentBadge = orderPaymentBadge({
+    paymentStatus: order.payment.financePaymentStatus,
+    declaredPaymentStatus: order.payment.declaredPaymentStatus,
+    paymentType: order.paymentType,
+  });
   const stageKeys = digitalOnly ? DIGITAL_FULFILLMENT_STAGE_KEYS : FULFILLMENT_STAGE_KEYS;
   const stageDates: Record<string, string | null> = {
     created: order.createdAt,
@@ -287,11 +293,18 @@ export default function AgentOrderDetailPage() {
         </>
       }
       status={
-        digitalState ? (
-          <StatusBadge label={t(digitalState.labelKey)} tone={digitalState.tone} />
-        ) : (
-          <FulfillmentStatusBadge status={order.fulfillment.status} />
-        )
+        // Spec 1C — payment and fulfillment are two distinct statuses.
+        <span className="flex flex-wrap items-center gap-1.5">
+          <StatusBadge
+            label={paymentBadge.labelKey ? t(paymentBadge.labelKey) : (paymentBadge.label ?? "")}
+            tone={paymentBadge.tone}
+          />
+          {digitalState ? (
+            <StatusBadge label={t(digitalState.labelKey)} tone={digitalState.tone} />
+          ) : (
+            <FulfillmentStatusBadge status={order.fulfillment.status} />
+          )}
+        </span>
       }
       actions={
         <HeaderActions
@@ -427,7 +440,9 @@ export default function AgentOrderDetailPage() {
             {order.payment.paymentDiscrepancy ? (
               <p className="rounded-sm bg-warning-soft px-2 py-1.5 text-caption text-warning-soft-foreground">
                 {t("agentPortal.orderDetail.payment.discrepancy")}
-                {order.payment.paymentDiscrepancyReason
+                {/* Amendment-raised reasons are detailed in the amendment history. */}
+                {order.payment.paymentDiscrepancyReason &&
+                !order.payment.paymentDiscrepancyReason.endsWith(" (order amendment).")
                   ? ` — ${order.payment.paymentDiscrepancyReason}`
                   : ""}
               </p>

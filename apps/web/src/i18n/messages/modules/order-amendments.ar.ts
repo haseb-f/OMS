@@ -72,7 +72,7 @@ const orderAmendmentsAr = {
     ORDER_IN_TRANSIT:
       "الشحنة في الطريق — لا يمكن تغيير الأصناف أو الكميات أو العنوان أو طريقة التنفيذ. استخدم الإرجاع أو إعادة الشحن؛ يمكن تعديل الأسعار وبيانات التواصل.",
     LABEL_REISSUE_REQUIRED: "يجب إلغاء البوليصة {tracking} وإصدار بوليصة جديدة.",
-    TOTALS_CHANGED: "إجمالي الطلب {previous} ← {next} {currency}.",
+    TOTALS_CHANGED: "إجمالي الطلب {previous} {previousCurrency} ← {next} {currency}.",
     ORDER_TOTAL_ZERO: "يجب أن يكون إجمالي الطلب أكبر من 0.00.",
     DECLARATION_REEVALUATED:
       "تبقى إفادات الدفع كما هي ({declared})؛ تُعاد مقارنة حالة الإفادة بالإجمالي الجديد {next}.",

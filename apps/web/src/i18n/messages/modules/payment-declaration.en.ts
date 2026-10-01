@@ -90,6 +90,8 @@ const paymentDeclarationEn = {
     title: "Payment discrepancy",
     description:
       "Finance disputed or rejected a payment after fulfillment started. Resolve it with Finance — the shipment history was not changed.",
+    amendmentDescription:
+      "The order was amended after payments were declared. Finance must review the declared payments against the amended order — see Amendments & activity for the details.",
   },
   gate: {
     notReadyHint:

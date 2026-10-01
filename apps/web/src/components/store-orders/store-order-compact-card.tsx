@@ -126,6 +126,7 @@ export function StoreOrderCompactCard({
       <div className="border-t border-border/70 px-1 pb-1">
         {order.items.length > 0 ? (
           <CompactDetailTable
+            stacked
             columns={[
               {
                 id: "product",

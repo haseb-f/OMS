@@ -783,9 +783,10 @@ export class StoreOrderAmendmentsService {
       impacts.push(
         amendmentImpact(
           'TOTALS_CHANGED',
-          `Order total ${money(previousTotal)} → ${money(total)} ${currencyCode}.`,
+          `Order total ${money(previousTotal)} ${order.currency.code} → ${money(total)} ${currencyCode}.`,
           {
             previous: money(previousTotal),
+            previousCurrency: order.currency.code,
             next: money(total),
             currency: currencyCode,
           },
@@ -1814,6 +1815,7 @@ export class StoreOrderAmendmentsService {
       ],
       totals: {
         currency: plan.currencyCode,
+        previousCurrency: plan.order.currency.code,
         previous: money(storeOrderPayableTotal(plan.order)),
         next: money(plan.total),
       },

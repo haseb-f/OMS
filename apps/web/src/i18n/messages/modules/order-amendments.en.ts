@@ -73,7 +73,7 @@ const orderAmendmentsEn = {
     ORDER_IN_TRANSIT:
       "The shipment is on its way — items, quantities, address and fulfillment method cannot change. Use a return or reshipment; prices and customer contact can still change.",
     LABEL_REISSUE_REQUIRED: "Label {tracking} must be cancelled and reissued.",
-    TOTALS_CHANGED: "Order total {previous} → {next} {currency}.",
+    TOTALS_CHANGED: "Order total {previous} {previousCurrency} → {next} {currency}.",
     ORDER_TOTAL_ZERO: "The order total must be greater than 0.00.",
     DECLARATION_REEVALUATED:
       "Declarations stay unchanged ({declared}); the declared status is re-evaluated against the new total {next}.",
