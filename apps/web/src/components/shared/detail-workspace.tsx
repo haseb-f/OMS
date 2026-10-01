@@ -504,9 +504,7 @@ export function CollapsibleDetailSection({
             <TriggerChevron kind="disclosure" size="sm" />
             <h2 className="shrink-0 text-caption font-semibold tracking-tight">{title}</h2>
             {!open && hasDetailValue(summary) ? (
-              <span className="min-w-0 truncate text-caption text-muted-foreground">
-                {summary}
-              </span>
+              <span className="min-w-0 truncate text-caption text-muted-foreground">{summary}</span>
             ) : null}
           </CollapsibleTrigger>
           {actions ? <div className="flex shrink-0 items-center gap-1">{actions}</div> : null}

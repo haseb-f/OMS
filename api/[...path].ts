@@ -68,7 +68,13 @@ let bootstrapPromise: Promise<Express> | undefined;
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   if (!bootstrapPromise) {
-    bootstrapPromise = bootstrap();
+    // A failed bootstrap (e.g. the database pooler briefly out of
+    // connections) must not be cached: the next request retries instead of
+    // this warm instance answering 500 forever.
+    bootstrapPromise = bootstrap().catch((error: unknown) => {
+      bootstrapPromise = undefined;
+      throw error;
+    });
   }
   const server = await bootstrapPromise;
   // Vercel routes https://oms.haseb.org/api/* here (the [...path] catch-all

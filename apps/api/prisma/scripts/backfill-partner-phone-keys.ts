@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { withLibpqSslCompat } from '../libpq-ssl-compat';
 import { PhoneNumberService } from '../../src/common/phone/phone-number.service';
 import { backfillPartnerPhoneKeys } from '../../src/partners/partner-phone-keys-backfill';
 
@@ -20,7 +21,9 @@ import { backfillPartnerPhoneKeys } from '../../src/partners/partner-phone-keys-
  *   pnpm --filter api exec ts-node prisma/scripts/backfill-partner-phone-keys.ts
  */
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+  adapter: new PrismaPg({
+    connectionString: withLibpqSslCompat(process.env.DATABASE_URL),
+  }),
 });
 
 async function main() {
