@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   leadsService,
   type LeadDistributionActivateResult,
@@ -40,6 +40,8 @@ export function useLeadDistribution({
   const [snapshot, setSnapshot] = useState<LeadDistributionSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
   const [pendingMode, setPendingMode] = useState<RuntimeStatus | null>(null);
+  // Synchronous in-flight guard: two clicks in one frame both see `busy` false.
+  const inFlight = useRef(false);
 
   const refresh = async () => {
     try {
@@ -80,7 +82,8 @@ export function useLeadDistribution({
   const applyMode = async (
     mode: RuntimeStatus,
   ): Promise<{ run: LeadDistributionRun | null; snapshot: LeadDistributionSnapshot } | null> => {
-    if (busy) return null;
+    if (inFlight.current) return null;
+    inFlight.current = true;
     setBusy(true);
     setPendingMode(mode);
     try {
@@ -99,6 +102,7 @@ export function useLeadDistribution({
       reportApiError(error, "common.failedToSave");
       return null;
     } finally {
+      inFlight.current = false;
       setBusy(false);
       setPendingMode(null);
     }

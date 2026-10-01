@@ -12,6 +12,8 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { LeadCreateDialog } from "@/components/agent-portal/lead-create-dialog";
 import { LeadStatusBadge } from "@/components/agent-portal/portal-badges";
+import { FollowUpOutcomeBadge } from "@/components/crm/follow-up-outcome-badge";
+import { followUpOutcomeLabel } from "@/config/crm/follow-up-outcomes";
 import { usePortalProfile } from "@/components/agent-portal/use-portal-profile";
 import { LEAD_STATUS_CODES, localizedName } from "@/config/agent-portal/labels";
 import { agentPortalService, type PortalLead } from "@/services/agent-portal-service";
@@ -92,6 +94,18 @@ function buildLeadColumns(): ColumnDef<PortalLead, unknown>[] {
       enableSorting: false,
       accessorFn: (row) => row.status.code,
       cell: ({ row }) => <LeadStatusBadge status={row.original.status} />,
+    },
+    {
+      id: "followUpOutcome",
+      meta: {
+        titleKey: "leadOps.outcome.label",
+        type: "status",
+        importance: "medium",
+        displayValue: (row, t) => followUpOutcomeLabel(row.followUpOutcome, t),
+      },
+      enableSorting: false,
+      accessorFn: (row) => row.followUpOutcome ?? "",
+      cell: ({ row }) => <FollowUpOutcomeBadge value={row.original.followUpOutcome} />,
     },
     {
       id: "order",

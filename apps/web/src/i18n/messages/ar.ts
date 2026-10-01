@@ -9,11 +9,13 @@ import productCommissionAr from "./modules/product-commission.ar";
 import agentPricingAr from "./modules/agent-pricing.ar";
 import orderDuplicatesAr from "./modules/order-duplicates.ar";
 import orderAmendmentsAr from "./modules/order-amendments.ar";
+import leadOpsAr from "./modules/lead-ops.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
   orderDuplicates: orderDuplicatesAr,
   orderAmendments: orderAmendmentsAr,
+  leadOps: leadOpsAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,

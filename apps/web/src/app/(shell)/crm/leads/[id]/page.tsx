@@ -16,7 +16,6 @@ import { LeadDetailView, type LeadOutcome } from "@/components/crm/lead-detail-v
 import { leadStatusName } from "@/components/crm/lead-status-label";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PermissionGate } from "@/components/shared/permission-gate";
-import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { Textarea } from "@/components/ui/textarea";
 import {
   leadsService,
@@ -26,24 +25,14 @@ import {
   type LeadFollowUpRow,
   type LeadNoteRow,
 } from "@/services/leads-service";
-import { useCustomerClassifications } from "@/hooks/use-reference-data";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { reportApiError } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import type { MessageKey } from "@/i18n/translate";
+import { followUpOutcomeLabel } from "@/config/crm/follow-up-outcomes";
 import { workflowService, type WorkflowAction } from "@/services/workflow-service";
-
-/** Outcome keys the follow-up dialog stores (crm.leads.followUp.outcomes.*). */
-const FOLLOW_UP_OUTCOME_KEYS: ReadonlySet<string> = new Set([
-  "answered",
-  "noAnswer",
-  "interested",
-  "callback",
-  "wrongNumber",
-  "notInterested",
-]);
 
 /** `LeadAssignmentMethod` values with a label (crm.leads.assignmentMethod.*). */
 const ASSIGNMENT_METHODS: ReadonlySet<string> = new Set([
@@ -61,7 +50,6 @@ function LeadDetailContent() {
   const locale = useLocale();
   const { t } = locale;
   const { hasPermission } = useUserContext();
-  const classifications = useCustomerClassifications();
 
   const [lead, setLead] = useState<LeadRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,11 +72,6 @@ function LeadDetailContent() {
 
   const canEdit = hasPermission("crm.leads.edit");
   const canConvert = hasPermission("crm.leads.convert") || canEdit;
-  const operational =
-    lead &&
-    lead.status?.code !== "CONVERTED" &&
-    lead.status?.code !== "LOST" &&
-    lead.status?.code !== "DISQUALIFIED";
 
   useBreadcrumbLabel(lead?.leadNumber ?? null);
 
@@ -159,18 +142,6 @@ function LeadDetailContent() {
     }
   };
 
-  const saveClassification = async (id: string | null) => {
-    if (!lead) return;
-    try {
-      const updated = await leadsService.update(lead.id, {
-        customerClassificationId: id,
-      } as never);
-      setLead(updated);
-    } catch (error) {
-      reportApiError(error, "common.failedToSave");
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2">
@@ -194,44 +165,10 @@ function LeadDetailContent() {
       entry.type === "ARCHIVED" ? "rejected" : entry.type === "LEAD_CREATED" ? "done" : "pending",
   }));
 
-  const selectedClassification =
-    classifications.find((row) => row.id === lead.customerClassificationId) ??
-    (lead.customerClassification
-      ? {
-          ...lead.customerClassification,
-          description: null,
-          sortOrder: 0,
-          isActive: lead.customerClassification.isActive,
-        }
-      : null);
-
-  const classificationCombobox = (
-    <EntityCombobox
-      value={selectedClassification}
-      onChange={(row) => void saveClassification(row?.id ?? null)}
-      items={[
-        ...(lead.customerClassification &&
-        lead.customerClassification.deletedAt &&
-        !classifications.some((row) => row.id === lead.customerClassification!.id)
-          ? [lead.customerClassification as never]
-          : []),
-        ...classifications,
-      ]}
-      getId={(row) => row.id}
-      getTitle={(row) => row.name}
-      allowClear
-      placeholder={t("masterData.customerClassifications.select")}
-    />
-  );
-
   // Follow-up titles never show a lone «—» or a raw outcome
-  // key; the dialog stores the outcome as a key (e.g. `noAnswer`).
+  // key; the dialog stores the outcome as a code (e.g. `noAnswer`).
   const followUpTitle = (item: LeadFollowUpRow) => {
-    if (item.outcome) {
-      return FOLLOW_UP_OUTCOME_KEYS.has(item.outcome)
-        ? t(`crm.leads.followUp.outcomes.${item.outcome}` as MessageKey)
-        : item.outcome;
-    }
+    if (item.outcome) return followUpOutcomeLabel(item.outcome, t);
     const type = item.followUpType;
     if (type) return locale.locale === "ar" ? type.name : (type.nameEn ?? type.name);
     return t("crm.leads.followUp.noOutcome");
@@ -428,7 +365,6 @@ function LeadDetailContent() {
         onClose: () => setCloseOpen(true),
       }}
       followUpBusy={followUpBusy}
-      classificationControl={canEdit && operational ? classificationCombobox : null}
       outcome={outcome}
       onDismissOutcome={() => setOutcome(null)}
       onTransitionComplete={(action) => {
