@@ -9,11 +9,13 @@ import productCommissionEn from "./modules/product-commission.en";
 import agentPricingEn from "./modules/agent-pricing.en";
 import orderDuplicatesEn from "./modules/order-duplicates.en";
 import orderAmendmentsEn from "./modules/order-amendments.en";
+import shippingHandoffEn from "./modules/shipping-handoff.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
   orderDuplicates: orderDuplicatesEn,
   orderAmendments: orderAmendmentsEn,
+  shippingHandoff: shippingHandoffEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
@@ -3808,6 +3810,8 @@ const en = {
     source: {
       MANUAL: "Manual",
       IMPORT: "Import",
+      EXCEL: "Excel import",
+      GOOGLE_SHEETS: "Google Sheets",
     },
     paymentStatus: {
       PAYMENT_PENDING: "Payment Pending",

@@ -41,6 +41,10 @@ import {
 } from "@/components/store-orders/store-order-workflow-tracks";
 import { ShipmentManageDialog } from "@/components/shipping/shipment-manage-dialog";
 import {
+  ShippingHandoffNotice,
+  useShippingHandoff,
+} from "@/components/shipping/shipping-handoff-notice";
+import {
   CollapsibleDetailSection,
   DetailFieldRow,
   RecordHighlightsHeader,
@@ -536,6 +540,19 @@ function StoreOrderDetailContent() {
       })),
     [activities],
   );
+  // R6 SHIP — Shipping-queue handoff / blocker, re-read when payment or shipping changes.
+  const shippingHandoff = useShippingHandoff(
+    params.id,
+    order
+      ? [
+          order.updatedAt,
+          order.declaredPaymentStatus,
+          order.paymentStatus,
+          order.fulfillmentMethod,
+          order.shipments?.length ?? 0,
+        ].join("|")
+      : "",
+  );
 
   if (isLoading) {
     return (
@@ -929,6 +946,11 @@ function StoreOrderDetailContent() {
           testId="section-shipments"
           {...sectionProps("shipments")}
         >
+          <ShippingHandoffNotice
+            handoff={shippingHandoff}
+            internalOrderId={order.internalOrderId}
+            awaitingShipping={latestShipment?.status == null}
+          />
           {order.shipments && order.shipments.length > 0 ? (
             <div className="overflow-x-auto">
               <CompactDetailTable
@@ -977,7 +999,7 @@ function StoreOrderDetailContent() {
                 rowKey={(shipment) => shipment.id}
               />
             </div>
-          ) : (
+          ) : shippingHandoff ? null : (
             <p className="text-caption text-muted-foreground">
               {fulfillmentAllowed
                 ? t("storeOrders.shippingStage.READY_FOR_SHIPPING")

@@ -43,6 +43,7 @@ import type { CityRow, CurrencyRow } from "@/config/master-data/entities";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
 import { apiErrorMessage, reportApiError, reportSuccess } from "@/lib/toast";
+import { fetchShippingHandoffFeedback } from "@/components/shipping/shipping-handoff-notice";
 import { formatMoney } from "@/lib/money";
 import { createMasterDataService } from "@/services/master-data-service";
 import { stagingIdsOf, type ReceiptUploadItem } from "@/components/business/payment-receipts-field";
@@ -291,10 +292,18 @@ export function LeadConvertDialog({
         idempotencyKey,
         ...(duplicates.resolution ? { duplicateResolution: duplicates.resolution } : {}),
       });
+      // R6 SHIP — say whether the order went to Shipping, or why not.
+      const shippingFeedback = result.storeOrder
+        ? await fetchShippingHandoffFeedback(result.storeOrder.id, t)
+        : undefined;
       reportSuccess(
         `${t("crm.leads.convert.success")} ${result.storeOrder?.internalOrderId ?? ""}`.trim(),
         result.storeOrder
-          ? { href: `/store-orders/${result.storeOrder.id}`, navigate: router.push }
+          ? {
+              description: shippingFeedback,
+              href: `/store-orders/${result.storeOrder.id}`,
+              navigate: router.push,
+            }
           : {},
       );
       onOpenChange(false);
