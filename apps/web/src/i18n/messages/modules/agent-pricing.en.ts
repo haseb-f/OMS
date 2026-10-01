@@ -117,6 +117,8 @@ const agentPricingEn = {
       ESTIMATE: "estimated carrier cost",
     },
     marginUnavailable: "Not comparable yet",
+    differenceBorne: "Shipping shortfall (borne by the company)",
+    differenceKept: "Shipping excess (kept by the company)",
     internalOnly: "Internal only — never shown to the agent.",
   },
   customerTotal: {

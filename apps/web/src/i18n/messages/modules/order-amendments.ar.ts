@@ -113,8 +113,7 @@ const orderAmendmentsAr = {
     SHIPPING_COUNTRY_REQUIRED: "حدد دولة الشحن.",
     AGENT_SHIPPING_CHARGE_NOT_CONFIGURED:
       "لا يوجد سعر شحن في الاتفاقية لهذه الوجهة لتحديد رسم شحن الوكيل.",
-    AGENT_SHIPPING_DIFFERENCE_PENDING_DECISION:
-      "شحن العميل يختلف عن رسم شحن الوكيل — معالجة الفرق بانتظار قرار الإدارة.",
+    AGENT_SHIPPING_BELOW_FEE: "لا يمكن أن يقل شحن العميل عن رسم شحن الوكيل.",
     AGENT_SHIPPING_EXCEEDS_TOTAL:
       "رسم الشحن ({fee}) لا يترك مبلغًا للمنتجات ضمن الإجمالي المتفق عليه ({agreedTotal}).",
     PRODUCT_NOT_AVAILABLE: "أحد المنتجات غير متاح للبيع.",

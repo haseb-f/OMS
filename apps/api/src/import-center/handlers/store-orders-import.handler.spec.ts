@@ -162,8 +162,15 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
       select: { id: true },
     });
     const customerIds = customers.map((c) => c.id);
+    // O3 — a fixed test phone may resolve to an existing customer of the
+    // shared dev DB (one phone = one customer): clean up by test product too.
     const orders = await prisma.storeOrder.findMany({
-      where: { partnerId: { in: customerIds } },
+      where: {
+        OR: [
+          { partnerId: { in: customerIds } },
+          { items: { some: { product: { sku: { startsWith: 'SOTEST-' } } } } },
+        ],
+      },
       select: { id: true },
     });
     const orderIds = orders.map((o) => o.id);
@@ -487,22 +494,22 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
   // -------------------------------------------------------------------
   // Bare Country Calling Code Must Normalize Automatically
   // -------------------------------------------------------------------
-  it('accepts a Saudi phone with a bare calling code and no "+" (966564345678)', async () => {
-    const row = baseRow({ customerPhone: '966564345678' });
+  it('accepts a Saudi phone with a bare calling code and no "+" (966566345679)', async () => {
+    const row = baseRow({ customerPhone: '966566345679' });
     const result = await handler.importRow(row);
     const order = await prisma.storeOrder.findUniqueOrThrow({
       where: { id: result.id },
       include: { partner: true },
     });
-    expect(order.partner.phone).toBe('+966564345678');
+    expect(order.partner.phone).toBe('+966566345679');
   });
 
   it('accepts every required Saudi representation of the same subscriber number', async () => {
     const variants = [
-      '+966564345678',
-      '00966564345678',
-      '0564345678',
-      '564345678',
+      '+966566345679',
+      '00966566345679',
+      '0566345679',
+      '566345679',
     ];
     for (const customerPhone of variants) {
       const row = baseRow({ customerPhone });
@@ -511,7 +518,7 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
         where: { id: result.id },
         include: { partner: true },
       });
-      expect(order.partner.phone).toBe('+966564345678');
+      expect(order.partner.phone).toBe('+966566345679');
     }
   });
 
@@ -529,7 +536,7 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     await expect(handler.importRow(row)).rejects.toThrow(countryName);
 
     // Never incorrectly rejected for a genuinely valid bare-calling-code value.
-    const validRow = baseRow({ customerPhone: '966564345678' });
+    const validRow = baseRow({ customerPhone: '966566345679' });
     await expect(handler.importRow(validRow)).resolves.toBeDefined();
   });
 
@@ -629,17 +636,21 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     expect(items).toHaveLength(2);
   });
 
-  it('rejects an ambiguous phone match as master-data ambiguity, without creating an order', async () => {
+  // O3 (owner decision 2026-10-01) — previously MASTER_DATA_AMBIGUOUS. A
+  // legacy duplicate phone now resolves to its one customer: the key owner
+  // (here: none keyed) else the oldest record.
+  it('attaches an order with a legacy duplicate phone to the oldest customer (no ambiguity, no new customer)', async () => {
     const sharedPhone = `+9665${Math.floor(10000000 + Math.random() * 89999999)}`;
     const country = await prisma.country.findFirstOrThrow({
       where: { deletedAt: null, isActive: true, code: 'SA' },
     });
-    await prisma.partner.create({
+    const oldest = await prisma.partner.create({
       data: {
         partnerNumber: `SOTEST-C-${randomUUID().slice(0, 8)}`,
         name: 'SO Import Test Customer Ambiguous A',
         phone: sharedPhone,
         countryId: country.id,
+        createdAt: new Date(Date.now() - 60_000),
       },
     });
     await prisma.partner.create({
@@ -652,19 +663,19 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     });
 
     const row = baseRow({ customerPhone: sharedPhone });
-    try {
-      await handler.importRow(row);
-      throw new Error('expected import to fail');
-    } catch (error) {
-      expect(error).toBeInstanceOf(BadRequestException);
-      expect((error as BadRequestException).getResponse()).toMatchObject({
-        code: 'MASTER_DATA_AMBIGUOUS',
-      });
-    }
-    const order = await prisma.storeOrder.findFirst({
-      where: { externalOrderId: row.externalOrderId },
+    const result = await handler.importRow(row);
+    const order = await prisma.storeOrder.findUniqueOrThrow({
+      where: { id: result.id },
     });
-    expect(order).toBeNull();
+    expect(order.partnerId).toBe(oldest.id);
+    expect(
+      await prisma.partner.count({
+        where: {
+          deletedAt: null,
+          OR: [{ phone: sharedPhone }, { mobile: sharedPhone }],
+        },
+      }),
+    ).toBe(2);
   });
 
   it('still rejects a repeated External Order ID on a manual import', async () => {

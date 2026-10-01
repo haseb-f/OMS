@@ -45,6 +45,11 @@ import {
   type AgentOrderPersistInput,
 } from '../../agents/orders/agent-order-persist';
 import { resolveAgentCustomerPartner } from '../../agents/orders/agent-customer';
+import {
+  PartnerPhoneInUseError,
+  findPartnerIdByPhone,
+  syncPartnerPhoneKeys,
+} from '../../partners/partner-phone-keys';
 import { AgentFulfillmentService } from '../../agents/finance/agent-fulfillment.service';
 import { deliveryChannelOf } from '../../agents/pricing/agent-shipping-tariff';
 import { repriceForConfirmedFee } from '../../agents/pricing/agent-shipping-reprice';
@@ -852,7 +857,7 @@ export class StoreOrderAmendmentsService {
           impacts.push(
             amendmentImpact(
               'CUSTOMER_DUPLICATE_REVIEW',
-              'The new mobile matches a customer outside your scope — the order keeps its own customer and is flagged for duplicate review.',
+              'The new mobile matches a customer outside your scope — the order is flagged for duplicate review.',
             ),
           );
         } else if (
@@ -1462,21 +1467,27 @@ export class StoreOrderAmendmentsService {
       if ((after.phone ?? '') !== (before.phone ?? '')) {
         const normalized = after.phone;
         if (normalized) {
-          const match = await this.duplicates.check(
-            { phone: normalized },
-            { kind: 'COMPANY', userId: actor.userId },
-          );
-          if (
-            match.kind === 'PHONE' &&
-            (match.crossScope || match.customer.id !== partnerId)
-          ) {
+          // O3 — one phone = one customer: any other partner holding the
+          // number (with or without orders, any scope) blocks the correction.
+          const owner = await findPartnerIdByPhone(db, [normalized], partnerId);
+          if (owner) {
+            const match = await this.duplicates.check(
+              { phone: normalized },
+              { kind: 'COMPANY', userId: actor.userId },
+            );
+            const named =
+              match.kind === 'PHONE' &&
+              !match.crossScope &&
+              match.customer.id === owner
+                ? match.customer.name
+                : null;
             impacts.push(
               amendmentImpact(
                 'CUSTOMER_PHONE_IN_USE',
-                match.crossScope
-                  ? 'This phone belongs to another customer outside your scope — it cannot be moved to this customer.'
-                  : `This phone belongs to customer ${match.customer.name} — switch the order to that customer instead.`,
-                { customer: match.crossScope ? null : match.customer.name },
+                named
+                  ? `This phone belongs to customer ${named} — switch the order to that customer instead.`
+                  : 'This phone belongs to another customer outside your scope — it cannot be moved to this customer.',
+                { customer: named },
               ),
             );
           }
@@ -1550,17 +1561,48 @@ export class StoreOrderAmendmentsService {
     // Customer.
     let partnerId = plan.switchToPartnerId ?? order.partnerId;
     if (plan.partnerUpdate) {
-      await tx.partner.update({
+      const before = await tx.partner.findUniqueOrThrow({
+        where: { id: partnerId },
+        select: {
+          phone: true,
+          mobile: true,
+          country: { select: { code: true } },
+        },
+      });
+      const updated = await tx.partner.update({
         where: { id: partnerId },
         data: { ...plan.partnerUpdate, updatedBy: userId },
+        select: {
+          phone: true,
+          mobile: true,
+          country: { select: { code: true } },
+        },
+      });
+      // O3 — the corrected phone is claimed race-safely (a concurrent
+      // claim of the same number refuses the commit).
+      await syncPartnerPhoneKeys(
+        tx,
+        this.phones,
+        partnerId,
+        before,
+        updated,
+        updated.country?.code,
+      ).catch((error: unknown) => {
+        throw error instanceof PartnerPhoneInUseError
+          ? new ConflictException({
+              code: 'CUSTOMER_PHONE_IN_USE',
+              message:
+                'This phone belongs to another customer — it cannot be moved to this customer.',
+            })
+          : error;
       });
     }
     if (plan.isAgentOrder && plan.agentRelinkCustomer && plan.agentCustomer) {
-      // Among this agent's own customers only (S1) — never a shared Partner.
+      // O3 — the partner owning the new mobile (any scope) is reused, never
+      // updated; a match outside the agent's scope was flagged for review.
       partnerId = await resolveAgentCustomerPartner(
         tx,
-        this.numbering,
-        order.agentId!,
+        { numbering: this.numbering, phones: this.phones },
         plan.agentCustomer,
         userId,
       );

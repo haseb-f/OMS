@@ -21,6 +21,24 @@ function withLibpqSslCompat(connectionString: string | undefined) {
   return `${connectionString}${separator}uselibpqcompat=true`;
 }
 
+/**
+ * Per-instance connection pool bounds. On Vercel every warm Fluid Compute
+ * instance holds its own pool against the shared Supabase pooler (200
+ * clients): a small cap plus releasing idle connections keeps overlapping
+ * deployments from exhausting it (2026-10-01 outage, EMAXCONN at
+ * bootstrap). Locally the pg defaults stand unless the env sets them.
+ */
+function poolLimits(): { max?: number; idleTimeoutMillis?: number } {
+  const configured = Number(process.env.DATABASE_POOL_MAX);
+  const max =
+    Number.isFinite(configured) && configured > 0
+      ? configured
+      : process.env.VERCEL
+        ? 5
+        : undefined;
+  return max === undefined ? {} : { max, idleTimeoutMillis: 10_000 };
+}
+
 @Injectable()
 export class PrismaService
   extends PrismaClient
@@ -30,6 +48,7 @@ export class PrismaService
     super({
       adapter: new PrismaPg({
         connectionString: withLibpqSslCompat(process.env.DATABASE_URL),
+        ...poolLimits(),
       }),
     });
   }

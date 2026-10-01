@@ -801,7 +801,8 @@ const agentsEn = {
       settlement: "Settlement",
       settlements: {
         SETTLED: "Settled by customer shipping",
-        DIFFERENCE: "Difference — decision needed",
+        COMPANY_BEARS_SHORTFALL: "Settled — company bears the shortfall",
+        COMPANY_KEEPS_EXCESS: "Settled — company keeps the excess",
         NO_AGENT_CHARGE: "No agent charge",
       },
       carrierCost: "Actual carrier cost (company)",

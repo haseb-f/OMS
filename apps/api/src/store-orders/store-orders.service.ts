@@ -90,6 +90,7 @@ import { assertCompanyOwnedProduct } from '../products/assert-company-owned-prod
 import { BULK_LIMITS } from '../common/bulk/bulk-limits';
 import {
   assertReplayable,
+  CROSS_SCOPE_REUSE_OUTCOME,
   duplicateOrderColumns,
   logDuplicateDecision,
   type DuplicateOutcome,
@@ -301,6 +302,19 @@ export class StoreOrdersService {
     private readonly agentFulfillment?: AgentFulfillmentService,
   ) {}
 
+  /** The customer so far has agent orders only (no company order) — outside the company scope. */
+  private async onlyAgentOrders(partnerId: string) {
+    const [agentOrders, companyOrders] = await Promise.all([
+      this.prisma.storeOrder.count({
+        where: { partnerId, deletedAt: null, agentId: { not: null } },
+      }),
+      this.prisma.storeOrder.count({
+        where: { partnerId, deletedAt: null, agentId: null },
+      }),
+    ]);
+    return agentOrders > 0 && companyOrders === 0;
+  }
+
   /**
    * Business operation: Create Store Order (Manual entry point — the Import
    * handler builds the same shape and calls this same method for the
@@ -365,14 +379,15 @@ export class StoreOrdersService {
       await this.assertActiveProducts(dto.items.map((item) => item.productId));
     }
 
-    // Agent orders never go through the shared Partner dedup (S1): the
-    // customer is resolved among that agent's own customers inside the
-    // transaction, and no existing Partner is ever updated.
-    // Spec 1B: a customer confirmed through the duplicate check (phone match,
-    // or "same customer" on a name match) is reused as-is.
+    // O3 — one phone number = one customer. A customer confirmed through
+    // the duplicate check (phone match in or outside the caller's scope, or
+    // "same customer" on a name match) is reused as-is; otherwise the
+    // partner owning the phone is reused, or a new one created (race-safe).
+    // Agent orders resolve inside the transaction and never update the
+    // matched partner (the typed customer lives on the order snapshot).
     const confirmedPartnerId = options.duplicate?.partnerId ?? null;
     const partnerId = agentOrder
-      ? confirmedPartnerId
+      ? null
       : confirmedPartnerId
         ? (
             await this.partnersService.useExistingWithRole(
@@ -381,20 +396,20 @@ export class StoreOrdersService {
               userId,
             )
           ).id
-        : options.duplicate?.reviewPending
-          ? // Cross-scope (another agent's customer): never adopted.
-            (
-              await this.partnersService.createSeparateCustomer(
-                dto.partner,
-                userId,
-              )
-            ).id
-          : (
-              await this.partnersService.findOrCreateWithRole(
-                { ...dto.partner, role: PartnerRoleType.CUSTOMER },
-                userId,
-              )
-            ).partner.id;
+        : (
+            await this.partnersService.findOrCreateWithRole(
+              { ...dto.partner, role: PartnerRoleType.CUSTOMER },
+              userId,
+            )
+          ).partner.id;
+    // A company order reusing a customer that so far only has agent orders
+    // (paths without the interactive duplicate check, e.g. imports) is
+    // flagged for internal duplicate review like a cross-scope match.
+    const duplicate =
+      options.duplicate ??
+      (!agentOrder && partnerId && (await this.onlyAgentOrders(partnerId))
+        ? CROSS_SCOPE_REUSE_OUTCOME(partnerId)
+        : null);
 
     const internalOrderId =
       await this.numberingEngine.generateNumber('STORE_ORDER');
@@ -445,10 +460,13 @@ export class StoreOrdersService {
           partnerId ??
           (await resolveAgentCustomerPartner(
             tx,
-            this.numberingEngine,
-            agentOrder!.agentId,
+            {
+              numbering: this.numberingEngine,
+              phones: this.phoneNumberService,
+            },
             agentOrder!.customer,
             userId,
+            confirmedPartnerId,
           ));
         const created = await tx.storeOrder.create({
           data: {
@@ -472,11 +490,7 @@ export class StoreOrdersService {
             createdBy: userId,
             updatedBy: userId,
             ...(agentOrder ? agentOrderColumns(agentOrder) : {}),
-            ...duplicateOrderColumns(
-              creationKey,
-              options.duplicate,
-              payloadHash,
-            ),
+            ...duplicateOrderColumns(creationKey, duplicate, payloadHash),
             items: {
               create: agentOrder
                 ? agentOrderItems(agentOrder)
@@ -500,7 +514,7 @@ export class StoreOrdersService {
         if (agentOrder) {
           await this.logAgentOrderCreated(tx, created.id, agentOrder, userId);
         }
-        await logDuplicateDecision(tx, created.id, options.duplicate, userId);
+        await logDuplicateDecision(tx, created.id, duplicate, userId);
 
         if (dto.payment) {
           assertCanAcceptPayment(

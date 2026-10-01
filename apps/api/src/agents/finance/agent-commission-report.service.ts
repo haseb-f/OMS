@@ -7,6 +7,7 @@ import { agentNotFoundError } from '../common/agent-errors';
 import { AgentStatementService, periodBounds } from './agent-statement.service';
 import { fromMinor, round2, toMinor } from './agent-ledger.math';
 import type { AgentOrderSnapshot } from '../common/agent-terms';
+import { AGENT_SHIPPING_DIFFERENCE_BORNE_BY } from '../commission/agent-commission';
 
 const sum = (values: number[]) =>
   fromMinor(values.reduce((acc, value) => acc + toMinor(value), 0));
@@ -303,13 +304,20 @@ export class AgentCommissionReportService {
           customerShipping,
           agentShippingCharge,
           retained: shippingRetained,
-          /** customer − predetermined (non-zero orders were refused at submission). */
-          difference:
-            agentShippingCharge == null
-              ? null
-              : round2(customerShipping - agentShippingCharge),
           ...(carrier
             ? {
+                /**
+                 * O1 — customer − contractual fee, borne / kept by the
+                 * company (internal only; the agent sees C and F only).
+                 */
+                difference:
+                  agentShippingCharge == null
+                    ? null
+                    : round2(customerShipping - agentShippingCharge),
+                differenceBorneBy:
+                  agentShippingCharge == null
+                    ? null
+                    : AGENT_SHIPPING_DIFFERENCE_BORNE_BY,
                 carrier,
                 /** Company shipping margin = contractual fee − carrier cost (internal). */
                 margin: shippingMargin(

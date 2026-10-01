@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -28,6 +29,14 @@ import { CreatePartnerDto } from './dto/create-partner.dto';
 import { UpdatePartnerDto } from './dto/update-partner.dto';
 import { FindOrCreatePartnerDto } from './dto/find-or-create-partner.dto';
 import { FindPartnersQueryDto } from './dto/find-partners-query.dto';
+import {
+  PartnerPhoneInUseError,
+  claimPartnerPhoneKeys,
+  partnerPhoneKey,
+  partnerPhoneKeys,
+  releasePartnerPhoneKeys,
+  syncPartnerPhoneKeys,
+} from './partner-phone-keys';
 
 const DOCUMENT_TYPE = 'PARTNER';
 
@@ -36,6 +45,27 @@ const SENSITIVE_IDENTITY_ROLES: ReadonlySet<PartnerRoleType> = new Set([
   PartnerRoleType.EMPLOYEE,
   PartnerRoleType.INVESTOR,
 ]);
+
+/** The partner a `PARTNER_PHONE_IN_USE` 409 named, else null. */
+function phoneInUsePartnerId(error: unknown): string | null {
+  if (!(error instanceof ConflictException)) return null;
+  const body = error.getResponse() as {
+    code?: string;
+    details?: { partner?: { id: string } | null };
+  };
+  return body.code === 'PARTNER_PHONE_IN_USE'
+    ? (body.details?.partner?.id ?? null)
+    : null;
+}
+
+/** IN-list batches (large backfills / reports). */
+function chunks<T>(values: T[], size = 1_000): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < values.length; i += size) {
+    out.push(values.slice(i, i + size));
+  }
+  return out;
+}
 
 const PARTNER_INCLUDE = {
   roles: true,
@@ -143,16 +173,11 @@ export class PartnersService extends MasterDataCrudService<
   async create(
     dto: CreatePartnerDto,
     userId?: string,
-    /**
-     * Round 5 Spec 1B only (`createSeparateCustomer`): the phone belongs to
-     * another agent's customer, which a company order must never adopt.
-     */
-    options: { skipPhoneDedup?: boolean } = {},
   ): Promise<PartnerWithRelations> {
     const phone = await this.normalizePartnerPhone(dto.phone, dto.countryId);
     const mobile = await this.normalizePartnerPhone(dto.mobile, dto.countryId);
     await this.assertNoDuplicate(
-      options.skipPhoneDedup ? [] : [phone, mobile],
+      [phone, mobile],
       dto.email ?? undefined,
       dto.taxNumber,
       dto.commercialRegistration,
@@ -167,6 +192,7 @@ export class PartnersService extends MasterDataCrudService<
       investorProfile,
       ...rest
     } = dto;
+    const countryCode = await this.countryCodeOf(dto.countryId);
     try {
       const created = await this.prisma.$transaction(async (tx) => {
         const partner = await tx.partner.create({
@@ -180,6 +206,18 @@ export class PartnersService extends MasterDataCrudService<
             updatedBy: userId ?? null,
           },
         });
+        // O3 — one phone number = one customer, race-safe: a concurrent
+        // create that claimed the number first wins (this one rolls back).
+        const conflict = await claimPartnerPhoneKeys(
+          tx,
+          partner.id,
+          partnerPhoneKeys(
+            this.phoneNumberService,
+            { phone, mobile },
+            countryCode,
+          ),
+        );
+        if (conflict) throw conflict;
         for (const role of new Set(roles)) {
           await tx.partnerRoleAssignment.create({
             data: { partnerId: partner.id, role, createdBy: userId ?? null },
@@ -202,8 +240,38 @@ export class PartnersService extends MasterDataCrudService<
       });
       return this.findOne(created);
     } catch (error) {
+      if (error instanceof PartnerPhoneInUseError) {
+        throw await this.phoneInUseConflict(error);
+      }
       throw this.mapError(error);
     }
+  }
+
+  private async countryCodeOf(countryId: string | null | undefined) {
+    if (!countryId) return null;
+    const country = await this.prisma.country.findFirst({
+      where: { id: countryId },
+      select: { code: true },
+    });
+    return country?.code ?? null;
+  }
+
+  /**
+   * O3 — a phone / mobile already owned by another partner: 409 naming the
+   * existing record (internal callers only — agent flows never reach the
+   * Partner CRUD).
+   */
+  private async phoneInUseConflict(error: PartnerPhoneInUseError) {
+    const owner = await this.prisma.partner.findUnique({
+      where: { id: error.partnerId },
+      select: { id: true, partnerNumber: true, name: true },
+    });
+    const label = owner ? `${owner.partnerNumber} — ${owner.name}` : '';
+    return new ConflictException({
+      code: 'PARTNER_PHONE_IN_USE',
+      message: `رقم الهاتف مسجل لشريك آخر (${label}) — This phone number belongs to another partner (${label}).`,
+      details: { partner: owner, phone: error.phone },
+    });
   }
 
   async update(
@@ -232,18 +300,27 @@ export class PartnersService extends MasterDataCrudService<
           : dto.mobile;
       }
     }
-    if (
-      data.phone ||
-      data.mobile ||
-      dto.email ||
-      dto.taxNumber ||
-      dto.commercialRegistration
-    ) {
+    // O3 — editing a phone to a number another partner holds → 409 naming it.
+    const changedPhones = [data.phone, data.mobile].filter(
+      (value): value is string =>
+        typeof value === 'string' &&
+        !!value &&
+        value !== existing.phone &&
+        value !== existing.mobile,
+    );
+    const phoneOwner = (await this.findPhoneMatches(changedPhones, id))[0];
+    if (phoneOwner) {
+      throw await this.phoneInUseConflict(
+        new PartnerPhoneInUseError(
+          this.phoneNumberService.normalizeToE164(changedPhones[0]) ??
+            changedPhones[0],
+          phoneOwner.id,
+        ),
+      );
+    }
+    if (dto.email || dto.taxNumber || dto.commercialRegistration) {
       await this.assertNoDuplicate(
-        [
-          (data.phone as string | undefined) ?? existing.phone ?? undefined,
-          (data.mobile as string | undefined) ?? existing.mobile ?? undefined,
-        ],
+        [],
         dto.email ?? existing.email ?? undefined,
         dto.taxNumber ?? existing.taxNumber ?? undefined,
         dto.commercialRegistration ??
@@ -258,7 +335,16 @@ export class PartnersService extends MasterDataCrudService<
         const partner = await tx.partner.update({
           where: { id },
           data: { ...data, updatedBy: userId ?? null },
+          include: { country: { select: { code: true } } },
         });
+        await syncPartnerPhoneKeys(
+          tx,
+          this.phoneNumberService,
+          id,
+          existing,
+          partner,
+          partner.country?.code,
+        );
         if (dto.customerProfile && existing.customerProfile) {
           await tx.customerProfile.update({
             where: { partnerId: id },
@@ -298,8 +384,80 @@ export class PartnersService extends MasterDataCrudService<
       });
       return this.findOne(id);
     } catch (error) {
+      if (error instanceof PartnerPhoneInUseError) {
+        throw await this.phoneInUseConflict(error);
+      }
       throw this.mapError(error);
     }
+  }
+
+  /**
+   * Soft-delete (O3): the archive and the release of the partner's phone
+   * keys commit together — the number may then be reused.
+   */
+  async archive(id: string, userId?: string) {
+    await this.findOne(id);
+    const archived = await this.prisma.$transaction(async (tx) => {
+      const partner = await tx.partner.update({
+        where: { id },
+        data: { deletedAt: new Date(), updatedBy: userId ?? null },
+      });
+      await releasePartnerPhoneKeys(tx, id);
+      return partner;
+    });
+    await this.activityLog.log(
+      this.entityType,
+      id,
+      'ARCHIVED',
+      `${this.entityLabel} archived`,
+      userId,
+    );
+    return archived;
+  }
+
+  /**
+   * Restore re-claims the numbers in the same transaction; refused (409)
+   * when another live partner holds one now.
+   */
+  async restore(id: string, userId?: string) {
+    const existing = await this.prisma.partner.findFirst({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException(`${this.entityLabel} ${id} not found`);
+    }
+    let restored: Prisma.PartnerGetPayload<object>;
+    try {
+      restored = await this.prisma.$transaction(async (tx) => {
+        const partner = await tx.partner.update({
+          where: { id },
+          data: { deletedAt: null, updatedBy: userId ?? null },
+          include: { country: { select: { code: true } } },
+        });
+        const conflict = await claimPartnerPhoneKeys(
+          tx,
+          id,
+          partnerPhoneKeys(
+            this.phoneNumberService,
+            partner,
+            partner.country?.code,
+          ),
+        );
+        if (conflict) throw conflict;
+        return partner;
+      });
+    } catch (error) {
+      if (error instanceof PartnerPhoneInUseError) {
+        throw await this.phoneInUseConflict(error);
+      }
+      throw error;
+    }
+    await this.activityLog.log(
+      this.entityType,
+      id,
+      'RESTORED',
+      `${this.entityLabel} restored`,
+      userId,
+    );
+    return restored;
   }
 
   private async createProfileForRole(
@@ -510,8 +668,21 @@ export class PartnersService extends MasterDataCrudService<
       );
       return { partner, created: false };
     }
-    const partner = await this.create({ ...rest, roles: [role] }, userId);
-    return { partner, created: true };
+    try {
+      const partner = await this.create({ ...rest, roles: [role] }, userId);
+      return { partner, created: true };
+    } catch (error) {
+      // O3 race: a concurrent create claimed the same number first — reuse it.
+      const winnerId = phoneInUsePartnerId(error);
+      if (!winnerId) throw error;
+      const partner = await this.useExistingWithRole(
+        winnerId,
+        role,
+        userId,
+        options,
+      );
+      return { partner, created: false };
+    }
   }
 
   /**
@@ -538,20 +709,6 @@ export class PartnersService extends MasterDataCrudService<
       );
     }
     return hasRole ? full : this.assignRole(partnerId, role, userId);
-  }
-
-  /**
-   * Round 5 Spec 1B — a new CUSTOMER for a company order whose phone matched
-   * only an agent-owned customer (cross-scope): the agent's Partner is never
-   * adopted; email / tax number / CR dedup still applies.
-   */
-  async createSeparateCustomer(
-    dto: Omit<FindOrCreatePartnerDto, 'role'>,
-    userId?: string,
-  ) {
-    return this.create({ ...dto, roles: [PartnerRoleType.CUSTOMER] }, userId, {
-      skipPhoneDedup: true,
-    });
   }
 
   /** Reused by every Sales/Purchasing document service — "no inactive partners, and only ones holding the right role" enforced once here. */
@@ -769,7 +926,11 @@ export class PartnersService extends MasterDataCrudService<
     const normalizedPhones = [
       ...new Set(
         phones
-          .map((p) => this.phoneNumberService.normalizeToE164(p, defaultRegion))
+          // O3 — same normalization as the phone keys (region, then the
+          // primary markets), so a lookup and a key never disagree.
+          .map((p) =>
+            partnerPhoneKey(this.phoneNumberService, p, defaultRegion),
+          )
           .filter((p): p is string => !!p),
       ),
     ];
@@ -781,15 +942,132 @@ export class PartnersService extends MasterDataCrudService<
         OR: [{ phone: { not: null } }, { mobile: { not: null } }],
         ...(excludingId ? { id: { not: excludingId } } : {}),
       },
+      include: { country: { select: { code: true } } },
     });
-    return candidates.filter((partner) => {
+    const matches = candidates.filter((partner) => {
       const candidatePhones = [
-        this.phoneNumberService.normalizeToE164(partner.phone),
-        this.phoneNumberService.normalizeToE164(partner.mobile),
+        partnerPhoneKey(
+          this.phoneNumberService,
+          partner.phone,
+          partner.country?.code,
+        ),
+        partnerPhoneKey(
+          this.phoneNumberService,
+          partner.mobile,
+          partner.country?.code,
+        ),
       ];
       return candidatePhones.some(
         (value) => value !== null && normalizedPhones.includes(value),
       );
+    });
+    if (matches.length < 2) return matches;
+    // O3 — the key owner (the one customer of this number) first, then the
+    // oldest record: legacy duplicates always resolve to the same partner.
+    const owners = new Set(
+      (
+        await this.prisma.partnerPhoneKey.findMany({
+          where: { phoneE164: { in: normalizedPhones } },
+          select: { partnerId: true },
+        })
+      ).map((key) => key.partnerId),
+    );
+    return matches.sort(
+      (a, b) =>
+        Number(owners.has(b.id)) - Number(owners.has(a.id)) ||
+        a.createdAt.getTime() - b.createdAt.getTime(),
+    );
+  }
+
+  /**
+   * O3 — the one partner of a phone number (key owner, else the oldest
+   * holder of a legacy duplicate), or null.
+   */
+  async findByPhone(phone: string) {
+    return (await this.findPhoneMatches([phone]))[0] ?? null;
+  }
+
+  /**
+   * O3 — legacy duplicate groups: live partners sharing a normalized phone
+   * (records created before one phone = one customer). Read-only — never
+   * merged automatically; the key owner is the record new orders attach to.
+   */
+  async legacyPhoneDuplicateGroups() {
+    const partners = await this.prisma.partner.findMany({
+      where: {
+        deletedAt: null,
+        OR: [{ phone: { not: null } }, { mobile: { not: null } }],
+      },
+      select: {
+        id: true,
+        partnerNumber: true,
+        name: true,
+        phone: true,
+        mobile: true,
+        createdAt: true,
+        country: { select: { code: true } },
+        roles: { select: { role: true } },
+        _count: { select: { storeOrders: { where: { deletedAt: null } } } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    const byPhone = new Map<string, typeof partners>();
+    for (const partner of partners) {
+      const keys = partnerPhoneKeys(
+        this.phoneNumberService,
+        partner,
+        partner.country?.code,
+      );
+      for (const { phone } of keys) {
+        const group = byPhone.get(phone) ?? [];
+        if (!group.some((row) => row.id === partner.id)) group.push(partner);
+        byPhone.set(phone, group);
+      }
+    }
+    const isCustomer = (partner: (typeof partners)[number]) =>
+      partner.roles.some((r) => r.role === PartnerRoleType.CUSTOMER);
+    // Customer duplicates only; another identity sharing the number (an
+    // employee, investor, supplier…) is listed as a masked internal record.
+    const duplicates = [...byPhone.entries()].filter(
+      ([, group]) => group.length > 1 && group.some(isCustomer),
+    );
+    const owners = new Map<string, string>();
+    for (const phones of chunks(duplicates.map(([phone]) => phone))) {
+      const keys = await this.prisma.partnerPhoneKey.findMany({
+        where: { phoneE164: { in: phones } },
+        select: { phoneE164: true, partnerId: true },
+      });
+      for (const key of keys) owners.set(key.phoneE164, key.partnerId);
+    }
+    return duplicates.map(([phone, group]) => {
+      const ownerId = owners.get(phone) ?? null;
+      return {
+        phone,
+        keyOwnerId: group.some((p) => p.id === ownerId && isCustomer(p))
+          ? ownerId
+          : null,
+        partners: group.map((partner) =>
+          isCustomer(partner)
+            ? {
+                id: partner.id,
+                partnerNumber: partner.partnerNumber,
+                name: partner.name,
+                internalRecord: false,
+                createdAt: partner.createdAt,
+                orderCount: partner._count.storeOrders,
+                keyOwner: ownerId === partner.id,
+              }
+            : {
+                id: null,
+                partnerNumber: null,
+                name: null,
+                internalRecord: true,
+                createdAt: partner.createdAt,
+                orderCount: partner._count.storeOrders,
+                keyOwner: ownerId === partner.id,
+              },
+        ),
+      };
     });
   }
 
@@ -800,15 +1078,30 @@ export class PartnersService extends MasterDataCrudService<
     const targets = new Set(normalizedPhones.filter(Boolean));
     const result = new Map<string, Prisma.PartnerGetPayload<object>>();
     if (targets.size === 0) return result;
+    // O3 — the key owner of a number is its one customer; unkeyed legacy
+    // rows fall back to the oldest record storing it.
+    for (const phones of chunks([...targets])) {
+      const keyed = await this.prisma.partnerPhoneKey.findMany({
+        where: { phoneE164: { in: phones }, partner: { deletedAt: null } },
+        select: { phoneE164: true, partner: true },
+      });
+      for (const key of keyed) result.set(key.phoneE164, key.partner);
+    }
     const candidates = await this.prisma.partner.findMany({
       where: {
         deletedAt: null,
         OR: [{ phone: { not: null } }, { mobile: { not: null } }],
       },
+      orderBy: { createdAt: 'asc' },
+      include: { country: { select: { code: true } } },
     });
     for (const partner of candidates) {
       for (const raw of [partner.phone, partner.mobile]) {
-        const normalized = this.phoneNumberService.normalizeToE164(raw);
+        const normalized = partnerPhoneKey(
+          this.phoneNumberService,
+          raw,
+          partner.country?.code,
+        );
         if (normalized && targets.has(normalized) && !result.has(normalized)) {
           result.set(normalized, partner);
         }

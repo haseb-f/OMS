@@ -221,7 +221,15 @@ export class AgentPortalOrdersService {
     if (search) {
       where.OR = [
         { internalOrderId: { contains: search, mode: 'insensitive' } },
-        { partner: { name: { contains: search, mode: 'insensitive' } } },
+        // O3 — the customer record may be shared with other scopes: search
+        // the customer as typed on the order (snapshot), never the master
+        // record's name; the mobile is the shared identity itself.
+        {
+          agentTermsSnapshot: {
+            path: ['customer', 'name'],
+            string_contains: search,
+          },
+        },
         { partner: { mobile: { contains: search } } },
         { lead: { leadNumber: { contains: search, mode: 'insensitive' } } },
       ];

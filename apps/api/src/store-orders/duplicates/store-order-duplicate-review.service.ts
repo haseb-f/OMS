@@ -39,8 +39,9 @@ type ReviewOrderRow = Prisma.StoreOrderGetPayload<{
 /**
  * Round 5 Spec 1B — the internal reviewer's side of a cross-scope duplicate
  * (`store-orders.duplicate_review`). The reviewer sees both sides whatever
- * their sales scope: the flagged order and every other customer holding the
- * same phone, with their recent orders. Resolution only records the verdict;
+ * their sales scope: the flagged order, the same customer's orders in the
+ * other scope (O3 — one phone = one customer), and any legacy duplicate
+ * customer holding the same phone, with their recent orders. Resolution only records the verdict;
  * a confirmed duplicate is cancelled through the order's normal flow.
  */
 @Injectable()
@@ -100,6 +101,23 @@ export class StoreOrderDuplicateReviewService {
           partner.id !== order.partner.id &&
           all.findIndex((row) => row.id === partner.id) === index,
       );
+    // O3 — a cross-scope match now shares the customer record: the other
+    // side is this customer's orders in another scope (company ↔ agent,
+    // agent ↔ agent).
+    const otherScope: Prisma.StoreOrderWhereInput = order.agent
+      ? { OR: [{ agentId: null }, { agentId: { not: order.agent.id } }] }
+      : { agentId: { not: null } };
+    const sameCustomerOrders = await this.prisma.storeOrder.findMany({
+      where: {
+        partnerId: order.partner.id,
+        deletedAt: null,
+        id: { not: order.id },
+        ...otherScope,
+      },
+      select: REVIEW_ORDER_SELECT,
+      orderBy: [{ orderDate: 'desc' }, { id: 'desc' }],
+      take: 5,
+    });
     const otherOrders = others.length
       ? await this.prisma.storeOrder.findMany({
           where: {
@@ -128,20 +146,31 @@ export class StoreOrderDuplicateReviewService {
         reviewedAt: order.duplicateReviewedAt,
         reviewNote: order.duplicateReviewNote,
       },
-      matches: others
-        .map((partner) => ({
+      matches: [
+        {
+          customer: {
+            id: order.partner.id,
+            partnerNumber: order.partner.partnerNumber,
+            name: order.partner.name,
+            phone: order.partner.mobile ?? order.partner.phone,
+          },
+          sameCustomer: true,
+          orders: sameCustomerOrders.map((row) => this.presentOrder(row)),
+        },
+        ...others.map((partner) => ({
           customer: {
             id: partner.id,
             partnerNumber: partner.partnerNumber,
             name: partner.name,
             phone: partner.mobile ?? partner.phone,
           },
+          sameCustomer: false,
           orders: otherOrders
             .filter((row) => row.partnerId === partner.id)
             .slice(0, 5)
             .map((row) => this.presentOrder(row)),
-        }))
-        .filter((match) => match.orders.length > 0),
+        })),
+      ].filter((match) => match.orders.length > 0),
     };
   }
 

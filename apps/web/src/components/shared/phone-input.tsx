@@ -16,6 +16,7 @@ import {
   getCallingCode,
   getExampleNumber,
   getPhonePlaceholder,
+  phoneCountryOrDefault,
   phoneInputDisplayValue,
   resolvePastedPhone,
   type PhoneErrorReason,
@@ -44,7 +45,7 @@ export function OMSPhoneInput({
   value,
   onChange,
   onBlur,
-  countryCode,
+  countryCode: selectedCountryCode,
   onCountryChange,
   availableCountryCodes,
   forceValidation,
@@ -58,7 +59,7 @@ export function OMSPhoneInput({
   value: string | null | undefined;
   onChange: (value: string) => void;
   onBlur?: () => void;
-  /** ISO2 region code of the phone's country — determines the "+CC" prefix and every validation/format rule. `null` while no country is selected yet. */
+  /** ISO2 region code of the phone's country — determines the "+CC" prefix and every validation/format rule. `null` while no country is selected yet → Saudi Arabia (O2 default). */
   countryCode: string | null | undefined;
   /** When the form owns the country: offered as an explicit "Switch country to …" action on a calling-code conflict. Never called automatically. */
   onCountryChange?: (iso2: CountryCode) => void;
@@ -73,6 +74,9 @@ export function OMSPhoneInput({
   id?: string;
 }) {
   const { t } = useLocale();
+  // O2 — no selected country means the platform default (Saudi Arabia).
+  // A legacy value stored without "+" keeps the market it is valid for.
+  const countryCode = phoneCountryOrDefault(selectedCountryCode, value);
   const [draft, setDraft] = useState(() => phoneInputDisplayValue(value, countryCode));
   const [isFocused, setIsFocused] = useState(false);
   const [touched, setTouched] = useState(false);
@@ -276,5 +280,5 @@ export function isPhoneValidForCountry(
   countryCode: string | null | undefined,
 ): boolean {
   if (!value?.trim()) return false;
-  return parsePhone(value, countryCode).isValid;
+  return parsePhone(value, phoneCountryOrDefault(countryCode, value)).isValid;
 }

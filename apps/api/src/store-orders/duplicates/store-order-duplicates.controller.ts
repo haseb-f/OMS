@@ -19,6 +19,7 @@ import {
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { StoreOrderDuplicatesService } from './store-order-duplicates.service';
 import { StoreOrderDuplicateReviewService } from './store-order-duplicate-review.service';
+import { PartnersService } from '../../partners/partners.service';
 import {
   DuplicateCheckDto,
   ResolveDuplicateReviewDto,
@@ -37,6 +38,7 @@ export class StoreOrderDuplicatesController {
   constructor(
     private readonly duplicates: StoreOrderDuplicatesService,
     private readonly reviews: StoreOrderDuplicateReviewService,
+    private readonly partners: PartnersService,
   ) {}
 
   /** Any-of order-creating permission, checked in the service (the guard maps one route to one permission). */
@@ -46,6 +48,16 @@ export class StoreOrderDuplicatesController {
   async check(@Body() dto: DuplicateCheckDto, @CurrentUser() user: JwtPayload) {
     const scope = await this.duplicates.internalScope(user.sub, dto.agentId);
     return this.duplicates.check(dto, scope);
+  }
+
+  /**
+   * O3 — legacy duplicate customers (records sharing a phone, created before
+   * one phone = one customer). Read-only, never merged automatically.
+   */
+  @Get('duplicates/phone-groups')
+  @PermissionAction('duplicate_review')
+  phoneGroups() {
+    return this.partners.legacyPhoneDuplicateGroups();
   }
 
   @Get(':id/duplicate-review')

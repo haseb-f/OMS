@@ -1100,14 +1100,19 @@ describe('Agents B1 — admin + orders (integration)', () => {
         agent: ctx,
       });
 
-    it('S1: an agent customer never adopts or updates a shared partner; dedup stays inside the agent', async () => {
-      const mobile = phone();
+    // O3 (owner decision 2026-10-01) supersedes the S1 "dedup stays inside
+    // the agent" rule: one phone = one customer across scopes. Still S1: a
+    // matched partner is never updated. Integrator decision: no identity
+    // oracle — an employee record holding the phone is attached too (only the
+    // CUSTOMER role is added) and the order flagged for internal review.
+    it('S1 + O3: an agent customer reuses the one record of a phone without updating it, whatever its identity', async () => {
+      const employeeMobile = phone();
       const company = await prisma.partner.create({
         data: {
           partnerNumber: `PT-S1-${tag}`,
           name: `Company Employee ${tag}`,
-          mobile,
-          phone: mobile,
+          mobile: employeeMobile,
+          phone: employeeMobile,
           address: 'COMPANY ADDRESS',
           city: 'Company City',
           roles: { create: { role: PartnerRoleType.EMPLOYEE } },
@@ -1115,7 +1120,7 @@ describe('Agents B1 — admin + orders (integration)', () => {
       });
       const typed = {
         name: `Typed Customer ${tag}`,
-        mobile,
+        mobile: employeeMobile,
         countryId: egId,
         city: 'Giza',
         address: 'Agent typed address',
@@ -1123,17 +1128,31 @@ describe('Agents B1 — admin + orders (integration)', () => {
         email: `leak-${lower}@test.local`,
         taxNumber: `TAX-${tag}`,
       } as CreateAgentOrderDto['customer'];
-      const first = await agentOrderBy(salesCtx, { customer: typed });
-      expect(first.partnerId).not.toBe(company.id);
+      const onEmployee = await agentOrderBy(salesCtx, {
+        customer: typed,
+        duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' },
+      });
+      expect(onEmployee.partnerId).toBe(company.id);
+      expect(onEmployee.duplicateReviewStatus).toBe('PENDING');
       const untouched = await prisma.partner.findUniqueOrThrow({
         where: { id: company.id },
         include: { roles: true },
       });
       expect(untouched).toMatchObject({
+        name: `Company Employee ${tag}`,
         address: 'COMPANY ADDRESS',
         city: 'Company City',
+        email: null,
+        taxNumber: null,
       });
-      expect(untouched.roles.map((r) => r.role)).toEqual(['EMPLOYEE']);
+      expect(untouched.roles.map((r) => r.role).sort()).toEqual([
+        'CUSTOMER',
+        'EMPLOYEE',
+      ]);
+
+      const mobile = phone();
+      const customer = { ...typed, mobile };
+      const first = await agentOrderBy(salesCtx, { customer });
       const created = await prisma.partner.findUniqueOrThrow({
         where: { id: first.partnerId },
       });
@@ -1156,7 +1175,7 @@ describe('Agents B1 — admin + orders (integration)', () => {
       // never rewritten (the new address lives on the new order only).
       // (Spec 1B: the repeat is an acknowledged new order for that customer.)
       const second = await agentOrderBy(salesCtx, {
-        customer: { ...typed, address: 'Second address' },
+        customer: { ...customer, address: 'Second address' },
         duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' },
       });
       expect(second.partnerId).toBe(first.partnerId);
@@ -1168,20 +1187,30 @@ describe('Agents B1 — admin + orders (integration)', () => {
         ).address,
       ).toBe('Agent typed address');
 
-      // Another agent never lands on agent A's customer.
+      // O3 — another agent lands on the same customer record (was: a new
+      // customer), flagged for review, the record untouched.
       const other = await orders.createAgentOrder(
         orderInput({
           lines: [{ productId: agentBProductId, quantity: 1, lineAmount: 50 }],
           fulfillmentMethod: 'PICKUP',
-          customer: typed,
-          // Spec 1B: cross-scope match → created in agent B, flagged for review.
+          customer: { ...customer, name: `Agent B typed ${tag}` },
           duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' },
         }),
         { userId: adminId },
       );
       expect(other.agentId).toBe(agentBId);
       expect(other.duplicateReviewStatus).toBe('PENDING');
-      expect([first.partnerId, company.id]).not.toContain(other.partnerId);
+      expect(other.partnerId).toBe(first.partnerId);
+      expect(other.agentTermsSnapshot).toMatchObject({
+        customer: { name: `Agent B typed ${tag}` },
+      });
+      expect(
+        (
+          await prisma.partner.findUniqueOrThrow({
+            where: { id: first.partnerId },
+          })
+        ).name,
+      ).toBe(typed.name);
 
       // Lead conversion follows the same rule.
       const lead = await agentLeads.create(salesCtx, {
@@ -1199,7 +1228,7 @@ describe('Agents B1 — admin + orders (integration)', () => {
         },
         { userId: salesCtx.userId, agent: salesCtx },
       );
-      expect(converted.partnerId).not.toBe(company.id);
+      expect(converted.partnerId).toBe(first.partnerId);
       expect(converted.agentTermsSnapshot).toMatchObject({
         customer: { name: `Lead Customer ${tag}`, city: 'Alexandria' },
       });

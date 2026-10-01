@@ -12,6 +12,10 @@ import { allocateMinor, type AgentPricingMode } from './agent-order-pricing';
  *  - SHIPPING_ADDED: merchandise unchanged; customer shipping = fee. A higher
  *    payable than the provisional one needs the customer's agreement (never
  *    silently re-billed); an equal or lower payable is applied at once.
+ *  - A MANUAL customer shipping charge (authorized override) is the price the
+ *    customer agreed to: the confirmed fee changes only the agent side, so the
+ *    customer amounts stay exactly as they are (owner decision O1 — the
+ *    company bears / keeps the difference).
  */
 export interface RepriceInput {
   mode: AgentPricingMode;
@@ -28,6 +32,8 @@ export interface RepriceInput {
     listAmount?: number | null;
   }>;
   fee: number;
+  /** The customer shipping charge was set by an authorized manual override. */
+  manualShippingCharge?: boolean;
 }
 
 export type RepriceResult =
@@ -61,6 +67,16 @@ const toMinor = (value: number) => Math.round(value * 100);
 const fromMinor = (minor: number) => minor / 100;
 
 export function repriceForConfirmedFee(input: RepriceInput): RepriceResult {
+  if (input.manualShippingCharge) {
+    return {
+      kind: 'APPLY',
+      shippingCharge: input.shippingCharge,
+      merchandiseAmount: input.merchandiseAmount,
+      payableTotal: input.payableTotal,
+      lines: null,
+      discountAmount: null,
+    };
+  }
   const fee = toMinor(input.fee);
   const tax = toMinor(input.taxAmount);
   const service = toMinor(input.serviceCharge);

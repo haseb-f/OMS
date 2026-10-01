@@ -6,10 +6,8 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
-  PartnerEntityType,
   PartnerRoleType,
   PartnerSource,
-  PartnerStatus,
   PaymentOrigin,
   Prisma,
   StatusChangeSource,
@@ -33,6 +31,8 @@ import { derivedUnitPrice } from '../store-orders/store-order-line-amount';
 import { declarePaymentInTx } from '../store-orders/payment-declaration/payment-declaration.core';
 import { ORDER_PAYMENT_STATUS_CODE } from './workflow-status-map';
 import { resolveAgentCustomerPartner } from '../agents/orders/agent-customer';
+import { PhoneNumberService } from '../common/phone/phone-number.service';
+import { findOrCreateCustomerPartnerTx } from '../partners/partner-phone-keys';
 import {
   duplicateOrderColumns,
   logDuplicateDecision,
@@ -129,6 +129,7 @@ export class WorkflowEngineService {
     private readonly numberingEngine: NumberingEngineService,
     private readonly salesScope: SalesScopeService,
     private readonly attachments: AttachmentsService,
+    private readonly phones: PhoneNumberService,
   ) {}
 
   async getAvailableActions(
@@ -782,21 +783,20 @@ export class WorkflowEngineService {
       address: payload?.address !== undefined ? payload.address : lead.address,
     };
 
-    // Agent leads (S1): the customer is resolved among the agent's own
-    // customers only — never the shared phone match, never an update of an
-    // existing Partner (the typed customer is frozen on the order snapshot).
-    // Spec 1B: a customer confirmed through the duplicate check is reused
-    // (a lead already linked to a Partner keeps that Partner).
+    // O3 — one phone number = one customer: the partner owning the phone is
+    // reused in any scope (agent leads never update it; the typed customer
+    // is frozen on the order snapshot). Spec 1B: a customer confirmed
+    // through the duplicate check is reused (a lead already linked to a
+    // Partner keeps that Partner).
     const confirmedPartnerId = payload?.duplicate?.partnerId ?? null;
     const partnerId = agentOrder
-      ? (confirmedPartnerId ??
-        (await resolveAgentCustomerPartner(
+      ? await resolveAgentCustomerPartner(
           tx,
-          this.numberingEngine,
-          agentOrder.agentId,
+          { numbering: this.numberingEngine, phones: this.phones },
           agentOrder.customer,
           userId,
-        )))
+          confirmedPartnerId,
+        )
       : await this.resolvePartnerForLead(
           {
             ...shippingLead,
@@ -804,8 +804,6 @@ export class WorkflowEngineService {
           },
           userId,
           tx,
-          // Cross-scope (an agent-owned customer): never adopted.
-          { skipPhoneMatch: !!payload?.duplicate?.reviewPending },
         );
 
     await tx.lead.update({
@@ -817,7 +815,8 @@ export class WorkflowEngineService {
       !agentOrder &&
       (payload?.city !== undefined ||
         payload?.address !== undefined ||
-        payload?.countryId)
+        payload?.countryId) &&
+      (await this.isExclusiveCompanyCustomer(tx, partnerId))
     ) {
       await tx.partner.update({
         where: { id: partnerId },
@@ -1100,6 +1099,38 @@ export class WorkflowEngineService {
   }
 
   /**
+   * O3 — the conversion's destination may update the customer master only
+   * when it is exclusively a company customer (CUSTOMER role only, no agent
+   * order or agent lead): a record shared with an agent scope or another
+   * identity (employee, investor, supplier…) is never rewritten — the
+   * destination still lives on the order.
+   */
+  private async isExclusiveCompanyCustomer(
+    tx: Prisma.TransactionClient,
+    partnerId: string,
+  ) {
+    const partner = await tx.partner.findUniqueOrThrow({
+      where: { id: partnerId },
+      select: {
+        roles: { select: { role: true } },
+        agent: { select: { id: true } },
+        _count: {
+          select: {
+            storeOrders: { where: { agentId: { not: null } } },
+            leads: { where: { agentId: { not: null } } },
+          },
+        },
+      },
+    });
+    return (
+      !partner.agent &&
+      partner.roles.every((r) => r.role === PartnerRoleType.CUSTOMER) &&
+      partner._count.storeOrders === 0 &&
+      partner._count.leads === 0
+    );
+  }
+
+  /**
    * Partner resolution at conversion boundary — never at Lead create.
    * Reuses existing Partner matched by phone; otherwise creates Partner +
    * CUSTOMER role. All writes use the caller's transaction.
@@ -1116,7 +1147,6 @@ export class WorkflowEngineService {
     },
     userId: string,
     tx: Prisma.TransactionClient,
-    options: { skipPhoneMatch?: boolean } = {},
   ): Promise<string> {
     if (lead.partnerId) {
       const existing = await tx.partner.findFirst({
@@ -1141,60 +1171,23 @@ export class WorkflowEngineService {
       return existing.id;
     }
 
-    const phoneMatch = options.skipPhoneMatch
-      ? null
-      : await tx.partner.findFirst({
-          where: {
-            deletedAt: null,
-            OR: [{ phone: lead.mobileNumber }, { mobile: lead.mobileNumber }],
-          },
-          include: { roles: true, customerProfile: true },
-        });
-
-    if (phoneMatch) {
-      if (!phoneMatch.roles.some((r) => r.role === PartnerRoleType.CUSTOMER)) {
-        await tx.partnerRoleAssignment.create({
-          data: {
-            partnerId: phoneMatch.id,
-            role: PartnerRoleType.CUSTOMER,
-            createdBy: userId,
-          },
-        });
-        if (!phoneMatch.customerProfile) {
-          await tx.customerProfile.create({
-            data: { partnerId: phoneMatch.id },
-          });
-        }
-      }
-      return phoneMatch.id;
-    }
-
-    const partnerNumber = await this.numberingEngine.generateNumber('PARTNER');
-    const partner = await tx.partner.create({
-      data: {
-        partnerNumber,
+    // O3 — the partner owning the phone (any scope) is reused; otherwise a
+    // new CUSTOMER partner is created, race-safe through partner_phone_keys.
+    const { partnerId } = await findOrCreateCustomerPartnerTx(
+      tx,
+      { numbering: this.numberingEngine, phones: this.phones },
+      {
         name: lead.customerName,
         phone: lead.mobileNumber,
         mobile: lead.mobileNumber,
         countryId: lead.countryId,
         city: lead.city,
         address: lead.address,
-        entityType: PartnerEntityType.PERSON,
-        status: PartnerStatus.ACTIVE,
         source: PartnerSource.LEAD_CONVERSION,
-        createdBy: userId,
-        updatedBy: userId,
       },
-    });
-    await tx.partnerRoleAssignment.create({
-      data: {
-        partnerId: partner.id,
-        role: PartnerRoleType.CUSTOMER,
-        createdBy: userId,
-      },
-    });
-    await tx.customerProfile.create({ data: { partnerId: partner.id } });
-    return partner.id;
+      userId,
+    );
+    return partnerId;
   }
 
   async getStatusHistory(entityType: string, entityId: string) {

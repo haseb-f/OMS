@@ -51,6 +51,9 @@ const PORTAL_BASIS_KEYS = [
   'returnNumber',
   'agreementNumber',
   'shippingCharge',
+  // O1 — the agent sees the customer shipping (C) and its contractual
+  // shipping fee (F) only, never the difference attribution.
+  'agentShippingCharge',
   'serviceFeePerOrder',
   'customerServiceCharge',
   'paymentNumber',

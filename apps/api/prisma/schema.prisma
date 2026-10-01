@@ -4600,6 +4600,9 @@ model Partner {
   prepaidExpenses     PrepaidExpense[]
   accruedExpenses     AccruedExpense[]
 
+  /// Owner decision O3 — the normalized numbers this partner owns.
+  phoneKeys PartnerPhoneKey[]
+
   /// Dedup lookup (spec section 14: phone/email/tax number/CR) that
   /// PartnersService.create() runs on every write — same indexing rationale
   /// the former CustomersService.create() used.
@@ -4610,6 +4613,30 @@ model Partner {
   @@index([commercialRegistration])
   @@index([deletedAt, name])
   @@map("partners")
+}
+
+enum PartnerPhoneKind {
+  PHONE
+  MOBILE
+}
+
+/// Owner decision O3 (2026-10-01) — one phone number = one customer. The
+/// normalized E.164 number of a partner's phone / mobile, unique across all
+/// partners: the race-safe key every partner phone write claims inside its
+/// own transaction (a concurrent create of the same new number ends with
+/// ONE partner). Legacy duplicates are never merged: the backfill keys the
+/// oldest record and the others are listed for review. The FK is DEFERRABLE
+/// INITIALLY DEFERRED (migration SQL) so a create can claim the number
+/// before the partner row exists.
+model PartnerPhoneKey {
+  phoneE164 String           @id @map("phone_e164")
+  partnerId String           @map("partner_id") @db.Uuid
+  partner   Partner          @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  kind      PartnerPhoneKind
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  @@index([partnerId])
+  @@map("partner_phone_keys")
 }
 
 /// One row per role a Partner holds. `@@unique([partnerId, role])` is what

@@ -159,8 +159,10 @@ describe('Global Customer/Order Lookup', () => {
     });
 
     it('returns null (not an error) for a phone with no Customer', async () => {
+      // A random number — a fixed one may belong to a legacy customer of the
+      // shared dev DB (stored without "+", matched via the SA fallback).
       const result = await partners.globalLookupByPhone(
-        '+966500000099',
+        `+9665${Math.floor(10_000_000 + Math.random() * 89_999_999)}`,
         userId,
       );
       expect(result).toBeNull();

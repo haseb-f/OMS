@@ -30,6 +30,7 @@ import { AgentUsersService } from '../../agents/admin/agent-users.service';
 import type { CreateAgreementDto } from '../../agents/admin/dto/agreement.dto';
 import type { AgentOrderSnapshot } from '../../agents/common/agent-terms';
 import { leakedKeys } from '../../agents/pricing/leaked-keys.test-util';
+import { PartnersService } from '../../partners/partners.service';
 
 /**
  * Round 5 Spec 1A — order amendments until delivery over the real HTTP
@@ -913,6 +914,56 @@ describe('Spec 1A — order amendments (HTTP integration)', () => {
     expect(foreign.status).toBe(200);
     expect(codes(foreign.body)).toContain('CUSTOMER_OUT_OF_SCOPE');
     expect(foreign.body.canCommit).toBe(false);
+  });
+
+  it('O3 — correcting the customer phone to a number another customer holds is blocked', async () => {
+    const order = await companyOrder();
+    const other = await companyOrder();
+    const otherPhone = (
+      await prisma.partner.findUniqueOrThrow({
+        where: { id: other.partnerId },
+      })
+    ).phone!;
+    const taken = await preview(users.sales, order.id, {
+      customer: { phone: otherPhone },
+    });
+    expect(taken.status).toBe(200);
+    expect(codes(taken.body)).toContain('CUSTOMER_PHONE_IN_USE');
+    expect(taken.body.canCommit).toBe(false);
+
+    // Also a customer record without any order (keyed by the partner CRUD).
+    const partners = moduleRef.get(PartnersService, { strict: false });
+    const bare = await partners.create({
+      name: `Amend bare ${next()}`,
+      phone: phone(),
+      countryId: egId,
+      roles: ['CUSTOMER'],
+    });
+    const bareTaken = await preview(users.sales, order.id, {
+      customer: { phone: bare.phone! },
+    });
+    expect(codes(bareTaken.body)).toContain('CUSTOMER_PHONE_IN_USE');
+
+    // A free number is accepted and re-keys the customer.
+    const free = phone();
+    const ok = await preview(users.sales, order.id, {
+      customer: { phone: free },
+    });
+    expect(codes(ok.body)).not.toContain('CUSTOMER_PHONE_IN_USE');
+    const done = await commit(users.sales, order.id, {
+      changes: { customer: { phone: free } },
+      expectedVersion: 0,
+      impactsFingerprint: ok.body.impactsFingerprint,
+      acknowledgements: ok.body.impacts
+        .filter((i: { severity: string }) => i.severity === 'ACKNOWLEDGE')
+        .map((i: { code: string }) => i.code),
+    });
+    expect(done.status).toBe(201);
+    const saved = await prisma.partner.findUniqueOrThrow({
+      where: { id: order.partnerId },
+      include: { phoneKeys: true },
+    });
+    expect(saved.phoneKeys.map((k) => k.phoneE164)).toEqual([saved.phone]);
   });
 
   it('MEDIUM 4 — a cancelled store-order invoice cannot return to draft while another invoice exists', async () => {

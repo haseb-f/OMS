@@ -21,6 +21,11 @@ pnpm --filter api exec prisma generate
 pnpm --filter api exec ts-node prisma/provision-permissions.ts \
   || echo "provision-permissions.ts failed (non-fatal) — see above."
 
+# O3 (one phone number = one customer) — keys existing partner numbers;
+# idempotent and additive, duplicates are only reported. Non-fatal, same
+# rule as above.
+pnpm --filter api exec ts-node prisma/scripts/backfill-partner-phone-keys.ts   || echo "backfill-partner-phone-keys.ts failed (non-fatal) — see above."
+
 if [ -n "${QA_PASSWORD:-}" ]; then
   pnpm --filter api exec ts-node prisma/scripts/ensure-qa-users.ts \
     || echo "ensure-qa-users.ts failed (non-fatal) — see above."

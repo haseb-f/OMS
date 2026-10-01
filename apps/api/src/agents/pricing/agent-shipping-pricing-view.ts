@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { netConfirmedCarrierCost } from '../../carrier-reconciliation/carrier-charge-net';
 import type { AgentOrderSnapshot } from '../common/agent-terms';
+import { settleAgentShipping } from '../commission/agent-commission';
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 const num = (value: Prisma.Decimal | number | null | undefined) =>
@@ -72,10 +73,15 @@ export function agentShippingPricingView(
  * INTERNAL ONLY (spec 2B): contractual agent shipping fee (2) vs the actual
  * carrier cost (3) → company shipping margin. Actual = net CONFIRMED carrier
  * charges in the agent's currency; otherwise the shipment's operational
- * estimate. Never serialized into any agent-portal response.
+ * estimate. O1: the customer shipping (1) vs the fee (2) difference is the
+ * company's (borne when short, kept when in excess). Never serialized into
+ * any agent-portal response.
  */
 export function agentShippingEconomics(
-  order: { agentTermsSnapshot: unknown },
+  order: {
+    agentTermsSnapshot: unknown;
+    shippingCharge?: Prisma.Decimal | number | null;
+  },
   agentCurrencyCode: string,
   shipments: Array<{
     baseShippingCost: Prisma.Decimal | number | null;
@@ -135,8 +141,21 @@ export function agentShippingEconomics(
       : basis === 'ESTIMATE'
         ? estimate
         : null;
+  const customerShipping = num(order.shippingCharge);
+  const settlement =
+    fee != null && customerShipping != null
+      ? settleAgentShipping({
+          customerShipping,
+          predeterminedCharge: fee,
+        })
+      : null;
   return {
     contractualFee: fee,
+    customerShipping,
+    /** C − F: negative = company bears the shortfall, positive = company keeps the excess. */
+    difference: settlement
+      ? { amount: settlement.difference, borneBy: settlement.differenceBorneBy }
+      : null,
     carrierCost: { estimate, actualByCurrency: actual },
     margin:
       fee != null && cost != null

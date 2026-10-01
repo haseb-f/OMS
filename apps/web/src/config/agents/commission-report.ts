@@ -20,18 +20,24 @@ export function carrierCostStage(carrier: CarrierCostStages): CarrierCostStage {
 }
 
 /**
- * How the order's shipping settled (A6): the customer shipping the company
- * retained covers the predetermined agent charge; a difference awaits the
- * owner's decision; orders without an agent charge only retain what was
- * collected (legacy / other policies).
+ * How the order's shipping settled (A6 + owner decision O1): the customer
+ * shipping the company retained covers the predetermined agent charge as if
+ * it equalled the charge — a shortfall is borne by the company, an excess is
+ * kept by the company (internal report only; the portal carries no
+ * difference, so the agent always sees "settled"). Orders without an agent
+ * charge only retain what was collected (legacy / other policies).
  */
-export type ShippingSettlement = "SETTLED" | "DIFFERENCE" | "NO_AGENT_CHARGE";
+export type ShippingSettlement =
+  "SETTLED" | "COMPANY_BEARS_SHORTFALL" | "COMPANY_KEEPS_EXCESS" | "NO_AGENT_CHARGE";
 
 export function shippingSettlement(
   shipping: Pick<CommissionReportOrder["shipping"], "agentShippingCharge" | "difference">,
 ): ShippingSettlement {
   if (shipping.agentShippingCharge == null) return "NO_AGENT_CHARGE";
-  return Math.abs(shipping.difference ?? 0) >= 0.005 ? "DIFFERENCE" : "SETTLED";
+  const difference = shipping.difference ?? 0;
+  if (difference <= -0.005) return "COMPANY_BEARS_SHORTFALL";
+  if (difference >= 0.005) return "COMPANY_KEEPS_EXCESS";
+  return "SETTLED";
 }
 
 /** "SAR 10,000.00 · EGP 1,300.00" — amounts per carrier currency, never summed across currencies. */

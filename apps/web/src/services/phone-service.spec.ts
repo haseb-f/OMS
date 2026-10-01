@@ -1,9 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  DEFAULT_PHONE_COUNTRY,
+  defaultPhoneCountry,
   formatPhoneForDisplay,
   getPhonePlaceholder,
   normalizePhoneDigits,
   parsePhone,
+  legacyPhoneRegion,
+  phoneCountryOrDefault,
   phoneInputDisplayValue,
   preparePhoneInput,
   resolvePastedPhone,
@@ -142,5 +146,45 @@ describe("phone-service display", () => {
     expect(formatPhoneForDisplay("0501234567", "SA")).toBe("+966 50 123 4567");
     expect(formatPhoneForDisplay("call after 5pm")).toBe("call after 5pm");
     expect(formatPhoneForDisplay(null)).toBe("");
+  });
+});
+
+describe("phone-service default country (owner decision O2)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    window.localStorage.clear();
+  });
+
+  it("defaults a new entry to Saudi Arabia, ignoring the browser region and the last-used country", () => {
+    vi.stubGlobal("navigator", { ...navigator, languages: ["ar-EG", "en-GB"], language: "ar-EG" });
+    window.localStorage.setItem("oms.lastPhoneCountry", "EG");
+    expect(DEFAULT_PHONE_COUNTRY).toBe("SA");
+    expect(defaultPhoneCountry(["EG", "GB", "SA"])).toBe("SA");
+    expect(defaultPhoneCountry()).toBe("SA");
+  });
+
+  it("returns null when the form does not offer Saudi Arabia", () => {
+    expect(defaultPhoneCountry(["EG", "AE"])).toBeNull();
+  });
+
+  it("keeps the country the user picked and falls back to SA otherwise", () => {
+    expect(phoneCountryOrDefault("EG")).toBe("EG");
+    expect(phoneCountryOrDefault(null)).toBe("SA");
+    expect(phoneCountryOrDefault("")).toBe("SA");
+    // A national Saudi mobile typed with no country selected parses as +966.
+    expect(parsePhone("0501234567", phoneCountryOrDefault(null)).e164).toBe("+966501234567");
+  });
+});
+
+describe("phone-service legacy values without '+' (O2 fallback)", () => {
+  it("keeps validating and displaying SA / EG / AE numbers stored without '+'", () => {
+    expect(legacyPhoneRegion("0501234567")).toBe("SA");
+    expect(legacyPhoneRegion("01012345678")).toBe("EG");
+    expect(legacyPhoneRegion("+201012345678")).toBeNull();
+    expect(phoneCountryOrDefault(null, "01012345678")).toBe("EG");
+    expect(phoneCountryOrDefault(null, "")).toBe("SA");
+    expect(phoneCountryOrDefault("AE", "01012345678")).toBe("AE");
+    expect(formatPhoneForDisplay("01012345678")).toBe("+20 10 12345678");
+    expect(formatPhoneForDisplay("0501234567")).toBe("+966 50 123 4567");
   });
 });
