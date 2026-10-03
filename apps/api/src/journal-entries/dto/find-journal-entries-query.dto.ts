@@ -10,6 +10,20 @@ import {
   Min,
 } from 'class-validator';
 import { JournalEntryStatus } from '@prisma/client';
+
+/** `sortBy` values the list and `/ids` accept (JournalEntry scalar columns the UI sorts by). */
+export const JOURNAL_ENTRY_SORTABLE_FIELDS = [
+  'entryNumber',
+  'entryDate',
+  'description',
+  'status',
+  'totalDebit',
+  'totalCredit',
+  'referenceNumber',
+  'postedAt',
+  'createdAt',
+  'updatedAt',
+];
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 import {
   TransformEnumList,
@@ -61,7 +75,8 @@ export class FindJournalEntriesQueryDto {
   @IsOptional()
   pageSize?: number = 20;
 
-  @IsString()
+  /** Only real, sortable columns — anything else is a 400, never a Prisma 500. */
+  @IsIn(JOURNAL_ENTRY_SORTABLE_FIELDS)
   @IsOptional()
   sortBy?: string;
 

@@ -162,3 +162,15 @@ describe("CopyButton", () => {
     expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(true);
   });
 });
+
+describe("writeClipboardText — rejected Clipboard API", () => {
+  it("falls back to execCommand when writeText rejects", async () => {
+    writeText.mockRejectedValue(new Error("NotAllowedError"));
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    const execCommand = vi.fn(() => true);
+    Object.defineProperty(document, "execCommand", { configurable: true, value: execCommand });
+    await writeClipboardText("SO-1");
+    expect(writeText).toHaveBeenCalled();
+    expect(execCommand).toHaveBeenCalledWith("copy");
+  });
+});

@@ -13,8 +13,13 @@ import { useLocale } from "@/providers/locale-provider";
  */
 export async function writeClipboardText(value: string): Promise<void> {
   if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
+    try {
+      await navigator.clipboard.writeText(value);
+      return;
+    } catch (error) {
+      // Denied/unfocused document: the legacy path may still work.
+      if (typeof document === "undefined") throw error;
+    }
   }
   if (typeof document === "undefined") throw new Error("clipboard unavailable");
   const area = document.createElement("textarea");

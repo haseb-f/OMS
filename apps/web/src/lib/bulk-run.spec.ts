@@ -86,3 +86,11 @@ describe("summarizeBulkOutcome (shared bulk partial-failure summary)", () => {
     });
   });
 });
+
+describe("summarizeBulkOutcome — empty run", () => {
+  it("0 succeeded + 0 failed is a neutral 'nothing to apply', never success", () => {
+    const summary = summarizeBulkOutcome({ succeeded: 0, failed: [] }, (n) => `${n} done`, "en");
+    expect(summary.tone).toBe("empty");
+    expect(summary.title).toBe("Nothing to apply — no selected record was eligible.");
+  });
+});

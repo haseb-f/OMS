@@ -42,7 +42,7 @@ export interface BulkOutcome {
 }
 
 export interface BulkOutcomeSummary {
-  tone: "success" | "partial" | "failed";
+  tone: "success" | "partial" | "failed" | "empty";
   title: string;
   /** One line per listed failure ("ORD-12: Already shipped"), then "…and N more". */
   description?: string;
@@ -60,9 +60,13 @@ export function summarizeBulkOutcome(
   locale: Locale = currentLocale(),
 ): BulkOutcomeSummary {
   const failedCount = outcome.failed.length;
-  if (failedCount === 0) return { tone: "success", title: success(outcome.succeeded) };
-  const text = (key: Parameters<typeof translate>[1], params: Record<string, number>) =>
+  const text = (key: Parameters<typeof translate>[1], params: Record<string, number> = {}) =>
     translate(messages[locale], key, params);
+  // Nothing was eligible: never a green "0 done".
+  if (failedCount === 0 && outcome.succeeded === 0) {
+    return { tone: "empty", title: text("controls.bulk.nothingToApply") };
+  }
+  if (failedCount === 0) return { tone: "success", title: success(outcome.succeeded) };
   const lines = outcome.failed
     .slice(0, LISTED_FAILURES)
     .map(({ label, message }) => (label ? `${label}: ${message}` : message));
@@ -90,6 +94,10 @@ export function reportBulkOutcome(outcome: BulkOutcome, success: (count: number)
   const summary = summarizeBulkOutcome(outcome, success);
   if (summary.tone === "success") {
     toast.success(summary.title);
+    return summary;
+  }
+  if (summary.tone === "empty") {
+    toast.info(summary.title);
     return summary;
   }
   toast.error(summary.title, { description: summary.description });

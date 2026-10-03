@@ -24,6 +24,7 @@ const controlsAr = {
     partial: "نجح {succeeded}، وتعذّر {failed}",
     allFailed: "تعذّر تنفيذ {failed} — لم يتغيّر أي سجل",
     more: "…و{count} أخرى",
+    nothingToApply: "لا يوجد ما يُطبَّق — لا يوجد سجل محدد مؤهل.",
   },
 } as const;
 

@@ -42,6 +42,17 @@ import { prismaEnumFilter } from '../../common/query/enum-list';
 
 const REFERENCE_TYPE = 'SALES_ORDER_DOC';
 
+/** The list order: `customer` sorts by the partner's name; ties break by id. */
+function salesOrderOrderBy(
+  query: Pick<FindSalesOrdersQueryDto, 'sortBy' | 'sortOrder'>,
+): Prisma.SalesOrderDocumentOrderByWithRelationInput[] {
+  if (query.sortBy === 'customer') {
+    const direction = query.sortOrder ?? 'desc';
+    return [{ partner: { name: direction } }, { id: direction }];
+  }
+  return listOrderBy(query);
+}
+
 @Injectable()
 export class SalesOrdersService {
   constructor(
@@ -238,7 +249,7 @@ export class SalesOrdersService {
           partner: true,
           currency: true,
         },
-        orderBy: listOrderBy(query),
+        orderBy: salesOrderOrderBy(query),
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -255,7 +266,7 @@ export class SalesOrdersService {
       this.prisma.salesOrderDocument.findMany({
         where,
         select: { id: true },
-        orderBy: listOrderBy(query),
+        orderBy: salesOrderOrderBy(query),
         take: BULK_LIMITS.selectIdsMax,
       }),
       this.prisma.salesOrderDocument.count({ where }),

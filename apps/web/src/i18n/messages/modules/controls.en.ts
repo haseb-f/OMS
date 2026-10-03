@@ -25,6 +25,7 @@ const controlsEn = {
     partial: "{succeeded} succeeded, {failed} failed",
     allFailed: "{failed} failed — nothing was changed",
     more: "…and {count} more",
+    nothingToApply: "Nothing to apply — no selected record was eligible.",
   },
 } as const;
 
