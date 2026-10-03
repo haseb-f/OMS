@@ -56,7 +56,7 @@ describe("isMeaningfulLookupQuery", () => {
 describe("AdvancedCustomerLookupButton", () => {
   it("renders nothing without customers.lookup_advanced", () => {
     const { container } = render(<AdvancedCustomerLookupButton />);
-    expect(container).toBeEmptyDOMElement();
+    expect(container.innerHTML).toBe("");
   });
 
   it("shows the trigger with the permission", () => {
@@ -131,7 +131,7 @@ describe("AdvancedCustomerLookupDialog", () => {
     fireEvent.click(screen.getByText("customerLookup.search"));
     await waitFor(() => expect(screen.getByTestId("advanced-lookup-empty")).toBeTruthy());
 
-    advanced.mockRejectedValueOnce(new ApiError(429, "slow down", "LOOKUP_RATE_LIMITED"));
+    advanced.mockRejectedValueOnce(new ApiError(429, "slow down", undefined));
     fireEvent.click(screen.getByText("customerLookup.search"));
     await waitFor(() => expect(screen.getByText("customerLookup.rateLimited")).toBeTruthy());
 

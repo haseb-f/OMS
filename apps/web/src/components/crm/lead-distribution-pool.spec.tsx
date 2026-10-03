@@ -47,7 +47,7 @@ const snapshot = (over: Partial<LeadDistributionSnapshot> = {}): LeadDistributio
 describe("LeadDistributionPool", () => {
   it("renders nothing without a snapshot", () => {
     const { container } = render(<LeadDistributionPool snapshot={null} />);
-    expect(container).toBeEmptyDOMElement();
+    expect(container.innerHTML).toBe("");
   });
 
   it("is collapsed by default; expanding lists eligible users and every excluded user with reason labels", () => {
