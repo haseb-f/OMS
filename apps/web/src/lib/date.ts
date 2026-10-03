@@ -125,6 +125,15 @@ export function formatDateRange(
   return `${fromLabel} – ${toLabel}`;
 }
 
+/**
+ * Wraps a Latin date / time run in an invisible LTR isolate (U+2066 … U+2069)
+ * so "01 Oct 2026" keeps its order inside Arabic text (screen, print, Excel)
+ * instead of the bidi algorithm splitting the day from the month.
+ */
+export function isolateLtr(text: string): string {
+  return text ? `⁦${text}⁩` : "";
+}
+
 /** Localized words of a period label (`From`/`To` · «من»/«إلى»). */
 export interface PeriodWords {
   from: string;
@@ -137,7 +146,8 @@ export interface PeriodWords {
  * A one-sided range states only its bound ("From 01 Oct 2026" / "To 31 Oct
  * 2026"); no bounds give "" (the caller says "All dates") — a range is never
  * invented. Calendar days (`YYYY-MM-DD` or a picker's local-midnight Date)
- * keep their own day — never shifted through UTC.
+ * keep their own day — never shifted through UTC. Each date is an LTR
+ * isolate ({@link isolateLtr}) so it reads correctly inside Arabic text.
  */
 export function formatPeriod(
   from: Date | string | null | undefined,
@@ -146,7 +156,10 @@ export function formatPeriod(
 ): string {
   const fromLabel = formatDate(from);
   const toLabel = formatDate(to);
-  return [fromLabel && `${words.from} ${fromLabel}`, toLabel && `${words.to} ${toLabel}`]
+  return [
+    fromLabel && `${words.from} ${isolateLtr(fromLabel)}`,
+    toLabel && `${words.to} ${isolateLtr(toLabel)}`,
+  ]
     .filter(Boolean)
     .join(" · ");
 }
@@ -154,7 +167,7 @@ export function formatPeriod(
 /** A point-in-time report date: "As of 01 Oct 2026" («كما في 01 Oct 2026»); "" without a date. */
 export function formatAsOf(date: Date | string | null | undefined, asOfWord: string): string {
   const label = formatDate(date);
-  return label ? `${asOfWord} ${label}` : "";
+  return label ? `${asOfWord} ${isolateLtr(label)}` : "";
 }
 
 /**

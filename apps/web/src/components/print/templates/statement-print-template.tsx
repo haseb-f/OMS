@@ -13,6 +13,7 @@ import {
 } from "../print-blocks";
 import { usePrintIdentity } from "../print-brand";
 import { formatBusinessDateTime } from "@/lib/business-date";
+import { isolateLtr } from "@/lib/date";
 import { formatMoney } from "@/lib/money";
 import { useLocale } from "@/providers/locale-provider";
 import type {
@@ -33,7 +34,8 @@ import type {
  */
 export function AccountStatementPrintTemplate({ payload }: { payload: StatementPrintPayload }) {
   const { t } = useLocale();
-  const printedAt = formatBusinessDateTime(new Date());
+  // Cairo wall clock, isolated so it keeps its order on an Arabic sheet.
+  const printedAt = isolateLtr(formatBusinessDateTime(new Date()));
   const identity = usePrintIdentity(payload.company);
   const qrUrl = recordUrl(payload.recordPath);
   const money = (value: number) => formatMoney(value);

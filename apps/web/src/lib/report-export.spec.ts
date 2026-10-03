@@ -10,6 +10,7 @@ import {
 } from "@/components/accounting/financial-report/financial-report-export";
 import type { FinancialReportLine } from "@/components/accounting/financial-report/types";
 import { buildReportCsv, buildReportXlsx, excelNumberFormat } from "./report-export";
+import { formatPeriod } from "./date";
 
 const line = (overrides: Partial<FinancialReportLine>): FinancialReportLine => ({
   id: "x",
@@ -47,7 +48,7 @@ function documentFor(locale: Locale) {
     t: (key: MessageKey) => translate(messages[locale], key),
     companyName: "OMS",
     printedByName: "QA",
-    period: "From 01 Jan 2026 · To 30 Sep 2026",
+    period: formatPeriod(new Date(2026, 0, 1), new Date(2026, 8, 30), { from: "From", to: "To" }),
     printedAt: new Date(2026, 8, 21, 10, 0),
   });
 }
@@ -186,7 +187,7 @@ describe("report export carries scope, summary and hierarchy", () => {
       /^21 Sep 2026 — \d{2}:\d{2}$/,
     );
     const en = documentFor("en").meta ?? [];
-    expect(en.find((item) => item.id === "period")?.value).toBe(
+    expect(en.find((item) => item.id === "period")?.value.replace(/[⁦⁩]/g, "")).toBe(
       "From 01 Jan 2026 · To 30 Sep 2026",
     );
   });

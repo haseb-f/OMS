@@ -1,11 +1,15 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it } from "vitest";
-import { formatAsOf, formatPeriod } from "./date";
+import { formatAsOf as rawAsOf, formatPeriod as rawPeriod } from "./date";
 import { formatBusinessDate, formatBusinessDateTime } from "./business-date";
 
 const EN = { from: "From", to: "To" };
 const AR = { from: "من", to: "إلى" };
 const ORIGINAL_TZ = process.env.TZ;
+/** The visible text (LTR isolates stripped); isolation is asserted separately. */
+const plain = (text: string) => text.replace(/[⁦⁩]/g, "");
+const formatPeriod = (...args: Parameters<typeof rawPeriod>) => plain(rawPeriod(...args));
+const formatAsOf = (...args: Parameters<typeof rawAsOf>) => plain(rawAsOf(...args));
 
 afterEach(() => {
   if (ORIGINAL_TZ === undefined) delete process.env.TZ;
@@ -22,6 +26,11 @@ describe("report period labels (spec D3)", () => {
     expect(formatPeriod("2026-10-01", null, EN)).toBe("From 01 Oct 2026");
     expect(formatPeriod(null, "2026-10-31", AR)).toBe("إلى 31 Oct 2026");
     expect(formatPeriod(null, null, EN)).toBe("");
+  });
+
+  it("isolates each Latin date so it keeps its order inside Arabic text", () => {
+    expect(rawPeriod("2026-10-01", "2026-10-31", AR)).toBe("من ⁦01 Oct 2026⁩ · إلى ⁦31 Oct 2026⁩");
+    expect(rawAsOf("2026-10-01", "كما في")).toBe("كما في ⁦01 Oct 2026⁩");
   });
 
   it("states a point-in-time report as of its date", () => {
