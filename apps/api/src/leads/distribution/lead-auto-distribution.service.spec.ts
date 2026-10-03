@@ -91,13 +91,24 @@ function build(
     salesTeam: { findFirst: jest.fn() },
     $transaction: jest.fn((fn: (client: typeof tx) => unknown) => fn(tx)),
   };
-  const resolver = {
-    getUsersWithPermission: jest.fn(() => options.eligibleUserIds ?? []),
+  // R7 — eligibility is its own service (covered by the DB-backed matrix spec);
+  // here it just supplies the Round Robin pool.
+  const eligibility = {
+    getEligibleIds: jest.fn(() => options.eligibleUserIds ?? []),
+    evaluate: jest.fn(() => ({
+      eligible: (options.eligibleUserIds ?? []).map((id) => ({
+        id,
+        fullName: id,
+        email: `${id}@x`,
+      })),
+      excluded: [],
+      excludedTruncated: false,
+    })),
   };
   const assignments = { assign: jest.fn() };
   const service = new LeadAutoDistributionService(
     prisma as never,
-    resolver as never,
+    eligibility as never,
     assignments as never,
   );
   return { service, prisma, tx, assignments };

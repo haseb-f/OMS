@@ -17,6 +17,9 @@ import { AddShippingCostDto } from './dto/add-shipping-cost.dto';
 import { CreateSalesOrderNoteDto } from './dto/create-sales-order-note.dto';
 import { CreateSalesOrderAttachmentDto } from './dto/create-sales-order-attachment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { LegacySalesOrderScopeGuard } from './legacy-sales-order-scope.guard';
 
 /**
  * Business operations, not generic CRUD (per TASK-011: "Never implement
@@ -34,7 +37,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
  * guard can be added without risking the wrong access boundary.
  */
 @Controller('sales-orders')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, LegacySalesOrderScopeGuard)
 export class SalesOrdersController {
   constructor(private readonly salesOrdersService: SalesOrdersService) {}
 
@@ -44,8 +47,8 @@ export class SalesOrdersController {
   }
 
   @Get()
-  findAll() {
-    return this.salesOrdersService.findAll();
+  findAll(@CurrentUser() user: JwtPayload) {
+    return this.salesOrdersService.findAll(user.sub);
   }
 
   @Get(':id')

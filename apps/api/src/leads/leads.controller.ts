@@ -98,6 +98,8 @@ export class LeadsController {
   async eligibleAssignees(@CurrentUser() user: JwtPayload) {
     const scope = await this.salesScope.resolve(user.sub);
     this.salesScope.assertCanAssign(scope);
+    // R7 — the same shared eligibility as the automatic pool (sales-designated,
+    // active, unlocked, employed, internal, `crm.leads.edit`).
     const rows = await this.leadAutoDistributionService.getEligibleEmployees();
     if (scope.kind === 'TEAM' && scope.ownerIds) {
       const allowed = new Set(scope.ownerIds);

@@ -29,7 +29,10 @@ import {
 } from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
-import { StoreOrdersService } from './store-orders.service';
+import {
+  StoreOrdersService,
+  type StoreOrderListActor,
+} from './store-orders.service';
 import { CreateStoreOrderDto } from './dto/create-store-order.dto';
 import { UpdateStoreOrderDto } from './dto/update-store-order.dto';
 import { SetStoreOrderLineAmountsDto } from './dto/set-line-amounts.dto';
@@ -167,9 +170,9 @@ export class StoreOrdersController {
   private async resolveListScopeUser(
     query: FindStoreOrdersQueryDto,
     user: JwtPayload,
-  ): Promise<string | undefined> {
+  ): Promise<StoreOrderListActor> {
     // NONE is an ordinary filter — only the review queue (flagged orders)
-    // widens the scope.
+    // widens the scope, and then ONLY to flagged orders (never unscoped).
     if (
       !query.duplicateReviewStatus ||
       query.duplicateReviewStatus === StoreOrderDuplicateReviewStatus.NONE
@@ -186,7 +189,7 @@ export class StoreOrdersController {
         'Missing permission "store-orders.duplicate_review".',
       );
     }
-    return undefined;
+    return { duplicateReviewer: true };
   }
 
   /**
@@ -341,8 +344,8 @@ export class StoreOrdersController {
   }
 
   @Get(':id/can-fulfill')
-  canFulfill(@Param('id') id: string) {
-    return this.storeOrdersService.canFulfill(id);
+  canFulfill(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.storeOrdersService.canFulfill(id, user.sub);
   }
 
   @Post(':id/pickup/:code')

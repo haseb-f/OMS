@@ -13,6 +13,7 @@ import {
   ProductStatus,
   SalesDocumentStatus,
   ShipmentStatus,
+  StoreOrderDuplicateReviewStatus,
   StoreOrderFulfillmentMethod,
   StoreOrderPaymentStatus,
   StoreOrderPaymentType,
@@ -203,6 +204,9 @@ const ORDER_INCLUDE = {
     },
   },
 } satisfies Prisma.StoreOrderInclude;
+
+/** Who a Store Order list/ids call is for — see `buildScopedFindWhere`. */
+export type StoreOrderListActor = string | { duplicateReviewer: true };
 
 /**
  * Trimmed variant of ORDER_INCLUDE for `findAll`/list rows — enough for the
@@ -808,13 +812,31 @@ export class StoreOrdersService {
     return where;
   }
 
+  /**
+   * The list actor: a user id (that user's sales scope is AND-ed on), the
+   * duplicate-review reviewer (flagged orders only, across owners — never an
+   * unscoped listing), or `undefined` for a trusted system / agent-portal
+   * caller that applies its own visibility (HTTP controllers never pass it).
+   */
   private async buildScopedFindWhere(
     query: FindStoreOrdersQueryDto,
-    userId?: string,
+    actor?: StoreOrderListActor,
   ): Promise<Prisma.StoreOrderWhereInput> {
     const where = await this.buildFindWhere(query);
-    if (!userId) return where;
-    const scope = await this.salesScope.resolve(userId);
+    if (!actor) return where;
+    if (typeof actor === 'object') {
+      return {
+        AND: [
+          where,
+          {
+            duplicateReviewStatus: {
+              not: StoreOrderDuplicateReviewStatus.NONE,
+            },
+          },
+        ],
+      };
+    }
+    const scope = await this.salesScope.resolve(actor);
     return { AND: [where, this.salesScope.storeOrderWhere(scope)] };
   }
 
@@ -828,7 +850,7 @@ export class StoreOrdersService {
    */
   async findAll(
     query: FindStoreOrdersQueryDto,
-    userId?: string,
+    userId?: StoreOrderListActor,
     includeProfitability = false,
   ) {
     const where = await this.buildScopedFindWhere(query, userId);
@@ -1035,7 +1057,7 @@ export class StoreOrdersService {
       | 'costState'
       | 'lossMaking'
     >,
-    userId?: string,
+    userId?: StoreOrderListActor,
     includeProfitability = false,
   ): Promise<{
     ids: string[];
@@ -1086,6 +1108,8 @@ export class StoreOrdersService {
     const order = await this.prisma.storeOrder.findFirst({
       where: {
         deletedAt: null,
+        // R7 — company lookup never reaches an agent's order.
+        agentId: null,
         OR: [
           { internalOrderId: orderNumber },
           { externalOrderId: orderNumber },
@@ -1137,7 +1161,7 @@ export class StoreOrdersService {
     }
     if (userId) {
       const scope = await this.salesScope.resolve(userId);
-      this.salesScope.assertStoreOrderAccess(scope, order);
+      await this.salesScope.assertStoreOrderAccessById(scope, id);
     }
     const withStatus = await this.attachCurrentShippingStatus(order);
     return {
@@ -1539,8 +1563,8 @@ export class StoreOrdersService {
    * Central fulfillment gate — see `evaluateFulfillmentGate`: PREPAID needs a
    * full paid declaration OR verified payment; COD may ship before payment.
    */
-  async canFulfill(id: string) {
-    const order = await this.findOne(id);
+  async canFulfill(id: string, userId?: string) {
+    const order = await this.findOne(id, userId);
     return evaluateFulfillmentGate({
       paymentType: order.paymentType,
       declaredPaymentStatus: order.declaredPaymentStatus,

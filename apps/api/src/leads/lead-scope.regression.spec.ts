@@ -373,6 +373,9 @@ describe('Lead ownership scope (Ahmed/Sara regression)', () => {
         canEditShipping: false,
         canViewPaymentEvidence: true,
         canManagePaymentEvidence: false,
+        // R7 — the unassigned pool is visible to a Team Manager only through
+        // an explicit `crm.leads.manage` grant (canManageLeads above).
+        canViewTeamUnassigned: true,
       };
       const result = await leadsService.unassignedCount(teamScope);
       expect(result.count).toBeGreaterThanOrEqual(1);

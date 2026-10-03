@@ -49,6 +49,7 @@ import { PhysicalCountModule } from './physical-count/physical-count.module';
 import { CostComponentsModule } from './cost-components/cost-components.module';
 import { ProductCostModule } from './product-cost/product-cost.module';
 import { PartnersModule } from './partners/partners.module';
+import { CustomerLookupModule } from './customer-lookup/customer-lookup.module';
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
 import { TaxesModule } from './taxes/taxes.module';
 import { CustomerGroupsModule } from './customer-groups/customer-groups.module';
@@ -163,6 +164,7 @@ import { StoreOrderAmendmentsModule } from './store-orders/amendments/store-orde
     CostComponentsModule,
     ProductCostModule,
     PartnersModule,
+    CustomerLookupModule,
     PurchaseOrdersModule,
     TaxesModule,
     CustomerGroupsModule,

@@ -10,6 +10,7 @@ import { LeadNotesService } from './notes/lead-notes.service';
 import { LeadImportModule } from './import/lead-import.module';
 import { LeadDuplicateDetectionService } from './duplicate-detection/lead-duplicate-detection.service';
 import { LeadAutoDistributionService } from './distribution/lead-auto-distribution.service';
+import { LeadEligibilityService } from './distribution/lead-eligibility.service';
 import { NumberingModule } from '../numbering/numbering.module';
 import { WorkflowModule } from '../workflow/workflow.module';
 import { LeadFollowUpTypesModule } from '../lead-follow-up-types/lead-follow-up-types.module';
@@ -36,7 +37,13 @@ import { StoreOrderDuplicatesModule } from '../store-orders/duplicates/store-ord
     LeadNotesService,
     LeadDuplicateDetectionService,
     LeadAutoDistributionService,
+    LeadEligibilityService,
   ],
-  exports: [LeadsService, LeadAutoDistributionService, LeadAssignmentsService],
+  exports: [
+    LeadsService,
+    LeadAutoDistributionService,
+    LeadAssignmentsService,
+    LeadEligibilityService,
+  ],
 })
 export class LeadsModule {}

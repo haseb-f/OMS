@@ -8,6 +8,7 @@ import { EnterpriseBadge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/shared/searchable-select";
+import { LeadDistributionPool } from "@/components/crm/lead-distribution-pool";
 import { leadsService, type LeadDistributionSnapshot } from "@/services/leads-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -339,6 +340,7 @@ export function LeadDistributionModal({
                 placeholder={t("crm.leads.assignDialog.selectEmployee")}
               />
             </div>
+            <LeadDistributionPool snapshot={snapshot} />
             <div className="flex flex-col gap-1">
               <Label>{t("crm.leads.distribution.reason")}</Label>
               <Input value={reason} onChange={(e) => setReason(e.target.value)} />

@@ -272,6 +272,7 @@ describe('Sales Flow Hardening', () => {
       fullName: name,
       password: 'SalesPassw0rd!',
       departmentId: await departmentId(),
+      salesDistributionEligible: true,
     });
     createdUserIds.push(created.id);
     await users.setPermissions(created.id, {

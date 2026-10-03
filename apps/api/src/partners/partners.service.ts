@@ -753,7 +753,41 @@ export class PartnersService extends MasterDataCrudService<
       (await this.findPhoneMatches([phone], undefined, 'EG'))[0] ??
       (await this.findPhoneMatches([phone], undefined, 'AE'))[0] ??
       (await this.findPhoneMatches([phone]))[0];
-    const match = matches ?? null;
+    let match: typeof matches | null = matches ?? null;
+
+    // R7 — internal data only: a customer whose whole footprint belongs to an
+    // agent (agent orders/leads, none of ours) is not visible to company staff.
+    if (match) {
+      const [internalOrders, internalLeads, agentOrders, agentLeads] =
+        await Promise.all([
+          this.prisma.storeOrder.count({
+            where: { partnerId: match.id, agentId: null, deletedAt: null },
+          }),
+          this.prisma.lead.count({
+            where: { partnerId: match.id, agentId: null, deletedAt: null },
+          }),
+          this.prisma.storeOrder.count({
+            where: {
+              partnerId: match.id,
+              agentId: { not: null },
+              deletedAt: null,
+            },
+          }),
+          this.prisma.lead.count({
+            where: {
+              partnerId: match.id,
+              agentId: { not: null },
+              deletedAt: null,
+            },
+          }),
+        ]);
+      if (
+        internalOrders + internalLeads === 0 &&
+        agentOrders + agentLeads > 0
+      ) {
+        match = null;
+      }
+    }
 
     await this.prisma.globalLookupAudit.create({
       data: {
@@ -768,7 +802,7 @@ export class PartnersService extends MasterDataCrudService<
     if (!match) return null;
 
     const orders = await this.prisma.storeOrder.findMany({
-      where: { partnerId: match.id, deletedAt: null },
+      where: { partnerId: match.id, agentId: null, deletedAt: null },
       orderBy: { orderDate: 'desc' },
       take: 5,
       include: {
@@ -778,7 +812,7 @@ export class PartnersService extends MasterDataCrudService<
     });
 
     const totalOrders = await this.prisma.storeOrder.count({
-      where: { partnerId: match.id, deletedAt: null },
+      where: { partnerId: match.id, agentId: null, deletedAt: null },
     });
 
     const summarize = (order: (typeof orders)[number]) => ({

@@ -170,6 +170,9 @@ describe('Lead distribution (integration, serial)', () => {
         username: handle,
         fullName: `${tag} ${label}`,
         passwordHash: 'x',
+        // R7 — eligibility needs the explicit Sales designation too; an agent
+        // user is flagged on purpose to prove the agent rule still excludes it.
+        salesDistributionEligible: !!options.leadsEdit,
         ...(options.agentId
           ? { userType: 'AGENT', agentId: options.agentId, agentRole: 'SALES' }
           : {}),

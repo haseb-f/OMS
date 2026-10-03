@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -7,7 +6,7 @@ import {
 import { LeadAssignmentMethod, Prisma } from '@prisma/client';
 import { assertOwnerAffiliation } from '../../agents/common/agent-affiliation';
 import { PrismaService } from '../../prisma/prisma.service';
-import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
+import { LeadEligibilityService } from '../distribution/lead-eligibility.service';
 import {
   LeadActivityService,
   LeadActivityType,
@@ -16,8 +15,6 @@ import {
   SalesScopeService,
   type SalesScope,
 } from '../../sales-scope/sales-scope.service';
-
-const ASSIGNABLE_PERMISSION = 'crm.leads.edit';
 
 export interface AssignLeadInput {
   salesEmployeeId: string;
@@ -46,34 +43,17 @@ export class LeadAssignmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly leadActivityService: LeadActivityService,
-    private readonly permissionsResolver: PermissionsResolverService,
+    private readonly eligibility: LeadEligibilityService,
     private readonly salesScope: SalesScopeService,
   ) {}
 
+  /**
+   * R7 — the same shared rule set the automatic pool uses (sales-designated,
+   * active, unlocked, employed, internal, `crm.leads.edit`), so a manual
+   * assignment can never reach someone the distribution would exclude.
+   */
   async assertEligibleEmployee(employeeId: string) {
-    const salesEmployee = await this.prisma.user.findFirst({
-      where: {
-        id: employeeId,
-        deletedAt: null,
-        isActive: true,
-        isLocked: false,
-      },
-    });
-    if (!salesEmployee) {
-      throw new BadRequestException(
-        'Sales employee not found or is not active.',
-      );
-    }
-    const canHandleLeads = await this.permissionsResolver.hasPermission(
-      employeeId,
-      ASSIGNABLE_PERMISSION,
-    );
-    if (!canHandleLeads) {
-      throw new BadRequestException(
-        'This employee does not have permission to handle Leads/Orders.',
-      );
-    }
-    return salesEmployee;
+    return this.eligibility.assertEligible(employeeId);
   }
 
   private async assertSameAffiliation(

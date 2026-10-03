@@ -32,6 +32,8 @@ export interface UserRow {
   userType?: "INTERNAL" | "AGENT";
   agentRole?: "ADMIN" | "SALES" | null;
   agent?: { id: string; agentNumber: string; name: string } | null;
+  /** R7 — designated sales employee (lead distribution eligibility). */
+  salesDistributionEligible?: boolean;
 }
 
 export interface UserFormPayload {
@@ -45,6 +47,8 @@ export interface UserFormPayload {
   jobTitleId?: string;
   branchId?: string;
   isActive?: boolean;
+  /** Internal users only — never sent for an agent user. */
+  salesDistributionEligible?: boolean;
 }
 
 export type UserMutationResult = UserRow & { temporaryPassword?: string };

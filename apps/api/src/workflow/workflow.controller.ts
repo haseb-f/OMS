@@ -138,8 +138,9 @@ export class WorkflowController {
   statusHistory(
     @Param('entityType') entityType: string,
     @Param('entityId') entityId: string,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.engine.getStatusHistory(entityType, entityId);
+    return this.engine.getStatusHistory(entityType, entityId, user.sub);
   }
 
   @Post(':entityType/:entityId/transition')

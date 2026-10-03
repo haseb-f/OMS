@@ -1,5 +1,9 @@
 /** leadOps namespace (en) — R6 spec C: follow-up classification + the distribution status button/dialog. */
 const leadOpsEn = {
+  userFlag: {
+    label: "Sales employee (receives leads)",
+    hint: "Only designated sales employees can receive distributed or manually assigned leads. Finance, shipping and HR staff stay off unless you turn this on. They also need the lead-handling permission.",
+  },
   outcome: {
     label: "Follow-up classification",
     none: "No classified outcome",
@@ -54,6 +58,29 @@ const leadOpsEn = {
       resultNoAuto: "Saved: {mode} — no automatic assignment.",
       resultActiveUntil: "Active until {time}.",
       resultFailed: "No lead was assigned ({code}): {reason}",
+    },
+    pool: {
+      title: "Recipients",
+      eligible: "Eligible ({count})",
+      excluded: "Excluded ({count})",
+      show: "Show recipients",
+      hide: "Hide recipients",
+      noneEligible: "No eligible sales employees.",
+      noneExcluded: "No excluded users.",
+      truncated: "Only the first {count} excluded users are shown.",
+      rule: "A recipient must be an active, unlocked sales employee holding the lead-handling permission.",
+      reasons: {
+        AGENT_USER: "Agent user",
+        DELETED: "Deleted",
+        INACTIVE: "Inactive",
+        LOCKED: "Locked",
+        ON_LEAVE: "On leave / inactive employment",
+        TERMINATED: "Employment terminated",
+        NO_PERMISSION: "No lead permission",
+        NOT_SALES_DESIGNATED: "Not designated as sales",
+        WRONG_TEAM: "Not in the selected team",
+        WRONG_DEPARTMENT: "Not in the selected department",
+      },
     },
   },
 } as const;

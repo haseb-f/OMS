@@ -1,10 +1,11 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { SalesOrderActivityService } from './sales-order-activity.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { LegacySalesOrderScopeGuard } from '../legacy-sales-order-scope.guard';
 
 /** Read-only: activities are system-generated, never created directly by a client. */
 @Controller('sales-orders/:salesOrderId/activities')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, LegacySalesOrderScopeGuard)
 export class SalesOrderActivitiesController {
   constructor(
     private readonly salesOrderActivityService: SalesOrderActivityService,

@@ -367,7 +367,7 @@ export class LeadsService {
     } else {
       await this.leadAutoDistributionService.distribute(lead.id);
     }
-    return options?.skipFullRefetch ? lead : this.findOne(lead.id);
+    return options?.skipFullRefetch ? lead : this.loadLeadDetail(lead.id);
   }
 
   /**
@@ -502,7 +502,15 @@ export class LeadsService {
     );
   }
 
-  async findOne(id: string, scope?: SalesScope) {
+  /** The scoped by-id read — a scope is REQUIRED (no unscoped public read). */
+  async findOne(id: string, scope: SalesScope) {
+    const lead = await this.loadLeadDetail(id);
+    this.salesScope.assertLeadAccess(scope, lead);
+    return lead;
+  }
+
+  /** Internal, already-authorized read (e.g. the Lead this call just created). */
+  private async loadLeadDetail(id: string) {
     const lead = await this.prisma.lead.findFirst({
       where: { id, deletedAt: null },
       include: {
@@ -518,22 +526,6 @@ export class LeadsService {
     if (!lead) {
       throw new NotFoundException(`Lead ${id} not found`);
     }
-    this.salesScope.assertLeadAccess(
-      scope ?? {
-        kind: 'ALL',
-        ownerIds: null,
-        userId: '',
-        isSuperAdmin: true,
-        canManageLeads: true,
-        canViewLeads: true,
-        canViewStoreOrders: true,
-        canViewShipping: true,
-        canEditShipping: true,
-        canViewPaymentEvidence: true,
-        canManagePaymentEvidence: true,
-      },
-      lead,
-    );
     return lead;
   }
 
@@ -774,7 +766,7 @@ export class LeadsService {
 
     const leads = await this.prisma.lead.findMany({
       where: { id: { in: ids }, deletedAt: null },
-      select: { id: true, salesEmployeeId: true },
+      select: { id: true, salesEmployeeId: true, agentId: true },
     });
     const leadsById = new Map(leads.map((lead) => [lead.id, lead]));
 

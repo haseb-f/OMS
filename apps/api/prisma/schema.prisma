@@ -35,6 +35,12 @@ model User {
   agent     Agent?     @relation("AgentUsers", fields: [agentId], references: [id])
   agentRole AgentRole? @map("agent_role")
 
+  /// Round 7 — explicit Sales designation for lead distribution. A stable flag
+  /// (never inferred from a display name): only INTERNAL users with this set,
+  /// who also hold `crm.leads.edit`, can receive leads (auto Round Robin,
+  /// drains, manual assignment). Finance/Shipping/HR staff stay false.
+  salesDistributionEligible Boolean @default(false) @map("sales_distribution_eligible")
+
   jobTitleId String?   @map("job_title_id") @db.Uuid
   jobTitle   JobTitle? @relation(fields: [jobTitleId], references: [id])
 
@@ -9355,11 +9361,14 @@ model InvestorPortalActivationToken {
 enum GlobalLookupAction {
   GLOBAL_CUSTOMER_LOOKUP
   GLOBAL_ORDER_LOOKUP
+  /// Round 7 — `customers.lookup_advanced` (minimal-disclosure customer lookup).
+  ADVANCED_CUSTOMER_LOOKUP
 }
 
 enum GlobalLookupMethod {
   PHONE
   ORDER_NUMBER
+  NAME
 }
 
 model GlobalLookupAudit {
@@ -9377,6 +9386,11 @@ model GlobalLookupAudit {
   /// informational (the referenced Partner/StoreOrder can later be deleted).
   matchedPartnerId    String? @map("matched_partner_id") @db.Uuid
   matchedStoreOrderId String? @map("matched_store_order_id") @db.Uuid
+
+  /// Round 7 advanced lookup — matches returned (0 = miss) and the outcome
+  /// (MATCH / NO_MATCH / RATE_LIMITED). Null for the older exact lookups.
+  resultCount Int?    @map("result_count")
+  outcome     String? @map("outcome")
 
   createdAt DateTime @default(now()) @map("created_at")
 
