@@ -42,6 +42,11 @@ export interface LeadRow {
   storeOrder: { id: string; internalOrderId: string } | null;
   nextFollowUpAt: string | null;
   firstOpenedAt: string | null;
+  /**
+   * R7 - whether THIS employee has opened the lead (per-user read state, list
+   * rows only). Not a business status: it never reflects contacted/followed-up.
+   */
+  viewedByMe?: boolean;
   /** R6 — current follow-up classification (latest outcome code); null until one is recorded. */
   followUpOutcome: string | null;
   followUpOutcomeAt: string | null;
@@ -253,6 +258,9 @@ export const leadsService = {
     salesEmployeeId?: string;
   }) =>
     apiClient.post<{ released: number; ids: string[] }>("/leads/distribution/release-held", body),
+  /** Records that the caller opened the lead - idempotent, read state only (never changes status). */
+  markViewed: (id: string) =>
+    apiClient.post<{ leadId: string; viewedByMe: true }>(`/leads/${id}/viewed`),
   firstOpen: (id: string) => apiClient.post<LeadRow>(`/leads/${id}/first-open`),
   followUps: (id: string) => apiClient.get<LeadFollowUpRow[]>(`/leads/${id}/follow-ups`),
   addFollowUp: (

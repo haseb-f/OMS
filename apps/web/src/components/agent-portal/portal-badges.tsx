@@ -1,5 +1,6 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
 import { StatusBadge } from "@/components/business/status-badge";
 import {
   declaredStatusTone,
@@ -51,11 +52,11 @@ export function FulfillmentStatusBadge({ status }: { status: CatalogStatus | nul
   return <StatusBadge label={label} colorKey={status.color} />;
 }
 
-export function LeadStatusBadge({ status }: { status: CatalogStatus }) {
+export function LeadStatusBadge({ status, icon }: { status: CatalogStatus; icon?: LucideIcon }) {
   const { t, locale } = useLocale();
   const key = leadCodeLabelKey(status.code);
   const label = key ? t(key) : locale === "en" && status.nameEn ? status.nameEn : status.name;
-  return <StatusBadge label={label} colorKey={status.color} />;
+  return <StatusBadge label={label} colorKey={status.color} icon={icon} />;
 }
 
 export function VerificationBadge({ verification }: { verification: ClaimVerification }) {

@@ -13,6 +13,7 @@ import orderAmendmentsEn from "./modules/order-amendments.en";
 import shippingHandoffEn from "./modules/shipping-handoff.en";
 import leadOpsEn from "./modules/lead-ops.en";
 import customerLookupEn from "./modules/customer-lookup.en";
+import tableViewsEn from "./modules/table-views.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
@@ -21,6 +22,7 @@ const en = {
   shippingHandoff: shippingHandoffEn,
   leadOps: leadOpsEn,
   customerLookup: customerLookupEn,
+  tableViews: tableViewsEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,

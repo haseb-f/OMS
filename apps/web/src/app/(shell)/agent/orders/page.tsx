@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Eye, Plus } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { HeaderActions } from "@/components/shared/header-actions";
 import {
@@ -11,6 +11,7 @@ import {
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
 import { SelectFilter } from "@/components/shared/data-table";
+import { PortalOrderGridCard } from "@/components/store-orders/store-order-grid-card";
 import {
   EnterpriseDateRangePicker,
   type DateRangeValue,
@@ -237,6 +238,23 @@ export default function AgentOrdersPage() {
         emptyTitle={t("agentPortal.orders.empty")}
         getRowId={(row) => row.id}
         getRowHref={(row) => `/agent/orders/${row.id}`}
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <PortalOrderGridCard
+            order={row}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            href={`/agent/orders/${row.id}`}
+            canDeclarePayment={hasPermission("agent.payments.declare")}
+            actions={[
+              {
+                key: "view",
+                label: t("common.view"),
+                icon: Eye,
+                onSelect: () => router.push(`/agent/orders/${row.id}`),
+              },
+            ]}
+          />
+        )}
       />
     </PageWorkspace>
   );

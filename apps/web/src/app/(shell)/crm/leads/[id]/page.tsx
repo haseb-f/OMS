@@ -96,6 +96,12 @@ function LeadDetailContent() {
   }, [load]);
 
   useEffect(() => {
+    // "New to you" bookkeeping: per-employee read state, independent of the
+    // workflow (first-open/status above). A failure only leaves the marker on.
+    leadsService.markViewed(params.id).catch(() => undefined);
+  }, [params.id]);
+
+  useEffect(() => {
     leadsService
       .scope()
       .then((scope) => setCanAssign(scope.canAssign))

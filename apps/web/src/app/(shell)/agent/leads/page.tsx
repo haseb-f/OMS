@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import { UserPlus } from "lucide-react";
+import { Eye, ShoppingCart, UserPlus } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { HeaderActions } from "@/components/shared/header-actions";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
@@ -15,7 +15,8 @@ import { LeadStatusBadge } from "@/components/agent-portal/portal-badges";
 import { FollowUpOutcomeBadge } from "@/components/crm/follow-up-outcome-badge";
 import { followUpOutcomeLabel } from "@/config/crm/follow-up-outcomes";
 import { usePortalProfile } from "@/components/agent-portal/use-portal-profile";
-import { LEAD_STATUS_CODES, localizedName } from "@/config/agent-portal/labels";
+import { LEAD_STATUS_CODES, canConvertLead, localizedName } from "@/config/agent-portal/labels";
+import { PortalLeadGridCard } from "@/components/crm/lead-grid-card";
 import { agentPortalService, type PortalLead } from "@/services/agent-portal-service";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
@@ -241,6 +242,30 @@ export default function AgentLeadsPage() {
         emptyTitle={t("agentPortal.leads.empty")}
         getRowId={(row) => row.id}
         getRowHref={(row) => `/agent/leads/${row.id}`}
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <PortalLeadGridCard
+            lead={row}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            href={`/agent/leads/${row.id}`}
+            canConvert={canConvert && canConvertLead(row)}
+            actions={[
+              {
+                key: "view",
+                label: t("common.view"),
+                icon: Eye,
+                onSelect: () => router.push(`/agent/leads/${row.id}`),
+              },
+              {
+                key: "convert",
+                label: t("agentPortal.leads.detail.convert"),
+                icon: ShoppingCart,
+                hidden: !canConvert || !canConvertLead(row),
+                onSelect: () => router.push(`/agent/orders/new?leadId=${row.id}`),
+              },
+            ]}
+          />
+        )}
       />
 
       <LeadCreateDialog

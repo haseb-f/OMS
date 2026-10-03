@@ -419,7 +419,55 @@ export class LeadsService {
       }),
     ]);
 
-    return { items, total, page, pageSize, unassignedCount };
+    return {
+      items: await this.withViewedByMe(items, scope.userId),
+      total,
+      page,
+      pageSize,
+      unassignedCount,
+    };
+  }
+
+  /**
+   * Read model only (R7): marks which listed leads the CALLER has opened.
+   * One indexed lookup for the page's ids — never a per-row query, and
+   * never anything that touches the lead's own status/contact fields.
+   */
+  private async withViewedByMe<T extends { id: string }>(
+    items: T[],
+    userId: string,
+  ): Promise<Array<T & { viewedByMe: boolean }>> {
+    if (items.length === 0) return [];
+    const views = userId
+      ? await this.prisma.leadView.findMany({
+          where: { userId, leadId: { in: items.map((item) => item.id) } },
+          select: { leadId: true },
+        })
+      : [];
+    const viewed = new Set(views.map((view) => view.leadId));
+    return items.map((item) => ({ ...item, viewedByMe: viewed.has(item.id) }));
+  }
+
+  /**
+   * "Viewed by this employee" — NOT a business status. Records that the caller
+   * opened the lead, once (idempotent upsert keeping the first `viewedAt`).
+   * It never changes status, contacted/follow-up state or `firstOpenedAt`
+   * (that is `firstOpen`'s separate, workflow-bearing job), and it only
+   * accepts a lead the caller's sales scope can already read: `findOne`
+   * throws for anything else, so a hidden lead can be neither marked nor
+   * probed.
+   */
+  async markViewed(id: string, scope: SalesScope) {
+    if (!scope.userId) {
+      throw new ForbiddenException('A signed-in user is required.');
+    }
+    await this.findOne(id, scope);
+    await this.prisma.leadView.upsert({
+      where: { leadId_userId: { leadId: id, userId: scope.userId } },
+      create: { leadId: id, userId: scope.userId },
+      update: {},
+    });
+    return { leadId: id, viewedByMe: true };
   }
 
   /**

@@ -9,29 +9,22 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { TableDensity } from "@/components/ui/table";
 import { useLocale } from "@/providers/locale-provider";
 
 /**
- * The table's view menu: density (compact / comfortable — the visible
- * density toggle of design-system §6), then column visibility + column-order
- * arrows (TASK-060B Part 3). Arrow buttons stand in for full drag-and-drop
- * reordering while still giving every column a rememberable order.
+ * The table's column menu: visibility + column-order arrows (TASK-060B
+ * Part 3). Arrow buttons stand in for full drag-and-drop reordering while
+ * still giving every column a rememberable order. Row density is its own
+ * toolbar control (`EnterpriseTableDensityControl`), not a column setting.
  */
 export function EnterpriseTableViewOptions<TData>({
   table,
-  density,
-  onDensityChange,
   onResetColumnWidths,
 }: {
   table: Table<TData>;
-  density?: TableDensity;
-  onDensityChange?: (density: TableDensity) => void;
   /** "Reset column widths" — omit (or pass undefined) while no column has a custom width. */
   onResetColumnWidths?: () => void;
 }) {
@@ -62,26 +55,6 @@ export function EnterpriseTableViewOptions<TData>({
         </EnterpriseButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
-        {density && onDensityChange ? (
-          <>
-            <DropdownMenuLabel>{t("table.density")}</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={density}
-              onValueChange={(value) => onDensityChange(value as TableDensity)}
-            >
-              <DropdownMenuRadioItem value="compact" onSelect={(event) => event.preventDefault()}>
-                {t("table.densityCompact")}
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem
-                value="comfortable"
-                onSelect={(event) => event.preventDefault()}
-              >
-                {t("table.densityComfortable")}
-              </DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-          </>
-        ) : null}
         <DropdownMenuLabel>{t("table.columns")}</DropdownMenuLabel>
         {orderableColumns.map((column) => {
           const titleKey = column.columnDef.meta?.titleKey;

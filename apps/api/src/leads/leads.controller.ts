@@ -297,6 +297,15 @@ export class LeadsController {
     return this.leadsService.closeWithoutPurchase(id, dto, user.sub, scope);
   }
 
+  /** Per-employee "viewed" marker — read state only, see `LeadsService.markViewed`. */
+  @Post(':id/viewed')
+  @HttpCode(200)
+  @PermissionAction('view')
+  async markViewed(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    const scope = await this.salesScope.resolve(user.sub);
+    return this.leadsService.markViewed(id, scope);
+  }
+
   @Post(':id/first-open')
   @HttpCode(200)
   async firstOpen(@Param('id') id: string, @CurrentUser() user: JwtPayload) {

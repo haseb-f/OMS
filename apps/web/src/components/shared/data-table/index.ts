@@ -7,6 +7,15 @@ export {
 export { OverflowTooltipRegion, isElementOverflowing } from "./overflow-tooltip";
 export { useReportFilterBarState, type FilterBarState } from "./filter-bar-context";
 export { EnterpriseTableViewOptions } from "./data-table-view-options";
+export { EnterpriseTableDensityControl } from "./data-table-density-control";
+export { EnterpriseTableViewToggle } from "./data-table-view-toggle";
+export { EnterpriseTableSortMenu } from "./data-table-sort-menu";
+export {
+  useTableDensityPreference,
+  useTableViewPreference,
+  type TableDensityValue,
+  type TableViewValue,
+} from "./table-preferences";
 export {
   createSelectionColumn,
   getTableSelectionScope,
@@ -28,6 +37,7 @@ export { useMatchingSelection, useBulkLimitGuard } from "./use-matching-selectio
 export { useSelectedRecords, selectedIdsOf, orderSelectedIds } from "./use-selected-records";
 export { SelectCustomCountDialog, type SelectCustomCountCopy } from "./select-custom-count-dialog";
 export { RowActionsMenu, type RowAction } from "./row-actions-menu";
+export { RecordGridCard, type RecordGridCardProps } from "./record-grid-card";
 export { RowIdentityLink } from "./row-identity-link";
 export {
   CompactDetailTable,
