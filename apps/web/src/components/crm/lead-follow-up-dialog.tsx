@@ -24,14 +24,11 @@ import {
   FormCardStack,
 } from "@/components/shared/form-card/form-card";
 
-const OUTCOMES = [
-  "answered",
-  "noAnswer",
-  "interested",
-  "callback",
-  "wrongNumber",
-  "notInterested",
-] as const;
+import {
+  LEAD_FOLLOW_UP_OUTCOMES,
+  followUpOutcomeLabelKey,
+  type LeadFollowUpOutcome,
+} from "@/config/crm/follow-up-outcomes";
 
 export function LeadFollowUpDialog({
   open,
@@ -48,7 +45,7 @@ export function LeadFollowUpDialog({
   const followUpTypes = useLeadFollowUpTypes();
   const fieldId = useId();
   const [followUpTypeId, setFollowUpTypeId] = useState("");
-  const [outcome, setOutcome] = useState("");
+  const [outcome, setOutcome] = useState<LeadFollowUpOutcome | "">("");
   const [note, setNote] = useState("");
   const [followUpAt, setFollowUpAt] = useState<Date | null>(null);
   const [busy, setBusy] = useState(false);
@@ -91,14 +88,14 @@ export function LeadFollowUpDialog({
     </Select>
   );
   const outcomeSelect = (
-    <Select value={outcome} onValueChange={setOutcome}>
+    <Select value={outcome} onValueChange={(value) => setOutcome(value as LeadFollowUpOutcome)}>
       <SelectTrigger id={`${fieldId}-outcome`} className="w-full">
         <SelectValue placeholder={t("crm.leads.followUp.outcome")} />
       </SelectTrigger>
       <SelectContent>
-        {OUTCOMES.map((item) => (
+        {LEAD_FOLLOW_UP_OUTCOMES.map((item) => (
           <SelectItem key={item} value={item}>
-            {t(`crm.leads.followUp.outcomes.${item}`)}
+            {t(followUpOutcomeLabelKey(item))}
           </SelectItem>
         ))}
       </SelectContent>

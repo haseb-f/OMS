@@ -32,14 +32,14 @@ import { LeadOrderCreateDialog } from "@/components/business/lead-order-create-d
 import { LeadDistributionModal } from "@/components/crm/lead-distribution-modal";
 import { useLeadDistribution } from "@/components/crm/lead-distribution-control";
 import { BulkLeadStatusDialog } from "@/components/crm/bulk-lead-status-dialog";
-import { LeadDistributionMenu } from "@/components/crm/lead-distribution-menu";
+import {
+  LeadDistributionDialog,
+  LeadDistributionStatusButton,
+} from "@/components/crm/lead-distribution-status";
 import { reportApiError } from "@/lib/toast";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  useCurrencies,
-  useCountries,
-  useCustomerClassifications,
-} from "@/hooks/use-reference-data";
+import { useCurrencies, useCountries } from "@/hooks/use-reference-data";
+import { LEAD_FOLLOW_UP_OUTCOMES, followUpOutcomeLabelKey } from "@/config/crm/follow-up-outcomes";
 import { useUserContext } from "@/providers/user-context";
 
 function CrmLeadsPageContent() {
@@ -47,7 +47,6 @@ function CrmLeadsPageContent() {
   const withinBulkLimit = useBulkLimitGuard();
   const router = useRouter();
   const { hasPermission } = useUserContext();
-  const classifications = useCustomerClassifications();
   const [canAssign, setCanAssign] = useState(false);
 
   const currencies = useCurrencies();
@@ -56,6 +55,8 @@ function CrmLeadsPageContent() {
   const [closeTarget, setCloseTarget] = useState<LeadRow | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [distributionOpen, setDistributionOpen] = useState(false);
+  // The distribution status dialog lives outside MasterDataPage (remounted on refresh).
+  const [distributionDialogOpen, setDistributionDialogOpen] = useState(false);
   // The header control owns the mode; the dialog opens for manual tools only.
   const [distributionToolsOnly, setDistributionToolsOnly] = useState(false);
   const [bulkAssignIds, setBulkAssignIds] = useState<string[]>([]);
@@ -63,7 +64,8 @@ function CrmLeadsPageContent() {
   const [bulkStatusIds, setBulkStatusIds] = useState<string[]>([]);
   const [isExportingSelected, setIsExportingSelected] = useState(false);
   const [unassignedOnly, setUnassignedOnly] = useState(false);
-  const [classificationFilter, setClassificationFilter] = useState("");
+  // R6 — follow-up classification (latest outcome); "none" = no outcome yet.
+  const [outcomeFilter, setOutcomeFilter] = useState("");
   // Dashboard drill-downs open this list pre-filtered (`?followUp=overdue`).
   const searchParams = useSearchParams();
   const [followUpFilter, setFollowUpFilter] = useState(() => {
@@ -71,7 +73,7 @@ function CrmLeadsPageContent() {
     return ["today", "overdue", "upcoming", "none"].includes(initial) ? initial : "";
   });
   // SelectFilter's "" is its "All" row: lifecycle "" is sent as the API's
-  // `lifecycle=all`; the classification/follow-up filters omit their param.
+  // `lifecycle=all`; the outcome/follow-up filters omit their param.
   // A follow-up drill-down opens on every lifecycle: the dashboard's Due
   // Today / Overdue tiles (sales-performance.service) count leads of any
   // status, so the list total must match the tile it came from.
@@ -136,7 +138,7 @@ function CrmLeadsPageContent() {
     try {
       const result = await leadsService.list({ ids, pageSize: ids.length });
       exportRowsToCsv(
-        result.items.map((item) => leadExportRow(item)),
+        result.items.map((item) => leadExportRow(item, t)),
         leadExportSelectedColumns,
         "leads-selected.csv",
       );
@@ -254,13 +256,13 @@ function CrmLeadsPageContent() {
           ...(unassignedOnly ? { unassigned: true } : {}),
           ...(employeeFilter ? { salesEmployeeId: employeeFilter } : {}),
           lifecycle: lifecycle || "all",
-          ...(classificationFilter ? { classificationIds: classificationFilter } : {}),
+          ...(outcomeFilter ? { followUpOutcomes: outcomeFilter } : {}),
           ...(followUpFilter ? { followUpFilter } : {}),
         }}
         extraFilterCount={
           [
             lifecycle !== "active",
-            classificationFilter,
+            outcomeFilter,
             followUpFilter,
             employeeFilter,
             unassignedOnly,
@@ -268,7 +270,7 @@ function CrmLeadsPageContent() {
         }
         onClearExtraFilters={() => {
           setLifecycle("active");
-          setClassificationFilter("");
+          setOutcomeFilter("");
           setFollowUpFilter("");
           setEmployeeFilter("");
           setUnassignedOnly(false);
@@ -289,11 +291,18 @@ function CrmLeadsPageContent() {
               ]}
             />
             <SelectFilter
-              label={t("crm.leads.filters.classificationShort")}
+              label={t("leadOps.outcome.label")}
               className="min-w-24"
-              value={classificationFilter}
-              onChange={setClassificationFilter}
-              options={classifications.map((row) => ({ value: row.id, label: row.name }))}
+              value={outcomeFilter}
+              onChange={setOutcomeFilter}
+              allLabel={t("leadOps.outcome.all")}
+              options={[
+                ...LEAD_FOLLOW_UP_OUTCOMES.map((code) => ({
+                  value: code,
+                  label: t(followUpOutcomeLabelKey(code)),
+                })),
+                { value: "none", label: t("leadOps.outcome.none") },
+              ]}
             />
             <SelectFilter
               label={t("crm.leads.filters.followUp")}
@@ -384,12 +393,9 @@ function CrmLeadsPageContent() {
         )}
         headerMeta={
           canAssign ? (
-            <LeadDistributionMenu
+            <LeadDistributionStatusButton
               state={distribution}
-              onOpenTools={() => {
-                setDistributionToolsOnly(true);
-                setDistributionOpen(true);
-              }}
+              onOpen={() => setDistributionDialogOpen(true)}
             />
           ) : null
         }
@@ -444,6 +450,16 @@ function CrmLeadsPageContent() {
             onSelect: () => setCloseTarget(entity),
           },
         ]}
+      />
+      <LeadDistributionDialog
+        open={distributionDialogOpen}
+        onOpenChange={setDistributionDialogOpen}
+        state={distribution}
+        onOpenTools={() => {
+          setDistributionDialogOpen(false);
+          setDistributionToolsOnly(true);
+          setDistributionOpen(true);
+        }}
       />
       <LeadDistributionModal
         open={distributionOpen}

@@ -15,7 +15,6 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EntityTabs } from "@/components/business/entity-tabs";
 import { StatusBadge } from "@/components/business/status-badge";
-import { ClassificationBadge } from "@/components/business/classification-badge";
 import {
   WorkflowActionsPanel,
   type WorkflowActionItem,
@@ -27,6 +26,7 @@ import {
   type LeadNextActionsProps,
 } from "@/components/crm/lead-next-actions";
 import { LeadStageIndicator } from "@/components/crm/lead-stage-indicator";
+import { FollowUpOutcomeBadge } from "@/components/crm/follow-up-outcome-badge";
 import { leadStatusBadge, leadStatusName } from "@/components/crm/lead-status-label";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDate, formatDateTime } from "@/lib/date";
@@ -67,7 +67,6 @@ export function LeadDetailView({
   lead,
   actions,
   followUpBusy = false,
-  classificationControl,
   outcome,
   onDismissOutcome,
   onTransitionComplete,
@@ -80,8 +79,6 @@ export function LeadDetailView({
   actions: Omit<LeadNextActionsProps, "lead">;
   /** A saved follow-up is still finishing (folded Start follow-up running). */
   followUpBusy?: boolean;
-  /** The editable classification combobox, or null when it is read-only. */
-  classificationControl: ReactNode;
   outcome: LeadOutcome | null;
   onDismissOutcome: () => void;
   onTransitionComplete: (action: WorkflowAction) => void;
@@ -144,12 +141,7 @@ export function LeadDetailView({
       status={
         <div className="flex flex-wrap items-center gap-1.5">
           <StatusBadge label={statusBadge.label} colorKey={statusBadge.colorKey} />
-          {lead.customerClassification ? (
-            <ClassificationBadge
-              label={lead.customerClassification.name}
-              color={lead.customerClassification.color}
-            />
-          ) : null}
+          {lead.followUpOutcome ? <FollowUpOutcomeBadge value={lead.followUpOutcome} /> : null}
           {lead.possibleDuplicate ? (
             <StatusBadge label={t("crm.leads.possibleDuplicate")} colorKey="warning" />
           ) : null}
@@ -256,17 +248,22 @@ export function LeadDetailView({
             />
             <DetailField
               className="col-span-2 sm:col-span-1"
-              label={t("crm.leads.fields.classification")}
+              label={t("leadOps.outcome.label")}
               value={
-                classificationControl ??
-                (lead.customerClassification ? (
-                  <ClassificationBadge
-                    label={lead.customerClassification.name}
-                    color={lead.customerClassification.color}
-                  />
+                lead.followUpOutcome ? (
+                  <span className="inline-flex flex-wrap items-center gap-1.5">
+                    <FollowUpOutcomeBadge value={lead.followUpOutcome} />
+                    {lead.followUpOutcomeAt ? (
+                      <SemanticValue kind="date" className="text-caption text-muted-foreground">
+                        {formatDateTime(lead.followUpOutcomeAt)}
+                      </SemanticValue>
+                    ) : null}
+                  </span>
                 ) : (
-                  <span className="font-normal text-muted-foreground">—</span>
-                ))
+                  <span className="font-normal text-muted-foreground">
+                    {t("leadOps.outcome.none")}
+                  </span>
+                )
               }
             />
             <DetailField

@@ -1,7 +1,6 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { ClassificationBadge } from "@/components/business/classification-badge";
 import { StatusBadge } from "@/components/business/status-badge";
 import { LocaleText } from "@/components/shared/locale-text";
 import { SemanticValue } from "@/components/shared/semantic-value";
@@ -11,6 +10,8 @@ import { useLocale } from "@/providers/locale-provider";
 import { leadStatusBadge } from "@/components/crm/lead-status-label";
 import type { LeadRow } from "@/services/leads-service";
 import type { MessageKey } from "@/i18n/translate";
+import { followUpOutcomeLabel } from "@/config/crm/follow-up-outcomes";
+import { FollowUpOutcomeBadge } from "@/components/crm/follow-up-outcome-badge";
 
 /**
  * Initial ownership lifecycle (blue "New" vs. orange "Assigned") layered
@@ -116,24 +117,22 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
     accessorFn: (row) => row.country?.name ?? "—",
   },
   {
-    id: "classification",
-    meta: { titleKey: "crm.leads.fields.classification", type: "status", importance: "medium" },
-    enableSorting: false,
-    cell: ({ row }) =>
-      row.original.customerClassification ? (
-        <ClassificationBadge
-          label={row.original.customerClassification.name}
-          color={row.original.customerClassification.color}
-        />
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      ),
-  },
-  {
     id: "status",
     meta: { titleKey: "common.status", type: "status" },
     enableSorting: false,
     cell: ({ row }) => <LeadStatusCell lead={row.original} />,
+  },
+  {
+    id: "followUpOutcome",
+    meta: {
+      titleKey: "leadOps.outcome.label",
+      type: "status",
+      importance: "medium",
+      displayValue: (row, t) => followUpOutcomeLabel(row.followUpOutcome, t),
+    },
+    enableSorting: false,
+    accessorFn: (row) => row.followUpOutcome ?? "",
+    cell: ({ row }) => <FollowUpOutcomeBadge value={row.original.followUpOutcome} />,
   },
   {
     id: "source",
@@ -170,6 +169,7 @@ export const leadExportColumns = [
   "mobileNumber",
   "quantity",
   "status",
+  "followUpOutcome",
   "salesEmployee",
   "nextFollowUpAt",
   "createdAt",
@@ -184,16 +184,19 @@ export const leadRowLabel = (row: LeadRow) => `${row.leadNumber} — ${row.custo
  * plugs straight into `exportRowsToCsv`. Mirrors `storeOrderPrintRow`'s
  * shape/spirit for Store Orders.
  */
-export function leadExportRow(row: LeadRow): Record<string, string> {
+export function leadExportRow(
+  row: LeadRow,
+  t: (key: MessageKey) => string,
+): Record<string, string> {
   return {
     leadNumber: row.leadNumber,
     customerName: row.customerName,
     mobileNumber: row.mobileNumber,
     country: row.country?.name ?? "",
     source: row.source,
-    classification: row.customerClassification?.name ?? "",
     quantity: String(row.quantity),
     status: row.status?.name ?? "",
+    followUpOutcome: followUpOutcomeLabel(row.followUpOutcome, t),
     salesEmployee: row.salesEmployee?.fullName ?? "",
     nextFollowUpAt: row.nextFollowUpAt ? formatDisplayDate(row.nextFollowUpAt) : "",
     createdAt: formatDisplayDate(row.createdAt),
@@ -206,9 +209,9 @@ export const leadExportSelectedColumns = [
   "mobileNumber",
   "country",
   "source",
-  "classification",
   "quantity",
   "status",
+  "followUpOutcome",
   "salesEmployee",
   "nextFollowUpAt",
   "createdAt",

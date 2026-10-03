@@ -28,6 +28,10 @@ import { FindLeadsQueryDto } from './dto/find-leads-query.dto';
 import { BulkAssignLeadsDto } from './dto/bulk-assign-leads.dto';
 import { BulkChangeLeadStatusDto } from './dto/bulk-change-lead-status.dto';
 import { CreateLeadFollowUpDto } from './dto/create-lead-follow-up.dto';
+import {
+  followUpOutcomeRecordedAt,
+  isLeadFollowUpOutcome,
+} from './follow-up-outcomes';
 import type { BulkActionResult } from '../master-data/master-data-crud.service';
 import {
   CloseLeadWithoutPurchaseDto,
@@ -427,6 +431,8 @@ export class LeadsService {
    */
   async findAllIds(query: FindLeadsQueryDto, scope: SalesScope) {
     const where = await this.buildLeadWhere(query, scope);
+    // No `pageSize` = "select all matching" (FindLeadIdsQueryDto keeps it
+    // undefined); a given one = "the first N". Both capped at selectIdsMax.
     const take = Math.min(
       query.pageSize ?? BULK_LIMITS.selectIdsMax,
       BULK_LIMITS.selectIdsMax,
@@ -658,6 +664,14 @@ export class LeadsService {
    * mutates Lead.status. A Lead can carry unlimited follow-ups while staying
    * IN_PROGRESS; FOLLOW_UP as a status is legacy (kept for history/rollback
    * only, no longer entered from here).
+   *
+   * R6 (spec C1) — a follow-up WITH an outcome becomes the lead's current
+   * follow-up classification (`Lead.followUpOutcome`/`followUpOutcomeAt`) in
+   * the same transaction, but only when it is the latest by
+   * `followUpOutcomeRecordedAt` (a guarded update, so a concurrent older
+   * write can never overwrite a newer one; on an exact tie the latest
+   * write wins — the backfill breaks such ties by createdAt, then id). Without an outcome the current
+   * value is left untouched. Follow-ups are append-only.
    */
   async addFollowUp(
     id: string,
@@ -669,13 +683,17 @@ export class LeadsService {
     if (dto.followUpTypeId) {
       await this.leadFollowUpTypesService.assertAssignable(dto.followUpTypeId);
     }
+    const outcome = dto.outcome || null;
+    if (outcome !== null && !isLeadFollowUpOutcome(outcome)) {
+      throw new BadRequestException('Unknown follow-up outcome.');
+    }
     const followUp = await this.prisma.$transaction(async (tx) => {
       const created = await tx.leadFollowUp.create({
         data: {
           leadId: id,
           userId,
           followUpTypeId: dto.followUpTypeId ?? null,
-          outcome: dto.outcome?.trim() || null,
+          outcome,
           note: dto.note?.trim() || null,
           followUpAt: dto.followUpAt ? new Date(dto.followUpAt) : null,
           createdBy: userId,
@@ -683,6 +701,22 @@ export class LeadsService {
         },
       });
       await this.refreshNextFollowUp(id, tx);
+      if (created.outcome) {
+        const recordedAt = followUpOutcomeRecordedAt(created);
+        await tx.lead.updateMany({
+          where: {
+            id,
+            OR: [
+              { followUpOutcomeAt: null },
+              { followUpOutcomeAt: { lte: recordedAt } },
+            ],
+          },
+          data: {
+            followUpOutcome: created.outcome,
+            followUpOutcomeAt: recordedAt,
+          },
+        });
+      }
       await this.leadActivityService.log(
         id,
         'FOLLOW_UP_ADDED',
@@ -1046,6 +1080,16 @@ export class LeadsService {
       parts.push({
         customerClassificationId: { in: query.classificationIds },
       });
+    }
+    if (query.followUpOutcomes?.length) {
+      // `none` = no outcome recorded yet; OR-ed with the chosen codes.
+      const codes = query.followUpOutcomes.filter((code) => code !== 'none');
+      const or: Prisma.LeadWhereInput[] = [];
+      if (codes.length) or.push({ followUpOutcome: { in: codes } });
+      if (codes.length < query.followUpOutcomes.length) {
+        or.push({ followUpOutcome: null });
+      }
+      parts.push(or.length === 1 ? or[0] : { OR: or });
     }
     const lifecycle = query.lifecycle ?? 'active';
     if (lifecycle === 'active') {

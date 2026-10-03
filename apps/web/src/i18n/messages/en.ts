@@ -11,12 +11,14 @@ import agentPricingEn from "./modules/agent-pricing.en";
 import orderDuplicatesEn from "./modules/order-duplicates.en";
 import orderAmendmentsEn from "./modules/order-amendments.en";
 import shippingHandoffEn from "./modules/shipping-handoff.en";
+import leadOpsEn from "./modules/lead-ops.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
   orderDuplicates: orderDuplicatesEn,
   orderAmendments: orderAmendmentsEn,
   shippingHandoff: shippingHandoffEn,
+  leadOps: leadOpsEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,

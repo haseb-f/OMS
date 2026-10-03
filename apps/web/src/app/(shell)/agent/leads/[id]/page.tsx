@@ -15,6 +15,7 @@ import { ErrorState } from "@/components/shared/error-state";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { EnterpriseButton } from "@/components/ui/button";
 import { LeadStatusBadge } from "@/components/agent-portal/portal-badges";
+import { FollowUpOutcomeBadge } from "@/components/crm/follow-up-outcome-badge";
 import { canConvertLead, localizedName } from "@/config/agent-portal/labels";
 import { agentPortalService, type PortalLead } from "@/services/agent-portal-service";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
@@ -138,6 +139,12 @@ export default function AgentLeadDetailPage() {
               label={t("agentPortal.leads.fields.owner")}
               value={lead.salesEmployee?.fullName}
             />
+            {lead.followUpOutcome ? (
+              <DetailField
+                label={t("leadOps.outcome.label")}
+                value={<FollowUpOutcomeBadge value={lead.followUpOutcome} />}
+              />
+            ) : null}
           </DetailFieldGrid>
         </DetailSection>
       </div>

@@ -4,7 +4,13 @@ import {
   type SalesScope,
 } from '../sales-scope/sales-scope.service';
 import type { PrismaService } from '../prisma/prisma.service';
-import type { FindLeadsQueryDto } from './dto/find-leads-query.dto';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import {
+  FindLeadIdsQueryDto,
+  FindLeadsQueryDto,
+} from './dto/find-leads-query.dto';
+import { BULK_LIMITS } from '../common/bulk/bulk-limits';
 
 /**
  * Regression coverage for `LeadsService.buildLeadWhere()` — the private
@@ -162,5 +168,38 @@ describe('LeadsService list filters', () => {
       (part) => 'nextFollowUpAt' in part,
     );
     expect(hasFollowUpClause).toBe(false);
+  });
+
+  describe('select all matching (GET /leads/ids)', () => {
+    async function idsCall(raw: Record<string, string>) {
+      const query = plainToInstance(FindLeadIdsQueryDto, raw);
+      expect(await validate(query)).toHaveLength(0);
+      const { service, findMany } = makeService();
+      await service.findAllIds(query, allScope);
+      return (findMany.mock.calls[0] as [Record<string, unknown>])[0];
+    }
+
+    it('without pageSize returns every match up to the cap, not one page of 20', async () => {
+      const call = await idsCall({ search: 'x' });
+      expect(call.take).toBe(BULK_LIMITS.selectIdsMax);
+    });
+
+    it('with pageSize returns the first N', async () => {
+      expect((await idsCall({ pageSize: '50' })).take).toBe(50);
+    });
+
+    it('orders by the table sort with an id tie-break (deterministic first N)', async () => {
+      const call = await idsCall({
+        pageSize: '5',
+        sortBy: 'customerName',
+        sortOrder: 'asc',
+      });
+      expect(call.orderBy).toEqual([{ customerName: 'asc' }, { id: 'desc' }]);
+    });
+
+    it('only the ids query drops the default; the list keeps pageSize 20', () => {
+      expect(plainToInstance(FindLeadIdsQueryDto, {}).pageSize).toBeUndefined();
+      expect(plainToInstance(FindLeadsQueryDto, {}).pageSize).toBe(20);
+    });
   });
 });

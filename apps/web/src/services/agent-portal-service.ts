@@ -228,6 +228,9 @@ export interface PortalLead {
   product: { id: string; name: string; displayName: string | null; sku: string } | null;
   status: CatalogStatus & { id: string };
   storeOrder: { id: string; internalOrderId: string } | null;
+  /** R6 — follow-up classification (latest outcome code), read-only for agents. */
+  followUpOutcome: string | null;
+  followUpOutcomeAt: string | null;
 }
 
 export interface PortalLeadInput {

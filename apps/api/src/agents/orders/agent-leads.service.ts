@@ -36,6 +36,9 @@ const AGENT_LEAD_SELECT = {
     select: { id: true, code: true, name: true, nameEn: true, color: true },
   },
   storeOrder: { select: { id: true, internalOrderId: true } },
+  // R6 (spec C1) — the lead's follow-up classification, read-only for agents.
+  followUpOutcome: true,
+  followUpOutcomeAt: true,
 } satisfies Prisma.LeadSelect;
 
 /**
