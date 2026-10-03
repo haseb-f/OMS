@@ -15,13 +15,20 @@ import {
   IsOptionalUuidList,
 } from '../../../common/query/enum-list';
 import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
+import {
+  READY_FOR_SHIPPING_FILTER,
+  type ShipmentQueueStatus,
+} from '../shipping-handoff';
 
 /** Flat, cross-order shipment listing for the Shipping list page. */
 export class FindShipmentsQueryDto {
+  /** `READY_FOR_SHIPPING` = attempts with no carrier status yet (R6 SHIP). */
   @TransformEnumList()
-  @IsEnum(ShipmentStatus, { each: true })
+  @IsIn([...Object.values(ShipmentStatus), READY_FOR_SHIPPING_FILTER], {
+    each: true,
+  })
   @IsOptional()
-  status?: ShipmentStatus[];
+  status?: ShipmentQueueStatus[];
 
   @IsOptionalUuidList()
   shippingCompanyId?: string[];

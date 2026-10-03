@@ -9,11 +9,13 @@ import productCommissionAr from "./modules/product-commission.ar";
 import agentPricingAr from "./modules/agent-pricing.ar";
 import orderDuplicatesAr from "./modules/order-duplicates.ar";
 import orderAmendmentsAr from "./modules/order-amendments.ar";
+import shippingHandoffAr from "./modules/shipping-handoff.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
   orderDuplicates: orderDuplicatesAr,
   orderAmendments: orderAmendmentsAr,
+  shippingHandoff: shippingHandoffAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
@@ -3778,6 +3780,8 @@ const ar = {
     source: {
       MANUAL: "يدوي",
       IMPORT: "استيراد",
+      EXCEL: "استيراد Excel",
+      GOOGLE_SHEETS: "Google Sheets",
     },
     paymentStatus: {
       PAYMENT_PENDING: "بانتظار الدفع",

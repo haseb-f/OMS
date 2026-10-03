@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WorkflowStatusResolverService } from '../workflow/workflow-status-resolver.service';
 import { storeOrderPayableTotal } from './store-order-line-amount';
 import { roundMoney } from './store-order-payment-settlement.util';
+import { ensureShippingQueued } from './shipments/shipping-handoff';
 
 /**
  * Keeps Store Order payment StatusDefinitions in sync with verified Payment
@@ -72,5 +73,14 @@ export class StoreOrderPaymentSyncService {
         paymentStatusDef: { connect: { id: paymentStatusId } },
       },
     });
+    // R6 SHIP hook — Finance-verified PAID / OVERPAID makes a prepaid order
+    // eligible for the Shipping queue. Queue entry only: no carrier state.
+    if (tx) {
+      await ensureShippingQueued(tx, storeOrderId);
+    } else {
+      await this.prisma.$transaction((inner) =>
+        ensureShippingQueued(inner, storeOrderId),
+      );
+    }
   }
 }

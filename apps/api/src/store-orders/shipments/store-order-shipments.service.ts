@@ -2,6 +2,7 @@ import { BULK_LIMITS } from '../../common/bulk/bulk-limits';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   Prisma,
+  type Shipment,
   ShipmentStatus,
   ShippingCostPayer,
   StoreOrderSource,
@@ -13,8 +14,47 @@ import {
   canTransitionShipmentStatus,
   shipmentTransitionError,
 } from './store-order-shipment-transitions';
-import { isOperationalShipmentStatus } from '../../shipping/shipping-status.catalog';
+import {
+  DEFAULT_SHIPPING_STATUS_CODE,
+  isOperationalShipmentStatus,
+} from '../../shipping/shipping-status.catalog';
 import { evaluateFulfillmentGate } from '../store-order-fulfillment-gate';
+import { lockStoreOrderRow } from '../store-order-payment-settlement.util';
+import {
+  createOrRestoreAttempt,
+  ensureShippingQueued,
+  type HandoffOptions,
+  READY_FOR_SHIPPING_FILTER,
+  type ShipmentQueueStatus,
+} from './shipping-handoff';
+
+/**
+ * Status filter of the Shipping queue. "Ready for shipping" = no carrier
+ * status yet and no administrator catalog status other than the default
+ * Ready one (what the list displays as "Ready for shipping").
+ */
+export function statusQueueFilter(
+  status: ShipmentQueueStatus | ShipmentQueueStatus[] | undefined,
+): Prisma.ShipmentWhereInput {
+  const values =
+    status == null ? [] : Array.isArray(status) ? status : [status];
+  if (values.length === 0) return {};
+  const enumValues = values.filter(
+    (value): value is ShipmentStatus => value !== READY_FOR_SHIPPING_FILTER,
+  );
+  const branches: Prisma.ShipmentWhereInput[] = [];
+  if (enumValues.length > 0) branches.push({ status: { in: enumValues } });
+  if (values.includes(READY_FOR_SHIPPING_FILTER)) {
+    branches.push({
+      status: null,
+      OR: [
+        { shippingStatusId: null },
+        { shippingStatus: { code: DEFAULT_SHIPPING_STATUS_CODE } },
+      ],
+    });
+  }
+  return branches.length === 1 ? branches[0] : { OR: branches };
+}
 
 /** Statuses a parcel reaches only after it left with its label. */
 const LEFT_WITH_LABEL = new Set<ShipmentStatus>([
@@ -63,6 +103,17 @@ export function assertLabelCurrent(
 export class StoreOrderShipmentsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * The caller's interactive transaction, or null for the root client (a
+   * Prisma 7 transaction client also exposes `$transaction`, so identity —
+   * not shape — tells them apart).
+   */
+  private transactionOrNull(
+    client: Prisma.TransactionClient | PrismaService,
+  ): Prisma.TransactionClient | null {
+    return client === this.prisma ? null : client;
+  }
+
   async getCurrent(
     storeOrderId: string,
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
@@ -81,20 +132,63 @@ export class StoreOrderShipmentsService {
     storeOrderId: string,
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
     isReship = false,
-  ) {
-    const existing = await this.getCurrent(storeOrderId, tx);
+  ): Promise<{
+    shipment:
+      | NonNullable<
+          Awaited<ReturnType<StoreOrderShipmentsService['getCurrent']>>
+        >
+      | Shipment;
+    created: boolean;
+  }> {
+    const lockable = this.transactionOrNull(tx);
+    if (!lockable) {
+      // A non-transactional caller still gets lock + check + create atomically.
+      return this.prisma.$transaction((inner) =>
+        this.getOrCreateCurrent(storeOrderId, inner, isReship),
+      );
+    }
+    // R6 SHIP — lock order → shipment (the same order the handoff and the
+    // payment paths use) before reading or writing the attempt, so an order
+    // never gets two attempt rows and the lock order never inverts.
+    await lockStoreOrderRow(lockable, storeOrderId);
+    const existing = await this.getCurrent(storeOrderId, lockable);
     if (existing) {
       return { shipment: existing, created: false };
     }
-    const shipment = await this.createShipment(storeOrderId, isReship, tx);
+    const shipment = await this.createShipment(
+      storeOrderId,
+      isReship,
+      lockable,
+    );
     return { shipment, created: true };
+  }
+
+  /**
+   * R6 SHIP — puts an eligible order into the Shipping queue (attempt #1,
+   * `status null`) in the caller's transaction; idempotent. See
+   * `ensureShippingQueued`.
+   */
+  ensureQueued(
+    storeOrderId: string,
+    tx: Prisma.TransactionClient,
+    options: HandoffOptions = {},
+  ) {
+    return ensureShippingQueued(tx, storeOrderId, options);
   }
 
   private async createShipment(
     storeOrderId: string,
     isReship: boolean,
-    tx: Prisma.TransactionClient | PrismaService,
-  ) {
+    client: Prisma.TransactionClient | PrismaService,
+  ): Promise<Shipment> {
+    const lockable = this.transactionOrNull(client);
+    if (!lockable) {
+      return this.prisma.$transaction((inner) =>
+        this.createShipment(storeOrderId, isReship, inner),
+      );
+    }
+    const tx = lockable;
+    await lockStoreOrderRow(tx, storeOrderId);
     const order = await tx.storeOrder.findFirst({
       where: { id: storeOrderId, deletedAt: null },
       select: {
@@ -126,10 +220,8 @@ export class StoreOrderShipmentsService {
       throw new BadRequestException(gate.reason);
     }
 
-    const previousCount = await tx.shipment.count({ where: { storeOrderId } });
-    return tx.shipment.create({
-      data: { storeOrderId, isReship, attemptNumber: previousCount + 1 },
-    });
+    // Restores a withdrawn untouched #1 instead of numbering a new attempt.
+    return createOrRestoreAttempt(tx, storeOrderId, isReship);
   }
 
   /** Unlimited numbered attempts (#1/#2/#3...). Requires the current shipment be at NEEDS_RESHIPMENT. */
@@ -404,7 +496,7 @@ export class StoreOrderShipmentsService {
 
   /** Flat, cross-order listing for the Shipping list page — Store Order shipments only (`storeOrderId` set), never the legacy SalesOrder pipeline's rows. */
   private buildFlatWhere(query: {
-    status?: ShipmentStatus | ShipmentStatus[];
+    status?: ShipmentQueueStatus | ShipmentQueueStatus[];
     shippingCompanyId?: string | string[];
     countryId?: string | string[];
     source?: StoreOrderSource | StoreOrderSource[];
@@ -420,8 +512,25 @@ export class StoreOrderShipmentsService {
     const where: Prisma.ShipmentWhereInput = {
       deletedAt: null,
       storeOrderId: { not: null },
-      status: prismaEnumFilter(query.status),
       shippingCompanyId: prismaEnumFilter(query.shippingCompanyId),
+      AND: [
+        statusQueueFilter(query.status),
+        // R6 SHIP — a not-yet-worked attempt of an archived or cancelled
+        // order is not work for the Shipping team (worked attempts stay
+        // visible as history).
+        {
+          NOT: {
+            status: null,
+            storeOrder: {
+              OR: [
+                { deletedAt: { not: null } },
+                { fulfillmentStatus: { code: 'CANCELLED' } },
+                { fulfillmentStatus: { isFinal: true } },
+              ],
+            },
+          },
+        },
+      ],
     };
     if (query.hasTracking === 'true') {
       where.trackingNumber = { not: null };
@@ -532,7 +641,12 @@ export class StoreOrderShipmentsService {
           },
           _count: { select: { receiptAttachments: true } },
         },
-        orderBy: { createdAt: query.sortOrder ?? 'desc' },
+        // `id` tie-break: deterministic pages / "first N" (bulk-created rows
+        // share a timestamp).
+        orderBy: [
+          { createdAt: query.sortOrder ?? 'desc' },
+          { id: query.sortOrder ?? 'desc' },
+        ],
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -577,6 +691,10 @@ export class StoreOrderShipmentsService {
       this.prisma.shipment.findMany({
         where,
         select: { id: true },
+        orderBy: [
+          { createdAt: query.sortOrder ?? 'desc' },
+          { id: query.sortOrder ?? 'desc' },
+        ],
         take: BULK_LIMITS.selectIdsMax,
       }),
       this.prisma.shipment.count({ where }),
