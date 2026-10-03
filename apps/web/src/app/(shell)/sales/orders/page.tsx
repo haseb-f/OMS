@@ -49,6 +49,7 @@ import { usePrintCompany } from "@/components/print/print-brand";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { reportApiError, reportDestructiveDone, toast } from "@/lib/toast";
+import { bulkOutcomeFromIds, reportBulkOutcome } from "@/lib/bulk-run";
 import { formatDate, toISODate } from "@/lib/date";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
@@ -273,11 +274,11 @@ function SalesOrdersPageContent() {
     const { targets } = bulkArchive;
     setBulkArchive(null);
     const result = await salesOrdersService.bulkArchive(targets.map((item) => item.id));
-    if (result.failed.length === 0) {
-      toast.success(t("sales.orders.toasts.bulkArchived", { count: result.succeeded.length }));
-    } else {
-      toast.error(t("sales.orders.toasts.bulkArchiveFailed", { count: result.failed.length }));
-    }
+    const numberOf = new Map(targets.map((item) => [item.id, item.orderNumber]));
+    reportBulkOutcome(
+      bulkOutcomeFromIds(result, (id) => numberOf.get(id)),
+      (count) => t("sales.orders.toasts.bulkArchived", { count }),
+    );
     setRowSelection({});
     void load();
   };

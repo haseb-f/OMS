@@ -261,6 +261,7 @@ export function FinancialTransactionEditor({
             // EditorHeader puts the number in a dir="ltr" span; this keeps the gap on the title side in RTL.
             <span>{state.documentNumber ?? `${config.docCodePreview ?? ""}-…`}</span>
           }
+          copyValue={state.documentNumber}
           status={
             currentStatusOption ? (
               <StatusBadge label={currentStatusOption.label} tone={currentStatusOption.tone} />

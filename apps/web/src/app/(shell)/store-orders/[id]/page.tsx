@@ -1147,6 +1147,7 @@ function StoreOrderDetailContent() {
     <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-2">
       <RecordHighlightsHeader
         identity={order.internalOrderId}
+        copyValue={order.internalOrderId}
         status={
           <span className="flex flex-wrap items-center gap-1.5" data-testid="order-status-badges">
             <StatusBadge

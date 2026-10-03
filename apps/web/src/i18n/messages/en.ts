@@ -5,6 +5,7 @@ import paymentVocabularyEn from "./modules/payment-vocabulary.en";
 import fxSettingsEn from "./modules/fx-settings.en";
 import docUiEn from "./modules/doc-ui.en";
 import feedbackEn from "./modules/feedback.en";
+import controlsEn from "./modules/controls.en";
 import productCommissionEn from "./modules/product-commission.en";
 import agentPricingEn from "./modules/agent-pricing.en";
 import orderDuplicatesEn from "./modules/order-duplicates.en";
@@ -23,6 +24,7 @@ const en = {
   fxSettings: fxSettingsEn,
   docUi: docUiEn,
   feedback: feedbackEn,
+  controls: controlsEn,
   toast: {
     region: "Notifications",
     close: "Dismiss notification",

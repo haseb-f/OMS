@@ -140,6 +140,7 @@ export function LeadDetailView({
       className="gap-3"
       title={lead.customerName}
       reference={lead.leadNumber}
+      copyValue={lead.leadNumber}
       status={
         <div className="flex flex-wrap items-center gap-1.5">
           <StatusBadge label={statusBadge.label} colorKey={statusBadge.colorKey} />
@@ -272,7 +273,9 @@ export function LeadDetailView({
               label={t("crm.leads.fields.mobileNumber")}
               value={
                 lead.mobileNumber ? (
-                  <SemanticValue kind="phone">{lead.mobileNumber}</SemanticValue>
+                  <SemanticValue kind="phone" copyable>
+                    {lead.mobileNumber}
+                  </SemanticValue>
                 ) : undefined
               }
             />

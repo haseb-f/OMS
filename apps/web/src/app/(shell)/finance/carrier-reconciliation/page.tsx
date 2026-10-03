@@ -182,8 +182,6 @@ function CarrierReconciliationContent() {
     setIsRunningBulk(false);
     reportBulkResult(result, {
       success: (count) => t(`carrierReconciliation.bulk.done.${bulk.kind}`, { count }),
-      partial: (succeeded, failed) =>
-        t("carrierReconciliation.bulk.partial", { succeeded, failed }),
       label: (row) => row.trackingNumber || row.carrierReference || row.shipmentReference || row.id,
     });
     setBulk(null);

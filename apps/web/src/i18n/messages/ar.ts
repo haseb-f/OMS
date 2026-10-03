@@ -5,6 +5,7 @@ import paymentVocabularyAr from "./modules/payment-vocabulary.ar";
 import fxSettingsAr from "./modules/fx-settings.ar";
 import docUiAr from "./modules/doc-ui.ar";
 import feedbackAr from "./modules/feedback.ar";
+import controlsAr from "./modules/controls.ar";
 import productCommissionAr from "./modules/product-commission.ar";
 import agentPricingAr from "./modules/agent-pricing.ar";
 import orderDuplicatesAr from "./modules/order-duplicates.ar";
@@ -23,6 +24,7 @@ const ar = {
   fxSettings: fxSettingsAr,
   docUi: docUiAr,
   feedback: feedbackAr,
+  controls: controlsAr,
   toast: {
     region: "الإشعارات",
     close: "إغلاق الإشعار",

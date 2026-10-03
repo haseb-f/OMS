@@ -10,13 +10,10 @@ import {
   Loader2Icon,
 } from "lucide-react";
 import { useLocale } from "@/providers/locale-provider";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 /** Offsets come from tokens (`--toast-offset-*`, theme/tokens.css). */
 const OFFSET: ToasterProps["offset"] = {
   top: "var(--toast-offset-top)",
-  right: "var(--toast-offset-inline)",
-  left: "var(--toast-offset-inline)",
 };
 const MOBILE_OFFSET: ToasterProps["mobileOffset"] = {
   top: "var(--toast-offset-top)",
@@ -28,24 +25,20 @@ const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();
   const { direction, t } = useLocale();
   // Toasts SUPPLEMENT on-page feedback (inline errors, form summary, header
-  // status) — they never replace it. Top of the viewport, just BELOW the 48px
-  // top bar (never over search / notifications / account) and away from the
-  // bottom action bars and sticky modal footers: logical END corner on
-  // desktop (top-left in RTL, top-right in LTR); on phones centered and
-  // full-width with the notch safe area (usability-financial-reports §5).
-  const isMobile = useIsMobile();
-  const position: ToasterProps["position"] = isMobile
-    ? "top-center"
-    : direction === "rtl"
-      ? "top-left"
-      : "top-right";
+  // status) — they never replace it. TOP CENTER on every screen (R6 B3): just
+  // BELOW the 48px top bar (never over search / notifications / account),
+  // away from the bottom action bars and sticky modal footers, in the same
+  // place in RTL and LTR; on phones full-width with the notch safe area.
+  // At most three are visible; the stack expands on hover/focus. The
+  // toaster itself never takes clicks — only the toast cards do (globals.css).
 
   return (
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
       dir={direction}
-      position={position}
+      position="top-center"
+      visibleToasts={3}
       offset={OFFSET}
       mobileOffset={MOBILE_OFFSET}
       containerAriaLabel={t("toast.region")}

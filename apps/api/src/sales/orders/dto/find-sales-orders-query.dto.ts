@@ -10,6 +10,22 @@ import {
   Min,
 } from 'class-validator';
 import { SalesDocumentStatus } from '@prisma/client';
+
+/**
+ * `sortBy` values the list and `/ids` accept: SalesOrderDocument scalar
+ * columns, plus `customer` (the list's customer column → partner name).
+ */
+export const SALES_ORDER_SORTABLE_FIELDS = [
+  'orderNumber',
+  'customer',
+  'referenceNumber',
+  'status',
+  'subtotal',
+  'grandTotal',
+  'confirmedAt',
+  'createdAt',
+  'updatedAt',
+];
 import {
   TransformEnumList,
   IsOptionalUuidList,
@@ -51,7 +67,8 @@ export class FindSalesOrdersQueryDto {
   @IsOptional()
   pageSize?: number = 20;
 
-  @IsString()
+  /** Only real, sortable columns — anything else is a 400, never a Prisma 500. */
+  @IsIn(SALES_ORDER_SORTABLE_FIELDS)
   @IsOptional()
   sortBy?: string;
 
