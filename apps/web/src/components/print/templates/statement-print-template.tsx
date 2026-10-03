@@ -29,8 +29,8 @@ import type {
  * period totals → closing balance. A4 portrait; the six columns fit, long
  * descriptions wrap by words. Balances are the server's running balances —
  * the template only formats them with the shared formatter: a genuine zero
- * prints `0.00`, a negative balance a minus sign (monochrome), no Dr/Cr
- * suffix (the Debit/Credit columns name the side).
+ * balance or total prints `0.00`, the side a movement does not use is blank,
+ * a negative balance a minus sign (monochrome), no Dr/Cr suffix.
  */
 export function AccountStatementPrintTemplate({ payload }: { payload: StatementPrintPayload }) {
   const { t } = useLocale();
@@ -40,6 +40,8 @@ export function AccountStatementPrintTemplate({ payload }: { payload: StatementP
   const qrUrl = recordUrl(payload.recordPath);
   const money = (value: number) => formatMoney(value);
   const balance = money;
+  // A movement posts to one side: the unused debit/credit side is blank, not 0.00.
+  const side = (value: number) => (value ? formatMoney(value) : "");
 
   const columns: PrintColumn[] = [
     { key: "date", label: t("printDocument.date"), width: "21mm", nowrap: true },
@@ -63,8 +65,8 @@ export function AccountStatementPrintTemplate({ payload }: { payload: StatementP
       date: movement.date,
       reference: movement.reference,
       description: movement.description,
-      debit: money(movement.debit),
-      credit: money(movement.credit),
+      debit: side(movement.debit),
+      credit: side(movement.credit),
       balance: balance(movement.balance),
     })),
   ];

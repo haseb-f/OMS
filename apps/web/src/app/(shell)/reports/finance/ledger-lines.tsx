@@ -8,6 +8,7 @@ import type {
   FinancialReportSummaryItem,
   FinancialReportTextColumn,
 } from "@/components/accounting/financial-report";
+import { lineSideValues } from "@/components/accounting/financial-report";
 import { RelatedRecordLink } from "@/components/shared/record-preview";
 import { RECORD_ROUTES } from "@/config/traceability/record-routes";
 import { journalSourceHref, journalSourceLabelKey } from "@/config/accounting/journal-source";
@@ -109,9 +110,9 @@ export function buildLedgerBlock(
       code: showAccount ? movement.accountCode : undefined,
       label: movement.description ?? sourceText(t, movement),
       expandable: false,
+      // One JE line uses one side; the other is not applicable (blank).
       values: {
-        debit: movement.debit,
-        credit: movement.credit,
+        ...lineSideValues(movement.debit, movement.credit),
         balance: movement.runningBalance,
       },
       text: {

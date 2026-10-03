@@ -133,7 +133,10 @@ function buildColumns(
     meta: { titleKey: `agents.statement.${id}`, type: "money", importance },
     enableSorting: false,
     accessorFn: (row) => row[id],
-    cell: ({ row }) => <ReportMoney value={row.original[id]} quiet={isMemoLine(row.original)} />,
+    // A line posts to one side: the unused side is blank (not applicable), not 0.00.
+    cell: ({ row }) => (
+      <ReportMoney value={row.original[id] || undefined} quiet={isMemoLine(row.original)} />
+    ),
   });
   return [
     {
@@ -295,8 +298,9 @@ export function AgentStatementTab({ agentId }: { agentId: string }) {
     description: isMemoLine(line)
       ? `${agentLedgerDescription(line, t)} (${t("agents.statement.memo")}: ${formatMoney(line.memoAmount)})`
       : agentLedgerDescription(line, t),
-    debit: line.debit,
-    credit: line.credit,
+    // The unused side of a line is empty, not 0.
+    debit: line.debit || null,
+    credit: line.credit || null,
     balance: line.balance,
     posting: t(`agents.postingStatus.${line.postingStatus}` as MessageKey),
   });

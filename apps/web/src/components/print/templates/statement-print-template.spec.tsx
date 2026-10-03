@@ -43,14 +43,17 @@ const payload: StatementPrintPayload = {
 };
 
 describe("statement print template (spec D1–D3)", () => {
-  it("prints a genuine zero as 0.00 and a negative balance with a minus — no Dr/Cr suffix", () => {
+  it("prints a genuine zero as 0.00, the unused side blank, a negative balance with a minus — no Dr/Cr suffix", () => {
     const { container } = render(<AccountStatementPrintTemplate payload={payload} />);
     const rows = [...container.querySelectorAll(".pr-table tbody tr")].map((row) =>
       [...row.querySelectorAll("td")].map((cell) => cell.textContent),
     );
     // Opening row: balance 0.00 (genuine zero), debit/credit do not apply.
     expect(rows[0].slice(3)).toEqual(["", "", "0.00"]);
-    expect(rows[1].slice(3)).toEqual(["350.00", "0.00", "-350.00"]);
+    // The side a movement does not use is blank, not 0.00.
+    expect(rows[1].slice(3)).toEqual(["350.00", "", "-350.00"]);
+    // Period totals are computed figures: a zero total is 0.00.
+    expect(rows.at(-1)?.slice(3)).toEqual(["350.00", "0.00", "-350.00"]);
     expect(container.textContent).not.toMatch(/\b(Dr|Cr)\b|مدين|دائن/);
   });
 

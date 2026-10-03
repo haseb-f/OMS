@@ -95,9 +95,21 @@ function DescriptionText({ line }: { line: PortalStatementLine }) {
   );
 }
 
-/** Debit / credit / balance cells: the shared report formatter (0.00 for a genuine zero, red minus). */
-function AmountCell({ value, memo = false }: { value: number | null; memo?: boolean }) {
-  return <ReportMoney value={value} quiet={memo} />;
+/**
+ * Debit / credit / balance cells: the shared report formatter (0.00 for a
+ * genuine zero, red minus). A line posts to one side, so the unused
+ * debit/credit side is blank (`side`), not 0.00.
+ */
+function AmountCell({
+  value,
+  memo = false,
+  side = false,
+}: {
+  value: number | null;
+  memo?: boolean;
+  side?: boolean;
+}) {
+  return <ReportMoney value={side && !value ? undefined : value} quiet={memo} />;
 }
 
 function buildLedgerColumns(): ColumnDef<PortalStatementLine, unknown>[] {
@@ -152,13 +164,13 @@ function buildLedgerColumns(): ColumnDef<PortalStatementLine, unknown>[] {
       id: "debit",
       meta: { titleKey: "agentPortal.statement.fields.debit", type: "money" },
       accessorFn: (row) => row.debit,
-      cell: ({ row }) => <AmountCell value={row.original.debit} memo={row.original.memo} />,
+      cell: ({ row }) => <AmountCell value={row.original.debit} memo={row.original.memo} side />,
     },
     {
       id: "credit",
       meta: { titleKey: "agentPortal.statement.fields.credit", type: "money" },
       accessorFn: (row) => row.credit,
-      cell: ({ row }) => <AmountCell value={row.original.credit} memo={row.original.memo} />,
+      cell: ({ row }) => <AmountCell value={row.original.credit} memo={row.original.memo} side />,
     },
     {
       id: "balance",
@@ -417,8 +429,9 @@ export default function AgentStatementPage() {
                   ? `${agentLedgerDescription(line, t)} (${formatMoney(line.memoAmount, currency?.code ?? null)})`
                   : agentLedgerDescription(line, t),
               reference: portalLineReference(line),
-              debit: line.debit,
-              credit: line.credit,
+              // The unused side of a line is empty, not 0.
+              debit: line.debit || null,
+              credit: line.credit || null,
               balance: line.balance,
             })),
             keys,

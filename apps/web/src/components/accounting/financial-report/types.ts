@@ -258,6 +258,23 @@ function rowKindOf(line: FinancialReportLine, isGrandTotal: boolean): FinancialR
 }
 
 /**
+ * Debit / credit values of ONE journal line: a line posts to one side, so the
+ * side it does not use is not applicable — omitted (blank on screen, print
+ * and export), never a 0.00. Totals and balances are not passed through here.
+ */
+export function lineSideValues(
+  debit: number | string | null | undefined,
+  credit: number | string | null | undefined,
+): { debit?: number; credit?: number } {
+  const out: { debit?: number; credit?: number } = {};
+  const d = Number(debit ?? 0);
+  const c = Number(credit ?? 0);
+  if (d !== 0) out.debit = d;
+  if (c !== 0) out.credit = c;
+  return out;
+}
+
+/**
  * The value a cell shows for a line. A net LOSS row is already labelled
  * "Net Loss", so its figure is shown as an absolute amount (the label carries
  * the sign) and flagged adverse — never "Net Loss -1,000".

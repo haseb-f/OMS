@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { displayAmount, resolveRowKinds, type FinancialReportLine } from "./types";
+import { displayAmount, lineSideValues, resolveRowKinds, type FinancialReportLine } from "./types";
 import { resolveSummaryTone, summaryToText } from "./summary-format";
 
 const line = (overrides: Partial<FinancialReportLine>): FinancialReportLine => ({
@@ -134,5 +134,14 @@ describe("summary", () => {
         value: "Not balanced — Discrepancy 12.50 EGP",
       },
     ]);
+  });
+});
+
+describe("lineSideValues — one journal line posts to one side", () => {
+  it("omits the unused side (blank, not 0.00) and keeps the used one", () => {
+    expect(lineSideValues(350, 0)).toEqual({ debit: 350 });
+    expect(lineSideValues("0", "120.5")).toEqual({ credit: 120.5 });
+    expect(lineSideValues(null, undefined)).toEqual({});
+    expect(lineSideValues(-5, 0)).toEqual({ debit: -5 });
   });
 });
