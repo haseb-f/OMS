@@ -5,6 +5,7 @@ import {
   FinancialReport,
   ReportPagination,
   fetchAllReportPages,
+  normalSideOfAccountType,
 } from "@/components/accounting/financial-report";
 import type { ReportFilterValue } from "@/components/accounting/report-filter-bar";
 import { MultiEntityFilter } from "@/components/shared/data-table/multi-entity-filter";
@@ -43,6 +44,7 @@ function toLedgerBlocks(items: GeneralLedgerResult["items"]) {
     periodCredit: ledger.periodCredit,
     closingBalance: ledger.closingBalance,
     movements: ledger.movements,
+    normalSide: normalSideOfAccountType(ledger.account.accountType),
   }));
 }
 
@@ -154,6 +156,7 @@ export function GeneralLedgerTab() {
       }
       printTitle={t("reports.finance.generalLedger")}
       exportFileName="general-ledger.xlsx"
+      signConvention
       onPostingClick={(line) => {
         const movement = movementIndex.get(line.id);
         if (movement) {

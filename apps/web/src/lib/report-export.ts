@@ -112,10 +112,25 @@ function csvEscape(value: ReportExportCell): string {
  * garbles the text). Numbers are plain `1234.50` — never thousands-grouped —
  * so any spreadsheet re-reads them as numbers in either language.
  */
+/**
+ * Invisible bidi controls (LRI/RLI/FSI/PDI, LRM/RLM, embeddings) used to keep
+ * Latin dates in order on screen and in print — dropped from spreadsheet
+ * meta, where they would only travel as stray characters.
+ */
+const BIDI_CONTROLS = /[‎‏‪-‮⁦-⁩]/g;
+
+export function stripBidiControls(text: string): string {
+  return text.replace(BIDI_CONTROLS, "");
+}
+
 export function buildReportCsv(document: ReportExportDocument): string {
   const lines: string[] = [csvEscape(document.title)];
   for (const item of document.meta ?? []) {
-    lines.push([csvEscape(item.label), csvEscape(item.value)].join(","));
+    lines.push(
+      [csvEscape(stripBidiControls(item.label)), csvEscape(stripBidiControls(item.value))].join(
+        ",",
+      ),
+    );
   }
   lines.push("");
   lines.push(document.columns.map((column) => csvEscape(column.label)).join(","));
@@ -161,7 +176,7 @@ export async function buildReportXlsx(document: ReportExportDocument): Promise<A
   sheet.mergeCells(titleRow.number, 1, titleRow.number, columnCount);
 
   for (const item of document.meta ?? []) {
-    const row = sheet.addRow([item.label, item.value]);
+    const row = sheet.addRow([stripBidiControls(item.label), stripBidiControls(item.value)]);
     row.font = font;
     row.getCell(1).font = { ...font, bold: true };
   }

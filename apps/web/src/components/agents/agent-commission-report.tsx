@@ -352,7 +352,10 @@ export function AgentCommissionReportView({
         onRefresh={() => void reload()}
         getRowId={(row) => `${row.storeOrderId}-${row.productId ?? "legacy"}`}
         emptyTitle={t("agents.commission.report.empty")}
-        exportColumns={exportColumnsFromKeys(columns, EXPORT_KEYS, t)}
+        // The CSV rate is a raw number, so its header carries the unit ("Rate %").
+        exportColumns={exportColumnsFromKeys(columns, EXPORT_KEYS, t).map((column) =>
+          column.key === "rate" ? { ...column, label: `${column.label} %` } : column,
+        )}
         onExport={(keys, labels) =>
           exportRowsToCsv(
             (report?.lines ?? []).map((row) => ({

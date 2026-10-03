@@ -25,6 +25,12 @@ export interface FinancialReportLine {
   accountId?: string;
   accountType?: string;
   allowsPosting?: boolean;
+  /**
+   * The side this line's balance normally sits on (its nature). Defaults
+   * from `accountType`; set explicitly for partner statements (customer =
+   * debit, supplier = credit). A balance against its nature is adverse (red).
+   */
+  normalSide?: NormalSide;
   expandable: boolean;
   /** Amounts by column key. A missing key renders blank (not applicable); 0 renders "0.00". */
   values: Record<string, number>;
@@ -54,11 +60,18 @@ export interface FinancialReportColumn {
   labelKey: string;
   emphasize?: boolean;
   /**
-   * How a negative is written (default `minus`, red on screen). Balance
-   * columns are debit-positive: a credit balance reads "-1,234.00" — the
+   * How a negative is written (default `minus`). Balance columns are
+   * debit-positive (Debit − Credit): a credit balance reads "-1,234.00" — the
    * Debit/Credit columns name the side, so no Dr/Cr suffix is repeated.
    */
   negative?: NegativeStyle;
+  /**
+   * A debit-positive balance column whose figure is red only when it is
+   * ABNORMAL for the line's nature (`true` → the line's `normalSide`; a fixed
+   * side for every line, e.g. cash availability = `"debit"`). Unknown nature
+   * → minus sign without red. Red means adverse, never merely "credit side".
+   */
+  balance?: boolean | NormalSide;
 }
 
 export interface FinancialReportFooter {
@@ -89,6 +102,8 @@ export interface FinancialReportSummaryItem {
   tone?: FinancialReportSummaryTone;
   /** Negative style (default `minus`). */
   negative?: NegativeStyle;
+  /** An adverse figure (abnormal balance) — the only non-result tile shown red. */
+  adverse?: boolean;
   /** Currency of this tile when it differs from the report currency. */
   currency?: string;
   /**
@@ -280,11 +295,46 @@ export function lineSideValues(
  * the sign) and flagged adverse — never "Net Loss -1,000".
  */
 export function displayAmount(
-  line: Pick<FinancialReportLine, "id" | "values">,
+  line: Pick<FinancialReportLine, "id" | "values" | "normalSide" | "accountType">,
   key: string,
+  column?: Pick<FinancialReportColumn, "balance">,
 ): { value: number | undefined; adverse: boolean } {
   const value = line.values[key];
   if (value === undefined) return { value: undefined, adverse: false };
   if (line.id === "net-income" && value < 0) return { value: Math.abs(value), adverse: true };
-  return { value, adverse: false };
+  const side =
+    column?.balance === true
+      ? (line.normalSide ?? normalSideOfAccountType(line.accountType))
+      : column?.balance || undefined;
+  return { value, adverse: isAdverseBalance(value, side) };
+}
+
+/** Which side a balance normally sits on. */
+export type NormalSide = "debit" | "credit";
+
+/** Account nature: assets / expenses are debit-normal; liabilities / equity / revenue credit-normal. */
+export function normalSideOfAccountType(
+  accountType: string | null | undefined,
+): NormalSide | undefined {
+  switch (accountType) {
+    case "ASSET":
+    case "EXPENSE":
+      return "debit";
+    case "LIABILITY":
+    case "EQUITY":
+    case "REVENUE":
+      return "credit";
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * A debit-positive balance (Debit − Credit) against its nature: a
+ * debit-normal balance below zero, or a credit-normal balance above zero.
+ * Unknown nature is never adverse.
+ */
+export function isAdverseBalance(value: number, side: NormalSide | undefined): boolean {
+  if (!side || Math.abs(value) < 0.005) return false;
+  return side === "debit" ? value < 0 : value > 0;
 }

@@ -91,7 +91,7 @@ function ItemCard({ item, currency }: { item: FinancialReportSummaryItem; curren
             className={
               parts.isZero
                 ? "text-muted-foreground"
-                : parts.isNegative
+                : item.adverse
                   ? FIGURE_TONE.loss
                   : FIGURE_TONE[tone]
             }
@@ -126,13 +126,7 @@ function SideCard({
         value={
           <Figure
             figure={parts.figure}
-            className={
-              parts.isZero
-                ? "text-muted-foreground"
-                : parts.isNegative
-                  ? FIGURE_TONE.loss
-                  : "text-foreground"
-            }
+            className={parts.isZero ? "text-muted-foreground" : "text-foreground"}
           />
         }
         unit={currency}

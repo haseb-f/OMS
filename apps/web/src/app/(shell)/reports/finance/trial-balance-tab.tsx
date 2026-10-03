@@ -72,11 +72,11 @@ export function TrialBalanceTab() {
     void load();
   }, [load]);
 
-  // Balances are debit-positive: a credit balance reads with a minus sign
-  // (red on screen); the Debit/Credit columns name the side.
+  // Balances are Debit − Credit: a credit balance reads with a minus sign;
+  // red only when abnormal for the account's nature (`balance`).
   const columns: FinancialReportColumn[] = [
     ...(includeOpeningBalance
-      ? [{ key: "opening", labelKey: "reports.finance.fields.openingBalance" }]
+      ? [{ key: "opening", labelKey: "reports.finance.fields.openingBalance", balance: true }]
       : []),
     { key: "debit", labelKey: "reports.finance.fields.debit" },
     { key: "credit", labelKey: "reports.finance.fields.credit" },
@@ -84,6 +84,7 @@ export function TrialBalanceTab() {
       key: "closing",
       labelKey: "reports.finance.fields.closingBalance",
       emphasize: true,
+      balance: true,
     },
   ];
 
@@ -103,6 +104,7 @@ export function TrialBalanceTab() {
       }
       printTitle={t("reports.finance.trialBalance")}
       exportFileName="trial-balance.csv"
+      signConvention
       notice={warnings.length > 0 ? <ReportWarnings warnings={warnings} /> : undefined}
       summary={{
         // Period debits and credits are the figures that count — shown once,

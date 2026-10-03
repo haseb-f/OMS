@@ -371,7 +371,7 @@ export function FinancialReportTable({
                   </td>
                 ))}
                 {columns.map((column) => {
-                  const { value, adverse } = displayAmount(line, column.key);
+                  const { value, adverse } = displayAmount(line, column.key, column);
                   return (
                     <td
                       key={column.key}

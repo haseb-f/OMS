@@ -8,7 +8,11 @@ import type {
   FinancialReportSummaryItem,
   FinancialReportTextColumn,
 } from "@/components/accounting/financial-report";
-import { lineSideValues } from "@/components/accounting/financial-report";
+import {
+  isAdverseBalance,
+  lineSideValues,
+  type NormalSide,
+} from "@/components/accounting/financial-report";
 import { RelatedRecordLink } from "@/components/shared/record-preview";
 import { RECORD_ROUTES } from "@/config/traceability/record-routes";
 import { journalSourceHref, journalSourceLabelKey } from "@/config/accounting/journal-source";
@@ -36,17 +40,28 @@ export interface LedgerBlockInput {
   periodCredit: number;
   closingBalance: number;
   movements: AccountLedgerMovement[];
+  /**
+   * The balance's nature (account type; customer = debit, supplier =
+   * credit). A running/closing balance against it is red; unknown → no red.
+   */
+  normalSide?: NormalSide;
 }
 
 /**
- * Debit · Credit · Running balance — the balance is debit-positive: a credit
- * balance reads with a minus sign (red on screen); the Debit/Credit columns
- * name the side, so no Dr/Cr suffix is repeated on every row.
+ * Debit · Credit · Running balance — the balance is Debit − Credit: a credit
+ * balance reads with a minus sign (the Debit/Credit columns name the side, so
+ * no Dr/Cr suffix is repeated). Red only when the balance is abnormal for the
+ * block's nature.
  */
 export const LEDGER_COLUMNS: FinancialReportColumn[] = [
   { key: "debit", labelKey: "reports.finance.fields.debit" },
   { key: "credit", labelKey: "reports.finance.fields.credit" },
-  { key: "balance", labelKey: "reports.finance.fields.runningBalance", emphasize: true },
+  {
+    key: "balance",
+    labelKey: "reports.finance.fields.runningBalance",
+    emphasize: true,
+    balance: true,
+  },
 ];
 
 /** Opening · Debit · Credit · Closing tiles of one ledger block (account / partner statement). */
@@ -56,12 +71,14 @@ export function ledgerSummaryItems(
     LedgerBlockInput,
     "openingBalance" | "periodDebit" | "periodCredit" | "closingBalance"
   >,
+  normalSide?: NormalSide,
 ): FinancialReportSummaryItem[] {
   return [
     {
       id: "openingBalance",
       label: t("reports.finance.fields.openingBalance"),
       value: totals.openingBalance,
+      adverse: isAdverseBalance(totals.openingBalance, normalSide),
     },
     { id: "periodDebit", label: t("reports.finance.fields.debit"), value: totals.periodDebit },
     { id: "periodCredit", label: t("reports.finance.fields.credit"), value: totals.periodCredit },
@@ -70,6 +87,7 @@ export function ledgerSummaryItems(
       label: t("reports.finance.fields.closingBalance"),
       value: totals.closingBalance,
       emphasize: true,
+      adverse: isAdverseBalance(totals.closingBalance, normalSide),
     },
   ];
 }
@@ -95,6 +113,7 @@ export function buildLedgerBlock(
       parentId: block.id,
       kind: "opening",
       level: 1,
+      normalSide: block.normalSide,
       label: t("reports.finance.fields.openingBalance"),
       expandable: false,
       // An opening balance has no period debit/credit — those cells do not
@@ -107,6 +126,7 @@ export function buildLedgerBlock(
       parentId: block.id,
       kind: "posting",
       level: 1,
+      normalSide: block.normalSide,
       code: showAccount ? movement.accountCode : undefined,
       label: movement.description ?? sourceText(t, movement),
       expandable: false,
@@ -129,6 +149,7 @@ export function buildLedgerBlock(
       parentId: block.id,
       kind: "closing",
       level: 1,
+      normalSide: block.normalSide,
       label: t("reports.finance.fields.closingBalance"),
       expandable: false,
       values: {
@@ -144,6 +165,7 @@ export function buildLedgerBlock(
     parentId: null,
     kind: "group",
     level: 0,
+    normalSide: block.normalSide,
     code: block.code,
     label: block.label,
     labelEn: block.labelEn ?? null,

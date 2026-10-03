@@ -1934,7 +1934,8 @@ const ar = {
         accounts: "الحسابات",
         accountsRange: "الحسابات {from}–{to} من {total}",
         periodMovement: "حركة الفترة",
-        signHint: "الأرصدة تُعرض بجانبها: مدين أو دائن.",
+        signHint: "الرصيد = مدين − دائن؛ الرصيد السالب رصيد دائن",
+        signConventionLabel: "اصطلاح الرصيد",
       },
       filters: {
         company: "الشركة",

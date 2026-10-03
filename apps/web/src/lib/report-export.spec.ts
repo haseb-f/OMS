@@ -74,6 +74,9 @@ describe("report export follows the active language", () => {
     expect(csv).toContain(translate(messages.ar, "reports.finance.fields.accountCode"));
     expect(csv).toContain('"1500.50"');
     expect(csv).toContain('"1200.25"');
+    // Bidi isolates that order dates on screen/print never reach the file.
+    expect(csv).not.toMatch(/[‎‏⁦-⁩]/);
+    expect(csv).toContain("01 Jan 2026");
   });
 
   it("writes an RTL .xlsx for Arabic and an LTR one for English with the same totals", async () => {

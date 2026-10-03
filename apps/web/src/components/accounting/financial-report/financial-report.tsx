@@ -62,6 +62,7 @@ export function FinancialReport({
   summary,
   currency: currencyOverride,
   notice,
+  signConvention = false,
   toolbarExtra,
   title: titleProp,
   placeholder,
@@ -119,6 +120,12 @@ export function FinancialReport({
   currency?: string;
   /** A limitation / estimate notice — one caption line under the filter row. */
   notice?: ReactNode;
+  /**
+   * Debit − Credit balance reports (ledgers, statements, Trial Balance): state
+   * the sign convention once — a caption line on screen and a meta row in
+   * print / Excel / CSV.
+   */
+  signConvention?: boolean;
   /** @deprecated The header is always compact (design-system §11.5); ignored. */
   compactFilters?: boolean;
   /** Report-specific primary pickers at the start of the filter row (accounts, partner, view). */
@@ -216,7 +223,16 @@ export function FinancialReport({
       printedByName,
       period: describeReportPeriod(filters, { asOf, t }),
       currency,
-      filters: filterMeta,
+      filters: signConvention
+        ? [
+            ...filterMeta,
+            {
+              id: "signConvention",
+              label: t("reports.finance.ledger.signConventionLabel"),
+              value: t("reports.finance.ledger.signHint"),
+            },
+          ]
+        : filterMeta,
       summary: summaryToText(summary, { currency, t }),
     });
   };
@@ -341,7 +357,16 @@ export function FinancialReport({
             toggles={toggles}
           />
         }
-        notice={notice}
+        notice={
+          signConvention ? (
+            <>
+              {notice}
+              <p data-slot="report-sign-convention">{t("reports.finance.ledger.signHint")}</p>
+            </>
+          ) : (
+            notice
+          )
+        }
       />
       {showSummary && summary ? (
         <FinancialReportSummary
