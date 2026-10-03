@@ -37,6 +37,7 @@ describe('Lead distribution (integration, serial)', () => {
   const userIds: string[] = [];
   const agentIds: string[] = [];
   const partnerIds: string[] = [];
+  const teamIds: string[] = [];
   let previousPolicyId: string | null = null;
   let seq = 0;
   let refs: { countryId: string; currencyId: string; statusId: string };
@@ -125,6 +126,11 @@ describe('Lead distribution (integration, serial)', () => {
           data: { isActive: true },
         });
       }
+      await prisma.leadDistributionPolicy.updateMany({
+        where: { teamId: { in: teamIds } },
+        data: { teamId: null, isActive: false },
+      });
+      await prisma.salesTeam.deleteMany({ where: { id: { in: teamIds } } });
       await prisma.leadAssignment.deleteMany({
         where: { leadId: { in: leadIds } },
       });
@@ -339,6 +345,67 @@ describe('Lead distribution (integration, serial)', () => {
         }
       });
       expect((await owners([leadId]))[leadId]).toBeNull();
+    },
+  );
+
+  liveIt(
+    're-confirming an automatic mode keeps a team-scoped policy team-scoped',
+    async () => {
+      const department = await prisma.department.findFirstOrThrow({
+        where: { deletedAt: null },
+        select: { id: true },
+      });
+      const team = await prisma.salesTeam.create({
+        data: {
+          code: `${tag}-T`,
+          name: `${tag} Team`,
+          departmentId: department.id,
+          managerId: salesIds[0],
+        },
+      });
+      teamIds.push(team.id);
+
+      // The previewed (explicit) team scope is applied and validated.
+      const first = await isolated(async () =>
+        distribution.applyMode({
+          mode: LeadDistributionMode.CONTINUOUS,
+          ...(await distribution.resolveScope({ teamId: team.id })),
+          actorId,
+        }),
+      );
+      expect(first.policy?.teamId).toBe(team.id);
+
+      // A confirm that names no scope (the old endpoints' call) inherits it.
+      const again = await isolated(async () =>
+        distribution.applyMode({
+          mode: LeadDistributionMode.CONTINUOUS,
+          ...(await distribution.resolveScope({})),
+          actorId,
+        }),
+      );
+      expect(again.reused).toBe(true);
+      expect(again.policy?.id).toBe(first.policy?.id);
+      expect((await distribution.getLatestPolicy())?.teamId).toBe(team.id);
+      const snapshot = await distribution.getPolicySnapshot();
+      expect(snapshot.team).toEqual({ id: team.id, name: `${tag} Team` });
+      expect(snapshot.eligible.map((u) => u.id)).toEqual([salesIds[0]]);
+
+      // 24h re-confirm keeps it too; company-wide only when asked (null).
+      const hours = await isolated(async () =>
+        distribution.applyMode({
+          mode: LeadDistributionMode.TIME_LIMITED,
+          ...(await distribution.resolveScope({})),
+          actorId,
+        }),
+      );
+      expect(hours.policy?.teamId).toBe(team.id);
+      expect(await distribution.resolveScope({ teamId: null })).toEqual({
+        teamId: null,
+        departmentId: null,
+      });
+      await expect(
+        distribution.resolveScope({ teamId: randomUUID() }),
+      ).rejects.toThrow('Sales team not found or inactive.');
     },
   );
 });

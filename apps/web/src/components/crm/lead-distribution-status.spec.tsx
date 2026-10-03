@@ -45,6 +45,9 @@ function makeState(
   return {
     canManage: true,
     snapshot: snap(),
+    loading: false,
+    loadFailed: false,
+    refresh: vi.fn(async () => {}),
     status,
     running: status === "CONTINUOUS" || status === "TIME_LIMITED",
     busy: false,
@@ -266,5 +269,33 @@ describe("LeadDistributionStatusButton", () => {
       />,
     );
     expect(screen.queryByTestId("lead-distribution-control")).toBeNull();
+  });
+
+  it("claims no state while the snapshot loads and cannot open the dialog", () => {
+    const onOpen = vi.fn();
+    render(
+      <LeadDistributionStatusButton
+        state={makeState("PAUSED", { snapshot: null, loading: true })}
+        onOpen={onOpen}
+      />,
+    );
+    const button = screen.getByTestId("lead-distribution-control");
+    expect(button.dataset.stateTone).toBe("loading");
+    expect(button).toHaveProperty("disabled", true);
+    expect(button.textContent).not.toContain("paused");
+    fireEvent.click(button);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("an unreadable snapshot shows 'status unavailable' with a retry, never a mode", () => {
+    const onOpen = vi.fn();
+    const state = makeState("PAUSED", { snapshot: null, loadFailed: true });
+    render(<LeadDistributionStatusButton state={state} onOpen={onOpen} />);
+    const button = screen.getByTestId("lead-distribution-control");
+    expect(button.dataset.stateTone).toBe("error");
+    expect(button.textContent).toContain("leadOps.distribution.button.unavailable");
+    fireEvent.click(button);
+    expect(state.refresh).toHaveBeenCalledTimes(1);
+    expect(onOpen).not.toHaveBeenCalled();
   });
 });

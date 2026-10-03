@@ -70,6 +70,41 @@ export function LeadDistributionStatusButton({
   const { t } = useLocale();
   if (!state.canManage) return null;
 
+  // No snapshot yet: claim no state and do not open the dialog.
+  if (state.loading) {
+    return (
+      <EnterpriseButton
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled
+        aria-busy
+        data-testid="lead-distribution-control"
+        data-state-tone="loading"
+      >
+        <Spinner className="size-3.5" />
+        {t("leadOps.distribution.button.loading")}
+      </EnterpriseButton>
+    );
+  }
+  // The snapshot could not be read: say so, offer a retry.
+  if (state.loadFailed || !state.snapshot) {
+    return (
+      <EnterpriseButton
+        type="button"
+        size="sm"
+        variant="destructive"
+        data-testid="lead-distribution-control"
+        data-state-tone="error"
+        onClick={() => void state.refresh()}
+      >
+        <TriangleAlert aria-hidden className="size-3.5" />
+        {t("leadOps.distribution.button.unavailable")}
+        <span className="font-normal">· {t("leadOps.distribution.button.retry")}</span>
+      </EnterpriseButton>
+    );
+  }
+
   const d = describeDistributionControl(state.snapshot, state.status);
   const StateIcon = d.blocked ? TriangleAlert : MODE_ICON[state.status];
   const label = d.blocked

@@ -669,7 +669,8 @@ export class LeadsService {
    * follow-up classification (`Lead.followUpOutcome`/`followUpOutcomeAt`) in
    * the same transaction, but only when it is the latest by
    * `followUpOutcomeRecordedAt` (a guarded update, so a concurrent older
-   * write can never overwrite a newer one). Without an outcome the current
+   * write can never overwrite a newer one; on an exact tie the latest
+   * write wins — the backfill breaks such ties by createdAt, then id). Without an outcome the current
    * value is left untouched. Follow-ups are append-only.
    */
   async addFollowUp(

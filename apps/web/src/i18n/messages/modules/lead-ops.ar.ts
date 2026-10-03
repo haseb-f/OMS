@@ -2,7 +2,7 @@
 const leadOpsAr = {
   outcome: {
     label: "تصنيف المتابعة",
-    none: "بدون نتيجة بعد",
+    none: "بدون نتيجة مصنفة",
     all: "كل التصنيفات",
     recordedAt: "آخر نتيجة: {time}",
   },
@@ -14,6 +14,9 @@ const leadOpsAr = {
       manual: "التوزيع يدوي",
       blocked: "التوزيع متعطّل",
       pending: "{count} بانتظار التوزيع",
+      loading: "جارٍ تحميل حالة التوزيع…",
+      unavailable: "حالة التوزيع غير متاحة",
+      retry: "إعادة المحاولة",
       busy: "جارٍ التوزيع…",
     },
     dialog: {

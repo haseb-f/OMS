@@ -1595,8 +1595,9 @@ model Lead {
   /// R6 — the lead's current follow-up classification: the outcome code
   /// (`LEAD_FOLLOW_UP_OUTCOMES`, src/leads/follow-up-outcomes.ts) of its
   /// latest follow-up that recorded one. History stays in `LeadFollowUp`.
-  /// "Latest" = greatest `COALESCE(completedAt, createdAt)` (ties: createdAt,
-  /// id); `followUpAt` is the NEXT scheduled contact, never the contact time.
+  /// "Latest" = greatest `COALESCE(completedAt, createdAt)`; exact ties: the
+  /// backfill orders by createdAt then id, the live write lets the latest write
+  /// win. `followUpAt` is the NEXT scheduled contact, never the contact time.
   /// Written only by `LeadsService.addFollowUp` (same transaction) and the
   /// one-time backfill in migration 20261001143000_r6_lead_follow_up_outcome.
   followUpOutcome   String?   @map("follow_up_outcome")

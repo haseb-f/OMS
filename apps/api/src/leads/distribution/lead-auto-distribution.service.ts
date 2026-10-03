@@ -236,6 +236,37 @@ export class LeadAutoDistributionService {
     };
   }
 
+  /**
+   * R6 — the scope a re-confirmed automatic mode applies to: an explicit
+   * team / department (null = company-wide) wins; omitted fields inherit
+   * the active policy's scope, never silently widening it. A named team
+   * must exist and be active.
+   */
+  async resolveScope(requested: {
+    teamId?: string | null;
+    departmentId?: string | null;
+  }): Promise<{ teamId: string | null; departmentId: string | null }> {
+    const current = await this.getLatestPolicy();
+    const teamId =
+      requested.teamId !== undefined
+        ? requested.teamId
+        : (current?.teamId ?? null);
+    const departmentId =
+      requested.departmentId !== undefined
+        ? requested.departmentId
+        : (current?.departmentId ?? null);
+    if (teamId && requested.teamId !== undefined) {
+      const team = await this.prisma.salesTeam.findFirst({
+        where: { id: teamId, deletedAt: null, isActive: true },
+        select: { id: true },
+      });
+      if (!team) {
+        throw new BadRequestException('Sales team not found or inactive.');
+      }
+    }
+    return { teamId, departmentId };
+  }
+
   async activate(input: ActivatePolicyInput) {
     return (await this.applyMode(input)).policy;
   }

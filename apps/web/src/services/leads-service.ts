@@ -129,6 +129,7 @@ export interface LeadDistributionSnapshot {
     expiresAt: string | null;
     remainingMs: number | null;
     teamId: string | null;
+    departmentId?: string | null;
   } | null;
   eligible: { id: string; fullName: string; email: string }[];
   /** Size of the Round Robin pool the next drain would use. */
@@ -174,6 +175,12 @@ export interface LeadNoteRow {
   createdAt: string;
 }
 
+/** Team / department a distribution policy applies to (null = company-wide). */
+export interface DistributionScope {
+  teamId?: string | null;
+  departmentId?: string | null;
+}
+
 const base = createMasterDataService<LeadRow>("/leads");
 
 export const leadsService = {
@@ -203,10 +210,14 @@ export const leadsService = {
   eligibleAssignees: () =>
     apiClient.get<{ id: string; fullName: string; email: string }[]>("/leads/eligible-assignees"),
   distribution: () => apiClient.get<LeadDistributionSnapshot>("/leads/distribution"),
-  activateContinuous: () =>
-    apiClient.post<LeadDistributionActivateResult>("/leads/distribution/activate-continuous"),
-  activate24h: () =>
-    apiClient.post<LeadDistributionActivateResult>("/leads/distribution/activate-24h"),
+  /** `scope` omitted = keep the active policy's scope; null = company-wide. */
+  activateContinuous: (scope?: DistributionScope) =>
+    apiClient.post<LeadDistributionActivateResult>(
+      "/leads/distribution/activate-continuous",
+      scope ?? {},
+    ),
+  activate24h: (scope?: DistributionScope) =>
+    apiClient.post<LeadDistributionActivateResult>("/leads/distribution/activate-24h", scope ?? {}),
   activateManual: () =>
     apiClient.post<LeadDistributionSnapshot>("/leads/distribution/activate-manual"),
   pauseDistribution: () => apiClient.post<LeadDistributionSnapshot>("/leads/distribution/pause"),

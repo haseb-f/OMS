@@ -40,14 +40,18 @@ export function useLeadDistribution({
   const [snapshot, setSnapshot] = useState<LeadDistributionSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
   const [pendingMode, setPendingMode] = useState<RuntimeStatus | null>(null);
+  // The snapshot could not be read: the UI says so instead of assuming a mode.
+  const [loadFailed, setLoadFailed] = useState(false);
   // Synchronous in-flight guard: two clicks in one frame both see `busy` false.
   const inFlight = useRef(false);
 
   const refresh = async () => {
+    setLoadFailed(false);
     try {
       setSnapshot(await leadsService.distribution());
     } catch {
-      setSnapshot({ policy: null, eligible: [], status: "PAUSED", isRunning: false });
+      setSnapshot(null);
+      setLoadFailed(true);
     }
   };
 
@@ -87,11 +91,16 @@ export function useLeadDistribution({
     setBusy(true);
     setPendingMode(mode);
     try {
+      // Re-confirming keeps the scope the dialog showed (never widened).
+      const scope = {
+        teamId: snapshot?.policy?.teamId ?? null,
+        departmentId: snapshot?.policy?.departmentId ?? null,
+      };
       const next =
         mode === "CONTINUOUS"
-          ? await leadsService.activateContinuous()
+          ? await leadsService.activateContinuous(scope)
           : mode === "TIME_LIMITED"
-            ? await leadsService.activate24h()
+            ? await leadsService.activate24h(scope)
             : mode === "MANUAL"
               ? await leadsService.activateManual()
               : await leadsService.pauseDistribution();
@@ -108,7 +117,20 @@ export function useLeadDistribution({
     }
   };
 
-  return { canManage, snapshot, status, running, busy, pendingMode, pause, applyMode };
+  return {
+    canManage,
+    snapshot,
+    /** True until the first snapshot arrives (no state is claimed meanwhile). */
+    loading: canManage && snapshot === null && !loadFailed,
+    loadFailed,
+    refresh,
+    status,
+    running,
+    busy,
+    pendingMode,
+    pause,
+    applyMode,
+  };
 }
 
 export type LeadDistributionState = ReturnType<typeof useLeadDistribution>;

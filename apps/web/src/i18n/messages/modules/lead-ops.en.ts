@@ -2,7 +2,7 @@
 const leadOpsEn = {
   outcome: {
     label: "Follow-up classification",
-    none: "No outcome yet",
+    none: "No classified outcome",
     all: "All classifications",
     recordedAt: "Last outcome: {time}",
   },
@@ -14,6 +14,9 @@ const leadOpsEn = {
       manual: "Distribution manual",
       blocked: "Distribution blocked",
       pending: "{count} pending",
+      loading: "Loading distribution status…",
+      unavailable: "Distribution status unavailable",
+      retry: "Retry",
       busy: "Distributing…",
     },
     dialog: {
