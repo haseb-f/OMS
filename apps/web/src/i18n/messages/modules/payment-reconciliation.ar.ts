@@ -1,7 +1,7 @@
 /** payment-reconciliation namespace (ar) — owned by one implementer to avoid shared-file edit races. */
 const paymentReconciliationAr = {
-  nav: { title: "مطابقة المدفوعات" },
-  title: "مطابقة المدفوعات",
+  nav: { title: "مراجعة التحصيلات" },
+  title: "مراجعة التحصيلات",
   description:
     "مطابقة كشوف مزوّدي الدفع مع مطالبات الدفع المسجّلة من المبيعات — مساحة عمل لكل طريقة دفع تتطلب المطابقة.",
   list: {

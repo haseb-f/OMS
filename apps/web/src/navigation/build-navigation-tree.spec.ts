@@ -146,15 +146,12 @@ describe("Query-aware active navigation matching", () => {
     expect(findNavigationAncestorByRoute(reports, "/crm/leads/abc")?.id).toBe("crm-leads");
   });
 
-  it("the real sidebar config highlights General Ledger, not Reports → Finance", () => {
-    const generalLedger = findNavigationItemByRoute(
-      navigationConfig,
-      "/reports/finance",
-      "report=generalLedger",
-    );
-    expect(generalLedger?.route).toBe("/reports/finance?report=generalLedger");
-    expect(findNavigationItemByRoute(navigationConfig, "/reports/finance")?.route).toBe(
-      "/reports/finance",
+  it("the real sidebar config resolves the General Ledger deep link to Reports → Finance (R6: one entry only)", () => {
+    expect(
+      findNavigationItemByRoute(navigationConfig, "/reports/finance", "report=generalLedger")?.id,
+    ).toBe("reports-finance");
+    expect(navigationConfig.some((item) => item.route?.includes("report=generalLedger"))).toBe(
+      false,
     );
   });
 });

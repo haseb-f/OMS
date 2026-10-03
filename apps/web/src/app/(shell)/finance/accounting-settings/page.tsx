@@ -293,6 +293,10 @@ export default function AccountingSettingsPage() {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const currencies = useCurrencies();
+  // Posting settings are written by `PATCH /accounting/posting-settings`
+  // (fiscal-configuration → `accounting.fiscal-years.manage`). A viewer who
+  // reached the page via `settings.finance.view` sees a read-only state.
+  const canManage = hasPermission("accounting.fiscal-years.manage");
   const canViewInvestorSettings = hasPermission("investment-accounting.view");
   const canConfigureInvestorSettings = hasPermission("investment-accounting.configure");
   const [settings, setSettings] = useState<AccountingSettingsRow | null>(null);
@@ -418,14 +422,16 @@ export default function AccountingSettingsPage() {
         title={t("accounting.settings.title")}
         description={t("accounting.settings.description")}
         actions={
-          <HeaderActions
-            primary={{
-              key: "save",
-              label: t("common.save"),
-              disabled: isSaving,
-              onSelect: handleSave,
-            }}
-          />
+          canManage ? (
+            <HeaderActions
+              primary={{
+                key: "save",
+                label: t("common.save"),
+                disabled: isSaving,
+                onSelect: handleSave,
+              }}
+            />
+          ) : undefined
         }
       />
 
@@ -456,6 +462,7 @@ export default function AccountingSettingsPage() {
                   {/* No clear: once set, the functional currency can only be changed, never emptied (unchanged behavior). */}
                   <CurrencyPicker
                     id={functionalCurrencyFieldId}
+                    disabled={!canManage}
                     valueKey="id"
                     value={functionalCurrency?.id ?? null}
                     onValueChange={(nextId) => {
@@ -489,6 +496,7 @@ export default function AccountingSettingsPage() {
                     <AccountPicker
                       value={values[field.key]}
                       accountType={field.accountType}
+                      disabled={!canManage}
                       onChange={(account) =>
                         setValues((prev) => ({ ...prev, [field.key]: account }))
                       }

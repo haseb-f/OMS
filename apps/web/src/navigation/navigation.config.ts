@@ -10,7 +10,13 @@ export const NAVIGATION_GROUPS: Record<NavigationGroupId, { titleKey: MessageKey
     "finance-operations": { titleKey: "sidebar.groups.financeOperations", order: 0 },
     "finance-ledger": { titleKey: "sidebar.groups.financeLedger", order: 1 },
     "finance-assets": { titleKey: "sidebar.groups.financeAssets", order: 2 },
-    "finance-setup": { titleKey: "sidebar.groups.financeSetup", order: 3 },
+    // R6 (spec A.2) — Settings by business domain.
+    "settings-general": { titleKey: "sidebar.groups.settingsGeneral", order: 10 },
+    "settings-finance": { titleKey: "sidebar.groups.settingsFinance", order: 11 },
+    "settings-shipping": { titleKey: "sidebar.groups.settingsShipping", order: 12 },
+    "settings-costs": { titleKey: "sidebar.groups.settingsCosts", order: 13 },
+    "settings-crm": { titleKey: "sidebar.groups.settingsCrm", order: 14 },
+    "settings-integrations": { titleKey: "sidebar.groups.settingsIntegrations", order: 15 },
   };
 
 /**
@@ -199,39 +205,43 @@ export const navigationConfig: NavigationItem[] = [
   {
     id: "master-data-shipping-statuses",
     titleKey: "masterData.shippingStatuses.title",
-    parent: "shipping",
+    parent: "settings",
     route: "/master-data/shipping-statuses",
     icon: "list-checks",
-    order: 2,
+    order: 1,
     permissions: ["masterdata.shipping-statuses.view"],
+    group: "settings-shipping",
   },
   {
     id: "master-data-workflow-statuses",
     titleKey: "masterData.workflowStatuses.title",
-    parent: "master-data",
+    parent: "settings",
     route: "/master-data/workflow-statuses",
     icon: "list-checks",
-    order: 25,
-    permissions: ["masterdata.view"],
+    order: 3,
+    permissions: ["masterdata.workflow-statuses.view"],
+    group: "settings-crm",
   },
   {
     id: "master-data-workflow-transitions",
     titleKey: "workflow.transitions.title",
     shortTitleKey: "sidebar.short.transitions",
-    parent: "master-data",
+    parent: "settings",
     route: "/master-data/workflow-transitions",
     icon: "git-branch",
-    order: 26,
+    order: 4,
     permissions: ["masterdata.workflow-transitions.view"],
+    group: "settings-crm",
   },
   {
     id: "master-data-shipping-companies",
     titleKey: "masterData.shippingCompanies.title",
-    parent: "shipping",
+    parent: "settings",
     route: "/master-data/shipping-companies",
     icon: "truck",
-    order: 3,
+    order: 0,
     permissions: ["masterdata.shipping-companies.view"],
+    group: "settings-shipping",
   },
 
   {
@@ -582,11 +592,12 @@ export const navigationConfig: NavigationItem[] = [
   {
     id: "expenses-components",
     titleKey: "nav.expensesComponents",
-    parent: "expenses",
+    parent: "settings",
     route: "/expenses/cost-components",
     icon: "calculator",
     order: 0,
     permissions: ["masterdata.cost-components.view"],
+    group: "settings-costs",
   },
   {
     id: "expenses-product-cost",
@@ -618,10 +629,10 @@ export const navigationConfig: NavigationItem[] = [
     id: "finance-receiving-accounts",
     titleKey: "nav.financeReceivingAccounts",
     parent: "finance",
-    group: "finance-setup",
     route: "/finance/receiving-accounts",
     icon: "landmark",
     order: 0,
+    visible: false,
   },
   {
     id: "finance-journal-entries",
@@ -632,18 +643,6 @@ export const navigationConfig: NavigationItem[] = [
     icon: "book-text",
     order: 1,
     permissions: ["accounting.journal-entries.view"],
-  },
-  /// The General Ledger is one report of the Finance reports page — linked
-  /// here (next to Journal Entries) so accountants find it where they work.
-  {
-    id: "finance-general-ledger",
-    titleKey: "reports.finance.generalLedger",
-    parent: "finance",
-    group: "finance-ledger",
-    route: "/reports/finance?report=generalLedger",
-    icon: "library",
-    order: 1.5,
-    permissions: ["reports.financial.view"],
   },
   {
     id: "finance-chart-of-accounts",
@@ -685,20 +684,22 @@ export const navigationConfig: NavigationItem[] = [
   {
     id: "master-data-payment-methods",
     titleKey: "masterData.paymentMethods.title",
-    parent: "finance",
-    group: "finance-setup",
+    parent: "settings",
+    group: "settings-finance",
     route: "/master-data/payment-methods",
     icon: "banknote",
-    order: 6,
+    order: 2,
+    permissions: ["masterdata.payment-methods.view"],
   },
   {
     id: "master-data-payment-terms",
     titleKey: "masterData.paymentTerms.title",
-    parent: "finance",
-    group: "finance-setup",
+    parent: "settings",
+    group: "settings-finance",
     route: "/master-data/payment-terms",
     icon: "calendar-clock",
-    order: 7,
+    order: 3,
+    permissions: ["masterdata.payment-terms.view"],
   },
   {
     id: "finance-expenses",
@@ -726,7 +727,7 @@ export const navigationConfig: NavigationItem[] = [
     group: "finance-operations",
     route: "/purchasing/payments",
     icon: "wallet",
-    order: 10,
+    order: 13.8,
     permissions: ["purchasing.payments.view"],
   },
   {
@@ -762,30 +763,31 @@ export const navigationConfig: NavigationItem[] = [
   {
     id: "finance-journals",
     titleKey: "nav.financeJournals",
-    parent: "finance",
-    group: "finance-ledger",
+    parent: "settings",
+    group: "settings-finance",
     route: "/finance/journals",
     icon: "library",
-    order: 12,
+    order: 1,
+    permissions: ["masterdata.journals.view"],
   },
   {
     id: "finance-payment-sources",
     titleKey: "nav.financePaymentSources",
-    parent: "finance",
-    group: "finance-setup",
+    parent: "settings",
+    group: "settings-finance",
     route: "/finance/payment-sources",
     icon: "credit-card",
-    order: 13,
+    order: 4,
     permissions: ["masterdata.payment-sources.view"],
   },
   {
     id: "finance-fulfillment-cost-rules",
     titleKey: "nav.financeFulfillmentCostRules",
-    parent: "finance",
-    group: "finance-setup",
+    parent: "settings",
+    group: "settings-shipping",
     route: "/finance/fulfillment-cost-rules",
     icon: "package",
-    order: 13.5,
+    order: 2,
     permissions: ["masterdata.fulfillment-cost-rules.view"],
   },
   {
@@ -801,11 +803,11 @@ export const navigationConfig: NavigationItem[] = [
   {
     id: "finance-cost-allocation-rules",
     titleKey: "nav.financeCostAllocationRules",
-    parent: "finance",
-    group: "finance-setup",
+    parent: "settings",
+    group: "settings-finance",
     route: "/finance/cost-allocation-rules",
     icon: "git-branch",
-    order: 13.7,
+    order: 9,
     permissions: ["masterdata.cost-allocation-rules.view"],
   },
   {
@@ -815,7 +817,7 @@ export const navigationConfig: NavigationItem[] = [
     group: "finance-assets",
     route: "/finance/projects",
     icon: "folder-kanban",
-    order: 14,
+    order: 15.6,
   },
   {
     id: "finance-fixed-assets",
@@ -854,17 +856,28 @@ export const navigationConfig: NavigationItem[] = [
     group: "finance-ledger",
     route: "/finance/exchange-rates",
     icon: "coins",
-    order: 15.6,
+    order: 17.5,
     permissions: ["exchange-rates.view"],
   },
   {
     id: "finance-fiscal-periods",
     titleKey: "nav.financeFiscalPeriods",
-    parent: "finance",
-    group: "finance-setup",
+    parent: "settings",
+    group: "settings-finance",
     route: "/finance/fiscal-periods",
     icon: "calendar-clock",
-    order: 16,
+    order: 7,
+    // Writes need `accounting.fiscal-years.manage` (never domain-granted); the
+    // page reads are open, so viewers keep the access they had: Finance
+    // settings viewers and accountants (ledger keys). Page renders read-only.
+    permissions: [
+      "accounting.fiscal-years.manage",
+      "settings.finance.view",
+      "accounting.journal-entries.view",
+      "accounting.chart-of-accounts.view",
+      "accounting.opening-balances.view",
+    ],
+    permissionMatch: "any",
   },
   {
     id: "finance-opening-balances",
@@ -879,38 +892,62 @@ export const navigationConfig: NavigationItem[] = [
   {
     id: "finance-year-closing",
     titleKey: "nav.financeYearClosing",
-    parent: "finance",
-    group: "finance-setup",
+    parent: "settings",
+    group: "settings-finance",
     route: "/finance/year-closing",
     icon: "calendar-check",
-    order: 18,
+    order: 8,
+    // Writes need `accounting.fiscal-years.manage` (never domain-granted); the
+    // page reads are open, so viewers keep the access they had: Finance
+    // settings viewers and accountants (ledger keys). Page renders read-only.
+    permissions: [
+      "accounting.fiscal-years.manage",
+      "settings.finance.view",
+      "accounting.journal-entries.view",
+      "accounting.chart-of-accounts.view",
+      "accounting.opening-balances.view",
+    ],
+    permissionMatch: "any",
   },
   {
     id: "finance-accounting-settings",
     titleKey: "nav.financeAccountingSettings",
-    parent: "finance",
-    group: "finance-setup",
+    parent: "settings",
+    group: "settings-finance",
     route: "/finance/accounting-settings",
     icon: "sliders",
-    order: 19,
+    order: 0,
+    // Writes need `accounting.fiscal-years.manage` (never domain-granted); the
+    // page reads are open, so viewers keep the access they had: Finance
+    // settings viewers and accountants (ledger keys). Page renders read-only.
+    permissions: [
+      "accounting.fiscal-years.manage",
+      "settings.finance.view",
+      "accounting.journal-entries.view",
+      "accounting.chart-of-accounts.view",
+      "accounting.opening-balances.view",
+    ],
+    permissionMatch: "any",
   },
   {
     id: "master-data-currencies",
     titleKey: "masterData.currencies.title",
-    parent: "finance",
-    group: "finance-setup",
+    parent: "settings",
+    group: "settings-finance",
     route: "/master-data/currencies",
     icon: "coins",
-    order: 20,
+    order: 5,
+    permissions: ["masterdata.currencies.view"],
   },
   {
     id: "master-data-taxes",
     titleKey: "masterData.taxes.title",
-    parent: "finance",
-    group: "finance-setup",
+    parent: "settings",
+    group: "settings-finance",
     route: "/master-data/taxes",
     icon: "percent",
-    order: 21,
+    order: 6,
+    permissions: ["masterdata.taxes.view"],
   },
 
   /// Standalone top-level module (Enterprise Import Center) — a single
@@ -951,6 +988,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/countries",
     icon: "globe",
     order: 0,
+    permissions: ["masterdata.countries.view"],
   },
   {
     id: "master-data-cities",
@@ -959,6 +997,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/cities",
     icon: "map-pin",
     order: 1,
+    permissions: ["masterdata.cities.view"],
   },
   {
     id: "master-data-languages",
@@ -967,6 +1006,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/languages",
     icon: "languages",
     order: 2,
+    permissions: ["masterdata.languages.view"],
   },
   {
     id: "master-data-transaction-types",
@@ -975,6 +1015,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/transaction-types",
     icon: "arrow-left-right",
     order: 3,
+    permissions: ["masterdata.transaction-types.view"],
   },
 
   /// Core module (must always exist) — shell only, no report is generated
@@ -1086,8 +1127,12 @@ export const navigationConfig: NavigationItem[] = [
     order: 11,
   },
 
-  /// System configuration ONLY (TASK-024 Part 4) — no master data lives
-  /// here. Every child is a shell page: "Prepare pages only."
+  /// System configuration, grouped by business domain (R6 spec A.2):
+  /// General · Finance · Shipping · Costs · Sales & CRM · Integrations.
+  /// Every setup page opens with its own granular key OR its domain key
+  /// (`settings.<domain>.view`, expanded server-side to the domain's view
+  /// keys). Routes never moved — only the nav parent/heading. Users stays on
+  /// `settings.manage` (user administration belongs to no domain).
   {
     id: "settings",
     titleKey: "nav.settings",
@@ -1102,6 +1147,8 @@ export const navigationConfig: NavigationItem[] = [
     route: "/settings/general",
     icon: "sliders",
     order: 0,
+    group: "settings-general",
+    permissions: ["settings.general.view"],
   },
   {
     id: "settings-users",
@@ -1109,8 +1156,9 @@ export const navigationConfig: NavigationItem[] = [
     parent: "settings",
     route: "/settings/users",
     icon: "users",
-    order: 1,
+    order: 6,
     permissions: ["settings.manage"],
+    group: "settings-general",
   },
   {
     id: "master-data-departments",
@@ -1118,8 +1166,9 @@ export const navigationConfig: NavigationItem[] = [
     parent: "settings",
     route: "/master-data/departments",
     icon: "building",
-    order: 2,
+    order: 4,
     permissions: ["masterdata.departments.view"],
+    group: "settings-general",
   },
   {
     id: "master-data-job-titles",
@@ -1127,8 +1176,9 @@ export const navigationConfig: NavigationItem[] = [
     parent: "settings",
     route: "/master-data/job-titles",
     icon: "award",
-    order: 2.1,
+    order: 5,
     permissions: ["masterdata.job-titles.view"],
+    group: "settings-general",
   },
   {
     id: "master-data-customer-classifications",
@@ -1136,8 +1186,9 @@ export const navigationConfig: NavigationItem[] = [
     parent: "settings",
     route: "/master-data/customer-classifications",
     icon: "tags",
-    order: 2.2,
+    order: 0,
     permissions: ["masterdata.customer-classifications.view"],
+    group: "settings-crm",
   },
   {
     id: "master-data-no-purchase-reasons",
@@ -1145,8 +1196,9 @@ export const navigationConfig: NavigationItem[] = [
     parent: "settings",
     route: "/master-data/no-purchase-reasons",
     icon: "clipboard-list",
-    order: 2.4,
+    order: 1,
     permissions: ["masterdata.no-purchase-reasons.view"],
+    group: "settings-crm",
   },
   {
     id: "master-data-lead-follow-up-types",
@@ -1154,8 +1206,9 @@ export const navigationConfig: NavigationItem[] = [
     parent: "settings",
     route: "/master-data/lead-follow-up-types",
     icon: "calendar-clock",
-    order: 2.5,
+    order: 2,
     permissions: ["masterdata.lead-follow-up-types.view"],
+    group: "settings-crm",
   },
   {
     id: "settings-document-numbering",
@@ -1163,7 +1216,10 @@ export const navigationConfig: NavigationItem[] = [
     parent: "settings",
     route: "/settings/document-numbering",
     icon: "hash",
-    order: 4,
+    order: 1,
+    group: "settings-general",
+    permissions: ["numbering.manage", "settings.general.view"],
+    permissionMatch: "any",
   },
   {
     id: "settings-print-settings",
@@ -1171,7 +1227,9 @@ export const navigationConfig: NavigationItem[] = [
     parent: "settings",
     route: "/settings/print-settings",
     icon: "printer",
-    order: 5,
+    order: 2,
+    group: "settings-general",
+    permissions: ["settings.general.view"],
   },
   {
     id: "settings-notifications",
@@ -1179,7 +1237,9 @@ export const navigationConfig: NavigationItem[] = [
     parent: "settings",
     route: "/settings/notifications",
     icon: "bell",
-    order: 6,
+    order: 3,
+    group: "settings-general",
+    permissions: ["settings.general.view"],
   },
   {
     id: "settings-integrations",
@@ -1187,7 +1247,9 @@ export const navigationConfig: NavigationItem[] = [
     parent: "settings",
     route: "/settings/integrations",
     icon: "plug",
-    order: 7,
+    order: 0,
+    group: "settings-integrations",
+    permissions: ["settings.integrations.view"],
   },
   {
     id: "settings-security",
@@ -1195,7 +1257,9 @@ export const navigationConfig: NavigationItem[] = [
     parent: "settings",
     route: "/settings/security",
     icon: "shield",
-    order: 8,
+    order: 7,
+    group: "settings-general",
+    permissions: ["settings.general.view"],
   },
   {
     id: "settings-backup",
@@ -1203,7 +1267,9 @@ export const navigationConfig: NavigationItem[] = [
     parent: "settings",
     route: "/settings/backup",
     icon: "hard-drive",
-    order: 9,
+    order: 8,
+    group: "settings-general",
+    permissions: ["settings.general.view"],
   },
 
   // External agent portal (specs/agents-fulfillment-partners §10) — audience
