@@ -15,7 +15,7 @@ import {
   type ShippingHandoffBlocker,
 } from "@/services/shipping-service";
 
-/** Blockers worth explaining on a shipping order (pickup / archived speak for themselves). */
+/** Blockers that need someone's action — shown as a warning; the rest as a plain empty state. */
 const EXPLAINED_BLOCKERS = new Set<ShippingHandoffBlocker>([
   "PAYMENT_REQUIRED",
   "NOT_SHIPPABLE",
@@ -84,7 +84,7 @@ export function ShippingHandoffNotice({
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
-  if (!handoff?.applicable) return null;
+  if (!handoff) return null;
   if (handoff.queued) {
     if (!awaitingShipping || !hasPermission("shipping.view")) return null;
     return (
@@ -101,7 +101,14 @@ export function ShippingHandoffNotice({
       </Alert>
     );
   }
-  if (!handoff.blocker || !EXPLAINED_BLOCKERS.has(handoff.blocker)) return null;
+  if (!handoff.blocker) return null;
+  if (!EXPLAINED_BLOCKERS.has(handoff.blocker)) {
+    return (
+      <p className="text-caption text-muted-foreground" data-testid="shipping-handoff-empty">
+        {t(shippingBlockerKey(handoff.blocker))}
+      </p>
+    );
+  }
   return (
     <Alert tone="warning" data-testid="shipping-handoff-blocker">
       <AlertTriangle />

@@ -999,7 +999,7 @@ function StoreOrderDetailContent() {
                 rowKey={(shipment) => shipment.id}
               />
             </div>
-          ) : shippingHandoff ? null : (
+          ) : shippingHandoff?.queued || shippingHandoff?.blocker ? null : (
             <p className="text-caption text-muted-foreground">
               {fulfillmentAllowed
                 ? t("storeOrders.shippingStage.READY_FOR_SHIPPING")

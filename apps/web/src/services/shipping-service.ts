@@ -108,7 +108,12 @@ export interface ShippingStatusCatalogEntry {
 
 /** R6 SHIP — why a shipping order is not (yet) in the internal Shipping queue. */
 export type ShippingHandoffBlocker =
-  "ORDER_ARCHIVED" | "ORDER_CANCELLED" | "PICKUP" | "NOT_SHIPPABLE" | "PAYMENT_REQUIRED";
+  | "ORDER_ARCHIVED"
+  | "ORDER_CANCELLED"
+  | "ORDER_CLOSED"
+  | "PICKUP"
+  | "NOT_SHIPPABLE"
+  | "PAYMENT_REQUIRED";
 
 /** `GET /store-orders/:id/shipping-handoff`. */
 export interface ShippingHandoff {

@@ -8,6 +8,7 @@ const shippingHandoffEn = {
       "Not sent to Shipping yet — prepaid order awaiting a full payment declaration (or Finance verification).",
     NOT_SHIPPABLE: "Nothing to ship — digital-only order.",
     ORDER_CANCELLED: "Cancelled — not in the Shipping queue.",
+    ORDER_CLOSED: "Fulfillment is already final — not in the Shipping queue.",
     ORDER_ARCHIVED: "Archived — not in the Shipping queue.",
     PICKUP: "Pickup order — prepared for collection, never shipped.",
   },
