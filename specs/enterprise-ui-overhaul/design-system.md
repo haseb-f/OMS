@@ -645,3 +645,47 @@ Contrast (`node scripts/design/contrast-check.mjs`) adds: text / muted / placeho
 `--surface-soft`, muted on row hover, filter name and value on the applied tint, open-trigger value /
 placeholder / label on `--control-pressed`, segment on / off text. The script now flattens
 multi-line `color-mix()` values (Prettier wraps them).
+
+### 12.13 Dashboard scopes, soft tiles and the dropdown trial (Round 6, 2026-10-01)
+
+Spec: `specs/ui-navigation-r6/spec.md` §E. Released only after owner visual approval.
+
+- **Colour follows meaning:**
+  - blue (`info`): new things and activity
+  - green (`success`): conversion and delivery
+  - amber (`warning`): pending work and follow-up
+  - red (`destructive`): overdue items, errors and returns
+  - neutral: everything else
+
+  A toned tile gets a 5% top tint (7% in dark) and a hairline that carries 14% of the tone (18% in
+  dark) (`--surface-soft-tone-border-strength`). Print sets both to 0.
+
+- **Scope lives in the header, not the tile.** `DashboardPanel` takes `scope`, rendered as
+  `InsightScope`, a neutral outline chip with three values:
+  - `period`, the selected period («هذا الشهر»)
+  - `current`, the state right now («الآن»)
+  - `toDate`, everything so far («حتى تاريخه»)
+
+  A tile whose scope differs from its group's carries the chip in its `meta`. Tile context lines
+  never repeat the period.
+
+- **Labels are never truncated.** `InsightCard` labels wrap; context lines may truncate, with the
+  full text in `title`.
+- **Panel icons.** `DashboardPanel` takes `tone`, which tints its header icon chip (`panel-icon`)
+  the same way as a tile icon.
+- **Hover.** Static soft panels have no hover affordance; only `data-clickable` cards and `href`
+  tiles react. Keyboard focus inside a panel still firms its edge.
+- **Agent dashboard** (`/agent`) is built from the same panels and groups:
+  - Orders and fulfillment, to date
+  - Leads, now, from the scoped leads-list totals
+  - Sales and collections, to date
+  - Statement position, now
+
+  Money panels appear only when the API returns them. Drill-downs live in the panel headers.
+
+- **Summary surfaces.** `DetailSummaryBar` (`data-slot="detail-summary-bar"`) and the agent
+  `SummaryCard` (`DetailSection surface="soft"`) use the soft summary surface and print plain.
+- **Dropdown-trigger trial.** `theme/trigger-trial.css` plus `theme/trigger-trial.tsx` provide a
+  local-only switch, `<html data-trigger-trial="a|b">`, with tokens `--trial-a-*` and
+  `--trial-b-*`. A is solid navy; B is white with a navy edge, chip and text. The recommendation
+  is B; see `docs/user-guide/evidence/r6-visual-20261001/README.md`.
