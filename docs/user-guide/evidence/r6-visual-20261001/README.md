@@ -1,9 +1,20 @@
 # Round 6 visual (workstream E) — evidence, 2026-10-01
 
 Branch `feat/r6-visual` (= `feat/r5-visual` + `main`). Local preview only, waiting for owner approval.
-Captured with Playwright (`tmp/r6/shots.mjs`) on the local API :3605 and web :3601. The DB is
+Captured with Playwright (`tmp/r6/shots.mjs`; the company dashboard, report and interactive shots
+were re-taken on 2026-10-03 with `tmp/r6/shots2.mjs`) on the local API :3605 and web :3601. The DB is
 `oms_r6_visual`, a clone of dev. Reduced motion is on, the Next dev badge is hidden, and the
 viewport is 1440 or 390 wide.
+
+**Load guard (re-take).** The first capture of the company dashboard and the report saved
+skeletons. It waited a fixed 1.2s, and `/auth/me` alone takes about 2s under `next dev`. The
+endpoints themselves are fast on `oms_r6_visual`: each `/sales/performance` period, the payment
+counts and the bank counts answer in 0.1–0.5s, and the trial balance in about 0.2s. No API errors
+were logged. The re-take waits for three things, and otherwise fails instead of saving:
+
+- the page's own content (sales figures or report rows)
+- no `[data-slot="skeleton"]`, no `aria-busy`, and no «جارٍ التحميل» / "Loading…" text
+- the same condition still true 1.5s later
 
 **Before** comes from `main` @ `901e075`, served from a temporary `git worktree` against the same
 API and data, which was removed afterwards. **After** comes from this branch.
@@ -25,12 +36,14 @@ All four users are tagged `DEMO-R6-20261001`. They share one password, kept in
 Names follow `<phase>-<subject>-<locale>-<theme>[-<width>].png`, where locale is `ar` (RTL) or
 `en` (LTR) and theme is `light` or `dark`.
 
-| Subject                                                        | Before                                    | After                                    |
-| -------------------------------------------------------------- | ----------------------------------------- | ---------------------------------------- |
-| Company dashboard (1440 + 390)                                 | `before-company-dashboard-*`              | `after-company-dashboard-*`              |
-| Agent Admin dashboard (1440 + 390)                             | `before-agent-admin-dashboard-*`          | `after-agent-admin-dashboard-*`          |
-| Agent Sales dashboard (1440 + 390)                             | `before-agent-sales-dashboard-*`          | `after-agent-sales-dashboard-*`          |
-| Financial report, trial balance, expanded (1440, first screen) | `before-financial-report-trial-balance-*` | `after-financial-report-trial-balance-*` |
+| Subject                                                                                    | Before                                             | After                                              |
+| ------------------------------------------------------------------------------------------ | -------------------------------------------------- | -------------------------------------------------- |
+| Company dashboard (1440 + 390)                                                             | `before-company-dashboard-*`                       | `after-company-dashboard-*`                        |
+| Agent Admin dashboard (1440 + 390)                                                         | `before-agent-admin-dashboard-*`                   | `after-agent-admin-dashboard-*`                    |
+| Agent Sales dashboard (1440 + 390)                                                         | `before-agent-sales-dashboard-*`                   | `after-agent-sales-dashboard-*`                    |
+| Trial balance, 01 Jan – 01 Oct 2026, summary expanded (1440, first screen)                 | `before-financial-report-trial-balance-expanded-*` | `after-financial-report-trial-balance-expanded-*`  |
+| Same report, summary collapsed (after only; `main` has no collapse)                        | —                                                  | `after-financial-report-trial-balance-collapsed-*` |
+| Dashboard interactive rows (Needs attention): hover and keyboard focus, AR light + EN dark | —                                                  | `after-interactive-attention-{hover,focus}-*`      |
 
 ### Dropdown trial
 
@@ -52,8 +65,11 @@ The control-states board shows these states:
 - an unset filter, an applied filter and an applied filter with a count
 - the primary, success, outline and destructive buttons next to them
 
-Hover, pressed and focus-visible are live on the board. They are implemented in
-`theme/trigger-trial.css`, but no screenshot captures them.
+Hover and focus-visible are captured for trial B on the board's selected-value trigger, in AR light
+and EN dark: `trial-b-interactive-{hover,focus}-*`. Pressed is live on the board but not captured.
+
+Metric tiles are static by design, so they have no hover. The interactive rows on the dashboard
+are the Needs-attention queues, shown in the interactive dashboard shots.
 
 ## How to run the trial locally
 
