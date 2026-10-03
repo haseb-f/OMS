@@ -66,6 +66,7 @@ function FxPageContent() {
   const [runs, setRuns] = useState<FxRevaluationRunRow[]>([]);
   const [syncStatus, setSyncStatus] = useState<FxSyncStatus | null>(null);
   const [syncRuns, setSyncRuns] = useState<FxSyncRunRow[]>([]);
+  const [syncReceivedAt, setSyncReceivedAt] = useState(0);
   // Session-cached reference list (no per-mount /currencies fetch).
   const currencies = useCurrencies();
   const [rateOpen, setRateOpen] = useState(false);
@@ -98,10 +99,24 @@ function FxPageContent() {
       setRates(rateRows);
       setRuns(runRows);
       setSyncStatus(status);
+      setSyncReceivedAt(Date.now());
       setSyncRuns(recentSyncRuns);
     } catch (error) {
       reportApiError(error, "errors.generic");
     }
+  }, []);
+
+  /** Status + run history only — polled while an import is running. */
+  const refreshSync = useCallback(async () => {
+    const [status, recentSyncRuns] = await Promise.all([
+      fxSyncService.status().catch(() => null),
+      fxSyncService.runs(15).catch(() => null),
+    ]);
+    if (status) {
+      setSyncStatus(status);
+      setSyncReceivedAt(Date.now());
+    }
+    if (recentSyncRuns) setSyncRuns(recentSyncRuns);
   }, []);
 
   useEffect(() => {
@@ -238,10 +253,12 @@ function FxPageContent() {
       <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
         <FxAutoImportCard
           status={syncStatus}
+          statusReceivedAt={syncReceivedAt}
           runs={syncRuns}
           baseCode={baseCode}
           canManage={canManageFx}
           onChanged={load}
+          onPoll={refreshSync}
         />
         <div className="flex min-w-0 flex-col gap-4">
           <FxRateLookupCard />

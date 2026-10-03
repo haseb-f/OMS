@@ -35,6 +35,11 @@ import { AgingQueryDto } from './dto/aging-query.dto';
 import { PartnerStatementQueryDto } from './dto/partner-statement-query.dto';
 import { ExchangeRatesService } from '../fx/exchange-rates.service';
 import {
+  buildNativeLedger,
+  type NativeLedgerSummary,
+  type NativeMovement,
+} from './account-native-ledger';
+import {
   agingBucket,
   daysOutstanding,
   emptyAgingBuckets,
@@ -77,9 +82,35 @@ import {
 import {
   buildLedgerMovements,
   LEDGER_LINE_INCLUDE,
+  type LedgerMovement,
   LEDGER_LINE_ORDER,
   type LedgerLine,
 } from './ledger-movements';
+
+/** Entry header fields native amounts are derived from (a reversal borrows its original's rate). */
+const ENTRY_RATE_SELECT = {
+  currencyId: true,
+  exchangeRate: true,
+  reversalOfEntry: { select: { currencyId: true, exchangeRate: true } },
+} satisfies Prisma.JournalEntrySelect;
+
+/**
+ * A reversing entry copies the original's currency but not its rate (the FX
+ * revaluation relies on that), so for native amounts it uses the original's
+ * frozen rate — the reversal then exactly offsets what it reverses.
+ */
+function effectiveEntryRate(entry: {
+  currencyId: string | null;
+  exchangeRate: Prisma.Decimal | null;
+  reversalOfEntry: {
+    currencyId: string | null;
+    exchangeRate: Prisma.Decimal | null;
+  } | null;
+}) {
+  return entry.exchangeRate == null && entry.reversalOfEntry
+    ? entry.reversalOfEntry
+    : { currencyId: entry.currencyId, exchangeRate: entry.exchangeRate };
+}
 
 export interface StatementRow {
   accountId: string;
@@ -344,27 +375,157 @@ export class AccountingReportsService {
       }
     }
 
-    return accounts.map((account) => {
-      const openingBalance = openingByAccount.get(account.id) ?? 0;
-      const { movements, periodDebit, periodCredit, closingBalance } =
-        buildLedgerMovements(
-          linesByAccount.get(account.id) ?? [],
+    const functionalId = accounts.some((a) => a.currencyId)
+      ? await this.fx.resolveFunctionalCurrencyId()
+      : null;
+
+    return Promise.all(
+      accounts.map(async (account) => {
+        const openingBalance = openingByAccount.get(account.id) ?? 0;
+        const accountLines = linesByAccount.get(account.id) ?? [];
+        const { movements, periodDebit, periodCredit, closingBalance } =
+          buildLedgerMovements(accountLines, openingBalance);
+        // Ledger amounts are always functional-currency. A currency-bound
+        // (non-functional) account additionally gets its native-currency view.
+        const native =
+          account.currencyId &&
+          functionalId &&
+          account.currencyId !== functionalId
+            ? await this.nativeLedger(
+                account.currencyId,
+                functionalId,
+                account.id,
+                accountLines,
+                filters,
+                scopeWhere,
+              )
+            : null;
+        let nativeSummary: NativeLedgerSummary | null = null;
+        const nativeByLine = new Map<string, NativeMovement>();
+        if (native) {
+          const { movements: nativeMovements, ...summary } = native;
+          nativeSummary = summary;
+          for (const row of nativeMovements) nativeByLine.set(row.lineId, row);
+        }
+        const withNative: Array<
+          LedgerMovement & { native?: NativeMovement | null }
+        > = nativeSummary
+          ? movements.map((movement) => ({
+              ...movement,
+              native: nativeByLine.get(movement.lineId) ?? null,
+            }))
+          : movements;
+        return {
+          account: {
+            id: account.id,
+            code: account.code,
+            name: account.name,
+            nameEn: account.nameEn,
+            accountType: account.accountType,
+          },
           openingBalance,
-        );
-      return {
-        account: {
-          id: account.id,
-          code: account.code,
-          name: account.name,
-          nameEn: account.nameEn,
-          accountType: account.accountType,
-        },
-        openingBalance,
-        periodDebit,
-        periodCredit,
-        closingBalance,
-        movements,
-      };
+          periodDebit,
+          periodCredit,
+          closingBalance,
+          movements: withNative,
+          native: nativeSummary,
+        };
+      }),
+    );
+  }
+
+  /**
+   * Native-currency view of a currency-bound account: opening and period lines
+   * are re-read with their entry header (currency + frozen rate) and rate
+   * provenance (vouchers record source/date), then folded by
+   * `buildNativeLedger`. Only for accounts locked to a non-functional currency.
+   */
+  private async nativeLedger(
+    accountCurrencyId: string,
+    functionalCurrencyId: string,
+    accountId: string,
+    periodLines: LedgerLine[],
+    filters: ReportQueryBaseDto,
+    scopeWhere: Prisma.JournalEntryWhereInput,
+  ) {
+    const entryIds = [...new Set(periodLines.map((l) => l.journalEntry.id))];
+    const [currencies, openingRows, headers] = await Promise.all([
+      this.prisma.currency.findMany({
+        where: { id: { in: [accountCurrencyId, functionalCurrencyId] } },
+        select: { id: true, code: true },
+      }),
+      filters.dateFrom
+        ? this.prisma.journalEntryLine.findMany({
+            where: {
+              accountId,
+              journalEntry: {
+                ...scopeWhere,
+                entryDate: beforeBusinessDay(filters.dateFrom),
+              },
+            },
+            select: {
+              debit: true,
+              credit: true,
+              journalEntry: { select: ENTRY_RATE_SELECT },
+            },
+          })
+        : Promise.resolve([]),
+      entryIds.length
+        ? this.prisma.journalEntry.findMany({
+            where: { id: { in: entryIds } },
+            select: { id: true, ...ENTRY_RATE_SELECT },
+          })
+        : Promise.resolve([]),
+    ]);
+    const headerById = new Map(headers.map((h) => [h.id, h]));
+    const sourceIds = [
+      ...new Set(
+        periodLines
+          .map((l) => l.journalEntry.sourceId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const vouchers = sourceIds.length
+      ? await this.prisma.financialTransaction.findMany({
+          where: { id: { in: sourceIds } },
+          select: { id: true, rateSource: true, rateAsOf: true },
+        })
+      : [];
+    const voucherById = new Map(vouchers.map((v) => [v.id, v]));
+    const code = (id: string) =>
+      currencies.find((c) => c.id === id)?.code ?? id;
+
+    return buildNativeLedger({
+      accountCurrencyId,
+      currencyCode: code(accountCurrencyId),
+      functionalCurrencyCode: code(functionalCurrencyId),
+      openingLines: openingRows.map((row) => ({
+        debit: Number(row.debit),
+        credit: Number(row.credit),
+        entry: effectiveEntryRate(row.journalEntry),
+      })),
+      periodLines: periodLines.map((line) => {
+        const header = headerById.get(line.journalEntry.id);
+        const voucher = line.journalEntry.sourceId
+          ? voucherById.get(line.journalEntry.sourceId)
+          : undefined;
+        return {
+          lineId: line.id,
+          debit: Number(line.debit),
+          credit: Number(line.credit),
+          entry: header
+            ? effectiveEntryRate(header)
+            : { currencyId: null, exchangeRate: null },
+          provenance: voucher
+            ? {
+                rateSource: voucher.rateSource,
+                rateAsOf: voucher.rateAsOf
+                  ? voucher.rateAsOf.toISOString().slice(0, 10)
+                  : null,
+              }
+            : undefined,
+        };
+      }),
     });
   }
 
@@ -1545,6 +1706,14 @@ export class AccountingReportsService {
         select: { functionalCurrencyId: true },
       })
     )?.functionalCurrencyId;
+    const functionalCode = functionalId
+      ? ((
+          await this.prisma.currency.findUnique({
+            where: { id: functionalId },
+            select: { code: true },
+          })
+        )?.code ?? 'EGP')
+      : 'EGP';
 
     const accounts = [];
     const totalsByCurrency = new Map<
@@ -1556,13 +1725,34 @@ export class AccountingReportsService {
 
     for (const ra of receiving) {
       const agg = balances.get(ra.chartOfAccountId) ?? { debit: 0, credit: 0 };
-      const bookBalance = roundReportMoney(agg.debit - agg.credit);
+      // Ledger lines are functional-currency amounts. A receiving account in a
+      // foreign currency must be shown in ITS currency: derived from native
+      // amounts (proven lines only), never the functional sum under a foreign label.
+      const bookBalanceFunctional = roundReportMoney(agg.debit - agg.credit);
+      const isForeign = !!(
+        functionalId &&
+        ra.currencyId &&
+        ra.currencyId !== functionalId
+      );
+      const native =
+        isForeign && ra.currencyId
+          ? await this.nativeBookBalance(
+              ra.chartOfAccountId,
+              ra.currencyId,
+              ra.currency?.code ?? '',
+              functionalCode,
+              asOf,
+            )
+          : null;
+      const bookBalance = native
+        ? native.closingBalance
+        : bookBalanceFunctional;
       const recordedHolds = 0;
       const committedOutgoing = committedByAccount.get(ra.id) ?? 0;
       const availableToSpend = roundReportMoney(
         bookBalance - recordedHolds - committedOutgoing,
       );
-      const currencyCode = ra.currency?.code ?? 'EGP';
+      const currencyCode = ra.currency?.code ?? functionalCode;
       const currencyId = ra.currencyId ?? functionalId ?? null;
 
       let rateToEgp = 1;
@@ -1613,6 +1803,16 @@ export class AccountingReportsService {
         currencyCode,
         asOfDate: asOfBusinessDate,
         bookBalance,
+        /** Posted ledger balance in the functional currency (historical rates) — equals bookBalance for a functional-currency account. */
+        bookBalanceFunctional,
+        /** Foreign accounts only: whether every posted line proves its native amount (see account statement). */
+        native: native
+          ? {
+              complete: native.complete,
+              unprovenLineCount: native.unprovenLineCount,
+              unprovenFunctionalAmount: native.unprovenFunctionalAmount,
+            }
+          : null,
         recordedHolds,
         committedOutgoing,
         availableToSpend,
@@ -1649,6 +1849,47 @@ export class AccountingReportsService {
         note: 'Presentation total only — never sum unlike currencies into an unlabeled total.',
       },
     };
+  }
+
+  /**
+   * Native book balance of a foreign-currency receiving account as of `asOf`:
+   * the sum of native amounts of every line whose entry is in that currency
+   * with a recorded rate (see `buildNativeLedger`); anything else is counted
+   * as unproven rather than guessed.
+   */
+  private async nativeBookBalance(
+    accountId: string,
+    currencyId: string,
+    currencyCode: string,
+    functionalCode: string,
+    asOf: Date,
+  ) {
+    const rows = await this.prisma.journalEntryLine.findMany({
+      where: {
+        accountId,
+        journalEntry: {
+          deletedAt: null,
+          status: this.buildStatusFilter(true),
+          entryDate: { lte: asOf },
+        },
+      },
+      select: {
+        debit: true,
+        credit: true,
+        journalEntry: { select: ENTRY_RATE_SELECT },
+      },
+    });
+    return buildNativeLedger({
+      accountCurrencyId: currencyId,
+      currencyCode,
+      functionalCurrencyCode: functionalCode,
+      openingLines: rows.map((row) => ({
+        debit: Number(row.debit),
+        credit: Number(row.credit),
+        entry: effectiveEntryRate(row.journalEntry),
+      })),
+      periodLines: [],
+    });
   }
 
   /**

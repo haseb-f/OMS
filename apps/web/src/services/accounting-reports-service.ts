@@ -49,6 +49,39 @@ export interface AccountLedgerMovement {
   debit: number;
   credit: number;
   runningBalance: number;
+  /** Only on the ledger of a currency-bound (non-functional) account — see `AccountNativeSummary`. */
+  native?: AccountNativeMovement | null;
+}
+
+/**
+ * Native-currency amount of one ledger line of a foreign-currency account,
+ * derived from the entry's frozen rate. `debit/credit/runningBalance` are null
+ * when the line cannot prove a native amount (posted in another currency, or no
+ * rate recorded) — never guessed.
+ */
+export interface AccountNativeMovement {
+  lineId: string;
+  status: "PROVEN" | "ENTRY_CURRENCY_DIFFERS" | "NO_RATE_RECORDED";
+  debit: number | null;
+  credit: number | null;
+  runningBalance: number | null;
+  rate: number | null;
+  rateSource: string | null;
+  rateAsOf: string | null;
+}
+
+/** Native-currency balances of a currency-bound account (sum of native amounts, not a re-translation). */
+export interface AccountNativeSummary {
+  currencyId: string;
+  currencyCode: string;
+  functionalCurrencyCode: string;
+  openingBalance: number;
+  periodDebit: number;
+  periodCredit: number;
+  closingBalance: number;
+  unprovenLineCount: number;
+  unprovenFunctionalAmount: number;
+  complete: boolean;
 }
 
 export interface AccountLedger {
@@ -58,6 +91,8 @@ export interface AccountLedger {
   periodCredit: number;
   closingBalance: number;
   movements: AccountLedgerMovement[];
+  /** Present when the account is bound to a non-functional currency. */
+  native?: AccountNativeSummary | null;
 }
 
 export interface GeneralLedgerParams extends ReportFilterParams {
@@ -448,6 +483,14 @@ export interface CashAvailabilityResult {
     accountName: string;
     currencyCode: string;
     bookBalance: number;
+    /** Posted ledger balance in the functional currency (historical rates). */
+    bookBalanceFunctional?: number;
+    /** Foreign accounts: whether every line proves its native amount. */
+    native?: {
+      complete: boolean;
+      unprovenLineCount: number;
+      unprovenFunctionalAmount: number;
+    } | null;
     recordedHolds: number;
     committedOutgoing: number;
     availableToSpend: number;

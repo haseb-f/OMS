@@ -6,6 +6,11 @@ import { JournalEntryActivityService } from '../../journal-entries/activities/jo
 import { AccountingPeriodsService } from '../fiscal-periods/accounting-periods.service';
 import { FiscalYearsService } from '../fiscal-periods/fiscal-years.service';
 import { PostingLine, PostingProvider } from './posting-provider.interface';
+import {
+  findCurrencyMismatches,
+  readAccountCurrencyPolicy,
+  type CurrencyMismatch,
+} from '../fx/account-currency';
 
 /**
  * Accounting Posting Engine (TASK-046) — the ONE place any business
@@ -181,6 +186,12 @@ export class PostingEngineService {
         sourceType === YEAR_CLOSING_SOURCE_TYPE,
       );
       await this.assertPartnersRequired(lines, client);
+      const currencyMismatches = await this.assertAccountCurrencies(
+        lines,
+        result.currencyId,
+        sourceType,
+        client,
+      );
 
       const entryDate = options.entryDate ?? result.entryDate ?? new Date();
       await this.assertPostingWindow(entryDate, sourceType, client);
@@ -242,6 +253,21 @@ export class PostingEngineService {
         undefined,
         client,
       );
+      if (currencyMismatches.length > 0) {
+        const accountsText = currencyMismatches
+          .map((m) => m.accountCode)
+          .join(', ');
+        this.logger.warn(
+          `${entry.entryNumber}: currency differs from the currency of account(s) ${accountsText}.`,
+        );
+        await this.activityService.log(
+          entry.id,
+          'ACCOUNT_CURRENCY_MISMATCH',
+          `Posted in a currency that differs from the currency of account(s) ${accountsText}; native balances of those accounts cannot include this entry.`,
+          { mismatches: currencyMismatches },
+          client,
+        );
+      }
 
       return entry;
     };
@@ -498,6 +524,53 @@ export class PostingEngineService {
         );
       }
     }
+  }
+
+  /**
+   * Account-currency policy (ACCOUNT_CURRENCY_POLICY, default WARN): a line on
+   * a currency-bound account (e.g. a SAR bank account) posted by an entry in a
+   * different currency is reported — never silently accepted as if it were
+   * native. WARN records an activity-log warning on the entry (caller), BLOCK
+   * fails closed, OFF skips the check. FX revaluation and year closing adjust
+   * accounts in functional amounts by design and are exempt.
+   */
+  private async assertAccountCurrencies(
+    lines: PostingLine[],
+    entryCurrencyId: string | null | undefined,
+    sourceType: string,
+    client: Prisma.TransactionClient,
+  ): Promise<CurrencyMismatch[]> {
+    const policy = readAccountCurrencyPolicy();
+    if (
+      policy === 'OFF' ||
+      sourceType === 'FX_REVALUATION' ||
+      sourceType === YEAR_CLOSING_SOURCE_TYPE
+    ) {
+      return [];
+    }
+    const functional = await client.postingSettings.findFirst({
+      select: { functionalCurrencyId: true },
+    });
+    const accounts = await client.chartOfAccount.findMany({
+      where: {
+        id: { in: [...new Set(lines.map((line) => line.accountId))] },
+        currencyId: { not: null },
+      },
+      select: { id: true, code: true, name: true, currencyId: true },
+    });
+    const mismatches = findCurrencyMismatches(
+      accounts,
+      entryCurrencyId,
+      functional?.functionalCurrencyId,
+    );
+    if (policy === 'BLOCK' && mismatches.length > 0) {
+      throw new BadRequestException({
+        code: 'ACCOUNT_CURRENCY_MISMATCH',
+        message: `This ${sourceType} is in a different currency than account ${mismatches.map((m) => m.accountCode).join(', ')}, which is bound to its own currency. Use an account in the document currency (or an unbound account), or change ACCOUNT_CURRENCY_POLICY.`,
+        details: { mismatches },
+      });
+    }
+    return mismatches;
   }
 
   private assertBalanced(lines: PostingLine[]) {
