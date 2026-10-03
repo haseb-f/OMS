@@ -255,7 +255,10 @@ async function requestRaw(path: string, init?: RequestInit): Promise<Response> {
   if (response.status === 401 && typeof window !== "undefined") {
     clearAuthToken();
     if (!window.location.pathname.startsWith("/login")) {
-      window.location.href = "/login";
+      // R6 (spec A.4) — come back to the same page (incl. its query) after
+      // signing in again; the login page validates `next` before using it.
+      const next = `${window.location.pathname}${window.location.search}`;
+      window.location.href = `/login?next=${encodeURIComponent(next)}`;
     }
   }
 

@@ -41,8 +41,11 @@ export function PeriodsDialog({
   fiscalYear,
   onOpenChange,
   onChanged,
+  canManage,
 }: {
   fiscalYear: FiscalYearRow | null;
+  /** `accounting.fiscal-years.manage` — without it the periods are read-only (R6). */
+  canManage: boolean;
   onOpenChange: (open: boolean) => void;
   onChanged: () => void;
 }) {
@@ -115,7 +118,7 @@ export function PeriodsDialog({
       )}
     >
       <div className="flex flex-col gap-2.5">
-        {selected.size > 0 && (
+        {canManage && selected.size > 0 && (
           <div className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-caption">
             <span className="text-muted-foreground">
               {t("accounting.periods.bulk.selected", { count: selected.size })}
@@ -144,7 +147,7 @@ export function PeriodsDialog({
           <Table className="w-full">
             <TableHeader className="bg-muted/50">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="w-10">
+                <TableHead className={canManage ? "w-10" : "hidden"}>
                   <Checkbox
                     checked={periods.length > 0 && selected.size === periods.length}
                     onCheckedChange={(checked) =>
@@ -163,7 +166,7 @@ export function PeriodsDialog({
             <TableBody>
               {periods.map((period) => (
                 <TableRow key={period.id}>
-                  <TableCell>
+                  <TableCell className={canManage ? undefined : "hidden"}>
                     <Checkbox
                       checked={selected.has(period.id)}
                       onCheckedChange={(checked) => toggleSelected(period.id, !!checked)}
@@ -181,7 +184,7 @@ export function PeriodsDialog({
                   </TableCell>
                   <TableCell className="text-end">
                     <div className="flex justify-end gap-1.5">
-                      {period.status === "OPEN" && (
+                      {canManage && period.status === "OPEN" && (
                         <EnterpriseButton
                           type="button"
                           variant="outline"
@@ -195,7 +198,7 @@ export function PeriodsDialog({
                           {t("accounting.periods.actions.close")}
                         </EnterpriseButton>
                       )}
-                      {period.status === "CLOSED" && (
+                      {canManage && period.status === "CLOSED" && (
                         <>
                           <EnterpriseButton
                             type="button"
@@ -225,7 +228,7 @@ export function PeriodsDialog({
                           </EnterpriseButton>
                         </>
                       )}
-                      {period.status === "LOCKED" && (
+                      {canManage && period.status === "LOCKED" && (
                         <EnterpriseButton
                           type="button"
                           variant="outline"

@@ -271,6 +271,12 @@ export type SettingsDomain = (typeof SETTINGS_DOMAINS)[number];
  * configuration actions each domain grants — scoped to that domain only.
  * User administration (`settings.manage`) deliberately belongs to no domain:
  * a domain key must never let its holder grant themselves more access.
+ * Postings and period control are never domain-granted either ([O] owner
+ * decision, default — spec A.3): `fiscal-configuration`
+ * (`accounting.fiscal-years.manage`: year-closing post/reverse, period
+ * close/reopen/lock, foundation activation, posting-settings writes) is not
+ * a domain module, and operational actions such as cost-allocation
+ * `run`/`post` are outside `SETTINGS_DOMAIN_ACTIONS`.
  * `integrations` has no setup API yet — its key gates the Integrations page.
  */
 export const SETTINGS_DOMAIN_MODULES: Record<
@@ -285,7 +291,6 @@ export const SETTINGS_DOMAIN_MODULES: Record<
     'currencies',
     'taxes',
     'journals',
-    'fiscal-configuration',
     'cost-allocation-rules',
     'receiving-accounts',
   ],
@@ -1751,17 +1756,4 @@ export function withSettingsDomainGrants(names: Iterable<string>): string[] {
     }
   }
   return [...result];
-}
-
-/** The settings domain a granular setup permission belongs to (null when none) — used by the migration mapping and its tests. */
-export function settingsDomainOfPermission(
-  name: string,
-): SettingsDomain | null {
-  for (const domain of SETTINGS_DOMAINS) {
-    for (const moduleKey of SETTINGS_DOMAIN_MODULES[domain]) {
-      const catalogModule = PERMISSION_CATALOG.find((m) => m.key === moduleKey);
-      if (catalogModule?.actions.some((a) => a.name === name)) return domain;
-    }
-  }
-  return null;
 }

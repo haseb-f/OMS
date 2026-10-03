@@ -482,7 +482,7 @@ const en = {
     reportsCustom: "Custom Reports",
     reportsAnalytics: "Analytical Reports",
     settings: "Settings",
-    settingsGeneral: "General",
+    settingsGeneral: "Company",
     settingsUsers: "Users",
     settingsRoles: "Roles",
     settingsPermissions: "Permissions",

@@ -261,6 +261,7 @@ export default function FiscalPeriodsPage() {
         fiscalYear={openPeriodsFor}
         onOpenChange={(open) => !open && setOpenPeriodsFor(null)}
         onChanged={() => void load()}
+        canManage={canCreate}
       />
 
       <ConfirmationDialog

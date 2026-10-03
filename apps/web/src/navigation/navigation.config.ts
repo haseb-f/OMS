@@ -867,7 +867,16 @@ export const navigationConfig: NavigationItem[] = [
     route: "/finance/fiscal-periods",
     icon: "calendar-clock",
     order: 7,
-    permissions: ["accounting.fiscal-years.manage", "settings.finance.view"],
+    // Writes need `accounting.fiscal-years.manage` (never domain-granted); the
+    // page reads are open, so viewers keep the access they had: Finance
+    // settings viewers and accountants (ledger keys). Page renders read-only.
+    permissions: [
+      "accounting.fiscal-years.manage",
+      "settings.finance.view",
+      "accounting.journal-entries.view",
+      "accounting.chart-of-accounts.view",
+      "accounting.opening-balances.view",
+    ],
     permissionMatch: "any",
   },
   {
@@ -888,7 +897,16 @@ export const navigationConfig: NavigationItem[] = [
     route: "/finance/year-closing",
     icon: "calendar-check",
     order: 8,
-    permissions: ["accounting.fiscal-years.manage", "settings.finance.view"],
+    // Writes need `accounting.fiscal-years.manage` (never domain-granted); the
+    // page reads are open, so viewers keep the access they had: Finance
+    // settings viewers and accountants (ledger keys). Page renders read-only.
+    permissions: [
+      "accounting.fiscal-years.manage",
+      "settings.finance.view",
+      "accounting.journal-entries.view",
+      "accounting.chart-of-accounts.view",
+      "accounting.opening-balances.view",
+    ],
     permissionMatch: "any",
   },
   {
@@ -899,7 +917,16 @@ export const navigationConfig: NavigationItem[] = [
     route: "/finance/accounting-settings",
     icon: "sliders",
     order: 0,
-    permissions: ["accounting.fiscal-years.manage", "settings.finance.view"],
+    // Writes need `accounting.fiscal-years.manage` (never domain-granted); the
+    // page reads are open, so viewers keep the access they had: Finance
+    // settings viewers and accountants (ledger keys). Page renders read-only.
+    permissions: [
+      "accounting.fiscal-years.manage",
+      "settings.finance.view",
+      "accounting.journal-entries.view",
+      "accounting.chart-of-accounts.view",
+      "accounting.opening-balances.view",
+    ],
     permissionMatch: "any",
   },
   {

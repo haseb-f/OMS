@@ -27,9 +27,14 @@ export function homePathFor(userType: UserType): string {
  */
 export function safeNextPath(next: string | null | undefined, userType: UserType): string | null {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
-  // Backslashes and control characters are normalized by browsers into
-  // protocol-relative URLs or header tricks — refuse them outright.
+  // Backslashes and control characters (incl. tab/newline, which URL parsing
+  // silently strips) are normalized by browsers into protocol-relative URLs
+  // or header tricks — refuse them outright.
   if (/[\\\u0000-\u001f\u007f]/.test(next)) return null;
+  // Dot segments (`.`, `..`, `%2e`, `%2E%2e`, …) are resolved by URL parsing
+  // and can collapse `/.//evil.com` into `//evil.com` — never accept them.
+  const rawPath = next.split(/[?#]/, 1)[0];
+  if (rawPath.split("/").some((segment) => /^(?:\.|%2e){1,2}$/i.test(segment))) return null;
   let url: URL;
   try {
     url = new URL(next, PLACEHOLDER_ORIGIN);
@@ -38,6 +43,10 @@ export function safeNextPath(next: string | null | undefined, userType: UserType
   }
   if (url.origin !== PLACEHOLDER_ORIGIN) return null;
   const { pathname } = url;
+  // Re-validate the NORMALIZED path: exactly one leading slash.
+  if (!pathname.startsWith("/") || pathname.startsWith("//") || pathname.startsWith("/\\")) {
+    return null;
+  }
   if (NON_DESTINATION_PREFIXES.some((prefix) => isUnder(pathname, prefix))) return null;
   if (routeAudienceMismatch(userType ?? "INTERNAL", pathname)) return null;
   return `${pathname}${url.search}${url.hash}`;

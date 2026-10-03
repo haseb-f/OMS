@@ -111,6 +111,14 @@ describe("R6 A.2/A.3 — Settings by domain", () => {
     expect(ids).not.toContain("settings-integrations");
   });
 
+  it("accountants keep the formerly ungated, read-only Finance setup pages", () => {
+    const accountant = ["accounting.journal-entries.view"];
+    expect(canOpen("/finance/fiscal-periods", accountant)).toBe(true);
+    expect(canOpen("/finance/accounting-settings", accountant)).toBe(true);
+    expect(canOpen("/finance/year-closing", accountant)).toBe(true);
+    expect(canOpen("/finance/fiscal-periods", ["sales.orders.view"])).toBe(false);
+  });
+
   it("existing granular keys keep opening their pages (any-of)", () => {
     expect(canOpen("/finance/year-closing", ["accounting.fiscal-years.manage"])).toBe(true);
     expect(canOpen("/settings/document-numbering", ["numbering.manage"])).toBe(true);
@@ -153,6 +161,29 @@ describe("R6 A.4 — landing and deep links", () => {
     );
   });
 
+  it("never lets dot segments or stripped characters collapse into an off-site path", () => {
+    for (const bad of [
+      "/.//evil.com",
+      "/..//evil.com",
+      "/a/..//evil.com",
+      "/%2e//evil.com",
+      "/%2e%2e//evil.com",
+      "/%2E//evil.com",
+      "/%2E%2e//evil.com",
+      "/a/%2E%2E//evil.com",
+      "/\t/evil.com",
+      "/\n/evil.com",
+      "/\t//evil.com",
+      "/a/.",
+      "/\\/evil.com",
+    ]) {
+      expect(safeNextPath(bad, "INTERNAL"), JSON.stringify(bad)).toBeNull();
+      expect(resolvePostLoginPath(bad, "INTERNAL"), JSON.stringify(bad)).toBe("/");
+    }
+    // Ordinary dots inside a segment or the query are fine.
+    expect(safeNextPath("/store-orders?ref=a.b", "INTERNAL")).toBe("/store-orders?ref=a.b");
+  });
+
   it("keeps each audience inside its own area", () => {
     expect(resolvePostLoginPath("/finance/expenses", "AGENT")).toBe("/agent");
     expect(resolvePostLoginPath("/agent/orders", "INTERNAL")).toBe("/");
@@ -176,8 +207,8 @@ describe("R6 A.4 — landing and deep links", () => {
 /**
  * R6 A.6 — role-access matrix documented in specs/ui-navigation-r6/navigation-map.md.
  * OMS has no roles (per-user grants); these are representative grant sets
- * AFTER the R6 migration, already expanded the way `/auth/me` serves them
- * (`withSettingsDomainGrants` on the API).
+ * AFTER the R6 migration (which only preserves access: it adds domain keys
+ * for `settings.manage`/`settings.view` holders, never for granular keys).
  */
 describe("R6 A.6 — role-access matrix", () => {
   const ROLES: Record<
@@ -194,9 +225,7 @@ describe("R6 A.6 — role-access matrix", () => {
       grants: [
         "shipping.view",
         "shipping.edit",
-        // migrated: holder of shipping master data → settings.shipping.view (+ expansion)
-        "settings.view",
-        "settings.shipping.view",
+        // existing granular setup keys keep opening their own pages
         "masterdata.shipping-companies.view",
         "masterdata.shipping-statuses.view",
         "masterdata.fulfillment-cost-rules.view",
@@ -209,17 +238,7 @@ describe("R6 A.6 — role-access matrix", () => {
         "sales.receipts.view",
         "purchasing.payments.view",
         "accounting.fiscal-years.manage",
-        // migrated: fiscal-years.manage holder → settings.finance.view (+ expansion)
-        "settings.view",
-        "settings.finance.view",
         "masterdata.payment-methods.view",
-        "masterdata.payment-terms.view",
-        "masterdata.payment-sources.view",
-        "masterdata.currencies.view",
-        "masterdata.taxes.view",
-        "masterdata.journals.view",
-        "masterdata.cost-allocation-rules.view",
-        "masterdata.receiving-accounts.view",
       ],
     },
     agentAdmin: {
@@ -282,6 +301,9 @@ describe("R6 A.6 — role-access matrix", () => {
     expect(ids.has("finance-payment-review")).toBe(true);
     expect(ids.has("finance-supplier-payments")).toBe(true);
     expect([...settingsGroups]).toEqual(["settings-finance"]);
+    expect(ids.has("finance-fiscal-periods")).toBe(true);
+    expect(ids.has("master-data-payment-methods")).toBe(true);
+    expect(ids.has("master-data-taxes")).toBe(false);
     expect(ids.has("settings-users")).toBe(false);
   });
 

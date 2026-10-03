@@ -11,7 +11,6 @@ import {
   PERMISSION_CATALOG,
   SETTINGS_DOMAINS,
   SETTINGS_DOMAIN_MODULES,
-  settingsDomainOfPermission,
   withImpliedSectionPermissions,
   withSettingsDomainGrants,
 } from './permission-catalog';
@@ -120,11 +119,12 @@ describe('R6 settings domains — withSettingsDomainGrants', () => {
         'masterdata.payment-methods.create',
         'masterdata.payment-methods.archive',
         'masterdata.taxes.edit',
-        'accounting.fiscal-years.manage',
         'masterdata.cost-allocation-rules.edit',
       ]),
     );
-    // Other domains, operational actions and user administration: never.
+    // Postings / period control, other domains, operational actions and
+    // user administration: never.
+    expect(granted).not.toContain('accounting.fiscal-years.manage');
     expect(granted).not.toContain('masterdata.shipping-companies.view');
     expect(granted).not.toContain('masterdata.cost-components.create');
     expect(granted).not.toContain('masterdata.cost-allocation-rules.post');
@@ -146,6 +146,22 @@ describe('R6 settings domains — withSettingsDomainGrants', () => {
     expect(granted).not.toContain('settings.shipping.manage');
   });
 
+  it('no domain key ever grants postings, reversals or period control', () => {
+    const all = withSettingsDomainGrants(
+      SETTINGS_DOMAINS.map((domain) => `settings.${domain}.manage`),
+    );
+    const postingLike = PERMISSION_CATALOG.flatMap((m) => m.actions)
+      .filter((a) =>
+        ['post', 'reverse', 'run', 'confirm', 'settle', 'approve'].includes(
+          a.action,
+        ),
+      )
+      .map((a) => a.name);
+    for (const name of [...postingLike, 'accounting.fiscal-years.manage']) {
+      expect([name, all.includes(name)]).toEqual([name, false]);
+    }
+  });
+
   it('leaves a grant list without domain keys untouched', () => {
     expect(withSettingsDomainGrants(['masterdata.taxes.view'])).toEqual([
       'masterdata.taxes.view',
@@ -162,9 +178,17 @@ describe('R6 settings domains — guard enforcement', () => {
     expect(
       await guardAllows(grant, PaymentMethodsController, 'update', 'PATCH'),
     ).toBe(true);
+  });
+
+  it('settings.finance.manage never reaches posting settings / period control', async () => {
     expect(
-      await guardAllows(grant, PostingSettingsController, 'update', 'PATCH'),
-    ).toBe(true);
+      await guardAllows(
+        ['settings.finance.manage'],
+        PostingSettingsController,
+        'update',
+        'PATCH',
+      ),
+    ).toBe(false);
   });
 
   it('a domain key never reaches another domain, an operational action or user administration', async () => {
@@ -239,23 +263,25 @@ describe('R6 settings domains — migration mapping', () => {
     'utf8',
   );
 
-  it('maps every granular setup key to exactly its own domain', () => {
-    const block = sql.slice(sql.indexOf('WITH setup_key'));
-    const pairs = [...block.matchAll(/\('([a-z.-]+)', '([a-z]+)'\)/g)].map(
-      ([, name, domain]) => [name, domain] as const,
-    );
-    const expected = SETTINGS_DOMAINS.flatMap((domain) =>
-      SETTINGS_DOMAIN_MODULES[domain].flatMap(
-        (key) =>
-          PERMISSION_CATALOG.find((m) => m.key === key)?.actions.map(
-            (a) => [a.name, domain] as const,
-          ) ?? [],
-      ),
-    );
-    expect(pairs).toEqual([['settings.view', 'general'], ...expected]);
-    for (const [name, domain] of expected) {
-      expect(settingsDomainOfPermission(name)).toBe(domain);
+  it('only preserves access: settings.manage → every domain key; settings.view → General + Integrations view', () => {
+    const step2 = sql.slice(sql.indexOf('-- 2.'), sql.indexOf('-- 3.'));
+    const step3 = sql.slice(sql.indexOf('-- 3.'));
+    expect(step2).toContain('source."name" = \'settings.manage\'');
+    for (const domain of SETTINGS_DOMAINS) {
+      expect(step2).toContain(`'settings.${domain}.view'`);
+      expect(step2).toContain(`'settings.${domain}.manage'`);
     }
+    expect(step3).toContain('source."name" = \'settings.view\'');
+    const granted = [...step3.matchAll(/'(settings\.[a-z]+\.[a-z]+)'/g)].map(
+      ([, name]) => name,
+    );
+    expect(granted).toEqual([
+      'settings.general.view',
+      'settings.integrations.view',
+    ]);
+    // No granular setup key is a migration source any more.
+    expect(sql).not.toMatch(/'masterdata\./);
+    expect(sql).not.toContain('accounting.fiscal-years.manage');
   });
 
   it('grants internal users only and never deletes', () => {

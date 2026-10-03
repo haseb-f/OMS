@@ -482,7 +482,7 @@ const ar = {
     reportsCustom: "تقارير مخصصة",
     reportsAnalytics: "التقارير التحليلية",
     settings: "الإعدادات",
-    settingsGeneral: "عام",
+    settingsGeneral: "بيانات الشركة",
     settingsUsers: "المستخدمون",
     settingsRoles: "الأدوار",
     settingsPermissions: "الصلاحيات",
