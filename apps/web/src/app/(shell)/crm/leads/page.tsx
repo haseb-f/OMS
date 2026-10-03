@@ -32,7 +32,10 @@ import { LeadOrderCreateDialog } from "@/components/business/lead-order-create-d
 import { LeadDistributionModal } from "@/components/crm/lead-distribution-modal";
 import { useLeadDistribution } from "@/components/crm/lead-distribution-control";
 import { BulkLeadStatusDialog } from "@/components/crm/bulk-lead-status-dialog";
-import { LeadDistributionStatusButton } from "@/components/crm/lead-distribution-status";
+import {
+  LeadDistributionDialog,
+  LeadDistributionStatusButton,
+} from "@/components/crm/lead-distribution-status";
 import { reportApiError } from "@/lib/toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCurrencies, useCountries } from "@/hooks/use-reference-data";
@@ -52,6 +55,8 @@ function CrmLeadsPageContent() {
   const [closeTarget, setCloseTarget] = useState<LeadRow | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [distributionOpen, setDistributionOpen] = useState(false);
+  // The distribution status dialog lives outside MasterDataPage (remounted on refresh).
+  const [distributionDialogOpen, setDistributionDialogOpen] = useState(false);
   // The header control owns the mode; the dialog opens for manual tools only.
   const [distributionToolsOnly, setDistributionToolsOnly] = useState(false);
   const [bulkAssignIds, setBulkAssignIds] = useState<string[]>([]);
@@ -390,10 +395,7 @@ function CrmLeadsPageContent() {
           canAssign ? (
             <LeadDistributionStatusButton
               state={distribution}
-              onOpenTools={() => {
-                setDistributionToolsOnly(true);
-                setDistributionOpen(true);
-              }}
+              onOpen={() => setDistributionDialogOpen(true)}
             />
           ) : null
         }
@@ -448,6 +450,16 @@ function CrmLeadsPageContent() {
             onSelect: () => setCloseTarget(entity),
           },
         ]}
+      />
+      <LeadDistributionDialog
+        open={distributionDialogOpen}
+        onOpenChange={setDistributionDialogOpen}
+        state={distribution}
+        onOpenTools={() => {
+          setDistributionDialogOpen(false);
+          setDistributionToolsOnly(true);
+          setDistributionOpen(true);
+        }}
       />
       <LeadDistributionModal
         open={distributionOpen}

@@ -1,0 +1,27 @@
+{
+  "list": {
+    "outcomeColumn": true,
+    "outcomeBadge": true,
+    "noRetailWholesale": true,
+    "noClassificationFilter": true,
+    "button": "التوزيع متوقف\n· 64 بانتظار التوزيع",
+    "buttonTone": "warning"
+  },
+  "dialog": {
+    "preview": "auto",
+    "eligible": "111",
+    "requestsAfterCancel": 0,
+    "manualResult": "تم الحفظ: يدوي — لا إسناد تلقائي.",
+    "requestsAfterConfirms": ["/leads/distribution/activate-manual", "/leads/distribution/pause"],
+    "toneBefore": "warning"
+  },
+  "detail": {
+    "outcomeField": true,
+    "interested": true,
+    "noRetailWholesale": true
+  },
+  "agent": {
+    "outcomeColumn": true,
+    "callback": true
+  }
+}

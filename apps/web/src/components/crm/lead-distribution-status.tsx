@@ -55,18 +55,19 @@ const BUTTON_VARIANT: Record<DistributionButtonTone, "success" | "warning" | "de
 /**
  * R6 spec C3 — the ONE lead distribution control: a solid status button
  * (green active · amber paused/manual · red blocked) that always names the
- * state and the pending count, opening `LeadDistributionDialog`. Only
+ * state and the pending count; `onOpen` shows `LeadDistributionDialog`.
+ * The page owns the dialog, outside the list that remounts after a
+ * distribution changes, so the confirmed result stays on screen. Only
  * `crm.leads.manage` sees it (`state.canManage`).
  */
 export function LeadDistributionStatusButton({
   state,
-  onOpenTools,
+  onOpen,
 }: {
   state: LeadDistributionState;
-  onOpenTools: () => void;
+  onOpen: () => void;
 }) {
   const { t } = useLocale();
-  const [open, setOpen] = useState(false);
   if (!state.canManage) return null;
 
   const d = describeDistributionControl(state.snapshot, state.status);
@@ -82,48 +83,35 @@ export function LeadDistributionStatusButton({
         : t("leadOps.distribution.button.paused");
 
   return (
-    <>
-      <EnterpriseButton
-        type="button"
-        size="sm"
-        variant={BUTTON_VARIANT[d.tone]}
-        disabled={state.busy}
-        aria-busy={state.busy || undefined}
-        aria-haspopup="dialog"
-        data-testid="lead-distribution-control"
-        data-state-tone={d.tone}
-        // The destructive variant is the soft red; a blocked state is solid red.
-        className={cn(
-          "max-w-full min-w-0",
-          d.tone === "destructive" &&
-            "border-transparent bg-destructive text-destructive-foreground not-disabled:hover:bg-destructive/90",
-        )}
-        onClick={() => setOpen(true)}
-      >
-        {state.busy ? (
-          <Spinner className="size-3.5" />
-        ) : (
-          <StateIcon aria-hidden className="size-3.5" />
-        )}
-        <span className="truncate">
-          {state.busy ? t("leadOps.distribution.button.busy") : label}
+    <EnterpriseButton
+      type="button"
+      size="sm"
+      variant={BUTTON_VARIANT[d.tone]}
+      disabled={state.busy}
+      aria-busy={state.busy || undefined}
+      aria-haspopup="dialog"
+      data-testid="lead-distribution-control"
+      data-state-tone={d.tone}
+      // The destructive variant is the soft red; a blocked state is solid red.
+      className={cn(
+        "max-w-full min-w-0",
+        d.tone === "destructive" &&
+          "border-transparent bg-destructive text-destructive-foreground not-disabled:hover:bg-destructive/90",
+      )}
+      onClick={onOpen}
+    >
+      {state.busy ? (
+        <Spinner className="size-3.5" />
+      ) : (
+        <StateIcon aria-hidden className="size-3.5" />
+      )}
+      <span className="truncate">{state.busy ? t("leadOps.distribution.button.busy") : label}</span>
+      {!state.busy ? (
+        <span className="num font-normal opacity-90">
+          · {t("leadOps.distribution.button.pending", { count: d.pendingCount })}
         </span>
-        {!state.busy ? (
-          <span className="num font-normal opacity-90">
-            · {t("leadOps.distribution.button.pending", { count: d.pendingCount })}
-          </span>
-        ) : null}
-      </EnterpriseButton>
-      <LeadDistributionDialog
-        open={open}
-        onOpenChange={setOpen}
-        state={state}
-        onOpenTools={() => {
-          setOpen(false);
-          onOpenTools();
-        }}
-      />
-    </>
+      ) : null}
+    </EnterpriseButton>
   );
 }
 

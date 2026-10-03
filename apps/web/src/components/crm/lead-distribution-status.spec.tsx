@@ -248,18 +248,21 @@ describe("LeadDistributionStatusButton", () => {
   afterEach(cleanup);
 
   it("always shows the state text and the pending count", () => {
-    render(<LeadDistributionStatusButton state={makeState("MANUAL")} onOpenTools={vi.fn()} />);
+    const onOpen = vi.fn();
+    render(<LeadDistributionStatusButton state={makeState("MANUAL")} onOpen={onOpen} />);
     const button = screen.getByTestId("lead-distribution-control");
     expect(button.dataset.stateTone).toBe("warning");
     expect(button.textContent).toContain("leadOps.distribution.button.manual");
     expect(button.textContent).toContain('leadOps.distribution.button.pending {"count":3}');
+    fireEvent.click(button);
+    expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
   it("is hidden without crm.leads.manage", () => {
     render(
       <LeadDistributionStatusButton
         state={makeState("CONTINUOUS", { canManage: false })}
-        onOpenTools={vi.fn()}
+        onOpen={vi.fn()}
       />,
     );
     expect(screen.queryByTestId("lead-distribution-control")).toBeNull();
