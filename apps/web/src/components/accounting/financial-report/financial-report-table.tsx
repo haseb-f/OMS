@@ -77,10 +77,6 @@ const PIN_HEAD = "start-0 z-(--z-sticky-corner) max-sm:border-e max-sm:border-e-
 const ROW_RULE = "[&>td]:border-b [&>td]:border-b-border hover:[&>td]:bg-table-row-hover";
 const ROW_PAD = "py-1.5";
 const LABEL_MIN_PHONE_REM = 12;
-/** Dr/Cr balance column on phones — fits 1,000,000.00 + the side, so label + closing fit 390px. */
-const DRCR_PHONE_REM = 9.5;
-/** Same widths as CSS (literal for Tailwind): 9.5rem on phones, 11rem from `sm`. */
-const DRCR_WIDTH = "[--report-drcr-w:9.5rem] sm:[--report-drcr-w:11rem]";
 /** Phone breakpoint (Tailwind `sm`) for the phone-only column order. */
 const SM_PX = 640;
 /** Hierarchy indent per level — tighter on phones so the pinned label keeps its text. */
@@ -90,10 +86,8 @@ const INDENT = "[--report-indent:0.6rem] sm:[--report-indent:1.1rem]";
 const LABEL_MIN_REM = 14;
 const LEDGER_LABEL_MIN_REM = 16;
 
-/** Amount column width: wide enough for 1,000,000,000.00 (and a Dr/Cr side). */
-function amountWidthRem(column: FinancialReportColumn): number {
-  return column.negative === "drcr" ? 11 : 9;
-}
+/** Amount column width (rem): wide enough for -1,000,000,000.00. */
+const AMOUNT_REM = 9;
 
 /**
  * Row label run: isolated in its own direction (`dir="auto"`), so a Latin
@@ -150,10 +144,7 @@ export function FinancialReportTable({
         ...columnsProp.filter((column) => !column.emphasize),
       ]
     : columnsProp;
-  const phoneAmountWidth = columns.reduce(
-    (sum, column) => sum + (column.negative === "drcr" ? DRCR_PHONE_REM : amountWidthRem(column)),
-    0,
-  );
+  const phoneAmountWidth = columns.length * AMOUNT_REM;
   const rows = flattenVisibleLines(lines, expanded);
   const rowKinds = rowKindsProp ?? resolveRowKinds(lines, { hasFooter: !!footer });
   // The table's minimum width is computed per breakpoint from the columns
@@ -161,7 +152,7 @@ export function FinancialReportTable({
   // so the label column always keeps at least `labelMin` and the header
   // cells never overlap. Wider content scrolls inside the report grid.
   const labelMin = textColumns.length > 0 ? LEDGER_LABEL_MIN_REM : LABEL_MIN_REM;
-  const amountWidth = columns.reduce((sum, column) => sum + amountWidthRem(column), 0);
+  const amountWidth = columns.length * AMOUNT_REM;
   const textWidthAt = (breakpoint: Breakpoint) =>
     textColumns
       .filter(
@@ -219,10 +210,7 @@ export function FinancialReportTable({
     >
       <table
         data-slot="table"
-        className={cx(
-          "w-full min-w-(--report-min-w-base) table-fixed border-separate border-spacing-0 text-table md:min-w-(--report-min-w-md) lg:min-w-(--report-min-w-lg) xl:min-w-(--report-min-w-xl) 2xl:min-w-(--report-min-w-2xl)",
-          DRCR_WIDTH,
-        )}
+        className="w-full min-w-(--report-min-w-base) table-fixed border-separate border-spacing-0 text-table md:min-w-(--report-min-w-md) lg:min-w-(--report-min-w-lg) xl:min-w-(--report-min-w-xl) 2xl:min-w-(--report-min-w-2xl)"
         style={minWidthStyle}
       >
         <colgroup>
@@ -236,15 +224,7 @@ export function FinancialReportTable({
             />
           ))}
           {columns.map((column) => (
-            <col
-              key={column.key}
-              style={{
-                width:
-                  column.negative === "drcr"
-                    ? "var(--report-drcr-w)"
-                    : `${amountWidthRem(column)}rem`,
-              }}
-            />
+            <col key={column.key} style={{ width: `${AMOUNT_REM}rem` }} />
           ))}
         </colgroup>
         <thead data-slot="table-header">
@@ -391,7 +371,7 @@ export function FinancialReportTable({
                   </td>
                 ))}
                 {columns.map((column) => {
-                  const { value, adverse } = displayAmount(line, column.key);
+                  const { value, adverse } = displayAmount(line, column.key, column);
                   return (
                     <td
                       key={column.key}

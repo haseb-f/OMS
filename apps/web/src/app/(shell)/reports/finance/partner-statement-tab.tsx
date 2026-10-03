@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { UsersRound } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
-import { FinancialReport } from "@/components/accounting/financial-report";
+import { FinancialReport, type NormalSide } from "@/components/accounting/financial-report";
 import { useOpenFullRecord } from "@/components/shared/record-preview";
 import {
   accountingReportsService,
@@ -48,6 +48,9 @@ export function PartnerStatementTab({ role }: { role: PartnerRoleValue }) {
   const [statement, setStatement] = useState<PartnerStatementResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const controlType = role === "SUPPLIER" ? "PAYABLE" : "RECEIVABLE";
+  // Customer balances are normally debit (we are owed), supplier balances
+  // normally credit (we owe): the opposite is adverse (red).
+  const normalSide: NormalSide = role === "SUPPLIER" ? "credit" : "debit";
   const statementTitle =
     role === "CUSTOMER"
       ? t("reports.finance.customerStatement")
@@ -111,10 +114,11 @@ export function PartnerStatementTab({ role }: { role: PartnerRoleValue }) {
               periodCredit: statement.periodCredit,
               closingBalance: statement.closingBalance,
               movements: statement.movements,
+              normalSide,
             },
           ]
         : [],
-    [statement],
+    [statement, normalSide],
   );
   const lines = useMemo(
     () => blocks.map((block) => buildLedgerBlock(block, t, { showAccount: true })),
@@ -139,6 +143,7 @@ export function PartnerStatementTab({ role }: { role: PartnerRoleValue }) {
       onFiltersChange={setFilters}
       printTitle={statement ? `${statementTitle} — ${statement.partner.name}` : statementTitle}
       exportFileName={`${role.toLowerCase()}-statement.xlsx`}
+      signConvention
       toolbarExtra={<PartnerPicker role={role} value={partner} onChange={selectPartner} />}
       placeholder={
         !partner ? (
@@ -149,7 +154,7 @@ export function PartnerStatementTab({ role }: { role: PartnerRoleValue }) {
           />
         ) : undefined
       }
-      summary={statement ? { items: ledgerSummaryItems(t, statement) } : undefined}
+      summary={statement ? { items: ledgerSummaryItems(t, statement, normalSide) } : undefined}
       onPostingClick={(line) => {
         const movement = movementIndex.get(line.id);
         if (movement) {

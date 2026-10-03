@@ -21,6 +21,7 @@ import { AgentAgreementsService } from '../admin/agent-agreements.service';
 import { AgentDestinationsService } from '../admin/agent-destinations.service';
 import { AgentUsersService } from '../admin/agent-users.service';
 import type { CreateAgreementDto } from '../admin/dto/agreement.dto';
+import { AgentCommissionReportService } from '../finance/agent-commission-report.service';
 
 /**
  * Agents milestone B3 — `/agent-portal/*` over the real HTTP pipeline
@@ -1254,6 +1255,49 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
       );
       expect(JSON.stringify(print.body)).not.toContain('secret-account');
       expect(JSON.stringify(print.body)).not.toContain('settlementFee');
+    });
+
+    it('R6-D4: statement, print data and commission report (PORTAL audience) carry no carrier cost, margin or other-agent data', async () => {
+      const agentB = await prisma.agent.findUniqueOrThrow({
+        where: { id: agentBId },
+        select: { agentNumber: true, name: true },
+      });
+      const otherAgent = [agentBId, agentB.agentNumber, orderBId, payoutBId];
+      for (const path of [
+        '/agent-portal/statement?from=2020-01-01',
+        '/agent-portal/statement/print-data?from=2020-01-01',
+        '/agent-portal/statement/summary?from=2020-01-01',
+        '/agent-portal/commission-report?from=2020-01-01',
+      ]) {
+        const res = await get(users.adminA.token, path);
+        expect(res.status).toBe(200);
+        const text = JSON.stringify(res.body);
+        for (const secret of otherAgent) expect(text).not.toContain(secret);
+        // Company-only figures: actual carrier cost, shipping margin and the
+        // shipping-difference attribution never reach the agent.
+        expect(text).not.toMatch(
+          /"(carrier|carrierCost|margin|difference|differenceBorneBy)"\s*:/,
+        );
+      }
+      const portal = await get(
+        users.adminA.token,
+        '/agent-portal/commission-report?from=2020-01-01',
+      );
+      expect(portal.body.agent.id).toBe(agentAId);
+      expect(portal.body.summary).not.toHaveProperty('carrierCost');
+      for (const order of portal.body.orders as Array<{
+        shipping: Record<string, unknown>;
+      }>) {
+        expect(Object.keys(order.shipping).sort()).toEqual(
+          ['agentShippingCharge', 'customerShipping', 'retained'].sort(),
+        );
+      }
+      // Contrast: the INTERNAL audience of the same report does carry them,
+      // so the assertion above is about the audience, not empty data.
+      const internal = await moduleRef
+        .get(AgentCommissionReportService)
+        .report(agentAId, { from: '2020-01-01' }, 'INTERNAL');
+      expect(internal.summary).toHaveProperty('carrierCost');
     });
 
     it('S8: internal Finance evidence on an agent claim is not agent-visible', async () => {

@@ -11,42 +11,45 @@
 
 /**
  * How a negative value is written:
- * - `minus`  — leading minus: `-1,234.50` (statements: P&L, Balance Sheet, Cash Flow).
+ * - `minus`  — leading minus: `-1,234.50` (statements, balances — a credit
+ *              balance of a debit-positive column reads `-1,234.50`; the
+ *              Debit/Credit columns beside it already name the side).
  * - `parens` — accounting parentheses: `(1,234.50)`.
- * - `drcr`   — debit-positive balances as an absolute value with a side
- *              suffix: `1,234.50 Dr` / `1,234.50 Cr` (Trial Balance, ledgers,
- *              statements) — a credit balance is a side, not an error.
  */
-export type NegativeStyle = "minus" | "parens" | "drcr";
+export type NegativeStyle = "minus" | "parens";
 
-/** How a zero is written: a quiet dash, `0.00`, or nothing. */
+/** How a genuine zero is written: `0.00`, a quiet dash, or nothing. */
 export type ZeroStyle = "dash" | "zero" | "blank";
+
+/**
+ * How a MISSING value (null, undefined, "", NaN — not available / not
+ * applicable) is written: a dash (default) or nothing. A missing value is
+ * never shown as `0.00`.
+ */
+export type MissingStyle = "dash" | "blank";
 
 export interface FormatAmountOptions {
   /** ISO code appended after the figure (`1,234.50 EGP`). */
   currency?: string | null;
   negative?: NegativeStyle;
   zero?: ZeroStyle;
+  missing?: MissingStyle;
   /** Fraction digits (default 2). */
   decimals?: number;
-  /** Localized side labels for `drcr` (default `Dr` / `Cr`). */
-  drcrLabels?: { debit: string; credit: string };
 }
 
 export interface AmountParts {
   /** The digits run, including a minus or parentheses — render inside `num`. */
   figure: string;
-  /** Dr/Cr side label (only for `drcr` and a non-zero value). */
-  side: string;
-  /** Currency code, when requested and the value is not blank. */
+  /** Currency code, when requested and the value is not blank/missing. */
   currency: string;
   isZero: boolean;
   isNegative: boolean;
+  /** The value is not available (null / undefined / "" / not a number). */
+  isMissing: boolean;
 }
 
 export const ZERO_DASH = "—";
-
-const DEFAULT_DRCR = { debit: "Dr", credit: "Cr" };
 
 const formatters = new Map<number, Intl.NumberFormat>();
 
@@ -62,9 +65,21 @@ function formatterFor(decimals: number): Intl.NumberFormat {
   return formatter;
 }
 
+/** Arithmetic coercion (null / NaN → 0). Display paths use {@link toDisplayNumber}. */
 function toNumber(value: unknown): number {
+  return toDisplayNumber(value) ?? 0;
+}
+
+/**
+ * The display coercion: a finite number, or `null` when the value is not
+ * available (null, undefined, blank string, not a number) — so a missing
+ * figure is never written as a fake `0.00`.
+ */
+export function toDisplayNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string" && value.trim() === "") return null;
   const amount = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(amount) ? amount : 0;
+  return Number.isFinite(amount) ? amount : null;
 }
 
 /** True when the value rounds to zero at the given precision (never prints `-0.00`). */
@@ -73,9 +88,8 @@ export function isZeroAmount(value: unknown, decimals = 2): boolean {
 }
 
 /**
- * The structured form of {@link formatAmount} — for cells that lay out the
- * figure and its Dr/Cr side separately (so figures stay aligned) while
- * producing exactly the same text.
+ * The structured form of {@link formatAmount} — for cells that style the
+ * figure (e.g. a red negative) while producing exactly the same text.
  */
 export function formatAmountParts(
   value: number | string | null | undefined,
@@ -84,8 +98,18 @@ export function formatAmountParts(
   const decimals = options.decimals ?? 2;
   const negativeStyle = options.negative ?? "minus";
   const zeroStyle = options.zero ?? "zero";
-  const amount = toNumber(value);
+  const amount = toDisplayNumber(value);
   const code = options.currency?.trim() ?? "";
+
+  if (amount === null) {
+    return {
+      figure: options.missing === "blank" ? "" : ZERO_DASH,
+      currency: "",
+      isZero: false,
+      isNegative: false,
+      isMissing: true,
+    };
+  }
 
   if (isZeroAmount(amount, decimals)) {
     const figure =
@@ -96,36 +120,26 @@ export function formatAmountParts(
           : formatterFor(decimals).format(0);
     return {
       figure,
-      side: "",
       currency: zeroStyle === "zero" ? code : "",
       isZero: true,
       isNegative: false,
+      isMissing: false,
     };
   }
 
   const negative = amount < 0;
   const absolute = formatterFor(decimals).format(Math.abs(amount));
-  if (negativeStyle === "drcr") {
-    const labels = options.drcrLabels ?? DEFAULT_DRCR;
-    return {
-      figure: absolute,
-      side: negative ? labels.credit : labels.debit,
-      currency: code,
-      isZero: false,
-      isNegative: negative,
-    };
-  }
   const figure = !negative
     ? absolute
     : negativeStyle === "parens"
       ? `(${absolute})`
       : `-${absolute}`;
-  return { figure, side: "", currency: code, isZero: false, isNegative: negative };
+  return { figure, currency: code, isZero: false, isNegative: negative, isMissing: false };
 }
 
-/** Joins the parts in reading order: figure, side, currency. */
+/** Joins the parts in reading order: figure, currency. */
 export function joinAmountParts(parts: AmountParts): string {
-  return [parts.figure, parts.side, parts.currency].filter(Boolean).join(" ");
+  return [parts.figure, parts.currency].filter(Boolean).join(" ");
 }
 
 /**
@@ -133,8 +147,8 @@ export function joinAmountParts(parts: AmountParts): string {
  *
  * @example formatAmount(-1234.5)                          // "-1,234.50"
  * @example formatAmount(-1234.5, { negative: "parens" })  // "(1,234.50)"
- * @example formatAmount(-1234.5, { negative: "drcr" })    // "1,234.50 Cr"
- * @example formatAmount(0, { zero: "dash" })              // "—"
+ * @example formatAmount(0)                                // "0.00"
+ * @example formatAmount(null)                             // "—" (missing, never 0.00)
  */
 export function formatAmount(
   value: number | string | null | undefined,
@@ -145,9 +159,13 @@ export function formatAmount(
 
 /**
  * Money for general OMS display: `1,234.50` (+ ` CODE`), minus for
- * negatives, `0.00` for zero. A thin wrapper over {@link formatAmount}.
+ * negatives, `0.00` for zero, "—" when the value is missing. A thin wrapper
+ * over {@link formatAmount}.
  */
-export function formatMoney(value: string | number, currencyCode?: string | null): string {
+export function formatMoney(
+  value: string | number | null | undefined,
+  currencyCode?: string | null,
+): string {
   return formatAmount(value, { currency: currencyCode, negative: "minus", zero: "zero" });
 }
 

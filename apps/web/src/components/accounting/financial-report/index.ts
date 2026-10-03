@@ -14,8 +14,15 @@ export {
 } from "./financial-report-header";
 export { resolveReconciliationState, type ReconciliationState } from "./summary-format";
 export { ReportMoney } from "./report-money";
-export { findLine, resolveRowKinds } from "./types";
-export { loadFunctionalCurrency, useReportCurrency, useDrCrLabels } from "./use-report-format";
+export {
+  findLine,
+  isAdverseBalance,
+  lineSideValues,
+  normalSideOfAccountType,
+  resolveRowKinds,
+  type NormalSide,
+} from "./types";
+export { loadFunctionalCurrency, useReportCurrency } from "./use-report-format";
 export type {
   FinancialReportCheck,
   FinancialReportCheckScope,

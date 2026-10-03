@@ -12,7 +12,8 @@ import {
   recordUrl,
 } from "../print-blocks";
 import { usePrintIdentity } from "../print-brand";
-import { formatDateTime } from "@/lib/date";
+import { formatBusinessDateTime } from "@/lib/business-date";
+import { isolateLtr } from "@/lib/date";
 import { formatMoney } from "@/lib/money";
 import { useLocale } from "@/providers/locale-provider";
 import type {
@@ -26,21 +27,26 @@ import type {
  * Customer / supplier account statement (spec §3): partner identity and the
  * period, then opening balance → dated movements with a running balance →
  * period totals → closing balance. A4 portrait; the six columns fit, long
- * descriptions wrap. Balances are the server's running balances — the
- * template only formats them (a negative balance prints with a minus sign).
+ * descriptions wrap by words. Balances are the server's running balances —
+ * the template only formats them with the shared formatter: a genuine zero
+ * balance or total prints `0.00`, the side a movement does not use is blank,
+ * a negative balance a minus sign (monochrome), no Dr/Cr suffix.
  */
 export function AccountStatementPrintTemplate({ payload }: { payload: StatementPrintPayload }) {
   const { t } = useLocale();
-  const printedAt = formatDateTime(new Date());
+  // Cairo wall clock, isolated so it keeps its order on an Arabic sheet.
+  const printedAt = isolateLtr(formatBusinessDateTime(new Date()));
   const identity = usePrintIdentity(payload.company);
   const qrUrl = recordUrl(payload.recordPath);
-  const money = (value: number) => (value ? formatMoney(value) : "—");
-  const balance = (value: number) => formatMoney(value);
+  const money = (value: number) => formatMoney(value);
+  const balance = money;
+  // A movement posts to one side: the unused debit/credit side is blank, not 0.00.
+  const side = (value: number) => (value ? formatMoney(value) : "");
 
   const columns: PrintColumn[] = [
     { key: "date", label: t("printDocument.date"), width: "21mm", nowrap: true },
     { key: "reference", label: t("printDocument.reference"), width: "33mm", nowrap: true },
-    { key: "description", label: t("printDocument.description") },
+    { key: "description", label: t("printDocument.description"), prose: true },
     { key: "debit", label: t("printDocument.debit"), align: "end", width: "24mm" },
     { key: "credit", label: t("printDocument.credit"), align: "end", width: "24mm" },
     { key: "balance", label: t("printDocument.balance"), align: "end", width: "26mm" },
@@ -59,8 +65,8 @@ export function AccountStatementPrintTemplate({ payload }: { payload: StatementP
       date: movement.date,
       reference: movement.reference,
       description: movement.description,
-      debit: money(movement.debit),
-      credit: money(movement.credit),
+      debit: side(movement.debit),
+      credit: side(movement.credit),
       balance: balance(movement.balance),
     })),
   ];

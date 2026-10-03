@@ -10,6 +10,7 @@ import {
   FinancialReportTable,
   ReportPagination,
   fetchAllReportPages,
+  lineSideValues,
 } from "@/components/accounting/financial-report";
 import type {
   FinancialReportColumn,
@@ -134,7 +135,8 @@ export function JournalReportTab() {
         code: line.account.code,
         label: line.account.name,
         expandable: false,
-        values: { debit: Number(line.debit), credit: Number(line.credit) },
+        // One JE line uses one side; the other is not applicable (blank).
+        values: lineSideValues(line.debit, line.credit),
         text: { description: line.description ?? "" },
         children: [],
       })),

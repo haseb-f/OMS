@@ -39,6 +39,11 @@ export interface PrintColumn {
   width?: string;
   /** Keep the cell on one line (dates, references). */
   nowrap?: boolean;
+  /**
+   * Descriptive prose (narrations, descriptions, account names): keeps a
+   * minimum width and wraps between words, never mid-word.
+   */
+  prose?: boolean;
 }
 
 /** A table cell: plain text, or a main line with a smaller secondary line (SKU, reference). */

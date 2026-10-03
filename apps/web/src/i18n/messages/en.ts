@@ -1962,7 +1962,8 @@ const en = {
         accounts: "Accounts",
         accountsRange: "Accounts {from}–{to} of {total}",
         periodMovement: "Period movement",
-        signHint: "Balances show their side: Dr (debit) or Cr (credit).",
+        signHint: "Balance = Debit − Credit; a negative balance is a credit balance",
+        signConventionLabel: "Balance convention",
       },
       filters: {
         company: "Company",
