@@ -1,6 +1,7 @@
 import {
   Prisma,
   ShipmentStatus,
+  StoreOrderActivitySource,
   StoreOrderShippingStage,
 } from '@prisma/client';
 import { evaluateFulfillmentGate } from '../store-order-fulfillment-gate';
@@ -30,6 +31,7 @@ export type ShipmentQueueStatus =
 export type ShippingHandoffBlocker =
   | 'ORDER_ARCHIVED'
   | 'ORDER_CANCELLED'
+  | 'ORDER_CLOSED'
   | 'PICKUP'
   | 'NOT_SHIPPABLE'
   | 'PAYMENT_REQUIRED';
@@ -48,8 +50,16 @@ export const HANDOFF_ORDER_SELECT = {
   paymentStatus: true,
   declaredPaymentStatus: true,
   paymentStatusDef: { select: { code: true } },
-  fulfillmentStatus: { select: { code: true } },
+  fulfillmentStatus: { select: { code: true, isFinal: true } },
 } satisfies Prisma.StoreOrderSelect;
+
+/** Blockers of an order whose fulfillment is over — its untouched attempt is not work. */
+export const TERMINAL_BLOCKERS: ReadonlySet<ShippingHandoffBlocker> =
+  new Set<ShippingHandoffBlocker>([
+    'ORDER_ARCHIVED',
+    'ORDER_CANCELLED',
+    'ORDER_CLOSED',
+  ]);
 
 export type HandoffOrder = Prisma.StoreOrderGetPayload<{
   select: typeof HANDOFF_ORDER_SELECT;
@@ -68,13 +78,22 @@ export interface ShippingReadiness {
  * `evaluateFulfillmentGate` rule, unchanged.
  */
 export function evaluateShippingReadiness(
-  order: Omit<HandoffOrder, 'id' | 'internalOrderId'>,
+  order: Omit<HandoffOrder, 'id' | 'internalOrderId' | 'fulfillmentStatus'> & {
+    /** `isFinal` optional for callers selecting the status label only. */
+    fulfillmentStatus: { code: string; isFinal?: boolean } | null;
+  },
 ): ShippingReadiness {
   if (order.deletedAt) {
     return blocked('ORDER_ARCHIVED', 'The order is archived.');
   }
   if (order.fulfillmentStatus?.code === 'CANCELLED') {
     return blocked('ORDER_CANCELLED', 'The order is cancelled.');
+  }
+  if (order.fulfillmentStatus?.isFinal) {
+    return blocked(
+      'ORDER_CLOSED',
+      `Fulfillment is already final (${order.fulfillmentStatus.code}).`,
+    );
   }
   if (order.fulfillmentMethod === 'PICKUP') {
     return blocked(
@@ -126,6 +145,7 @@ export const UNTOUCHED_ATTEMPT_WHERE = {
   receiptAttachments: { none: {} },
   attachments: { none: {} },
   carrierCharges: { none: {} },
+  lastExternalSyncAt: null,
 } satisfies Prisma.ShipmentWhereInput;
 
 /**
@@ -160,6 +180,14 @@ export async function createOrRestoreAttempt(
   });
 }
 
+export interface HandoffOptions {
+  actorId?: string | null;
+  /** Audited as SHIPPING_QUEUED_REPAIR (R6 repair script). */
+  repair?: boolean;
+  /** Activity channel tag (the repair runs as BULK). */
+  source?: StoreOrderActivitySource;
+}
+
 export type ShippingHandoffOutcome =
   'QUEUED' | 'ALREADY_IN_SHIPPING' | 'WITHDRAWN' | 'BLOCKED' | 'NOT_FOUND';
 
@@ -180,7 +208,7 @@ export interface ShippingHandoffResult extends ShippingReadiness {
 export async function ensureShippingQueued(
   tx: Prisma.TransactionClient,
   storeOrderId: string,
-  options: { actorId?: string | null; repair?: boolean } = {},
+  options: HandoffOptions = {},
 ): Promise<ShippingHandoffResult> {
   // The order row lock every payment / shipment path already uses: two
   // concurrent callers can never both see "no Shipment" and insert twice.
@@ -213,26 +241,25 @@ export async function ensureShippingQueued(
   const live = await tx.shipment.findFirst({
     where: { storeOrderId, deletedAt: null },
     orderBy: { attemptNumber: 'desc' },
-    select: { id: true },
+    select: { id: true, attemptNumber: true },
   });
 
   if (live) {
     if (readiness.eligible) return result('ALREADY_IN_SHIPPING', live.id);
-    const untouched = await tx.shipment.findFirst({
-      where: { id: live.id, ...UNTOUCHED_ATTEMPT_WHERE },
-      select: { id: true, attemptNumber: true },
-    });
-    if (!untouched) return result('ALREADY_IN_SHIPPING', live.id);
-    await tx.shipment.update({
-      where: { id: untouched.id },
+    // Conditional soft-delete: a concurrent operator write (company,
+    // tracking, attachment…) makes the predicate fail and nothing changes.
+    const withdrawn = await tx.shipment.updateMany({
+      where: { id: live.id, deletedAt: null, ...UNTOUCHED_ATTEMPT_WHERE },
       data: { deletedAt: new Date(), updatedBy: options.actorId ?? null },
     });
+    if (withdrawn.count !== 1) return result('ALREADY_IN_SHIPPING', live.id);
     await tx.storeOrderActivity.create({
       data: {
         storeOrderId,
         action: SHIPPING_QUEUE_WITHDRAWN_ACTIVITY,
-        details: `Shipment #${untouched.attemptNumber} withdrawn from the Shipping queue before any work — ${readiness.reason ?? readiness.blocker}`,
+        details: `Shipment #${live.attemptNumber} withdrawn from the Shipping queue before any work — ${readiness.reason ?? readiness.blocker}`,
         performedById: options.actorId ?? null,
+        ...(options.source ? { source: options.source } : {}),
       },
     });
     return result('WITHDRAWN', null);
@@ -251,6 +278,7 @@ export async function ensureShippingQueued(
         ? `Shipment #${shipment.attemptNumber} queued for Shipping (Ready for shipping) — R6 handoff repair`
         : `Shipment #${shipment.attemptNumber} queued for Shipping (Ready for shipping)`,
       performedById: options.actorId ?? null,
+      ...(options.source ? { source: options.source } : {}),
     },
   });
   return result('QUEUED', shipment.id);
@@ -267,14 +295,30 @@ export async function readShippingHandoff(
     where: { id: storeOrderId },
     select: {
       ...HANDOFF_ORDER_SELECT,
-      _count: { select: { shipments: { where: { deletedAt: null } } } },
+      shipments: {
+        where: { deletedAt: null },
+        select: { id: true },
+      },
     },
   });
   if (!order) return null;
   const readiness = evaluateShippingReadiness(order);
+  let queued = order.shipments.length > 0;
+  // Same rule as the queue list: an untouched attempt of an archived /
+  // cancelled / closed order is not in the Shipping queue.
+  if (queued && readiness.blocker && TERMINAL_BLOCKERS.has(readiness.blocker)) {
+    const worked = await client.shipment.count({
+      where: {
+        storeOrderId,
+        deletedAt: null,
+        NOT: UNTOUCHED_ATTEMPT_WHERE,
+      },
+    });
+    queued = worked > 0;
+  }
   return {
     ...readiness,
-    queued: order._count.shipments > 0,
+    queued,
     applicable: order.fulfillmentMethod === 'SHIPPING',
   };
 }

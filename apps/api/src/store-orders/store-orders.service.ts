@@ -1527,10 +1527,6 @@ export class StoreOrdersService {
   }
 
   /**
-   * Central fulfillment gate — see `evaluateFulfillmentGate`: PREPAID needs a
-   * full paid declaration OR verified payment; COD may ship before payment.
-   */
-  /**
    * R6 SHIP — is this order in the internal Shipping queue, and if not, why
    * (archived, cancelled, pickup, nothing to ship, prepaid awaiting payment).
    */
@@ -1539,6 +1535,10 @@ export class StoreOrdersService {
     return readShippingHandoff(this.prisma, id);
   }
 
+  /**
+   * Central fulfillment gate — see `evaluateFulfillmentGate`: PREPAID needs a
+   * full paid declaration OR verified payment; COD may ship before payment.
+   */
   async canFulfill(id: string) {
     const order = await this.findOne(id);
     return evaluateFulfillmentGate({

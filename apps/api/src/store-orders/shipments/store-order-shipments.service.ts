@@ -2,6 +2,7 @@ import { BULK_LIMITS } from '../../common/bulk/bulk-limits';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   Prisma,
+  type Shipment,
   ShipmentStatus,
   ShippingCostPayer,
   StoreOrderSource,
@@ -22,6 +23,7 @@ import { lockStoreOrderRow } from '../store-order-payment-settlement.util';
 import {
   createOrRestoreAttempt,
   ensureShippingQueued,
+  type HandoffOptions,
   READY_FOR_SHIPPING_FILTER,
   type ShipmentQueueStatus,
 } from './shipping-handoff';
@@ -52,13 +54,6 @@ export function statusQueueFilter(
     });
   }
   return branches.length === 1 ? branches[0] : { OR: branches };
-}
-
-/** A real interactive transaction (the default client has `$transaction`). */
-function asTransactionClient(
-  client: Prisma.TransactionClient | PrismaService,
-): Prisma.TransactionClient | null {
-  return '$transaction' in client ? null : client;
 }
 
 /** Statuses a parcel reaches only after it left with its label. */
@@ -108,6 +103,17 @@ export function assertLabelCurrent(
 export class StoreOrderShipmentsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * The caller's interactive transaction, or null for the root client (a
+   * Prisma 7 transaction client also exposes `$transaction`, so identity —
+   * not shape — tells them apart).
+   */
+  private transactionOrNull(
+    client: Prisma.TransactionClient | PrismaService,
+  ): Prisma.TransactionClient | null {
+    return client === this.prisma ? null : client;
+  }
+
   async getCurrent(
     storeOrderId: string,
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
@@ -126,20 +132,34 @@ export class StoreOrderShipmentsService {
     storeOrderId: string,
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
     isReship = false,
-  ) {
-    const existing = await this.getCurrent(storeOrderId, tx);
+  ): Promise<{
+    shipment:
+      | NonNullable<
+          Awaited<ReturnType<StoreOrderShipmentsService['getCurrent']>>
+        >
+      | Shipment;
+    created: boolean;
+  }> {
+    const lockable = this.transactionOrNull(tx);
+    if (!lockable) {
+      // A non-transactional caller still gets lock + check + create atomically.
+      return this.prisma.$transaction((inner) =>
+        this.getOrCreateCurrent(storeOrderId, inner, isReship),
+      );
+    }
+    // R6 SHIP — lock order → shipment (the same order the handoff and the
+    // payment paths use) before reading or writing the attempt, so an order
+    // never gets two attempt rows and the lock order never inverts.
+    await lockStoreOrderRow(lockable, storeOrderId);
+    const existing = await this.getCurrent(storeOrderId, lockable);
     if (existing) {
       return { shipment: existing, created: false };
     }
-    // R6 SHIP — serialize with `ensureQueued` (and concurrent operators) on
-    // the order row, then re-check, so an order never gets two attempt rows.
-    const lockable = asTransactionClient(tx);
-    if (lockable) {
-      await lockStoreOrderRow(lockable, storeOrderId);
-      const raced = await this.getCurrent(storeOrderId, lockable);
-      if (raced) return { shipment: raced, created: false };
-    }
-    const shipment = await this.createShipment(storeOrderId, isReship, tx);
+    const shipment = await this.createShipment(
+      storeOrderId,
+      isReship,
+      lockable,
+    );
     return { shipment, created: true };
   }
 
@@ -151,7 +171,7 @@ export class StoreOrderShipmentsService {
   ensureQueued(
     storeOrderId: string,
     tx: Prisma.TransactionClient,
-    options: { actorId?: string | null; repair?: boolean } = {},
+    options: HandoffOptions = {},
   ) {
     return ensureShippingQueued(tx, storeOrderId, options);
   }
@@ -159,8 +179,16 @@ export class StoreOrderShipmentsService {
   private async createShipment(
     storeOrderId: string,
     isReship: boolean,
-    tx: Prisma.TransactionClient | PrismaService,
-  ) {
+    client: Prisma.TransactionClient | PrismaService,
+  ): Promise<Shipment> {
+    const lockable = this.transactionOrNull(client);
+    if (!lockable) {
+      return this.prisma.$transaction((inner) =>
+        this.createShipment(storeOrderId, isReship, inner),
+      );
+    }
+    const tx = lockable;
+    await lockStoreOrderRow(tx, storeOrderId);
     const order = await tx.storeOrder.findFirst({
       where: { id: storeOrderId, deletedAt: null },
       select: {
@@ -192,14 +220,8 @@ export class StoreOrderShipmentsService {
       throw new BadRequestException(gate.reason);
     }
 
-    const transaction = asTransactionClient(tx);
-    if (transaction) {
-      return createOrRestoreAttempt(transaction, storeOrderId, isReship);
-    }
-    const previousCount = await tx.shipment.count({ where: { storeOrderId } });
-    return tx.shipment.create({
-      data: { storeOrderId, isReship, attemptNumber: previousCount + 1 },
-    });
+    // Restores a withdrawn untouched #1 instead of numbering a new attempt.
+    return createOrRestoreAttempt(tx, storeOrderId, isReship);
   }
 
   /** Unlimited numbered attempts (#1/#2/#3...). Requires the current shipment be at NEEDS_RESHIPMENT. */
@@ -503,6 +525,7 @@ export class StoreOrderShipmentsService {
               OR: [
                 { deletedAt: { not: null } },
                 { fulfillmentStatus: { code: 'CANCELLED' } },
+                { fulfillmentStatus: { isFinal: true } },
               ],
             },
           },
@@ -618,7 +641,12 @@ export class StoreOrderShipmentsService {
           },
           _count: { select: { receiptAttachments: true } },
         },
-        orderBy: { createdAt: query.sortOrder ?? 'desc' },
+        // `id` tie-break: deterministic pages / "first N" (bulk-created rows
+        // share a timestamp).
+        orderBy: [
+          { createdAt: query.sortOrder ?? 'desc' },
+          { id: query.sortOrder ?? 'desc' },
+        ],
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -663,6 +691,10 @@ export class StoreOrderShipmentsService {
       this.prisma.shipment.findMany({
         where,
         select: { id: true },
+        orderBy: [
+          { createdAt: query.sortOrder ?? 'desc' },
+          { id: query.sortOrder ?? 'desc' },
+        ],
         take: BULK_LIMITS.selectIdsMax,
       }),
       this.prisma.shipment.count({ where }),

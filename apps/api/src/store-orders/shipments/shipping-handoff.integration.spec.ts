@@ -20,7 +20,13 @@ import { AgentAgreementsService } from '../../agents/admin/agent-agreements.serv
 import { AgentDestinationsService } from '../../agents/admin/agent-destinations.service';
 import { AgentUsersService } from '../../agents/admin/agent-users.service';
 import { StoreOrderPaymentDeclarationService } from '../payment-declaration/store-order-payment-declaration.service';
+import { PaymentsService } from '../../payments/payments.service';
+import { StoreOrderPaymentSyncService } from '../store-order-payment-sync.service';
 import { ensureShippingQueued } from './shipping-handoff';
+import {
+  applyShippingHandoffRepair,
+  planShippingHandoffRepair,
+} from './shipping-handoff-repair';
 
 /**
  * R6 SHIP — converted / created eligible orders reach the internal Shipping
@@ -659,6 +665,212 @@ describe('R6 SHIP — Sales → Shipping queue handoff (HTTP integration)', () =
       ensureShippingQueued(tx, order.id),
     );
     expect(again.outcome).toBe('ALREADY_IN_SHIPPING');
+  });
+
+  const salesActor = () => ({
+    userId: internal.id,
+    origin: 'SALES_DECLARATION' as const,
+    allowCorrection: false,
+  });
+  const declareFull = (storeOrderId: string) =>
+    moduleRef
+      .get(StoreOrderPaymentDeclarationService, { strict: false })
+      .declare(
+        storeOrderId,
+        {
+          kind: 'FULL',
+          paymentMethodId,
+          paymentDate: new Date().toISOString().slice(0, 10),
+          currencyId,
+        },
+        randomUUID(),
+        salesActor(),
+      );
+  const attempts = (storeOrderId: string) =>
+    prisma.shipment.findMany({
+      where: { storeOrderId },
+      orderBy: { attemptNumber: 'asc' },
+      select: { attemptNumber: true, deletedAt: true },
+    });
+
+  it('archiving an order keeps a worked-on attempt (tracking) untouched', async () => {
+    const order = await convertInternal({ paymentType: 'CASH_ON_DELIVERY' });
+    const tracked = await post(
+      internal.token,
+      `/store-orders/${order.id}/shipments/tracking-number`,
+      { trackingNumber: `TRK-KEEP-${tag}` },
+    );
+    expect(tracked.status).toBe(200);
+    const res = await post(internal.token, `/store-orders/${order.id}/archive`);
+    expect(res.status).toBe(200);
+    const rows = await prisma.shipment.findMany({
+      where: { storeOrderId: order.id },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      deletedAt: null,
+      trackingNumber: `TRK-KEEP-${tag}`,
+    });
+    expect(
+      await prisma.storeOrderActivity.count({
+        where: { storeOrderId: order.id, action: 'SHIPPING_QUEUE_WITHDRAWN' },
+      }),
+    ).toBe(0);
+  });
+
+  it('a rejected FULL claim withdraws the queued attempt; declaring again restores #1 (no #2)', async () => {
+    const order = await convertInternal({ paymentType: 'PREPAID' });
+    expect(await liveShipments(order.id)).toBe(0);
+    const first = await declareFull(order.id);
+    expect(await queueRows(order.internalOrderId)).toHaveLength(1);
+
+    await moduleRef
+      .get(PaymentsService, { strict: false })
+      .reject(first.payment!.id, {
+        rejectedById: internal.id,
+        rejectionReason: 'Not received',
+      });
+    expect(await liveShipments(order.id)).toBe(0);
+    expect(await queueRows(order.internalOrderId)).toHaveLength(0);
+    expect(await handoff(order.id)).toMatchObject({
+      queued: false,
+      blocker: 'PAYMENT_REQUIRED',
+    });
+    expect(
+      await prisma.storeOrderActivity.count({
+        where: { storeOrderId: order.id, action: 'SHIPPING_QUEUE_WITHDRAWN' },
+      }),
+    ).toBe(1);
+
+    await declareFull(order.id);
+    expect(await attempts(order.id)).toEqual([
+      { attemptNumber: 1, deletedAt: null },
+    ]);
+    expect(await queueRows(order.internalOrderId)).toHaveLength(1);
+  });
+
+  it('an amendment SHIPPING → PICKUP withdraws the untouched attempt', async () => {
+    const order = await convertInternal({ paymentType: 'CASH_ON_DELIVERY' });
+    expect(await liveShipments(order.id)).toBe(1);
+    const changes = { fulfillmentMethod: 'PICKUP' };
+    const preview = await post(
+      internal.token,
+      `/store-orders/${order.id}/amendments/preview`,
+      { changes },
+    );
+    expect(preview.status).toBe(200);
+    const { version } = await prisma.storeOrder.findUniqueOrThrow({
+      where: { id: order.id },
+      select: { version: true },
+    });
+    const committed = await post(
+      internal.token,
+      `/store-orders/${order.id}/amendments`,
+      {
+        changes,
+        expectedVersion: version,
+        reason: 'Customer will collect',
+        acknowledgements:
+          (preview.body as { requiredAcknowledgements?: string[] })
+            .requiredAcknowledgements ?? [],
+      },
+    );
+    expect(committed.status).toBe(201);
+    expect(await liveShipments(order.id)).toBe(0);
+    expect(await queueRows(order.internalOrderId)).toHaveLength(0);
+  });
+
+  it('Finance-verified payment (payment sync) queues a prepaid order', async () => {
+    const order = await convertInternal({ paymentType: 'PREPAID' });
+    expect(await liveShipments(order.id)).toBe(0);
+    // A claim on another order supplies the required payment columns.
+    const template = await convertInternal({ paymentType: 'PREPAID' });
+    const claim = (await declareFull(template.id)).payment!;
+    await prisma.payment.create({
+      data: {
+        paymentNumber: `PAY-R6SHIP-${tag}-V`,
+        senderName: claim.senderName,
+        amount: 300,
+        currencyId,
+        paymentSourceId: claim.paymentSourceId,
+        paymentMethodId: claim.paymentMethodId,
+        paymentDate: claim.paymentDate,
+        origin: claim.origin,
+        status: 'VERIFIED',
+        verifiedAt: new Date(),
+        storeOrderId: order.id,
+      },
+    });
+    await moduleRef
+      .get(StoreOrderPaymentSyncService, { strict: false })
+      .recompute(order.id);
+    const fresh = await prisma.storeOrder.findUniqueOrThrow({
+      where: { id: order.id },
+      select: { paymentStatus: true, declaredPaymentStatus: true },
+    });
+    expect(fresh).toMatchObject({
+      paymentStatus: 'FULLY_PAID_RECONCILED',
+      declaredPaymentStatus: 'UNPAID',
+    });
+    expect(await queueRows(order.internalOrderId)).toHaveLength(1);
+  });
+
+  it('repair: dry-run lists an eligible order; apply queues it once (BULK, audited); a second apply is a no-op', async () => {
+    const partner = await prisma.partner.create({
+      data: {
+        partnerNumber: `PT-R6SHIP-${tag}-R`,
+        name: `DEMO-R6-20261001 Repair ${tag}`,
+      },
+    });
+    const order = await prisma.storeOrder.create({
+      data: {
+        internalOrderId: `SO-R6SHIP-${tag}-R`,
+        partnerId: partner.id,
+        currencyId,
+        paymentType: 'CASH_ON_DELIVERY',
+        fulfillmentMethod: 'SHIPPING',
+        shippingStage: 'READY_FOR_SHIPPING',
+        items: {
+          create: [
+            {
+              productId: companyProductId,
+              quantity: 1,
+              unitPrice: 100,
+              agreedAmount: 100,
+            },
+          ],
+        },
+      },
+    });
+    const plan = await planShippingHandoffRepair(prisma);
+    const mine = plan.eligible.filter((row) => row.id === order.id);
+    expect(mine.map((row) => row.internalOrderId)).toEqual([
+      order.internalOrderId,
+    ]);
+    expect(await liveShipments(order.id)).toBe(0); // the dry run wrote nothing
+
+    const scoped = { ...plan, eligible: mine };
+    const applied = await applyShippingHandoffRepair(
+      prisma,
+      scoped,
+      internal.id,
+    );
+    expect(applied.outcomes).toEqual({ QUEUED: 1 });
+    const audit = await prisma.storeOrderActivity.findFirstOrThrow({
+      where: { storeOrderId: order.id, action: 'SHIPPING_QUEUED_REPAIR' },
+    });
+    expect(audit).toMatchObject({ source: 'BULK', performedById: internal.id });
+
+    const again = await applyShippingHandoffRepair(prisma, scoped, internal.id);
+    expect(again.outcomes).toEqual({ ALREADY_IN_SHIPPING: 1 });
+    expect(
+      (await planShippingHandoffRepair(prisma)).eligible.some(
+        (row) => row.id === order.id,
+      ),
+    ).toBe(false);
+    expect(
+      await prisma.shipment.count({ where: { storeOrderId: order.id } }),
+    ).toBe(1);
   });
 
   it('agent tokens are refused on the internal Shipping endpoints', async () => {

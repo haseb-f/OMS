@@ -9,7 +9,7 @@ const base = {
   paymentStatus: 'PAYMENT_PENDING' as const,
   declaredPaymentStatus: 'UNPAID' as const,
   paymentStatusDef: { code: 'UNPAID' },
-  fulfillmentStatus: { code: 'READY' },
+  fulfillmentStatus: { code: 'READY', isFinal: false },
 };
 
 describe('evaluateShippingReadiness (R6 SHIP)', () => {
@@ -50,6 +50,12 @@ describe('evaluateShippingReadiness (R6 SHIP)', () => {
         fulfillmentStatus: { code: 'CANCELLED' },
       }).blocker,
     ).toBe('ORDER_CANCELLED');
+    expect(
+      evaluateShippingReadiness({
+        ...base,
+        fulfillmentStatus: { code: 'DELIVERED', isFinal: true },
+      }).blocker,
+    ).toBe('ORDER_CLOSED');
     expect(
       evaluateShippingReadiness({ ...base, fulfillmentMethod: 'PICKUP' })
         .blocker,
