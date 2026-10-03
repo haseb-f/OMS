@@ -23,6 +23,32 @@ export type InsightTone =
   | "loss";
 
 /**
+ * Colour follows meaning (Round 6): a toned figure that is exactly zero (or
+ * empty) carries no signal, so it renders neutral — "With returns 0" is not
+ * an alarm. `amount` gives the number when `value` is a formatted node;
+ * `keepToneAtZero` opts out where zero is itself the news.
+ */
+export function resolveInsightTone(
+  tone: InsightTone,
+  value: ReactNode,
+  amount?: number | null,
+  keepToneAtZero = false,
+): InsightTone {
+  if (tone === "neutral" || keepToneAtZero) return tone;
+  let numeric: number | null = null;
+  if (amount !== undefined) numeric = amount;
+  else if (typeof value === "number") numeric = value;
+  else if (typeof value === "string") {
+    const digits = value.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660));
+    if (/^[\s%٪.,\-–—0-9]*$/.test(digits)) {
+      const cleaned = digits.replace(/[^0-9.-]/g, "");
+      numeric = cleaned === "" || cleaned === "-" ? 0 : Number(cleaned);
+    }
+  } else if (value === null || value === undefined || value === "") numeric = 0;
+  return numeric === 0 ? "neutral" : tone;
+}
+
+/**
  * Compact summary tile (design-system §12.8, Round 3.2): a concise label, the
  * figure with its unit on one line, and at most one line of essential
  * context. The tone is a restrained accent (a small tinted icon; a start-edge
@@ -45,6 +71,8 @@ export function InsightCard({
   emphasis = false,
   className,
   direction = "rtl",
+  amount,
+  keepToneAtZero = false,
 }: {
   label: string;
   value: ReactNode;
@@ -65,7 +93,12 @@ export function InsightCard({
   emphasis?: boolean;
   className?: string;
   direction?: "rtl" | "ltr";
+  /** The figure as a number when `value` is a formatted node (zero → neutral). */
+  amount?: number | null;
+  /** Keep the tone even at zero (zero is the meaningful outcome). */
+  keepToneAtZero?: boolean;
 }) {
+  const resolvedTone = resolveInsightTone(tone, value, amount, keepToneAtZero);
   const Chevron = direction === "rtl" ? ChevronLeft : ChevronRight;
   const body = (
     <>
@@ -133,7 +166,7 @@ export function InsightCard({
       <Link
         href={href}
         data-slot="insight-card"
-        data-tone={tone}
+        data-tone={resolvedTone}
         data-emphasis={emphasis || undefined}
         data-interactive=""
         className={cn(
@@ -148,7 +181,7 @@ export function InsightCard({
   return (
     <div
       data-slot="insight-card"
-      data-tone={tone}
+      data-tone={resolvedTone}
       data-emphasis={emphasis || undefined}
       className={shared}
     >

@@ -102,6 +102,7 @@ function ItemCard({ item, currency }: { item: FinancialReportSummaryItem; curren
           />
         }
         unit={parts.isZero ? undefined : (item.currency ?? currency)}
+        amount={item.value}
       />
     </div>
   );

@@ -667,6 +667,9 @@ Spec: `specs/ui-navigation-r6/spec.md` §E. Released only after owner visual app
     `--insight-icon-fill`.
   - Flat at rest: no shadow.
   - Neutral tiles stay a plain card with the standard border.
+  - A toned figure that is exactly zero or empty renders neutral (`resolveInsightTone`). Pass
+    `amount` when the value is a formatted node, and `keepToneAtZero` where zero is itself the
+    news.
   - The value stays in the foreground colour. An emphasized destructive or loss tile is the
     exception: its value is red.
   - Hover applies to interactive tiles only: the edge goes to 45% of the tone, plus a soft lift.

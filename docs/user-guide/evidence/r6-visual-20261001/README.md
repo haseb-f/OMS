@@ -23,17 +23,14 @@ Each toned tile is now its own soft card with an 8px gap and:
 - a hairline at 28% of the tone (32% in dark)
 - an icon chip at 18% (26% in dark)
 
-Neutral tiles stay plain, and tiles have no shadow at rest. Seven "after" files were re-taken with
-the same load guard:
+Neutral tiles stay plain, and tiles have no shadow at rest.
 
-- company dashboard: AR light 1440, EN dark 1440, AR light 390
-- Agent Admin dashboard: AR light 1440, EN dark 1440
-- Agent Sales dashboard: AR light 1440
-- trial balance, expanded: AR light 1440
-
-The other "after" dashboard and report variants, plus the interactive attention shots, show the
-pre-tuning tiles. All pairs in `contrast-check.mjs` pass, including the new tile label and value
-pairs on the strongest tint.
+Colour follows meaning: a toned figure that is exactly zero or empty renders neutral, so
+"With returns 0" and "Returns 0.00" are no longer red. The rule lives in `resolveInsightTone`, and
+`keepToneAtZero` opts out of it. Every "after" file, the interactive shots and the agent statement
+summary strip reflect this final design. All were captured on 2026-10-03 with the load guard.
+All pairs in `contrast-check.mjs` pass, including the tile label, value and icon pairs on the
+strongest tint.
 
 **Before** comes from `main` @ `901e075`, served from a temporary `git worktree` against the same
 API and data, which was removed afterwards. **After** comes from this branch.
@@ -61,6 +58,7 @@ Names follow `<phase>-<subject>-<locale>-<theme>[-<width>].png`, where locale is
 | Agent Admin dashboard (1440 + 390)                                                         | `before-agent-admin-dashboard-*`                   | `after-agent-admin-dashboard-*`                    |
 | Agent Sales dashboard (1440 + 390)                                                         | `before-agent-sales-dashboard-*`                   | `after-agent-sales-dashboard-*`                    |
 | Trial balance, 01 Jan – 01 Oct 2026, summary expanded (1440, first screen)                 | `before-financial-report-trial-balance-expanded-*` | `after-financial-report-trial-balance-expanded-*`  |
+| Agent statement summary strip (Agent Admin, after only)                                    | —                                                  | `after-agent-statement-summary-ar-light-1440`      |
 | Same report, summary collapsed (after only; `main` has no collapse)                        | —                                                  | `after-financial-report-trial-balance-collapsed-*` |
 | Dashboard interactive rows (Needs attention): hover and keyboard focus, AR light + EN dark | —                                                  | `after-interactive-attention-{hover,focus}-*`      |
 

@@ -104,6 +104,8 @@ interface TileProps {
   tone?: InsightTone;
   label: string;
   value: ReactNode;
+  /** The figure as a number when `value` is formatted money (zero → neutral tone). */
+  amount?: number;
   context?: ReactNode;
   meta?: ReactNode;
   children?: ReactNode;
@@ -288,7 +290,7 @@ export default function AgentDashboardPage() {
             scope={now}
             action={<PanelLink href="/agent/leads">{t("insights.agent.viewLeads")}</PanelLink>}
           >
-            <InsightGroup className={cn(GROUP, "grid-cols-3")}>
+            <InsightGroup className={cn(GROUP, "grid-cols-1 sm:grid-cols-3")}>
               {tile({
                 id: "all",
                 icon: Users,
@@ -334,12 +336,14 @@ export default function AgentDashboardPage() {
                           icon: ShoppingCart,
                           label: t("agentPortal.dashboard.kpi.salesExShipping"),
                           value: money(data.sales.merchandiseSalesExShipping),
+                          amount: data.sales.merchandiseSalesExShipping,
                         }),
                         tile({
                           id: "shipping",
                           icon: Truck,
                           label: t("agentPortal.dashboard.kpi.shippingCharges"),
                           value: money(data.sales.customerShippingCharges),
+                          amount: data.sales.customerShippingCharges,
                         }),
                         tile({
                           id: "orderValue",
@@ -347,6 +351,7 @@ export default function AgentDashboardPage() {
                           tone: "success",
                           label: t("agentPortal.dashboard.kpi.totalOrderValue"),
                           value: money(data.sales.totalOrderValue),
+                          amount: data.sales.totalOrderValue,
                         }),
                       ]
                     : null}
@@ -357,6 +362,7 @@ export default function AgentDashboardPage() {
                         tone: "destructive",
                         label: t("agentPortal.dashboard.kpi.returns"),
                         value: money(data.returns.merchandiseReturned),
+                        amount: data.returns.merchandiseReturned,
                       })
                     : null}
                   {data.collections
@@ -366,6 +372,7 @@ export default function AgentDashboardPage() {
                         tone: "warning",
                         label: t("agentPortal.dashboard.kpi.pendingCollections"),
                         value: money(data.collections.awaitingVerificationAmount),
+                        amount: data.collections.awaitingVerificationAmount,
                         context: t("insights.agent.collectionsContext", {
                           count: data.collections.awaitingVerificationCount,
                         }),
@@ -409,6 +416,7 @@ export default function AgentDashboardPage() {
                           tone: "success",
                           label: t("agentPortal.dashboard.kpi.available"),
                           value: money(data.position.available),
+                          amount: data.position.available,
                           context: (
                             <>
                               {t("agentPortal.dashboard.kpi.balance")}:{" "}
@@ -422,6 +430,7 @@ export default function AgentDashboardPage() {
                           tone: "warning",
                           label: t("agentPortal.dashboard.kpi.pending"),
                           value: money(data.position.pending),
+                          amount: data.position.pending,
                         }),
                       ]
                     : null}
@@ -432,6 +441,7 @@ export default function AgentDashboardPage() {
                         tone: "info",
                         label: t("agentPortal.dashboard.kpi.payouts"),
                         value: money(data.payouts.total),
+                        amount: data.payouts.total,
                         context: t("agentPortal.dashboard.kpi.payoutsCount", {
                           count: data.payouts.count,
                         }),

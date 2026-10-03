@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render } from "@testing-library/react";
 import { UserPlus } from "lucide-react";
-import { InsightCard, InsightScope } from "./insight-card";
+import { InsightCard, InsightScope, resolveInsightTone } from "./insight-card";
 
 afterEach(cleanup);
 
@@ -36,5 +36,35 @@ describe("InsightCard (Round 6)", () => {
     );
     expect(getByText("Now").closest("[data-scope]")?.getAttribute("data-scope")).toBe("current");
     expect(getByText("To date").closest("[data-scope]")?.getAttribute("data-scope")).toBe("toDate");
+  });
+});
+
+describe("resolveInsightTone — colour follows meaning (Round 6)", () => {
+  it("renders a zero or empty toned figure neutral", () => {
+    expect(resolveInsightTone("destructive", 0)).toBe("neutral");
+    expect(resolveInsightTone("success", "0")).toBe("neutral");
+    expect(resolveInsightTone("success", "0%")).toBe("neutral");
+    expect(resolveInsightTone("warning", "٠")).toBe("neutral");
+    expect(resolveInsightTone("info", null)).toBe("neutral");
+    expect(resolveInsightTone("warning", <span>0.00 EGP</span>, 0)).toBe("neutral");
+  });
+
+  it("keeps the tone for non-zero figures and for text verdicts", () => {
+    expect(resolveInsightTone("info", 18)).toBe("info");
+    expect(resolveInsightTone("success", "33.3%")).toBe("success");
+    expect(resolveInsightTone("warning", <span>1,650.00</span>, 1650)).toBe("warning");
+    expect(resolveInsightTone("success", "Balanced")).toBe("success");
+    expect(resolveInsightTone("warning", <span>formatted</span>)).toBe("warning");
+  });
+
+  it("honours the opt-out where zero is the news", () => {
+    expect(resolveInsightTone("success", 0, undefined, true)).toBe("success");
+  });
+
+  it("draws a zero tile neutral in the DOM", () => {
+    const { container } = render(<InsightCard label="With returns" value={0} tone="destructive" />);
+    expect(container.querySelector('[data-slot="insight-card"]')?.getAttribute("data-tone")).toBe(
+      "neutral",
+    );
   });
 });
