@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ZodType } from "zod";
 import { EnterpriseButton } from "@/components/ui/button";
+import { Toggle } from "@/components/ui/toggle";
 import {
   Sheet,
   SheetContent,
@@ -716,14 +717,9 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
           filterBar={
             <>
               {extraFilters}
-              <EnterpriseButton
-                type="button"
-                variant={includeArchived ? "secondary" : "outline"}
-                size="sm"
-                onClick={() => setIncludeArchived((value) => !value)}
-              >
+              <Toggle size="default" pressed={includeArchived} onPressedChange={setIncludeArchived}>
                 {t("common.showArchived")}
-              </EnterpriseButton>
+              </Toggle>
             </>
           }
           tableId={tableId}

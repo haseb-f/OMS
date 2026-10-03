@@ -463,3 +463,38 @@
     display: none !important;
   }
 }
+
+/* Round 5 soft surfaces (design-system §12.12) print plain: paper, one
+   rule, no gradient, tint or shadow — paper never carries screen decoration.
+   The two print tokens below are the only colours; everything else maps
+   onto them. */
+@media print {
+  :root,
+  .dark {
+    --print-paper: #ffffff;
+    --print-rule: #cfcfcf;
+    --surface-soft: var(--print-paper);
+    --surface-soft-gradient: none;
+    --surface-soft-border: var(--print-rule);
+    --surface-soft-hover-border: var(--print-rule);
+    --surface-soft-shadow: none;
+    --surface-soft-shadow-hover: none;
+    --surface-soft-tone-strength: 0%;
+    --surface-soft-tone-border-strength: 0%;
+    --insight-tint-top: 0%;
+    --insight-tint-bottom: 0%;
+    --insight-tint-border: 0%;
+  }
+  :is(
+    [data-slot="card"][data-surface="soft"],
+    [data-slot="insight-group"],
+    [data-slot="insight-card"],
+    [data-slot="detail-summary-bar"]
+  ):not([data-print-sheet] *) {
+    background: var(--print-paper) !important;
+    box-shadow: none !important;
+  }
+  [data-slot="insight-card"]:not([data-print-sheet] *) {
+    border-color: var(--print-rule) !important;
+  }
+}

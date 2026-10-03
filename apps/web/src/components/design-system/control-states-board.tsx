@@ -1,6 +1,18 @@
 "use client";
 
-import { Check, ShoppingCart, Trash2, UserRound } from "lucide-react";
+import { useState } from "react";
+import {
+  Banknote,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  CreditCard,
+  ShoppingCart,
+  Store,
+  Trash2,
+  Truck,
+  UserRound,
+} from "lucide-react";
 import { TriggerChevron } from "@/components/ui/trigger-chevron";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
@@ -15,6 +27,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { FilterTrigger } from "@/components/shared/data-table/filter-popover";
+import { SegmentedRadioGroup } from "@/components/documents/segmented-radio-group";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { Toggle } from "@/components/ui/toggle";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useLocale } from "@/providers/locale-provider";
 
 /**
@@ -25,6 +42,8 @@ import { useLocale } from "@/providers/locale-provider";
 export function ControlStatesBoard() {
   const { t } = useLocale();
   const k = (key: string) => t(`designSystem.controlStates.${key}` as never);
+  const [method, setMethod] = useState<"SHIPPING" | "PICKUP">("SHIPPING");
+  const [payment, setPayment] = useState<"PREPAID" | "CASH_ON_DELIVERY">("CASH_ON_DELIVERY");
 
   return (
     <section className="flex flex-col gap-3" data-testid="control-states-board">
@@ -98,6 +117,59 @@ export function ControlStatesBoard() {
             </div>
             <Input className="w-52" readOnly value={k("readOnly")} aria-label={k("readOnly")} />
             <Input className="w-52" disabled value={k("disabled")} aria-label={k("disabled")} />
+          </Row>
+
+          {/* design-system §12.12 — filter triggers, toggles and the shared
+              segmented silhouette (ButtonGroup / ToggleGroup / form choices). */}
+          <Row label={k("toolbars")}>
+            <FilterTrigger label={t("common.status")} />
+            <FilterTrigger label={t("common.status")} value={k("value")} isActive />
+            <FilterTrigger label={k("selectors")} count={3} isActive />
+            <EnterpriseButton variant="menu" size="sm" className="gap-1.5">
+              {t("table.export")}
+              <TriggerChevron kind="menu" size="sm" />
+            </EnterpriseButton>
+            <Toggle size="default" defaultPressed>
+              {t("common.showArchived")}
+            </Toggle>
+            <ToggleGroup type="single" defaultValue="month" aria-label={k("toolbars")}>
+              <ToggleGroupItem value="today">{t("crm.leads.dashboard.today")}</ToggleGroupItem>
+              <ToggleGroupItem value="month">{t("crm.leads.dashboard.month")}</ToggleGroupItem>
+            </ToggleGroup>
+            <ButtonGroup aria-label={k("toolbars")}>
+              <EnterpriseButton variant="outline" size="icon" aria-label={t("common.previous")}>
+                <ChevronLeft className="rtl:rotate-180" />
+              </EnterpriseButton>
+              <EnterpriseButton variant="outline" size="icon" aria-label={t("common.next")}>
+                <ChevronRight className="rtl:rotate-180" />
+              </EnterpriseButton>
+            </ButtonGroup>
+            <SegmentedRadioGroup
+              aria-label={t("agentPortal.orderForm.fields.method")}
+              value={method}
+              onValueChange={setMethod}
+              options={[
+                { value: "SHIPPING", label: t("agentPortal.status.method.SHIPPING"), icon: Truck },
+                { value: "PICKUP", label: t("agentPortal.status.method.PICKUP"), icon: Store },
+              ]}
+            />
+            <SegmentedRadioGroup
+              aria-label={t("agentPortal.orderForm.fields.paymentType")}
+              value={payment}
+              onValueChange={setPayment}
+              options={[
+                {
+                  value: "PREPAID",
+                  label: t("agentPortal.status.paymentType.PREPAID"),
+                  icon: CreditCard,
+                },
+                {
+                  value: "CASH_ON_DELIVERY",
+                  label: t("agentPortal.status.paymentType.CASH_ON_DELIVERY"),
+                  icon: Banknote,
+                },
+              ]}
+            />
           </Row>
         </EnterpriseCardContent>
       </EnterpriseCard>

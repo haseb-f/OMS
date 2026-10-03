@@ -16,6 +16,7 @@ import {
 } from "@/components/dashboard/sales-panels";
 import {
   SALES_PERIODS,
+  anyPeriodKpis,
   buildAttentionQueues,
   loadBankMatchingSummary,
   loadPendingFigures,
@@ -62,22 +63,29 @@ export function DashboardOverview({ access }: { access: DashboardAccess }) {
   const pending = useLoad(pendingLoader);
   const bank = useLoad(bankLoader);
 
-  const salesData = sales.state.status === "ready" ? sales.state.data : null;
+  const salesResult = sales.state.status === "ready" ? sales.state.data : null;
+  const salesData = salesResult?.data ?? null;
+  const failedPeriods = salesResult?.failed ?? [];
   const pendingData = pending.state.status === "ready" ? pending.state.data : null;
   const current = salesData?.[period] ?? null;
 
   const showAttention = access.sales || access.paymentReview || access.bank;
   const hasMain = access.sales || access.bank;
   const salesFailed = access.sales && sales.state.status === "error";
+  // One period failing leaves the other panels intact; only the sub-panel
+  // that needs the missing period says so (never a zero).
+  const periodFailed = failedPeriods.includes(period);
+  // Whole failure (every requested queue source) or a single source that failed.
   const pendingFailed = pending.state.status === "error";
+  const pendingPartial = (pendingData?.failed.length ?? 0) > 0;
   const attentionLoading =
     pending.state.status === "loading" || (access.sales && sales.state.status === "loading");
   // One source failing never hides the queues the other one loaded.
   const attentionFailed = pendingFailed && (!access.sales || salesFailed);
   // Follow-up queues are not period-bound, so any period's figures serve.
-  const queues = buildAttentionQueues(salesData?.month.kpis ?? null, pendingData);
+  const queues = buildAttentionQueues(anyPeriodKpis(salesData), pendingData);
   const retryAttention = () => {
-    if (pendingFailed) void pending.retry();
+    if (pendingFailed || pendingPartial) void pending.retry();
     if (salesFailed) void sales.retry();
   };
 
@@ -117,7 +125,7 @@ export function DashboardOverview({ access }: { access: DashboardAccess }) {
       cleared={queues.cleared}
       loading={attentionLoading}
       failed={attentionFailed}
-      partialFailed={!attentionFailed && (pendingFailed || salesFailed)}
+      partialFailed={!attentionFailed && (pendingFailed || pendingPartial || salesFailed)}
       onRetry={retryAttention}
     />
   );
@@ -138,10 +146,16 @@ export function DashboardOverview({ access }: { access: DashboardAccess }) {
           <div className="flex min-w-0 flex-col gap-4 max-lg:contents">
             {access.sales ? (
               <div className="min-w-0 max-lg:order-2">
-                {salesFailed ? (
-                  <DashboardPanel id="dash-sales" title={t("docUi.dashboard.salesTitle")}>
+                {salesFailed || periodFailed ? (
+                  <DashboardPanel
+                    id="dash-sales"
+                    tone="destructive"
+                    title={t("docUi.dashboard.salesTitle")}
+                  >
                     <ErrorState
-                      description={t("docUi.dashboard.loadFailed")}
+                      description={t(
+                        salesFailed ? "docUi.dashboard.loadFailed" : "docUi.dashboard.periodFailed",
+                      )}
                       onRetry={() => void sales.retry()}
                     />
                   </DashboardPanel>
@@ -156,7 +170,11 @@ export function DashboardOverview({ access }: { access: DashboardAccess }) {
             ) : null}
             {access.sales && !salesFailed ? (
               <div className="min-w-0 max-lg:order-3">
-                <ActivityPanel data={salesData} />
+                <ActivityPanel
+                  data={salesData}
+                  partial={failedPeriods.length > 0}
+                  onRetry={() => void sales.retry()}
+                />
               </div>
             ) : null}
             {access.bank ? (

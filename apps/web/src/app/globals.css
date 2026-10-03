@@ -110,6 +110,9 @@
   --color-border-strong: var(--border-strong);
   --color-focus-ring: var(--focus-ring);
   --color-surface-sunken: var(--surface-sunken);
+  --color-surface-soft: var(--surface-soft);
+  --color-surface-soft-border: var(--surface-soft-border);
+  --color-surface-soft-row-hover: var(--surface-soft-row-hover);
   --color-table-surface: var(--table-surface);
   --color-table-divider: var(--table-divider);
   --color-table-header: var(--table-header);
@@ -124,6 +127,7 @@
   --color-selector-active: var(--selector-active);
   --color-selector-foreground: var(--selector-foreground);
   --color-selector-border: var(--selector-border);
+  --color-selector-muted: var(--selector-muted);
   --color-sidebar-rail: var(--sidebar-rail);
   --color-report-revenue: var(--report-revenue);
   --color-report-revenue-soft: var(--report-revenue-soft);
@@ -231,14 +235,20 @@
   --focus-ring: #0072f5;
   --ring: var(--focus-ring);
 
-  /* Selectors (round 2) — select/combobox/filter/picker triggers are neutral
-     tonal BUTTONS ("click to choose"), visibly different from white text
-     inputs. They never compete with the primary action. */
-  --selector: #ffffff;
-  --selector-hover: #f5f5f5;
-  --selector-active: #ffffff;
-  --selector-foreground: #171717;
-  --selector-border: var(--input);
+  /* Selectors (Round 7, design-system §12.14) — select / combobox / filter /
+     picker / action-menu triggers are solid deep brand-navy BUTTONS ("click to
+     choose"), unmistakably different from the white text inputs and from the
+     primary action (tighter radius, chevron chip, regular-weight value).
+     Text/icon pairs are checked by scripts/design/contrast-check.mjs. */
+  --selector: var(--brand-navy);
+  --selector-hover: color-mix(in oklab, var(--brand-navy) 88%, white);
+  --selector-active: color-mix(in oklab, var(--brand-navy) 84%, black);
+  --selector-foreground: #ffffff;
+  --selector-muted: color-mix(in oklab, white 76%, var(--brand-navy));
+  --selector-border: var(--brand-navy);
+  --selector-open-edge: #6fb4ff;
+  --selector-chip: color-mix(in oklab, white 14%, var(--brand-navy));
+  --selector-applied: color-mix(in oklab, #0072f5 34%, var(--brand-navy));
   /* Sidebar active rail (round 2) — thick accent on the outer edge with a
      restrained glow. */
   --sidebar-rail: #3c78d0;
@@ -328,6 +338,35 @@
   --insight-profit: var(--report-profit);
   --insight-loss: var(--report-loss);
   --insight-lift: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 14px -6px rgb(0 0 0 / 0.14);
+  /* Soft surfaces (Round 5, design-system §12.12) — Clarity-like calm panels
+     on the white canvas: a 2-3% cool tint of the brand canvas, a translucent
+     navy hairline and a top-to-bottom gradient of at most 3%. Translucency
+     comes from the tint, never a backdrop blur. Hover changes the border and
+     shadow only. */
+  --surface-soft: color-mix(in oklab, var(--brand-canvas) 45%, var(--card));
+  --surface-soft-border: color-mix(in oklab, var(--brand-navy) 11%, transparent);
+  --surface-soft-hover-border: color-mix(in oklab, var(--brand-navy) 20%, transparent);
+  --surface-soft-gradient: linear-gradient(180deg, var(--surface-soft), var(--card) 5.5rem);
+  --surface-soft-shadow: 0 1px 2px color-mix(in oklab, var(--brand-navy) 4%, transparent);
+  --surface-soft-shadow-hover:
+    0 1px 2px color-mix(in oklab, var(--brand-navy) 5%, transparent),
+    0 6px 16px -8px color-mix(in oklab, var(--brand-navy) 16%, transparent);
+  /* Per-tone tint of a soft tile (mixed with `--insight-*`). */
+  --surface-soft-tone-strength: 5%;
+  /* Tone share of a toned tile's hairline (Round 6). */
+  --surface-soft-tone-border-strength: 14%;
+  /* Round 6 metric tile (§12.13): tone share of the tile gradient (top →
+     bottom), of its hairline and of its icon chip. */
+  /* Round 7: tone accents one step stronger (blue = activity / new, green =
+     success, amber = pending, red = overdue / error) — still tinted, never a
+     saturated block; every text pair stays AA (contrast-check.mjs). */
+  --insight-tint-top: 14.5%;
+  --insight-tint-bottom: 5.5%;
+  --insight-tint-border: 36%;
+  --insight-icon-fill: 24%;
+  --panel-header-tint: 11%;
+  --panel-edge-tint: 22%;
+  --surface-soft-row-hover: color-mix(in oklab, var(--brand-canvas) 55%, var(--card));
   --form-card-width-narrow: 32.5rem;
   --form-card-width: 40rem;
 }
@@ -409,11 +448,17 @@
   --focus-ring: #52a8ff;
   --ring: var(--focus-ring);
 
-  --selector: #111111;
-  --selector-hover: #1a1a1a;
-  --selector-active: #111111;
-  --selector-foreground: #ededed;
-  --selector-border: var(--input);
+  /* Dark: a navy lifted a step so it separates from the canvas, with a light
+     blue hairline — never a black-on-black trigger. */
+  --selector: #0e2a4b;
+  --selector-hover: #143760;
+  --selector-active: #0a213c;
+  --selector-foreground: #ffffff;
+  --selector-muted: color-mix(in oklab, white 74%, #0e2a4b);
+  --selector-border: color-mix(in oklab, #52a8ff 62%, #0e2a4b);
+  --selector-open-edge: #52a8ff;
+  --selector-chip: color-mix(in oklab, white 12%, #0e2a4b);
+  --selector-applied: #17467a;
   --sidebar-rail: #52a8ff;
   --sidebar-rail-glow: color-mix(in oklab, #52a8ff 25%, transparent);
 
@@ -467,6 +512,20 @@
   --segment-on: #262626;
   --shadow-modal: 0 0 0 1px rgb(255 255 255 / 0.05), 0 24px 48px -12px rgb(0 0 0 / 0.8);
   --insight-lift: 0 0 0 1px rgb(255 255 255 / 0.03), 0 8px 18px -8px rgb(0 0 0 / 0.75);
+  --surface-soft: color-mix(in oklab, #52a8ff 3%, var(--card));
+  --surface-soft-border: color-mix(in oklab, white 8%, transparent);
+  --surface-soft-hover-border: color-mix(in oklab, white 15%, transparent);
+  --surface-soft-shadow: 0 0 #0000;
+  --surface-soft-shadow-hover: 0 0 0 1px rgb(255 255 255 / 0.03), 0 8px 18px -8px rgb(0 0 0 / 0.75);
+  --surface-soft-tone-strength: 7%;
+  --surface-soft-tone-border-strength: 18%;
+  --insight-tint-top: 22%;
+  --insight-tint-bottom: 8%;
+  --insight-tint-border: 40%;
+  --insight-icon-fill: 32%;
+  --panel-header-tint: 14%;
+  --panel-edge-tint: 28%;
+  --surface-soft-row-hover: color-mix(in oklab, #52a8ff 6%, var(--card));
 }
 
 @layer base {

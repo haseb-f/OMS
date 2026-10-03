@@ -122,6 +122,17 @@ const PER_USER_LOCAL_KEYS = [
 ];
 /** `oms.orderDetail.` — which order-detail sections a user keeps open (spec 1C). */
 const PER_USER_LOCAL_PREFIXES = ["oms.print-job.", "oms.partners.recent", "oms.orderDetail."];
+/**
+ * Device preferences — how THIS browser shows the app, not what a user did.
+ * Deliberately kept across logout / user switch (listed so a new key is
+ * classified on purpose, not by omission).
+ */
+export const DEVICE_PREFERENCE_LOCAL_KEYS = [
+  "oms.locale",
+  "oms.sidebar.expandedModule",
+  "oms.sidebar.pinnedModules",
+  "oms.report.summaryCollapsed",
+] as const;
 /** sessionStorage: the record trail (labels + unsaved editor drafts). */
 const PER_USER_SESSION_KEYS = ["oms.navTrail", "oms.navRestore"];
 /** The user id the per-user storage above currently belongs to. */

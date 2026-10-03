@@ -75,6 +75,7 @@ export function SelectFilter({
   );
 
   const selectedLabel = options.find((option) => option.value === value)?.label;
+  const nameShown = showAllOption && label !== resolvedAllLabel;
 
   const select = (next: string) => {
     onChange(next);
@@ -92,7 +93,10 @@ export function SelectFilter({
     >
       <PopoverTrigger asChild>
         <FilterTrigger
-          label={selectedLabel ?? label}
+          // A real filter reads "Name: Value"; a required switch (no "all"
+          // state) or a filter named by its "All …" text shows the value alone.
+          label={nameShown ? label : (selectedLabel ?? label)}
+          value={nameShown ? selectedLabel : undefined}
           isActive={showAllOption && Boolean(value)}
           aria-expanded={open}
           disabled={disabled}

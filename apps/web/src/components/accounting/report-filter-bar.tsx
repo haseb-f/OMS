@@ -512,7 +512,7 @@ export function ReportFilterRow({
       {/* Phones: one Filters button → bottom sheet with every filter. */}
       <EnterpriseButton
         type="button"
-        variant="outline"
+        variant="menu"
         className="md:hidden"
         aria-haspopup="dialog"
         onClick={() => setSheetOpen(true)}

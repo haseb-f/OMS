@@ -213,6 +213,8 @@ export function CashAvailabilityTab() {
       printTitle={t("reports.finance.cashAvailability")}
       exportFileName="cash-availability.xlsx"
       summary={result ? { items: summaryItems } : undefined}
+      // The estimate caveat stays visible on the collapsed header (spec-4 §4A).
+      alerts={[t("reports.finance.cashAvailabilityReport.estimateBadge")]}
       notice={
         // One caption line: the estimate caveat up front, the formula and the
         // limitations one click away (progressive disclosure).

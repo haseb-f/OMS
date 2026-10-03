@@ -202,14 +202,17 @@ export function DetailSection({
   actions,
   children,
   className,
+  surface,
 }: {
   title?: string;
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
+  /** `soft` for summary cards (Round 6 — statement / commission summaries). */
+  surface?: "default" | "soft";
 }) {
   return (
-    <EnterpriseCard size="sm" className={className}>
+    <EnterpriseCard size="sm" surface={surface} className={className}>
       {title || actions ? (
         <EnterpriseCardHeader className="flex flex-row items-center justify-between gap-2 border-b border-border/70 pb-2">
           {title ? <EnterpriseCardTitle>{title}</EnterpriseCardTitle> : <span />}
@@ -235,6 +238,8 @@ export function DetailSummaryBar({
 }) {
   return (
     <div
+      // Round 6: the soft summary surface (recipe `detail-summary-bar`); prints plain.
+      data-slot="detail-summary-bar"
       className={cn(
         "grid grid-cols-2 gap-x-3 gap-y-2 rounded-md border border-border bg-card p-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6",
         className,

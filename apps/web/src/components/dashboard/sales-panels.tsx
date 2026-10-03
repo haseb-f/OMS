@@ -16,10 +16,12 @@ import {
   InsightBar,
   InsightCard,
   InsightGroup,
+  InsightScope,
   type InsightTone,
 } from "@/components/shared/insight-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EnterpriseBadge } from "@/components/ui/badge";
+import { EnterpriseButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -48,17 +50,20 @@ export const PERIOD_LABEL_KEY: Record<SalesPeriod, MessageKey> = {
   month: "crm.leads.dashboard.month",
 };
 
-/** Six figures in one hairline-split cluster: 3 × 2 on desktop, 2 × 3 on phones. */
-const CLUSTER = "rounded-none border-0 grid-cols-2 sm:grid-cols-3";
+/** Six figure tiles: 3 × 2 on desktop, 2 × 3 on phones. */
+const CLUSTER = "p-3 grid-cols-2 sm:grid-cols-3";
 
 interface Figure {
   key: string;
   label: MessageKey;
   value: string;
-  context: string;
+  /** Only when it adds meaning — the scope is stated by the panel. */
+  context?: string;
   icon: LucideIcon;
   tone: InsightTone;
   bar?: number;
+  /** A current-state figure inside a period group — labelled «الآن» on the tile. */
+  current?: boolean;
 }
 
 /**
@@ -85,7 +90,7 @@ export function SalesOverviewPanel({
           key: "newLeads",
           label: "crm.leads.dashboard.newLeads",
           value: String(kpis.newLeads),
-          context: t("docUi.dashboard.newLeadsContext", { period: periodLabel }),
+          context: t("insights.company.newLeads"),
           icon: UserPlus,
           tone: "info",
         },
@@ -93,7 +98,7 @@ export function SalesOverviewPanel({
           key: "converted",
           label: "crm.leads.dashboard.converted",
           value: String(kpis.converted),
-          context: t("docUi.dashboard.convertedContext", { period: periodLabel }),
+          context: t("insights.company.converted"),
           icon: ArrowRightLeft,
           tone: "success",
         },
@@ -101,7 +106,7 @@ export function SalesOverviewPanel({
           key: "conversionRate",
           label: "crm.leads.dashboard.conversionRate",
           value: `${kpis.conversionRate}%`,
-          context: t("docUi.dashboard.conversionContext", { period: periodLabel }),
+          context: t("insights.company.conversion"),
           icon: Percent,
           tone: "success",
           bar: kpis.conversionRate,
@@ -110,15 +115,14 @@ export function SalesOverviewPanel({
           key: "orders",
           label: "docUi.dashboard.ordersInScope",
           value: String(kpis.orders),
-          context: t("docUi.dashboard.ordersContext", { period: periodLabel }),
           icon: ShoppingBag,
-          tone: "neutral",
+          tone: "info",
         },
         {
           key: "delivered",
           label: "crm.leads.dashboard.delivered",
           value: String(kpis.delivered),
-          context: t("docUi.dashboard.deliveredContext", { period: periodLabel }),
+          context: t("insights.company.delivered"),
           icon: PackageCheck,
           tone: "success",
         },
@@ -126,9 +130,10 @@ export function SalesOverviewPanel({
           key: "inProgress",
           label: "crm.leads.dashboard.inProgress",
           value: String(kpis.inProgress),
-          context: t("docUi.dashboard.nowContext"),
+          context: t("insights.company.inProgress"),
           icon: Clock,
-          tone: "neutral",
+          tone: "warning",
+          current: true,
         },
       ]
     : [];
@@ -137,8 +142,10 @@ export function SalesOverviewPanel({
     <DashboardPanel
       id="dash-sales"
       icon={TrendingUp}
+      tone="info"
       title={t("docUi.dashboard.salesTitle")}
-      description={t("dashboard.overview.salesDescription", { period: periodLabel })}
+      scope={{ kind: "period", label: periodLabel }}
+      description={t("insights.company.salesScope")}
       busy={!data}
       action={
         leadsHref ? (
@@ -156,6 +163,11 @@ export function SalesOverviewPanel({
                 label={t(figure.label)}
                 value={figure.value}
                 context={figure.context}
+                meta={
+                  figure.current ? (
+                    <InsightScope kind="current">{t("insights.scope.current")}</InsightScope>
+                  ) : undefined
+                }
                 className="px-4 py-3"
               >
                 {figure.bar !== undefined ? (
@@ -187,7 +199,16 @@ const ACTIVITY_LABEL: Record<ActivityKey, MessageKey> = {
  * with bars on one scale per row so the three periods compare at a glance.
  * Independent of the period switch.
  */
-export function ActivityPanel({ data }: { data: SalesByPeriod | null }) {
+export function ActivityPanel({
+  data,
+  partial = false,
+  onRetry,
+}: {
+  data: Partial<SalesByPeriod> | null;
+  /** Some periods failed to load: their cells read "—" and a notice offers a retry. */
+  partial?: boolean;
+  onRetry?: () => void;
+}) {
   const { t } = useLocale();
   const rows = data ? buildActivityRows(data) : [];
 
@@ -195,10 +216,25 @@ export function ActivityPanel({ data }: { data: SalesByPeriod | null }) {
     <DashboardPanel
       id="dash-activity"
       icon={ChartNoAxesColumn}
+      tone="info"
+      scope={{ kind: "toDate", label: t("insights.scope.pace") }}
       title={t("dashboard.overview.activityTitle")}
-      description={t("dashboard.overview.activityDescription")}
+      description={t("insights.company.salesScope")}
       busy={!data}
     >
+      {partial ? (
+        <p
+          role="alert"
+          className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2 text-caption text-muted-foreground"
+        >
+          {t("docUi.dashboard.activityPartial")}
+          {onRetry ? (
+            <EnterpriseButton type="button" variant="link" size="inline" onClick={onRetry}>
+              {t("common.retry")}
+            </EnterpriseButton>
+          ) : null}
+        </p>
+      ) : null}
       <Table className="table-fixed">
         <TableHeader>
           <TableRow>
@@ -218,10 +254,10 @@ export function ActivityPanel({ data }: { data: SalesByPeriod | null }) {
                   {SALES_PERIODS.map((period) => (
                     <TableCell key={period}>
                       <div className="flex flex-col gap-1.5">
-                        <span className="num font-semibold">{row.values[period]}</span>
+                        <span className="num font-semibold">{row.values[period] ?? "—"}</span>
                         <ShareBar
                           value={row.bars[period]}
-                          label={`${t(ACTIVITY_LABEL[row.key])} · ${t(PERIOD_LABEL_KEY[period])}: ${row.values[period]}`}
+                          label={`${t(ACTIVITY_LABEL[row.key])} · ${t(PERIOD_LABEL_KEY[period])}: ${row.values[period] ?? "—"}`}
                         />
                       </div>
                     </TableCell>
@@ -265,10 +301,10 @@ export function RankingPanel({
     <DashboardPanel
       id="dash-ranking"
       icon={Trophy}
+      tone="success"
       title={t("crm.leads.dashboard.ranking")}
-      description={t("dashboard.overview.rankingDescription", {
-        period: t(PERIOD_LABEL_KEY[period]),
-      })}
+      scope={{ kind: "period", label: t(PERIOD_LABEL_KEY[period]) }}
+      description={t("insights.company.ranking")}
     >
       {rows.length === 0 ? (
         <EmptyState icon={Trophy} title={t("dashboard.overview.rankingEmpty")} className="py-6" />

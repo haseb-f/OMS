@@ -80,7 +80,7 @@ export function ModuleImportButtons({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <EnterpriseButton type="button" variant="outline" size="sm" className="gap-1.5">
+          <EnterpriseButton type="button" variant="menu" size="sm" className="gap-1.5">
             <FileUp className="size-3.5" />
             <span data-slot="action-label">{t("docFlow.import.menu")}</span>
             <TriggerChevron kind="menu" size="sm" />

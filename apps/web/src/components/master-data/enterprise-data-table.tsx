@@ -57,6 +57,8 @@ import {
   ListFooter,
   ListSurface,
   ListToolbar,
+  ListToolbarGroup,
+  ListToolbarSeparator,
   useViewportFill,
 } from "@/components/shared/data-table/list-surface";
 import { OverflowTooltipRegion } from "@/components/shared/data-table/overflow-tooltip";
@@ -1538,10 +1540,16 @@ export function EnterpriseDataTable<TData>({
             </div>
             {filterBar ? (
               <FilterBarProvider value={inlineFilterContext}>
-                <div className="hidden @3xl/enterprise-table:contents">{filterBar}</div>
+                {/* The filters flow in the toolbar row itself (`contents`), so they
+                    fill the search row before wrapping — never a row of their own.
+                    One hairline after search, which always stays on the first row. */}
+                <ListToolbarSeparator className="sm:hidden @3xl/enterprise-table:block!" />
+                <ListToolbarGroup className="hidden @3xl/enterprise-table:contents">
+                  {filterBar}
+                </ListToolbarGroup>
                 <EnterpriseButton
                   type="button"
-                  variant="outline"
+                  variant="menu"
                   size="sm"
                   className="@3xl/enterprise-table:hidden"
                   aria-haspopup="dialog"
@@ -1562,7 +1570,7 @@ export function EnterpriseDataTable<TData>({
                 </EnterpriseButton>
               </FilterBarProvider>
             ) : null}
-            <div className="ms-auto flex shrink-0 items-center gap-1">
+            <ListToolbarGroup className="ms-auto shrink-0 flex-nowrap">
               {onRefresh && (
                 <IconActionButton
                   label={t("table.refresh")}
@@ -1584,7 +1592,7 @@ export function EnterpriseDataTable<TData>({
               {/* Print/import/export/reset are occasional: as labelled
                   buttons they outweighed the filters they sat beside. */}
               <RowActionsMenu label={t("table.options")} actions={tableOptions} />
-            </div>
+            </ListToolbarGroup>
           </div>
 
           {/* Contextual bulk-action strip — overlays the toolbar row in place

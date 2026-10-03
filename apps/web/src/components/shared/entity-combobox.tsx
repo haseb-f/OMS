@@ -203,7 +203,8 @@ export function EntityCombobox<T>({
         <EnterpriseButton
           id={id}
           type="button"
-          variant="field"
+          // Forms/filters: the navy selector trigger; inline table cells: the light outline button.
+          variant={variant === "ghost" ? "outline" : "field"}
           role="combobox"
           aria-expanded={open}
           aria-haspopup="listbox"
@@ -225,7 +226,7 @@ export function EntityCombobox<T>({
           }}
           className={cn(
             "h-(--control-height-md) min-w-0 w-full justify-between text-body",
-            variant === "ghost" && "bg-selector/70 px-1.5",
+            variant === "ghost" && "px-1.5",
             triggerClassName,
             triggerProps?.className,
           )}

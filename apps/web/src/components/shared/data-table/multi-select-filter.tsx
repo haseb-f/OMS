@@ -56,13 +56,9 @@ export function MultiSelectFilter({
     [options, search],
   );
 
-  const triggerLabel = (() => {
-    if (values.length === 0) return label;
-    if (values.length === 1) {
-      return options.find((option) => option.value === values[0])?.label ?? label;
-    }
-    return t("table.filterSelectedCount", { count: values.length });
-  })();
+  // "Name: Value" for one value; the name + a count badge for several.
+  const triggerValue =
+    values.length === 1 ? options.find((option) => option.value === values[0])?.label : undefined;
 
   const toggle = (value: string) => {
     if (selected.has(value)) {
@@ -82,9 +78,10 @@ export function MultiSelectFilter({
     >
       <PopoverTrigger asChild>
         <FilterTrigger
-          label={triggerLabel}
+          label={label}
+          value={triggerValue}
           isActive={values.length > 0}
-          count={values.length}
+          count={values.length > 1 ? values.length : undefined}
           aria-expanded={open}
           className={className}
         />

@@ -6,6 +6,8 @@ import agentPortalEn from "./messages/modules/agent-portal.en";
 import agentPortalAr from "./messages/modules/agent-portal.ar";
 import accountEn from "./messages/modules/account.en";
 import accountAr from "./messages/modules/account.ar";
+import insightsEn from "./messages/modules/insights.en";
+import insightsAr from "./messages/modules/insights.ar";
 import type { Locale } from "./locales";
 
 /** Widens literal string leaves (from each dictionary's `as const`) to `string`, so any locale's own translated text satisfies the shape. */
@@ -37,6 +39,7 @@ const enAll = {
   agents: agentsEn,
   agentPortal: agentPortalEn,
   account: accountEn,
+  insights: insightsEn,
 };
 
 export type Messages = Widen<typeof enAll>;
@@ -48,6 +51,7 @@ const typedAr: Messages = {
   agents: agentsAr,
   agentPortal: agentPortalAr,
   account: accountAr,
+  insights: insightsAr,
 };
 
 export const messages: Record<Locale, Messages> = { en: enAll, ar: typedAr };

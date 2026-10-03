@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { ListSurface, useViewportFill } from "@/components/shared/data-table/list-surface";
 import {
   ALL_REPORT_FILTER_FIELDS,
   ReportFilterRow,
+  countActiveReportFilters,
   describeReportFilters,
   describeReportPeriod,
   useReportFilterOptions,
@@ -18,6 +19,8 @@ import { usePrintCompany } from "@/components/print/print-brand";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { usePrintEngine } from "@/hooks/use-print-engine";
+import { useStoredPreference } from "@/hooks/use-local-storage";
+import { STORAGE_KEYS } from "@/constants/storage-keys";
 import { downloadReport, type ReportExportFormat } from "@/lib/report-export";
 import { reportApiError, toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -25,7 +28,7 @@ import type { MessageKey } from "@/i18n/translate";
 import { FinancialReportTable } from "./financial-report-table";
 import { FinancialReportSummary } from "./financial-report-summary";
 import { buildFinancialReportDocument, toReportPrintPayload } from "./financial-report-export";
-import { summaryToText } from "./summary-format";
+import { collectReportAlerts, summaryToText } from "./summary-format";
 import {
   FinancialReportActions,
   FinancialReportHeader,
@@ -72,6 +75,7 @@ export function FinancialReport({
   pagination,
   exportAllLines = false,
   loadAllLines,
+  alerts: extraAlerts,
 }: {
   lines: FinancialReportLine[];
   columns: FinancialReportColumn[];
@@ -135,6 +139,11 @@ export function FinancialReport({
   /** Rendered instead of the table while the report cannot run yet (e.g. "Select an account"). */
   placeholder?: ReactNode;
   nameHeaderKey?: MessageKey;
+  /**
+   * Caveats that live only in `notice` (estimate, truncated / partial data):
+   * the collapsed header shows them in its warning badge (spec-4 §4A).
+   */
+  alerts?: string[];
 }) {
   const { t, locale, direction } = useLocale();
   const { runPrint } = usePrintEngine();
@@ -309,6 +318,32 @@ export function FinancialReport({
       : "",
   ];
 
+  // spec-4 §4A: one device preference for every financial report. Screen
+  // only — print and export are rebuilt from data (`buildDocument`), never
+  // from this header, so a collapsed report still prints its full context.
+  const [collapsed, setCollapsed] = useStoredPreference(STORAGE_KEYS.reportSummaryCollapsed, false);
+  const summaryId = useId();
+  const openingOff =
+    onIncludeOpeningBalanceChange !== undefined && includeOpeningBalance === false ? 1 : 0;
+  const collapse = {
+    collapsed,
+    onCollapsedChange: setCollapsed,
+    controls: showSummary && summary ? summaryId : undefined,
+    filterCount:
+      countActiveReportFilters(filters, {
+        fields: filterFields,
+        accountSelected: Boolean(accountFilter?.value),
+      }) + openingOff,
+    alerts: [
+      ...collectReportAlerts(summary, {
+        draftsIncluded: filterFields.includes("postedOnly") && !filters.postedOnly,
+        currency,
+        t,
+      }),
+      ...(extraAlerts ?? []),
+    ],
+  };
+
   const toggles: ReportFilterToggle[] = onIncludeOpeningBalanceChange
     ? [
         {
@@ -357,6 +392,7 @@ export function FinancialReport({
             toggles={toggles}
           />
         }
+        collapse={collapse}
         notice={
           signConvention ? (
             <>
@@ -370,10 +406,13 @@ export function FinancialReport({
       />
       {showSummary && summary ? (
         <FinancialReportSummary
+          id={summaryId}
           summary={summary}
           currency={currency}
           period={context[0]}
           basis={context[2] || undefined}
+          // Collapsed: kept in the DOM (the toggle's aria-controls target), not shown.
+          hidden={collapsed}
           className={cn(isLoading && "opacity-60")}
         />
       ) : null}

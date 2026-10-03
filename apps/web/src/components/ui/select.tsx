@@ -39,6 +39,8 @@ function SelectTrigger({
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
+      // Stable hook for the navy recipe: `data-slot` is overwritten under a Slot (<FormControl>); this is not.
+      data-select-trigger=""
       data-size={size}
       data-variant={variant}
       className={cn(
@@ -47,7 +49,11 @@ function SelectTrigger({
         // always wins over a smaller `width`, so this is a floor no page can
         // accidentally break. Value text is centered and reserved its own
         // flexible slot; the chevron gets a fixed, never-shrinking slot.
-        "flex w-fit cursor-pointer items-center gap-1.5 rounded-sm border border-transparent bg-selector text-selector-foreground shadow-[inset_0_0_0_1px_var(--selector-border)] text-body whitespace-nowrap transition-[border-color,box-shadow,background-color] duration-(--duration-base) ease-(--ease-standard) outline-none select-none not-disabled:hover:bg-selector-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-focus-ring not-disabled:active:bg-selector-active not-disabled:active:shadow-[inset_0_0_0_1px_var(--focus-ring)] data-[state=open]:bg-selector-active data-[state=open]:not-disabled:hover:bg-selector-active data-[state=open]:shadow-[inset_0_0_0_1px_var(--focus-ring)] disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60 disabled:shadow-none aria-invalid:shadow-[inset_0_0_0_1px_var(--destructive)] data-placeholder:text-placeholder data-[size=default]:h-(--control-height-md) data-[size=default]:min-w-28 data-[size=default]:px-3 data-[size=default]:py-1 data-[size=sm]:h-(--control-height-sm) data-[size=sm]:min-w-20 data-[size=sm]:px-2.5 data-[size=sm]:py-1 data-[size=sm]:text-caption *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:items-center *:data-[slot=select-value]:justify-start *:data-[slot=select-value]:gap-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:text-muted-foreground [&_svg:not([class*='size-'])]:size-3.5 data-[variant=ghost]:bg-selector/70 data-[variant=ghost]:px-1.5",
+        "flex w-fit cursor-pointer items-center gap-1.5 rounded-sm border border-transparent text-body whitespace-nowrap transition-[border-color,box-shadow,background-color] duration-(--duration-base) ease-(--ease-standard) outline-none select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-focus-ring disabled:cursor-not-allowed data-[size=default]:h-(--control-height-md) data-[size=default]:min-w-28 data-[size=default]:px-3 data-[size=default]:py-1 data-[size=sm]:h-(--control-height-sm) data-[size=sm]:min-w-20 data-[size=sm]:px-2.5 data-[size=sm]:py-1 data-[size=sm]:text-caption *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:items-center *:data-[slot=select-value]:justify-start *:data-[slot=select-value]:gap-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+        // Default = the navy selector trigger (colours, states, chevron chip:
+        // theme/recipes.css §12.14). Ghost = the borderless in-cell trigger.
+        variant === "ghost" &&
+          "bg-transparent px-1.5 text-foreground shadow-[inset_0_0_0_1px_var(--control-border)] not-disabled:hover:bg-(--control-hover) data-[state=open]:bg-(--control-pressed) disabled:bg-muted disabled:opacity-60 disabled:shadow-none aria-invalid:shadow-[inset_0_0_0_1px_var(--destructive)] data-placeholder:text-placeholder [&_svg]:text-muted-foreground",
         className,
       )}
       {...props}

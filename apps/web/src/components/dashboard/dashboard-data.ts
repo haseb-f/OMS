@@ -38,48 +38,122 @@ export const SALES_PERIODS = ["today", "week", "month"] as const satisfies reado
 export type SalesByPeriod = Record<SalesPeriod, SalesPerformanceDashboard>;
 
 /**
+ * What the three period requests produced. A period that failed is listed in
+ * `failed` and absent from `data` — never defaulted to zeros — so one slow or
+ * failing request degrades only the sub-panel that needs it (Round 7).
+ */
+export interface SalesByPeriodResult {
+  data: Partial<SalesByPeriod>;
+  failed: SalesPeriod[];
+}
+
+/** Pure: folds the settled period requests; all three failing is a whole-panel failure (throws). */
+export function settleSalesByPeriod(
+  results: readonly PromiseSettledResult<SalesPerformanceDashboard>[],
+): SalesByPeriodResult {
+  const data: Partial<SalesByPeriod> = {};
+  const failed: SalesPeriod[] = [];
+  SALES_PERIODS.forEach((period, index) => {
+    const result = results[index];
+    if (result?.status === "fulfilled") data[period] = result.value;
+    else failed.push(period);
+  });
+  if (failed.length === SALES_PERIODS.length) {
+    const first = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
+    throw first?.reason ?? new Error("sales performance unavailable");
+  }
+  return { data, failed };
+}
+
+/**
  * The sales figures for all three periods at once, so the period switch is
  * instant and the activity panel can compare today / week / month to date.
  */
-export async function loadSalesByPeriod(): Promise<SalesByPeriod> {
-  const [today, week, month] = await Promise.all(
-    SALES_PERIODS.map((period) => salesPerformanceService.dashboard(period)),
+export async function loadSalesByPeriod(): Promise<SalesByPeriodResult> {
+  return settleSalesByPeriod(
+    await Promise.allSettled(
+      SALES_PERIODS.map((period) => salesPerformanceService.dashboard(period)),
+    ),
   );
-  return { today, week, month };
+}
+
+/** Follow-up queues are not period-bound, so whichever period loaded serves. */
+export function anyPeriodKpis(
+  data: Partial<SalesByPeriod> | null,
+): SalesPerformanceDashboard["kpis"] | null {
+  if (!data) return null;
+  return (data.month ?? data.week ?? data.today)?.kpis ?? null;
 }
 
 export interface PendingFigures {
   paymentReview: number | null;
   bank: { unmatched: number; review: number } | null;
+  /** Sources that failed to load — absent from the figures above, never defaulted to 0. */
+  failed: ("paymentReview" | "bank")[];
 }
 
-/** Payment review queue + bank matching queues, each only when the user may see it. */
+/** Pure: folds the settled queue requests; every requested source failing is a whole failure (throws). */
+export function settlePendingFigures(
+  paymentReview: PromiseSettledResult<number> | null,
+  bank: PromiseSettledResult<{ unmatched: number; review: number }> | null,
+): PendingFigures {
+  const failed: PendingFigures["failed"] = [];
+  if (paymentReview?.status === "rejected") failed.push("paymentReview");
+  if (bank?.status === "rejected") failed.push("bank");
+  const requested = Number(paymentReview !== null) + Number(bank !== null);
+  if (requested > 0 && failed.length === requested) {
+    const first = [paymentReview, bank].find(
+      (r): r is PromiseRejectedResult => r?.status === "rejected",
+    );
+    throw first?.reason ?? new Error("queues unavailable");
+  }
+  return {
+    paymentReview: paymentReview?.status === "fulfilled" ? paymentReview.value : null,
+    bank: bank?.status === "fulfilled" ? bank.value : null,
+    failed,
+  };
+}
+
+/**
+ * Payment review queue + bank matching queues, each only when the user may
+ * see it — and each failing on its own (Round 7), so one slow endpoint never
+ * blanks the other queue.
+ */
 export async function loadPendingFigures(
   showPaymentReview: boolean,
   showBank: boolean,
 ): Promise<PendingFigures> {
-  const [pending, matched, bankCounts] = await Promise.all([
+  const [paymentReview, bank] = await Promise.all([
     showPaymentReview
-      ? paymentsReviewService.list({ status: "PENDING", page: 1, pageSize: 1 })
+      ? Promise.allSettled([
+          paymentsReviewService.list({ status: "PENDING", page: 1, pageSize: 1 }),
+          paymentsReviewService.list({ status: "MATCHED", page: 1, pageSize: 1 }),
+        ]).then(([pending, matched]): PromiseSettledResult<number> => {
+          if (pending.status === "rejected") return pending;
+          if (matched.status === "rejected") return matched;
+          // The review queue's default view is exactly PENDING + MATCHED.
+          return { status: "fulfilled", value: pending.value.total + matched.value.total };
+        })
       : null,
-    showPaymentReview
-      ? paymentsReviewService.list({ status: "MATCHED", page: 1, pageSize: 1 })
+    showBank
+      ? Promise.allSettled([bankTransactionsService.statusCounts()]).then(
+          ([counts]): PromiseSettledResult<{ unmatched: number; review: number }> =>
+            counts.status === "rejected"
+              ? counts
+              : {
+                  status: "fulfilled",
+                  value: {
+                    unmatched: counts.value.UNMATCHED ?? 0,
+                    review:
+                      (counts.value.MANUAL_REVIEW ?? 0) +
+                      (counts.value.CONFLICT ?? 0) +
+                      (counts.value.POTENTIAL ?? 0),
+                  },
+                },
+        )
       : null,
-    showBank ? bankTransactionsService.statusCounts() : null,
   ]);
-  return {
-    // The review queue's default view is exactly PENDING + MATCHED.
-    paymentReview: pending && matched ? pending.total + matched.total : null,
-    bank: bankCounts
-      ? {
-          unmatched: bankCounts.UNMATCHED ?? 0,
-          review:
-            (bankCounts.MANUAL_REVIEW ?? 0) +
-            (bankCounts.CONFLICT ?? 0) +
-            (bankCounts.POTENTIAL ?? 0),
-        }
-      : null,
-  };
+  return settlePendingFigures(paymentReview, bank);
 }
 
 /**
@@ -171,7 +245,8 @@ export type ActivityKey = "newLeads" | "converted" | "orders" | "delivered";
 
 export interface ActivityRow {
   key: ActivityKey;
-  values: Record<SalesPeriod, number>;
+  /** `null` = that period failed to load (shown as "—", never as 0). */
+  values: Record<SalesPeriod, number | null>;
   /** Bar length per period, relative to the row's largest figure. */
   bars: Record<SalesPeriod, number>;
 }
@@ -179,21 +254,21 @@ export interface ActivityRow {
 const ACTIVITY_KEYS: ActivityKey[] = ["newLeads", "converted", "orders", "delivered"];
 
 /** Today / this week / this month to date, per measure, with comparable bar lengths. */
-export function buildActivityRows(byPeriod: SalesByPeriod): ActivityRow[] {
+export function buildActivityRows(byPeriod: Partial<SalesByPeriod>): ActivityRow[] {
   return ACTIVITY_KEYS.map((key) => {
-    const values = {
-      today: byPeriod.today.kpis[key],
-      week: byPeriod.week.kpis[key],
-      month: byPeriod.month.kpis[key],
+    const values: Record<SalesPeriod, number | null> = {
+      today: byPeriod.today?.kpis[key] ?? null,
+      week: byPeriod.week?.kpis[key] ?? null,
+      month: byPeriod.month?.kpis[key] ?? null,
     };
-    const max = Math.max(values.today, values.week, values.month);
+    const max = Math.max(values.today ?? 0, values.week ?? 0, values.month ?? 0);
     return {
       key,
       values,
       bars: {
-        today: percentOf(values.today, max),
-        week: percentOf(values.week, max),
-        month: percentOf(values.month, max),
+        today: percentOf(values.today ?? 0, max),
+        week: percentOf(values.week ?? 0, max),
+        month: percentOf(values.month ?? 0, max),
       },
     };
   });

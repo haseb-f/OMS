@@ -10,18 +10,29 @@ import {
 } from "@/components/ui/card";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { InsightScope, type InsightScopeKind } from "@/components/shared/insight-card";
 import { cn } from "@/lib/utils";
+
+export type PanelTone = "neutral" | "info" | "success" | "warning" | "destructive";
 
 /**
  * One dashboard panel: a shared card with a compact header row (icon, title,
  * optional status badge, one-line context, one action at the end) and a body.
  * Every home-dashboard section uses it, so headers, radii and spacing match.
+ *
+ * Round 6 (§12.13): `tone` tints the header icon chip by the panel's meaning
+ * (info = new / activity, success = conversion / delivery, warning = pending /
+ * follow-up, destructive = overdue / error); `scope` states once what the
+ * panel's figures cover — the selected period, the current state or to date —
+ * so tiles never repeat it.
  */
 export function DashboardPanel({
   id,
   title,
   description,
   icon: Icon,
+  tone = "neutral",
+  scope,
   badge,
   action,
   children,
@@ -32,6 +43,9 @@ export function DashboardPanel({
   title: string;
   description?: ReactNode;
   icon?: LucideIcon;
+  tone?: PanelTone;
+  /** What the figures cover, e.g. `{ kind: "period", label: "This month" }`. */
+  scope?: { kind: InsightScopeKind; label: string };
   badge?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
@@ -41,17 +55,32 @@ export function DashboardPanel({
   return (
     <EnterpriseCard
       size="sm"
+      surface="soft"
       role="region"
+      data-tone={tone}
       aria-labelledby={id}
       aria-busy={busy || undefined}
       className={cn("min-w-0 gap-0 py-0", className)}
     >
       <EnterpriseCardHeader className="gap-0.5 border-b py-3">
-        <EnterpriseCardTitle className="flex min-w-0 items-center gap-2 font-semibold">
-          {Icon ? <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden /> : null}
-          <h2 id={id} className="truncate">
-            {title}
-          </h2>
+        <EnterpriseCardTitle className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 font-semibold">
+          {/* Icon and title stay together; the scope chip may wrap. */}
+          <span className="flex min-w-0 items-center gap-2">
+            {Icon ? (
+              <span
+                data-slot="panel-icon"
+                data-tone={tone}
+                className="flex size-6 shrink-0 items-center justify-center rounded-sm"
+                aria-hidden
+              >
+                <Icon className="size-3.5" />
+              </span>
+            ) : null}
+            <h2 id={id} className="min-w-0 text-pretty break-words">
+              {title}
+            </h2>
+          </span>
+          {scope ? <InsightScope kind={scope.kind}>{scope.label}</InsightScope> : null}
           {badge}
         </EnterpriseCardTitle>
         {description ? (

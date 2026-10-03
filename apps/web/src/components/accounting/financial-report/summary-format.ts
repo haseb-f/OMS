@@ -94,3 +94,41 @@ export function summaryToText(
   }
   return items;
 }
+
+/**
+ * The material caveats a collapsed report header keeps visible as one
+ * warning badge (spec-4 §4A): an unbalanced reconciliation (with the
+ * discrepancy), drafts included in the figures, and every report warning /
+ * partial-data note the summary carries. Empty when the report is clean.
+ */
+export function collectReportAlerts(
+  summary: FinancialReportSummary | undefined,
+  {
+    draftsIncluded = false,
+    currency,
+    t,
+  }: {
+    draftsIncluded?: boolean;
+    currency: string;
+    t: (
+      key:
+        | "reports.finance.unbalanced"
+        | "reports.finance.discrepancy"
+        | "reports.finance.header.includesDrafts",
+    ) => string;
+  },
+): string[] {
+  const alerts: string[] = [];
+  const check = summary?.check;
+  if (check && resolveReconciliationState(check) === "unbalanced") {
+    alerts.push(
+      `${t("reports.finance.unbalanced")} — ${t("reports.finance.discrepancy")} ${formatAmount(
+        Math.abs(check.difference),
+        { zero: "dash", currency: currency || null },
+      )}`,
+    );
+  }
+  if (draftsIncluded) alerts.push(t("reports.finance.header.includesDrafts"));
+  for (const note of summary?.notes ?? []) alerts.push(note.text);
+  return alerts;
+}

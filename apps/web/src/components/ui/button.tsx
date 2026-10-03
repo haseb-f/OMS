@@ -17,14 +17,15 @@ const enterpriseButtonVariants = cva(
         outline:
           "border-(--control-border) bg-card text-foreground not-disabled:hover:border-(--control-border-hover) not-disabled:hover:bg-(--control-hover) not-disabled:active:border-(--control-border-hover) not-disabled:active:bg-(--control-pressed) aria-expanded:border-(--control-border-hover) aria-expanded:bg-(--control-pressed) data-[state=open]:bg-(--control-pressed)",
         /**
-         * Selector trigger (combobox, filter, date/month picker) — the same
-         * control as `SelectTrigger`: white surface, control ring + 3:1 bottom
-         * edge, value at `--trigger-weight`, one `TriggerChevron` at the end.
-         * Ring / hover / open / focus / invalid states live in the shared
-         * recipe (theme/recipes.css, design-system §12.11).
+         * Selector trigger (combobox, filter, date/month picker) and labelled
+         * action-menu trigger (`menu`: Export ▾, Import ▾, Columns) — the same
+         * control as `SelectTrigger`: solid deep brand-navy, light text, one
+         * `TriggerChevron` at the end. Surface, ring / hover / open / focus /
+         * invalid / disabled states live in the shared recipe
+         * (theme/recipes.css, design-system §12.14).
          */
-        field:
-          "border-transparent bg-selector font-normal text-selector-foreground shadow-[inset_0_0_0_1px_var(--selector-border)] not-disabled:hover:bg-selector-hover not-disabled:active:bg-selector-active not-disabled:active:shadow-[inset_0_0_0_1px_var(--focus-ring)] aria-expanded:bg-selector-active aria-expanded:not-disabled:hover:bg-selector-active data-[state=open]:not-disabled:hover:bg-selector-active aria-expanded:shadow-[inset_0_0_0_1px_var(--focus-ring)] data-[state=open]:bg-selector-active data-[state=open]:shadow-[inset_0_0_0_1px_var(--focus-ring)] aria-invalid:shadow-[inset_0_0_0_1px_var(--destructive)] disabled:bg-muted disabled:shadow-none [&_svg]:text-muted-foreground",
+        field: "border-transparent bg-selector font-normal text-selector-foreground",
+        menu: "border-transparent bg-selector font-normal text-selector-foreground",
         secondary:
           "border-border bg-secondary text-secondary-foreground not-disabled:hover:bg-accent aria-expanded:bg-accent",
         info: "bg-info text-info-foreground not-disabled:hover:bg-info/90",

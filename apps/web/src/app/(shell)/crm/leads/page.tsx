@@ -276,10 +276,10 @@ function CrmLeadsPageContent() {
           setUnassignedOnly(false);
         }}
         extraFilters={
-          // The toolbar's own 6px rhythm, so search → filters → view options share a row.
-          <div className="flex flex-wrap items-center gap-1.5">
+          // The toolbar group's 4px rhythm (design-system §12.12).
+          <div className="flex flex-wrap items-center gap-1">
             <SelectFilter
-              label={t("crm.leads.lifecycle.all")}
+              label={t("crm.leads.lifecycle.label")}
               value={lifecycle}
               onChange={setLifecycle}
               allLabel={t("crm.leads.lifecycle.all")}

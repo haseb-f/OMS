@@ -32,15 +32,30 @@ html[dir="ltr"] :is(h1, h2) {
 
 [data-slot="insight-card"] {
   --tone: var(--insight-neutral);
+  --tone-top: var(--insight-tint-top);
+  --tone-bottom: var(--insight-tint-bottom);
+  --tone-border: var(--insight-tint-border);
   --accent-edge: 3px;
+  /* Round 6 soft tile (§12.13): its own card, a clearly perceptible tone
+     gradient (top → bottom) and a hairline in the tone. Flat at rest — no
+     shadow, no blur; colour follows meaning only. */
   background-color: var(--card);
-  border-color: var(--border);
-  box-shadow: var(--shadow-card);
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--tone) var(--tone-top), var(--card)),
+    color-mix(in oklab, var(--tone) var(--tone-bottom), var(--card))
+  );
+  border-color: color-mix(in oklab, var(--tone) var(--tone-border), var(--card));
+  box-shadow: none;
   color: var(--card-foreground);
   transition:
     border-color var(--duration-base) var(--ease-standard),
-    background-color var(--duration-base) var(--ease-standard),
     box-shadow var(--duration-base) var(--ease-standard);
+}
+/* Neutral tiles stay neutral: plain card, the standard hairline. */
+[data-slot="insight-card"]:is([data-tone="neutral"], :not([data-tone])) {
+  background-image: none;
+  border-color: var(--border);
 }
 [data-slot="insight-card"][data-tone="info"] {
   --tone: var(--insight-info);
@@ -69,73 +84,111 @@ html[dir="ltr"] :is(h1, h2) {
 
 [data-slot="insight-card"] [data-slot="insight-icon"] {
   color: var(--tone);
-  background-color: color-mix(in oklab, var(--tone) 11%, var(--card));
+  background-color: color-mix(in oklab, var(--tone) var(--insight-icon-fill), var(--card));
 }
 [data-slot="insight-card"] [data-slot="insight-bar"] {
   background-color: var(--tone);
 }
-/* Emphasis (open work / discrepancy): start-edge accent, tone figure. */
+/* Emphasis (open work / discrepancy): start-edge accent. The figure stays in
+   the foreground colour; only a destructive / loss figure turns red. */
 [data-slot="insight-card"][data-emphasis] {
-  box-shadow:
-    inset var(--accent-edge) 0 0 var(--tone),
-    var(--shadow-card);
+  box-shadow: inset var(--accent-edge) 0 0 var(--tone);
 }
 [dir="rtl"] [data-slot="insight-card"][data-emphasis] {
-  box-shadow:
-    inset calc(var(--accent-edge) * -1) 0 0 var(--tone),
-    var(--shadow-card);
+  box-shadow: inset calc(var(--accent-edge) * -1) 0 0 var(--tone);
 }
-[data-slot="insight-card"][data-emphasis] [data-slot="insight-value"] {
-  color: var(--tone);
+[data-slot="insight-card"]:is([data-tone="destructive"], [data-tone="loss"])[data-emphasis]
+  [data-slot="insight-value"] {
+  color: var(--destructive-text);
 }
 [data-slot="insight-card"] [data-slot="insight-action"] {
   color: var(--muted-foreground);
   transition: color var(--duration-base) var(--ease-standard);
 }
 
-/* Interactive tiles: hover and keyboard focus read the same. */
+/* Interactive tiles only: hover and keyboard focus = tone border (~45%) and a
+   soft lift — no fill change, no transform, no layout shift. */
 [data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible) {
-  border-color: color-mix(in oklab, var(--tone) 55%, var(--input-hover));
-  background-color: color-mix(in oklab, var(--tone) 4%, var(--card));
-  box-shadow: var(--insight-lift);
+  border-color: color-mix(in oklab, var(--tone) 45%, var(--card));
+  box-shadow: var(--surface-soft-shadow-hover);
 }
 [data-slot="insight-card"][data-interactive][data-emphasis]:is(:hover, :focus-visible) {
   box-shadow:
     inset var(--accent-edge) 0 0 var(--tone),
-    var(--insight-lift);
+    var(--surface-soft-shadow-hover);
 }
 [dir="rtl"] [data-slot="insight-card"][data-interactive][data-emphasis]:is(:hover, :focus-visible) {
   box-shadow:
     inset calc(var(--accent-edge) * -1) 0 0 var(--tone),
-    var(--insight-lift);
+    var(--surface-soft-shadow-hover);
 }
 [data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible)
   [data-slot="insight-action"] {
   color: var(--foreground);
 }
-/* Metric group (`InsightGroup`): related figures share ONE surface split by
-   hairlines — the way a report groups a metric row — instead of a box per
-   number. Cells keep their own padding; dividers are 1px shadows on the
-   block-start and inline-start edge, so the outer ones clip at the
-   container and any wrap (4 → 2 × 2 on phones) stays correct. */
+/* Round 6 (§12.13): a dashboard panel's header icon sits in a small chip
+   tinted by the panel's meaning (`DashboardPanel tone`) — the same accent as
+   a tile icon, so a panel and its figures read as one family. */
+[data-slot="panel-icon"] {
+  --tone: var(--insight-neutral);
+  color: var(--tone);
+  background-color: color-mix(in oklab, var(--tone) var(--insight-icon-fill), var(--card));
+}
+[data-slot="panel-icon"][data-tone="info"] {
+  --tone: var(--insight-info);
+}
+[data-slot="panel-icon"][data-tone="success"] {
+  --tone: var(--insight-success);
+}
+[data-slot="panel-icon"][data-tone="warning"] {
+  --tone: var(--insight-warning);
+}
+[data-slot="panel-icon"][data-tone="destructive"] {
+  --tone: var(--insight-destructive);
+}
+/* Round 7 (§12.14): a dashboard panel carries its meaning in a tone-tinted
+   header (a soft gradient fading to the card) and a faintly toned edge, so
+   panels read at a glance — blue activity, green success, amber pending, red
+   overdue / error — without a saturated block. Neutral panels stay plain. */
+[data-slot="card"][data-surface="soft"][data-tone]:not([data-tone="neutral"]) {
+  --tone: var(--insight-neutral);
+  border-color: color-mix(in oklab, var(--tone) var(--panel-edge-tint), var(--card));
+}
+[data-slot="card"][data-surface="soft"][data-tone="info"] {
+  --tone: var(--insight-info);
+}
+[data-slot="card"][data-surface="soft"][data-tone="success"] {
+  --tone: var(--insight-success);
+}
+[data-slot="card"][data-surface="soft"][data-tone="warning"] {
+  --tone: var(--insight-warning);
+}
+[data-slot="card"][data-surface="soft"][data-tone="destructive"] {
+  --tone: var(--insight-destructive);
+}
+[data-slot="card"][data-surface="soft"][data-tone]:not([data-tone="neutral"])
+  > [data-slot="card-header"] {
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--tone) var(--panel-header-tint), var(--card)),
+    color-mix(in oklab, var(--tone) calc(var(--panel-header-tint) / 3), var(--card))
+  );
+  border-bottom-color: color-mix(in oklab, var(--tone) var(--panel-edge-tint), var(--card));
+  border-start-start-radius: inherit;
+  border-start-end-radius: inherit;
+}
+/* Scope chip («هذا الشهر» / «الآن» / «حتى تاريخه»): a quiet outline pill. */
+[data-slot="insight-scope"] {
+  background-color: transparent;
+  border-color: var(--surface-soft-border);
+}
+
+/* Metric group (`InsightGroup`): a gap-separated row of tile cards; the group
+   draws nothing itself. */
 [data-slot="insight-group"] {
-  background-color: var(--card);
-  border-color: var(--border);
-  box-shadow: var(--shadow-card);
-}
-[data-slot="insight-group"] > [data-slot="insight-card"],
-[data-slot="insight-group"] > * > [data-slot="insight-card"] {
+  background: none;
   border: 0;
-  border-radius: 0;
-  box-shadow:
-    -1px 0 0 var(--border),
-    0 -1px 0 var(--border);
-}
-[dir="rtl"] [data-slot="insight-group"] > [data-slot="insight-card"],
-[dir="rtl"] [data-slot="insight-group"] > * > [data-slot="insight-card"] {
-  box-shadow:
-    1px 0 0 var(--border),
-    0 -1px 0 var(--border);
+  box-shadow: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -193,6 +246,14 @@ html[dir="ltr"] :is(h1, h2) {
   ) {
   box-shadow: var(--control-inset);
 }
+/* A disclosure button (report header collapse) rests expanded — it keeps
+   its normal depth instead of the pressed sink. */
+[data-button][data-variant="outline"][data-disclosure][aria-expanded="true"]:not(
+    :active,
+    :focus-visible
+  ) {
+  box-shadow: var(--control-shadow);
+}
 /* Connected groups (Kumo): items drop their own drop shadow so the group
    reads as one control; pressed / open still sink, focus keeps its halo. */
 [data-slot="button-group"]
@@ -205,90 +266,6 @@ html[dir="ltr"] :is(h1, h2) {
 [data-button]:focus-visible {
   outline-offset: 1px;
   box-shadow: 0 0 0 4px var(--focus-halo);
-}
-
-/* Selector triggers (select, combobox, filter, picker): a white control with
-   a firm ring and a fixed chevron. Hover darkens the ring; open / pressed
-   shows the focus border + halo; invalid stays red. */
-:is([data-button][data-variant="field"], [data-slot="select-trigger"]) {
-  font-weight: var(--trigger-weight);
-  box-shadow:
-    inset 0 0 0 1px var(--control-border),
-    var(--control-shadow);
-}
-:is([data-button][data-variant="field"], [data-slot="select-trigger"]):disabled {
-  box-shadow: none;
-}
-:is([data-button][data-variant="field"], [data-slot="select-trigger"]):not(
-    :disabled,
-    [aria-expanded="true"],
-    [data-state="open"],
-    :focus-visible
-  ):hover {
-  background-color: var(--control-hover);
-  box-shadow:
-    inset 0 0 0 1px var(--control-border-hover),
-    var(--control-shadow);
-}
-:is([data-button][data-variant="field"], [data-slot="select-trigger"]):is(
-  [aria-expanded="true"],
-  [data-state="open"]
-),
-:is([data-button][data-variant="field"], [data-slot="select-trigger"]):not(:disabled):active {
-  background-color: var(--selector-active);
-  /* Open = accent edge only. The halo is reserved for keyboard focus, so an
-     open trigger never stacks a second halo beside the focused search box
-     inside its popover. */
-  box-shadow: inset 0 0 0 1px var(--focus-ring);
-}
-:is([data-button][data-variant="field"], [data-slot="select-trigger"])[aria-invalid="true"] {
-  box-shadow:
-    inset 0 0 0 1px var(--destructive),
-    0 0 0 3px color-mix(in oklab, var(--destructive) 14%, transparent);
-}
-:is([data-button][data-variant="field"], [data-slot="select-trigger"]) svg:last-child {
-  color: var(--muted-foreground);
-  transition:
-    transform var(--duration-base) var(--ease-standard),
-    color var(--duration-base) var(--ease-standard);
-}
-/* Open: the chevron turns and darkens — the trigger says "this is open". */
-:is([data-button][data-variant="field"], [data-slot="select-trigger"]):is(
-    [aria-expanded="true"],
-    [data-state="open"]
-  )
-  svg:last-child:is(.lucide-chevron-down, [class*="chevron-down"]) {
-  transform: rotate(180deg);
-}
-:is([data-button][data-variant="field"], [data-slot="select-trigger"]):is(
-    [aria-expanded="true"],
-    [data-state="open"]
-  )
-  svg:last-child {
-  color: var(--foreground);
-}
-/* Keyboard focus on a trigger: focus edge + halo (same as a text input). */
-:is([data-button][data-variant="field"], [data-slot="select-trigger"]):focus-visible {
-  outline: none;
-  box-shadow:
-    inset 0 0 0 1px var(--focus-ring),
-    0 0 0 3px var(--focus-halo);
-}
-@media (prefers-reduced-motion: reduce) {
-  :is([data-button][data-variant="field"], [data-slot="select-trigger"]) svg:last-child {
-    transition: none;
-  }
-}
-
-/* ── Kumo refinement (kumo-research.md §4, 2026-09-29) ───────────────────
-   Placeholders stay regular weight in the placeholder colour (4.5:1), so a
-   chosen value (medium, full foreground) and "nothing chosen" never look
-   alike — and neither looks washed out. */
-[data-slot="select-trigger"][data-placeholder],
-:is([data-button][data-variant="field"], [data-slot="select-trigger"])
-  :is(.text-placeholder, [data-placeholder]) {
-  color: var(--placeholder);
-  font-weight: var(--trigger-placeholder-weight);
 }
 
 /* The one trigger chevron (`TriggerChevron`): fixed size, subtle colour,
@@ -356,6 +333,42 @@ html[dir="ltr"] :is(h1, h2) {
 [data-slot="card"] {
   box-shadow: var(--shadow-card);
 }
+/* Round 5 soft surface (`EnterpriseCard surface="soft"`, §12.12): a calm
+   Clarity-like panel — a cool 2-3% tint fading into white at the top, a
+   translucent hairline, a whisper shadow. Hover / focus inside change the
+   border (and, for clickable cards, the shadow) only; radius stays
+   --radius-surface; no blur, no transform. */
+[data-slot="card"][data-surface="soft"] {
+  background-color: var(--card);
+  background-image: var(--surface-soft-gradient);
+  border-color: var(--surface-soft-border);
+  box-shadow: var(--surface-soft-shadow);
+  transition:
+    border-color var(--duration-base) var(--ease-standard),
+    box-shadow var(--duration-base) var(--ease-standard);
+}
+/* Static panels have no hover affordance (Round 6); keyboard focus inside
+   still firms the edge. Clickable soft cards react to hover and focus. */
+[data-slot="card"][data-surface="soft"]:has(:focus-visible),
+[data-slot="card"][data-surface="soft"][data-clickable="true"]:hover {
+  border-color: var(--surface-soft-hover-border);
+}
+[data-slot="card"][data-surface="soft"][data-clickable="true"]:is(:hover, :focus-visible) {
+  box-shadow: var(--surface-soft-shadow-hover);
+}
+/* Key-facts strip (`DetailSummaryBar`, Round 6): the same soft summary
+   surface as report tiles — static, so no hover. */
+[data-slot="detail-summary-bar"] {
+  background-color: var(--card);
+  background-image: var(--surface-soft-gradient);
+  border-color: var(--surface-soft-border);
+  box-shadow: var(--surface-soft-shadow);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="card"][data-surface="soft"] {
+    transition: none;
+  }
+}
 
 /* Badges: Geist subtle pills. */
 [data-slot="badge"] {
@@ -396,32 +409,77 @@ html[dir="ltr"] :is(h1, h2) {
   background-color: rgb(0 0 0 / 0.32);
 }
 
-/* Segmented control (period switch etc.): a recessed track; the selected
-   segment is a raised white control — the choice reads at a glance. */
-[data-slot="toggle-group"] {
+/* Segmented control (period switch, form choices): a recessed track ringed
+   like every neutral control (same edge, radius and 32px/40px height as a
+   `ButtonGroup`, §12.12); the selected segment is a raised white control in
+   full foreground (weight 500) — the choice reads at a glance. Colour/shadow only. */
+:is([data-slot="toggle-group"], [data-slot="segmented-radio-group"]) {
   gap: 2px;
   padding: 2px;
   border-radius: var(--radius-control);
   background-color: var(--segment-track);
-  box-shadow: inset 0 0 0 1px var(--border);
+  box-shadow: inset 0 0 0 1px var(--control-border);
 }
-[data-slot="toggle-group-item"] {
-  height: calc(var(--control-height-md) - 4px);
+[data-slot="segmented-radio-group"][aria-invalid="true"] {
+  box-shadow:
+    inset 0 0 0 1px var(--destructive),
+    0 0 0 3px color-mix(in oklab, var(--destructive) 14%, transparent);
+}
+:is([data-slot="toggle-group-item"], [data-slot="segmented-radio-item"]) {
   border-color: transparent;
-  border-radius: 6px;
+  border-radius: calc(var(--radius-control) - 2px);
   background-color: transparent;
   color: var(--muted-foreground);
+  font-weight: 500;
+  box-shadow: none;
+  transition:
+    color var(--duration-base) var(--ease-standard),
+    background-color var(--duration-base) var(--ease-standard);
 }
-[data-slot="toggle-group-item"]:not(:disabled):hover {
+:is([data-slot="toggle-group-item"], [data-slot="segmented-radio-item"]):not(:disabled):hover {
+  background-color: color-mix(in oklab, var(--segment-on) 55%, transparent);
   color: var(--foreground);
 }
-[data-slot="toggle-group-item"]:is([data-state="on"], [data-on]) {
+:is([data-slot="toggle-group-item"], [data-slot="segmented-radio-item"]):is(
+  [data-state="on"],
+  [data-state="checked"],
+  [data-on]
+),
+:is([data-slot="toggle-group-item"], [data-slot="segmented-radio-item"]):is(
+    [data-state="on"],
+    [data-state="checked"],
+    [data-on]
+  ):not(:disabled):hover {
   border-color: transparent;
   background-color: var(--segment-on);
   color: var(--foreground);
+  /* Same weight as the other segments (500) — a bolder label would widen the
+     segment and shift its neighbours; the raised fill + full foreground
+     carry "selected". */
   box-shadow:
     0 0 0 1px var(--control-border),
     var(--control-shadow);
+}
+:is([data-slot="toggle-group-item"], [data-slot="segmented-radio-item"]) svg {
+  color: currentColor;
+  opacity: 0.8;
+}
+:is([data-slot="toggle-group-item"], [data-slot="segmented-radio-item"]):is(
+    [data-state="on"],
+    [data-state="checked"]
+  )
+  svg {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is([data-slot="toggle-group-item"], [data-slot="segmented-radio-item"]) {
+    transition: none;
+  }
+}
+
+/* The view switch is always one control height (form segments size themselves). */
+[data-slot="toggle-group-item"] {
+  height: calc(var(--control-height-md) - 4px);
 }
 
 /* Tabs (default): Geist underline tabs. */
@@ -467,20 +525,11 @@ html[dir="ltr"] :is(h1, h2) {
   color: var(--destructive-soft-foreground);
 }
 
-/* Applied filters read as selected: a clear blue tint (not a grey). */
-
-.dark [data-filter-trigger][data-active] {
-  color: var(--focus-ring);
-}
-/* An unset filter shows its NAME (a label, like a Kumo secondary button) in
-   full foreground at trigger weight — it must read as a solid control, not a
-   washed-out hint. "Set" is carried by the brand tint + count badge below. */
-
 /* Disabled buttons: a quiet muted surface, not a heavy grey pill. Loading
    keeps its variant color (the spinner says "busy"). */
 [data-button]:disabled:not([aria-busy="true"]):not([data-variant="ghost"]):not(
     [data-variant="link"]
-  ):not([data-variant="field"]) {
+  ):not([data-variant="field"]):not([data-variant="menu"]) {
   background-color: var(--muted);
   border-color: var(--border);
   color: var(--placeholder);
@@ -590,49 +639,6 @@ html[dir="ltr"] :is(h1, h2) {
 [data-slot="input-group"]:not(:focus-within) {
   border-bottom-color: var(--control-edge);
 }
-:is([data-button][data-variant="field"], [data-slot="select-trigger"]):not(
-  :disabled,
-  [aria-invalid="true"],
-  [aria-expanded="true"],
-  [data-state="open"],
-  :active,
-  :focus-visible
-) {
-  box-shadow:
-    inset 0 0 0 1px var(--control-border),
-    inset 0 -1px 0 var(--control-edge),
-    var(--control-shadow);
-}
-:is([data-button][data-variant="field"], [data-slot="select-trigger"]):not(
-    :disabled,
-    [aria-invalid="true"],
-    [aria-expanded="true"],
-    [data-state="open"],
-    :active,
-    :focus-visible
-  ):hover {
-  box-shadow:
-    inset 0 0 0 1px var(--control-border-hover),
-    inset 0 -1px 0 var(--control-edge),
-    var(--control-shadow);
-}
-
-/* An applied filter reads as selected (brand tint + ring), also on hover. */
-[data-button][data-filter-trigger][data-active] {
-  color: var(--primary);
-}
-.dark [data-button][data-filter-trigger][data-active] {
-  color: var(--focus-ring);
-}
-[data-filter-trigger][data-active] :is(svg:last-child, [data-slot="trigger-chevron"]) {
-  color: currentColor;
-}
-[data-button][data-variant="field"][data-filter-trigger][data-active]:not(:disabled),
-[data-button][data-variant="field"][data-filter-trigger][data-active]:not(:disabled):hover {
-  background-color: var(--primary-soft);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--focus-ring) 45%, transparent);
-}
-
 /* Error text (field messages, required marks) keeps AA in dark mode.
    Plain text elements only — interactive rows keep their own hover colors. */
 .dark :is(p, span, li, small, label).text-destructive {
@@ -676,4 +682,153 @@ html[dir="ltr"] :is(h1, h2) {
 [data-slot="table-row"]:has(:focus-visible) {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
+}
+
+/* ── Selector triggers (Round 7, design-system §12.14) ────────────────────
+   Select, combobox, filter, date / month picker and labelled action-menu
+   triggers (`variant="field"` / `"menu"`, `SelectTrigger`) are a solid deep
+   brand-navy control with light text and icons — one recipe, token-driven
+   (`--selector*`, light + dark). Told apart from a primary button by a
+   tighter radius, the chevron chip and a regular-weight placeholder.
+   Menu CONTENT stays on the light popover surface; badges inside a trigger
+   keep their semantic colours (no rule below touches `[data-slot="badge"]`).
+   Colour, edge and radius only — no transform, no layout change. */
+html
+  :is(
+    [data-button]:is([data-variant="field"], [data-variant="menu"]),
+    [data-select-trigger]:not([data-variant="ghost"])
+  ) {
+  background-color: var(--selector);
+  color: var(--selector-foreground);
+  font-weight: var(--trigger-weight);
+  border-radius: calc(var(--radius-control) - 2px);
+  box-shadow:
+    inset 0 0 0 1px var(--selector-border),
+    var(--control-shadow);
+}
+/* Placeholder ("nothing chosen") is regular weight in the muted tint; a
+   chosen value is medium, full foreground. */
+html
+  :is(
+    [data-button]:is([data-variant="field"], [data-variant="menu"]),
+    [data-select-trigger]:not([data-variant="ghost"])
+  )
+  :is(.text-placeholder, [data-placeholder], [data-slot="filter-label"]),
+html [data-select-trigger][data-placeholder]:not([data-variant="ghost"]) {
+  color: var(--selector-muted);
+  font-weight: var(--trigger-placeholder-weight);
+}
+html
+  :is(
+    [data-button]:is([data-variant="field"], [data-variant="menu"]),
+    [data-select-trigger]:not([data-variant="ghost"])
+  )
+  svg:not([data-slot="trigger-chevron"], [data-slot="badge"] svg) {
+  color: var(--selector-muted);
+}
+/* The one trigger chevron: a small fixed chip behind the caret. */
+html
+  :is(
+    [data-button]:is([data-variant="field"], [data-variant="menu"]),
+    [data-select-trigger]:not([data-variant="ghost"])
+  )
+  [data-slot="trigger-chevron"] {
+  box-sizing: border-box;
+  width: calc(var(--trigger-chevron-size) + 4px);
+  height: calc(var(--trigger-chevron-size) + 4px);
+  padding: 2px;
+  border-radius: calc(var(--radius-control) - 4px);
+  color: var(--selector-foreground);
+  background-color: var(--selector-chip);
+}
+html
+  :is(
+    [data-button]:is([data-variant="field"], [data-variant="menu"]),
+    [data-select-trigger]:not([data-variant="ghost"])
+  )
+  [data-slot="trigger-chevron"][data-size="sm"] {
+  width: calc(var(--trigger-chevron-size-sm) + 4px);
+  height: calc(var(--trigger-chevron-size-sm) + 4px);
+}
+html
+  :is(
+    [data-button]:is([data-variant="field"], [data-variant="menu"]),
+    [data-select-trigger]:not([data-variant="ghost"])
+  ):not(:disabled, [aria-expanded="true"], [data-state="open"], :focus-visible):hover {
+  background-color: var(--selector-hover);
+}
+html
+  :is(
+    [data-button]:is([data-variant="field"], [data-variant="menu"]),
+    [data-select-trigger]:not([data-variant="ghost"])
+  ):is([aria-expanded="true"], [data-state="open"]),
+html
+  :is(
+    [data-button]:is([data-variant="field"], [data-variant="menu"]),
+    [data-select-trigger]:not([data-variant="ghost"])
+  ):not(:disabled):active {
+  background-color: var(--selector-active);
+  box-shadow:
+    inset 0 0 0 1.5px var(--selector-open-edge),
+    var(--control-inset-solid);
+}
+/* Keyboard focus: the standard ring (never removed), offset off the navy. */
+html
+  :is(
+    [data-button]:is([data-variant="field"], [data-variant="menu"]),
+    [data-select-trigger]:not([data-variant="ghost"])
+  ):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+html
+  :is(
+    [data-button]:is([data-variant="field"], [data-variant="menu"]),
+    [data-select-trigger]:not([data-variant="ghost"])
+  )[aria-invalid="true"]:not(:disabled) {
+  box-shadow:
+    inset 0 0 0 1.5px var(--destructive),
+    0 0 0 3px color-mix(in oklab, var(--destructive) 18%, transparent);
+}
+/* Disabled: the quiet muted control, no navy. */
+html
+  :is(
+    [data-button]:is([data-variant="field"], [data-variant="menu"]),
+    [data-select-trigger]:not([data-variant="ghost"])
+  ):disabled {
+  background-color: var(--muted);
+  color: var(--placeholder);
+  box-shadow: none;
+  opacity: 1;
+}
+html
+  :is(
+    [data-button]:is([data-variant="field"], [data-variant="menu"]),
+    [data-select-trigger]:not([data-variant="ghost"])
+  ):disabled
+  :is(svg, [data-slot="trigger-chevron"], [data-placeholder]) {
+  color: var(--placeholder);
+  background-color: transparent;
+}
+/* Applied filter: a lighter-blue fill + accent edge (beats hover/open). */
+html [data-button][data-variant="field"][data-filter-trigger][data-active]:not(:disabled),
+html [data-button][data-variant="field"][data-filter-trigger][data-active]:not(:disabled):hover {
+  background-color: var(--selector-applied);
+  color: var(--selector-foreground);
+  box-shadow: inset 0 0 0 1.5px var(--selector-open-edge);
+}
+html
+  [data-button][data-variant="field"][data-filter-trigger][data-active]
+  [data-slot="filter-label"] {
+  color: var(--selector-muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  html
+    :is(
+      [data-button]:is([data-variant="field"], [data-variant="menu"]),
+      [data-select-trigger]:not([data-variant="ghost"])
+    )
+    svg {
+    transition: none;
+  }
 }

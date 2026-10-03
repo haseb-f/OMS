@@ -6,6 +6,7 @@ import {
   clientCacheStats,
   createScopedListCache,
   currentDataScope,
+  DEVICE_PREFERENCE_LOCAL_KEYS,
   identityFingerprint,
   resetClientDataCaches,
   SESSION_STORAGE_OWNER_KEY,
@@ -180,6 +181,13 @@ describe("per-user browser storage", () => {
     expect(localStorage.getItem("oms.orderDetail.u1.storeOrder.openSections")).toBeNull();
     expect(sessionStorage.getItem("oms.navTrail")).toBeNull();
     expect(localStorage.getItem("oms.locale")).toBe('"ar"');
+  });
+
+  it("keeps every listed device preference (e.g. the report header collapse)", () => {
+    for (const key of DEVICE_PREFERENCE_LOCAL_KEYS) localStorage.setItem(key, "true");
+    clearPerUserBrowserStorage();
+    for (const key of DEVICE_PREFERENCE_LOCAL_KEYS) expect(localStorage.getItem(key)).toBe("true");
+    expect(DEVICE_PREFERENCE_LOCAL_KEYS).toContain("oms.report.summaryCollapsed");
   });
 
   it("claim clears storage written by a different user only", () => {

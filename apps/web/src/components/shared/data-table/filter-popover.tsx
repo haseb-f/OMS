@@ -15,17 +15,29 @@ import { cn } from "@/lib/utils";
  * between them — static enum, async entity search, single value — so the
  * trigger and the footer live here once and every filter in a bar is
  * guaranteed the same height, active tint and reset affordance.
+ *
+ * Round 5 (design-system §12.12): an unset filter shows its name; a set one
+ * reads "Name: Value" — the name muted, the value in full weight (500) — so
+ * the bar says what each filter is AND what it is set to. Several values
+ * show the name plus a count badge. The name never truncates; a long value
+ * does (full text in `title`).
  */
 export const FilterTrigger = forwardRef<
   HTMLButtonElement,
   ComponentProps<typeof EnterpriseButton> & {
+    /** The filter's name ("Status"), or the whole text when there is no `value`. */
     label: string;
+    /** The chosen value's text ("Active"); omit while unset or when several are chosen. */
+    value?: string;
     isActive?: boolean;
     count?: number;
     /** `menu` for a trigger that opens more controls (e.g. "More filters"), not a value list. */
     chevron?: "select" | "menu";
   }
->(function FilterTrigger({ label, isActive, count, chevron = "select", className, ...props }, ref) {
+>(function FilterTrigger(
+  { label, value, isActive, count, chevron = "select", className, title, ...props },
+  ref,
+) {
   return (
     <EnterpriseButton
       ref={ref}
@@ -36,16 +48,22 @@ export const FilterTrigger = forwardRef<
       aria-haspopup="listbox"
       data-filter-trigger=""
       data-active={isActive || undefined}
-      className={cn(
-        "h-(--control-height-md) min-w-36 justify-between",
-        // An applied filter reads as "selected": brand-tinted.
-        isActive &&
-          "bg-primary-soft text-primary shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_35%,transparent)] not-disabled:hover:bg-primary-soft [&_svg]:text-primary",
-        className,
-      )}
+      title={title ?? (value ? `${label}: ${value}` : undefined)}
+      className={cn("h-(--control-height-md) max-w-72 min-w-36 justify-between", className)}
       {...props}
     >
-      <span className="min-w-0 truncate">{label}</span>
+      {value ? (
+        <span className="flex min-w-0 flex-1 items-baseline gap-1 text-start">
+          <span data-slot="filter-label" className="shrink-0 font-normal text-muted-foreground">
+            {label}:
+          </span>
+          <span data-slot="filter-value" className="min-w-0 truncate">
+            {value}
+          </span>
+        </span>
+      ) : (
+        <span className="min-w-0 flex-1 truncate text-start">{label}</span>
+      )}
       {count && count > 0 ? (
         <EnterpriseBadge variant="secondary" className="h-4 min-w-4 px-1 tabular-nums">
           {count}

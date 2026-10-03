@@ -94,7 +94,7 @@ export function ReportSwitcher({
       <PopoverTrigger asChild>
         <EnterpriseButton
           type="button"
-          variant="outline"
+          variant="menu"
           aria-label={label}
           aria-haspopup="dialog"
           className="max-md:size-(--control-height-md) max-md:px-0"

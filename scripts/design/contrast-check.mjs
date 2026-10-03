@@ -31,7 +31,10 @@ function block(selector) {
   }
   const body = css.slice(start, j).replace(/\/\*[\s\S]*?\*\//g, "");
   const vars = {};
-  for (const m of body.matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)) vars[m[1]] = m[2].trim();
+  for (const m of body.matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)) {
+    // Prettier wraps long color-mix() values over several lines — flatten them.
+    vars[m[1]] = m[2].replace(/\s+/g, " ").replace(/\(\s+/g, "(").replace(/\s+\)/g, ")").trim();
+  }
   return vars;
 }
 
@@ -60,7 +63,12 @@ function linearToOklab([r, g, b]) {
 }
 /** Color = { lab: [L,a,b], alpha } */
 function parse(value, vars, seen = new Set()) {
-  value = value.trim();
+  // Percentage tokens inside color-mix() (e.g. var(--insight-tint-top)).
+  value = value
+    .trim()
+    .replace(/var\(--([\w-]+)\)/g, (m, name) =>
+      /^[\d.]+%$/.test(vars[name] ?? "") ? vars[name] : m,
+    );
   const v = value.match(/^var\(--([\w-]+)\)$/);
   if (v) {
     if (seen.has(v[1])) throw new Error(`cycle ${v[1]}`);
@@ -170,6 +178,52 @@ const PAIRS = [
     TEXT,
     "var(--card)",
   ]),
+  // Round 6 metric tiles (§12.13): text on the strongest (top) tone tint,
+  // the value on it, and the icon on its chip, per theme token.
+  ...["info", "success", "warning", "destructive", "revenue", "expense", "profit", "loss"].flatMap(
+    (t) => [
+      [
+        `tile ${t} label on tint`,
+        "var(--muted-foreground)",
+        `color-mix(in oklab, var(--insight-${t}) var(--insight-tint-top), var(--card))`,
+        TEXT,
+      ],
+      [
+        `tile ${t} value on tint`,
+        "var(--foreground)",
+        `color-mix(in oklab, var(--insight-${t}) var(--insight-tint-top), var(--card))`,
+        TEXT,
+      ],
+      [
+        `tile ${t} icon on chip`,
+        `var(--insight-${t})`,
+        `color-mix(in oklab, var(--insight-${t}) var(--insight-icon-fill), var(--card))`,
+        UI,
+      ],
+    ],
+  ),
+  // Round 7 panel headers: the title and muted description on the strongest
+  // header tint of each tone.
+  ...["info", "success", "warning", "destructive"].flatMap((t) => [
+    [
+      `panel ${t} title on header tint`,
+      "var(--foreground)",
+      `color-mix(in oklab, var(--insight-${t}) var(--panel-header-tint), var(--card))`,
+      TEXT,
+    ],
+    [
+      `panel ${t} description on header tint`,
+      "var(--muted-foreground)",
+      `color-mix(in oklab, var(--insight-${t}) var(--panel-header-tint), var(--card))`,
+      TEXT,
+    ],
+  ]),
+  [
+    "tile destructive value on tint",
+    "var(--destructive-text)",
+    "color-mix(in oklab, var(--insight-destructive) var(--insight-tint-top), var(--card))",
+    UI,
+  ],
   // design-system §12.10: the hairline ring stays light; the field's bottom
   // edge (--control-edge) carries the 3:1 boundary.
   ["control boundary (field edge)", "var(--control-edge)", "var(--card)", UI],
@@ -212,25 +266,61 @@ const PAIRS = [
     ],
     [`toast ${t} ring on canvas`, `var(--toast-${t}-border)`, "var(--background)", 1.3],
   ]),
-  ["selector value", "var(--selector-foreground)", "var(--selector)", TEXT, "var(--card)"],
-  ["selector placeholder", "var(--placeholder)", "var(--selector)", TEXT, "var(--card)"],
+  // Round 7 selector triggers (design-system §12.14): solid deep navy.
+  // Text (value / placeholder / filter label) on every state fill, icons and
+  // chevron chip at 3:1, the edge against both the surface and the canvas.
+  ...[
+    ["rest", "var(--selector)"],
+    ["hover", "var(--selector-hover)"],
+    ["open/pressed", "var(--selector-active)"],
+    ["applied filter", "var(--selector-applied)"],
+  ].flatMap(([state, fill]) => [
+    [`selector value (${state})`, "var(--selector-foreground)", fill, TEXT, "var(--card)"],
+    [`selector placeholder/label (${state})`, "var(--selector-muted)", fill, TEXT, "var(--card)"],
+    [`selector icon/chevron (${state})`, "var(--selector-muted)", fill, UI, "var(--card)"],
+  ]),
   [
-    "selector chevron/icon (muted)",
-    "var(--muted-foreground)",
-    "var(--selector-hover)",
+    "selector chevron on chip",
+    "var(--selector-foreground)",
+    "var(--selector-chip)",
+    UI,
+    "var(--selector)",
+  ],
+  ["selector edge on surface", "var(--selector-border)", "var(--card)", UI],
+  ["selector edge on canvas", "var(--selector-border)", "var(--background)", UI],
+  [
+    "selector open edge",
+    "var(--selector-open-edge)",
+    "var(--selector-active)",
     UI,
     "var(--card)",
   ],
+  ["sidebar rail on sidebar", "var(--sidebar-rail)", "var(--sidebar)", UI],
+  // Round 5 (design-system §12.12): soft surfaces keep every text tone AA.
+  ["soft surface text", "var(--foreground)", "var(--surface-soft)", TEXT, "var(--card)"],
   [
-    "selector expanded value",
-    "var(--selector-foreground)",
-    "var(--selector-active)",
+    "soft surface muted text",
+    "var(--muted-foreground)",
+    "var(--surface-soft)",
     TEXT,
     "var(--card)",
   ],
-  // Round 2's tonal-selector rule is superseded (§12.4): selectors are white
-  // like inputs and are told apart by the chevron checked above.
-  ["sidebar rail on sidebar", "var(--sidebar-rail)", "var(--sidebar)", UI],
+  ["soft surface placeholder", "var(--placeholder)", "var(--surface-soft)", TEXT, "var(--card)"],
+  [
+    "soft row hover muted text",
+    "var(--muted-foreground)",
+    "var(--surface-soft-row-hover)",
+    TEXT,
+    "var(--card)",
+  ],
+  ["segment selected text", "var(--foreground)", "var(--segment-on)", TEXT, "var(--card)"],
+  [
+    "segment unselected text",
+    "var(--muted-foreground)",
+    "var(--segment-track)",
+    TEXT,
+    "var(--card)",
+  ],
 ];
 
 let failed = 0;

@@ -95,6 +95,8 @@ const agentPortalAr = {
     moneyTitle: "المبيعات والرصيد",
     recentOrders: "أحدث الطلبات",
     noOrders: "لا توجد طلبات بعد.",
+    recentFailed: "تعذّر تحميل أحدث الطلبات.",
+    leadsFailed: "تعذّر تحميل أعداد العملاء المحتملين.",
     newOrder: "طلب جديد",
     stages: {
       total: "كل الطلبات",

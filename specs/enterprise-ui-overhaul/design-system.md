@@ -581,3 +581,173 @@ height and 8px radius stay (D2/D4); only the text, chevron and group seams chang
   and permission-matrix row carets, journal-line detail toggle), sort icons, icon-only menus
   without a caret (row actions ⋯, top-bar theme/language/profile), sheet-opening "Filters"
   buttons on phones.
+
+### 12.12 Report header collapse, soft surfaces, toolbars (Round 5, 2026-09-30)
+
+Spec: `specs/order-operations-r5/spec-4-visual.md`. Released only after owner visual approval.
+Reference for the soft treatment: Microsoft Clarity's calm dashboard (white fields, gentle
+gradients, delicate borders) — adopted as a restrained tint, not copied. The light canvas stays
+white; nothing uses backdrop blur, transforms or new radii.
+
+**Report header collapse (4A).** `FinancialReport` (every financial report) owns a collapse toggle
+(`PanelTopClose` / `PanelTopOpen`, an outline button like the other report actions, labelled «طي / توسيع» · Collapse / Expand from `sm` up (icon-only with the label as sr-only text on phones), full hint in a tooltip; a disclosure, so "expanded" is drawn at rest, never pressed;
+`aria-expanded`, `aria-controls` = filter row + summary strip). Preference:
+`STORAGE_KEYS.reportSummaryCollapsed` = `oms.report.summaryCollapsed` (one device preference for all
+reports; listed in `DEVICE_PREFERENCE_LOCAL_KEYS`, kept across logout), read with `useStoredPreference` (`useSyncExternalStore`, server snapshot = default) so a collapsed report never paints expanded first. Collapsed = ONE row ≤ 44px:
+title · period (phones too, truncated) · currency (from `sm`) · filter badge (count of `countActiveReportFilters`; opens the filter row
+in place without expanding) · caveat badge (`collectReportAlerts`: unbalanced + discrepancy, drafts
+included, every report warning / partial-data note, plus the report's own `alerts` prop for caveats that live only in `notice` — cash-availability estimate, cost-explorer truncated data / incomplete cost state; list in a popover) · switcher · actions ·
+expand. The summary strip stays in the DOM with `hidden`. No height animation (instant swap), so
+reduced motion needs nothing. Print / Excel / CSV are rebuilt from data (`buildDocument`) and are
+identical collapsed or expanded (`financial-report-collapse.spec.tsx`).
+
+**Soft surfaces (4B).** Tokens (`globals.css`, light / dark; print overrides in `theme/print.css`):
+
+| Token                                     | Light                                         | Dark                       |
+| ----------------------------------------- | --------------------------------------------- | -------------------------- |
+| `--surface-soft`                          | brand canvas 45% over `--card` (≈2.3% tint)   | `#52a8ff` 3% over `--card` |
+| `--surface-soft-border`                   | navy 11% translucent hairline                 | white 8% translucent       |
+| `--surface-soft-hover-border`             | navy 20%                                      | white 15%                  |
+| `--surface-soft-gradient`                 | `--surface-soft` → `--card` by 5.5rem         | same formula               |
+| `--surface-soft-shadow` / `-shadow-hover` | navy (`--brand-navy` mix) whisper / soft lift | none / dark lift           |
+| `--surface-soft-tone-strength`            | 4% (tone tint of a tile, `--insight-*`)       | 6%                         |
+| `--surface-soft-row-hover`                | brand canvas 55% (list row hover)             | blue 6% over `--card`      |
+
+Print (`--print-paper` / `--print-rule` tokens): white, 1px rule, no gradient / tint / shadow. Applied only through shared
+components: `EnterpriseCard surface="soft"` (`[data-surface="soft"]` recipe) — used by every
+`DashboardPanel` (attention, ranking, sales, activity, bank); `InsightCard` (tone-tinted top,
+neutral tiles untinted) and `InsightGroup` (one soft surface, cells transparent; a group inside a
+soft panel shares the panel's surface); attention rows hover `--surface-soft-row-hover`. Hover /
+focus change border and shadow only (no fill change, transform or layout shift);
+`prefers-reduced-motion` → no transition. Radius stays `--radius-surface`. Metric sizes unchanged.
+
+**Toolbars (4C).**
+
+- `ListToolbar`: card surface + bottom hairline (the grey band is gone); controls 4px apart, 6px
+  between wrapped rows. `EnterpriseDataTable`: search → `ListToolbarSeparator` (hairline, from the
+  `@3xl` table width) → the filters flowing in the same row (`ListToolbarGroup` as `contents`, so
+  they fill the search row before wrapping and never take a row of their own) → view controls at
+  the end edge (no separator there: when the row wraps a leading hairline would be orphaned).
+- `FilterTrigger`: unset = the filter's name; set = «Name: Value» (name `--muted-foreground` 400,
+  value foreground 500; applied = primary soft tint + primary value); several values = name + count
+  badge. The name never truncates; a long value does (full text in `title`), max 18rem. States: hover
+  `--control-hover`; open / pressed `--control-pressed` + focus-ring edge (placeholder steps up to
+  `--muted-foreground` there to keep 4.5:1); focus-visible = ring + halo. `SelectFilter` shows the
+  value alone for a required switch or a filter named by its «All …» text.
+- `ToggleGroup` and `SegmentedRadioGroup` share one recipe with the `ButtonGroup` silhouette: 32px
+  (40px touch) track, `--control-border` ring, `--radius-control`; selected segment `--segment-on`,
+  full foreground at the same weight (500) as the others — no width shift. Segments may carry a leading Lucide icon (agent order form: Shipping / Pickup,
+  Prepaid / COD, Shipping added / included).
+- Toggle filters (Show archived, Loss-making) are `Toggle` (pressed = primary soft tint), never an
+  outline/secondary button swapping variants. `Toggle` uses the control edge and shadow.
+
+Contrast (`node scripts/design/contrast-check.mjs`) adds: text / muted / placeholder on
+`--surface-soft`, muted on row hover, filter name and value on the applied tint, open-trigger value /
+placeholder / label on `--control-pressed`, segment on / off text. The script now flattens
+multi-line `color-mix()` values (Prettier wraps them).
+
+### 12.13 Dashboard scopes, soft tiles and the dropdown trial (Round 6, 2026-10-01)
+
+Spec: `specs/ui-navigation-r6/spec.md` §E. Released only after owner visual approval.
+
+- **Colour follows meaning:**
+  - blue (`info`): new things and activity
+  - green (`success`): conversion and delivery
+  - amber (`warning`): pending work and follow-up
+  - red (`destructive`): overdue items, errors and returns
+  - neutral: everything else
+
+  Each metric tile is its own soft card. `InsightGroup` is only a grid with an 8px gap and draws
+  nothing itself.
+  - A toned tile has a top-to-bottom tone gradient:
+    - light: 12% at the top, 3.5% at the bottom
+    - dark: 18% at the top, 6% at the bottom
+  - The tile hairline carries 28% of the tone (32% in dark); the icon chip 18% (26% in dark).
+  - Tokens: `--insight-tint-top`, `--insight-tint-bottom`, `--insight-tint-border`,
+    `--insight-icon-fill`.
+  - Flat at rest: no shadow.
+  - Neutral tiles stay a plain card with the standard border.
+  - A toned figure that is exactly zero or empty renders neutral (`resolveInsightTone`). Pass
+    `amount` when the value is a formatted node, and `keepToneAtZero` where zero is itself the
+    news.
+  - The value stays in the foreground colour. An emphasized destructive or loss tile is the
+    exception: its value is red.
+  - Hover applies to interactive tiles only: the edge goes to 45% of the tone, plus a soft lift.
+  - Print: white paper and one rule.
+
+- **Scope lives in the header, not the tile.** `DashboardPanel` takes `scope`, rendered as
+  `InsightScope`, a neutral outline chip with three values:
+  - `period`, the selected period («هذا الشهر»)
+  - `current`, the state right now («الآن»)
+  - `toDate`, everything so far («حتى تاريخه»)
+
+  A tile whose scope differs from its group's carries the chip in its `meta`. Tile context lines
+  never repeat the period.
+
+- **Labels are never truncated.** `InsightCard` labels wrap; context lines may truncate, with the
+  full text in `title`.
+- **Panel icons.** `DashboardPanel` takes `tone`, which tints its header icon chip (`panel-icon`)
+  the same way as a tile icon.
+- **Hover.** Static soft panels have no hover affordance; only `data-clickable` cards and `href`
+  tiles react. Keyboard focus inside a panel still firms its edge.
+- **Agent dashboard** (`/agent`) is built from the same panels and groups:
+  - Orders and fulfillment, to date
+  - Leads, now, from the scoped leads-list totals
+  - Sales and collections, to date
+  - Statement position, now
+
+  Money panels appear only when the API returns them. Drill-downs live in the panel headers.
+
+- **Summary surfaces.** `DetailSummaryBar` (`data-slot="detail-summary-bar"`) and the agent
+  `SummaryCard` (`DetailSection surface="soft"`) use the soft summary surface and print plain.
+- **Dropdown-trigger trial (graduated in Round 7).** The local-only A/B switch, its CSS and its
+  `--trial-*` tokens were removed; trial A is now the default, see §12.14.
+
+### 12.14 Navy dropdown triggers and stronger tone accents (Round 7, 2026-10-03)
+
+- **Triggers are solid deep brand navy.** One recipe in `theme/recipes.css`, driven by the
+  `--selector*` tokens (light and dark), covers every closed trigger:
+  - `SelectTrigger` (default variant)
+  - `EnterpriseButton variant="field"`: entity combobox, searchable select, filter trigger, date
+    range and month pickers
+  - `EnterpriseButton variant="menu"`: labelled action-menu triggers (Export, Import, Columns,
+    More, report switcher, phone "Filters", company switcher)
+- **Text and icons.** Selected value: white, `--trigger-weight` (500). Placeholder and filter
+  label: `--selector-muted`, weight 400. Icons use `--selector-muted`. The chevron sits on a small
+  `--selector-chip` square.
+- **Radius.** `--radius-control` minus 2px, tighter than a primary button.
+- **States.**
+  - hover: `--selector-hover` fill
+  - open and pressed: `--selector-active` fill with a 1.5px `--selector-open-edge` edge
+  - keyboard focus: the 2px focus ring, offset 2px
+  - invalid: a 1.5px red edge plus a halo
+  - disabled: the muted surface, no navy
+  - applied filter: `--selector-applied` fill with the open edge
+- **Dark mode.** The navy is lifted to `#0e2a4b` with a light-blue hairline edge, so it never
+  disappears on the `#0a0a0a` canvas.
+- **Exceptions.**
+  - Ghost `SelectTrigger` stays a light borderless control for in-cell edits and carries semantic
+    badges.
+  - Menu content stays on the light popover surface.
+  - Text inputs stay white.
+  - Icon-only ghost and outline menu buttons (profile, language, theme, row actions) stay as they
+    are.
+  - Badges inside a trigger keep their semantic colours.
+- **Contrast.** `scripts/design/contrast-check.mjs` verifies value, placeholder, icon, chip, edge
+  and open-edge pairs on every state fill, in both themes (text ≥ 4.5, UI ≥ 3).
+- **Tone accents one step stronger.** The `--insight-tint-*` and `--insight-icon-fill` tokens were
+  raised. `DashboardPanel` now sets `data-tone`, and the recipe gives non-neutral panels a
+  tone-tinted header gradient and a faintly toned edge. Meanings:
+  - blue: activity / new
+  - green: success / completion
+  - amber: pending attention
+  - red: overdue / error
+
+  Panel title and description pairs are in the contrast check.
+
+- **Dashboard honesty.**
+  - A failing sub-panel shows its own error with retry. Failure is never rendered as zero or as an
+    empty list.
+  - A failed period shows "—" in the activity table.
+  - Permissions still loading shows skeletons, never the empty state.
+  - A user with no dashboard figures sees shortcuts to the modules they may open.

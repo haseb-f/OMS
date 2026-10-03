@@ -95,6 +95,8 @@ const agentPortalEn = {
     moneyTitle: "Sales and balance",
     recentOrders: "Recent orders",
     noOrders: "No orders yet.",
+    recentFailed: "Could not load recent orders.",
+    leadsFailed: "Could not load lead counts.",
     newOrder: "New order",
     stages: {
       total: "All orders",
