@@ -49,13 +49,7 @@ export const FilterTrigger = forwardRef<
       data-filter-trigger=""
       data-active={isActive || undefined}
       title={title ?? (value ? `${label}: ${value}` : undefined)}
-      className={cn(
-        "h-(--control-height-md) max-w-72 min-w-36 justify-between",
-        // An applied filter reads as "selected": brand-tinted.
-        isActive &&
-          "bg-primary-soft text-primary shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_35%,transparent)] not-disabled:hover:bg-primary-soft [&_svg]:text-primary",
-        className,
-      )}
+      className={cn("h-(--control-height-md) max-w-72 min-w-36 justify-between", className)}
       {...props}
     >
       {value ? (

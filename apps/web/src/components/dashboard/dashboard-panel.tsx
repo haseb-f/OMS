@@ -57,6 +57,7 @@ export function DashboardPanel({
       size="sm"
       surface="soft"
       role="region"
+      data-tone={tone}
       aria-labelledby={id}
       aria-busy={busy || undefined}
       className={cn("min-w-0 gap-0 py-0", className)}

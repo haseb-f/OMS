@@ -21,6 +21,7 @@ import {
 } from "@/components/shared/insight-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EnterpriseBadge } from "@/components/ui/badge";
+import { EnterpriseButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -198,7 +199,16 @@ const ACTIVITY_LABEL: Record<ActivityKey, MessageKey> = {
  * with bars on one scale per row so the three periods compare at a glance.
  * Independent of the period switch.
  */
-export function ActivityPanel({ data }: { data: SalesByPeriod | null }) {
+export function ActivityPanel({
+  data,
+  partial = false,
+  onRetry,
+}: {
+  data: Partial<SalesByPeriod> | null;
+  /** Some periods failed to load: their cells read "—" and a notice offers a retry. */
+  partial?: boolean;
+  onRetry?: () => void;
+}) {
   const { t } = useLocale();
   const rows = data ? buildActivityRows(data) : [];
 
@@ -212,6 +222,19 @@ export function ActivityPanel({ data }: { data: SalesByPeriod | null }) {
       description={t("insights.company.salesScope")}
       busy={!data}
     >
+      {partial ? (
+        <p
+          role="alert"
+          className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2 text-caption text-muted-foreground"
+        >
+          {t("docUi.dashboard.activityPartial")}
+          {onRetry ? (
+            <EnterpriseButton type="button" variant="link" size="inline" onClick={onRetry}>
+              {t("common.retry")}
+            </EnterpriseButton>
+          ) : null}
+        </p>
+      ) : null}
       <Table className="table-fixed">
         <TableHeader>
           <TableRow>
@@ -231,10 +254,10 @@ export function ActivityPanel({ data }: { data: SalesByPeriod | null }) {
                   {SALES_PERIODS.map((period) => (
                     <TableCell key={period}>
                       <div className="flex flex-col gap-1.5">
-                        <span className="num font-semibold">{row.values[period]}</span>
+                        <span className="num font-semibold">{row.values[period] ?? "—"}</span>
                         <ShareBar
                           value={row.bars[period]}
-                          label={`${t(ACTIVITY_LABEL[row.key])} · ${t(PERIOD_LABEL_KEY[period])}: ${row.values[period]}`}
+                          label={`${t(ACTIVITY_LABEL[row.key])} · ${t(PERIOD_LABEL_KEY[period])}: ${row.values[period] ?? "—"}`}
                         />
                       </div>
                     </TableCell>

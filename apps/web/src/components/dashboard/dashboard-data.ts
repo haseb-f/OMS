@@ -38,14 +38,51 @@ export const SALES_PERIODS = ["today", "week", "month"] as const satisfies reado
 export type SalesByPeriod = Record<SalesPeriod, SalesPerformanceDashboard>;
 
 /**
+ * What the three period requests produced. A period that failed is listed in
+ * `failed` and absent from `data` — never defaulted to zeros — so one slow or
+ * failing request degrades only the sub-panel that needs it (Round 7).
+ */
+export interface SalesByPeriodResult {
+  data: Partial<SalesByPeriod>;
+  failed: SalesPeriod[];
+}
+
+/** Pure: folds the settled period requests; all three failing is a whole-panel failure (throws). */
+export function settleSalesByPeriod(
+  results: readonly PromiseSettledResult<SalesPerformanceDashboard>[],
+): SalesByPeriodResult {
+  const data: Partial<SalesByPeriod> = {};
+  const failed: SalesPeriod[] = [];
+  SALES_PERIODS.forEach((period, index) => {
+    const result = results[index];
+    if (result?.status === "fulfilled") data[period] = result.value;
+    else failed.push(period);
+  });
+  if (failed.length === SALES_PERIODS.length) {
+    const first = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
+    throw first?.reason ?? new Error("sales performance unavailable");
+  }
+  return { data, failed };
+}
+
+/**
  * The sales figures for all three periods at once, so the period switch is
  * instant and the activity panel can compare today / week / month to date.
  */
-export async function loadSalesByPeriod(): Promise<SalesByPeriod> {
-  const [today, week, month] = await Promise.all(
-    SALES_PERIODS.map((period) => salesPerformanceService.dashboard(period)),
+export async function loadSalesByPeriod(): Promise<SalesByPeriodResult> {
+  return settleSalesByPeriod(
+    await Promise.allSettled(
+      SALES_PERIODS.map((period) => salesPerformanceService.dashboard(period)),
+    ),
   );
-  return { today, week, month };
+}
+
+/** Follow-up queues are not period-bound, so whichever period loaded serves. */
+export function anyPeriodKpis(
+  data: Partial<SalesByPeriod> | null,
+): SalesPerformanceDashboard["kpis"] | null {
+  if (!data) return null;
+  return (data.month ?? data.week ?? data.today)?.kpis ?? null;
 }
 
 export interface PendingFigures {
@@ -171,7 +208,8 @@ export type ActivityKey = "newLeads" | "converted" | "orders" | "delivered";
 
 export interface ActivityRow {
   key: ActivityKey;
-  values: Record<SalesPeriod, number>;
+  /** `null` = that period failed to load (shown as "—", never as 0). */
+  values: Record<SalesPeriod, number | null>;
   /** Bar length per period, relative to the row's largest figure. */
   bars: Record<SalesPeriod, number>;
 }
@@ -179,21 +217,21 @@ export interface ActivityRow {
 const ACTIVITY_KEYS: ActivityKey[] = ["newLeads", "converted", "orders", "delivered"];
 
 /** Today / this week / this month to date, per measure, with comparable bar lengths. */
-export function buildActivityRows(byPeriod: SalesByPeriod): ActivityRow[] {
+export function buildActivityRows(byPeriod: Partial<SalesByPeriod>): ActivityRow[] {
   return ACTIVITY_KEYS.map((key) => {
-    const values = {
-      today: byPeriod.today.kpis[key],
-      week: byPeriod.week.kpis[key],
-      month: byPeriod.month.kpis[key],
+    const values: Record<SalesPeriod, number | null> = {
+      today: byPeriod.today?.kpis[key] ?? null,
+      week: byPeriod.week?.kpis[key] ?? null,
+      month: byPeriod.month?.kpis[key] ?? null,
     };
-    const max = Math.max(values.today, values.week, values.month);
+    const max = Math.max(values.today ?? 0, values.week ?? 0, values.month ?? 0);
     return {
       key,
       values,
       bars: {
-        today: percentOf(values.today, max),
-        week: percentOf(values.week, max),
-        month: percentOf(values.month, max),
+        today: percentOf(values.today ?? 0, max),
+        week: percentOf(values.week ?? 0, max),
+        month: percentOf(values.month ?? 0, max),
       },
     };
   });

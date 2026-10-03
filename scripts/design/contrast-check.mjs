@@ -202,6 +202,22 @@ const PAIRS = [
       ],
     ],
   ),
+  // Round 7 panel headers: the title and muted description on the strongest
+  // header tint of each tone.
+  ...["info", "success", "warning", "destructive"].flatMap((t) => [
+    [
+      `panel ${t} title on header tint`,
+      "var(--foreground)",
+      `color-mix(in oklab, var(--insight-${t}) var(--panel-header-tint), var(--card))`,
+      TEXT,
+    ],
+    [
+      `panel ${t} description on header tint`,
+      "var(--muted-foreground)",
+      `color-mix(in oklab, var(--insight-${t}) var(--panel-header-tint), var(--card))`,
+      TEXT,
+    ],
+  ]),
   [
     "tile destructive value on tint",
     "var(--destructive-text)",
@@ -250,24 +266,35 @@ const PAIRS = [
     ],
     [`toast ${t} ring on canvas`, `var(--toast-${t}-border)`, "var(--background)", 1.3],
   ]),
-  ["selector value", "var(--selector-foreground)", "var(--selector)", TEXT, "var(--card)"],
-  ["selector placeholder", "var(--placeholder)", "var(--selector)", TEXT, "var(--card)"],
+  // Round 7 selector triggers (design-system §12.14): solid deep navy.
+  // Text (value / placeholder / filter label) on every state fill, icons and
+  // chevron chip at 3:1, the edge against both the surface and the canvas.
+  ...[
+    ["rest", "var(--selector)"],
+    ["hover", "var(--selector-hover)"],
+    ["open/pressed", "var(--selector-active)"],
+    ["applied filter", "var(--selector-applied)"],
+  ].flatMap(([state, fill]) => [
+    [`selector value (${state})`, "var(--selector-foreground)", fill, TEXT, "var(--card)"],
+    [`selector placeholder/label (${state})`, "var(--selector-muted)", fill, TEXT, "var(--card)"],
+    [`selector icon/chevron (${state})`, "var(--selector-muted)", fill, UI, "var(--card)"],
+  ]),
   [
-    "selector chevron/icon (muted)",
-    "var(--muted-foreground)",
-    "var(--selector-hover)",
+    "selector chevron on chip",
+    "var(--selector-foreground)",
+    "var(--selector-chip)",
+    UI,
+    "var(--selector)",
+  ],
+  ["selector edge on surface", "var(--selector-border)", "var(--card)", UI],
+  ["selector edge on canvas", "var(--selector-border)", "var(--background)", UI],
+  [
+    "selector open edge",
+    "var(--selector-open-edge)",
+    "var(--selector-active)",
     UI,
     "var(--card)",
   ],
-  [
-    "selector expanded value",
-    "var(--selector-foreground)",
-    "var(--selector-active)",
-    TEXT,
-    "var(--card)",
-  ],
-  // Round 2's tonal-selector rule is superseded (§12.4): selectors are white
-  // like inputs and are told apart by the chevron checked above.
   ["sidebar rail on sidebar", "var(--sidebar-rail)", "var(--sidebar)", UI],
   // Round 5 (design-system §12.12): soft surfaces keep every text tone AA.
   ["soft surface text", "var(--foreground)", "var(--surface-soft)", TEXT, "var(--card)"],
@@ -286,114 +313,7 @@ const PAIRS = [
     TEXT,
     "var(--card)",
   ],
-  // Round 5 toolbars: a filter's name stays muted on the applied tint.
-  [
-    "filter label on applied tint",
-    "var(--muted-foreground)",
-    "var(--primary-soft)",
-    TEXT,
-    "var(--card)",
-  ],
-  ["filter value on applied tint", "var(--primary)", "var(--primary-soft)", TEXT, "var(--card)"],
-  ["open trigger value", "var(--foreground)", "var(--control-pressed)", TEXT, "var(--card)"],
-  [
-    "open trigger placeholder",
-    "var(--muted-foreground)",
-    "var(--control-pressed)",
-    TEXT,
-    "var(--card)",
-  ],
-  [
-    "open trigger filter label",
-    "var(--muted-foreground)",
-    "var(--control-pressed)",
-    TEXT,
-    "var(--card)",
-  ],
-  ["open trigger chevron", "var(--foreground)", "var(--control-pressed)", UI, "var(--card)"],
   ["segment selected text", "var(--foreground)", "var(--segment-on)", TEXT, "var(--card)"],
-  // Round 6 dropdown-trigger trial (theme/trigger-trial.css), A and B.
-  ...["a", "b"].flatMap((k) => [
-    [
-      `trial ${k} value`,
-      `var(--trial-${k}-trigger-foreground)`,
-      `var(--trial-${k}-trigger)`,
-      TEXT,
-      "var(--card)",
-    ],
-    [
-      `trial ${k} placeholder/label`,
-      `var(--trial-${k}-trigger-muted)`,
-      `var(--trial-${k}-trigger)`,
-      TEXT,
-      "var(--card)",
-    ],
-    [
-      `trial ${k} value on hover`,
-      `var(--trial-${k}-trigger-foreground)`,
-      `var(--trial-${k}-trigger-hover)`,
-      TEXT,
-      "var(--card)",
-    ],
-    [
-      `trial ${k} placeholder on hover`,
-      `var(--trial-${k}-trigger-muted)`,
-      `var(--trial-${k}-trigger-hover)`,
-      TEXT,
-      "var(--card)",
-    ],
-    [
-      `trial ${k} value open/pressed`,
-      `var(--trial-${k}-trigger-foreground)`,
-      `var(--trial-${k}-trigger-pressed)`,
-      TEXT,
-      "var(--card)",
-    ],
-    [
-      `trial ${k} placeholder open/pressed`,
-      `var(--trial-${k}-trigger-muted)`,
-      `var(--trial-${k}-trigger-pressed)`,
-      TEXT,
-      "var(--card)",
-    ],
-    [
-      `trial ${k} applied value`,
-      `var(--trial-${k}-trigger-foreground)`,
-      `var(--trial-${k}-trigger-applied)`,
-      TEXT,
-      "var(--card)",
-    ],
-    [
-      `trial ${k} applied label`,
-      `var(--trial-${k}-trigger-muted)`,
-      `var(--trial-${k}-trigger-applied)`,
-      TEXT,
-      "var(--card)",
-    ],
-    [`trial ${k} edge on surface`, `var(--trial-${k}-trigger-edge)`, "var(--card)", UI],
-    [`trial ${k} edge on canvas`, `var(--trial-${k}-trigger-edge)`, "var(--background)", UI],
-    [
-      `trial ${k} open edge`,
-      `var(--trial-${k}-trigger-open-edge)`,
-      `var(--trial-${k}-trigger-pressed)`,
-      UI,
-      "var(--card)",
-    ],
-  ]),
-  [
-    "trial a chevron on chip",
-    "var(--trial-a-trigger-foreground)",
-    "var(--trial-a-trigger-chip)",
-    UI,
-    "var(--trial-a-trigger)",
-  ],
-  [
-    "trial b chevron on chip",
-    "var(--trial-b-trigger-chevron)",
-    "var(--trial-b-trigger-chip)",
-    UI,
-    "var(--trial-b-trigger)",
-  ],
   [
     "segment unselected text",
     "var(--muted-foreground)",

@@ -51,7 +51,7 @@ export function EnterpriseTableViewOptions<TData>({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <EnterpriseButton
-          variant="outline"
+          variant="menu"
           size="sm"
           className="gap-1.5"
           aria-label={t("table.columns")}

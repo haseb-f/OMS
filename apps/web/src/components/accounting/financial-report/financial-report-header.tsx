@@ -177,7 +177,7 @@ export function FinancialReportActions({
         ) : null}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <EnterpriseButton type="button" variant="outline" isLoading={busy}>
+            <EnterpriseButton type="button" variant="menu" isLoading={busy}>
               {busy ? null : <Download data-icon="inline-start" />}
               {t("table.export")}
               <TriggerChevron kind="menu" />

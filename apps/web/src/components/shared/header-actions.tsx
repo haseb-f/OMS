@@ -226,7 +226,7 @@ export function HeaderActions({
           <DropdownMenuTrigger asChild>
             <EnterpriseButton
               type="button"
-              variant="outline"
+              variant="menu"
               aria-label={moreLabel}
               data-testid="header-actions-more"
               className={cn(

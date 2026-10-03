@@ -1549,7 +1549,7 @@ export function EnterpriseDataTable<TData>({
                 </ListToolbarGroup>
                 <EnterpriseButton
                   type="button"
-                  variant="outline"
+                  variant="menu"
                   size="sm"
                   className="@3xl/enterprise-table:hidden"
                   aria-haspopup="dialog"

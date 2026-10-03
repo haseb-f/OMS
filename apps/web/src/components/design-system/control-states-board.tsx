@@ -125,6 +125,10 @@ export function ControlStatesBoard() {
             <FilterTrigger label={t("common.status")} />
             <FilterTrigger label={t("common.status")} value={k("value")} isActive />
             <FilterTrigger label={k("selectors")} count={3} isActive />
+            <EnterpriseButton variant="menu" size="sm" className="gap-1.5">
+              {t("table.export")}
+              <TriggerChevron kind="menu" size="sm" />
+            </EnterpriseButton>
             <Toggle size="default" defaultPressed>
               {t("common.showArchived")}
             </Toggle>

@@ -700,7 +700,54 @@ Spec: `specs/ui-navigation-r6/spec.md` §E. Released only after owner visual app
 
 - **Summary surfaces.** `DetailSummaryBar` (`data-slot="detail-summary-bar"`) and the agent
   `SummaryCard` (`DetailSection surface="soft"`) use the soft summary surface and print plain.
-- **Dropdown-trigger trial.** `theme/trigger-trial.css` plus `theme/trigger-trial.tsx` provide a
-  local-only switch, `<html data-trigger-trial="a|b">`, with tokens `--trial-a-*` and
-  `--trial-b-*`. A is solid navy; B is white with a navy edge, chip and text. The recommendation
-  is B; see `docs/user-guide/evidence/r6-visual-20261001/README.md`.
+- **Dropdown-trigger trial (graduated in Round 7).** The local-only A/B switch, its CSS and its
+  `--trial-*` tokens were removed; trial A is now the default, see §12.14.
+
+### 12.14 Navy dropdown triggers and stronger tone accents (Round 7, 2026-10-03)
+
+- **Triggers are solid deep brand navy.** One recipe in `theme/recipes.css`, driven by the
+  `--selector*` tokens (light and dark), covers every closed trigger:
+  - `SelectTrigger` (default variant)
+  - `EnterpriseButton variant="field"`: entity combobox, searchable select, filter trigger, date
+    range and month pickers
+  - `EnterpriseButton variant="menu"`: labelled action-menu triggers (Export, Import, Columns,
+    More, report switcher, phone "Filters", company switcher)
+- **Text and icons.** Selected value: white, `--trigger-weight` (500). Placeholder and filter
+  label: `--selector-muted`, weight 400. Icons use `--selector-muted`. The chevron sits on a small
+  `--selector-chip` square.
+- **Radius.** `--radius-control` minus 2px, tighter than a primary button.
+- **States.**
+  - hover: `--selector-hover` fill
+  - open and pressed: `--selector-active` fill with a 1.5px `--selector-open-edge` edge
+  - keyboard focus: the 2px focus ring, offset 2px
+  - invalid: a 1.5px red edge plus a halo
+  - disabled: the muted surface, no navy
+  - applied filter: `--selector-applied` fill with the open edge
+- **Dark mode.** The navy is lifted to `#0e2a4b` with a light-blue hairline edge, so it never
+  disappears on the `#0a0a0a` canvas.
+- **Exceptions.**
+  - Ghost `SelectTrigger` stays a light borderless control for in-cell edits and carries semantic
+    badges.
+  - Menu content stays on the light popover surface.
+  - Text inputs stay white.
+  - Icon-only ghost and outline menu buttons (profile, language, theme, row actions) stay as they
+    are.
+  - Badges inside a trigger keep their semantic colours.
+- **Contrast.** `scripts/design/contrast-check.mjs` verifies value, placeholder, icon, chip, edge
+  and open-edge pairs on every state fill, in both themes (text ≥ 4.5, UI ≥ 3).
+- **Tone accents one step stronger.** The `--insight-tint-*` and `--insight-icon-fill` tokens were
+  raised. `DashboardPanel` now sets `data-tone`, and the recipe gives non-neutral panels a
+  tone-tinted header gradient and a faintly toned edge. Meanings:
+  - blue: activity / new
+  - green: success / completion
+  - amber: pending attention
+  - red: overdue / error
+
+  Panel title and description pairs are in the contrast check.
+
+- **Dashboard honesty.**
+  - A failing sub-panel shows its own error with retry. Failure is never rendered as zero or as an
+    empty list.
+  - A failed period shows "—" in the activity table.
+  - Permissions still loading shows skeletons, never the empty state.
+  - A user with no dashboard figures sees shortcuts to the modules they may open.

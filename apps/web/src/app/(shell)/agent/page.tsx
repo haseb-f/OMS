@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -39,6 +39,9 @@ import {
   type CompactDetailColumn,
 } from "@/components/shared/data-table/compact-detail-table";
 import { DashboardPanel, PanelLink, PanelSkeleton } from "@/components/dashboard/dashboard-panel";
+import { useLoad } from "@/components/dashboard/dashboard-data";
+import { EmptyState } from "@/components/shared/empty-state";
+import { EnterpriseButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   FulfillmentStatusBadge,
@@ -125,31 +128,36 @@ export default function AgentDashboardPage() {
   const { hasPermission } = useUserContext();
   const canViewOrders = hasPermission("agent.orders.view");
   const canViewLeads = hasPermission("agent.leads.view");
+  const canCreateOrders = hasPermission("agent.orders.create");
   const [data, setData] = useState<PortalDashboard | null>(null);
-  const [recent, setRecent] = useState<PortalOrderRow[] | null>(null);
-  const [leads, setLeads] = useState<LeadCounts | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Each supporting panel loads on its own: a failure shows that panel's
+  // error + retry (Round 7) — it is never rendered as an empty list or zeros.
+  const recentLoader = useMemo(
+    () => () =>
+      canViewOrders
+        ? agentPortalService.orders.list({ page: 1, pageSize: 5 }).then((page) => page.items)
+        : Promise.resolve(null),
+    [canViewOrders],
+  );
+  const leadsLoader = useMemo(
+    () => () => (canViewLeads ? loadLeadCounts() : Promise.resolve(null)),
+    [canViewLeads],
+  );
+  const recent = useLoad(recentLoader);
+  const leadsLoad = useLoad(leadsLoader);
+  const recentRows = recent.state.status === "ready" ? recent.state.data : null;
+  const leads = leadsLoad.state.status === "ready" ? leadsLoad.state.data : null;
 
   const load = useCallback(async () => {
     setError(null);
-    if (canViewOrders) {
-      agentPortalService.orders
-        .list({ page: 1, pageSize: 5 })
-        .then((page) => setRecent(page.items))
-        .catch(() => setRecent([]));
-    }
-    if (canViewLeads) {
-      // A failed count hides the leads panel; it never shows zeros.
-      loadLeadCounts()
-        .then(setLeads)
-        .catch(() => setLeads(null));
-    }
     try {
       setData(await agentPortalService.dashboard());
     } catch (err) {
       setError(apiErrorMessage(err, "agentPortal.common.loadFailed"));
     }
-  }, [canViewOrders, canViewLeads]);
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -227,7 +235,7 @@ export default function AgentDashboardPage() {
             key: "new-order",
             label: t("agentPortal.dashboard.newOrder"),
             icon: ShoppingCart,
-            hidden: !hasPermission("agent.orders.create"),
+            hidden: !canCreateOrders,
             onSelect: () => router.push("/agent/orders/new"),
           }}
         />
@@ -252,7 +260,23 @@ export default function AgentDashboardPage() {
             ) : undefined
           }
         >
-          {data ? (
+          {data && data.fulfillment.total === 0 ? (
+            <EmptyState
+              icon={Package}
+              title={t("agentPortal.dashboard.noOrders")}
+              className="py-6"
+              action={
+                canCreateOrders ? (
+                  <EnterpriseButton asChild size="sm">
+                    <Link href="/agent/orders/new">
+                      <ShoppingCart data-icon="inline-start" />
+                      {t("agentPortal.dashboard.newOrder")}
+                    </Link>
+                  </EnterpriseButton>
+                ) : undefined
+              }
+            />
+          ) : data ? (
             <InsightGroup className={cn(GROUP, ORDER_GRID)}>
               {tile({
                 id: "total",
@@ -281,7 +305,19 @@ export default function AgentDashboardPage() {
           )}
         </DashboardPanel>
 
-        {canViewLeads && leads ? (
+        {canViewLeads && leadsLoad.state.status === "error" ? (
+          <DashboardPanel
+            id="agent-leads"
+            icon={Users}
+            tone="destructive"
+            title={t("insights.agent.leadsTitle")}
+          >
+            <ErrorState
+              description={t("agentPortal.dashboard.leadsFailed")}
+              onRetry={() => void leadsLoad.retry()}
+            />
+          </DashboardPanel>
+        ) : canViewLeads && leads ? (
           <DashboardPanel
             id="agent-leads"
             icon={Users}
@@ -460,20 +496,34 @@ export default function AgentDashboardPage() {
             id="agent-recent"
             icon={ShoppingCart}
             title={t("agentPortal.dashboard.recentOrders")}
-            busy={recent === null}
+            busy={recent.state.status === "loading"}
             action={<PanelLink href="/agent/orders">{t("agentPortal.common.viewAll")}</PanelLink>}
           >
-            {recent === null ? (
+            {recent.state.status === "error" ? (
+              <ErrorState
+                description={t("agentPortal.dashboard.recentFailed")}
+                onRetry={() => void recent.retry()}
+              />
+            ) : recentRows === null ? (
               <PanelSkeleton rows={3} />
-            ) : recent.length === 0 ? (
-              <p className="px-4 py-3 text-caption text-muted-foreground">
-                {t("agentPortal.dashboard.noOrders")}
-              </p>
+            ) : recentRows.length === 0 ? (
+              <EmptyState
+                icon={ShoppingCart}
+                title={t("agentPortal.dashboard.noOrders")}
+                className="py-6"
+                action={
+                  canCreateOrders ? (
+                    <EnterpriseButton asChild size="sm">
+                      <Link href="/agent/orders/new">{t("agentPortal.dashboard.newOrder")}</Link>
+                    </EnterpriseButton>
+                  ) : undefined
+                }
+              />
             ) : (
               <div className="p-2">
                 <CompactDetailTable
                   columns={recentColumns}
-                  rows={recent}
+                  rows={recentRows}
                   rowKey={(row) => row.id}
                   stacked
                 />

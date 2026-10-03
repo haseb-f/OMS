@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  anyPeriodKpis,
   buildActivityRows,
   buildAttentionQueues,
   percentOf,
+  settleSalesByPeriod,
   summarizeBankMatching,
   type SalesByPeriod,
 } from "./dashboard-data";
@@ -101,5 +103,46 @@ describe("summarizeBankMatching", () => {
     expect(summary.incoming).toMatchObject({ matchedShare: 75, partial: 1, unmatched: 1 });
     expect(summary.outgoing.postedShare).toBe(0);
     expect(summary.empty).toBe(false);
+  });
+});
+
+describe("settleSalesByPeriod (partial failure, never zeros)", () => {
+  const ok = (
+    kpis: Parameters<typeof sales>[0],
+  ): PromiseSettledResult<SalesPerformanceDashboard> => ({
+    status: "fulfilled",
+    value: sales(kpis),
+  });
+  const bad: PromiseSettledResult<SalesPerformanceDashboard> = {
+    status: "rejected",
+    reason: new Error("boom"),
+  };
+
+  it("keeps the periods that loaded and lists the ones that failed", () => {
+    const result = settleSalesByPeriod([ok({ newLeads: 1 }), bad, ok({ newLeads: 9 })]);
+    expect(result.failed).toEqual(["week"]);
+    expect(Object.keys(result.data)).toEqual(["today", "month"]);
+  });
+
+  it("fails the whole panel only when every period failed", () => {
+    expect(() => settleSalesByPeriod([bad, bad, bad])).toThrow("boom");
+  });
+
+  it("renders a failed period as null (not 0) in the activity rows", () => {
+    const { data } = settleSalesByPeriod([ok({ newLeads: 4 }), bad, ok({ newLeads: 8 })]);
+    const row = buildActivityRows(data)[0];
+    expect(row.values).toEqual({ today: 4, week: null, month: 8 });
+    expect(row.bars.week).toBe(0);
+  });
+
+  it("serves the follow-up queues from whichever period loaded", () => {
+    const { data } = settleSalesByPeriod([ok({ overdue: 3 }), bad, bad]);
+    expect(anyPeriodKpis(data)?.overdue).toBe(3);
+    expect(anyPeriodKpis(null)).toBeNull();
+  });
+
+  it("keeps genuine zeros as zeros", () => {
+    const { data } = settleSalesByPeriod([ok({}), ok({}), ok({})]);
+    expect(buildActivityRows(data)[0].values).toEqual({ today: 0, week: 0, month: 0 });
   });
 });

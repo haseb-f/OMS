@@ -3,7 +3,6 @@
 @import "shadcn/tailwind.css";
 @import "../theme/tokens.css";
 @import "../theme/recipes.css";
-@import "../theme/trigger-trial.css";
 @import "../theme/print.css";
 
 @custom-variant dark (&:is(.dark *));
@@ -128,6 +127,7 @@
   --color-selector-active: var(--selector-active);
   --color-selector-foreground: var(--selector-foreground);
   --color-selector-border: var(--selector-border);
+  --color-selector-muted: var(--selector-muted);
   --color-sidebar-rail: var(--sidebar-rail);
   --color-report-revenue: var(--report-revenue);
   --color-report-revenue-soft: var(--report-revenue-soft);
@@ -235,14 +235,20 @@
   --focus-ring: #0072f5;
   --ring: var(--focus-ring);
 
-  /* Selectors (round 2) — select/combobox/filter/picker triggers are neutral
-     tonal BUTTONS ("click to choose"), visibly different from white text
-     inputs. They never compete with the primary action. */
-  --selector: #ffffff;
-  --selector-hover: #f5f5f5;
-  --selector-active: #ffffff;
-  --selector-foreground: #171717;
-  --selector-border: var(--input);
+  /* Selectors (Round 7, design-system §12.14) — select / combobox / filter /
+     picker / action-menu triggers are solid deep brand-navy BUTTONS ("click to
+     choose"), unmistakably different from the white text inputs and from the
+     primary action (tighter radius, chevron chip, regular-weight value).
+     Text/icon pairs are checked by scripts/design/contrast-check.mjs. */
+  --selector: var(--brand-navy);
+  --selector-hover: color-mix(in oklab, var(--brand-navy) 88%, white);
+  --selector-active: color-mix(in oklab, var(--brand-navy) 84%, black);
+  --selector-foreground: #ffffff;
+  --selector-muted: color-mix(in oklab, white 76%, var(--brand-navy));
+  --selector-border: var(--brand-navy);
+  --selector-open-edge: #6fb4ff;
+  --selector-chip: color-mix(in oklab, white 14%, var(--brand-navy));
+  --selector-applied: color-mix(in oklab, #0072f5 34%, var(--brand-navy));
   /* Sidebar active rail (round 2) — thick accent on the outer edge with a
      restrained glow. */
   --sidebar-rail: #3c78d0;
@@ -351,37 +357,18 @@
   --surface-soft-tone-border-strength: 14%;
   /* Round 6 metric tile (§12.13): tone share of the tile gradient (top →
      bottom), of its hairline and of its icon chip. */
-  --insight-tint-top: 12%;
-  --insight-tint-bottom: 3.5%;
-  --insight-tint-border: 28%;
-  --insight-icon-fill: 18%;
+  /* Round 7: tone accents one step stronger (blue = activity / new, green =
+     success, amber = pending, red = overdue / error) — still tinted, never a
+     saturated block; every text pair stays AA (contrast-check.mjs). */
+  --insight-tint-top: 14.5%;
+  --insight-tint-bottom: 5.5%;
+  --insight-tint-border: 36%;
+  --insight-icon-fill: 24%;
+  --panel-header-tint: 11%;
+  --panel-edge-tint: 22%;
   --surface-soft-row-hover: color-mix(in oklab, var(--brand-canvas) 55%, var(--card));
   --form-card-width-narrow: 32.5rem;
   --form-card-width: 40rem;
-  /* Round 6 dropdown-trigger TRIAL (local only, theme/trigger-trial.css —
-     inert unless <html data-trigger-trial="a|b">). A = solid brand navy,
-     white text/icons; B = white trigger, 1.5px navy-tinted edge, navy text,
-     navy chevron chip. Both are checked by scripts/design/contrast-check.mjs. */
-  --trial-a-trigger: var(--brand-navy);
-  --trial-a-trigger-foreground: #ffffff;
-  --trial-a-trigger-muted: color-mix(in oklab, white 76%, var(--brand-navy));
-  --trial-a-trigger-hover: color-mix(in oklab, var(--brand-navy) 88%, white);
-  --trial-a-trigger-pressed: color-mix(in oklab, var(--brand-navy) 84%, black);
-  --trial-a-trigger-edge: var(--brand-navy);
-  --trial-a-trigger-open-edge: #6fb4ff;
-  --trial-a-trigger-chip: color-mix(in oklab, white 14%, var(--brand-navy));
-  --trial-a-trigger-applied: color-mix(in oklab, #0072f5 34%, var(--brand-navy));
-  --trial-b-trigger: var(--card);
-  --trial-b-trigger-foreground: var(--brand-navy);
-  --trial-b-trigger-muted: color-mix(in oklab, var(--brand-navy) 70%, white);
-  --trial-b-trigger-edge: color-mix(in oklab, var(--brand-navy) 46%, white);
-  --trial-b-trigger-edge-hover: color-mix(in oklab, var(--brand-navy) 72%, white);
-  --trial-b-trigger-hover: color-mix(in oklab, var(--brand-navy) 4%, white);
-  --trial-b-trigger-pressed: color-mix(in oklab, var(--brand-navy) 8%, white);
-  --trial-b-trigger-chip: color-mix(in oklab, var(--brand-navy) 9%, white);
-  --trial-b-trigger-chevron: var(--brand-navy);
-  --trial-b-trigger-open-edge: var(--brand-navy);
-  --trial-b-trigger-applied: color-mix(in oklab, var(--brand-navy) 12%, white);
 }
 
 .dark {
@@ -461,11 +448,17 @@
   --focus-ring: #52a8ff;
   --ring: var(--focus-ring);
 
-  --selector: #111111;
-  --selector-hover: #1a1a1a;
-  --selector-active: #111111;
-  --selector-foreground: #ededed;
-  --selector-border: var(--input);
+  /* Dark: a navy lifted a step so it separates from the canvas, with a light
+     blue hairline — never a black-on-black trigger. */
+  --selector: #0e2a4b;
+  --selector-hover: #143760;
+  --selector-active: #0a213c;
+  --selector-foreground: #ffffff;
+  --selector-muted: color-mix(in oklab, white 74%, #0e2a4b);
+  --selector-border: color-mix(in oklab, #52a8ff 62%, #0e2a4b);
+  --selector-open-edge: #52a8ff;
+  --selector-chip: color-mix(in oklab, white 12%, #0e2a4b);
+  --selector-applied: #17467a;
   --sidebar-rail: #52a8ff;
   --sidebar-rail-glow: color-mix(in oklab, #52a8ff 25%, transparent);
 
@@ -526,34 +519,13 @@
   --surface-soft-shadow-hover: 0 0 0 1px rgb(255 255 255 / 0.03), 0 8px 18px -8px rgb(0 0 0 / 0.75);
   --surface-soft-tone-strength: 7%;
   --surface-soft-tone-border-strength: 18%;
-  --insight-tint-top: 18%;
-  --insight-tint-bottom: 6%;
-  --insight-tint-border: 32%;
-  --insight-icon-fill: 26%;
+  --insight-tint-top: 22%;
+  --insight-tint-bottom: 8%;
+  --insight-tint-border: 40%;
+  --insight-icon-fill: 32%;
+  --panel-header-tint: 14%;
+  --panel-edge-tint: 28%;
   --surface-soft-row-hover: color-mix(in oklab, #52a8ff 6%, var(--card));
-  /* Round 6 dropdown-trigger trial (dark): A stays a deep navy (lifted a
-     step so it separates from the canvas, with a light hairline); B keeps the
-     dark surface with a blue-tinted edge, light-blue text and chip. */
-  --trial-a-trigger: #0e2a4b;
-  --trial-a-trigger-foreground: #ffffff;
-  --trial-a-trigger-muted: color-mix(in oklab, white 74%, #0e2a4b);
-  --trial-a-trigger-hover: #143760;
-  --trial-a-trigger-pressed: #0a213c;
-  --trial-a-trigger-edge: color-mix(in oklab, #52a8ff 62%, #0e2a4b);
-  --trial-a-trigger-open-edge: #52a8ff;
-  --trial-a-trigger-chip: color-mix(in oklab, white 12%, #0e2a4b);
-  --trial-a-trigger-applied: #17467a;
-  --trial-b-trigger: var(--card);
-  --trial-b-trigger-foreground: #cfe4ff;
-  --trial-b-trigger-muted: color-mix(in oklab, #cfe4ff 66%, #111111);
-  --trial-b-trigger-edge: color-mix(in oklab, #52a8ff 64%, #111111);
-  --trial-b-trigger-open-edge: #8ec5ff;
-  --trial-b-trigger-edge-hover: color-mix(in oklab, #52a8ff 72%, #111111);
-  --trial-b-trigger-hover: color-mix(in oklab, #52a8ff 6%, #111111);
-  --trial-b-trigger-pressed: color-mix(in oklab, #52a8ff 11%, #111111);
-  --trial-b-trigger-chip: color-mix(in oklab, #52a8ff 16%, #111111);
-  --trial-b-trigger-chevron: #8ec5ff;
-  --trial-b-trigger-applied: color-mix(in oklab, #52a8ff 18%, #111111);
 }
 
 @layer base {
