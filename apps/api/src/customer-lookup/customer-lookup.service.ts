@@ -101,11 +101,8 @@ export class CustomerLookupService {
       });
     }
 
-    const remainingBefore = await this.assertWithinRateLimit(
-      userId,
-      query.kind,
-      queryValue,
-    );
+    const { remaining: remainingBefore, reservationId } =
+      await this.assertWithinRateLimit(userId, query.kind, queryValue);
 
     const scope = await this.salesScope.resolve(userId);
     const { matches, capped } =
@@ -122,6 +119,8 @@ export class CustomerLookupService {
         : query.value,
       outcome,
       matches.length,
+      undefined,
+      reservationId,
     );
 
     return {
@@ -138,31 +137,63 @@ export class CustomerLookupService {
     userId: string,
     method: 'PHONE' | 'NAME',
     queryValue: string,
-  ): Promise<number> {
+  ): Promise<{ remaining: number; reservationId: string }> {
     const now = Date.now();
-    const counted: Prisma.GlobalLookupAuditWhereInput = {
-      userId,
-      action: GlobalLookupAction.ADVANCED_CUSTOMER_LOOKUP,
-      outcome: { not: 'RATE_LIMITED' },
-    };
-    const [inWindow, inDay] = await Promise.all([
-      this.prisma.globalLookupAudit.count({
-        where: {
-          ...counted,
-          createdAt: { gte: new Date(now - RATE_LIMIT_WINDOW_MS) },
+    // Count and reserve under a per-user advisory lock so N parallel requests
+    // cannot all read the same count and slip past the limit. The reservation
+    // row ('PENDING') counts immediately and is finalised by `audit`.
+    const decision = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`customer-lookup:${userId}`}))`;
+      const counted: Prisma.GlobalLookupAuditWhereInput = {
+        userId,
+        action: GlobalLookupAction.ADVANCED_CUSTOMER_LOOKUP,
+        outcome: { not: 'RATE_LIMITED' },
+      };
+      const [inWindow, inDay] = await Promise.all([
+        tx.globalLookupAudit.count({
+          where: {
+            ...counted,
+            createdAt: { gte: new Date(now - RATE_LIMIT_WINDOW_MS) },
+          },
+        }),
+        tx.globalLookupAudit.count({
+          where: {
+            ...counted,
+            createdAt: { gte: new Date(now - RATE_LIMIT_DAY_MS) },
+          },
+        }),
+      ]);
+      if (
+        inWindow >= RATE_LIMIT_MAX_PER_WINDOW ||
+        inDay >= RATE_LIMIT_MAX_PER_DAY
+      ) {
+        return { limited: true as const, inDay };
+      }
+      const reservation = await tx.globalLookupAudit.create({
+        data: {
+          userId,
+          action: GlobalLookupAction.ADVANCED_CUSTOMER_LOOKUP,
+          method:
+            method === 'PHONE'
+              ? GlobalLookupMethod.PHONE
+              : GlobalLookupMethod.NAME,
+          queryValue,
+          outcome: 'PENDING',
+          resultCount: 0,
         },
-      }),
-      this.prisma.globalLookupAudit.count({
-        where: {
-          ...counted,
-          createdAt: { gte: new Date(now - RATE_LIMIT_DAY_MS) },
-        },
-      }),
-    ]);
-    if (
-      inWindow >= RATE_LIMIT_MAX_PER_WINDOW ||
-      inDay >= RATE_LIMIT_MAX_PER_DAY
-    ) {
+        select: { id: true },
+      });
+      return {
+        limited: false as const,
+        reservationId: reservation.id,
+        remaining: Math.min(
+          RATE_LIMIT_MAX_PER_WINDOW - inWindow,
+          RATE_LIMIT_MAX_PER_DAY - inDay,
+        ),
+      };
+    });
+
+    if (decision.limited) {
       // One throttle row per minute is enough evidence; a flood must not
       // become an unbounded write.
       const recentThrottle = await this.prisma.globalLookupAudit.count({
@@ -177,7 +208,7 @@ export class CustomerLookupService {
         await this.audit(userId, method, queryValue, 'RATE_LIMITED', 0);
       }
       const retryAfterSeconds = Math.ceil(
-        (inDay >= RATE_LIMIT_MAX_PER_DAY
+        (decision.inDay >= RATE_LIMIT_MAX_PER_DAY
           ? RATE_LIMIT_DAY_MS
           : RATE_LIMIT_WINDOW_MS) / 1000,
       );
@@ -191,10 +222,10 @@ export class CustomerLookupService {
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
-    return Math.min(
-      RATE_LIMIT_MAX_PER_WINDOW - inWindow,
-      RATE_LIMIT_MAX_PER_DAY - inDay,
-    );
+    return {
+      remaining: decision.remaining,
+      reservationId: decision.reservationId,
+    };
   }
 
   private async audit(
@@ -204,7 +235,15 @@ export class CustomerLookupService {
     outcome: 'MATCH' | 'NO_MATCH' | 'RATE_LIMITED' | 'REJECTED',
     resultCount: number,
     matchedPartnerId?: string,
+    reservationId?: string,
   ) {
+    if (reservationId) {
+      await this.prisma.globalLookupAudit.update({
+        where: { id: reservationId },
+        data: { queryValue, outcome, resultCount, matchedPartnerId },
+      });
+      return;
+    }
     await this.prisma.globalLookupAudit.create({
       data: {
         userId,
@@ -247,9 +286,25 @@ export class CustomerLookupService {
         take: CANDIDATE_LIMIT,
       }),
     ]);
+    const candidateIds = [...new Set(keys.map((k) => k.partnerId))];
+    // A phone key can belong to a supplier or other non-customer partner —
+    // discovery is about customers only (same rule as the name search).
+    const customerIds =
+      candidateIds.length === 0
+        ? []
+        : (
+            await this.prisma.partner.findMany({
+              where: {
+                id: { in: candidateIds },
+                deletedAt: null,
+                roles: { some: { role: PartnerRoleType.CUSTOMER } },
+              },
+              select: { id: true },
+            })
+          ).map((p) => p.id);
     const partnerIds = [
       ...new Set([
-        ...keys.map((k) => k.partnerId),
+        ...customerIds,
         ...leads.flatMap((l) => (l.partnerId ? [l.partnerId] : [])),
       ]),
     ];

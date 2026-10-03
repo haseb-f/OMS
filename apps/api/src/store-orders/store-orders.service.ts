@@ -1443,6 +1443,9 @@ export class StoreOrdersService {
     dto: CreateStoreOrderPaymentDto,
     userId?: string,
   ) {
+    // Same record-level scope as every sibling operation: a payment can only
+    // be posted on an order the caller is allowed to see.
+    if (userId) await this.findOne(id, userId);
     const payment = await this.prisma.$transaction(async (tx) => {
       await lockStoreOrderRow(tx, id);
       const order = await tx.storeOrder.findFirst({
