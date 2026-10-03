@@ -1594,7 +1594,7 @@ export function EnterpriseDataTable<TData>({
                   />
                 </IconActionButton>
               )}
-              {renderGridCard ? (
+              {renderGridCard && !bulkStripOpen ? (
                 <EnterpriseTableViewToggle view={view} onViewChange={setView} />
               ) : null}
               {isGrid ? <EnterpriseTableSortMenu table={table} /> : null}
@@ -1691,22 +1691,21 @@ export function EnterpriseDataTable<TData>({
                 </EnterpriseButton>
               ) : null}
 
-              <EnterpriseButton
-                type="button"
-                variant="link"
-                size="sm"
-                className="ms-auto h-auto shrink-0 p-0 text-muted-foreground"
-                onClick={() => handleRowSelectionChange({})}
-              >
-                {t("table.clearSelection")}
-              </EnterpriseButton>
-              {/* The strip overlays the toolbar, so the view switch is repeated
-                  here: changing view keeps the selection and must stay reachable. */}
-              {renderGridCard ? (
-                <div className="shrink-0">
+              {/* The strip overlays the toolbar, so the view switch stays reachable here: switching keeps the selection. */}
+              <div className="ms-auto flex shrink-0 items-center gap-3">
+                {renderGridCard ? (
                   <EnterpriseTableViewToggle view={view} onViewChange={setView} />
-                </div>
-              ) : null}
+                ) : null}
+                <EnterpriseButton
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="h-auto shrink-0 p-0 text-muted-foreground"
+                  onClick={() => handleRowSelectionChange({})}
+                >
+                  {t("table.clearSelection")}
+                </EnterpriseButton>
+              </div>
             </div>
           ) : null}
         </ListToolbar>
