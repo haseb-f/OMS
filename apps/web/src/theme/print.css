@@ -470,6 +470,9 @@
     --surface-soft-shadow-hover: none;
     --surface-soft-tone-strength: 0%;
     --surface-soft-tone-border-strength: 0%;
+    --insight-tint-top: 0%;
+    --insight-tint-bottom: 0%;
+    --insight-tint-border: 0%;
   }
   :is(
     [data-slot="card"][data-surface="soft"],
@@ -479,5 +482,8 @@
   ):not([data-print-sheet] *) {
     background: var(--print-paper) !important;
     box-shadow: none !important;
+  }
+  [data-slot="insight-card"]:not([data-print-sheet] *) {
+    border-color: var(--print-rule) !important;
   }
 }

@@ -65,13 +65,11 @@ const STAGE_META: Record<string, { icon: LucideIcon; tone: InsightTone }> = {
 };
 
 /** Figures of one panel on the panel's soft surface, split by hairlines. */
-const GROUP = "rounded-none border-0";
+const GROUP = "p-3";
 const TILE = "px-4 py-3";
 const ORDER_GRID = "grid-cols-2 sm:grid-cols-3 xl:grid-cols-6";
 /** Groups whose tile count leaves a gap: the last tile takes the rest of its row. */
 const FILL_LAST_2 = "sm:[&>*:last-child:nth-child(odd)]:col-span-2";
-const FILL_LAST_3 =
-  "sm:max-lg:[&>*:last-child:nth-child(odd)]:col-span-2 lg:[&>*:last-child:nth-child(3n+1)]:col-span-3 lg:[&>*:last-child:nth-child(3n+2)]:col-span-2";
 
 /** Lead counts from the scoped leads list (its `total`) — no new endpoint. */
 interface LeadCounts {
@@ -328,9 +326,7 @@ export default function AgentDashboardPage() {
                 title={t("insights.agent.salesTitle")}
                 scope={toDate}
               >
-                <InsightGroup
-                  className={cn(GROUP, "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3", FILL_LAST_3)}
-                >
+                <InsightGroup className={cn(GROUP, "grid-cols-1 sm:grid-cols-2", FILL_LAST_2)}>
                   {data.sales
                     ? [
                         tile({

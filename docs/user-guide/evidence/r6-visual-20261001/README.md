@@ -16,6 +16,25 @@ were logged. The re-take waits for three things, and otherwise fails instead of 
 - no `[data-slot="skeleton"]`, no `aria-busy`, and no «جارٍ التحميل» / "Loading…" text
 - the same condition still true 1.5s later
 
+**Tile tuning (2026-10-03).** The metric tiles were re-tuned so their colour is easier to see.
+Each toned tile is now its own soft card with an 8px gap and:
+
+- a tone gradient, 12% → 3.5% in light and 18% → 6% in dark
+- a hairline at 28% of the tone (32% in dark)
+- an icon chip at 18% (26% in dark)
+
+Neutral tiles stay plain, and tiles have no shadow at rest. Seven "after" files were re-taken with
+the same load guard:
+
+- company dashboard: AR light 1440, EN dark 1440, AR light 390
+- Agent Admin dashboard: AR light 1440, EN dark 1440
+- Agent Sales dashboard: AR light 1440
+- trial balance, expanded: AR light 1440
+
+The other "after" dashboard and report variants, plus the interactive attention shots, show the
+pre-tuning tiles. All pairs in `contrast-check.mjs` pass, including the new tile label and value
+pairs on the strongest tint.
+
 **Before** comes from `main` @ `901e075`, served from a temporary `git worktree` against the same
 API and data, which was removed afterwards. **After** comes from this branch.
 

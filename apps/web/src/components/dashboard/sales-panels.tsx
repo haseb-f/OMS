@@ -49,8 +49,8 @@ export const PERIOD_LABEL_KEY: Record<SalesPeriod, MessageKey> = {
   month: "crm.leads.dashboard.month",
 };
 
-/** Six figures in one hairline-split cluster: 3 × 2 on desktop, 2 × 3 on phones. */
-const CLUSTER = "rounded-none border-0 grid-cols-2 sm:grid-cols-3";
+/** Six figure tiles: 3 × 2 on desktop, 2 × 3 on phones. */
+const CLUSTER = "p-3 grid-cols-2 sm:grid-cols-3";
 
 interface Figure {
   key: string;

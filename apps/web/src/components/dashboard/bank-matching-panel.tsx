@@ -85,7 +85,7 @@ export function BankMatchingPanel({
           className="py-6"
         />
       ) : (
-        <InsightGroup className="rounded-none border-0 grid-cols-1 sm:grid-cols-2">
+        <InsightGroup className="p-3 grid-cols-1 sm:grid-cols-2">
           <InsightCard
             icon={ArrowDownToLine}
             tone="success"

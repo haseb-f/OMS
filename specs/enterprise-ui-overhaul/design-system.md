@@ -657,8 +657,20 @@ Spec: `specs/ui-navigation-r6/spec.md` §E. Released only after owner visual app
   - red (`destructive`): overdue items, errors and returns
   - neutral: everything else
 
-  A toned tile gets a 5% top tint (7% in dark) and a hairline that carries 14% of the tone (18% in
-  dark) (`--surface-soft-tone-border-strength`). Print sets both to 0.
+  Each metric tile is its own soft card. `InsightGroup` is only a grid with an 8px gap and draws
+  nothing itself.
+  - A toned tile has a top-to-bottom tone gradient:
+    - light: 12% at the top, 3.5% at the bottom
+    - dark: 18% at the top, 6% at the bottom
+  - The tile hairline carries 28% of the tone (32% in dark); the icon chip 18% (26% in dark).
+  - Tokens: `--insight-tint-top`, `--insight-tint-bottom`, `--insight-tint-border`,
+    `--insight-icon-fill`.
+  - Flat at rest: no shadow.
+  - Neutral tiles stay a plain card with the standard border.
+  - The value stays in the foreground colour. An emphasized destructive or loss tile is the
+    exception: its value is red.
+  - Hover applies to interactive tiles only: the edge goes to 45% of the tone, plus a soft lift.
+  - Print: white paper and one rule.
 
 - **Scope lives in the header, not the tile.** `DashboardPanel` takes `scope`, rendered as
   `InsightScope`, a neutral outline chip with three values:

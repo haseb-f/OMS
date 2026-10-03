@@ -63,7 +63,12 @@ function linearToOklab([r, g, b]) {
 }
 /** Color = { lab: [L,a,b], alpha } */
 function parse(value, vars, seen = new Set()) {
-  value = value.trim();
+  // Percentage tokens inside color-mix() (e.g. var(--insight-tint-top)).
+  value = value
+    .trim()
+    .replace(/var\(--([\w-]+)\)/g, (m, name) =>
+      /^[\d.]+%$/.test(vars[name] ?? "") ? vars[name] : m,
+    );
   const v = value.match(/^var\(--([\w-]+)\)$/);
   if (v) {
     if (seen.has(v[1])) throw new Error(`cycle ${v[1]}`);
@@ -173,6 +178,36 @@ const PAIRS = [
     TEXT,
     "var(--card)",
   ]),
+  // Round 6 metric tiles (§12.13): text on the strongest (top) tone tint,
+  // the value on it, and the icon on its chip, per theme token.
+  ...["info", "success", "warning", "destructive", "revenue", "expense", "profit", "loss"].flatMap(
+    (t) => [
+      [
+        `tile ${t} label on tint`,
+        "var(--muted-foreground)",
+        `color-mix(in oklab, var(--insight-${t}) var(--insight-tint-top), var(--card))`,
+        TEXT,
+      ],
+      [
+        `tile ${t} value on tint`,
+        "var(--foreground)",
+        `color-mix(in oklab, var(--insight-${t}) var(--insight-tint-top), var(--card))`,
+        TEXT,
+      ],
+      [
+        `tile ${t} icon on chip`,
+        `var(--insight-${t})`,
+        `color-mix(in oklab, var(--insight-${t}) var(--insight-icon-fill), var(--card))`,
+        UI,
+      ],
+    ],
+  ),
+  [
+    "tile destructive value on tint",
+    "var(--destructive-text)",
+    "color-mix(in oklab, var(--insight-destructive) var(--insight-tint-top), var(--card))",
+    UI,
+  ],
   // design-system §12.10: the hairline ring stays light; the field's bottom
   // edge (--control-edge) carries the 3:1 boundary.
   ["control boundary (field edge)", "var(--control-edge)", "var(--card)", UI],

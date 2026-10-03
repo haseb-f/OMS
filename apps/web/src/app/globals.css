@@ -349,6 +349,12 @@
   --surface-soft-tone-strength: 5%;
   /* Tone share of a toned tile's hairline (Round 6). */
   --surface-soft-tone-border-strength: 14%;
+  /* Round 6 metric tile (§12.13): tone share of the tile gradient (top →
+     bottom), of its hairline and of its icon chip. */
+  --insight-tint-top: 12%;
+  --insight-tint-bottom: 3.5%;
+  --insight-tint-border: 28%;
+  --insight-icon-fill: 18%;
   --surface-soft-row-hover: color-mix(in oklab, var(--brand-canvas) 55%, var(--card));
   --form-card-width-narrow: 32.5rem;
   --form-card-width: 40rem;
@@ -520,6 +526,10 @@
   --surface-soft-shadow-hover: 0 0 0 1px rgb(255 255 255 / 0.03), 0 8px 18px -8px rgb(0 0 0 / 0.75);
   --surface-soft-tone-strength: 7%;
   --surface-soft-tone-border-strength: 18%;
+  --insight-tint-top: 18%;
+  --insight-tint-bottom: 6%;
+  --insight-tint-border: 32%;
+  --insight-icon-fill: 26%;
   --surface-soft-row-hover: color-mix(in oklab, #52a8ff 6%, var(--card));
   /* Round 6 dropdown-trigger trial (dark): A stays a deep navy (lifted a
      step so it separates from the canvas, with a light hairline); B keeps the

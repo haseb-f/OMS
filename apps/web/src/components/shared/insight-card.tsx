@@ -158,18 +158,14 @@ export function InsightCard({
 }
 
 /**
- * Related static `InsightCard`s on ONE surface split by hairlines (Round 4,
- * design-system §12.8) — a metric row, not a box per number. The caller
- * sets the columns (`grid-cols-*`); dividers survive any wrap. Interactive
- * (href) tiles stay separate cards.
+ * Related `InsightCard`s as one metric row (design-system §12.8 / §12.13).
+ * Round 6: each tile is its own soft, tone-tinted card with an 8px gap — the
+ * group itself draws nothing. The caller sets the columns (`grid-cols-*`)
+ * and, inside a panel, the inset padding.
  */
 export function InsightGroup({ children, className, ...props }: ComponentProps<"div">) {
   return (
-    <div
-      data-slot="insight-group"
-      className={cn("grid min-w-0 overflow-hidden rounded-md border", className)}
-      {...props}
-    >
+    <div data-slot="insight-group" className={cn("grid min-w-0 gap-2", className)} {...props}>
       {children}
     </div>
   );

@@ -32,33 +32,30 @@ html[dir="ltr"] :is(h1, h2) {
 
 [data-slot="insight-card"] {
   --tone: var(--insight-neutral);
-  --tone-strength: var(--surface-soft-tone-strength);
-  --tone-border-strength: var(--surface-soft-tone-border-strength);
+  --tone-top: var(--insight-tint-top);
+  --tone-bottom: var(--insight-tint-bottom);
+  --tone-border: var(--insight-tint-border);
   --accent-edge: 3px;
-  /* Round 5 soft tile (§12.12): the tone tints the top of the tile by a few
-     percent and fades into the card — restrained, never a coloured block. */
+  /* Round 6 soft tile (§12.13): its own card, a clearly perceptible tone
+     gradient (top → bottom) and a hairline in the tone. Flat at rest — no
+     shadow, no blur; colour follows meaning only. */
   background-color: var(--card);
   background-image: linear-gradient(
     180deg,
-    color-mix(in oklab, var(--tone) var(--tone-strength), var(--surface-soft)),
-    var(--card)
+    color-mix(in oklab, var(--tone) var(--tone-top), var(--card)),
+    color-mix(in oklab, var(--tone) var(--tone-bottom), var(--card))
   );
-  /* Round 6: a toned tile's hairline carries a trace of its tone. */
-  border-color: color-mix(
-    in oklab,
-    var(--tone) var(--tone-border-strength),
-    var(--surface-soft-border)
-  );
-  box-shadow: var(--surface-soft-shadow);
+  border-color: color-mix(in oklab, var(--tone) var(--tone-border), var(--card));
+  box-shadow: none;
   color: var(--card-foreground);
   transition:
     border-color var(--duration-base) var(--ease-standard),
     box-shadow var(--duration-base) var(--ease-standard);
 }
-/* Neutral tiles take the plain soft surface (no grey cast). */
-[data-slot="insight-card"][data-tone="neutral"] {
-  --tone-strength: 0%;
-  --tone-border-strength: 0%;
+/* Neutral tiles stay neutral: plain card, the standard hairline. */
+[data-slot="insight-card"]:is([data-tone="neutral"], :not([data-tone])) {
+  background-image: none;
+  border-color: var(--border);
 }
 [data-slot="insight-card"][data-tone="info"] {
   --tone: var(--insight-info);
@@ -87,34 +84,32 @@ html[dir="ltr"] :is(h1, h2) {
 
 [data-slot="insight-card"] [data-slot="insight-icon"] {
   color: var(--tone);
-  background-color: color-mix(in oklab, var(--tone) 11%, var(--card));
+  background-color: color-mix(in oklab, var(--tone) var(--insight-icon-fill), var(--card));
 }
 [data-slot="insight-card"] [data-slot="insight-bar"] {
   background-color: var(--tone);
 }
-/* Emphasis (open work / discrepancy): start-edge accent, tone figure. */
+/* Emphasis (open work / discrepancy): start-edge accent. The figure stays in
+   the foreground colour; only a destructive / loss figure turns red. */
 [data-slot="insight-card"][data-emphasis] {
-  box-shadow:
-    inset var(--accent-edge) 0 0 var(--tone),
-    var(--surface-soft-shadow);
+  box-shadow: inset var(--accent-edge) 0 0 var(--tone);
 }
 [dir="rtl"] [data-slot="insight-card"][data-emphasis] {
-  box-shadow:
-    inset calc(var(--accent-edge) * -1) 0 0 var(--tone),
-    var(--surface-soft-shadow);
+  box-shadow: inset calc(var(--accent-edge) * -1) 0 0 var(--tone);
 }
-[data-slot="insight-card"][data-emphasis] [data-slot="insight-value"] {
-  color: var(--tone);
+[data-slot="insight-card"]:is([data-tone="destructive"], [data-tone="loss"])[data-emphasis]
+  [data-slot="insight-value"] {
+  color: var(--destructive-text);
 }
 [data-slot="insight-card"] [data-slot="insight-action"] {
   color: var(--muted-foreground);
   transition: color var(--duration-base) var(--ease-standard);
 }
 
-/* Interactive tiles: hover and keyboard focus read the same — border and
-   shadow only (Round 5): no fill change, no transform, no layout shift. */
+/* Interactive tiles only: hover and keyboard focus = tone border (~45%) and a
+   soft lift — no fill change, no transform, no layout shift. */
 [data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible) {
-  border-color: color-mix(in oklab, var(--tone) 45%, var(--surface-soft-hover-border));
+  border-color: color-mix(in oklab, var(--tone) 45%, var(--card));
   box-shadow: var(--surface-soft-shadow-hover);
 }
 [data-slot="insight-card"][data-interactive][data-emphasis]:is(:hover, :focus-visible) {
@@ -137,7 +132,7 @@ html[dir="ltr"] :is(h1, h2) {
 [data-slot="panel-icon"] {
   --tone: var(--insight-neutral);
   color: var(--tone);
-  background-color: color-mix(in oklab, var(--tone) 11%, var(--card));
+  background-color: color-mix(in oklab, var(--tone) var(--insight-icon-fill), var(--card));
 }
 [data-slot="panel-icon"][data-tone="info"] {
   --tone: var(--insight-info);
@@ -157,38 +152,12 @@ html[dir="ltr"] :is(h1, h2) {
   border-color: var(--surface-soft-border);
 }
 
-/* Metric group (`InsightGroup`): related figures share ONE surface split by
-   hairlines — the way a report groups a metric row — instead of a box per
-   number. Cells keep their own padding; dividers are 1px shadows on the
-   block-start and inline-start edge, so the outer ones clip at the
-   container and any wrap (4 → 2 × 2 on phones) stays correct. */
+/* Metric group (`InsightGroup`): a gap-separated row of tile cards; the group
+   draws nothing itself. */
 [data-slot="insight-group"] {
-  background-color: var(--card);
-  background-image: var(--surface-soft-gradient);
-  border-color: var(--surface-soft-border);
-  box-shadow: var(--surface-soft-shadow);
-}
-/* Cells sit on the group's one soft surface; only a toned cell adds its own
-   faint top tint. */
-[data-slot="insight-group"] > [data-slot="insight-card"],
-[data-slot="insight-group"] > * > [data-slot="insight-card"] {
-  background-color: transparent;
-  background-image: linear-gradient(
-    180deg,
-    color-mix(in oklab, var(--tone) var(--tone-strength), transparent),
-    transparent
-  );
+  background: none;
   border: 0;
-  border-radius: 0;
-  box-shadow:
-    -1px 0 0 var(--border),
-    0 -1px 0 var(--border);
-}
-[dir="rtl"] [data-slot="insight-group"] > [data-slot="insight-card"],
-[dir="rtl"] [data-slot="insight-group"] > * > [data-slot="insight-card"] {
-  box-shadow:
-    1px 0 0 var(--border),
-    0 -1px 0 var(--border);
+  box-shadow: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -458,12 +427,6 @@ html[dir="ltr"] :is(h1, h2) {
   background-image: var(--surface-soft-gradient);
   border-color: var(--surface-soft-border);
   box-shadow: var(--surface-soft-shadow);
-}
-/* A metric group or a list inside a soft panel shares the panel's surface. */
-[data-slot="card"][data-surface="soft"] [data-slot="insight-group"] {
-  background-color: transparent;
-  background-image: none;
-  box-shadow: none;
 }
 @media (prefers-reduced-motion: reduce) {
   [data-slot="card"][data-surface="soft"] {
