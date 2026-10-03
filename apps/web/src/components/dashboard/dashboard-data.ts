@@ -88,35 +88,72 @@ export function anyPeriodKpis(
 export interface PendingFigures {
   paymentReview: number | null;
   bank: { unmatched: number; review: number } | null;
+  /** Sources that failed to load — absent from the figures above, never defaulted to 0. */
+  failed: ("paymentReview" | "bank")[];
 }
 
-/** Payment review queue + bank matching queues, each only when the user may see it. */
+/** Pure: folds the settled queue requests; every requested source failing is a whole failure (throws). */
+export function settlePendingFigures(
+  paymentReview: PromiseSettledResult<number> | null,
+  bank: PromiseSettledResult<{ unmatched: number; review: number }> | null,
+): PendingFigures {
+  const failed: PendingFigures["failed"] = [];
+  if (paymentReview?.status === "rejected") failed.push("paymentReview");
+  if (bank?.status === "rejected") failed.push("bank");
+  const requested = Number(paymentReview !== null) + Number(bank !== null);
+  if (requested > 0 && failed.length === requested) {
+    const first = [paymentReview, bank].find(
+      (r): r is PromiseRejectedResult => r?.status === "rejected",
+    );
+    throw first?.reason ?? new Error("queues unavailable");
+  }
+  return {
+    paymentReview: paymentReview?.status === "fulfilled" ? paymentReview.value : null,
+    bank: bank?.status === "fulfilled" ? bank.value : null,
+    failed,
+  };
+}
+
+/**
+ * Payment review queue + bank matching queues, each only when the user may
+ * see it — and each failing on its own (Round 7), so one slow endpoint never
+ * blanks the other queue.
+ */
 export async function loadPendingFigures(
   showPaymentReview: boolean,
   showBank: boolean,
 ): Promise<PendingFigures> {
-  const [pending, matched, bankCounts] = await Promise.all([
+  const [paymentReview, bank] = await Promise.all([
     showPaymentReview
-      ? paymentsReviewService.list({ status: "PENDING", page: 1, pageSize: 1 })
+      ? Promise.allSettled([
+          paymentsReviewService.list({ status: "PENDING", page: 1, pageSize: 1 }),
+          paymentsReviewService.list({ status: "MATCHED", page: 1, pageSize: 1 }),
+        ]).then(([pending, matched]): PromiseSettledResult<number> => {
+          if (pending.status === "rejected") return pending;
+          if (matched.status === "rejected") return matched;
+          // The review queue's default view is exactly PENDING + MATCHED.
+          return { status: "fulfilled", value: pending.value.total + matched.value.total };
+        })
       : null,
-    showPaymentReview
-      ? paymentsReviewService.list({ status: "MATCHED", page: 1, pageSize: 1 })
+    showBank
+      ? Promise.allSettled([bankTransactionsService.statusCounts()]).then(
+          ([counts]): PromiseSettledResult<{ unmatched: number; review: number }> =>
+            counts.status === "rejected"
+              ? counts
+              : {
+                  status: "fulfilled",
+                  value: {
+                    unmatched: counts.value.UNMATCHED ?? 0,
+                    review:
+                      (counts.value.MANUAL_REVIEW ?? 0) +
+                      (counts.value.CONFLICT ?? 0) +
+                      (counts.value.POTENTIAL ?? 0),
+                  },
+                },
+        )
       : null,
-    showBank ? bankTransactionsService.statusCounts() : null,
   ]);
-  return {
-    // The review queue's default view is exactly PENDING + MATCHED.
-    paymentReview: pending && matched ? pending.total + matched.total : null,
-    bank: bankCounts
-      ? {
-          unmatched: bankCounts.UNMATCHED ?? 0,
-          review:
-            (bankCounts.MANUAL_REVIEW ?? 0) +
-            (bankCounts.CONFLICT ?? 0) +
-            (bankCounts.POTENTIAL ?? 0),
-        }
-      : null,
-  };
+  return settlePendingFigures(paymentReview, bank);
 }
 
 /**

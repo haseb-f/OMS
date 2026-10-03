@@ -75,7 +75,9 @@ export function DashboardOverview({ access }: { access: DashboardAccess }) {
   // One period failing leaves the other panels intact; only the sub-panel
   // that needs the missing period says so (never a zero).
   const periodFailed = failedPeriods.includes(period);
+  // Whole failure (every requested queue source) or a single source that failed.
   const pendingFailed = pending.state.status === "error";
+  const pendingPartial = (pendingData?.failed.length ?? 0) > 0;
   const attentionLoading =
     pending.state.status === "loading" || (access.sales && sales.state.status === "loading");
   // One source failing never hides the queues the other one loaded.
@@ -83,7 +85,7 @@ export function DashboardOverview({ access }: { access: DashboardAccess }) {
   // Follow-up queues are not period-bound, so any period's figures serve.
   const queues = buildAttentionQueues(anyPeriodKpis(salesData), pendingData);
   const retryAttention = () => {
-    if (pendingFailed) void pending.retry();
+    if (pendingFailed || pendingPartial) void pending.retry();
     if (salesFailed) void sales.retry();
   };
 
@@ -123,7 +125,7 @@ export function DashboardOverview({ access }: { access: DashboardAccess }) {
       cleared={queues.cleared}
       loading={attentionLoading}
       failed={attentionFailed}
-      partialFailed={!attentionFailed && (pendingFailed || salesFailed)}
+      partialFailed={!attentionFailed && (pendingFailed || pendingPartial || salesFailed)}
       onRetry={retryAttention}
     />
   );

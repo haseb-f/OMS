@@ -39,6 +39,8 @@ function SelectTrigger({
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
+      // Stable hook for the navy recipe: `data-slot` is overwritten under a Slot (<FormControl>); this is not.
+      data-select-trigger=""
       data-size={size}
       data-variant={variant}
       className={cn(

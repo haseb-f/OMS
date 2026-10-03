@@ -4,6 +4,7 @@ import {
   buildActivityRows,
   buildAttentionQueues,
   percentOf,
+  settlePendingFigures,
   settleSalesByPeriod,
   summarizeBankMatching,
   type SalesByPeriod,
@@ -144,5 +145,31 @@ describe("settleSalesByPeriod (partial failure, never zeros)", () => {
   it("keeps genuine zeros as zeros", () => {
     const { data } = settleSalesByPeriod([ok({}), ok({}), ok({})]);
     expect(buildActivityRows(data)[0].values).toEqual({ today: 0, week: 0, month: 0 });
+  });
+});
+
+describe("settlePendingFigures (per-section failure, never zeros)", () => {
+  const ok = <T>(value: T): PromiseSettledResult<T> => ({ status: "fulfilled", value });
+  const bad = (): PromiseSettledResult<never> => ({ status: "rejected", reason: new Error("x") });
+
+  it("keeps the queue that loaded and lists the one that failed (null, not 0)", () => {
+    const figures = settlePendingFigures(bad(), ok({ unmatched: 0, review: 3 }));
+    expect(figures.paymentReview).toBeNull();
+    expect(figures.bank).toEqual({ unmatched: 0, review: 3 });
+    expect(figures.failed).toEqual(["paymentReview"]);
+    const queues = buildAttentionQueues(null, figures);
+    expect(queues.open.map((q) => q.key)).toEqual(["bankReview"]);
+    expect(queues.cleared.map((q) => q.key)).toEqual(["bankUnmatched"]);
+  });
+
+  it("fails as a whole only when every requested source failed", () => {
+    expect(() => settlePendingFigures(bad(), bad())).toThrow("x");
+    expect(() => settlePendingFigures(null, bad())).toThrow("x");
+  });
+
+  it("treats a source the user may not see as absent, and genuine zeros as zeros", () => {
+    const figures = settlePendingFigures(ok(0), null);
+    expect(figures).toEqual({ paymentReview: 0, bank: null, failed: [] });
+    expect(settlePendingFigures(null, null).failed).toEqual([]);
   });
 });

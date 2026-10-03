@@ -696,7 +696,7 @@ html[dir="ltr"] :is(h1, h2) {
 html
   :is(
     [data-button]:is([data-variant="field"], [data-variant="menu"]),
-    [data-slot="select-trigger"]:not([data-variant="ghost"])
+    [data-select-trigger]:not([data-variant="ghost"])
   ) {
   background-color: var(--selector);
   color: var(--selector-foreground);
@@ -711,17 +711,17 @@ html
 html
   :is(
     [data-button]:is([data-variant="field"], [data-variant="menu"]),
-    [data-slot="select-trigger"]:not([data-variant="ghost"])
+    [data-select-trigger]:not([data-variant="ghost"])
   )
   :is(.text-placeholder, [data-placeholder], [data-slot="filter-label"]),
-html [data-slot="select-trigger"][data-placeholder]:not([data-variant="ghost"]) {
+html [data-select-trigger][data-placeholder]:not([data-variant="ghost"]) {
   color: var(--selector-muted);
   font-weight: var(--trigger-placeholder-weight);
 }
 html
   :is(
     [data-button]:is([data-variant="field"], [data-variant="menu"]),
-    [data-slot="select-trigger"]:not([data-variant="ghost"])
+    [data-select-trigger]:not([data-variant="ghost"])
   )
   svg:not([data-slot="trigger-chevron"], [data-slot="badge"] svg) {
   color: var(--selector-muted);
@@ -730,7 +730,7 @@ html
 html
   :is(
     [data-button]:is([data-variant="field"], [data-variant="menu"]),
-    [data-slot="select-trigger"]:not([data-variant="ghost"])
+    [data-select-trigger]:not([data-variant="ghost"])
   )
   [data-slot="trigger-chevron"] {
   box-sizing: border-box;
@@ -744,7 +744,7 @@ html
 html
   :is(
     [data-button]:is([data-variant="field"], [data-variant="menu"]),
-    [data-slot="select-trigger"]:not([data-variant="ghost"])
+    [data-select-trigger]:not([data-variant="ghost"])
   )
   [data-slot="trigger-chevron"][data-size="sm"] {
   width: calc(var(--trigger-chevron-size-sm) + 4px);
@@ -753,19 +753,19 @@ html
 html
   :is(
     [data-button]:is([data-variant="field"], [data-variant="menu"]),
-    [data-slot="select-trigger"]:not([data-variant="ghost"])
+    [data-select-trigger]:not([data-variant="ghost"])
   ):not(:disabled, [aria-expanded="true"], [data-state="open"], :focus-visible):hover {
   background-color: var(--selector-hover);
 }
 html
   :is(
     [data-button]:is([data-variant="field"], [data-variant="menu"]),
-    [data-slot="select-trigger"]:not([data-variant="ghost"])
+    [data-select-trigger]:not([data-variant="ghost"])
   ):is([aria-expanded="true"], [data-state="open"]),
 html
   :is(
     [data-button]:is([data-variant="field"], [data-variant="menu"]),
-    [data-slot="select-trigger"]:not([data-variant="ghost"])
+    [data-select-trigger]:not([data-variant="ghost"])
   ):not(:disabled):active {
   background-color: var(--selector-active);
   box-shadow:
@@ -776,7 +776,7 @@ html
 html
   :is(
     [data-button]:is([data-variant="field"], [data-variant="menu"]),
-    [data-slot="select-trigger"]:not([data-variant="ghost"])
+    [data-select-trigger]:not([data-variant="ghost"])
   ):focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
@@ -784,7 +784,7 @@ html
 html
   :is(
     [data-button]:is([data-variant="field"], [data-variant="menu"]),
-    [data-slot="select-trigger"]:not([data-variant="ghost"])
+    [data-select-trigger]:not([data-variant="ghost"])
   )[aria-invalid="true"]:not(:disabled) {
   box-shadow:
     inset 0 0 0 1.5px var(--destructive),
@@ -794,7 +794,7 @@ html
 html
   :is(
     [data-button]:is([data-variant="field"], [data-variant="menu"]),
-    [data-slot="select-trigger"]:not([data-variant="ghost"])
+    [data-select-trigger]:not([data-variant="ghost"])
   ):disabled {
   background-color: var(--muted);
   color: var(--placeholder);
@@ -804,7 +804,7 @@ html
 html
   :is(
     [data-button]:is([data-variant="field"], [data-variant="menu"]),
-    [data-slot="select-trigger"]:not([data-variant="ghost"])
+    [data-select-trigger]:not([data-variant="ghost"])
   ):disabled
   :is(svg, [data-slot="trigger-chevron"], [data-placeholder]) {
   color: var(--placeholder);
@@ -826,7 +826,7 @@ html
   html
     :is(
       [data-button]:is([data-variant="field"], [data-variant="menu"]),
-      [data-slot="select-trigger"]:not([data-variant="ghost"])
+      [data-select-trigger]:not([data-variant="ghost"])
     )
     svg {
     transition: none;
