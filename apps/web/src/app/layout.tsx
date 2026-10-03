@@ -4,6 +4,7 @@ import { Geist, Geist_Mono, IBM_Plex_Sans_Arabic } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { AppProviders } from "@/providers/app-providers";
 import { siteConfig } from "@/config/site";
+import { TriggerTrialSwitch } from "@/theme/trigger-trial";
 
 /** IBM Plex Sans Arabic — Arabic-first typography (ADR-0020), since Arabic is the default locale. Falls back to Alexandria. */
 const bodyFont = IBM_Plex_Sans_Arabic({
@@ -56,6 +57,8 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body>
+        {/* Round 6 local dropdown-trigger trial — inert unless set locally. */}
+        <TriggerTrialSwitch />
         <AppProviders>{children}</AppProviders>
       </body>
     </html>
