@@ -9,7 +9,7 @@ import type { StoreOrderRow } from "@/services/store-orders-service";
 import { StatusBadge } from "@/components/business/status-badge";
 import { financialStatusLabelKey } from "./status";
 import { Archive, Eye, Pencil, UsersRound } from "lucide-react";
-import { RowActionsMenu } from "@/components/shared/data-table";
+import { RowActionsMenu, type RowAction } from "@/components/shared/data-table";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import {
@@ -64,59 +64,65 @@ function percent(value: number | null | undefined) {
   return `${formatAmount(value)}%`;
 }
 
+type Translate = (key: MessageKey) => string;
+
+/**
+ * The row's action menu entries - ONE list for the table's actions cell and
+ * the Grid card, so a permission or a new action can never differ by view.
+ */
+export function storeOrderRowActions(
+  order: StoreOrderRow,
+  { onView, onEdit, onArchive, onResolveDuplicate }: StoreOrderRowHandlers,
+  hasPermission: (permission: string) => boolean,
+  t: Translate,
+): RowAction[] {
+  return [
+    {
+      key: "view",
+      label: t("common.view"),
+      icon: Eye,
+      hidden: !hasPermission("store-orders.view"),
+      onSelect: () => onView(order),
+    },
+    {
+      key: "edit",
+      label: t("common.edit"),
+      icon: Pencil,
+      hidden: !onEdit || !hasPermission("store-orders.edit"),
+      onSelect: () => onEdit?.(order),
+    },
+    {
+      key: "duplicate-review",
+      label: t("orderDuplicates.review.action"),
+      icon: UsersRound,
+      hidden:
+        !onResolveDuplicate ||
+        order.duplicateReviewStatus !== "PENDING" ||
+        !hasPermission("store-orders.duplicate_review"),
+      onSelect: () => onResolveDuplicate?.(order),
+    },
+    {
+      key: "archive",
+      label: t("common.archive"),
+      icon: Archive,
+      hidden: !onArchive || !hasPermission("store-orders.archive"),
+      destructive: true,
+      separatorBefore: true,
+      onSelect: () => onArchive?.(order),
+    },
+  ];
+}
+
 function StoreOrderActionsCell({
   order,
-  onView,
-  onEdit,
-  onArchive,
-  onResolveDuplicate,
-}: {
-  order: StoreOrderRow;
-  onView: (row: StoreOrderRow) => void;
-  onEdit?: (row: StoreOrderRow) => void;
-  onArchive?: (row: StoreOrderRow) => void;
-  onResolveDuplicate?: (row: StoreOrderRow) => void;
-}) {
+  ...handlers
+}: { order: StoreOrderRow } & StoreOrderRowHandlers) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   return (
     <RowActionsMenu
       label={t("common.actions")}
-      actions={[
-        {
-          key: "view",
-          label: t("common.view"),
-          icon: Eye,
-          hidden: !hasPermission("store-orders.view"),
-          onSelect: () => onView(order),
-        },
-        {
-          key: "edit",
-          label: t("common.edit"),
-          icon: Pencil,
-          hidden: !onEdit || !hasPermission("store-orders.edit"),
-          onSelect: () => onEdit?.(order),
-        },
-        {
-          key: "duplicate-review",
-          label: t("orderDuplicates.review.action"),
-          icon: UsersRound,
-          hidden:
-            !onResolveDuplicate ||
-            order.duplicateReviewStatus !== "PENDING" ||
-            !hasPermission("store-orders.duplicate_review"),
-          onSelect: () => onResolveDuplicate?.(order),
-        },
-        {
-          key: "archive",
-          label: t("common.archive"),
-          icon: Archive,
-          hidden: !onArchive || !hasPermission("store-orders.archive"),
-          destructive: true,
-          separatorBefore: true,
-          onSelect: () => onArchive?.(order),
-        },
-      ]}
+      actions={storeOrderRowActions(order, handlers, hasPermission, t)}
     />
   );
 }

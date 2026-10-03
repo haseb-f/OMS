@@ -63,6 +63,7 @@ model User {
   leadAssignmentsActor LeadAssignment[] @relation("LeadAssignmentActor")
   leadNotes            LeadNote[]
   leadFollowUps        LeadFollowUp[]
+  leadViews            LeadView[]
 
   salesOrdersAsSalesEmployee      SalesOrder[]           @relation("SalesOrderSalesEmployee")
   salesOrdersAsShippingEmployee   SalesOrder[]           @relation("SalesOrderShippingEmployee")
@@ -1614,6 +1615,7 @@ model Lead {
   activities  LeadActivity[]
   notes       LeadNote[]
   followUps   LeadFollowUp[]
+  views       LeadView[]
   salesOrders SalesOrder[]
   payments    Payment[]
 
@@ -1690,6 +1692,22 @@ model LeadAssignment {
   @@index([leadId, assignedAt])
   @@index([assignedToId])
   @@map("lead_assignments")
+}
+
+/// Per-employee "I have opened this lead" marker (R7). READ STATE ONLY: it is
+/// not a workflow status, never changes Lead.status / firstOpenedAt / follow-up
+/// fields, and is written solely by `POST /leads/:id/viewed`. One row per
+/// (lead, user), upserted idempotently.
+model LeadView {
+  leadId   String   @map("lead_id") @db.Uuid
+  lead     Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId   String   @map("user_id") @db.Uuid
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  viewedAt DateTime @default(now()) @map("viewed_at")
+
+  @@id([leadId, userId])
+  @@index([userId])
+  @@map("lead_views")
 }
 
 /// Structured CRM follow-up — not a free-text LeadNote.

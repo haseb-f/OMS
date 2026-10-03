@@ -39,6 +39,8 @@ import { GlobalLookupDialog } from "@/components/store-orders/global-lookup-dial
 import { DuplicateReviewDialog } from "@/components/store-orders/duplicate-review-dialog";
 import { LegacyPhoneDuplicatesDialog } from "@/components/store-orders/legacy-phone-duplicates-dialog";
 import { buildStoreOrderDetailRegions } from "@/components/store-orders/store-order-expanded-detail";
+import { StoreOrderGridCard } from "@/components/store-orders/store-order-grid-card";
+import type { CompanyOrderPermissions } from "@/config/store-orders/order-list-next-action";
 import { StoreOrderMobileCard } from "@/components/store-orders/store-order-mobile-card";
 import {
   storeOrdersService,
@@ -55,6 +57,7 @@ import {
   storeOrderExportColumnList,
   storeOrderExportColumns,
   storeOrderPrintRow,
+  storeOrderRowActions,
 } from "@/config/store-orders/order-columns";
 import {
   PAYMENT_STATUS_LABEL_KEY,
@@ -248,16 +251,33 @@ function StoreOrdersPageContent() {
     [t],
   );
 
+  // One set of row handlers for the table's actions cell and the Grid card menu.
+  const rowHandlers = useMemo(
+    () => ({
+      onView: (row: StoreOrderRow) => router.push(`/store-orders/${row.id}`),
+      onEdit: (row: StoreOrderRow) => router.push(`/store-orders/${row.id}`),
+      onArchive: (row: StoreOrderRow) => setArchiveTarget(row),
+      onResolveDuplicate: (row: StoreOrderRow) => setReviewTarget(row),
+    }),
+    [router],
+  );
   const columns = useMemo(
-    () =>
-      buildStoreOrderColumns({
-        onView: (row) => router.push(`/store-orders/${row.id}`),
-        onEdit: (row) => router.push(`/store-orders/${row.id}`),
-        onArchive: (row) => setArchiveTarget(row),
-        onResolveDuplicate: (row) => setReviewTarget(row),
-        includeProfitability: canViewProfitability,
-      }),
-    [router, canViewProfitability],
+    () => buildStoreOrderColumns({ ...rowHandlers, includeProfitability: canViewProfitability }),
+    [rowHandlers, canViewProfitability],
+  );
+  // The Grid card's next step uses the same permissions as the detail header.
+  const canEditOrders = hasPermission("store-orders.edit");
+  const nextActionPermissions = useMemo<CompanyOrderPermissions>(
+    () => ({
+      reviewDuplicates: canReviewDuplicates,
+      confirmCustomerTotal: hasPermission("agents.edit"),
+      setAmounts: canEditOrders,
+      declarePayment: canEditOrders || hasPermission("sales.receipts.create"),
+      manageShipping: canEditOrders || hasPermission("shipping.edit"),
+      recordPickup: canEditOrders || hasPermission("shipping.edit"),
+      generateInvoice: hasPermission("store-orders.generate_invoice") || canEditOrders,
+    }),
+    [canReviewDuplicates, canEditOrders, hasPermission],
   );
 
   const selectedIds = Object.keys(rowSelection);
@@ -469,6 +489,16 @@ function StoreOrdersPageContent() {
         renderExpandedRegions={(row) =>
           buildStoreOrderDetailRegions(row, t, () => router.push(`/store-orders/${row.id}`))
         }
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <StoreOrderGridCard
+            order={row}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            href={`/store-orders/${row.id}`}
+            permissions={nextActionPermissions}
+            actions={storeOrderRowActions(row, rowHandlers, hasPermission, t)}
+          />
+        )}
         renderMobileRow={({ row, selected, onToggleSelected, expanded, onToggleExpanded }) => (
           <StoreOrderMobileCard
             order={row}

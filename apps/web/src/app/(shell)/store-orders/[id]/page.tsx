@@ -4,19 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Archive,
-  CheckCircle2,
   FileText,
   Image as ImageIcon,
-  PackageCheck,
   PenLine,
   Pencil,
   Printer,
   Receipt,
-  ShieldQuestion,
   Trash2,
   Truck,
   Wallet,
-  type LucideIcon,
 } from "lucide-react";
 import { PaymentDeclarationDialog } from "@/components/payments/declaration/payment-declaration-dialog";
 import {
@@ -96,6 +92,7 @@ import {
   shippingStatusName,
 } from "@/config/shipping/shipment-status";
 import { computeNextAction, type NextActionKind } from "@/config/store-orders/next-action";
+import { NEXT_ACTION_ICON } from "@/config/store-orders/next-action-icons";
 import {
   orderFulfillmentBadge,
   orderPaymentBadge,
@@ -120,20 +117,6 @@ const ACTIVITY_PREVIEW = 8;
 const sectionsKey = (userId: string | undefined) =>
   `oms.orderDetail.${userId ?? "anonymous"}.storeOrder.openSections`;
 type SectionKey = "payments" | "shipments" | "history" | "technical";
-
-const NEXT_ACTION_ICON: Partial<Record<NextActionKind, LucideIcon>> = {
-  RESOLVE_DUPLICATE: ShieldQuestion,
-  CONFIRM_CUSTOMER_TOTAL: CheckCircle2,
-  SET_AMOUNTS: Pencil,
-  REISSUE_LABEL: Truck,
-  DECLARE_PAYMENT: Wallet,
-  ASSIGN_SHIPPING: Truck,
-  MARK_HANDED_OVER: PackageCheck,
-  UPDATE_SHIPMENT: Truck,
-  MARK_READY_FOR_PICKUP: PackageCheck,
-  MARK_COLLECTED: PackageCheck,
-  GENERATE_INVOICE: FileText,
-};
 
 /** The shipment dialog's row; with no shipment yet, assigning the company creates attempt #1. */
 function toShipmentListRow(

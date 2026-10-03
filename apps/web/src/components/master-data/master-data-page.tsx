@@ -27,6 +27,7 @@ import {
   EnterpriseDataTable,
   exportRowsToCsv,
   exportColumnsFromKeys,
+  type MobileRowRenderArgs,
 } from "./enterprise-data-table";
 import {
   MasterDataForm,
@@ -132,6 +133,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   selectCustomCountCopy,
   hideCreateButton = false,
   getRowHref,
+  renderGridCard,
   isRowProtected,
   onRecordsChanged,
 }: {
@@ -202,6 +204,8 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   hideCreateButton?: boolean;
   /** Opt-in detail route for a row — only for an entity that has a real detail page (Customers, Suppliers, Leads); forwarded to the table, where it turns the `meta.identity` column into a link. */
   getRowHref?: (row: TEntity) => string | null | undefined;
+  /** Opt-in Table/Grid switch (R7): forwarded to the table, which draws each row with this card in Grid view. */
+  renderGridCard?: (args: MobileRowRenderArgs<TEntity>) => ReactNode;
   /**
    * Business-rule protection (e.g. the default shipping status) — hides
    * Archive only. Uses the existing RowActionsMenu; does not change menu geometry.
@@ -785,6 +789,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
           }
           onRefresh={load}
           getRowHref={getRowHref}
+          renderGridCard={renderGridCard}
           exportColumns={exportColumnsFromKeys(columns, exportColumnKeys, t)}
           onExport={(selectedKeys, labels) =>
             exportRowsToCsv(

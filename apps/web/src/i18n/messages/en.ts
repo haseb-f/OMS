@@ -12,6 +12,7 @@ import orderDuplicatesEn from "./modules/order-duplicates.en";
 import orderAmendmentsEn from "./modules/order-amendments.en";
 import shippingHandoffEn from "./modules/shipping-handoff.en";
 import leadOpsEn from "./modules/lead-ops.en";
+import tableViewsEn from "./modules/table-views.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
@@ -19,6 +20,7 @@ const en = {
   orderAmendments: orderAmendmentsEn,
   shippingHandoff: shippingHandoffEn,
   leadOps: leadOpsEn,
+  tableViews: tableViewsEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,

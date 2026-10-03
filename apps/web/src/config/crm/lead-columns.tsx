@@ -12,6 +12,8 @@ import type { LeadRow } from "@/services/leads-service";
 import type { MessageKey } from "@/i18n/translate";
 import { followUpOutcomeLabel } from "@/config/crm/follow-up-outcomes";
 import { FollowUpOutcomeBadge } from "@/components/crm/follow-up-outcome-badge";
+import { LeadNewToYouMarker } from "@/components/crm/lead-new-to-you";
+import { isNewToViewer } from "@/config/crm/lead-grid-state";
 
 /**
  * Initial ownership lifecycle (blue "New" vs. orange "Assigned") layered
@@ -92,7 +94,12 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
     accessorFn: (row) => row.customerName,
     cell: ({ row }) => (
       <StackedCell
-        primary={<LocaleText>{row.original.customerName}</LocaleText>}
+        primary={
+          <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
+            <LocaleText>{row.original.customerName}</LocaleText>
+            {isNewToViewer(row.original) ? <LeadNewToYouMarker compact /> : null}
+          </span>
+        }
         secondary={
           row.original.mobileNumber ? (
             <SemanticValue kind="phone">{row.original.mobileNumber}</SemanticValue>

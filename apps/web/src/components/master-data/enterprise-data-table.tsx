@@ -103,6 +103,13 @@ import {
 } from "@/components/shared/data-table";
 import { applySemanticCellContent } from "@/components/shared/data-table/semantic-cell";
 import { useColumnWidthPreference } from "@/components/shared/data-table/column-width-preferences";
+import {
+  useTableDensityPreference,
+  useTableViewPreference,
+} from "@/components/shared/data-table/table-preferences";
+import { EnterpriseTableDensityControl } from "@/components/shared/data-table/data-table-density-control";
+import { EnterpriseTableViewToggle } from "@/components/shared/data-table/data-table-view-toggle";
+import { EnterpriseTableSortMenu } from "@/components/shared/data-table/data-table-sort-menu";
 import { toPrintColumn } from "@/components/shared/data-table/print-columns";
 import { useCopyToClipboard } from "@/components/shared/use-copy-to-clipboard";
 import { COPY_REVEAL_CLASS, CopyButton } from "@/components/shared/copy-button";
@@ -284,6 +291,7 @@ export function EnterpriseDataTable<TData>({
   renderExpandedRegions,
   filterBar,
   renderMobileRow,
+  renderGridCard,
   getRowHref,
   identityOnlyNavigation,
   footerRow,
@@ -368,6 +376,14 @@ export function EnterpriseDataTable<TData>({
   /** Narrow-container list; table remains the desktop workspace. */
   renderMobileRow?: (args: MobileRowRenderArgs<TData>) => ReactNode;
   /**
+   * Opt-in Grid view (R7). When provided, the toolbar offers a Table/Grid
+   * switch (remembered per user, per table) and Grid forces the same card
+   * branch the narrow container uses — whatever the width — drawing each row
+   * with this renderer. Records, filters, sort, pagination and selection are
+   * the table's own, so switching views changes the presentation only.
+   */
+  renderGridCard?: (args: MobileRowRenderArgs<TData>) => ReactNode;
+  /**
    * Detail route for a row. Opt-in: tables for entities with no detail route
    * simply omit it. When present, the whole row navigates on click — the
    * column marked `meta.identity` additionally renders as a real `<a>`, so
@@ -439,10 +455,10 @@ export function EnterpriseDataTable<TData>({
     `oms.table.${tableId}.columnVisibility`,
     {},
   );
-  const [density, setDensity] = useLocalStorage<TableDensity>(
-    `oms.table.${tableId}.density`,
-    "compact",
-  );
+  // Density and the Table/Grid view are per-USER, per-table preferences (R7 A).
+  const [density, setDensity] = useTableDensityPreference(tableId, user?.id);
+  const [view, setView] = useTableViewPreference(tableId, user?.id);
+  const isGrid = Boolean(renderGridCard) && view === "grid";
   // Enterprise Data Grid (TASK-060B Part 3) — column width/order/pinning/
   // filters persisted per user per table, same `oms.table.${tableId}.*`
   // localStorage convention as the pre-existing visibility/density state.
@@ -1410,6 +1426,9 @@ export function EnterpriseDataTable<TData>({
     ? (table.getHeaderGroups()[0]?.headers.find((header) => header.column.id === "select") ?? null)
     : null;
   const hasRows = pageRows.length > 0;
+  // Grid draws every row with the grid renderer; otherwise the narrow-container
+  // card list uses the page's own mobile renderer (or the automatic card).
+  const cardRenderer = isGrid ? renderGridCard : renderMobileRow;
 
   // Column floors (per locale): each shown header's natural width, and for
   // identity columns the widest reference on this page. Natural widths do
@@ -1575,12 +1594,18 @@ export function EnterpriseDataTable<TData>({
                   />
                 </IconActionButton>
               )}
-              <EnterpriseTableViewOptions
-                table={table}
-                density={density}
-                onDensityChange={setDensity}
-                onResetColumnWidths={hasCustomColumnWidths ? resetColumnWidths : undefined}
-              />
+              {renderGridCard ? (
+                <EnterpriseTableViewToggle view={view} onViewChange={setView} />
+              ) : null}
+              {isGrid ? <EnterpriseTableSortMenu table={table} /> : null}
+              <EnterpriseTableDensityControl density={density} onDensityChange={setDensity} />
+              {/* Columns configure the table; the Grid has no columns to arrange. */}
+              {isGrid ? null : (
+                <EnterpriseTableViewOptions
+                  table={table}
+                  onResetColumnWidths={hasCustomColumnWidths ? resetColumnWidths : undefined}
+                />
+              )}
               {/* Print/import/export/reset are occasional: as labelled
                   buttons they outweighed the filters they sat beside. */}
               <RowActionsMenu label={t("table.options")} actions={tableOptions} />
@@ -1675,6 +1700,13 @@ export function EnterpriseDataTable<TData>({
               >
                 {t("table.clearSelection")}
               </EnterpriseButton>
+              {/* The strip overlays the toolbar, so the view switch is repeated
+                  here: changing view keeps the selection and must stay reachable. */}
+              {renderGridCard ? (
+                <div className="shrink-0">
+                  <EnterpriseTableViewToggle view={view} onViewChange={setView} />
+                </div>
+              ) : null}
             </div>
           ) : null}
         </ListToolbar>
@@ -1683,8 +1715,13 @@ export function EnterpriseDataTable<TData>({
             below lg (the page scrolls); in a viewport-fill workspace on lg+
             (a narrow container beside an open sidebar) it is the scroller. */}
         <div
+          data-table-view={isGrid ? "grid" : "cards"}
+          data-density={density}
           className={cn(
-            "@4xl/enterprise-table:hidden",
+            "group/record-grid",
+            // Grid forces this branch at every width; otherwise it is the
+            // narrow-container fallback of the table.
+            !isGrid && "@4xl/enterprise-table:hidden",
             viewportFill && "lg:min-h-0 lg:flex-1 lg:overflow-y-auto",
           )}
         >
@@ -1701,14 +1738,22 @@ export function EnterpriseDataTable<TData>({
           ) : !hasRows ? (
             <EmptyState icon={Inbox} {...emptyStateProps} />
           ) : (
-            <>
+            <div
+              className={cn(
+                isGrid &&
+                  "grid grid-cols-1 gap-2 p-2 @2xl/enterprise-table:grid-cols-2 @5xl/enterprise-table:grid-cols-3 @7xl/enterprise-table:grid-cols-4 group-data-[density=comfortable]/record-grid:gap-3 group-data-[density=comfortable]/record-grid:p-3",
+              )}
+            >
               {mobileSelectHeader ? (
                 // Phones get the same selection control as the table header:
                 // select this page, and the scope menu (all matching, first N,
                 // clear) — the header row itself is not rendered for cards.
                 <div
                   data-mobile-selection-bar=""
-                  className="flex min-h-(--control-height-sm) items-center gap-2 border-b border-border px-3 py-1.5"
+                  className={cn(
+                    "flex min-h-(--control-height-sm) items-center gap-2 border-b border-border px-3 py-1.5",
+                    isGrid && "col-span-full rounded-md border bg-card",
+                  )}
                 >
                   {flexRender(
                     mobileSelectHeader.column.columnDef.header,
@@ -1720,9 +1765,9 @@ export function EnterpriseDataTable<TData>({
                 </div>
               ) : null}
               {pageRows.map((row) =>
-                renderMobileRow ? (
-                  <div key={row.id} data-mobile-row="">
-                    {renderMobileRow({
+                cardRenderer ? (
+                  <div key={row.id} data-mobile-row="" data-grid-card={isGrid ? "" : undefined}>
+                    {cardRenderer({
                       row: row.original,
                       selected: row.getIsSelected(),
                       onToggleSelected: () => row.toggleSelected(),
@@ -1838,7 +1883,7 @@ export function EnterpriseDataTable<TData>({
                   })()
                 ),
               )}
-            </>
+            </div>
           )}
         </div>
 
@@ -1852,7 +1897,8 @@ export function EnterpriseDataTable<TData>({
         <OverflowTooltipRegion
           scanKey={overflowScanKey}
           className={cn(
-            "hidden min-w-0 overflow-x-auto @4xl/enterprise-table:block",
+            "hidden min-w-0 overflow-x-auto",
+            !isGrid && "@4xl/enterprise-table:block",
             viewportFill && "lg:min-h-0 lg:flex-1 lg:overflow-y-auto",
           )}
         >

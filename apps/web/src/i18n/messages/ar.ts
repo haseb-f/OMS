@@ -12,6 +12,7 @@ import orderDuplicatesAr from "./modules/order-duplicates.ar";
 import orderAmendmentsAr from "./modules/order-amendments.ar";
 import shippingHandoffAr from "./modules/shipping-handoff.ar";
 import leadOpsAr from "./modules/lead-ops.ar";
+import tableViewsAr from "./modules/table-views.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
@@ -19,6 +20,7 @@ const ar = {
   orderAmendments: orderAmendmentsAr,
   shippingHandoff: shippingHandoffAr,
   leadOps: leadOpsAr,
+  tableViews: tableViewsAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,

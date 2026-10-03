@@ -26,6 +26,7 @@ import {
 import { buildLeadSchema, leadDefaultValues } from "@/config/crm/lead-form";
 import { useLocale } from "@/providers/locale-provider";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { LeadGridCard } from "@/components/crm/lead-grid-card";
 import { LeadCloseWithoutPurchaseDialog } from "@/components/crm/lead-close-dialog";
 import { AssignLeadDialog } from "@/components/business/assign-lead-dialog";
 import { LeadOrderCreateDialog } from "@/components/business/lead-order-create-dialog";
@@ -207,6 +208,44 @@ function CrmLeadsPageContent() {
   );
 
   const leadSchema = useMemo(() => buildLeadSchema(countries, t), [countries, t]);
+
+  // One action set for the table row menu and the Grid card menu.
+  const leadRowActions = (entity: LeadRow): RowAction[] => [
+    {
+      key: "view",
+      label: t("common.view"),
+      icon: Eye,
+      hidden: !hasPermission("crm.leads.view"),
+      onSelect: () => router.push(`/crm/leads/${entity.id}`),
+    },
+    {
+      key: "assign",
+      label: t("crm.leads.assign"),
+      icon: UserPlus,
+      hidden: !canAssign,
+      onSelect: () => setAssigningLead(entity),
+    },
+    {
+      key: "close-without-purchase",
+      label: t("crm.leads.actions.closeWithoutPurchase"),
+      icon: Archive,
+      // Matches the Lead Detail page's own gate exactly — same
+      // permission (crm.leads.edit) the backend route requires, same
+      // terminal-status set. This row action used to be a generic
+      // "Archive" wired to the legacy POST :id/archive endpoint
+      // (crm.leads.archive, a different permission than the backend
+      // actually checked) with no NoPurchaseReason — closing a Lead
+      // now only ever happens through this one reason-driven dialog.
+      hidden:
+        !hasPermission("crm.leads.edit") ||
+        entity.status?.code === "LOST" ||
+        entity.status?.code === "DISQUALIFIED" ||
+        entity.status?.code === "CONVERTED",
+      destructive: true,
+      separatorBefore: true,
+      onSelect: () => setCloseTarget(entity),
+    },
+  ];
 
   return (
     <>
@@ -414,42 +453,17 @@ function CrmLeadsPageContent() {
           icon: Plus,
           onSelect: () => setCreateDialogOpen(true),
         }}
-        extraRowActions={(entity): RowAction[] => [
-          {
-            key: "view",
-            label: t("common.view"),
-            icon: Eye,
-            hidden: !hasPermission("crm.leads.view"),
-            onSelect: () => router.push(`/crm/leads/${entity.id}`),
-          },
-          {
-            key: "assign",
-            label: t("crm.leads.assign"),
-            icon: UserPlus,
-            hidden: !canAssign,
-            onSelect: () => setAssigningLead(entity),
-          },
-          {
-            key: "close-without-purchase",
-            label: t("crm.leads.actions.closeWithoutPurchase"),
-            icon: Archive,
-            // Matches the Lead Detail page's own gate exactly — same
-            // permission (crm.leads.edit) the backend route requires, same
-            // terminal-status set. This row action used to be a generic
-            // "Archive" wired to the legacy POST :id/archive endpoint
-            // (crm.leads.archive, a different permission than the backend
-            // actually checked) with no NoPurchaseReason — closing a Lead
-            // now only ever happens through this one reason-driven dialog.
-            hidden:
-              !hasPermission("crm.leads.edit") ||
-              entity.status?.code === "LOST" ||
-              entity.status?.code === "DISQUALIFIED" ||
-              entity.status?.code === "CONVERTED",
-            destructive: true,
-            separatorBefore: true,
-            onSelect: () => setCloseTarget(entity),
-          },
-        ]}
+        extraRowActions={leadRowActions}
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <LeadGridCard
+            lead={row}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            href={`/crm/leads/${row.id}`}
+            canAssign={canAssign}
+            actions={leadRowActions(row)}
+          />
+        )}
       />
       <LeadDistributionDialog
         open={distributionDialogOpen}
