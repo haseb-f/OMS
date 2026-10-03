@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { History, Play, Settings2 } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
@@ -9,7 +9,6 @@ import {
   EnterpriseCardHeader,
   EnterpriseCardTitle,
 } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
@@ -37,6 +36,8 @@ import {
   type FxSyncStatus,
 } from "@/services/fx-service";
 import { FX_RUN_TONE, fxDayLabel } from "./fx-format";
+import { FxStatusPanel, useNowTick } from "./fx-status-panel";
+import { cooldownSeconds, formatCountdown, serverOffsetMs } from "./fx-sync-state";
 
 const BASES: FxRateBasis[] = ["MID", "BUY", "SELL"];
 
@@ -56,16 +57,22 @@ function KeyValue({ label, children }: { label: string; children: React.ReactNod
  */
 export function FxAutoImportCard({
   status,
+  statusReceivedAt,
   runs,
   baseCode,
   canManage,
   onChanged,
+  onPoll,
 }: {
   status: FxSyncStatus | null;
+  /** Browser time (ms) at which `status` was received — anchors the server-clock offset. */
+  statusReceivedAt: number;
   runs: FxSyncRunRow[];
   baseCode: string;
   canManage: boolean;
   onChanged: () => Promise<void> | void;
+  /** Lightweight status + runs refresh used while a run is in progress. */
+  onPoll: () => Promise<void> | void;
 }) {
   const { t } = useLocale();
   const [busy, setBusy] = useState<"toggle" | "run" | "backfill" | "save" | null>(null);
@@ -78,7 +85,30 @@ export function FxAutoImportCard({
   }>({ rateBasis: "MID", maxStaleDays: "10", staleAlertDays: "4" });
 
   const settings = status?.settings;
-  const lastRun = status?.lastRun ?? null;
+
+  // Live state: poll while the server reports a RUNNING row or our own request is in flight.
+  const live = Boolean(status?.running) || busy === "run" || busy === "backfill";
+  const pollRef = useRef(onPoll);
+  useEffect(() => {
+    pollRef.current = onPoll;
+  });
+  useEffect(() => {
+    if (!live) return;
+    const timer = window.setInterval(() => void pollRef.current(), 3000);
+    return () => window.clearInterval(timer);
+  }, [live]);
+
+  // Run now: explicit button — disabled while running, in cooldown, or busy.
+  const cooldownActive = Boolean(status?.cooldownEndsAt);
+  const now = useNowTick(cooldownActive);
+  const waitSeconds = status
+    ? cooldownSeconds(status, now, serverOffsetMs(status, statusReceivedAt))
+    : 0;
+  const runBlockedReason = status?.running
+    ? t("fxSettings.state.runNow.running")
+    : waitSeconds > 0
+      ? t("fxSettings.state.runNow.cooldown", { time: formatCountdown(waitSeconds) })
+      : null;
 
   const reportRun = (run: FxSyncRunRow) => {
     if (run.status === "SUCCESS") {
@@ -99,7 +129,7 @@ export function FxAutoImportCard({
 
   const reasonLabel = (run: FxSyncRunRow) => {
     const reason = run.details?.reason;
-    return reason === "DISABLED" || reason === "ALREADY_RUNNING"
+    return reason === "DISABLED" || reason === "ALREADY_RUNNING" || reason === "ALREADY_CURRENT"
       ? t(`fxSettings.runReason.${reason}`)
       : (reason ?? "—");
   };
@@ -118,6 +148,7 @@ export function FxAutoImportCard({
   };
 
   const run = async (kind: "run" | "backfill") => {
+    if (runBlockedReason) return;
     setBusy(kind);
     try {
       const result =
@@ -238,7 +269,7 @@ export function FxAutoImportCard({
   ];
 
   return (
-    <EnterpriseCard className="gap-0 py-3" data-testid="fx-auto-import">
+    <EnterpriseCard className="gap-0 self-start py-3" data-testid="fx-auto-import">
       <EnterpriseCardHeader className="flex flex-wrap items-start justify-between gap-2 px-4 pb-2">
         <div className="min-w-0">
           <EnterpriseCardTitle>{t("fxSettings.autoImport.title")}</EnterpriseCardTitle>
@@ -264,31 +295,33 @@ export function FxAutoImportCard({
               variant="outline"
               onClick={() => void run("run")}
               isLoading={busy === "run"}
-              disabled={busy !== null}
+              disabled={busy !== null || runBlockedReason !== null}
+              title={runBlockedReason ?? undefined}
+              data-testid="fx-run-now"
             >
               <Play />
               {t("fxSettings.autoImport.runNow")}
             </EnterpriseButton>
           </div>
         ) : null}
+        {canManage && runBlockedReason ? (
+          <p
+            className="basis-full text-end text-caption text-muted-foreground"
+            data-testid="fx-run-blocked"
+          >
+            {runBlockedReason}
+          </p>
+        ) : null}
       </EnterpriseCardHeader>
       <EnterpriseCardContent className="flex flex-col gap-3 px-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <KeyValue label={t("fxSettings.autoImport.enabled")}>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={settings?.enabled ?? false}
-                disabled={!canManage || !settings || busy !== null}
-                onCheckedChange={(checked) => void toggle(checked)}
-                aria-label={t("fxSettings.autoImport.enabled")}
-              />
-              <span className="text-caption">
-                {settings?.enabled
-                  ? t("fxSettings.autoImport.enabledOn")
-                  : t("fxSettings.autoImport.enabledOff")}
-              </span>
-            </div>
-          </KeyValue>
+        <FxStatusPanel
+          status={status}
+          receivedAtMs={statusReceivedAt}
+          canManage={canManage}
+          toggleBusy={busy !== null}
+          onToggle={(checked) => void toggle(checked)}
+        />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <KeyValue label={t("fxSettings.autoImport.sourceLabel")}>
             {t("fxSettings.autoImport.sourceValue")}
           </KeyValue>
@@ -299,46 +332,6 @@ export function FxAutoImportCard({
             {settings ? (
               <span title={t("fxSettings.autoImport.maxStaleDaysHint")}>
                 {settings.maxStaleDays}
-              </span>
-            ) : (
-              "—"
-            )}
-          </KeyValue>
-          <KeyValue label={t("fxSettings.autoImport.lastRun")}>
-            {lastRun ? (
-              <div className="flex flex-col gap-0.5">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <StatusBadge
-                    label={t(`fxSettings.runStatus.${lastRun.status}`)}
-                    tone={FX_RUN_TONE[lastRun.status]}
-                  />
-                  <span className="text-caption text-muted-foreground">
-                    <span className="num">{formatDateTime(lastRun.startedAt)}</span>
-                  </span>
-                </div>
-                {lastRun.status === "FAILED" && lastRun.error ? (
-                  <span className="break-words text-caption text-destructive">{lastRun.error}</span>
-                ) : lastRun.effectiveDate ? (
-                  <span className="text-caption text-muted-foreground">
-                    {t("fxSettings.autoImport.ratesFor", {
-                      date: fxDayLabel(t, lastRun.effectiveDate),
-                    })}
-                  </span>
-                ) : null}
-              </div>
-            ) : (
-              t("fxSettings.autoImport.never")
-            )}
-          </KeyValue>
-          <KeyValue label={t("fxSettings.autoImport.newestRate")}>
-            {status?.newestEffectiveDate
-              ? fxDayLabel(t, status.newestEffectiveDate)
-              : t("fxSettings.autoImport.none")}
-          </KeyValue>
-          <KeyValue label={t("fxSettings.autoImport.nextRuns")}>
-            {status?.nextRuns.length ? (
-              <span className="num">
-                {status.nextRuns.map((at) => formatDateTime(at)).join(" · ")}
               </span>
             ) : (
               "—"

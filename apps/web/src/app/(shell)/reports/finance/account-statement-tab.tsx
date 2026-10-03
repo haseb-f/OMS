@@ -14,6 +14,7 @@ import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { createMasterDataService } from "@/services/master-data-service";
 import { useLocale } from "@/providers/locale-provider";
 import { reportApiError } from "@/lib/toast";
+import { formatAmount } from "@/lib/money";
 import {
   LEDGER_COLUMNS,
   buildLedgerBlock,
@@ -109,9 +110,17 @@ export function AccountStatementTab() {
         : [],
     [statement],
   );
-  const lines = useMemo(() => blocks.map((block) => buildLedgerBlock(block, t)), [blocks, t]);
+  const native = statement?.native ?? null;
+  const lines = useMemo(
+    () =>
+      blocks.map((block) => buildLedgerBlock(block, t, { nativeCurrency: native?.currencyCode })),
+    [blocks, t, native?.currencyCode],
+  );
   const movementIndex = useMemo(() => indexLedgerMovements(blocks), [blocks]);
-  const textColumns = useMemo(() => ledgerTextColumns(movementIndex), [movementIndex]);
+  const textColumns = useMemo(
+    () => ledgerTextColumns(movementIndex, { showNative: Boolean(native) }),
+    [movementIndex, native],
+  );
 
   return (
     <FinancialReport
@@ -144,11 +153,38 @@ export function AccountStatementTab() {
       summary={
         statement
           ? {
-              items: ledgerSummaryItems(
-                t,
-                statement,
-                normalSideOfAccountType(statement.account.accountType),
-              ),
+              items: [
+                ...ledgerSummaryItems(
+                  t,
+                  statement,
+                  normalSideOfAccountType(statement.account.accountType),
+                ),
+                ...(native
+                  ? [
+                      {
+                        id: "nativeOpening",
+                        label: t("fxSettings.native.opening", { currency: native.currencyCode }),
+                        value: native.openingBalance,
+                        currency: native.currencyCode,
+                      },
+                      {
+                        id: "nativeClosing",
+                        label: t("fxSettings.native.closing", { currency: native.currencyCode }),
+                        value: native.closingBalance,
+                        currency: native.currencyCode,
+                        emphasize: true,
+                        hint: native.complete
+                          ? t("fxSettings.native.completeHint")
+                          : t("fxSettings.native.incompleteHint", {
+                              count: native.unprovenLineCount,
+                              amount: formatAmount(native.unprovenFunctionalAmount, {
+                                currency: native.functionalCurrencyCode,
+                              }),
+                            }),
+                      },
+                    ]
+                  : []),
+              ],
             }
           : undefined
       }

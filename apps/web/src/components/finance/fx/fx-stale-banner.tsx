@@ -19,6 +19,11 @@ export function FxStaleBanner({ status }: { status: FxSyncStatus | null }) {
               days: status.newestAgeDays ?? 0,
             })
           : t("fxSettings.staleBanner.none")}
+        {status.lastRun?.status === "FAILED" && status.lastRun.error ? (
+          <span className="mt-1 block break-words">
+            {t("fxSettings.staleBanner.lastFailed", { error: status.lastRun.error })}
+          </span>
+        ) : null}
       </AlertDescription>
     </Alert>
   );

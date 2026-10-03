@@ -96,14 +96,27 @@ export interface FxSyncRunRow {
   insertedCount: number;
   skippedCount: number;
   error: string | null;
-  details: { reason?: string; warnings?: string[] } | null;
+  details: { reason?: string; slot?: string; warnings?: string[] } | null;
 }
+
+/** Cron slot: `primary` = daily import, `late` = evening catch-up (fetches only if today's rate is missing). */
+export type FxCronSlot = "primary" | "late";
+export type FxRateFreshness = "NONE" | "FRESH" | "AGING" | "STALE";
 
 export interface FxSyncStatus {
   settings: FxSyncSettings;
   provider: string;
   scheduleUtcHours: number[];
   nextRuns: string[];
+  /** Next cron fire with its slot (also while paused — the scheduler then records a SKIPPED row). */
+  nextRun: { at: string; slot: FxCronSlot } | null;
+  /** The live RUNNING row, if any (a dead one is never reported). */
+  running: { id: string; trigger: string; startedAt: string } | null;
+  /** Run now / repair are refused until this instant; null when allowed. */
+  cooldownEndsAt: string | null;
+  /** Server clock, so countdowns do not trust the browser clock. */
+  serverNow: string;
+  freshness: FxRateFreshness;
   lastRun: FxSyncRunRow | null;
   lastSuccess: FxSyncRunRow | null;
   newestEffectiveDate: string | null;

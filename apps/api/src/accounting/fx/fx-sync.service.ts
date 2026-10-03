@@ -28,8 +28,26 @@ import {
 } from './providers/fx-provider.types';
 import type { UpdateFxSyncSettingsDto } from './dto/fx.dto';
 
-/** Vercel cron times (UTC) — keep in sync with vercel.json `crons`. */
-export const FX_SYNC_SCHEDULE_UTC_HOURS = [14, 20];
+/**
+ * Vercel cron fire times (UTC) — keep in sync with vercel.json `crons`:
+ *  - `primary` (/api/cron/fx-rates, 14:00): the daily import;
+ *  - `late`    (/api/cron/fx-rates?slot=late, 20:00): a catch-up that only
+ *    fetches when today's (Cairo) rate is still missing — i.e. the primary run
+ *    failed or CBE published late — and otherwise records a SKIPPED
+ *    ALREADY_CURRENT row (the row still proves the scheduler fired).
+ */
+export const FX_CRON_SLOTS = ['primary', 'late'] as const;
+export type FxCronSlot = (typeof FX_CRON_SLOTS)[number];
+export const FX_SYNC_SCHEDULE: ReadonlyArray<{
+  hourUtc: number;
+  slot: FxCronSlot;
+}> = [
+  { hourUtc: 14, slot: 'primary' },
+  { hourUtc: 20, slot: 'late' },
+];
+export const FX_SYNC_SCHEDULE_UTC_HOURS = FX_SYNC_SCHEDULE.map(
+  (entry) => entry.hourUtc,
+);
 /**
  * A RUNNING run older than this is considered dead and no longer blocks:
  * the serverless function is killed at 60 s, so 2 minutes is conclusive.
@@ -87,9 +105,13 @@ export class FxSyncService {
     @Inject(FX_RATE_PROVIDER) private readonly provider: FxRateProvider,
   ) {}
 
-  /** Cron entry point — respects `enabled` (disabled ⇒ a SKIPPED run is recorded). */
-  runScheduled(): Promise<FxSyncRun> {
-    return this.run('CRON');
+  /**
+   * Cron entry point — respects `enabled` (disabled ⇒ a SKIPPED run is
+   * recorded). The `late` slot is a catch-up: when today's Cairo rate is
+   * already stored it records SKIPPED/ALREADY_CURRENT without calling CBE.
+   */
+  runScheduled(slot: FxCronSlot = 'primary'): Promise<FxSyncRun> {
+    return this.run('CRON', undefined, undefined, slot);
   }
 
   /** "Run now" from the settings page — an explicit user action, runs even when auto-import is disabled. */
@@ -113,7 +135,8 @@ export class FxSyncService {
    * (429) while another non-skipped run started less than
    * MANUAL_RUN_COOLDOWN_MS ago. The cron is never limited.
    */
-  async assertCooldown(now: Date = new Date()): Promise<void> {
+  /** When the user-run cooldown ends, or null when none is active. */
+  private async cooldownEndsAt(now: Date): Promise<Date | null> {
     const recent = await this.prisma.fxSyncRun.findFirst({
       where: {
         status: { not: FxSyncRunStatus.SKIPPED },
@@ -122,11 +145,15 @@ export class FxSyncService {
       orderBy: { startedAt: 'desc' },
       select: { startedAt: true },
     });
-    if (recent) {
-      const wait = Math.ceil(
-        (recent.startedAt.getTime() + MANUAL_RUN_COOLDOWN_MS - now.getTime()) /
-          1000,
-      );
+    return recent
+      ? new Date(recent.startedAt.getTime() + MANUAL_RUN_COOLDOWN_MS)
+      : null;
+  }
+
+  async assertCooldown(now: Date = new Date()): Promise<void> {
+    const endsAt = await this.cooldownEndsAt(now);
+    if (endsAt) {
+      const wait = Math.ceil((endsAt.getTime() - now.getTime()) / 1000);
       throw new HttpException(
         `An FX import ran moments ago — wait ${Math.max(wait, 1)} s before running it again (the official source is only published once per business day).`,
         HttpStatus.TOO_MANY_REQUESTS,
@@ -138,21 +165,22 @@ export class FxSyncService {
     trigger: FxSyncTrigger,
     userId?: string,
     backfillDays?: number,
+    slot?: FxCronSlot,
   ): Promise<FxSyncRun> {
     const settings = await this.exchangeRates.getFxSettings();
     if (trigger === 'CRON' && !settings.enabled) {
-      return this.prisma.fxSyncRun.create({
-        data: {
-          provider: this.provider.name,
-          trigger,
-          status: FxSyncRunStatus.SKIPPED,
-          finishedAt: new Date(),
-          details: { reason: 'DISABLED' },
-        },
-      });
+      return this.recordSkipped(trigger, 'DISABLED', slot);
+    }
+    if (trigger === 'CRON' && slot === 'late') {
+      const newest = await this.newestOfficialDate();
+      if (newest && daysBetween(newest, cairoToday()) <= 0) {
+        return this.recordSkipped(trigger, 'ALREADY_CURRENT', slot, {
+          newestEffectiveDate: isoDay(newest),
+        });
+      }
     }
 
-    const run = await this.acquire(trigger, userId);
+    const run = await this.acquire(trigger, userId, slot);
     if (run.status !== FxSyncRunStatus.RUNNING) return run;
 
     try {
@@ -225,8 +253,39 @@ export class FxSyncService {
     });
   }
 
+  private recordSkipped(
+    trigger: FxSyncTrigger,
+    reason: 'DISABLED' | 'ALREADY_CURRENT',
+    slot?: FxCronSlot,
+    extra: Prisma.InputJsonObject = {},
+  ): Promise<FxSyncRun> {
+    return this.prisma.fxSyncRun.create({
+      data: {
+        provider: this.provider.name,
+        trigger,
+        status: FxSyncRunStatus.SKIPPED,
+        finishedAt: new Date(),
+        details: { reason, ...(slot ? { slot } : {}), ...extra },
+      },
+    });
+  }
+
+  /** Newest official (provider) rate date on record. */
+  private async newestOfficialDate(): Promise<Date | null> {
+    const newest = await this.prisma.exchangeRate.findFirst({
+      where: { source: this.provider.name },
+      orderBy: { effectiveDate: 'desc' },
+      select: { effectiveDate: true },
+    });
+    return newest?.effectiveDate ?? null;
+  }
+
   /** Per-run lock: RUNNING row created under a transaction-scoped advisory lock. */
-  private acquire(trigger: FxSyncTrigger, userId?: string): Promise<FxSyncRun> {
+  private acquire(
+    trigger: FxSyncTrigger,
+    userId?: string,
+    slot?: FxCronSlot,
+  ): Promise<FxSyncRun> {
     return this.prisma.$transaction(async (tx) => {
       await tx.$executeRawUnsafe(
         `SELECT pg_advisory_xact_lock(${FX_SYNC_LOCK_KEY})`,
@@ -255,7 +314,11 @@ export class FxSyncService {
             status: FxSyncRunStatus.SKIPPED,
             finishedAt: now,
             createdBy: userId ?? null,
-            details: { reason: 'ALREADY_RUNNING', runningRunId: running.id },
+            details: {
+              reason: 'ALREADY_RUNNING',
+              runningRunId: running.id,
+              ...(slot ? { slot } : {}),
+            },
           },
         });
       }
@@ -265,6 +328,7 @@ export class FxSyncService {
           trigger,
           status: FxSyncRunStatus.RUNNING,
           createdBy: userId ?? null,
+          ...(slot ? { details: { slot } } : {}),
         },
       });
     });
@@ -452,20 +516,31 @@ export class FxSyncService {
 
   async status(now: Date = new Date()) {
     const settings = await this.exchangeRates.getFxSettings();
-    const [lastRun, lastSuccess, newest] = await Promise.all([
-      this.prisma.fxSyncRun.findFirst({ orderBy: { startedAt: 'desc' } }),
-      this.prisma.fxSyncRun.findFirst({
-        where: {
-          status: { in: [FxSyncRunStatus.SUCCESS, FxSyncRunStatus.PARTIAL] },
-        },
-        orderBy: { startedAt: 'desc' },
-      }),
-      this.prisma.exchangeRate.findFirst({
-        where: { source: this.provider.name },
-        orderBy: { effectiveDate: 'desc' },
-        select: { effectiveDate: true },
-      }),
-    ]);
+    const [lastRun, lastSuccess, newest, running, cooldownEndsAt] =
+      await Promise.all([
+        this.prisma.fxSyncRun.findFirst({ orderBy: { startedAt: 'desc' } }),
+        this.prisma.fxSyncRun.findFirst({
+          where: {
+            status: { in: [FxSyncRunStatus.SUCCESS, FxSyncRunStatus.PARTIAL] },
+          },
+          orderBy: { startedAt: 'desc' },
+        }),
+        this.prisma.exchangeRate.findFirst({
+          where: { source: this.provider.name },
+          orderBy: { effectiveDate: 'desc' },
+          select: { effectiveDate: true },
+        }),
+        // A RUNNING row older than RUN_TIMEOUT_MS is dead (see `acquire`) — never shown as live.
+        this.prisma.fxSyncRun.findFirst({
+          where: {
+            status: FxSyncRunStatus.RUNNING,
+            startedAt: { gt: new Date(now.getTime() - RUN_TIMEOUT_MS) },
+          },
+          orderBy: { startedAt: 'desc' },
+          select: { id: true, trigger: true, startedAt: true },
+        }),
+        this.cooldownEndsAt(now),
+      ]);
     const today = cairoToday(now);
     const newestAgeDays = newest
       ? daysBetween(newest.effectiveDate, today)
@@ -475,6 +550,21 @@ export class FxSyncService {
       provider: this.provider.name,
       scheduleUtcHours: FX_SYNC_SCHEDULE_UTC_HOURS,
       nextRuns: nextScheduledRuns(now).map((d) => d.toISOString()),
+      /** Next cron fire with its slot (the scheduler records a SKIPPED row while disabled). */
+      nextRun: nextScheduledSlots(now, 1)[0] ?? null,
+      /** Live state — the RUNNING row, if one is active. */
+      running: running
+        ? {
+            id: running.id,
+            trigger: running.trigger,
+            startedAt: running.startedAt.toISOString(),
+          }
+        : null,
+      /** Run-now / backfill are refused until this instant (null = allowed). */
+      cooldownEndsAt: cooldownEndsAt ? cooldownEndsAt.toISOString() : null,
+      /** Server clock, so the browser can count down without trusting its own. */
+      serverNow: now.toISOString(),
+      freshness: rateFreshness(newestAgeDays, settings.staleAlertDays),
       lastRun,
       lastSuccess,
       newestEffectiveDate: newest ? isoDay(newest.effectiveDate) : null,
@@ -542,19 +632,48 @@ export function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
   return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
 }
 
-/** The next two cron fire times after `now`. */
-export function nextScheduledRuns(now: Date, count = 2): Date[] {
-  const result: Date[] = [];
+/** The next cron fire times after `now`, each with its slot. */
+export function nextScheduledSlots(
+  now: Date,
+  count = 2,
+): Array<{ at: string; slot: FxCronSlot }> {
+  const result: Array<{ at: string; slot: FxCronSlot }> = [];
   const base = Date.UTC(
     now.getUTCFullYear(),
     now.getUTCMonth(),
     now.getUTCDate(),
   );
   for (let day = 0; result.length < count && day < 3; day += 1) {
-    for (const hour of FX_SYNC_SCHEDULE_UTC_HOURS) {
-      const at = new Date(base + day * 86_400_000 + hour * 3_600_000);
-      if (at > now && result.length < count) result.push(at);
+    for (const { hourUtc, slot } of FX_SYNC_SCHEDULE) {
+      const at = new Date(base + day * 86_400_000 + hourUtc * 3_600_000);
+      if (at > now && result.length < count) {
+        result.push({ at: at.toISOString(), slot });
+      }
     }
   }
   return result;
+}
+
+/** The next two cron fire times after `now`. */
+export function nextScheduledRuns(now: Date, count = 2): Date[] {
+  return nextScheduledSlots(now, count).map((entry) => new Date(entry.at));
+}
+
+export type RateFreshness = 'NONE' | 'FRESH' | 'AGING' | 'STALE';
+
+/**
+ * Freshness of the newest official rate, independent of whether auto-import
+ * is switched on: STALE beyond `staleAlertDays`; AGING once older than half
+ * of it (rounded down, at least 1 day — a Thursday rate on a Saturday is
+ * still fresh); FRESH otherwise.
+ */
+export function rateFreshness(
+  ageDays: number | null,
+  staleAlertDays: number,
+): RateFreshness {
+  if (ageDays === null) return 'NONE';
+  if (ageDays > staleAlertDays) return 'STALE';
+  return ageDays > Math.max(1, Math.floor(staleAlertDays / 2))
+    ? 'AGING'
+    : 'FRESH';
 }

@@ -20,6 +20,7 @@ import type { AccountLedgerMovement } from "@/services/accounting-reports-servic
 import type { TraceKind } from "@/services/traceability-service";
 import type { MessageKey } from "@/i18n/translate";
 import { formatBusinessDate } from "@/components/accounting/financial-report/business-date";
+import { formatAmount } from "@/lib/money";
 
 /**
  * The ONE builder for ledger-style report rows — General Ledger, Account
@@ -101,11 +102,34 @@ function sourceText(t: Translate, movement: AccountLedgerMovement): string {
   return movement.referenceNumber ? `${kind} ${movement.referenceNumber}` : kind;
 }
 
+/**
+ * "1,000.00 SAR @ 0.25" — the native-currency amount of a foreign-currency
+ * account's line with the frozen rate it was derived at, or an honest "not
+ * provable" when the line is not in the account's currency / has no rate.
+ */
+export function nativeCellText(
+  movement: AccountLedgerMovement,
+  currencyCode: string,
+  t: Translate,
+): string {
+  const native = movement.native;
+  if (!native) return "";
+  if (native.status !== "PROVEN" || native.debit === null || native.credit === null) {
+    return t(
+      native.status === "NO_RATE_RECORDED"
+        ? "fxSettings.native.noRate"
+        : "fxSettings.native.differs",
+    );
+  }
+  const amount = formatAmount(native.debit - native.credit, { currency: currencyCode });
+  return native.rate !== null ? `${amount} @ ${native.rate}` : amount;
+}
+
 /** A ledger block: expandable group (period debit/credit, closing) over opening / movements / closing rows. */
 export function buildLedgerBlock(
   block: LedgerBlockInput,
   t: Translate,
-  { showAccount = false }: { showAccount?: boolean } = {},
+  { showAccount = false, nativeCurrency }: { showAccount?: boolean; nativeCurrency?: string } = {},
 ): FinancialReportLine {
   const children: FinancialReportLine[] = [
     {
@@ -141,6 +165,7 @@ export function buildLedgerBlock(
         entry: movement.entryNumber,
         source: sourceText(t, movement),
         partner: movement.partner?.name ?? "",
+        ...(nativeCurrency ? { native: nativeCellText(movement, nativeCurrency, t) } : {}),
       },
       children: [],
     })),
@@ -198,7 +223,7 @@ function StopRowClick({ children }: { children: ReactNode }) {
  */
 export function ledgerTextColumns(
   movements: Map<string, AccountLedgerMovement>,
-  { showPartner = true }: { showPartner?: boolean } = {},
+  { showPartner = true, showNative = false }: { showPartner?: boolean; showNative?: boolean } = {},
 ): FinancialReportTextColumn[] {
   const columns: FinancialReportTextColumn[] = [
     { key: "date", labelKey: "reports.finance.fields.entryDate", width: 6.5 },
@@ -265,6 +290,14 @@ export function ledgerTextColumns(
       },
     },
   ];
+  if (showNative) {
+    columns.push({
+      key: "native",
+      labelKey: "fxSettings.native.column",
+      width: 11,
+      hideBelow: "md",
+    });
+  }
   if (showPartner) {
     columns.push({
       key: "partner",

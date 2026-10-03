@@ -70,6 +70,62 @@ const fxSettingsEn = {
   runReason: {
     DISABLED: "Automatic import is off",
     ALREADY_RUNNING: "Another run was in progress",
+    ALREADY_CURRENT: "Today's official rate was already imported",
+  },
+  state: {
+    autoImport: {
+      label: "Automatic import",
+      on: "On",
+      paused: "Paused",
+      onHint: "Scheduled runs fetch the official rates.",
+      pausedHint: "Scheduled runs are skipped. Run now still works.",
+    },
+    running: {
+      label: "Current run",
+      running: "Running",
+      idle: "Idle",
+      runningHint: "{trigger} — started {seconds} s ago",
+      idleHint: "No import is in progress.",
+    },
+    lastRun: {
+      label: "Last run",
+      reason: "Reason: {error}",
+      counts: "{inserted} imported · {skipped} skipped · {warnings} to review",
+      status: {
+        NEVER: "Never run",
+        RUNNING: "Running",
+        SUCCESS: "Succeeded",
+        PARTIAL: "Completed with warnings",
+        FAILED: "Failed",
+        SKIPPED_DISABLED: "Skipped — paused",
+        SKIPPED_CURRENT: "Skipped — already current",
+        SKIPPED_BUSY: "Skipped — another run active",
+      },
+    },
+    freshness: {
+      label: "Rate freshness",
+      FRESH: "Fresh",
+      AGING: "Ageing",
+      STALE: "Stale",
+      NONE: "No official rate",
+      detail: "Newest official rate: {date} — {days} days old",
+      detailToday: "Newest official rate: {date} — today",
+      threshold: "Alert after {days} days",
+      lastSuccess: "Last successful import: {at}",
+      noSuccess: "No successful import on record.",
+    },
+    next: {
+      label: "Next scheduled run",
+      at: "{at} (Cairo)",
+      slotPrimary: "Daily import",
+      slotLate: "Evening catch-up — fetches only if today's rate is missing",
+      paused: "Paused — the scheduler skips its runs",
+    },
+    runNow: {
+      cooldown: "Available in {time}",
+      running: "A run is in progress",
+      noPermission: "You can view the status but not run imports.",
+    },
   },
   runColumns: {
     started: "Started",
@@ -82,6 +138,7 @@ const fxSettingsEn = {
     title: "Official rates are out of date",
     body: "The newest CBE rate is from {date} ({days} days ago). Check the last run below, run the import now, or record a manual rate/override.",
     none: "No official CBE rate has been imported yet. Run the import now, or record a manual rate.",
+    lastFailed: "The last import failed: {error}",
   },
   rates: {
     source: "Source",
@@ -132,6 +189,17 @@ const fxSettingsEn = {
   addRate: {
     toFixed: "To (base currency)",
     canonicalNote: "Rates are always quoted as 1 foreign unit = X {base}.",
+  },
+  native: {
+    column: "Native amount @ rate",
+    differs: "Not provable — posted in another currency",
+    noRate: "Not provable — no rate recorded",
+    opening: "Opening balance ({currency})",
+    closing: "Closing balance ({currency})",
+    completeHint:
+      "Sum of the native amounts of every line — not the closing balance re-translated at today's rate.",
+    incompleteHint:
+      "{count} line(s) worth {amount} cannot prove a native amount, so this is a lower-confidence figure.",
   },
   toasts: {
     settingsSaved: "Automatic import settings saved.",
