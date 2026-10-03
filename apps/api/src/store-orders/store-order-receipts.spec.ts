@@ -77,7 +77,7 @@ describe('StoreOrdersService receipts', () => {
         canViewPaymentEvidence: true,
         canManagePaymentEvidence: true,
       }),
-      assertStoreOrderAccess: jest.fn(),
+      assertStoreOrderAccessById: jest.fn(),
       assertPaymentEvidenceAccess: jest.fn(),
     } as never,
     {} as never,

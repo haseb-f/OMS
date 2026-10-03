@@ -61,6 +61,8 @@ const PUBLIC_USER_SELECT = {
   agentId: true,
   agentRole: true,
   agent: { select: { id: true, agentNumber: true, name: true } },
+  /** R7 — explicit Sales designation (lead distribution eligibility). */
+  salesDistributionEligible: true,
 } satisfies Prisma.UserSelect;
 
 export type PublicUser = Prisma.UserGetPayload<{
@@ -89,6 +91,7 @@ const INTERNAL_ONLY_USER_FIELDS = [
   'departmentId',
   'jobTitleId',
   'branchId',
+  'salesDistributionEligible',
 ] as const;
 
 /**
@@ -169,6 +172,7 @@ export class UsersService {
           jobTitleId: dto.jobTitleId,
           branchId: dto.branchId,
           isActive: dto.isActive,
+          salesDistributionEligible: dto.salesDistributionEligible ?? false,
           mustChangePassword: shouldGenerate,
         },
         select: PUBLIC_USER_SELECT,

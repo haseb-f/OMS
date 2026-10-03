@@ -95,7 +95,7 @@ describe('StoreOrdersService.generateInvoice — physical inventory delivery', (
     const activityService = { log: jest.fn() };
     const salesScope = {
       resolve: jest.fn().mockResolvedValue({ kind: 'ALL' }),
-      assertStoreOrderAccess: jest.fn(),
+      assertStoreOrderAccessById: jest.fn(),
     };
     const inventoryService = {
       postSalesDelivery: jest.fn().mockResolvedValue(undefined),

@@ -25,13 +25,18 @@ import { UpdateSalesOrderDto } from './dto/update-sales-order.dto';
 import { FindSalesOrdersQueryDto } from './dto/find-sales-orders-query.dto';
 import { ConvertOrderToInvoiceDto } from './dto/convert-order-to-invoice.dto';
 import { BulkIdsDto } from '../../master-data/dto/bulk-ids.dto';
+import { SalesScopeService } from '../../sales-scope/sales-scope.service';
+import { SalesOrderDocumentScopeGuard } from './sales-order-document-scope.guard';
 
 /** Business operations only: Create, Update, Submit, Approve, Confirm (Reserve Inventory), Cancel, Archive, Convert-to-Invoice, Search, Details. */
 @Controller('sales/orders')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, SalesOrderDocumentScopeGuard)
 @PermissionModule('sales-orders')
 export class SalesOrdersController {
-  constructor(private readonly ordersService: SalesOrdersService) {}
+  constructor(
+    private readonly ordersService: SalesOrdersService,
+    private readonly salesScope: SalesScopeService,
+  ) {}
 
   @Post()
   create(
@@ -42,14 +47,26 @@ export class SalesOrdersController {
   }
 
   @Get()
-  findAll(@Query() query: FindSalesOrdersQueryDto) {
-    return this.ordersService.findAll(query);
+  async findAll(
+    @Query() query: FindSalesOrdersQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.ordersService.findAll(
+      query,
+      await this.salesScope.salesDocumentWhereForUser(user.sub),
+    );
   }
 
   /** "Select all matching filters" (Part 8) — bare IDs only, same filter/search as `findAll`. */
   @Get('ids')
-  findAllIds(@Query() query: FindSalesOrdersQueryDto) {
-    return this.ordersService.findAllIds(query);
+  async findAllIds(
+    @Query() query: FindSalesOrdersQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.ordersService.findAllIds(
+      query,
+      await this.salesScope.salesDocumentWhereForUser(user.sub),
+    );
   }
 
   @Get(':id')

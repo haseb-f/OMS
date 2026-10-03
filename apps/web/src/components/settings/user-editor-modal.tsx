@@ -40,6 +40,7 @@ interface FormState {
   departmentId: string;
   branchId: string;
   isActive: boolean;
+  salesDistributionEligible: boolean;
 }
 
 const emptyForm: FormState = {
@@ -53,6 +54,7 @@ const emptyForm: FormState = {
   departmentId: "",
   branchId: "",
   isActive: true,
+  salesDistributionEligible: false,
 };
 
 function formFromUser(user: UserRow): FormState {
@@ -67,6 +69,7 @@ function formFromUser(user: UserRow): FormState {
     departmentId: user.departmentId ?? "",
     branchId: user.branchId ?? "",
     isActive: user.isActive,
+    salesDistributionEligible: user.salesDistributionEligible ?? false,
   };
 }
 
@@ -216,6 +219,10 @@ export function UserEditorModal({
         jobTitleId: form.jobTitleId || undefined,
         branchId: form.branchId || undefined,
         isActive: form.isActive,
+        // Agent users are never lead recipients and the server rejects the field.
+        ...(user?.userType === "AGENT"
+          ? {}
+          : { salesDistributionEligible: form.salesDistributionEligible }),
       };
       let saved: UserRow;
       let temporaryPassword: string | undefined;
@@ -426,6 +433,22 @@ export function UserEditorModal({
                 {t("settings.users.fields.active")}
               </label>
             </div>
+            {isAgentUser ? null : (
+              <div className="flex flex-col gap-0.5 sm:col-span-2">
+                <label className="flex items-center gap-2">
+                  <Checkbox
+                    checked={form.salesDistributionEligible}
+                    onCheckedChange={(checked) =>
+                      setForm((c) => ({ ...c, salesDistributionEligible: !!checked }))
+                    }
+                  />
+                  <span className="text-caption font-medium">{t("leadOps.userFlag.label")}</span>
+                </label>
+                <p className="ps-6 text-caption text-muted-foreground">
+                  {t("leadOps.userFlag.hint")}
+                </p>
+              </div>
+            )}
           </ModalSection>
 
           {otherUsers.length > 0 && (

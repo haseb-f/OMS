@@ -233,8 +233,11 @@ export class SalesOrdersService {
     return where;
   }
 
-  async findAll(query: FindSalesOrdersQueryDto) {
-    const where = this.buildFindWhere(query);
+  async findAll(
+    query: FindSalesOrdersQueryDto,
+    ownerScope: Prisma.SalesOrderDocumentWhereInput = {},
+  ) {
+    const where = { AND: [this.buildFindWhere(query), ownerScope] };
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const [items, total] = await Promise.all([
@@ -260,8 +263,11 @@ export class SalesOrdersService {
   }
 
   /** "Select all matching filters" (Part 8) — bare IDs only, same filter/search as `findAll`, capped so the response never approaches "download the dataset." */
-  async findAllIds(query: FindSalesOrdersQueryDto) {
-    const where = this.buildFindWhere(query);
+  async findAllIds(
+    query: FindSalesOrdersQueryDto,
+    ownerScope: Prisma.SalesOrderDocumentWhereInput = {},
+  ) {
+    const where = { AND: [this.buildFindWhere(query), ownerScope] };
     const [rows, total] = await Promise.all([
       this.prisma.salesOrderDocument.findMany({
         where,

@@ -6,10 +6,11 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { LeadAssignmentsService } from '../assignments/lead-assignments.service';
-
-const ASSIGNABLE_PERMISSION = 'crm.leads.edit';
+import {
+  LeadEligibilityService,
+  type LeadEligibilityScope,
+} from './lead-eligibility.service';
 
 export type LeadDistributionRuntimeStatus =
   'CONTINUOUS' | 'TIME_LIMITED' | 'MANUAL' | 'PAUSED';
@@ -60,7 +61,7 @@ function isAutoMode(mode: LeadDistributionMode) {
 export class LeadAutoDistributionService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly resolver: PermissionsResolverService,
+    private readonly eligibility: LeadEligibilityService,
     private readonly leadAssignmentsService: LeadAssignmentsService,
   ) {}
 
@@ -160,7 +161,10 @@ export class LeadAutoDistributionService {
   async getPolicySnapshot(now = new Date()) {
     const policy = await this.getLatestPolicy();
     const status = this.resolveRuntimeStatus(policy, now);
-    const eligible = await this.getEligibleEmployees(policy?.teamId);
+    // R7 — one shared rule set (sales-designated, active, unlocked, employed,
+    // permitted, in the policy's team/department) + who was excluded and why.
+    const pool = await this.eligibility.evaluate(policy ?? {});
+    const eligible = pool.eligible;
     const heldBatches = await this.getHeldBatches();
     const heldCount = heldBatches.reduce((sum, batch) => sum + batch.count, 0);
     const pendingEligibleCount = await this.countPendingEligible();
@@ -188,7 +192,7 @@ export class LeadAutoDistributionService {
     if (!failureReason && eligible.length === 0 && status !== 'PAUSED') {
       failureCode = 'NO_ELIGIBLE_EMPLOYEES';
       failureReason =
-        'No eligible sales employees. Grant crm.leads.edit to active, unlocked users (and ensure they are in the selected team when team-scoped).';
+        'No eligible sales employees. A recipient must be an active, unlocked, designated sales employee holding crm.leads.edit (and in the selected team / department when scoped).';
     } else if (
       !failureReason &&
       pendingEligibleCount > 0 &&
@@ -214,6 +218,9 @@ export class LeadAutoDistributionService {
           }
         : null,
       eligible,
+      /** R7 — considered users who do NOT qualify, each with reason codes. */
+      excluded: pool.excluded,
+      excludedTruncated: pool.excludedTruncated,
       /** R6 — size of the Round Robin pool the next drain would use. */
       eligibleCount: eligible.length,
       /** R6 — team scope of the policy; null = company-wide. */
@@ -424,10 +431,10 @@ export class LeadAutoDistributionService {
       };
     }
 
-    const eligible = await this.getEligibleEmployeeIds(policy.teamId);
+    const eligible = await this.getEligibleEmployeeIds(policy);
     if (eligible.length === 0) {
       const message =
-        'No eligible sales employees. Grant crm.leads.edit to active, unlocked users' +
+        'No eligible sales employees. Designate active, unlocked sales employees holding crm.leads.edit' +
         (policy.teamId ? ' who belong to the selected team' : '') +
         '.';
       // Park them as held so the UI surfaces the backlog instead of silent orphans.
@@ -518,10 +525,10 @@ export class LeadAutoDistributionService {
 
     await this.prisma.$transaction(
       async (tx) => {
-        const eligible = await this.getEligibleEmployeeIds(policy.teamId);
+        const eligible = await this.getEligibleEmployeeIds(policy);
         if (eligible.length === 0) {
           failureReason =
-            'No eligible sales employees. Grant crm.leads.edit to active, unlocked users.';
+            'No eligible sales employees. Designate active, unlocked sales employees holding crm.leads.edit.';
           await tx.lead.updateMany({
             where: { id: leadId, salesEmployeeId: null, deletedAt: null },
             data: { distributionHeld: true },
@@ -746,7 +753,7 @@ export class LeadAutoDistributionService {
     });
     if (!state) return;
 
-    const eligible = await this.getEligibleEmployeeIds(policy.teamId);
+    const eligible = await this.getEligibleEmployeeIds(policy);
     if (eligible.length === 0) {
       await tx.lead.update({
         where: { id: leadId },
@@ -787,51 +794,15 @@ export class LeadAutoDistributionService {
     return eligible[(index + 1) % eligible.length];
   }
 
-  async getEligibleEmployees(teamId?: string | null) {
-    const ids = await this.getEligibleEmployeeIds(teamId);
-    if (ids.length === 0) return [];
-    return this.prisma.user.findMany({
-      where: { id: { in: ids } },
-      select: { id: true, fullName: true, email: true },
-      orderBy: { fullName: 'asc' },
-    });
+  /** The Round Robin pool as user rows (name order) — the shared rule set. */
+  async getEligibleEmployees(scope: LeadEligibilityScope = {}) {
+    return (await this.eligibility.evaluate(scope)).eligible;
   }
 
-  async getEligibleEmployeeIds(teamId?: string | null): Promise<string[]> {
-    const permittedUserIds = await this.resolver.getUsersWithPermission(
-      ASSIGNABLE_PERMISSION,
-    );
-    if (permittedUserIds.length === 0) return [];
-
-    let scopedIds = permittedUserIds;
-    if (teamId) {
-      const team = await this.prisma.salesTeam.findFirst({
-        where: { id: teamId, deletedAt: null, isActive: true },
-        select: {
-          managerId: true,
-          members: { select: { userId: true } },
-        },
-      });
-      if (!team) return [];
-      const teamUserIds = new Set([
-        team.managerId,
-        ...team.members.map((m) => m.userId),
-      ]);
-      scopedIds = permittedUserIds.filter((id) => teamUserIds.has(id));
-    }
-
-    const activeUsers = await this.prisma.user.findMany({
-      where: {
-        id: { in: scopedIds },
-        deletedAt: null,
-        isActive: true,
-        isLocked: false,
-        // Defense in depth — the resolver already returns internal users only.
-        userType: 'INTERNAL',
-      },
-      select: { id: true, fullName: true },
-      orderBy: [{ fullName: 'asc' }, { id: 'asc' }],
-    });
-    return activeUsers.map((u) => u.id);
+  /** Ids in the stable (name, id) order Round Robin relies on. */
+  async getEligibleEmployeeIds(
+    scope: LeadEligibilityScope = {},
+  ): Promise<string[]> {
+    return this.eligibility.getEligibleIds(scope);
   }
 }

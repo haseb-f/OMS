@@ -1195,7 +1195,15 @@ export class WorkflowEngineService {
     return partnerId;
   }
 
-  async getStatusHistory(entityType: string, entityId: string) {
+  async getStatusHistory(entityType: string, entityId: string, userId: string) {
+    // R7 — history of a Lead / Store Order is only readable by a caller who
+    // can open that record (the same by-id scope as the record itself).
+    if (entityType === 'LEAD') {
+      await this.assertLeadScope(entityType, entityId, userId);
+    } else if (entityType === 'STORE_ORDER') {
+      const scope = await this.salesScope.resolve(userId);
+      await this.salesScope.assertStoreOrderAccessById(scope, entityId);
+    }
     return this.prisma.statusHistory.findMany({
       where: { entityType, entityId },
       include: {
@@ -1557,7 +1565,7 @@ export class WorkflowEngineService {
       this.salesScope.resolve(userId),
       this.prisma.lead.findFirst({
         where: { id: entityId, deletedAt: null },
-        select: { id: true, salesEmployeeId: true },
+        select: { id: true, salesEmployeeId: true, agentId: true },
       }),
     ]);
     this.salesScope.assertLeadAccess(scope, lead);

@@ -12,6 +12,7 @@ import orderDuplicatesEn from "./modules/order-duplicates.en";
 import orderAmendmentsEn from "./modules/order-amendments.en";
 import shippingHandoffEn from "./modules/shipping-handoff.en";
 import leadOpsEn from "./modules/lead-ops.en";
+import customerLookupEn from "./modules/customer-lookup.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
@@ -19,6 +20,7 @@ const en = {
   orderAmendments: orderAmendmentsEn,
   shippingHandoff: shippingHandoffEn,
   leadOps: leadOpsEn,
+  customerLookup: customerLookupEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
@@ -295,6 +297,7 @@ const en = {
       import: "Import",
       manage: "Manage",
       duplicateReview: "Duplicate review",
+      lookupAdvanced: "Advanced customer lookup",
       amend: "Amend order",
     },
     modules: {

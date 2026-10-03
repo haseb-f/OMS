@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PaymentStatus, Prisma, SalesOrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { SalesScopeService } from '../sales-scope/sales-scope.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import {
   SalesOrderActivityService,
@@ -33,6 +34,7 @@ export class SalesOrdersService {
     private readonly attachmentsService: SalesOrderAttachmentsService,
     private readonly notesService: SalesOrderNotesService,
     private readonly numberingEngine: NumberingEngineService,
+    private readonly salesScope: SalesScopeService,
   ) {}
 
   /** Shared by simple status-changing operations: updates SalesOrder.status, records
@@ -182,8 +184,17 @@ export class SalesOrdersService {
     }
   }
 
-  findAll() {
-    return this.prisma.salesOrder.findMany({ where: { deletedAt: null } });
+  /** Scoped list: the caller's own orders (company-wide / shipping staff see all). */
+  async findAll(userId: string) {
+    const scope = await this.salesScope.resolve(userId);
+    return this.prisma.salesOrder.findMany({
+      where: {
+        AND: [
+          { deletedAt: null },
+          this.salesScope.legacySalesOrderWhere(scope),
+        ],
+      },
+    });
   }
 
   async findOne(id: string) {

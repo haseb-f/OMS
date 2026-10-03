@@ -36,6 +36,8 @@ import {
   type StoreOrderCreatePrefillCustomer,
 } from "@/components/store-orders/store-order-create-dialog";
 import { GlobalLookupDialog } from "@/components/store-orders/global-lookup-dialog";
+// R7 hook (workstream B): self-contained, permission-gated button — the only line this page needs.
+import { AdvancedCustomerLookupButton } from "@/components/store-orders/advanced-customer-lookup-dialog";
 import { DuplicateReviewDialog } from "@/components/store-orders/duplicate-review-dialog";
 import { LegacyPhoneDuplicatesDialog } from "@/components/store-orders/legacy-phone-duplicates-dialog";
 import { buildStoreOrderDetailRegions } from "@/components/store-orders/store-order-expanded-detail";
@@ -645,6 +647,7 @@ function StoreOrdersPageContent() {
                 {t("storeOrders.globalLookup.trigger")}
               </EnterpriseButton>
             )}
+            <AdvancedCustomerLookupButton />
           </>
         }
         rowSelection={rowSelection}

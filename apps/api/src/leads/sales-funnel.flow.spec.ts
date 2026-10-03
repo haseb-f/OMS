@@ -288,6 +288,7 @@ describe('Sales Funnel Engine', () => {
       fullName: name,
       password: 'SalesPassw0rd!',
       departmentId: await departmentId(),
+      salesDistributionEligible: true,
     });
     createdUserIds.push(created.id);
     await users.setPermissions(created.id, {
@@ -311,6 +312,7 @@ describe('Sales Funnel Engine', () => {
       fullName: name,
       password: 'SalesPassw0rd!',
       departmentId: await departmentId(),
+      salesDistributionEligible: true,
     });
     createdUserIds.push(created.id);
     await users.setPermissions(created.id, {

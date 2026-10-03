@@ -12,6 +12,7 @@ import orderDuplicatesAr from "./modules/order-duplicates.ar";
 import orderAmendmentsAr from "./modules/order-amendments.ar";
 import shippingHandoffAr from "./modules/shipping-handoff.ar";
 import leadOpsAr from "./modules/lead-ops.ar";
+import customerLookupAr from "./modules/customer-lookup.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
@@ -19,6 +20,7 @@ const ar = {
   orderAmendments: orderAmendmentsAr,
   shippingHandoff: shippingHandoffAr,
   leadOps: leadOpsAr,
+  customerLookup: customerLookupAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
@@ -295,6 +297,7 @@ const ar = {
       import: "استيراد",
       manage: "إدارة",
       duplicateReview: "مراجعة التكرار",
+      lookupAdvanced: "بحث متقدم عن عميل",
       amend: "تعديل الطلب بعد الإنشاء",
     },
     modules: {

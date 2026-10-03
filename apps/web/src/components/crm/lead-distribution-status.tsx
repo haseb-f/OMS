@@ -34,6 +34,7 @@ import {
   type DistributionButtonTone,
 } from "@/components/crm/lead-distribution-logic";
 import type { StatusTone } from "@/components/business/status-tone";
+import { LeadDistributionPool } from "@/components/crm/lead-distribution-pool";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDateTime } from "@/lib/date";
 import { cn } from "@/lib/utils";
@@ -334,6 +335,8 @@ export function LeadDistributionDialog({
             </dd>
           </div>
         </dl>
+
+        <LeadDistributionPool snapshot={state.snapshot} />
 
         <RadioGroup
           value={selected}

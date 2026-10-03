@@ -92,6 +92,7 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
         username: `dup-${key}-${lower}`,
         fullName: `Dup ${key} ${tag}`,
         passwordHash: 'x',
+        salesDistributionEligible: true,
       },
     });
     await grant(user.id, permissions);

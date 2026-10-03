@@ -55,4 +55,12 @@ export class CreateUserDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  /**
+   * R7 — designate the user as a sales employee for lead distribution
+   * (default false). Still requires `crm.leads.edit` to receive leads.
+   */
+  @IsBoolean()
+  @IsOptional()
+  salesDistributionEligible?: boolean;
 }

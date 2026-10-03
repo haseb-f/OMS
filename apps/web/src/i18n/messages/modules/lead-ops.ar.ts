@@ -1,5 +1,9 @@
 /** leadOps namespace (ar) — R6 spec C: follow-up classification + the distribution status button/dialog. */
 const leadOpsAr = {
+  userFlag: {
+    label: "موظف مبيعات (يستلم العملاء المحتملين)",
+    hint: "لا يستلم العملاء المحتملين الموزَّعين أو المسنَدين يدويًا إلا موظفو المبيعات المعيَّنون. يبقى موظفو المالية والشحن والموارد البشرية خارجها ما لم تفعّل هذا الخيار، ويلزمهم أيضًا صلاحية التعامل مع العملاء المحتملين.",
+  },
   outcome: {
     label: "تصنيف المتابعة",
     none: "بدون نتيجة مصنفة",
@@ -51,6 +55,29 @@ const leadOpsAr = {
       resultNoAuto: "تم الحفظ: {mode} — لا إسناد تلقائي.",
       resultActiveUntil: "نشط حتى {time}.",
       resultFailed: "لم يُسند أي ليد ({code}): {reason}",
+    },
+    pool: {
+      title: "المستلمون",
+      eligible: "المؤهلون ({count})",
+      excluded: "المستبعدون ({count})",
+      show: "عرض المستلمين",
+      hide: "إخفاء المستلمين",
+      noneEligible: "لا يوجد موظفو مبيعات مؤهلون.",
+      noneExcluded: "لا يوجد مستخدمون مستبعدون.",
+      truncated: "تُعرض أول {count} مستخدمًا مستبعدًا فقط.",
+      rule: "يجب أن يكون المستلم موظف مبيعات نشطًا وغير مقفل ويملك صلاحية التعامل مع العملاء المحتملين.",
+      reasons: {
+        AGENT_USER: "مستخدم وكيل",
+        DELETED: "محذوف",
+        INACTIVE: "غير نشط",
+        LOCKED: "مقفل",
+        ON_LEAVE: "في إجازة / توظيف غير نشط",
+        TERMINATED: "انتهت خدمته",
+        NO_PERMISSION: "بدون صلاحية العملاء المحتملين",
+        NOT_SALES_DESIGNATED: "غير معيّن كموظف مبيعات",
+        WRONG_TEAM: "ليس ضمن الفريق المحدد",
+        WRONG_DEPARTMENT: "ليس ضمن القسم المحدد",
+      },
     },
   },
 } as const;

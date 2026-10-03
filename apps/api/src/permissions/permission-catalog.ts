@@ -357,6 +357,12 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       // previous-orders summary, to serve a returning customer without
       // granting `partners.view`'s much broader directory access.
       { action: 'lookup_global', name: 'customers.lookup_global' },
+      // Round 7 — advanced customer lookup (AR "بحث متقدم عن عميل"): a
+      // minimal-disclosure discovery right (masked phone, partial name,
+      // existence, order reference + coarse status, "not assigned to you").
+      // Never implied by another permission and never grants open/edit/
+      // reassign/ship/finance rights over what it finds.
+      { action: 'lookup_advanced', name: 'customers.lookup_advanced' },
     ],
   },
   {

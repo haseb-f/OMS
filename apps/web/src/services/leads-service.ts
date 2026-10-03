@@ -118,6 +118,27 @@ export interface LeadFollowUpRow {
   user?: { id: string; fullName: string };
 }
 
+/** Why a user is not a lead recipient (server-side shared eligibility rules). */
+export type LeadExclusionReason =
+  | "AGENT_USER"
+  | "DELETED"
+  | "INACTIVE"
+  | "LOCKED"
+  | "ON_LEAVE"
+  | "TERMINATED"
+  | "NO_PERMISSION"
+  | "NOT_SALES_DESIGNATED"
+  | "WRONG_TEAM"
+  | "WRONG_DEPARTMENT";
+
+export interface LeadExcludedUser {
+  id: string;
+  fullName: string;
+  email: string;
+  reason: LeadExclusionReason;
+  reasons: LeadExclusionReason[];
+}
+
 export interface LeadDistributionSnapshot {
   status?: "CONTINUOUS" | "TIME_LIMITED" | "MANUAL" | "PAUSED";
   isRunning?: boolean;
@@ -132,6 +153,9 @@ export interface LeadDistributionSnapshot {
     departmentId?: string | null;
   } | null;
   eligible: { id: string; fullName: string; email: string }[];
+  /** R7 — considered users who do NOT qualify as recipients, each with why. */
+  excluded?: LeadExcludedUser[];
+  excludedTruncated?: boolean;
   /** Size of the Round Robin pool the next drain would use. */
   eligibleCount?: number;
   /** Team the policy is scoped to; null = whole company. */
