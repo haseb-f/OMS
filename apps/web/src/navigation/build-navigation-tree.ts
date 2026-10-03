@@ -98,9 +98,13 @@ export function filterByAccess(
 ): NavigationItem[] {
   if (isSuperAdmin) return items;
 
-  const hasOwnAccess = (item: NavigationItem) =>
-    !item.permissions?.length ||
-    item.permissions.every((permission) => userPermissions.includes(permission));
+  const hasOwnAccess = (item: NavigationItem) => {
+    if (!item.permissions?.length) return true;
+    const held = (permission: string) => userPermissions.includes(permission);
+    return item.permissionMatch === "any"
+      ? item.permissions.some(held)
+      : item.permissions.every(held);
+  };
 
   const byId = new Map(items.map((item) => [item.id, item]));
   const visibleIds = new Set<string>();

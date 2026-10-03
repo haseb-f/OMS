@@ -27,7 +27,7 @@ import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { useCurrencies } from "@/hooks/use-reference-data";
 import type { MessageKey } from "@/i18n/translate";
-import { formatDate, formatDateRange } from "@/lib/date";
+import { formatAsOf, formatPeriod } from "@/lib/date";
 
 const costCentersService = createMasterDataService<CostCenterRow>("/cost-centers");
 const projectsService = createMasterDataService<ProjectRow>("/projects");
@@ -180,17 +180,21 @@ export function describeReportFilters(
   return out;
 }
 
-/** The period text of a filter value — a range, or "as of" for point-in-time reports. */
+/**
+ * The period text of a filter value, labelled in the UI language: "From 01
+ * Oct 2026 · To 31 Oct 2026" («من … · إلى …»), a one-sided bound stated as
+ * such, or "As of 01 Oct 2026" («كما في …») for point-in-time reports. ""
+ * when unbounded (the caller says "All dates") — never an invented range.
+ */
 export function describeReportPeriod(
   value: ReportFilterValue,
   { asOf = false, t }: { asOf?: boolean; t: (key: MessageKey) => string },
 ): string {
-  if (asOf) {
-    return value.dateRange.to
-      ? `${t("reports.finance.asOfDate")} ${formatDate(value.dateRange.to)}`
-      : "";
-  }
-  return formatDateRange(value.dateRange.from, value.dateRange.to);
+  if (asOf) return formatAsOf(value.dateRange.to, t("reports.finance.asOfDate"));
+  return formatPeriod(value.dateRange.from, value.dateRange.to, {
+    from: t("datePicker.from"),
+    to: t("datePicker.to"),
+  });
 }
 
 /**

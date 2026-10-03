@@ -20,15 +20,25 @@ import type {
 import { useReportQuery } from "./use-report-query";
 
 const COLUMNS: FinancialReportColumn[] = [
-  { key: "bookBalance", labelKey: "reports.finance.cashAvailabilityReport.bookBalance" },
+  // Cash is debit-natured: a figure below zero is adverse (red).
+  {
+    key: "bookBalance",
+    labelKey: "reports.finance.cashAvailabilityReport.bookBalance",
+    balance: "debit",
+  },
   { key: "holds", labelKey: "reports.finance.cashAvailabilityReport.holds" },
   { key: "committed", labelKey: "reports.finance.cashAvailabilityReport.committed" },
   {
     key: "available",
     labelKey: "reports.finance.cashAvailabilityReport.available",
     emphasize: true,
+    balance: "debit",
   },
-  { key: "egpAvailable", labelKey: "reports.finance.cashAvailabilityReport.egpAvailable" },
+  {
+    key: "egpAvailable",
+    labelKey: "reports.finance.cashAvailabilityReport.egpAvailable",
+    balance: "debit",
+  },
 ];
 
 /**

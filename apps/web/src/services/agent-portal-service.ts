@@ -1,4 +1,5 @@
 import type { DuplicateResolution } from "./order-duplicates-service";
+import type { ShippingHandoffBlocker } from "./shipping-service";
 import { apiClient } from "./api-client";
 import { orderAmendmentsClient } from "./order-amendments-service";
 import { buildQueryString as buildQuery } from "@/lib/query-string";
@@ -227,6 +228,9 @@ export interface PortalLead {
   product: { id: string; name: string; displayName: string | null; sku: string } | null;
   status: CatalogStatus & { id: string };
   storeOrder: { id: string; internalOrderId: string } | null;
+  /** R6 — follow-up classification (latest outcome code), read-only for agents. */
+  followUpOutcome: string | null;
+  followUpOutcomeAt: string | null;
 }
 
 export interface PortalLeadInput {
@@ -449,6 +453,8 @@ export interface PortalOrderDetail {
   fulfillment: {
     status: CatalogStatus | null;
     shippingStage: string | null;
+    /** R6 SHIP — read-only reason a shipping order has not reached Shipping yet (null = in Shipping). */
+    shippingBlocker?: ShippingHandoffBlocker | null;
     dispatchedAt: string | null;
     earnedAt: string | null;
     /** No inventory line: nothing ships — the order completes once earned. */

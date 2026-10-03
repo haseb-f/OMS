@@ -1,5 +1,6 @@
 import { apiClient } from "./api-client";
 import { createMasterDataService } from "./master-data-service";
+import type { LeadFollowUpOutcome } from "@/config/crm/follow-up-outcomes";
 
 export type LeadSourceValue = "MANUAL" | "EXCEL" | "GOOGLE_SHEETS";
 
@@ -41,6 +42,9 @@ export interface LeadRow {
   storeOrder: { id: string; internalOrderId: string } | null;
   nextFollowUpAt: string | null;
   firstOpenedAt: string | null;
+  /** R6 — current follow-up classification (latest outcome code); null until one is recorded. */
+  followUpOutcome: string | null;
+  followUpOutcomeAt: string | null;
   customerClassificationId: string | null;
   customerClassification: {
     id: string;
@@ -125,8 +129,13 @@ export interface LeadDistributionSnapshot {
     expiresAt: string | null;
     remainingMs: number | null;
     teamId: string | null;
+    departmentId?: string | null;
   } | null;
   eligible: { id: string; fullName: string; email: string }[];
+  /** Size of the Round Robin pool the next drain would use. */
+  eligibleCount?: number;
+  /** Team the policy is scoped to; null = whole company. */
+  team?: { id: string; name: string } | null;
   pendingEligibleCount?: number;
   failureReason?: string | null;
   /** NO_ELIGIBLE_EMPLOYEES (blocked), PENDING_NOT_AUTO (paused backlog) or a last-run code. */
@@ -166,6 +175,12 @@ export interface LeadNoteRow {
   createdAt: string;
 }
 
+/** Team / department a distribution policy applies to (null = company-wide). */
+export interface DistributionScope {
+  teamId?: string | null;
+  departmentId?: string | null;
+}
+
 const base = createMasterDataService<LeadRow>("/leads");
 
 export const leadsService = {
@@ -195,10 +210,14 @@ export const leadsService = {
   eligibleAssignees: () =>
     apiClient.get<{ id: string; fullName: string; email: string }[]>("/leads/eligible-assignees"),
   distribution: () => apiClient.get<LeadDistributionSnapshot>("/leads/distribution"),
-  activateContinuous: () =>
-    apiClient.post<LeadDistributionActivateResult>("/leads/distribution/activate-continuous"),
-  activate24h: () =>
-    apiClient.post<LeadDistributionActivateResult>("/leads/distribution/activate-24h"),
+  /** `scope` omitted = keep the active policy's scope; null = company-wide. */
+  activateContinuous: (scope?: DistributionScope) =>
+    apiClient.post<LeadDistributionActivateResult>(
+      "/leads/distribution/activate-continuous",
+      scope ?? {},
+    ),
+  activate24h: (scope?: DistributionScope) =>
+    apiClient.post<LeadDistributionActivateResult>("/leads/distribution/activate-24h", scope ?? {}),
   activateManual: () =>
     apiClient.post<LeadDistributionSnapshot>("/leads/distribution/activate-manual"),
   pauseDistribution: () => apiClient.post<LeadDistributionSnapshot>("/leads/distribution/pause"),
@@ -214,7 +233,12 @@ export const leadsService = {
   followUps: (id: string) => apiClient.get<LeadFollowUpRow[]>(`/leads/${id}/follow-ups`),
   addFollowUp: (
     id: string,
-    body: { followUpTypeId?: string; outcome?: string; note?: string; followUpAt?: string },
+    body: {
+      followUpTypeId?: string;
+      outcome?: LeadFollowUpOutcome;
+      note?: string;
+      followUpAt?: string;
+    },
   ) => apiClient.post<LeadFollowUpRow>(`/leads/${id}/follow-ups`, body),
   unassignedCount: () => apiClient.get<{ count: number }>("/leads/unassigned-count"),
   convert: (id: string, body: Record<string, unknown>) =>

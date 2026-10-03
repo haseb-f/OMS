@@ -2,7 +2,15 @@ import type { IconName } from "../navigation/icon-registry";
 import type { MessageKey } from "../i18n/translate";
 
 export type NavigationGroupId =
-  "finance-operations" | "finance-ledger" | "finance-assets" | "finance-setup";
+  | "finance-operations"
+  | "finance-ledger"
+  | "finance-assets"
+  | "settings-general"
+  | "settings-finance"
+  | "settings-shipping"
+  | "settings-costs"
+  | "settings-crm"
+  | "settings-integrations";
 
 /**
  * Config-driven navigation contract. Every sidebar/topbar navigation
@@ -34,6 +42,12 @@ export interface NavigationItem {
   group?: NavigationGroupId;
   /** Permission keys required to see this item. No permission system exists yet — reserved for when Identity/Auth is wired up; an empty/undefined list means "always visible." */
   permissions?: string[];
+  /**
+   * How `permissions` is evaluated — `all` (default): every key; `any`: at
+   * least one (e.g. a settings page open to its granular key OR its settings
+   * domain key). The sidebar filter and the route guard share this rule.
+   */
+  permissionMatch?: "all" | "any";
   /**
    * Who the item is for. `agent` items (the external agent portal) are shown
    * only to AGENT users; every other item only to INTERNAL users — even a

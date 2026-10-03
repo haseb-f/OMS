@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   isAgentPortalPermission,
   withAuthorizationImpliedPermissions,
+  withSettingsDomainGrants,
 } from './permission-catalog';
 
 interface CacheEntry {
@@ -80,8 +81,12 @@ export class PermissionsResolverService {
           ),
         )
       : new Set(
-          withAuthorizationImpliedPermissions(
-            stored.filter((name) => !isAgentPortalPermission(name)),
+          // R6 — settings-domain keys expand to their domain's setup keys at
+          // resolve time only (never persisted, never for agent users).
+          withSettingsDomainGrants(
+            withAuthorizationImpliedPermissions(
+              stored.filter((name) => !isAgentPortalPermission(name)),
+            ),
           ),
         );
     const entry: CacheEntry = {

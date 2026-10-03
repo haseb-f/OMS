@@ -40,7 +40,10 @@ import {
   shippingCompaniesService,
   type ShippingCompanyOption,
 } from "@/services/shipping-companies-service";
-import type { StoreOrderSourceValue } from "@/services/store-orders-service";
+import {
+  STORE_ORDER_SOURCE_VALUES,
+  type StoreOrderSourceValue,
+} from "@/services/store-orders-service";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -87,6 +90,25 @@ function ShippingPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [manageTarget, setManageTarget] = useState<ShipmentListRow | null>(null);
+
+  // R6 SHIP — deep link from an order ("Open in Shipping queue"): the URL
+  // search wins over a remembered one and clears the other filters.
+  useEffect(() => {
+    const linked = new URLSearchParams(window.location.search).get("search");
+    if (!linked) return;
+    setSearch(linked);
+    setStatusFilter([]);
+    setCompanyFilter([]);
+    setCountryFilter([]);
+    setSourceFilter([]);
+    setAgentFilter("");
+    setTrackingFilter([]);
+    setAttachmentFilter([]);
+    setDateRange(EMPTY_DATE_RANGE);
+    setPage(1);
+    // Runs once per visit; the setters are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     shippingCompaniesService
@@ -286,10 +308,10 @@ function ShippingPageContent() {
                 setSourceFilter(values);
                 setPage(1);
               }}
-              options={[
-                { value: "MANUAL", label: t("storeOrders.source.MANUAL") },
-                { value: "IMPORT", label: t("storeOrders.source.IMPORT") },
-              ]}
+              options={STORE_ORDER_SOURCE_VALUES.map((source) => ({
+                value: source,
+                label: t(`storeOrders.source.${source}`),
+              }))}
             />
             <AgentFilter
               value={agentFilter}

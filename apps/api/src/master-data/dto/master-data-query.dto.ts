@@ -52,6 +52,18 @@ export class MasterDataQueryDto {
   sortOrder?: 'asc' | 'desc' = 'asc';
 
   /**
+   * `GET /<entity>/ids` only — "select the first N" (R6 B5): the first N
+   * matching ids in the list's current sort (`sortBy`/`sortOrder`, id
+   * tie-break), instead of every matching id up to the cap.
+   */
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10_000)
+  @IsOptional()
+  limit?: number;
+
+  /**
    * Archived rows (deletedAt set) are excluded from every list by default.
    * Transformed explicitly (not `@Type(() => Boolean)`) since
    * `Boolean('false')` is `true` — the query string must be parsed, not cast.

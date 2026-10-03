@@ -1,4 +1,5 @@
 import { BULK_LIMITS } from '../common/bulk/bulk-limits';
+import { listOrderBy } from '../common/query/list-order-by';
 import {
   BadRequestException,
   Injectable,
@@ -149,7 +150,7 @@ export class JournalEntriesService {
       this.prisma.journalEntry.findMany({
         where,
         include: ENTRY_INCLUDE,
-        orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
+        orderBy: listOrderBy(query),
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -166,6 +167,7 @@ export class JournalEntriesService {
       this.prisma.journalEntry.findMany({
         where,
         select: { id: true },
+        orderBy: listOrderBy(query),
         take: BULK_LIMITS.selectIdsMax,
       }),
       this.prisma.journalEntry.count({ where }),

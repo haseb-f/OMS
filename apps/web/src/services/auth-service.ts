@@ -4,6 +4,8 @@ export interface AuthUser {
   id: string;
   email: string;
   fullName: string;
+  /** Returned by `POST /auth/login` — lets the login page land on the right audience's home (R6 A.4). */
+  userType?: "INTERNAL" | "AGENT";
 }
 
 export interface CompanyBranch {

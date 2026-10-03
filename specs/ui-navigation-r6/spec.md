@@ -110,6 +110,14 @@ Decision labels: **[R]** = integrator decision with recommended default (owner m
    granular setup key of a domain → that domain's `view` only (explicit mapping table in the migration;
    never all settings). Route gates on every settings page. Agents: never internal setup
    (`JwtAuthGuard` default-deny already; add a test).
+   **[O] Postings and period control** (owner decision, default applied in R6): domain keys never
+   grant postings, reversals or period control — `fiscal-configuration`
+   (`accounting.fiscal-years.manage`: year closing post/reverse, period close/reopen/lock, foundation
+   activation, posting-settings writes) and cost-allocation `run`/`post` keep requiring their own
+   keys; those pages sit under Settings › Finance and render read-only for domain viewers.
+   Migration (as implemented after review): preservation only — `settings.manage` → all domain
+   keys; `settings.view` → `settings.general.view` + `settings.integrations.view`; granular keys are
+   never a migration source (they keep working through any-of gates).
 4. **Sidebar & landing**: groups collapsed on a fresh session (do not auto-open from stale storage;
    the active route's parent still opens so the destination stays discoverable); one open at a time
    (already); login with no valid `next` → the user's authorized dashboard (internal `/`, agent

@@ -47,7 +47,8 @@ import type { MasterDataActivityEntry, MasterDataListParams } from "@/services/m
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { toast, reportApiError, reportSuccess } from "@/lib/toast";
+import { apiErrorMessage, toast, reportApiError, reportSuccess } from "@/lib/toast";
+import { bulkOutcomeFromIds, reportBulkOutcome } from "@/lib/bulk-run";
 import {
   FormErrorSummary,
   applyServerFieldErrors,
@@ -490,6 +491,13 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
     }
   };
 
+  /** A failed record is named by its own code / number / name in the bulk summary. */
+  const recordLabel = (id: string): string | null => {
+    const record = items.find((item) => item.id === id) as Record<string, unknown> | undefined;
+    const label = record?.code ?? record?.partnerNumber ?? record?.name;
+    return typeof label === "string" && label ? label : null;
+  };
+
   const bulkArchiveSelected = async () => {
     const ids = Object.keys(rowSelection);
     setIsMutating(true);
@@ -500,23 +508,27 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       // the original per-row loop, which every entity already supports.
       if (supportsSelectAllMatching && service.bulkArchive) {
         const result = await service.bulkArchive(ids);
-        if (result.failed.length > 0) {
-          toast.error(
-            t("masterData.actions.bulkArchivePartialFailure", { count: result.failed.length }),
-          );
-        } else {
-          toast.success(t("common.archive"));
-        }
+        reportBulkOutcome(bulkOutcomeFromIds(result, recordLabel), () => t("common.archive"));
       } else {
         // Success only for what the server confirmed — a swallowed rejection
         // must never turn into a green toast (usability-financial-reports §5).
         const results = await Promise.allSettled(ids.map((id) => service.archive(id)));
-        const failed = results.filter((result) => result.status === "rejected").length;
-        if (failed > 0) {
-          toast.error(t("masterData.actions.bulkArchivePartialFailure", { count: failed }));
-        } else {
-          toast.success(t("common.archive"));
-        }
+        reportBulkOutcome(
+          {
+            succeeded: results.filter((result) => result.status === "fulfilled").length,
+            failed: results.flatMap((result, index) =>
+              result.status === "rejected"
+                ? [
+                    {
+                      label: recordLabel(ids[index]) ?? ids[index],
+                      message: apiErrorMessage(result.reason),
+                    },
+                  ]
+                : [],
+            ),
+          },
+          () => t("common.archive"),
+        );
       }
       setRowSelection({});
       onRecordsChanged?.();
@@ -540,7 +552,8 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
     try {
       const listIds = service.listIds;
       const result = await matching.fetchForCurrentQuery(() =>
-        listIds({ ...listFilters, pageSize: count }),
+        // `limit`: the first `count` ids in the list's own sort (id tie-break).
+        listIds({ ...listFilters, limit: count }),
       );
       if (!result) return;
       setRowSelection(toRowSelection(result.ids));

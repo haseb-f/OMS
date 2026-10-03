@@ -448,7 +448,12 @@ describe('Payment declaration → fulfillment gate → confirm & post', () => {
       sales,
     );
     await prisma.shipment.create({
-      data: { storeOrderId: order.id, attemptNumber: 1 },
+      // A worked-on attempt (R6: a bare queued attempt is not "started").
+      data: {
+        storeOrderId: order.id,
+        attemptNumber: 1,
+        trackingNumber: 'TRK-STARTED',
+      },
     });
     await expect(
       declarations.declare(order.id, paid('FULL'), randomUUID(), sales),
@@ -602,7 +607,8 @@ describe('Payment declaration → fulfillment gate → confirm & post', () => {
       randomUUID(),
       sales,
     );
-    const { shipment } = await shipments.getOrCreateCurrent(order.id);
+    // Shipping worked on the attempt (R6: an untouched queue entry is not "started").
+    const shipment = await shipments.addTrackingNumber(order.id, 'TRK-DISPUTE');
     const disputed = await payments.dispute(
       payment!.id,
       userId,
@@ -773,7 +779,12 @@ describe('Payment declaration → fulfillment gate → confirm & post', () => {
       sales,
     );
     await prisma.shipment.create({
-      data: { storeOrderId: shipped.id, attemptNumber: 1 },
+      // A worked-on attempt (R6: a bare queued attempt is not "started").
+      data: {
+        storeOrderId: shipped.id,
+        attemptNumber: 1,
+        trackingNumber: 'TRK-STARTED',
+      },
     });
     await expect(
       declarations.declare(

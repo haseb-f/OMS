@@ -1,4 +1,5 @@
 import { BULK_LIMITS } from '../../common/bulk/bulk-limits';
+import { listOrderBy } from '../../common/query/list-order-by';
 import {
   BadRequestException,
   Injectable,
@@ -40,6 +41,17 @@ import { assertActiveProduct } from '../../products/assert-active-product.util';
 import { prismaEnumFilter } from '../../common/query/enum-list';
 
 const REFERENCE_TYPE = 'SALES_ORDER_DOC';
+
+/** The list order: `customer` sorts by the partner's name; ties break by id. */
+function salesOrderOrderBy(
+  query: Pick<FindSalesOrdersQueryDto, 'sortBy' | 'sortOrder'>,
+): Prisma.SalesOrderDocumentOrderByWithRelationInput[] {
+  if (query.sortBy === 'customer') {
+    const direction = query.sortOrder ?? 'desc';
+    return [{ partner: { name: direction } }, { id: direction }];
+  }
+  return listOrderBy(query);
+}
 
 @Injectable()
 export class SalesOrdersService {
@@ -237,7 +249,7 @@ export class SalesOrdersService {
           partner: true,
           currency: true,
         },
-        orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
+        orderBy: salesOrderOrderBy(query),
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -254,6 +266,7 @@ export class SalesOrdersService {
       this.prisma.salesOrderDocument.findMany({
         where,
         select: { id: true },
+        orderBy: salesOrderOrderBy(query),
         take: BULK_LIMITS.selectIdsMax,
       }),
       this.prisma.salesOrderDocument.count({ where }),

@@ -7,7 +7,7 @@ import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
 import { FormCardField, FormCardStack } from "@/components/shared/form-card/form-card";
 import { SubmitButton } from "@/components/shared/form-fields";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/shared/password-input";
 import { FieldHint, FieldMessage } from "@/components/ui/form";
 import { validateChangePassword, type ChangePasswordError } from "@/config/account/change-password";
 import { AGENT_PORTAL_HOME } from "@/navigation/route-access";
@@ -77,10 +77,8 @@ export default function ChangePasswordPage() {
         ) : null
       }
     >
-      <Input
+      <PasswordInput
         id={`${fieldId}-${name}`}
-        type="password"
-        dir="ltr"
         autoComplete={name === "currentPassword" ? "current-password" : "new-password"}
         value={values[name]}
         aria-invalid={Boolean(errorText(name)) || undefined}

@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { authService, type CurrentUser } from "@/services/auth-service";
+import { authService, type AuthUser, type CurrentUser } from "@/services/auth-service";
 import { ApiError } from "@/services/api-client";
 import { getAuthToken, setAuthToken, clearAuthToken } from "@/lib/auth-token";
 import {
@@ -51,7 +51,8 @@ interface AuthContextValue {
   status: AuthStatus;
   /** Convenience — always `status === "loading"`. */
   isLoading: boolean;
-  login: (email: string, password: string, rememberMe: boolean) => Promise<void>;
+  /** Resolves with the signed-in user (incl. `userType`) once `/auth/me` has loaded. */
+  login: (email: string, password: string, rememberMe: boolean) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -128,13 +129,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string, rememberMe: boolean) => {
-      const { accessToken } = await authService.login(email, password, rememberMe);
+      const { accessToken, user: signedIn } = await authService.login(email, password, rememberMe);
       // SEC-02: nothing cached before this login (another user's session in
       // this tab, or the anonymous login page) survives into the new one.
       resetClientDataCaches();
       setAuthToken(accessToken, rememberMe);
       await refreshUser();
       announceSessionChange();
+      return signedIn;
     },
     [refreshUser],
   );

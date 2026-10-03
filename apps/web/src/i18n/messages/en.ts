@@ -5,15 +5,20 @@ import paymentVocabularyEn from "./modules/payment-vocabulary.en";
 import fxSettingsEn from "./modules/fx-settings.en";
 import docUiEn from "./modules/doc-ui.en";
 import feedbackEn from "./modules/feedback.en";
+import controlsEn from "./modules/controls.en";
 import productCommissionEn from "./modules/product-commission.en";
 import agentPricingEn from "./modules/agent-pricing.en";
 import orderDuplicatesEn from "./modules/order-duplicates.en";
 import orderAmendmentsEn from "./modules/order-amendments.en";
+import shippingHandoffEn from "./modules/shipping-handoff.en";
+import leadOpsEn from "./modules/lead-ops.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
   orderDuplicates: orderDuplicatesEn,
   orderAmendments: orderAmendmentsEn,
+  shippingHandoff: shippingHandoffEn,
+  leadOps: leadOpsEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
@@ -21,6 +26,7 @@ const en = {
   fxSettings: fxSettingsEn,
   docUi: docUiEn,
   feedback: feedbackEn,
+  controls: controlsEn,
   toast: {
     region: "Notifications",
     close: "Dismiss notification",
@@ -272,6 +278,7 @@ const en = {
       sales: "Sales",
       hr: "HR",
       investors: "Investors",
+      settings: "Settings",
     },
     actions: {
       view: "View",
@@ -320,7 +327,13 @@ const en = {
       financialReports: "Financial Reports",
       inventoryReports: "Inventory Reports",
       importCenter: "Import Center",
-      settings: "Settings",
+      settings: "Users & system administration",
+      settingsGeneral: "General settings",
+      settingsFinance: "Finance settings",
+      settingsShipping: "Shipping settings",
+      settingsCosts: "Cost settings",
+      settingsCrm: "Sales & CRM settings",
+      settingsIntegrations: "Integration settings",
       storeOrders: "Store Orders",
       shipping: "Shipping",
       departments: "Departments",
@@ -434,7 +447,7 @@ const en = {
     expensesCostExplorer: "Cost Explorer",
     finance: "Finance",
     financeChartOfAccounts: "Chart of Accounts",
-    financeBankTransactions: "Financial Operations",
+    financeBankTransactions: "Transaction Matching",
     financeJournals: "Journals",
     financePaymentSources: "Payment Sources",
     financeFulfillmentCostRules: "Fulfillment Cost Rules",
@@ -447,11 +460,11 @@ const en = {
     financeFixedAssets: "Fixed Assets",
     financePrepaidExpenses: "Prepaid Expenses",
     financeAccruedExpenses: "Accrued Expenses",
-    financeFx: "Exchange Rates & FX",
+    financeFx: "Exchange Rates",
     financeJournalEntries: "Journal Entries",
     financeCustomerReceipts: "Receipts",
-    financeSupplierPayments: "Payments",
-    financePaymentReview: "Payments review",
+    financeSupplierPayments: "Supplier Payments",
+    financePaymentReview: "Store Collections",
     financeFiscalPeriods: "Fiscal Years & Periods",
     financeOpeningBalances: "Opening Balances",
     financeYearClosing: "Year Closing",
@@ -475,7 +488,7 @@ const en = {
     reportsCustom: "Custom Reports",
     reportsAnalytics: "Analytical Reports",
     settings: "Settings",
-    settingsGeneral: "General",
+    settingsGeneral: "Company",
     settingsUsers: "Users",
     settingsRoles: "Roles",
     settingsPermissions: "Permissions",
@@ -551,7 +564,12 @@ const en = {
       financeOperations: "Daily operations",
       financeLedger: "Ledger & entries",
       financeAssets: "Assets & analytics",
-      financeSetup: "Setup & periods",
+      settingsGeneral: "General",
+      settingsFinance: "Finance",
+      settingsShipping: "Shipping",
+      settingsCosts: "Costs",
+      settingsCrm: "Sales & CRM",
+      settingsIntegrations: "Integrations",
     },
   },
   topbar: {
@@ -1952,7 +1970,8 @@ const en = {
         accounts: "Accounts",
         accountsRange: "Accounts {from}–{to} of {total}",
         periodMovement: "Period movement",
-        signHint: "Balances show their side: Dr (debit) or Cr (credit).",
+        signHint: "Balance = Debit − Credit; a negative balance is a credit balance",
+        signConventionLabel: "Balance convention",
       },
       filters: {
         company: "Company",
@@ -3817,6 +3836,8 @@ const en = {
     source: {
       MANUAL: "Manual",
       IMPORT: "Import",
+      EXCEL: "Excel import",
+      GOOGLE_SHEETS: "Google Sheets",
     },
     paymentStatus: {
       PAYMENT_PENDING: "Payment Pending",

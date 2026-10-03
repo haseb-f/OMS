@@ -18,6 +18,7 @@ import {
   WorkflowBusinessAction,
   WorkflowType,
 } from '@prisma/client';
+import { ensureShippingQueued } from '../store-orders/shipments/shipping-handoff';
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
@@ -959,6 +960,10 @@ export class WorkflowEngineService {
         tx,
       );
     }
+
+    // R6 SHIP hook — the converted order reaches the internal Shipping
+    // queue when eligible (internal and agent conversions alike).
+    await ensureShippingQueued(tx, storeOrder.id, { actorId: userId });
 
     await tx.leadActivity.create({
       data: {

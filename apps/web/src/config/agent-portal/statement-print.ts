@@ -1,4 +1,4 @@
-import { formatDate } from "@/lib/date";
+import { formatBusinessDate } from "@/lib/business-date";
 import { formatMoney } from "@/lib/money";
 import type { PrintCompanyInfo, StatementPrintPayload } from "@/types/print-engine";
 import type {
@@ -76,10 +76,10 @@ export function buildPortalStatementPrintPayload(
       const text = options.describe ? options.describe(line) : line.description;
       const base = text ? `${type} — ${text}` : type;
       return {
-        date: formatDate(line.entryDate),
+        date: formatBusinessDate(line.entryDate),
         reference: portalLineReference(line),
         description: line.memo
-          ? `${base} (${options.memoLabel}: ${formatMoney(line.memoAmount ?? 0)})`
+          ? `${base} (${options.memoLabel}: ${formatMoney(line.memoAmount)})`
           : base,
         debit: line.debit,
         credit: line.credit,

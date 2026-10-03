@@ -66,7 +66,9 @@ export interface OrderEconomics {
   costState: CostState;
 }
 
-export type StoreOrderSourceValue = "MANUAL" | "IMPORT";
+/** Every Prisma `StoreOrderSource` value (lead conversions keep EXCEL / GOOGLE_SHEETS). */
+export const STORE_ORDER_SOURCE_VALUES = ["MANUAL", "IMPORT", "EXCEL", "GOOGLE_SHEETS"] as const;
+export type StoreOrderSourceValue = (typeof STORE_ORDER_SOURCE_VALUES)[number];
 
 export type StoreOrderPaymentStatusValue =
   | "PAYMENT_PENDING"

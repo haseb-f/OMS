@@ -14,6 +14,10 @@ import {
   type Payment,
 } from '@prisma/client';
 import {
+  ensureShippingQueued,
+  UNTOUCHED_ATTEMPT_WHERE,
+} from '../shipments/shipping-handoff';
+import {
   assertPaymentCurrency,
   computeStoreOrderSettlement,
   lockStoreOrderRow,
@@ -146,10 +150,17 @@ export async function recomputeDeclaredPaymentStatus(
     where: { id: storeOrderId },
     data: { declaredPaymentStatus, declaredAmount: declared },
   });
+  // R6 SHIP hook — a FULL declaration can make a prepaid order eligible for
+  // the Shipping queue (a withdrawn claim takes an untouched attempt back).
+  await ensureShippingQueued(tx, storeOrderId);
   return { declaredPaymentStatus, declaredAmount: declared, total };
 }
 
-/** Shipment row exists, or a pickup order reached Collected/Returned. */
+/**
+ * A worked-on Shipment attempt exists, or a pickup order reached
+ * Collected/Returned. An untouched queue entry (R6 SHIP auto handoff) is not
+ * "fulfillment started".
+ */
 export async function hasFulfillmentStarted(
   tx: Prisma.TransactionClient,
   storeOrderId: string,
@@ -158,7 +169,13 @@ export async function hasFulfillmentStarted(
     where: { id: storeOrderId },
     select: {
       fulfillmentStatus: { select: { code: true } },
-      _count: { select: { shipments: { where: { deletedAt: null } } } },
+      _count: {
+        select: {
+          shipments: {
+            where: { deletedAt: null, NOT: UNTOUCHED_ATTEMPT_WHERE },
+          },
+        },
+      },
     },
   });
   if (!order) return false;

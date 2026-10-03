@@ -10,6 +10,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TriggerChevron } from "@/components/ui/trigger-chevron";
 import { cn } from "@/lib/utils";
+import { CopyButton } from "@/components/shared/copy-button";
 
 export { BackButton } from "@/components/shared/back-button";
 
@@ -33,6 +34,7 @@ export function DetailWorkspace({
   title,
   subtitle,
   reference,
+  copyValue,
   status,
   meta,
   actions,
@@ -44,6 +46,8 @@ export function DetailWorkspace({
   subtitle?: ReactNode;
   /** Record reference / code, shown beside the title inside the h1 (LTR, tabular). */
   reference?: ReactNode;
+  /** The reference a copy button beside the heading copies (R6 B2) — opt-in. */
+  copyValue?: string | null;
   status?: ReactNode;
   /** Key meta line (party · date · currency) — replaces `subtitle` when both are given. */
   meta?: ReactNode;
@@ -84,6 +88,7 @@ export function DetailWorkspace({
               <p className="text-caption text-muted-foreground">{line}</p>
             ) : null}
           </div>
+          {copyValue ? <CopyButton value={copyValue} labelKind="reference" /> : null}
           {status}
         </div>
         {actions ? (
@@ -125,6 +130,7 @@ export function EditorWorkspace({
 export function EditorHeader({
   title,
   documentNumber,
+  copyValue,
   status,
   meta,
   actions,
@@ -133,6 +139,8 @@ export function EditorHeader({
 }: {
   title: ReactNode;
   documentNumber?: ReactNode;
+  /** The document number a copy button beside the heading copies (R6 B2) — opt-in. */
+  copyValue?: string | null;
   /** Status badge, or labeled status groups. */
   status?: ReactNode;
   /** Key meta line: party · date · currency. When set, the number moves into the h1. */
@@ -176,6 +184,7 @@ export function EditorHeader({
             </p>
           ) : null}
         </div>
+        {copyValue ? <CopyButton value={copyValue} labelKind="reference" /> : null}
         {status}
       </div>
       {actions ? (
@@ -299,6 +308,7 @@ export function DetailFieldGrid({
 export function RecordHighlightsHeader({
   identity,
   reference,
+  copyValue,
   status,
   meta,
   statusStrip,
@@ -312,6 +322,8 @@ export function RecordHighlightsHeader({
   identity: ReactNode;
   /** Record reference (auto-generated number) — LTR, tabular, inside the h1. */
   reference?: ReactNode;
+  /** The reference a copy button beside the heading copies (R6 B2) — opt-in. */
+  copyValue?: string | null;
   status?: ReactNode;
   /** Key meta line: party · date · currency. */
   meta?: ReactNode;
@@ -363,6 +375,7 @@ export function RecordHighlightsHeader({
               </span>
             ) : null}
           </div>
+          {copyValue ? <CopyButton value={copyValue} labelKind="reference" /> : null}
           {status}
         </div>
         <div className="ms-auto flex min-w-0 flex-wrap items-center justify-end gap-2">

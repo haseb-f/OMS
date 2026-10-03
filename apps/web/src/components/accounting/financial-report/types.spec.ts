@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { displayAmount, resolveRowKinds, type FinancialReportLine } from "./types";
+import { displayAmount, lineSideValues, resolveRowKinds, type FinancialReportLine } from "./types";
 import { resolveSummaryTone, summaryToText } from "./summary-format";
 
 const line = (overrides: Partial<FinancialReportLine>): FinancialReportLine => ({
@@ -117,22 +117,31 @@ describe("summary", () => {
       {
         items: [
           { id: "debit", label: "Debit", value: 1500 },
-          { id: "closing", label: "Closing", value: -200, negative: "drcr" },
+          { id: "closing", label: "Closing", value: -200 },
           { id: "zero", label: "Zero", value: 0 },
         ],
         check: { balanced: false, difference: -12.5, label: "Debits = Credits" },
       },
-      { currency: "EGP", drcrLabels: { debit: "Dr", credit: "Cr" }, t },
+      { currency: "EGP", t },
     );
     expect(text).toEqual([
       { id: "summary:debit", label: "Debit", value: "1,500.00 EGP" },
-      { id: "summary:closing", label: "Closing", value: "200.00 Cr EGP" },
-      { id: "summary:zero", label: "Zero", value: "—" },
+      { id: "summary:closing", label: "Closing", value: "-200.00 EGP" },
+      { id: "summary:zero", label: "Zero", value: "0.00 EGP" },
       {
         id: "summary:check",
         label: "Debits = Credits",
         value: "Not balanced — Discrepancy 12.50 EGP",
       },
     ]);
+  });
+});
+
+describe("lineSideValues — one journal line posts to one side", () => {
+  it("omits the unused side (blank, not 0.00) and keeps the used one", () => {
+    expect(lineSideValues(350, 0)).toEqual({ debit: 350 });
+    expect(lineSideValues("0", "120.5")).toEqual({ credit: 120.5 });
+    expect(lineSideValues(null, undefined)).toEqual({});
+    expect(lineSideValues(-5, 0)).toEqual({ debit: -5 });
   });
 });

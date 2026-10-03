@@ -41,6 +41,29 @@ export function formatBusinessDate(value: Date | string | null | undefined): str
   return day ? formatDate(day) : "";
 }
 
+let clockFormatter: Intl.DateTimeFormat | null = null;
+
+/**
+ * An instant as Cairo wall-clock date + time — "01 Oct 2026 — 14:35" — e.g.
+ * the "Printed at" stamp of every printout and export, so it reads the same
+ * whatever the viewer's browser zone is.
+ */
+export function formatBusinessDateTime(value: Date | string | null | undefined): string {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  clockFormatter ??= new Intl.DateTimeFormat("en-GB", {
+    timeZone: BUSINESS_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = Object.fromEntries(
+    clockFormatter.formatToParts(date).map((part) => [part.type, part.value]),
+  );
+  return `${formatBusinessDate(date)} — ${parts.hour}:${parts.minute}`;
+}
+
 /**
  * Today's business (Cairo) date as a local calendar `Date` (local midnight of
  * that Y-M-D) — the shape date pickers and `toISODate` work with.

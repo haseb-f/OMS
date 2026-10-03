@@ -1,12 +1,13 @@
 "use client";
 
 import type { Table } from "@tanstack/react-table";
-import { ArrowLeft, ArrowRight, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, ArrowRight, MoveHorizontal, SlidersHorizontal } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -26,10 +27,13 @@ export function EnterpriseTableViewOptions<TData>({
   table,
   density,
   onDensityChange,
+  onResetColumnWidths,
 }: {
   table: Table<TData>;
   density?: TableDensity;
   onDensityChange?: (density: TableDensity) => void;
+  /** "Reset column widths" — omit (or pass undefined) while no column has a custom width. */
+  onResetColumnWidths?: () => void;
 }) {
   const { t } = useLocale();
   const orderableColumns = table.getAllLeafColumns().filter((column) => column.getCanHide());
@@ -122,6 +126,11 @@ export function EnterpriseTableViewOptions<TData>({
             </div>
           );
         })}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem disabled={!onResetColumnWidths} onSelect={() => onResetColumnWidths?.()}>
+          <MoveHorizontal aria-hidden />
+          {t("controls.table.resetColumnWidths")}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

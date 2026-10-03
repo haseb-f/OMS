@@ -27,8 +27,14 @@ import { BulkAssignLeadsDto } from './dto/bulk-assign-leads.dto';
 import { BulkChangeLeadStatusDto } from './dto/bulk-change-lead-status.dto';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
 import { CreateLeadAssignmentDto } from './assignments/dto/create-lead-assignment.dto';
-import { FindLeadsQueryDto } from './dto/find-leads-query.dto';
-import { ActivateDistributionDto } from './dto/activate-distribution.dto';
+import {
+  FindLeadIdsQueryDto,
+  FindLeadsQueryDto,
+} from './dto/find-leads-query.dto';
+import {
+  ActivateAutoDistributionDto,
+  ActivateDistributionDto,
+} from './dto/activate-distribution.dto';
 import { ReleaseHeldDistributionDto } from './dto/release-held-distribution.dto';
 import { CreateLeadFollowUpDto } from './dto/create-lead-follow-up.dto';
 import {
@@ -64,7 +70,7 @@ export class LeadsController {
 
   @Get('ids')
   async findAllIds(
-    @Query() query: FindLeadsQueryDto,
+    @Query() query: FindLeadIdsQueryDto,
     @CurrentUser() user: JwtPayload,
   ) {
     const scope = await this.salesScope.resolve(user.sub);
@@ -160,10 +166,16 @@ export class LeadsController {
   @Post('distribution/activate-continuous')
   @HttpCode(200)
   @PermissionAction('manage')
-  async activateContinuous(@CurrentUser() user: JwtPayload) {
+  async activateContinuous(
+    @Body() dto: ActivateAutoDistributionDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
     // Save + drain in one call; the confirmed run rides on the snapshot.
+    // The active policy's scope is kept unless the caller names one.
+    const scope = await this.leadAutoDistributionService.resolveScope(dto);
     const { run, reused } = await this.leadAutoDistributionService.applyMode({
       mode: LeadDistributionMode.CONTINUOUS,
+      ...scope,
       actorId: user.sub,
     });
     const snapshot = await this.leadAutoDistributionService.getPolicySnapshot();
@@ -173,10 +185,16 @@ export class LeadsController {
   @Post('distribution/activate-24h')
   @HttpCode(200)
   @PermissionAction('manage')
-  async activate24h(@CurrentUser() user: JwtPayload) {
+  async activate24h(
+    @Body() dto: ActivateAutoDistributionDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
     // Save + drain in one call; the confirmed run rides on the snapshot.
+    // The active policy's scope is kept unless the caller names one.
+    const scope = await this.leadAutoDistributionService.resolveScope(dto);
     const { run, reused } = await this.leadAutoDistributionService.applyMode({
       mode: LeadDistributionMode.TIME_LIMITED,
+      ...scope,
       actorId: user.sub,
     });
     const snapshot = await this.leadAutoDistributionService.getPolicySnapshot();

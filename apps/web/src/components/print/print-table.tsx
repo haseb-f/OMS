@@ -30,7 +30,8 @@ function Cell({ column, value }: { column: PrintColumn; value: PrintCell | undef
  * The one printable table every template renders through (print tokens:
  * `theme/print.css` `.pr-table`). A real `<table>`/`<thead>` so the browser
  * repeats the header row on every page and paginates rows itself; rows never
- * split across pages; long text wraps inside its cell (never clipped).
+ * split across pages; long text wraps between words inside its cell (never
+ * clipped); `prose` columns keep a minimum width.
  * Numeric (`end`) cells are isolated LTR runs with tabular digits on the
  * logical end. An optional `totalRow` is the last body row — not a `<tfoot>`,
  * which Chrome would repeat on every page.
@@ -62,7 +63,12 @@ export function PrintTable({
       <thead>
         <tr>
           {columns.map((column) => (
-            <th key={column.key} scope="col" data-align={column.align ?? "start"}>
+            <th
+              key={column.key}
+              scope="col"
+              data-align={column.align ?? "start"}
+              data-wrap={column.prose ? "prose" : undefined}
+            >
               {column.label}
             </th>
           ))}
@@ -75,7 +81,7 @@ export function PrintTable({
               <td
                 key={column.key}
                 data-align={column.align ?? "start"}
-                data-wrap={column.nowrap ? "nowrap" : undefined}
+                data-wrap={column.nowrap ? "nowrap" : column.prose ? "prose" : undefined}
               >
                 <Cell column={column} value={row[column.key]} />
               </td>

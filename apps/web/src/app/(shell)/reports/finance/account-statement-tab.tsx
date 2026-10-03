@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Landmark } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
-import { FinancialReport } from "@/components/accounting/financial-report";
+import { FinancialReport, normalSideOfAccountType } from "@/components/accounting/financial-report";
 import { useOpenFullRecord } from "@/components/shared/record-preview";
 import {
   accountingReportsService,
@@ -103,6 +103,7 @@ export function AccountStatementTab() {
               periodCredit: statement.periodCredit,
               closingBalance: statement.closingBalance,
               movements: statement.movements,
+              normalSide: normalSideOfAccountType(statement.account.accountType),
             },
           ]
         : [],
@@ -130,6 +131,7 @@ export function AccountStatementTab() {
           : t("reports.finance.accountStatement.title")
       }
       exportFileName="account-statement.xlsx"
+      signConvention
       placeholder={
         !account ? (
           <EmptyState
@@ -139,7 +141,17 @@ export function AccountStatementTab() {
           />
         ) : undefined
       }
-      summary={statement ? { items: ledgerSummaryItems(t, statement) } : undefined}
+      summary={
+        statement
+          ? {
+              items: ledgerSummaryItems(
+                t,
+                statement,
+                normalSideOfAccountType(statement.account.accountType),
+              ),
+            }
+          : undefined
+      }
       onPostingClick={(line) => {
         const movement = movementIndex.get(line.id);
         if (movement) {

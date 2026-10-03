@@ -106,6 +106,31 @@ export interface ShippingStatusCatalogEntry {
   syncBehavior: "UNDER_SYNC" | "FINAL";
 }
 
+/** R6 SHIP — why a shipping order is not (yet) in the internal Shipping queue. */
+export type ShippingHandoffBlocker =
+  | "ORDER_ARCHIVED"
+  | "ORDER_CANCELLED"
+  | "ORDER_CLOSED"
+  | "PICKUP"
+  | "NOT_SHIPPABLE"
+  | "PAYMENT_REQUIRED";
+
+/** `GET /store-orders/:id/shipping-handoff`. */
+export interface ShippingHandoff {
+  /** The order ships (fulfillment method SHIPPING). */
+  applicable: boolean;
+  /** A live Shipment attempt exists — the order is in the Shipping queue / pipeline. */
+  queued: boolean;
+  eligible: boolean;
+  blocker: ShippingHandoffBlocker | null;
+  reason: string | null;
+}
+
+/** Shipping queue deep link filtered to one order (search by its number). */
+export function shippingQueueHref(internalOrderId: string): string {
+  return `/shipping${buildQueryString({ search: internalOrderId })}`;
+}
+
 /**
  * Flat, cross-order Shipping list — every `Shipment` row across every Store
  * Order, independent of `store-orders-service`'s per-order shipment
@@ -126,6 +151,9 @@ export const shippingService = {
     apiClient.post<BulkShipmentUpdateResult>("/shipping/bulk-update", { ids, status }),
   /** Dynamic shipping-status catalog — database is the source of truth, used to populate the direct "change to any status" picker. */
   statuses: () => apiClient.get<ShippingStatusCatalogEntry[]>("/shipping/statuses"),
+  /** R6 SHIP — Shipping-queue handoff state / blocker of one Store Order (store-orders scope). */
+  handoff: (storeOrderId: string) =>
+    apiClient.get<ShippingHandoff>(`/store-orders/${storeOrderId}/shipping-handoff`),
   /** Bulk "change to any status" from the Store Orders list's advanced selection (TASK-064) — same per-order operation as `storeOrdersService.shipments.setShippingStatus`, keyed by store order id, applied per row with partial success reported back. */
   bulkSetStatus: (storeOrderIds: string[], shippingStatusId: string) =>
     apiClient.post<BulkShippingStatusResultRow[]>("/shipping/bulk-status", {

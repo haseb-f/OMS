@@ -5,15 +5,20 @@ import paymentVocabularyAr from "./modules/payment-vocabulary.ar";
 import fxSettingsAr from "./modules/fx-settings.ar";
 import docUiAr from "./modules/doc-ui.ar";
 import feedbackAr from "./modules/feedback.ar";
+import controlsAr from "./modules/controls.ar";
 import productCommissionAr from "./modules/product-commission.ar";
 import agentPricingAr from "./modules/agent-pricing.ar";
 import orderDuplicatesAr from "./modules/order-duplicates.ar";
 import orderAmendmentsAr from "./modules/order-amendments.ar";
+import shippingHandoffAr from "./modules/shipping-handoff.ar";
+import leadOpsAr from "./modules/lead-ops.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
   orderDuplicates: orderDuplicatesAr,
   orderAmendments: orderAmendmentsAr,
+  shippingHandoff: shippingHandoffAr,
+  leadOps: leadOpsAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
@@ -21,6 +26,7 @@ const ar = {
   fxSettings: fxSettingsAr,
   docUi: docUiAr,
   feedback: feedbackAr,
+  controls: controlsAr,
   toast: {
     region: "الإشعارات",
     close: "إغلاق الإشعار",
@@ -272,6 +278,7 @@ const ar = {
       sales: "المبيعات",
       hr: "الموارد البشرية",
       investors: "المستثمرون",
+      settings: "الإعدادات",
     },
     actions: {
       view: "عرض",
@@ -320,7 +327,13 @@ const ar = {
       financialReports: "التقارير المالية",
       inventoryReports: "تقارير المخزون",
       importCenter: "مركز الاستيراد",
-      settings: "الإعدادات",
+      settings: "المستخدمون وإدارة النظام",
+      settingsGeneral: "الإعدادات العامة",
+      settingsFinance: "إعدادات المالية",
+      settingsShipping: "إعدادات الشحن",
+      settingsCosts: "إعدادات التكاليف",
+      settingsCrm: "إعدادات المبيعات وعلاقات العملاء",
+      settingsIntegrations: "إعدادات التكاملات",
       storeOrders: "طلبات المتجر",
       shipping: "الشحن",
       departments: "الأقسام",
@@ -434,7 +447,7 @@ const ar = {
     expensesCostExplorer: "مستكشف التكاليف",
     finance: "المالية",
     financeChartOfAccounts: "دليل الحسابات",
-    financeBankTransactions: "العمليات المالية",
+    financeBankTransactions: "مطابقة العمليات",
     financeJournals: "دفاتر اليومية",
     financePaymentSources: "مصادر الدفع",
     financeFulfillmentCostRules: "قواعد تكلفة التجهيز",
@@ -447,11 +460,11 @@ const ar = {
     financeFixedAssets: "الأصول الثابتة",
     financePrepaidExpenses: "المصروفات المدفوعة مقدماً",
     financeAccruedExpenses: "المصروفات المستحقة",
-    financeFx: "أسعار الصرف والعملات",
+    financeFx: "أسعار الصرف",
     financeJournalEntries: "قيود اليومية",
     financeCustomerReceipts: "المقبوضات",
-    financeSupplierPayments: "المدفوعات",
-    financePaymentReview: "مراجعة المدفوعات",
+    financeSupplierPayments: "مدفوعات الموردين",
+    financePaymentReview: "تحصيلات المتجر",
     financeFiscalPeriods: "السنوات والفترات المالية",
     financeOpeningBalances: "الأرصدة الافتتاحية",
     financeYearClosing: "إقفال السنة المالية",
@@ -475,7 +488,7 @@ const ar = {
     reportsCustom: "تقارير مخصصة",
     reportsAnalytics: "التقارير التحليلية",
     settings: "الإعدادات",
-    settingsGeneral: "عام",
+    settingsGeneral: "بيانات الشركة",
     settingsUsers: "المستخدمون",
     settingsRoles: "الأدوار",
     settingsPermissions: "الصلاحيات",
@@ -551,7 +564,12 @@ const ar = {
       financeOperations: "العمليات اليومية",
       financeLedger: "الدفاتر والقيود",
       financeAssets: "الأصول والتحليل",
-      financeSetup: "الإعداد والفترات",
+      settingsGeneral: "عام",
+      settingsFinance: "المالية",
+      settingsShipping: "الشحن",
+      settingsCosts: "التكاليف",
+      settingsCrm: "المبيعات وعلاقات العملاء",
+      settingsIntegrations: "التكاملات",
     },
   },
   topbar: {
@@ -1942,7 +1960,8 @@ const ar = {
         accounts: "الحسابات",
         accountsRange: "الحسابات {from}–{to} من {total}",
         periodMovement: "حركة الفترة",
-        signHint: "الأرصدة تُعرض بجانبها: مدين أو دائن.",
+        signHint: "الرصيد = مدين − دائن؛ الرصيد السالب رصيد دائن",
+        signConventionLabel: "اصطلاح الرصيد",
       },
       filters: {
         company: "الشركة",
@@ -3787,6 +3806,8 @@ const ar = {
     source: {
       MANUAL: "يدوي",
       IMPORT: "استيراد",
+      EXCEL: "استيراد Excel",
+      GOOGLE_SHEETS: "Google Sheets",
     },
     paymentStatus: {
       PAYMENT_PENDING: "بانتظار الدفع",

@@ -34,6 +34,24 @@ function investorPortalProxy(request: NextRequest, pathname: string) {
 }
 
 /**
+ * Where an already signed-in visitor of a public auth page goes: the agent
+ * portal for an agent token (`typ: "agent"`), the company dashboard
+ * otherwise. Routing only — the claim is NOT trusted for authorization (the
+ * API verifies the signature on every call and the shell's route guard
+ * enforces the audience); a malformed token just falls back to "/".
+ */
+function homeForToken(token: string | undefined): string {
+  try {
+    const payload = token?.split(".")[1];
+    if (!payload) return "/";
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    return (JSON.parse(json) as { typ?: string }).typ === "agent" ? "/agent" : "/";
+  } catch {
+    return "/";
+  }
+}
+
+/**
  * Route protection (ADR-0022, Part 7): unauthenticated users are always
  * redirected to /login. This only checks whether an access-token cookie is
  * present — real verification happens on every API call via the backend's
@@ -51,17 +69,20 @@ export function proxy(request: NextRequest) {
     return investorPortalProxy(request, pathname);
   }
 
-  const hasToken = Boolean(request.cookies.get("oms_token")?.value);
+  const token = request.cookies.get("oms_token")?.value;
+  const hasToken = Boolean(token);
   const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
 
   if (!hasToken && !isPublicPath) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", pathname);
+    // R6 (spec A.4) — keep the whole deep link, query string included; the
+    // login page validates it before navigating (`navigation/post-login.ts`).
+    loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(loginUrl);
   }
 
   if (hasToken && isPublicPath) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL(homeForToken(token), request.url));
   }
 
   return NextResponse.next();

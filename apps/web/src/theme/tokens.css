@@ -129,10 +129,11 @@
   --shell-gutter: 1rem; /* 16px phone */
   --shell-gutter-lg: 1.5rem; /* 24px tablet+ */
 
-  /* Toasts (usability-financial-reports §5) — a slightly larger card, placed
-     just below the 48px top bar (never over it, never over bottom action
-     bars / sticky modal footers), with the notch safe area on phones. */
-  --toast-width: 24rem; /* 384px */
+  /* Toasts (usability-financial-reports §5, R6 B3) — top center, just below
+     the 48px top bar (never over it, never over bottom action bars / sticky
+     modal footers), with the notch safe area on phones. Readable width:
+     28rem, never wider than 92% of the viewport. */
+  --toast-width: min(92vw, 28rem);
   --toast-offset-top: calc(var(--shell-topbar-height) + env(safe-area-inset-top, 0px) + 0.5rem);
   --toast-offset-inline: 1rem;
 

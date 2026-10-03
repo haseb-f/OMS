@@ -28,6 +28,8 @@
 
   --pr-gap: 2mm;
   --pr-gap-lg: 4mm;
+  /* Minimum width of a prose (narration / description) table column. */
+  --pr-prose-min-width: 40mm;
 
   color: var(--pr-ink);
   background: #fff;
@@ -270,7 +272,16 @@
   padding: 1.2mm 1.6mm;
   border-bottom: 0.5pt solid var(--pr-rule);
   vertical-align: top;
-  overflow-wrap: anywhere;
+  /* Wrap between words; a single over-long token still breaks rather than
+     overflow, but never mid-word while a space is available. */
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
+}
+/* Narrations / descriptions / account names: a readable minimum width so a
+   narrow sheet never squeezes prose into a one-word-per-line column. */
+.pr-table :is(th, td)[data-wrap="prose"] {
+  min-width: var(--pr-prose-min-width);
 }
 .pr-table[data-density="compact"] :is(th, td) {
   padding: 0.8mm 1.2mm;

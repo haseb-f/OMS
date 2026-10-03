@@ -52,7 +52,8 @@ export function resolveNavigationItemForRoute(
  * D2 — the permissions a route requires, derived from the SAME
  * `navigation.config.ts` entry that decides sidebar visibility, so opening a
  * page by URL is exactly as authorized as clicking it in the sidebar.
- * Semantics match `filterByAccess`: all-of (every listed key). Only the
+ * Semantics match `filterByAccess` (all-of unless the entry declares
+ * `permissionMatch: "any"` — see `resolveRouteAccess`). Only the
  * owning item's own list counts — section parents' coarse `*.view` keys are
  * not grantable and never gate a route. Empty = ungated.
  */
@@ -122,7 +123,7 @@ export type PermissionMatch = "all" | "any";
 
 export interface RouteAccessRequirement {
   permissions: string[];
-  /** `all` — every key (navigation entries); `any` — at least one (create overrides). */
+  /** `all` — every key; `any` — at least one (create overrides, and nav entries declaring `permissionMatch: "any"`). */
   match: PermissionMatch;
   source: "create-override" | "navigation" | "ungated";
 }
@@ -143,9 +144,14 @@ export function resolveRouteAccess(
 ): RouteAccessRequirement {
   const override = CREATE_ROUTE_PERMISSIONS[normalizePath(pathname)];
   if (override) return { permissions: [...override], match: "any", source: "create-override" };
-  const permissions = resolveRouteRequiredPermissions(items, pathname, searchParams);
+  const owner = resolveNavigationItemForRoute(items, pathname, searchParams);
+  const permissions = owner?.permissions ?? [];
   return permissions.length > 0
-    ? { permissions, match: "all", source: "navigation" }
+    ? {
+        permissions: [...permissions],
+        match: owner?.permissionMatch ?? "all",
+        source: "navigation",
+      }
     : { permissions: [], match: "all", source: "ungated" };
 }
 

@@ -791,6 +791,14 @@
 [data-sonner-toaster] [data-sonner-toast] {
   box-shadow: var(--shadow-floating);
 }
+/* The toaster list is a positioning frame only: it never takes a click
+   (nothing invisible blocks the page under it) — each toast card does. */
+[data-sonner-toaster] {
+  pointer-events: none;
+}
+[data-sonner-toaster] [data-sonner-toast]:not([data-visible="false"]) {
+  pointer-events: auto;
+}
 /* Close (×) on every toast: inside the card at the logical END corner (never
    hanging off the edge over controls behind it), with its own reserved
    gutter so it never overlaps the title or an action such as Retry. */

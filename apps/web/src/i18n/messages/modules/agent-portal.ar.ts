@@ -1,7 +1,7 @@
 /** agentPortal namespace (ar) — بوابة الوكيل الخارجية (specs/agents-fulfillment-partners §10). */
 const agentPortalAr = {
   nav: {
-    dashboard: "لوحة الوكيل",
+    dashboard: "لوحة التحكم",
     leads: "العملاء المحتملون",
     orders: "الطلبات",
     stock: "المخزون",
@@ -89,7 +89,7 @@ const agentPortalAr = {
     role: { ADMIN: "مدير الوكيل", SALES: "مبيعات" },
   },
   dashboard: {
-    title: "لوحة الوكيل",
+    title: "لوحة التحكم",
     description: "طلباتك وتحصيلاتك ورصيدك في نظرة واحدة.",
     fulfillmentTitle: "تقدم التنفيذ",
     moneyTitle: "المبيعات والرصيد",

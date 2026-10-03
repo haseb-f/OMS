@@ -15,6 +15,7 @@ import {
 import { ApiError } from "@/services/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import { useLocale } from "@/providers/locale-provider";
+import { resolvePostLoginPath, startFreshNavigationSession } from "@/navigation/post-login";
 
 /** `useSearchParams()` requires a Suspense boundary during static export — the actual form lives in `LoginForm` below. */
 export default function LoginPage() {
@@ -48,8 +49,11 @@ function LoginForm() {
   const onSubmit = form.handleSubmit(async (values) => {
     setFormError(null);
     try {
-      await login(values.email, values.password, values.rememberMe);
-      router.push(searchParams.get("next") ?? "/");
+      const signedIn = await login(values.email, values.password, values.rememberMe);
+      startFreshNavigationSession();
+      // A validated deep link (incl. its query), else the user's own
+      // dashboard directly — agents never bounce through "/".
+      router.replace(resolvePostLoginPath(searchParams.get("next"), signedIn.userType));
     } catch (error) {
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         setFormError(error.message);

@@ -6,6 +6,7 @@ import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ModalSection } from "@/components/shared/modal-section";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/shared/password-input";
 import {
   Select,
   SelectContent,
@@ -335,10 +336,8 @@ export function UserEditorModal({
                   {!form.generatePassword && <span className="text-destructive"> *</span>}
                 </label>
                 {!form.generatePassword && (
-                  <Input
+                  <PasswordInput
                     inputSize="sm"
-                    dir="ltr"
-                    type="password"
                     autoComplete="new-password"
                     value={form.password}
                     onChange={(event) => setForm((c) => ({ ...c, password: event.target.value }))}

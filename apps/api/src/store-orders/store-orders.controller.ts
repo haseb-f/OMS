@@ -334,6 +334,12 @@ export class StoreOrdersController {
     };
   }
 
+  /** R6 SHIP — Shipping-queue handoff status / blocker for the detail page. */
+  @Get(':id/shipping-handoff')
+  shippingHandoff(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.storeOrdersService.shippingHandoff(id, user.sub);
+  }
+
   @Get(':id/can-fulfill')
   canFulfill(@Param('id') id: string) {
     return this.storeOrdersService.canFulfill(id);

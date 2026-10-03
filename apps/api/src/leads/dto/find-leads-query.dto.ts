@@ -10,6 +10,15 @@ import {
 } from 'class-validator';
 import { LeadSource } from '@prisma/client';
 import { MasterDataQueryDto } from '../../master-data/dto/master-data-query.dto';
+import { LEAD_FOLLOW_UP_OUTCOMES } from '../follow-up-outcomes';
+
+/** Follow-up classification filter values: the outcome codes, or `none` (no outcome yet). */
+export const LEAD_FOLLOW_UP_OUTCOME_FILTERS = [
+  ...LEAD_FOLLOW_UP_OUTCOMES,
+  'none',
+] as const;
+export type LeadFollowUpOutcomeFilter =
+  (typeof LEAD_FOLLOW_UP_OUTCOME_FILTERS)[number];
 
 export const LEAD_LIFECYCLE_FILTERS = [
   'active',
@@ -96,4 +105,31 @@ export class FindLeadsQueryDto extends MasterDataQueryDto {
   @IsIn(LEAD_FOLLOW_UP_FILTERS)
   @IsOptional()
   followUpFilter?: LeadFollowUpFilter;
+
+  /** R6 (spec C1) — follow-up classification (`Lead.followUpOutcome`), comma-separated. */
+  @Transform(({ value }): string[] | undefined => {
+    if (value == null || value === '') return undefined;
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item));
+    }
+    return String(value).split(',');
+  })
+  @IsIn(LEAD_FOLLOW_UP_OUTCOME_FILTERS, { each: true })
+  @IsOptional()
+  followUpOutcomes?: LeadFollowUpOutcomeFilter[];
+}
+
+/**
+ * `GET /leads/ids` (Smart Selection). `pageSize` here means "the first N"
+ * and must stay undefined when the caller omits it — "select all matching"
+ * sends no `pageSize`, and the list default (20) would silently truncate the
+ * selection to one page. class-transformer instantiates the DTO and then
+ * assigns only the keys present in the query, so clearing the inherited
+ * default in the constructor is enough.
+ */
+export class FindLeadIdsQueryDto extends FindLeadsQueryDto {
+  constructor() {
+    super();
+    this.pageSize = undefined;
+  }
 }

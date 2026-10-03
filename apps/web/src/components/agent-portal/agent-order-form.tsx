@@ -64,6 +64,7 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useLocale } from "@/providers/locale-provider";
 import { formatMoney } from "@/lib/money";
 import { reportApiError, reportSuccess } from "@/lib/toast";
+import { shippingBlockerKey } from "@/components/shipping/shipping-handoff-notice";
 import { OrderBreakdown } from "./order-breakdown";
 import { DuplicateCustomerPanel } from "@/components/business/duplicate-customer-panel";
 import { useDuplicateCheck } from "@/hooks/use-duplicate-check";
@@ -269,10 +270,14 @@ export function AgentOrderForm({
       reportSuccess(
         t("agentPortal.orderForm.toasts.created", { number: created.internalOrderId }),
         {
-          description:
-            created.paymentType === "PREPAID"
-              ? t("agentPortal.orderForm.toasts.prepaidHint")
-              : undefined,
+          // R6 SHIP — sent to the company Shipping team, or why not yet.
+          description: created.fulfillment.shippingBlocker
+            ? t(shippingBlockerKey(created.fulfillment.shippingBlocker))
+            : created.fulfillment.shipments.length > 0
+              ? t("shippingHandoff.sentToShipping")
+              : created.paymentType === "PREPAID"
+                ? t("agentPortal.orderForm.toasts.prepaidHint")
+                : undefined,
         },
       );
       router.push(href);

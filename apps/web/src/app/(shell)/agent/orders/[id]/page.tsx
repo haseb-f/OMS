@@ -34,6 +34,7 @@ import { StatusBadge } from "@/components/business/status-badge";
 import { orderPaymentBadge } from "@/config/store-orders/order-status-badges";
 import { OrderBreakdown } from "@/components/agent-portal/order-breakdown";
 import { ShippingPricingNotice } from "@/components/agents/shipping-pricing-panel";
+import { shippingBlockerKey } from "@/components/shipping/shipping-handoff-notice";
 import { PortalFileList } from "@/components/agent-portal/portal-files";
 import { DeclarePaymentDialog } from "@/components/agent-portal/declare-payment-dialog";
 import {
@@ -281,6 +282,7 @@ export default function AgentOrderDetailPage() {
     <DetailWorkspace
       title={order.customer?.name ?? order.internalOrderId}
       reference={order.internalOrderId}
+      copyValue={order.internalOrderId}
       meta={
         <>
           {formatDate(order.orderDate)}
@@ -400,7 +402,9 @@ export default function AgentOrderDetailPage() {
                 />
               ) : (
                 <p className="text-caption text-muted-foreground">
-                  {t("agentPortal.orderDetail.shipmentsEmpty")}
+                  {order.fulfillment.shippingBlocker
+                    ? t(shippingBlockerKey(order.fulfillment.shippingBlocker))
+                    : t("agentPortal.orderDetail.shipmentsEmpty")}
                 </p>
               )
             ) : null}
@@ -564,7 +568,9 @@ export default function AgentOrderDetailPage() {
                   label={t("agentPortal.orderForm.fields.mobile")}
                   value={
                     order.customer.mobile ? (
-                      <SemanticValue kind="phone">{order.customer.mobile}</SemanticValue>
+                      <SemanticValue kind="phone" copyable>
+                        {order.customer.mobile}
+                      </SemanticValue>
                     ) : null
                   }
                 />

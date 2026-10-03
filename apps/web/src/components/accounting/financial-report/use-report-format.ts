@@ -1,17 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useLocale } from "@/providers/locale-provider";
+import { useEffect, useState } from "react";
 import { accountingSettingsService } from "@/services/accounting-settings-service";
-
-/** Localized Dr/Cr side labels for `drcr` balances (مدين/دائن · Dr/Cr). */
-export function useDrCrLabels(): { debit: string; credit: string } {
-  const { t } = useLocale();
-  return useMemo(
-    () => ({ debit: t("reports.finance.side.debit"), credit: t("reports.finance.side.credit") }),
-    [t],
-  );
-}
 
 let functionalCurrencyRequest: Promise<string> | null = null;
 
