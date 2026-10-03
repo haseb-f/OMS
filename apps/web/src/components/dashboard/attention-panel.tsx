@@ -93,6 +93,8 @@ export function AttentionPanel({
     <DashboardPanel
       id="dash-attention"
       icon={Inbox}
+      tone={settled && open.length === 0 ? "success" : "warning"}
+      scope={{ kind: "current", label: t("insights.scope.current") }}
       title={t("docUi.dashboard.attentionTitle")}
       description={t("docUi.dashboard.attentionDescription")}
       busy={loading}

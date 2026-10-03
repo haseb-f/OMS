@@ -33,6 +33,7 @@ html[dir="ltr"] :is(h1, h2) {
 [data-slot="insight-card"] {
   --tone: var(--insight-neutral);
   --tone-strength: var(--surface-soft-tone-strength);
+  --tone-border-strength: var(--surface-soft-tone-border-strength);
   --accent-edge: 3px;
   /* Round 5 soft tile (§12.12): the tone tints the top of the tile by a few
      percent and fades into the card — restrained, never a coloured block. */
@@ -42,7 +43,12 @@ html[dir="ltr"] :is(h1, h2) {
     color-mix(in oklab, var(--tone) var(--tone-strength), var(--surface-soft)),
     var(--card)
   );
-  border-color: var(--surface-soft-border);
+  /* Round 6: a toned tile's hairline carries a trace of its tone. */
+  border-color: color-mix(
+    in oklab,
+    var(--tone) var(--tone-border-strength),
+    var(--surface-soft-border)
+  );
   box-shadow: var(--surface-soft-shadow);
   color: var(--card-foreground);
   transition:
@@ -52,6 +58,7 @@ html[dir="ltr"] :is(h1, h2) {
 /* Neutral tiles take the plain soft surface (no grey cast). */
 [data-slot="insight-card"][data-tone="neutral"] {
   --tone-strength: 0%;
+  --tone-border-strength: 0%;
 }
 [data-slot="insight-card"][data-tone="info"] {
   --tone: var(--insight-info);
@@ -124,6 +131,32 @@ html[dir="ltr"] :is(h1, h2) {
   [data-slot="insight-action"] {
   color: var(--foreground);
 }
+/* Round 6 (§12.13): a dashboard panel's header icon sits in a small chip
+   tinted by the panel's meaning (`DashboardPanel tone`) — the same accent as
+   a tile icon, so a panel and its figures read as one family. */
+[data-slot="panel-icon"] {
+  --tone: var(--insight-neutral);
+  color: var(--tone);
+  background-color: color-mix(in oklab, var(--tone) 11%, var(--card));
+}
+[data-slot="panel-icon"][data-tone="info"] {
+  --tone: var(--insight-info);
+}
+[data-slot="panel-icon"][data-tone="success"] {
+  --tone: var(--insight-success);
+}
+[data-slot="panel-icon"][data-tone="warning"] {
+  --tone: var(--insight-warning);
+}
+[data-slot="panel-icon"][data-tone="destructive"] {
+  --tone: var(--insight-destructive);
+}
+/* Scope chip («هذا الشهر» / «الآن» / «حتى تاريخه»): a quiet outline pill. */
+[data-slot="insight-scope"] {
+  background-color: transparent;
+  border-color: var(--surface-soft-border);
+}
+
 /* Metric group (`InsightGroup`): related figures share ONE surface split by
    hairlines — the way a report groups a metric row — instead of a box per
    number. Cells keep their own padding; dividers are 1px shadows on the
@@ -409,11 +442,22 @@ html[dir="ltr"] :is(h1, h2) {
     border-color var(--duration-base) var(--ease-standard),
     box-shadow var(--duration-base) var(--ease-standard);
 }
-[data-slot="card"][data-surface="soft"]:is(:hover, :has(:focus-visible)) {
+/* Static panels have no hover affordance (Round 6); keyboard focus inside
+   still firms the edge. Clickable soft cards react to hover and focus. */
+[data-slot="card"][data-surface="soft"]:has(:focus-visible),
+[data-slot="card"][data-surface="soft"][data-clickable="true"]:hover {
   border-color: var(--surface-soft-hover-border);
 }
 [data-slot="card"][data-surface="soft"][data-clickable="true"]:is(:hover, :focus-visible) {
   box-shadow: var(--surface-soft-shadow-hover);
+}
+/* Key-facts strip (`DetailSummaryBar`, Round 6): the same soft summary
+   surface as report tiles — static, so no hover. */
+[data-slot="detail-summary-bar"] {
+  background-color: var(--card);
+  background-image: var(--surface-soft-gradient);
+  border-color: var(--surface-soft-border);
+  box-shadow: var(--surface-soft-shadow);
 }
 /* A metric group or a list inside a soft panel shares the panel's surface. */
 [data-slot="card"][data-surface="soft"] [data-slot="insight-group"] {

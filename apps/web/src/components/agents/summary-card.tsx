@@ -16,7 +16,7 @@ export function SummaryCard({
   currency: string;
 }) {
   return (
-    <DetailSection title={title}>
+    <DetailSection title={title} surface="soft">
       <dl className="flex flex-col">
         {rows.map((row) => (
           <div

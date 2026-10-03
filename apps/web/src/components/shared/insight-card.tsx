@@ -1,6 +1,14 @@
 import type { ComponentProps, ReactNode } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, type LucideIcon } from "lucide-react";
+import {
+  CalendarRange,
+  ChevronLeft,
+  ChevronRight,
+  CircleDot,
+  History,
+  type LucideIcon,
+} from "lucide-react";
+import { EnterpriseBadge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export type InsightTone =
@@ -71,16 +79,15 @@ export function InsightCard({
             <Icon className="size-3.5" strokeWidth={2} />
           </span>
         ) : null}
+        {/* Round 6: a label is never truncated — it wraps (labels are kept
+            concise; the period / scope lives in the group header). */}
         <span
-          className={cn(
-            "min-w-0 flex-1 text-caption font-medium text-muted-foreground",
-            // An emphasized tile (discrepancy, open work) never hides its words.
-            emphasis ? "break-words" : "truncate",
-          )}
+          data-slot="insight-label"
+          className="min-w-0 flex-1 text-caption font-medium text-pretty break-words text-muted-foreground"
         >
           {label}
         </span>
-        {meta ? <span className="shrink-0">{meta}</span> : null}
+        {meta ? <span className="shrink-0 self-start">{meta}</span> : null}
       </div>
       <div className="mt-1.5 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
         <div className="flex min-w-0 items-baseline gap-1.5">
@@ -179,5 +186,43 @@ export function InsightBar({ value, label }: { value: number; label: string }) {
         style={{ width: `${clamped}%` }}
       />
     </div>
+  );
+}
+
+export type InsightScopeKind = "period" | "current" | "toDate";
+
+const SCOPE_ICON: Record<InsightScopeKind, LucideIcon> = {
+  period: CalendarRange,
+  current: CircleDot,
+  toDate: History,
+};
+
+/**
+ * Says what a group of figures covers (Round 6, design-system §12.13): the
+ * selected period («هذا الشهر»), the current state («الآن») or everything to
+ * date. Neutral on purpose — the scope is information, not a verdict. Used
+ * in panel headers (`DashboardPanel scope`) and, for one figure that differs
+ * from its group, in an `InsightCard`'s `meta`.
+ */
+export function InsightScope({
+  kind,
+  children,
+  className,
+}: {
+  kind: InsightScopeKind;
+  children: ReactNode;
+  className?: string;
+}) {
+  const Icon = SCOPE_ICON[kind];
+  return (
+    <EnterpriseBadge
+      variant="outline"
+      data-slot="insight-scope"
+      data-scope={kind}
+      className={cn("font-medium text-muted-foreground", className)}
+    >
+      <Icon aria-hidden />
+      {children}
+    </EnterpriseBadge>
   );
 }

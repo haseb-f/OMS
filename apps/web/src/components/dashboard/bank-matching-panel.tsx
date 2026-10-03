@@ -22,7 +22,7 @@ function Breakdown({
     <dl className="mt-2.5 flex flex-col gap-1 text-caption">
       {rows.map((row) => (
         <div key={row.label} className="flex items-center justify-between gap-3">
-          <dt className="truncate text-muted-foreground">{t(row.label)}</dt>
+          <dt className="min-w-0 break-words text-muted-foreground">{t(row.label)}</dt>
           <dd
             className={cn(
               "num font-medium",
@@ -61,6 +61,8 @@ export function BankMatchingPanel({
     <DashboardPanel
       id="dash-bank"
       icon={Landmark}
+      tone="info"
+      scope={{ kind: "current", label: t("insights.scope.current") }}
       title={t("dashboard.overview.bankTitle")}
       description={t("dashboard.overview.bankDescription")}
       busy={loading}

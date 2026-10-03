@@ -469,11 +469,13 @@
     --surface-soft-shadow: none;
     --surface-soft-shadow-hover: none;
     --surface-soft-tone-strength: 0%;
+    --surface-soft-tone-border-strength: 0%;
   }
   :is(
     [data-slot="card"][data-surface="soft"],
     [data-slot="insight-group"],
-    [data-slot="insight-card"]
+    [data-slot="insight-card"],
+    [data-slot="detail-summary-bar"]
   ):not([data-print-sheet] *) {
     background: var(--print-paper) !important;
     box-shadow: none !important;
