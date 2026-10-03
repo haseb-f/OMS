@@ -51,7 +51,6 @@ describe('Advanced customer lookup (HTTP)', () => {
   let unitId: string;
   let productId: string;
   let currencyId: string;
-  let seq = 0;
 
   // Saudi mobiles in two forms: the national form a salesperson types, and E.164.
   const phones = {
@@ -118,7 +117,6 @@ describe('Advanced customer lookup (HTTP)', () => {
     owner: string | null,
     agentId: string | null,
   ) {
-    seq += 1;
     const created = await storeOrders.create({
       partner: { name, phone },
       currencyId,
