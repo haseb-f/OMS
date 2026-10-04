@@ -1,4 +1,5 @@
 import {
+  House,
   LayoutDashboard,
   Users,
   UserCog,
@@ -69,6 +70,7 @@ import {
  */
 export const iconRegistry = {
   dashboard: LayoutDashboard,
+  home: House,
   users: Users,
   "user-cog": UserCog,
   "key-round": KeyRound,

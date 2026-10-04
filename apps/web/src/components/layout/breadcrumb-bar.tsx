@@ -14,6 +14,8 @@ import { BackButton } from "@/components/shared/back-button";
 import { useCurrentNavigation } from "@/hooks/use-current-navigation";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbValue } from "@/providers/breadcrumb-provider";
+import { useUserContext } from "@/providers/user-context";
+import { homePathFor } from "@/navigation/post-login";
 import { cn } from "@/lib/utils";
 
 /**
@@ -26,11 +28,13 @@ import { cn } from "@/lib/utils";
 export function BreadcrumbBar() {
   const { breadcrumb, parentRoute, isExactMatch } = useCurrentNavigation();
   const { t } = useLocale();
+  const { user } = useUserContext();
   const dynamicLabel = useBreadcrumbValue();
 
   const showDynamicCrumb = !isExactMatch;
   const crumbs = breadcrumb.filter((item, index) => {
-    if (item.route === "/") return false;
+    // Home items (company `/`, agent `/agent`) are the trail's fixed root, never a crumb.
+    if (item.homeHidden) return false;
     const next = breadcrumb[index + 1];
     return !next || t(item.titleKey) !== t(next.titleKey);
   });
@@ -57,7 +61,7 @@ export function BreadcrumbBar() {
         <BreadcrumbList className="flex-nowrap overflow-hidden">
           <BreadcrumbItem className="shrink-0 max-lg:hidden">
             <BreadcrumbLink asChild>
-              <Link href="/">{t("common.home")}</Link>
+              <Link href={homePathFor(user?.userType)}>{t("common.home")}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           {crumbs.map((item, index) => {

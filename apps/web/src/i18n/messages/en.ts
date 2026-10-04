@@ -418,6 +418,8 @@ const en = {
   nav: {
     dashboard: "Dashboard",
     dashboardSubtitle: "Overview across every OMS module",
+    home: "Home",
+    homeSubtitle: "Open any module you have access to",
     crm: "CRM",
     crmLeads: "Leads",
     crmSalesTeams: "Sales Teams",

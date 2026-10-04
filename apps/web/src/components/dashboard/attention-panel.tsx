@@ -64,7 +64,7 @@ const ICON_TONE = {
 } as const;
 
 const ROW_LINK =
-  "flex min-w-0 items-center gap-3 px-3 outline-none transition-colors duration-(--duration-base) ease-(--ease-standard) hover:bg-surface-soft-row-hover focus-visible:bg-surface-soft-row-hover motion-reduce:transition-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-ring";
+  "flex min-w-0 items-center gap-3 px-3 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-ring";
 
 /**
  * Needs attention (design-system §12.6): the actionable queues as one list —
@@ -140,7 +140,12 @@ export function AttentionPanel({
             ))}
             {cleared.map((queue) => (
               <li key={queue.key}>
-                <Link href={queue.href} className={cn(ROW_LINK, "h-9 text-caption")}>
+                <Link
+                  href={queue.href}
+                  data-slot="panel-row"
+                  data-tone="success"
+                  className={cn(ROW_LINK, "h-9 text-caption")}
+                >
                   <CircleCheck
                     className="size-4 shrink-0 text-success-soft-foreground"
                     aria-hidden
@@ -167,10 +172,13 @@ function OpenQueueRow({ queue }: { queue: AttentionQueue }) {
     <li>
       <Link
         href={queue.href}
+        data-slot="panel-row"
+        data-tone={queue.severity}
         className={cn(ROW_LINK, "group/queue py-2.5")}
         aria-label={`${t(copy.title)}: ${queue.count} — ${t(copy.action)}`}
       >
         <span
+          data-slot="panel-row-icon"
           className={cn(
             "flex size-8 shrink-0 items-center justify-center rounded-sm",
             ICON_TONE[queue.severity],
