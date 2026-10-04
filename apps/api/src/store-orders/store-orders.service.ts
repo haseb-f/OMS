@@ -12,6 +12,7 @@ import {
   Injectable,
   NotFoundException,
   Optional,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   PartnerRoleType,
@@ -1115,7 +1116,15 @@ export class StoreOrdersService {
    * or not — is written to `GlobalLookupAudit`.
    */
   async globalLookupByOrderNumber(orderNumber: string, userId: string) {
-    const reservation = await this.lookupThrottle?.reserve(
+    // R7 review — fail closed: discovery without the shared audited budget
+    // and the disclosure rule must never run (optional in the constructor
+    // only for unit specs that never call this route).
+    if (!this.lookupThrottle || !this.customerLookup) {
+      throw new ServiceUnavailableException(
+        'Order lookup is not available: lookup throttle/disclosure services are not configured.',
+      );
+    }
+    const reservation = await this.lookupThrottle.reserve(
       userId,
       'GLOBAL_ORDER_LOOKUP',
       'ORDER_NUMBER',
@@ -1141,31 +1150,20 @@ export class StoreOrdersService {
       },
     });
 
-    if (reservation) {
-      await this.lookupThrottle?.finalise(reservation.reservationId, {
-        outcome: order ? 'MATCH' : 'NO_MATCH',
-        resultCount: order ? 1 : 0,
-        matchedStoreOrderId: order?.id,
-      });
-    } else {
-      await this.prisma.globalLookupAudit.create({
-        data: {
-          userId,
-          action: 'GLOBAL_ORDER_LOOKUP',
-          method: 'ORDER_NUMBER',
-          queryValue: orderNumber,
-          matchedStoreOrderId: order?.id,
-        },
-      });
-    }
+    await this.lookupThrottle.finalise(reservation.reservationId, {
+      outcome: order ? 'MATCH' : 'NO_MATCH',
+      resultCount: order ? 1 : 0,
+      matchedStoreOrderId: order?.id,
+    });
 
     if (!order) return null;
 
     // R7 - an order the caller cannot open under their own scope is shown in
     // the minimal masked shape only (no products, payment or shipping detail).
-    const mayOpen =
-      (await this.customerLookup?.callerCanOpenOrder(userId, order.id)) ??
-      false;
+    const mayOpen = await this.customerLookup.callerCanOpenOrder(
+      userId,
+      order.id,
+    );
     if (!mayOpen) {
       return {
         restricted: true as const,

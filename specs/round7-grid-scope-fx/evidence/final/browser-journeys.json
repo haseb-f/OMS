@@ -1,0 +1,76 @@
+{
+  "capturedAt": "2026-10-04T05:41:11.623Z",
+  "base": "http://localhost:3001",
+  "results": [
+    {
+      "name": "Sales A: leads list shows only own leads",
+      "ok": true,
+      "detail": "rows=3 own=3"
+    },
+    {
+      "name": "Sales A: orders list shows only own orders",
+      "ok": true,
+      "detail": "rows=2 own=2"
+    },
+    {
+      "name": "Sales A: direct URL to Sales B order is not opened",
+      "ok": true,
+      "detail": "http=200 url=/store-orders/d3a5a79e-b156-45b4-8b03-564b6c098145"
+    },
+    {
+      "name": "Sales A: direct URL to Sales B lead is not opened",
+      "ok": true,
+      "detail": "/crm/leads/636ae7cf-0fa3-4741-b120-35cf36f45069"
+    },
+    {
+      "name": "Finance: lands outside /login",
+      "ok": true,
+      "detail": "/"
+    },
+    {
+      "name": "Finance: no generic sales order list (empty or denied)",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "name": "Finance: payment review page renders",
+      "ok": true,
+      "detail": "/finance/payment-review"
+    },
+    {
+      "name": "Agent Admin: lands on the agent portal",
+      "ok": true,
+      "detail": "/agent"
+    },
+    {
+      "name": "Agent Admin: internal leads route is not served",
+      "ok": true,
+      "detail": "/agent"
+    },
+    {
+      "name": "Agent Admin: agent token denied on internal /leads API",
+      "ok": true,
+      "detail": "http=403"
+    },
+    {
+      "name": "Agent Sales: lands on the agent portal",
+      "ok": true,
+      "detail": "/agent"
+    },
+    {
+      "name": "Agent Sales: internal leads route is not served",
+      "ok": true,
+      "detail": "/agent"
+    },
+    {
+      "name": "Agent Sales: agent token denied on internal /leads API",
+      "ok": true,
+      "detail": "http=403"
+    },
+    {
+      "name": "Admin: exchange-rates page shows the CBE sync status panel",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import {
   Injectable,
   NotFoundException,
   Optional,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   PartnerRoleType,
@@ -755,8 +756,16 @@ export class PartnersService extends MasterDataCrudService<
     // country-agnostic behavior `findDuplicate`/`lookupByPhone` rely on for
     // Create/Update duplicate checks across every country.
     const normalized = this.phoneNumberService.normalizeToE164(phone, 'SA');
+    // R7 review — fail closed: discovery without the shared audited budget
+    // and the disclosure rule must never run (the two are optional in the
+    // constructor only for unit specs that never call this route).
+    if (!this.lookupThrottle || !this.customerLookup) {
+      throw new ServiceUnavailableException(
+        'Customer lookup is not available: lookup throttle/disclosure services are not configured.',
+      );
+    }
     // R7 - one shared per-user budget (atomic) for every lookup route.
-    const reservation = await this.lookupThrottle?.reserve(
+    const reservation = await this.lookupThrottle.reserve(
       userId,
       'GLOBAL_CUSTOMER_LOOKUP',
       'PHONE',
@@ -816,28 +825,15 @@ export class PartnersService extends MasterDataCrudService<
     }
 
     const mayOpen = match
-      ? ((await this.customerLookup?.callerCanOpenPartner(userId, match.id)) ??
-        false)
+      ? await this.customerLookup.callerCanOpenPartner(userId, match.id)
       : false;
 
-    if (reservation) {
-      await this.lookupThrottle?.finalise(reservation.reservationId, {
-        outcome: match ? 'MATCH' : 'NO_MATCH',
-        resultCount: match ? 1 : 0,
-        queryValue: normalized ?? phone,
-        matchedPartnerId: match?.id,
-      });
-    } else {
-      await this.prisma.globalLookupAudit.create({
-        data: {
-          userId,
-          action: 'GLOBAL_CUSTOMER_LOOKUP',
-          method: 'PHONE',
-          queryValue: normalized ?? phone,
-          matchedPartnerId: match?.id,
-        },
-      });
-    }
+    await this.lookupThrottle.finalise(reservation.reservationId, {
+      outcome: match ? 'MATCH' : 'NO_MATCH',
+      resultCount: match ? 1 : 0,
+      queryValue: normalized ?? phone,
+      matchedPartnerId: match?.id,
+    });
 
     if (!match) return null;
 

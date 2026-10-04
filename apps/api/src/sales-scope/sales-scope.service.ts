@@ -24,8 +24,10 @@ export interface SalesScope {
   canManagePaymentEvidence: boolean;
   /**
    * R7 — Store Orders of every owner (browse + open). Only Super Admin, an
-   * explicit `crm.leads.manage` grant (without a team) or an explicit
-   * `store-orders.manage` grant. Shipping/Finance visibility never sets it.
+   * explicit `crm.leads.manage` grant (without a team) or the explicit
+   * `store-orders.view_all` grant. `store-orders.manage` (an action right
+   * ordinary sales staff may hold for payment-review/corrections) does NOT
+   * widen the scope. Shipping/Finance visibility never sets it.
    */
   canViewAllOrders?: boolean;
   /**
@@ -47,7 +49,10 @@ export interface SalesScope {
  *      Sales Team manager                -> own + team members' records;
  *                                           + unassigned internal leads only
  *                                             when ALSO holding `crm.leads.manage`
- *      `store-orders.manage`             -> every order (not leads)
+ *      `store-orders.view_all`           -> every order (not leads)
+ *  - `store-orders.manage` is NOT a scope grant (R7 review): it only unlocks
+ *    actions (payment-review status, declaration corrections) on orders the
+ *    caller can already see.
  *  - `shipping.view` and `finance.view` DO NOT widen the generic lists. They
  *    open, by id, only what the job needs: an order in the Shipping queue
  *    (has a shipment) / an order with payment activity (payment evidence).
@@ -71,7 +76,7 @@ export class SalesScopeService {
       canViewFinance,
       canViewSalesReceipts,
       canConfirmSalesReceipts,
-      canManageStoreOrders,
+      canViewAllStoreOrders,
     ] = await Promise.all([
       this.permissions.hasPermission(userId, 'crm.leads.manage'),
       this.permissions.hasPermission(userId, 'crm.leads.view'),
@@ -81,19 +86,19 @@ export class SalesScopeService {
       this.permissions.hasPermission(userId, 'finance.view'),
       this.permissions.hasPermission(userId, 'sales.receipts.view'),
       this.permissions.hasPermission(userId, 'sales.receipts.confirm'),
-      this.permissions.hasPermission(userId, 'store-orders.manage'),
+      // The ONE explicit cross-owner browse grant for Store Orders. Never
+      // inferred from `store-orders.manage` (held by ordinary sales staff).
+      this.permissions.hasPermission(userId, 'store-orders.view_all'),
     ]);
 
     const canManagePaymentEvidence =
-      isSuperAdmin ||
-      canViewFinance ||
-      canConfirmSalesReceipts ||
-      canManageStoreOrders;
+      isSuperAdmin || canViewFinance || canConfirmSalesReceipts;
     const canViewPaymentEvidence =
       canManagePaymentEvidence ||
       canViewSalesReceipts ||
       canViewLeads ||
-      canManageLeads;
+      canManageLeads ||
+      canViewAllStoreOrders;
 
     if (isSuperAdmin) {
       return {
@@ -142,7 +147,7 @@ export class SalesScopeService {
         kind: 'TEAM',
         ownerIds: [...ownerIds],
         canViewLeads: true,
-        canViewAllOrders: canManageStoreOrders,
+        canViewAllOrders: canViewAllStoreOrders,
         canViewTeamUnassigned: canManageLeads,
       };
     }
@@ -164,7 +169,7 @@ export class SalesScopeService {
         kind: 'OWN',
         ownerIds: [userId],
         canViewLeads,
-        canViewAllOrders: canManageStoreOrders,
+        canViewAllOrders: canViewAllStoreOrders,
         canViewTeamUnassigned: false,
       };
     }
@@ -174,7 +179,7 @@ export class SalesScopeService {
       kind: 'NONE',
       ownerIds: [],
       canViewLeads,
-      canViewAllOrders: canManageStoreOrders,
+      canViewAllOrders: canViewAllStoreOrders,
       canViewTeamUnassigned: false,
     };
   }
@@ -271,6 +276,17 @@ export class SalesScopeService {
     if (!found) throw new NotFoundException('Store Order not found');
   }
 
+  /**
+   * Convenience for sub-resource controllers (activities, shipments,
+   * economics, …): resolves the caller and applies the single by-id gate, so
+   * no route under `/store-orders/:id/*` can disclose an order the caller
+   * cannot open (R7 review finding: activities/shipments were unscoped).
+   */
+  async assertCanOpenStoreOrder(userId: string, id: string): Promise<void> {
+    const scope = await this.resolve(userId);
+    await this.assertStoreOrderAccessById(scope, id);
+  }
+
   /** Legacy `sales-orders` (lead-converted SalesOrder) visibility. */
   legacySalesOrderWhere(scope: SalesScope): Prisma.SalesOrderWhereInput {
     if (
@@ -346,7 +362,13 @@ export class SalesScopeService {
     order: { employeeId: string | null },
   ): boolean {
     if (!scope.canViewPaymentEvidence) return false;
-    if (scope.canManagePaymentEvidence || scope.kind === 'ALL') return true;
+    if (
+      scope.canManagePaymentEvidence ||
+      scope.kind === 'ALL' ||
+      scope.canViewAllOrders
+    ) {
+      return true;
+    }
     if (!order.employeeId) {
       return scope.kind === 'TEAM' || scope.canManageLeads;
     }

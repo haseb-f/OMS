@@ -262,10 +262,17 @@ describe('R7 sales scope isolation (HTTP)', () => {
       'crm.leads.manage',
       'store-orders.view',
     ]);
-    // A user holding sales permissions but whose order access is `manage`.
+    // An ordinary sales employee who also holds the `manage` ACTION right
+    // (real tenants grant it for payment-review / corrections). It must NOT
+    // widen the scope (R7 review finding: Production sales staff saw every order).
     await makeUser('ordersManage', [
       'store-orders.view',
       'store-orders.manage',
+    ]);
+    // The explicit cross-owner browse grant.
+    await makeUser('ordersViewAll', [
+      'store-orders.view',
+      'store-orders.view_all',
     ]);
 
     for (const [key, managerKey, memberKey] of [
@@ -534,6 +541,7 @@ describe('R7 sales scope isolation (HTTP)', () => {
         `/store-orders/${order.B}/can-fulfill`,
         `/store-orders/${order.B}/payment-context`,
         `/store-orders/${order.B}/shipping-handoff`,
+        `/store-orders/${order.B}/activities`,
         `/workflow/STORE_ORDER/${order.B}/status-history`,
       ]) {
         const res = await request(http).get(path).set(auth('A'));
@@ -544,6 +552,20 @@ describe('R7 sales scope isolation (HTTP)', () => {
         .get(`/store-orders/${order.A}/can-fulfill`)
         .set(auth('A'));
       expect(own.status).toBe(200);
+    });
+
+    it('orders.profitability.view widens WHAT is shown, never WHICH orders (economics of B’s order stays 404 for A)', async () => {
+      await grant(ids.A, ['orders.profitability.view']);
+      const res = await request(http)
+        .get(`/store-orders/${order.B}/economics`)
+        .set(auth('A'));
+      expect(res.status).toBe(404);
+      expect(JSON.stringify(res.body)).not.toContain(names.oB);
+      const own = await request(http)
+        .get(`/store-orders/${order.A}/economics`)
+        .set(auth('A'));
+      expect(own.status).not.toBe(404);
+      expect(own.status).not.toBe(403);
     });
 
     it('A cannot mutate B’s order (note / archive)', async () => {
@@ -628,6 +650,14 @@ describe('R7 sales scope isolation (HTTP)', () => {
         .get(`/store-orders/${order.B}`)
         .set(auth('shipping'));
       expect(before.status).toBe(404);
+      // Sub-resources follow the same gate (R7 review: they were unscoped).
+      for (const path of [
+        `/store-orders/${order.B}/shipments`,
+        `/store-orders/${order.B}/shipments/attachments`,
+      ]) {
+        const res = await request(http).get(path).set(auth('shipping'));
+        expect(res.status).toBe(404);
+      }
 
       await prisma.shipment.create({
         data: { storeOrderId: order.B, attemptNumber: 1 },
@@ -636,6 +666,10 @@ describe('R7 sales scope isolation (HTTP)', () => {
         .get(`/store-orders/${order.B}`)
         .set(auth('shipping'));
       expect(after.status).toBe(200);
+      const shipments = await request(http)
+        .get(`/store-orders/${order.B}/shipments`)
+        .set(auth('shipping'));
+      expect(shipments.status).toBe(200);
       // …but a queued order is still not a sales-list entry for them.
       const stillNoList = await request(http)
         .get('/store-orders')
@@ -656,15 +690,32 @@ describe('R7 sales scope isolation (HTTP)', () => {
       expect(byId.status).toBe(404);
     });
 
-    it('an explicit store-orders.manage grant keeps the cross-owner view (preserved)', async () => {
+    it('store-orders.manage alone never widens the scope: no other owner’s order in lists or by id', async () => {
       const list = await request(http)
         .get('/store-orders/ids')
         .set(auth('ordersManage'));
+      expect(list.status).toBe(200);
+      const got = (list.body as { ids: string[] }).ids;
+      for (const key of ['A', 'B', 'G']) expect(got).not.toContain(order[key]);
+      const byId = await request(http)
+        .get(`/store-orders/${order.B}`)
+        .set(auth('ordersManage'));
+      expect(byId.status).toBe(404);
+      const context = await request(http)
+        .get(`/store-orders/${order.B}/payment-context`)
+        .set(auth('ordersManage'));
+      expect(context.status).toBe(404);
+    });
+
+    it('the explicit store-orders.view_all grant gives the cross-owner view (preserved supervisor access)', async () => {
+      const list = await request(http)
+        .get('/store-orders/ids')
+        .set(auth('ordersViewAll'));
       const got = (list.body as { ids: string[] }).ids;
       for (const key of ['A', 'B', 'G']) expect(got).toContain(order[key]);
       const byId = await request(http)
         .get(`/store-orders/${order.B}`)
-        .set(auth('ordersManage'));
+        .set(auth('ordersViewAll'));
       expect(byId.status).toBe(200);
     });
 

@@ -116,7 +116,42 @@ Icons · Motion · next-themes.
   List, Incoterms, Buyer, Shipping Method, Expected Receipt Date) and Supplier's
   default account fields are nullable placeholders only — no FK, no API, no logic.
 
+### Sales Scope, Customer Lookup and Distribution (Round 7)
+
+- Default sales scope is OWN: a user sees only the Leads/Store Orders assigned to them, never
+  agent records. The only widening grants are Super Admin, a company-wide `crm.leads.manage`
+  (no team), a Sales Team manager (own + team members; the unassigned internal pool only when
+  also holding `crm.leads.manage`) and, for Store Orders only, the explicit
+  `store-orders.view_all`. `store-orders.manage` is an action right (payment-review status,
+  declaration corrections) that ordinary sales staff may hold — it never widens the scope.
+- `shipping.view` / `finance.view` never widen the generic lists; by id they open only an
+  order in the Shipping queue / an order with payment activity. Every by-id denial is 404.
+- Customer discovery (`customers.lookup_advanced`, legacy `customers.lookup_global` and
+  `orders.lookup_global`) is minimal-disclosure: masked phone, two letters per name word,
+  reference number + coarse status; full details only for a record the caller can already
+  open; name search needs first + last name and a query matching more than 5 customers
+  returns nothing; one shared, atomic, audited per-user budget (15 / 10 min, 100 / day). The
+  discovery permissions are granted to nobody by migration; Super Admin bypasses.
+- Lead distribution eligibility is one shared rule: INTERNAL, active, not locked, employment
+  ACTIVE, holds `crm.leads.edit` AND is explicitly designated (`User.salesDistributionEligible`,
+  Users form). Excluded users are listed with the reason, never silently dropped.
+
 ## Accounting Rules
+
+### Account Currency and FX (Round 7)
+
+- Journal lines are stored in the functional currency (EGP); the entry header carries the
+  document currency and the frozen rate. `ChartOfAccount.currencyId` is a binding checked at
+  posting time by `ACCOUNT_CURRENCY_POLICY` (WARN default = post + activity warning, BLOCK
+  fails closed, OFF). FX revaluation and year closing are exempt.
+- Native-currency balances of a currency-bound account are derived per line from the entry
+  header and claimed only when proven (same currency + recorded rate); otherwise the line is
+  reported as unproven. Never relabel a functional sum under a foreign currency and never
+  re-translate history at today's rate.
+- CBE import: provider = CBE, basis = MID ((buy+sell)/2), cron 14:00 and 20:00 UTC gated by
+  `CRON_SECRET`; a scheduled run never overwrites a manual row. Revaluation policy items are
+  open owner decisions (`specs/round7-grid-scope-fx/fx-policy-gap.md`); no new revaluation
+  postings until answered.
 
 ## Development Workflow
 

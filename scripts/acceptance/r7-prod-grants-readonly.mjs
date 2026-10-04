@@ -33,7 +33,7 @@ const EMAIL = process.env.EMAIL ?? "qa-admin@oms.haseb.org";
 const PW = process.env.PW ?? process.env.QA_PASSWORD ?? "";
 const OUT = resolve(ROOT, process.env.OUT ?? "tmp/r7-prod-grants.json");
 
-const WIDE = ["crm.leads.manage", "store-orders.manage", "crm.leads.edit", "shipping.view", "finance.view", "customers.lookup_global", "orders.lookup_global", "customers.lookup_advanced"];
+const WIDE = ["crm.leads.manage", "store-orders.manage", "store-orders.view_all", "crm.leads.edit", "shipping.view", "finance.view", "customers.lookup_global", "orders.lookup_global", "customers.lookup_advanced"];
 
 async function main() {
   if (!PW) throw new Error("no password (tmp/.qa.env QA_PASSWORD)");

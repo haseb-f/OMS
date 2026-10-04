@@ -300,6 +300,7 @@ const en = {
       manage: "Manage",
       duplicateReview: "Duplicate review",
       lookupAdvanced: "Advanced customer lookup",
+      viewAll: "View all records (every owner)",
       amend: "Amend order",
     },
     modules: {

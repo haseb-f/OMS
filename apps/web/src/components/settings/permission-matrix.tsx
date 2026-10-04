@@ -35,6 +35,7 @@ const ACTION_LABEL_KEY: Record<string, MessageKey> = {
   manage: "permissions.actions.manage",
   duplicate_review: "permissions.actions.duplicateReview",
   lookup_advanced: "permissions.actions.lookupAdvanced",
+  view_all: "permissions.actions.viewAll",
   amend: "permissions.actions.amend",
 };
 

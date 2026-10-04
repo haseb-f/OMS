@@ -300,6 +300,7 @@ const ar = {
       manage: "إدارة",
       duplicateReview: "مراجعة التكرار",
       lookupAdvanced: "بحث متقدم عن عميل",
+      viewAll: "عرض كل السجلات (كل الموظفين)",
       amend: "تعديل الطلب بعد الإنشاء",
     },
     modules: {

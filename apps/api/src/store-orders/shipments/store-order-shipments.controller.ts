@@ -19,6 +19,7 @@ import { PermissionModule } from '../../auth/decorators/permission-module.decora
 import { PermissionAction } from '../../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../../auth/guards/jwt-auth.guard';
+import { SalesScopeService } from '../../sales-scope/sales-scope.service';
 import { StoreOrderShipmentOperationsService } from './store-order-shipment-operations.service';
 import { AssignShippingCompanyDto } from './dto/assign-shipping-company.dto';
 import { AddTrackingNumberDto } from './dto/add-tracking-number.dto';
@@ -41,11 +42,27 @@ import {
 export class StoreOrderShipmentsController {
   constructor(
     private readonly operations: StoreOrderShipmentOperationsService,
+    private readonly salesScope: SalesScopeService,
   ) {}
 
+  /**
+   * R7 review — every route under `/store-orders/:id/shipments` runs behind
+   * the order's own by-id scope gate (Shipping staff reach an order once it
+   * is in the queue, i.e. has a shipment; a sales owner reaches their own).
+   * Before this, the list/attachments reads were unscoped.
+   */
+  private gate(storeOrderId: string, user: JwtPayload): Promise<void> {
+    return this.salesScope.assertCanOpenStoreOrder(user.sub, storeOrderId);
+  }
+
   @Get()
-  findAll(@Param('storeOrderId') storeOrderId: string) {
-    return this.operations.findAllForOrder(storeOrderId);
+  findAll(
+    @Param('storeOrderId') storeOrderId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.findAllForOrder(storeOrderId),
+    );
   }
 
   @Post('shipping-company')
@@ -56,10 +73,12 @@ export class StoreOrderShipmentsController {
     @Body() dto: AssignShippingCompanyDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.operations.assignShippingCompany(
-      storeOrderId,
-      dto.shippingCompanyId,
-      user.sub,
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.assignShippingCompany(
+        storeOrderId,
+        dto.shippingCompanyId,
+        user.sub,
+      ),
     );
   }
 
@@ -71,10 +90,12 @@ export class StoreOrderShipmentsController {
     @Body() dto: AddTrackingNumberDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.operations.addTrackingNumber(
-      storeOrderId,
-      dto.trackingNumber,
-      user.sub,
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.addTrackingNumber(
+        storeOrderId,
+        dto.trackingNumber,
+        user.sub,
+      ),
     );
   }
 
@@ -85,7 +106,9 @@ export class StoreOrderShipmentsController {
     @Body() dto: SetLabelDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.operations.setLabel(storeOrderId, dto.fileUrl, user.sub);
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.setLabel(storeOrderId, dto.fileUrl, user.sub),
+    );
   }
 
   @Post('ship')
@@ -95,7 +118,9 @@ export class StoreOrderShipmentsController {
     @Param('storeOrderId') storeOrderId: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.operations.markShipped(storeOrderId, user.sub);
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.markShipped(storeOrderId, user.sub),
+    );
   }
 
   @Post('out-for-delivery')
@@ -105,7 +130,9 @@ export class StoreOrderShipmentsController {
     @Param('storeOrderId') storeOrderId: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.operations.markOutForDelivery(storeOrderId, user.sub);
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.markOutForDelivery(storeOrderId, user.sub),
+    );
   }
 
   @Post('deliver')
@@ -115,7 +142,9 @@ export class StoreOrderShipmentsController {
     @Param('storeOrderId') storeOrderId: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.operations.markDelivered(storeOrderId, user.sub);
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.markDelivered(storeOrderId, user.sub),
+    );
   }
 
   @Post('delivery-failed')
@@ -125,7 +154,9 @@ export class StoreOrderShipmentsController {
     @Param('storeOrderId') storeOrderId: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.operations.markDeliveryFailed(storeOrderId, user.sub);
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.markDeliveryFailed(storeOrderId, user.sub),
+    );
   }
 
   /** Direct "change to any status" operation — see `StoreOrderShipmentOperationsService.setShippingStatus`. */
@@ -137,10 +168,12 @@ export class StoreOrderShipmentsController {
     @Body() dto: SetShippingStatusDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.operations.setShippingStatus(
-      storeOrderId,
-      dto.shippingStatusId,
-      user.sub,
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.setShippingStatus(
+        storeOrderId,
+        dto.shippingStatusId,
+        user.sub,
+      ),
     );
   }
 
@@ -151,7 +184,9 @@ export class StoreOrderShipmentsController {
     @Param('storeOrderId') storeOrderId: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.operations.markNeedsReshipment(storeOrderId, user.sub);
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.markNeedsReshipment(storeOrderId, user.sub),
+    );
   }
 
   @Post('reship')
@@ -160,7 +195,9 @@ export class StoreOrderShipmentsController {
     @Param('storeOrderId') storeOrderId: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.operations.createReshipment(storeOrderId, user.sub);
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.createReshipment(storeOrderId, user.sub),
+    );
   }
 
   @Post('shipping-cost')
@@ -171,15 +208,17 @@ export class StoreOrderShipmentsController {
     @Body() dto: AddShippingCostDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.operations.addShippingCost(
-      storeOrderId,
-      {
-        baseShippingCost: dto.baseShippingCost ?? dto.shippingCost,
-        additionalShippingCost: dto.additionalShippingCost,
-        costPaidBy: dto.costPaidBy ?? 'CUSTOMER',
-        notes: dto.notes,
-      },
-      user.sub,
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.addShippingCost(
+        storeOrderId,
+        {
+          baseShippingCost: dto.baseShippingCost ?? dto.shippingCost,
+          additionalShippingCost: dto.additionalShippingCost,
+          costPaidBy: dto.costPaidBy ?? 'CUSTOMER',
+          notes: dto.notes,
+        },
+        user.sub,
+      ),
     );
   }
 
@@ -190,10 +229,12 @@ export class StoreOrderShipmentsController {
     @Body() dto: AddShipmentNotesDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.operations.addNotes(
-      storeOrderId,
-      resolveShipmentNotes(dto),
-      user.sub,
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.addNotes(
+        storeOrderId,
+        resolveShipmentNotes(dto),
+        user.sub,
+      ),
     );
   }
 
@@ -206,8 +247,13 @@ export class StoreOrderShipmentsController {
    */
   @Get('attachments')
   @PermissionAction('view')
-  listAttachments(@Param('storeOrderId') storeOrderId: string) {
-    return this.operations.listAttachments(storeOrderId);
+  listAttachments(
+    @Param('storeOrderId') storeOrderId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.listAttachments(storeOrderId),
+    );
   }
 
   @Post('attachments/upload')
@@ -223,7 +269,9 @@ export class StoreOrderShipmentsController {
     @UploadedFile() file: Express.Multer.File | undefined,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.operations.uploadAttachment(storeOrderId, file, user.sub);
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.uploadAttachment(storeOrderId, file, user.sub),
+    );
   }
 
   @Post('attachments/from-staging')
@@ -234,10 +282,12 @@ export class StoreOrderShipmentsController {
     @Body() body: { stagingAttachmentIds?: string[] },
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.operations.attachStagingAttachments(
-      storeOrderId,
-      body.stagingAttachmentIds ?? [],
-      user.sub,
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.attachStagingAttachments(
+        storeOrderId,
+        body.stagingAttachmentIds ?? [],
+        user.sub,
+      ),
     );
   }
 
@@ -248,10 +298,8 @@ export class StoreOrderShipmentsController {
     @Param('attachmentId') attachmentId: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.operations.removeAttachment(
-      storeOrderId,
-      attachmentId,
-      user.sub,
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.removeAttachment(storeOrderId, attachmentId, user.sub),
     );
   }
 }

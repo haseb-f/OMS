@@ -443,9 +443,15 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'print', name: 'store-orders.print' },
       { action: 'export', name: 'store-orders.export' },
       { action: 'manage', name: 'store-orders.manage' },
+      // Round 7 review — the ONE explicit cross-owner browse grant for Store
+      // Orders (every owner's orders in lists and by id). Granted to nobody
+      // by the migration; Super Admin bypasses. `store-orders.manage` is an
+      // action right (payment-review status, declaration corrections) that
+      // ordinary sales staff may hold, so it must never widen their scope.
+      { action: 'view_all', name: 'store-orders.view_all' },
       // Leads/Customers/Orders Finalization Milestone — exact Order Number
       // lookup outside the caller's own scope, read-only, distinct from
-      // `store-orders.manage`'s full cross-owner browse+edit capability.
+      // `store-orders.view_all`'s full cross-owner browse capability.
       { action: 'lookup_global', name: 'orders.lookup_global' },
       // Round 5 Spec 1B — resolve orders flagged for cross-scope duplicate
       // review; the reviewer sees both sides regardless of sales scope.
