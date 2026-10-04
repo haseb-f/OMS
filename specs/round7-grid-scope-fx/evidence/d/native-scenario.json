@@ -1,0 +1,41 @@
+[
+  {
+    "foreignCurrency": "VDF5735",
+    "functionalCurrencyId": "a02266c9-3c6b-4da0-a759-b66221d88c1e",
+    "rows": [
+      {
+        "entry": "JV-2026-007766",
+        "functionalDebit": 250,
+        "nativeDebit": 1000,
+        "rate": 0.25,
+        "rateSource": "CBE",
+        "rateAsOf": "2026-09-30",
+        "nativeRunning": 1000,
+        "functionalRunning": 250
+      },
+      {
+        "entry": "JV-2026-007767",
+        "functionalDebit": 520,
+        "nativeDebit": 2000,
+        "rate": 0.26,
+        "rateSource": "CBE",
+        "rateAsOf": "2026-10-01",
+        "nativeRunning": 3000,
+        "functionalRunning": 770
+      },
+      {
+        "entry": "JV-2026-007768",
+        "functionalDebit": 120,
+        "nativeDebit": 500,
+        "rate": 0.24,
+        "rateSource": "CBE",
+        "rateAsOf": "2026-10-02",
+        "nativeRunning": 3500,
+        "functionalRunning": 890
+      }
+    ],
+    "functionalClosing": 890,
+    "nativeClosing": 3500,
+    "closingNativeAtLatestRate": 840
+  }
+]

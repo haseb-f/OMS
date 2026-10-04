@@ -1,0 +1,6 @@
+# Production deployment evidence (captured 2026-10-03 ~13:12 UTC, read-only gh api)
+Production deployment 6827619926  sha 891811da6d7d7e900273e888e8972170c42769f2  created 2026-10-03T12:32:30Z  status: success
+Previous: 6433ddc061e39f148df066c250c8a0cf5c22f459 (2026-10-01), 9aac0fa319c2bc852d4c185c7d4fb9bdfd592b49 (2026-10-01)
+vercel.json crons at that SHA (same as local main): /api/cron/accounting-schedules 0 1; /api/cron/fx-rates 0 14; /api/cron/fx-rates?slot=late 0 20
+Vercel MCP: plugin:vercel:vercel requires OAuth authorization (not available to the agent) -> cron-config panel/invocation logs NOT read.
+Scheduler proof therefore comes from DB-side run rows (trigger=CRON) via GET /exchange-rates/sync/runs - see prod-readonly-evidence.json.

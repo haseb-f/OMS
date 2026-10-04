@@ -1,0 +1,7 @@
+revaluation runs: 1 [ { n: 'FXR-2026-000001', d: '2026-09-19', s: 'POSTED' } ]
+unrealizedFxAccountId set: true exchangeDifferenceAccountId set: true realizedFx?: [
+  'exchangeDifferenceAccountId',
+  'unrealizedFxAccountId',
+  'exchangeDifferenceAccount',
+  'unrealizedFxAccount'
+]

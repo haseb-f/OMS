@@ -24,6 +24,8 @@ import { PartnersService } from '../partners/partners.service';
  * `GlobalLookupAudit` row on every call, matched or not. Runs against the
  * real local Postgres, same convention as the other store-orders specs.
  */
+// R7: full details only for a customer/order the caller can already open under
+// their own scope; somebody else's record is shown in the minimal masked shape.
 describe('Global Customer/Order Lookup', () => {
   let moduleRef: TestingModule;
   let prisma: PrismaService;
@@ -35,7 +37,10 @@ describe('Global Customer/Order Lookup', () => {
   const saudiNational = `5${Math.floor(10000000 + Math.random() * 89999999)}`;
   const saudiE164Phone = `+966${saudiNational}`;
 
+  /** A stranger: holds no scope over the order. */
   let userId: string;
+  /** The order’s owner: own scope (store-orders.view). */
+  let ownerId: string;
   let categoryId: string;
   let unitId: string;
   let productId: string;
@@ -71,6 +76,24 @@ describe('Global Customer/Order Lookup', () => {
       },
     });
     userId = user.id;
+
+    const owner = await prisma.user.create({
+      data: {
+        email: `global-lookup-owner-${suffix}@example.test`,
+        username: `global-lookup-owner-${suffix}`,
+        fullName: `Global Lookup Owner ${suffix}`,
+        passwordHash: 'test-hash',
+      },
+    });
+    ownerId = owner.id;
+    const view = await prisma.permission.upsert({
+      where: { name: 'store-orders.view' },
+      update: {},
+      create: { name: 'store-orders.view' },
+    });
+    await prisma.userPermission.create({
+      data: { userId: ownerId, permissionId: view.id },
+    });
 
     const category = await prisma.productCategory.create({
       data: { name: `Global Lookup Category ${suffix}` },
@@ -112,10 +135,16 @@ describe('Global Customer/Order Lookup', () => {
     });
     internalOrderId = created.internalOrderId;
     partnerId = created.partnerId;
+    await prisma.storeOrder.update({
+      where: { id: orderId },
+      data: { employeeId: ownerId },
+    });
   });
 
   afterAll(async () => {
-    await prisma.globalLookupAudit.deleteMany({ where: { userId } });
+    await prisma.globalLookupAudit.deleteMany({
+      where: { userId: { in: [userId, ownerId] } },
+    });
     await prisma.storeOrderActivity.deleteMany({
       where: { storeOrderId: orderId },
     });
@@ -131,20 +160,26 @@ describe('Global Customer/Order Lookup', () => {
     });
     await prisma.unit.deleteMany({ where: { id: unitId } });
     await prisma.productCategory.deleteMany({ where: { id: categoryId } });
-    await prisma.user.deleteMany({ where: { id: userId } });
+    await prisma.userPermission.deleteMany({ where: { userId: ownerId } });
+    await prisma.user.deleteMany({ where: { id: { in: [userId, ownerId] } } });
 
     await prisma.$disconnect();
     await moduleRef.close();
   });
 
   describe('Customer global lookup (exact phone)', () => {
-    it('returns a safe summary with the previous order for an existing phone', async () => {
-      const result = await partners.globalLookupByPhone(saudiE164Phone, userId);
+    it('returns a safe summary with the previous order for the caller’s OWN customer', async () => {
+      const result = await partners.globalLookupByPhone(
+        saudiE164Phone,
+        ownerId,
+      );
       expect(result).not.toBeNull();
-      expect(result!.name).toBe(customerName);
-      expect(result!.totalOrders).toBe(1);
-      expect(result!.lastOrder?.orderNumber).toBe(internalOrderId);
-      expect(result!.recentOrders).toHaveLength(1);
+      if (result?.restricted !== false)
+        throw new Error('expected full details');
+      expect(result.name).toBe(customerName);
+      expect(result.totalOrders).toBe(1);
+      expect(result.lastOrder?.orderNumber).toBe(internalOrderId);
+      expect(result.recentOrders).toHaveLength(1);
       // Safe DTO — never financial/payment evidence or another agent's identity.
       expect(result).not.toHaveProperty('payments');
       expect(result).not.toHaveProperty('receivableBalance');
@@ -153,9 +188,30 @@ describe('Global Customer/Order Lookup', () => {
     it('resolves any equivalent representation of the same Saudi number', async () => {
       const result = await partners.globalLookupByPhone(
         `0${saudiNational}`,
-        userId,
+        ownerId,
       );
-      expect(result?.id).toBe(partnerId);
+      expect(result && !result.restricted && result.id).toBe(partnerId);
+    });
+
+    it('shows somebody else’s customer in the minimal masked shape only', async () => {
+      const result = await partners.globalLookupByPhone(saudiE164Phone, userId);
+      expect(result).not.toBeNull();
+      expect(result?.restricted).toBe(true);
+      for (const forbidden of [
+        'id',
+        'name',
+        'phone',
+        'mobile',
+        'address',
+        'city',
+        'totalOrders',
+        'lastOrder',
+        'recentOrders',
+      ]) {
+        expect(result).not.toHaveProperty(forbidden);
+      }
+      expect(JSON.stringify(result)).not.toContain(customerName);
+      expect(JSON.stringify(result)).not.toContain(saudiNational);
     });
 
     it('returns null (not an error) for a phone with no Customer', async () => {
@@ -170,7 +226,10 @@ describe('Global Customer/Order Lookup', () => {
 
     it('audits every lookup, matched or not', async () => {
       const audits = await prisma.globalLookupAudit.findMany({
-        where: { userId, action: 'GLOBAL_CUSTOMER_LOOKUP' },
+        where: {
+          userId: { in: [userId, ownerId] },
+          action: 'GLOBAL_CUSTOMER_LOOKUP',
+        },
       });
       expect(audits.length).toBeGreaterThanOrEqual(3);
       expect(audits.some((a) => a.matchedPartnerId === partnerId)).toBe(true);
@@ -179,18 +238,40 @@ describe('Global Customer/Order Lookup', () => {
   });
 
   describe('Order global lookup (exact order number)', () => {
-    it('returns a safe read-only summary regardless of Order ownership', async () => {
+    it('returns a safe read-only summary for the caller’s OWN order', async () => {
       const result = await storeOrders.globalLookupByOrderNumber(
         internalOrderId,
-        userId,
+        ownerId,
       );
       expect(result).not.toBeNull();
-      expect(result!.orderNumber).toBe(internalOrderId);
-      expect(result!.customerName).toBe(customerName);
+      if (result?.restricted !== false)
+        throw new Error('expected full details');
+      expect(result.orderNumber).toBe(internalOrderId);
+      expect(result.customerName).toBe(customerName);
       // Safe DTO — no owner identity, no payments/receipts.
       expect(result).not.toHaveProperty('employeeId');
       expect(result).not.toHaveProperty('payments');
       expect(result).not.toHaveProperty('receipts');
+    });
+
+    it('shows an order outside the caller’s scope in the minimal masked shape only', async () => {
+      const result = await storeOrders.globalLookupByOrderNumber(
+        internalOrderId,
+        userId,
+      );
+      expect(result?.restricted).toBe(true);
+      for (const forbidden of [
+        'id',
+        'customerName',
+        'customerPhone',
+        'products',
+        'paymentStatus',
+        'shippingStage',
+        'orderDate',
+      ]) {
+        expect(result).not.toHaveProperty(forbidden);
+      }
+      expect(JSON.stringify(result)).not.toContain(customerName);
     });
 
     it('returns null (not an error) for an unknown order number', async () => {
@@ -203,7 +284,10 @@ describe('Global Customer/Order Lookup', () => {
 
     it('audits every lookup, matched or not', async () => {
       const audits = await prisma.globalLookupAudit.findMany({
-        where: { userId, action: 'GLOBAL_ORDER_LOOKUP' },
+        where: {
+          userId: { in: [userId, ownerId] },
+          action: 'GLOBAL_ORDER_LOOKUP',
+        },
       });
       expect(audits.length).toBeGreaterThanOrEqual(2);
       expect(audits.some((a) => a.matchedStoreOrderId === orderId)).toBe(true);

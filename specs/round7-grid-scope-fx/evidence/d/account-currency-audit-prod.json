@@ -1,0 +1,40 @@
+{
+  "capturedAt": "2026-10-03T13:32:29.217Z",
+  "api": "https://oms.haseb.org/api",
+  "functional": "EGP",
+  "entriesScanned": 390,
+  "coaTotal": 87,
+  "currencyBoundAccountsFromCoa": [
+    {
+      "code": "11102",
+      "name": "خزينة نقدية ريال سعودي",
+      "currency": "SAR",
+      "movements": 0,
+      "closingFunctional": 0
+    },
+    {
+      "code": "11104",
+      "name": "مصرف الراجحي",
+      "currency": "SAR",
+      "movements": 0,
+      "closingFunctional": 0
+    },
+    {
+      "code": "1110701",
+      "name": "بوابة الامارات (Mamo Pay SAR)",
+      "currency": "SAR",
+      "movements": 0,
+      "closingFunctional": 0
+    },
+    {
+      "code": "1110702",
+      "name": "بوابة الامارات (Mamo Pay USD)",
+      "currency": "USD",
+      "movements": 0,
+      "closingFunctional": 0
+    }
+  ],
+  "currencyBoundAccounts": [],
+  "mismatchingLines": 0,
+  "mismatches": []
+}
