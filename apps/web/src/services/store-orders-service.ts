@@ -266,6 +266,11 @@ export interface StoreOrderRow {
   currency: { id: string; code: string; name: string; symbol: string | null } | null;
   currencyId: string;
   notes: string | null;
+  /** R11 — this order's own delivery destination; null → the customer's own country / city / address. */
+  deliveryCountryId?: string | null;
+  deliveryCity?: string | null;
+  deliveryAddress?: string | null;
+  deliveryCountry?: { id: string; name: string; nameEn: string | null; code: string } | null;
   items: StoreOrderItemRow[];
   payments?: StoreOrderPaymentRow[];
   receipts?: StoreOrderReceiptRow[];
@@ -428,6 +433,8 @@ export const storeOrdersService = {
     paymentType?: StoreOrderPaymentTypeValue;
     notes?: string;
     fulfillmentMethod?: StoreOrderFulfillmentMethodValue;
+    /** R11 — where THIS order is delivered; stored on the order, never written to the customer. */
+    delivery?: { countryId?: string; city?: string; address?: string };
     items: { productId: string; quantity: number; unitPrice: number }[];
     /** Optional Sales declaration recorded atomically with the order — never an accounting voucher. */
     declaration?: PaymentDeclarationInput & { idempotencyKey: string };

@@ -287,6 +287,7 @@ export function EnterpriseDataTable<TData>({
   printTitle,
   fetchAllRows,
   emptyTitle,
+  searchEmptyExtra,
   getRowId,
   error,
   onRetry,
@@ -367,6 +368,8 @@ export function EnterpriseDataTable<TData>({
   fetchAllRows?: () => Promise<{ rows: TData[]; total: number; notes?: string[] }>;
   /** Overrides the empty-state message — falls back to the generic "No results." copy. */
   emptyTitle?: string;
+  /** Extra action(s) under an empty SEARCH result (e.g. "Search all customers") — receives the term. */
+  searchEmptyExtra?: (term: string) => ReactNode;
   /** Row identity for stable selection across sorts/pagination. Defaults to `row.id` when present, otherwise the row's index — pass this for rows with no natural single-field id (e.g. a report keyed by product+warehouse). */
   getRowId?: (row: TData, index: number) => string;
   /** List-load failure — shown instead of an empty table, with Retry when `onRetry` is passed. */
@@ -700,9 +703,12 @@ export function EnterpriseDataTable<TData>({
         title: t("table.noSearchResults", { term: effectiveSearch.trim() }),
         description: t("table.noSearchResultsHint"),
         action: (
-          <EnterpriseButton type="button" variant="outline" size="sm" onClick={handleSearchClear}>
-            {t("table.clearSearch")}
-          </EnterpriseButton>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <EnterpriseButton type="button" variant="outline" size="sm" onClick={handleSearchClear}>
+              {t("table.clearSearch")}
+            </EnterpriseButton>
+            {searchEmptyExtra?.(effectiveSearch.trim())}
+          </div>
         ),
       }
     : { title: emptyTitle ?? t("table.noResults") };

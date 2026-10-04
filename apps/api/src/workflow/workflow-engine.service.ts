@@ -895,6 +895,17 @@ export class WorkflowEngineService {
           .findByCode(WorkflowType.FULFILLMENT, fulfillmentCode)
           .then((s) => s?.id),
         notes: payload?.notes,
+        // R11 — the destination this lead asked for is the ORDER's own destination
+        // (a repeat customer's master record is never rewritten by it).
+        ...(!agentOrder &&
+        fulfillmentMethod !== StoreOrderFulfillmentMethod.PICKUP &&
+        (shippingLead.countryId || shippingLead.city || shippingLead.address)
+          ? {
+              deliveryCountryId: shippingLead.countryId ?? null,
+              deliveryCity: shippingLead.city ?? null,
+              deliveryAddress: shippingLead.address ?? null,
+            }
+          : {}),
         createdBy: userId,
         updatedBy: userId,
         source: this.mapLeadSource(lead.source),

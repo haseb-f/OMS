@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { UserCircle, Eye } from "lucide-react";
+import {
+  AdvancedCustomerLookupButton,
+  AdvancedLookupFallback,
+} from "@/components/store-orders/advanced-customer-lookup-dialog";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import type { MasterDataFormSection } from "@/components/master-data/master-data-form";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
@@ -178,7 +182,13 @@ function CustomersPageContent() {
         />
       )}
       supportsSelectAllMatching
-      extraActions={<ModuleImportButtons importType="CUSTOMERS" />}
+      extraActions={
+        <>
+          <AdvancedCustomerLookupButton />
+          <ModuleImportButtons importType="CUSTOMERS" />
+        </>
+      }
+      searchEmptyExtra={(term) => <AdvancedLookupFallback term={term} />}
       extraListParams={{
         role: ["CUSTOMER"],
         ...(sourceFilter.length ? { source: sourceFilter } : undefined),

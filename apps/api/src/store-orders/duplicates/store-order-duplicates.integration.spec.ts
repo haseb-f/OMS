@@ -1176,4 +1176,211 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
       ).toBe(1);
     });
   });
+
+  // ── R11 — recognition across formats, known customers, ambiguous numbers ──
+
+  describe('R11 recognition', () => {
+    let saId: string;
+    beforeAll(async () => {
+      const sa = await prisma.country.findFirst({ where: { code: 'SA' } });
+      if (!sa) throw new Error('Expected country SA in the local database.');
+      saId = sa.id;
+    });
+
+    it('a local number typed under another default country still recognises the customer (valid readings only)', async () => {
+      const egPhone = phone();
+      const created = await post(
+        users.empA,
+        '/store-orders',
+        orderBody({ name: `Cross Region ${tag}`, phone: egPhone }),
+      );
+      expect(created.status).toBe(201);
+      const national = `0${egPhone.slice(3)}`;
+      // Saudi Arabia selected, an Egyptian national number typed.
+      for (const input of [national, `00${egPhone.slice(1)}`, egPhone]) {
+        const res = await post(users.empA, '/store-orders/duplicate-check', {
+          phone: input,
+          countryId: saId,
+        });
+        expect(res.body).toMatchObject({
+          kind: 'PHONE',
+          crossScope: false,
+          customer: { id: created.body.partnerId },
+        });
+      }
+      // One digit off is never a match (no suffix stripping).
+      const off = await post(users.empA, '/store-orders/duplicate-check', {
+        phone: `${egPhone.slice(0, -1)}${(Number(egPhone.slice(-1)) + 1) % 10}`,
+      });
+      expect(off.body.kind).toBe('NONE');
+    });
+
+    it('Arabic-Indic digits are digits', async () => {
+      const egPhone = phone();
+      const created = await post(
+        users.empA,
+        '/store-orders',
+        orderBody({ name: `Arabic Digits ${tag}`, phone: egPhone }),
+      );
+      expect(created.status).toBe(201);
+      const arabic = egPhone.replace(/\d/g, (d) => '٠١٢٣٤٥٦٧٨٩'[Number(d)]);
+      const res = await post(users.empA, '/store-orders/duplicate-check', {
+        phone: arabic,
+      });
+      expect(res.body.kind).toBe('PHONE');
+    });
+
+    it('a customer with NO order yet is recognised — informational, masked, never blocking', async () => {
+      const knownPhone = phone();
+      const partner = await prisma.partner.create({
+        data: {
+          partnerNumber: `PT-R11-${tag}-K`,
+          name: `Known Without Orders ${tag}`,
+          phone: knownPhone,
+          entityType: 'PERSON',
+          roles: { create: { role: 'CUSTOMER' } },
+          phoneKeys: { create: { phoneE164: knownPhone, kind: 'PHONE' } },
+        },
+      });
+      const res = await post(users.empB, '/store-orders/duplicate-check', {
+        phone: knownPhone,
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.kind).toBe('KNOWN');
+      expect(res.body.customer.nameMasked).toMatch(/•/);
+      expect(res.body.customer.nameMasked).not.toContain('Without');
+      expect(res.body.customer.phoneMasked.endsWith(knownPhone.slice(-3))).toBe(
+        true,
+      );
+      expect(res.body.customer).not.toHaveProperty('id');
+      // Not blocking: the order is created and attaches to that customer.
+      const order = await post(
+        users.empB,
+        '/store-orders',
+        orderBody({ name: `Known Without Orders ${tag}`, phone: knownPhone }),
+      );
+      expect(order.status).toBe(201);
+      expect(order.body.partnerId).toBe(partner.id);
+    });
+
+    it('legacy duplicate records of one number force an explicit choice — never silent, never merged', async () => {
+      const shared = phone();
+      const first = await post(
+        users.empA,
+        '/store-orders',
+        orderBody({ name: `Legacy One ${tag}`, phone: shared }),
+      );
+      expect(first.status).toBe(201);
+      // A second, UNKEYED customer record of the same number (created before one phone = one customer).
+      const legacy = await prisma.partner.create({
+        data: {
+          partnerNumber: `PT-R11-${tag}-L`,
+          name: `Legacy Two ${tag}`,
+          phone: shared,
+          entityType: 'PERSON',
+          roles: { create: { role: 'CUSTOMER' } },
+        },
+      });
+      await prisma.storeOrder.create({
+        data: {
+          internalOrderId: `R11-${tag}-LEG`,
+          partnerId: legacy.id,
+          currencyId,
+          employeeId: users.empA.id,
+        },
+      });
+      const check = await post(users.empA, '/store-orders/duplicate-check', {
+        phone: shared,
+      });
+      expect(check.body.kind).toBe('PHONE');
+      expect(check.body.alternatives).toHaveLength(1);
+      expect(check.body.alternatives[0].id).toBe(legacy.id);
+      // No customer named → refused as ambiguous.
+      const unnamed = await post(
+        users.empA,
+        '/store-orders',
+        orderBody(
+          { name: `Legacy One ${tag}`, phone: shared },
+          { duplicateResolution: { decision: 'INTENTIONAL_NEW_ORDER' } },
+        ),
+      );
+      expect(unnamed.status).toBe(409);
+      expect(unnamed.body.code).toBe('DUPLICATE_ACKNOWLEDGEMENT_REQUIRED');
+      // A customer that is not one of the records → refused (stale).
+      const stranger = await post(
+        users.empA,
+        '/store-orders',
+        orderBody(
+          { name: `Legacy One ${tag}`, phone: shared },
+          {
+            duplicateResolution: {
+              decision: 'INTENTIONAL_NEW_ORDER',
+              customerId: randomUUID(),
+            },
+          },
+        ),
+      );
+      expect(stranger.status).toBe(409);
+      // The chosen record receives the order; nothing is merged.
+      const chosen = await post(
+        users.empA,
+        '/store-orders',
+        orderBody(
+          { name: `Legacy One ${tag}`, phone: shared },
+          {
+            duplicateResolution: {
+              decision: 'INTENTIONAL_NEW_ORDER',
+              customerId: legacy.id,
+            },
+          },
+        ),
+      );
+      expect(chosen.status).toBe(201);
+      expect(chosen.body.partnerId).toBe(legacy.id);
+      expect(
+        await prisma.partner.count({
+          where: { phone: shared, deletedAt: null },
+        }),
+      ).toBe(2);
+    });
+
+    it('the order keeps its own delivery destination and never rewrites the customer', async () => {
+      const own = phone();
+      const created = await post(
+        users.empA,
+        '/store-orders',
+        orderBody(
+          { name: `Delivery ${tag}`, phone: own },
+          { delivery: { countryId: saId, city: 'Jeddah', address: 'Hotel 5' } },
+        ),
+      );
+      expect(created.status).toBe(201);
+      expect(created.body).toMatchObject({
+        deliveryCountryId: saId,
+        deliveryCity: 'Jeddah',
+        deliveryAddress: 'Hotel 5',
+      });
+      const partner = await prisma.partner.findUniqueOrThrow({
+        where: { id: created.body.partnerId },
+      });
+      expect(partner.city).toBeNull();
+      expect(partner.address).toBeNull();
+    });
+
+    it('a lead repeated on the same number is never blocked as a duplicate order', async () => {
+      await grant(users.empA.id, ['crm.leads.create']);
+      const leadPhone = phone();
+      const make = (n: number) =>
+        post(users.empA, '/leads', {
+          customerName: `Repeat Lead ${n} ${tag}`,
+          mobileNumber: leadPhone,
+          countryId: egId,
+          currencyId,
+          source: 'MANUAL',
+        });
+      const [one, two] = [await make(1), await make(2)];
+      expect(one.status).toBe(201);
+      expect(two.status).toBe(201);
+    });
+  });
 });

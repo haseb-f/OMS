@@ -121,6 +121,7 @@ export class PartnersService extends MasterDataCrudService<
     'mobile',
     'email',
   ];
+  protected readonly phoneSearchFields = ['phone', 'mobile'] as const;
   /** SEC-03 L2 — an unknown `sortBy` falls back to `name` instead of reaching Prisma (a 500). Real columns only (the list's balance/credit columns are computed, not sortable server-side). */
   protected readonly sortableFields = [
     'name',
@@ -740,6 +741,11 @@ export class PartnersService extends MasterDataCrudService<
     return this.findPhoneMatches([phone]);
   }
 
+  /** The partners holding any of these (already normalized) E.164 numbers — key owner first. */
+  async lookupAllByPhones(phones: string[]) {
+    return this.findPhoneMatches(phones);
+  }
+
   /**
    * Exact-match "does a Customer already exist for this phone number, and
    * what has it bought before?" — the safe DTO behind the
@@ -1006,44 +1012,57 @@ export class PartnersService extends MasterDataCrudService<
     excludingId?: string,
     defaultRegion?: string,
   ) {
+    // The ONE identity-matching path (`PhoneNumberService.lookupCandidates`):
+    // the typed region, then the number on its own, then the primary markets.
     const normalizedPhones = [
       ...new Set(
-        phones
-          // O3 — same normalization as the phone keys (region, then the
-          // primary markets), so a lookup and a key never disagree.
-          .map((p) =>
-            partnerPhoneKey(this.phoneNumberService, p, defaultRegion),
-          )
-          .filter((p): p is string => !!p),
+        phones.flatMap((p) =>
+          // Narrow: a Create/Update guard must not block a save over a second reading.
+          this.phoneNumberService.lookupCandidates(p, defaultRegion, true),
+        ),
       ),
     ];
     if (normalizedPhones.length === 0) return [];
+    const notSelf = excludingId ? { id: { not: excludingId } } : {};
 
-    const candidates = await this.prisma.partner.findMany({
+    // 1. The claimed keys (one customer per number, O3) and any record storing
+    //    the exact E.164 — an index lookup, not a table scan.
+    const direct = await this.prisma.partner.findMany({
       where: {
         deletedAt: null,
-        OR: [{ phone: { not: null } }, { mobile: { not: null } }],
-        ...(excludingId ? { id: { not: excludingId } } : {}),
+        ...notSelf,
+        OR: [
+          { phoneKeys: { some: { phoneE164: { in: normalizedPhones } } } },
+          { phone: { in: normalizedPhones } },
+          { mobile: { in: normalizedPhones } },
+        ],
       },
       include: { country: { select: { code: true } } },
     });
-    const matches = candidates.filter((partner) => {
-      const candidatePhones = [
-        partnerPhoneKey(
-          this.phoneNumberService,
-          partner.phone,
-          partner.country?.code,
-        ),
-        partnerPhoneKey(
-          this.phoneNumberService,
-          partner.mobile,
-          partner.country?.code,
-        ),
-      ];
-      return candidatePhones.some(
-        (value) => value !== null && normalizedPhones.includes(value),
-      );
+    // 2. Legacy rows that were never keyed (before the backfill, or a number
+    //    stored in a local format): normalized in memory with the partner's own
+    //    country — only these rows, never the whole table.
+    const legacy = await this.prisma.partner.findMany({
+      where: {
+        deletedAt: null,
+        ...notSelf,
+        phoneKeys: { none: {} },
+        id: { notIn: direct.map((partner) => partner.id) },
+        OR: [{ phone: { not: null } }, { mobile: { not: null } }],
+      },
+      include: { country: { select: { code: true } } },
     });
+    const legacyMatches = legacy.filter((partner) =>
+      [partner.phone, partner.mobile].some((raw) => {
+        const value = partnerPhoneKey(
+          this.phoneNumberService,
+          raw,
+          partner.country?.code,
+        );
+        return value !== null && normalizedPhones.includes(value);
+      }),
+    );
+    const matches = [...direct, ...legacyMatches];
     if (matches.length < 2) return matches;
     // O3 — the key owner (the one customer of this number) first, then the
     // oldest record: legacy duplicates always resolve to the same partner.
@@ -1056,9 +1075,9 @@ export class PartnersService extends MasterDataCrudService<
       ).map((key) => key.partnerId),
     );
     return matches.sort(
-      (a, b) =>
-        Number(owners.has(b.id)) - Number(owners.has(a.id)) ||
-        a.createdAt.getTime() - b.createdAt.getTime(),
+      (x, y) =>
+        Number(owners.has(y.id)) - Number(owners.has(x.id)) ||
+        x.createdAt.getTime() - y.createdAt.getTime(),
     );
   }
 

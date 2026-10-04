@@ -64,6 +64,14 @@ function isSaudiRegionHint(regionHint: string | null | undefined): boolean {
   return normalized === 'SA' || normalized === 'SAU';
 }
 
+/**
+ * Primary markets, in order — the regions tried for a number typed WITHOUT a
+ * usable country (a bare national "0501234567", "01063233211"). One list for
+ * every lookup/identity path (partner phone keys, duplicate check, advanced
+ * lookup) so they can never disagree.
+ */
+export const PHONE_FALLBACK_REGIONS = ['SA', 'EG', 'AE'] as const;
+
 const ARABIC_INDIC_ZERO = 0x0660;
 const EXTENDED_ARABIC_INDIC_ZERO = 0x06f0;
 
@@ -99,6 +107,32 @@ export function preparePhoneInput(rawInput: string): string {
     .replace(/[\s\-\u2010-\u2015()./]/g, '');
   if (stripped.startsWith('00')) return `+${stripped.slice(2)}`;
   return stripped;
+}
+
+/**
+ * Digit-only candidate representations of a free-text SEARCH term, for
+ * matching a phone stored in E.164 (`+966564345678`) or in a legacy local
+ * format regardless of how the operator typed it: Arabic-Indic digits, spaces
+ * and punctuation, a trunk "0", an international "00" or "+", with or without
+ * the calling code. Country-agnostic on purpose (a search box has no per-row
+ * country): it only strips a leading "00" or one trunk "0" so the remaining
+ * digits still land as a `contains` substring. Under 6 digits → `[]` (too
+ * short to be a phone fragment). Pure, so list services can use it without
+ * injecting the phone service.
+ */
+export function phoneSearchCandidates(
+  rawSearch: string | null | undefined,
+): string[] {
+  const digitsOnly = normalizePhoneDigits(rawSearch ?? '').replace(/\D/g, '');
+  if (digitsOnly.length < 6) return [];
+  const candidates = new Set<string>([digitsOnly]);
+  if (digitsOnly.startsWith('00') && digitsOnly.length > 2) {
+    candidates.add(digitsOnly.slice(2));
+  }
+  if (digitsOnly.startsWith('0') && digitsOnly.length > 1) {
+    candidates.add(digitsOnly.slice(1));
+  }
+  return [...candidates].filter((candidate) => candidate.length >= 6);
 }
 
 /** English messages, matching this API's existing `BadRequestException` convention — the frontend produces its own Arabic-first copy for the same `errorReason` codes. */
@@ -313,16 +347,37 @@ export class PhoneNumberService {
    * spuriously widen into a phone match.
    */
   searchCandidates(rawSearch: string | null | undefined): string[] {
-    const digitsOnly = (rawSearch ?? '').replace(/\D/g, '');
-    if (digitsOnly.length < 6) return [];
-    const candidates = new Set<string>([digitsOnly]);
-    if (digitsOnly.startsWith('00') && digitsOnly.length > 2) {
-      candidates.add(digitsOnly.slice(2));
+    return phoneSearchCandidates(rawSearch);
+  }
+
+  /**
+   * Every E.164 a typed phone can validly mean, narrowest reading first: the
+   * caller's region (the form's phone country), then the number on its own
+   * ('+…', '00…', '966…', Arabic digits), then the primary markets for a bare
+   * national number. This is the ONE identity-matching path. Matching is always
+   * on a full valid E.164 — never a suffix or a digit fragment — so a local
+   * number typed under the wrong default country still finds its customer
+   * without ever matching an unrelated one.
+   *
+   * `narrow` returns only the first reading (Create/Update duplicate guards,
+   * where a false positive would block a legitimate save). Recognition (the
+   * order duplicate check, advanced lookup) uses every valid reading: a number
+   * can be valid in two markets ('055…' is a Saudi mobile and an Egyptian
+   * landline) and the customer must be found under whichever it was saved as.
+   */
+  lookupCandidates(
+    rawInput: string | null | undefined,
+    regionHint?: string | null,
+    narrow = false,
+  ): string[] {
+    if (!rawInput?.trim()) return [];
+    const out = new Set<string>();
+    for (const region of [regionHint, null, ...PHONE_FALLBACK_REGIONS]) {
+      const e164 = this.normalizeToE164(rawInput, region);
+      if (e164) out.add(e164);
+      if (narrow && out.size > 0) break;
     }
-    if (digitsOnly.startsWith('0') && digitsOnly.length > 1) {
-      candidates.add(digitsOnly.slice(1));
-    }
-    return [...candidates].filter((candidate) => candidate.length >= 6);
+    return [...out];
   }
 
   /** Convenience — E.164 string when valid, `null` otherwise. Never throws. */

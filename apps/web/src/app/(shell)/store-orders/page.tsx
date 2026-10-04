@@ -38,7 +38,10 @@ import {
 } from "@/components/store-orders/store-order-create-dialog";
 import { GlobalLookupDialog } from "@/components/store-orders/global-lookup-dialog";
 // R7 hook (workstream B): self-contained, permission-gated button — the only line this page needs.
-import { AdvancedCustomerLookupButton } from "@/components/store-orders/advanced-customer-lookup-dialog";
+import {
+  AdvancedCustomerLookupButton,
+  AdvancedLookupFallback,
+} from "@/components/store-orders/advanced-customer-lookup-dialog";
 import { DuplicateReviewDialog } from "@/components/store-orders/duplicate-review-dialog";
 import { LegacyPhoneDuplicatesDialog } from "@/components/store-orders/legacy-phone-duplicates-dialog";
 import { buildStoreOrderDetailRegions } from "@/components/store-orders/store-order-expanded-detail";
@@ -725,6 +728,7 @@ function StoreOrdersPageContent() {
           )
         }
         emptyTitle={t("storeOrders.empty")}
+        searchEmptyExtra={(term) => <AdvancedLookupFallback term={term} />}
         getRowId={(row) => row.id}
         getRowHref={(row) => `/store-orders/${row.id}`}
       />

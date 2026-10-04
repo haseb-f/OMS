@@ -57,6 +57,16 @@ export interface DuplicateNameCandidate extends DuplicateCustomerSummary {
  */
 export type DuplicateCheckResult =
   | { kind: 'NONE' }
+  /**
+   * The number belongs to an existing customer with no order in the caller's
+   * customer scope (a lead-only or not-yet-ordered customer). Informational and
+   * minimal-disclosure (masked name and phone): the order is attached to that
+   * customer — one phone = one customer — so nothing needs answering.
+   */
+  | {
+      kind: 'KNOWN';
+      customer: { nameMasked: string; phoneMasked: string | null };
+    }
   | { kind: 'PHONE'; crossScope: true }
   | {
       kind: 'PHONE';
@@ -66,6 +76,12 @@ export type DuplicateCheckResult =
       orders: DuplicateOrderSummary[];
       /** Orders of this customer inside the caller's customer scope that the caller cannot open (another owner's). */
       otherOrdersCount: number;
+      /**
+       * Other customer records holding the same number (legacy duplicates the
+       * caller may see). When present the caller must say which record the
+       * order belongs to — nothing is chosen or merged silently.
+       */
+      alternatives?: DuplicateCustomerSummary[];
     }
   | { kind: 'NAME'; candidates: DuplicateNameCandidate[] };
 
@@ -171,7 +187,7 @@ export function maskPhone(value: string | null | undefined): string | null {
 /** 409 with the same scoped payload the check returns. */
 export function duplicateAcknowledgementRequired(
   duplicate: DuplicateCheckResult,
-  reason: 'MISSING' | 'STALE' | 'INVALID' = 'MISSING',
+  reason: 'MISSING' | 'STALE' | 'INVALID' | 'AMBIGUOUS' = 'MISSING',
 ) {
   const text = {
     MISSING: [
@@ -185,6 +201,10 @@ export function duplicateAcknowledgementRequired(
     INVALID: [
       'هذا الرقم مسجل لعميل موجود — لا يمكن إنشاء عميل مختلف بنفس الرقم',
       'This phone belongs to an existing customer — a different customer cannot use the same number.',
+    ],
+    AMBIGUOUS: [
+      'هذا الرقم مسجل لأكثر من سجل عميل — اختر السجل الصحيح قبل المتابعة',
+      'This phone matches more than one customer record — choose the right record before continuing.',
     ],
   }[reason];
   return new ConflictException({

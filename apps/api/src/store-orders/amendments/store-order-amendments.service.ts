@@ -115,6 +115,9 @@ const DRAFT_INVOICE_STATUSES: SalesDocumentStatus[] = [
 const ORDER_SELECT = {
   id: true,
   internalOrderId: true,
+  deliveryCountryId: true,
+  deliveryCity: true,
+  deliveryAddress: true,
   version: true,
   deletedAt: true,
   orderDate: true,
@@ -244,6 +247,12 @@ interface AmendmentPlan {
   fulfillmentMethod: StoreOrderFulfillmentMethod;
   /** Company order: partner master corrections (identity + destination). */
   partnerUpdate: Prisma.PartnerUpdateInput | null;
+  /** Company order that has its OWN delivery destination (R11): the destination amendment is written there, never to the customer master. */
+  orderDeliveryUpdate: {
+    deliveryCountryId: string | null;
+    deliveryCity: string | null;
+    deliveryAddress: string | null;
+  } | null;
   /** Company order: switch to this existing customer. */
   switchToPartnerId: string | null;
   /** Agent order: the full re-quote to persist. */
@@ -256,6 +265,19 @@ interface AmendmentPlan {
   customerBefore: CustomerSnapshotView;
   customerAfter: CustomerSnapshotView;
   changes: Record<string, unknown>;
+}
+
+/** R11 — the order carries its own delivery destination (any of the three fields set). */
+function hasOwnDestination(order: {
+  deliveryCountryId: string | null;
+  deliveryCity: string | null;
+  deliveryAddress: string | null;
+}): boolean {
+  return !!(
+    order.deliveryCountryId ||
+    order.deliveryCity ||
+    order.deliveryAddress
+  );
 }
 
 const num = (value: Prisma.Decimal | number | string | null | undefined) =>
@@ -524,9 +546,23 @@ export class StoreOrderAmendmentsService {
       (a.city ?? '') !== (b.city ?? '') ||
       (a.address ?? '') !== (b.address ?? '');
     const destinationChanged = differs(customerAfter, customerBefore);
+    // R11 — an order delivered to its own address keeps that address on the
+    // order: amending the destination never rewrites the customer master.
+    const ownDestination = hasOwnDestination(order);
     /** Company customer master address to write (differs from that customer's own record). */
     const partnerAddressChanged =
-      !!changes.destination && differs(customerAfter, customerBase);
+      !isAgentOrder &&
+      !ownDestination &&
+      !!changes.destination &&
+      differs(customerAfter, customerBase);
+    const orderDeliveryUpdate =
+      !isAgentOrder && ownDestination && destinationChanged
+        ? {
+            deliveryCountryId: customerAfter.countryId,
+            deliveryCity: customerAfter.city?.trim() || null,
+            deliveryAddress: customerAfter.address?.trim() || null,
+          }
+        : null;
 
     const kinds: AmendmentChangeKinds = {
       items: false,
@@ -926,6 +962,7 @@ export class StoreOrderAmendmentsService {
       paymentType,
       fulfillmentMethod,
       partnerUpdate,
+      orderDeliveryUpdate,
       switchToPartnerId,
       agentQuote,
       agentRelinkCustomer,
@@ -1597,6 +1634,12 @@ export class StoreOrderAmendmentsService {
           : error;
       });
     }
+    if (plan.orderDeliveryUpdate) {
+      await tx.storeOrder.update({
+        where: { id: order.id },
+        data: plan.orderDeliveryUpdate,
+      });
+    }
     if (plan.isAgentOrder && plan.agentRelinkCustomer && plan.agentCustomer) {
       // O3 — the partner owning the new mobile (any scope) is reused, never
       // updated; a match outside the agent's scope was flagged for review.
@@ -1878,14 +1921,16 @@ export class StoreOrderAmendmentsService {
         address: typed?.address ?? null,
       };
     }
+    // R11 — the order's own destination wins over the customer's.
+    const own = hasOwnDestination(order);
     return {
       partnerId: order.partnerId,
       name: order.partner.name,
       phone: order.partner.phone ?? order.partner.mobile,
       email: order.partner.email,
-      countryId: order.partner.countryId,
-      city: order.partner.city,
-      address: order.partner.address,
+      countryId: own ? order.deliveryCountryId : order.partner.countryId,
+      city: own ? order.deliveryCity : order.partner.city,
+      address: own ? order.deliveryAddress : order.partner.address,
     };
   }
 

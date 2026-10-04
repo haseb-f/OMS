@@ -464,6 +464,14 @@ export function AgentOrderForm({
                     value={state.mobile}
                     onChange={(mobile) => set({ mobile })}
                     countryCode={countryCode}
+                    // The compact calling-code selector inside the field picks the order's country
+                    // (the agent tariff and the phone read the same country).
+                    countries={countries}
+                    availableCountryCodes={countries.map((country) => country.code)}
+                    onCountryChange={(iso2) => {
+                      const match = countries.find((country) => country.code === iso2);
+                      if (match) set({ countryId: match.id });
+                    }}
                     forceValidation={showErrors}
                     aria-invalid={has("mobile") || undefined}
                   />

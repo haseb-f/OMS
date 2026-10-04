@@ -540,14 +540,16 @@ model Currency {
 /// own supported-region list + the `i18n-iso-countries` reference package —
 /// never hand-typed codes) instead of being admin-created master data.
 model Country {
-  id                 String              @id @default(uuid()) @db.Uuid
-  agentShippingRates AgentShippingRate[]
+  id                  String              @id @default(uuid()) @db.Uuid
+  agentShippingRates  AgentShippingRate[]
+  /// R11 — store orders delivered to this country (order-level destination).
+  deliveryStoreOrders StoreOrder[]        @relation("StoreOrderDeliveryCountry")
   /// ISO 3166-1 alpha-2 — the one code the phone-validation architecture
   /// already keys everything off of.
-  code               String              @unique
+  code                String              @unique
   /// Arabic name — primary identity, matches the Product/Lead convention.
-  name               String
-  nameEn             String?             @map("name_en")
+  name                String
+  nameEn              String?             @map("name_en")
 
   /// ISO 3166-1 alpha-3 / numeric — reference identifiers, not used for
   /// lookups anywhere yet.
@@ -5032,6 +5034,16 @@ model StoreOrder {
   currency   Currency @relation(fields: [currencyId], references: [id])
 
   notes String?
+
+  /// R11 — where THIS order is delivered, when it differs from (or is not yet on)
+  /// the customer record. Never copied back to the customer master: a repeat
+  /// order to another address must not rewrite the customer. Null on every
+  /// order created before R11 and on orders delivered to the customer's own
+  /// address — readers fall back to the customer's country / city / address.
+  deliveryCountryId String?  @map("delivery_country_id") @db.Uuid
+  deliveryCountry   Country? @relation("StoreOrderDeliveryCountry", fields: [deliveryCountryId], references: [id])
+  deliveryCity      String?  @map("delivery_city")
+  deliveryAddress   String?  @map("delivery_address")
 
   /// Agents milestone — the owner agent, derived server-side from the lines'
   /// product owner (one owner per order). Null = company order (unchanged).

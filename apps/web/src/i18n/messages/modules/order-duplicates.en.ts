@@ -7,7 +7,10 @@ const orderDuplicatesEn = {
   conflictToast: "This customer already exists — choose how to continue.",
   change: "Change",
   phone: {
-    title: "This customer already has orders",
+    title: "This customer already exists",
+    hasOrders: "{count} previous order(s) you can open",
+    whichRecord: "This number is on more than one customer record — which one is this order for?",
+    useRecord: "Use this record",
     otherOrders: "{count} more order(s) owned by other team members",
     noOpenable: "Their orders belong to other team members.",
     openExisting: "Open existing order",
@@ -16,6 +19,11 @@ const orderDuplicatesEn = {
     chosen: "A new order will be created for the existing customer {name}.",
     active: "Active",
     closed: "Closed",
+  },
+  known: {
+    title: "This customer already exists",
+    description:
+      "No previous order of theirs is in your list. The order will be linked to this customer — no second customer is created.",
   },
   crossScope: {
     title: "This phone number belongs to a customer outside your access",

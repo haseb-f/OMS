@@ -43,6 +43,8 @@ export interface DuplicateNameCandidate extends DuplicateCustomerSummary {
 /** A cross-scope match carries nothing but the flag. */
 export type DuplicateCheckResult =
   | { kind: "NONE" }
+  /** An existing customer with no order in the caller's scope: informational, masked, nothing to answer. */
+  | { kind: "KNOWN"; customer: { nameMasked: string; phoneMasked: string | null } }
   | { kind: "PHONE"; crossScope: true }
   | {
       kind: "PHONE";
@@ -50,6 +52,8 @@ export type DuplicateCheckResult =
       customer: DuplicateCustomerSummary;
       orders: DuplicateOrderSummary[];
       otherOrdersCount: number;
+      /** Other customer records holding the same number — the user must say which one. */
+      alternatives?: DuplicateCustomerSummary[];
     }
   | { kind: "NAME"; candidates: DuplicateNameCandidate[] };
 

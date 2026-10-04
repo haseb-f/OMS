@@ -7,6 +7,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { phoneSearchCandidates } from '../common/phone/phone-number.service';
 import {
   LeadAssignmentMethod,
   Prisma,
@@ -1153,6 +1154,11 @@ export class LeadsService {
       const or: Prisma.LeadWhereInput[] = SEARCH_FIELDS.map((field) => ({
         [field]: { contains: query.search, mode: 'insensitive' as const },
       }));
+      // The phone typed in any format (Arabic digits, national, 00/+) — extra OR
+      // branches only, like the Arabic-name one below.
+      for (const digits of phoneSearchCandidates(query.search)) {
+        or.push({ mobileNumber: { contains: digits } });
+      }
       // Extra OR branch only — scope/filters above still AND-constrain it.
       const normalizedIds = await findArabicNormalizedIds(
         this.prisma,

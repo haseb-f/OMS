@@ -7,7 +7,6 @@ import { CreateOperationFooter } from "@/components/shared/create-operation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { OMSPhoneInput, isPhoneValidForCountry } from "@/components/shared/phone-input";
-import { PhoneCountrySelector } from "@/components/shared/phone-country-selector";
 import { useCountries } from "@/hooks/use-reference-data";
 import { parsePhone } from "@/services/phone-service";
 import { partnersService } from "@/services/partners-service";
@@ -100,14 +99,6 @@ export function StoreOrderEditCustomerDialog({
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
-          <Label>{t("phone.phoneCountryLabel")}</Label>
-          <PhoneCountrySelector
-            value={effectivePhoneCountryId}
-            onChange={(id) => setPhoneCountryId(id)}
-            countries={countries}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
           <Label>{t("storeOrders.fields.phone")}</Label>
           <OMSPhoneInput
             value={phone}
@@ -115,6 +106,7 @@ export function StoreOrderEditCustomerDialog({
             countryCode={phoneCountryCode}
             forceValidation={submitAttempted}
             availableCountryCodes={countries.map((country) => country.code)}
+            countries={countries}
             onCountryChange={(iso2) => {
               const match = countries.find((country) => country.code === iso2);
               if (match) setPhoneCountryId(match.id);

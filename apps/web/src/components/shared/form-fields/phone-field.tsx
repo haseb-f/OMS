@@ -2,6 +2,7 @@ import type { Control, FieldPath, FieldValues } from "react-hook-form";
 import type { CountryCode } from "libphonenumber-js/min";
 import { FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { OMSPhoneInput } from "@/components/shared/phone-input";
+import type { PhoneCountryOption } from "@/components/shared/phone-country-selector";
 
 export function PhoneFormField<
   TFieldValues extends FieldValues,
@@ -17,6 +18,7 @@ export function PhoneFormField<
   countryCode,
   onCountryChange,
   availableCountryCodes,
+  countries,
 }: {
   control: Control<TFieldValues>;
   name: TName;
@@ -29,6 +31,8 @@ export function PhoneFormField<
   /** See `OMSPhoneInput` — offered as an explicit "Switch country to …" action on a calling-code conflict. */
   onCountryChange?: (iso2: CountryCode) => void;
   availableCountryCodes?: readonly string[];
+  /** Enables the compact calling-code selector inside the field (see `OMSPhoneInput`). */
+  countries?: readonly PhoneCountryOption[];
 }) {
   return (
     <FormField
@@ -46,6 +50,7 @@ export function PhoneFormField<
             countryCode={countryCode}
             onCountryChange={onCountryChange}
             availableCountryCodes={availableCountryCodes}
+            countries={countries}
             forceValidation={formState.isSubmitted}
             disabled={disabled}
             aria-invalid={!!fieldState.error}

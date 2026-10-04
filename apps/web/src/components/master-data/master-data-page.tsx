@@ -122,6 +122,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   extraFilterCount = 0,
   onClearExtraFilters,
   extraActions,
+  searchEmptyExtra,
   headerSecondary,
   headerMore,
   headerMeta,
@@ -169,6 +170,8 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   onClearExtraFilters?: () => void;
   /** Opt-in extra toolbar action(s) rendered before the internal "+ New" button — e.g. `<ModuleImportButtons />` (TASK-060B Part 5). */
   extraActions?: ReactNode;
+  /** Extra action(s) under an empty SEARCH result (e.g. the advanced customer lookup) — receives the term. */
+  searchEmptyExtra?: (term: string) => ReactNode;
   /** Header secondary actions (outline, max 2 inline; collapse into «المزيد» on phones). */
   headerSecondary?: ActionSpec[];
   /** Header overflow («المزيد») actions. */
@@ -722,6 +725,7 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       <div className="relative flex min-w-0 flex-col lg:min-h-0 lg:flex-1">
         {isMutating && <LoadingOverlay />}
         <EnterpriseDataTable
+          searchEmptyExtra={searchEmptyExtra}
           activeFilterCount={extraFilterCount + (includeArchived ? 1 : 0)}
           onClearFilters={() => {
             onClearExtraFilters?.();

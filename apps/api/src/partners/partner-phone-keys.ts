@@ -7,7 +7,10 @@ import {
   PartnerStatus,
   Prisma,
 } from '@prisma/client';
-import type { PhoneNumberService } from '../common/phone/phone-number.service';
+import {
+  PHONE_FALLBACK_REGIONS,
+  type PhoneNumberService,
+} from '../common/phone/phone-number.service';
 import type { NumberingEngineService } from '../numbering/numbering-engine.service';
 
 /**
@@ -25,7 +28,7 @@ import type { NumberingEngineService } from '../numbering/numbering-engine.servi
 type Db = Prisma.TransactionClient;
 
 /** Primary markets, in order — the fallback for a number stored without a country. */
-export const PHONE_KEY_FALLBACK_REGIONS = ['SA', 'EG', 'AE'] as const;
+export const PHONE_KEY_FALLBACK_REGIONS = PHONE_FALLBACK_REGIONS;
 
 export interface PartnerPhoneKeyInput {
   phone: string;

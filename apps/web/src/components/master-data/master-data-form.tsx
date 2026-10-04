@@ -133,6 +133,8 @@ function PhoneFormField<TFieldValues extends FieldValues>({
       // The form owns the country: a calling-code conflict offers an explicit
       // switch to the number's own country (never an automatic one).
       availableCountryCodes={countries.map((c) => c.code)}
+      // The compact calling-code selector lives inside the field (linked to the sibling country field).
+      countries={countryFieldName ? countries : undefined}
       onCountryChange={
         countryFieldName
           ? (iso2) => {

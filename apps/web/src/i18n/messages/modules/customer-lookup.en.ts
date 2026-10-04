@@ -14,6 +14,11 @@ const customerLookupEn = {
   idle: "Search by phone number or name to see whether the customer exists.",
   empty: "No matching customer was found.",
   error: "The lookup failed. Please try again.",
+  forbidden:
+    "You do not have access to advanced customer lookup. Ask an administrator to grant it.",
+  searchAll: "Search all customers",
+  searchAllHint:
+    "Not in your list? The advanced lookup can find a customer another employee owns (read-only).",
   rateLimited: "Too many lookups. Please wait a few minutes before searching again.",
   tooShort: "The search text is too short.",
   capped: "More matches exist. Refine the search to narrow them down.",

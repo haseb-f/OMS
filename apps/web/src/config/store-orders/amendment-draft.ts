@@ -1,4 +1,5 @@
 import type { MessageKey } from "@/i18n/translate";
+import { orderDestination } from "@/config/store-orders/order-destination";
 import type { AmendmentChanges } from "@/services/order-amendments-service";
 import type { StoreOrderRow } from "@/services/store-orders-service";
 import type { PortalOrderDetail } from "@/services/agent-portal-service";
@@ -240,9 +241,9 @@ export function amendableFromStoreOrder(order: StoreOrderRow): AmendableOrder {
           name: partner?.name ?? "",
           phone: partner?.phone ?? partner?.mobile ?? "",
           email: partner?.email ?? "",
-          countryId: partner?.countryId ?? "",
-          city: partner?.city ?? "",
-          address: partner?.address ?? "",
+          countryId: orderDestination(order).countryId,
+          city: orderDestination(order).city,
+          address: orderDestination(order).address,
         },
     lines: order.items.map((item) => ({
       itemId: item.id,
