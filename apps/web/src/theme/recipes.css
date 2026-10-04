@@ -952,37 +952,42 @@ html
     var(--control-inset-solid);
 }
 
-/* ── Record card (Table/Grid view, design-system §12.19) ───────────────────
-   A clean, soft card with a restrained glass treatment: a faint top → bottom
-   tone gradient over the card surface, a delicate tone hairline, a start-edge
-   accent in the workflow tone and a thin inner highlight. No backdrop blur and
-   one small shadow. Three distinct interaction treatments:
-     hover    → stronger tone edge + a small elevation (paint-only, 1px rise);
+/* ── Record card (Table/Grid view, design-system §12.19, revised R9) ───────
+   FLAT, soft, status-tinted surface — no gradients. The glass feel is restraint:
+   a translucent tint of the card's workflow colour over the list's canvas, a clean
+   1px hairline in that colour, a thin inner highlight and one very small shadow.
+   The status colour sits on the SURFACE and hairline only; text stays foreground /
+   muted (contrast-checked), and the state is always also written as a badge
+   label + icon, so colour is never the only carrier.
+   Colour = the entity's PRIMARY workflow state (palettes per entity in
+   specs/round9-brand-grid/card-palettes.md); a record without a workflow status is
+   a neutral card.
+   Interaction (three distinct treatments, no movement, no reflow):
+     hover    → the surface tint steps up, the hairline strengthens, a small shadow;
      focus    → the 2px focus ring around the whole card (keyboard);
-     selected → blue selection ring + tint (always with the checked checkbox).
-   Tone = workflow meaning only (`--insight-*`), never a brand decoration. */
+     selected → a 2px blue ring on a neutral blue tint (no status wash), always with
+                the checked checkbox. */
 [data-record-card] {
   --tone: var(--insight-neutral);
-  --edge: 22%;
-  --edge-start: 30%;
-  --wash: 4%;
+  --edge: 24%;
+  --wash: 5%;
+  position: relative;
   border: 1px solid color-mix(in oklab, var(--tone) var(--edge), var(--border));
-  border-inline-start: 3px solid color-mix(in oklab, var(--tone) var(--edge-start), var(--border));
   border-radius: var(--radius-surface);
-  background-color: var(--card);
-  background-image: linear-gradient(
-    180deg,
-    color-mix(in oklab, var(--tone) var(--wash), var(--card)),
-    color-mix(in oklab, var(--tone) calc(var(--wash) / 3), var(--card)) 65%
+  /* translucent: tint over a mostly-opaque card surface, so the canvas shows faintly through */
+  background-color: color-mix(
+    in oklab,
+    var(--tone) var(--wash),
+    color-mix(in oklab, var(--card) 88%, transparent)
   );
   box-shadow:
     inset 0 1px 0 var(--card-sheen),
-    0 1px 2px color-mix(in oklab, var(--logo-navy) 6%, transparent);
+    0 1px 2px color-mix(in oklab, var(--logo-navy) 5%, transparent);
   color: var(--card-foreground);
   transition:
-    border-color var(--duration-base) var(--ease-standard),
-    box-shadow var(--duration-base) var(--ease-standard),
-    transform var(--duration-base) var(--ease-standard);
+    background-color 160ms var(--ease-standard),
+    border-color 160ms var(--ease-standard),
+    box-shadow 160ms var(--ease-standard);
 }
 [data-record-card]:is(
   [data-tone="success"],
@@ -990,14 +995,8 @@ html
   [data-tone="info"],
   [data-tone="destructive"]
 ) {
-  --edge: 24%;
-  --edge-start: 72%;
-  --wash: 9%;
-}
-/* Info is the tone nearest the selection blue — keep it quieter than the others. */
-[data-record-card][data-tone="info"] {
-  --edge: 16%;
-  --wash: 5%;
+  --edge: 38%;
+  --wash: 10%;
 }
 [data-record-card][data-tone="success"] {
   --tone: var(--insight-success);
@@ -1011,15 +1010,21 @@ html
 [data-record-card][data-tone="destructive"] {
   --tone: var(--insight-destructive);
 }
-[data-record-card]:hover {
-  border-color: color-mix(in oklab, var(--tone) 40%, var(--border));
-  border-inline-start-color: var(--tone);
+/* Hover: a controlled tint step + hairline emphasis. Cards that open a record also
+   get the small elevation; a static card (no link) never suggests it opens. */
+[data-record-card]:not([data-static]):hover {
+  --wash: 14%;
+  border-color: color-mix(in oklab, var(--tone) 58%, var(--border));
 }
-[data-record-card]:hover:has([data-record-link]) {
-  transform: translateY(-1px);
+[data-record-card][data-tone="neutral"]:not([data-static]):hover,
+[data-record-card]:not([data-tone]):not([data-static]):hover {
+  --wash: 9%;
+  border-color: color-mix(in oklab, var(--tone) 40%, var(--border));
+}
+[data-record-card]:not([data-static]):hover:has([data-record-link]) {
   box-shadow:
     inset 0 1px 0 var(--card-sheen),
-    0 8px 16px -10px color-mix(in oklab, var(--tone) 45%, transparent),
+    0 6px 14px -8px color-mix(in oklab, var(--tone) 55%, transparent),
     0 1px 2px color-mix(in oklab, var(--logo-navy) 8%, transparent);
 }
 [data-record-card]:has([data-record-link]:focus-visible) {
@@ -1029,11 +1034,19 @@ html
 [data-record-card] [data-record-link]:focus-visible {
   outline: none;
 }
+/* Selected: unmistakable and never a status colour. */
 [data-record-card][data-state="selected"] {
   border-color: var(--focus-ring);
-  border-inline-start-color: var(--focus-ring);
-  background-image: none;
-  background-color: color-mix(in oklab, var(--focus-ring) 10%, var(--card));
+  background-color: color-mix(in oklab, var(--focus-ring) 11%, var(--card));
+  box-shadow:
+    inset 0 0 0 2px var(--focus-ring),
+    0 1px 2px color-mix(in oklab, var(--logo-navy) 8%, transparent);
+}
+/* Selected AND hovered: the ring stays, the tint steps up a little. */
+[data-record-card][data-state="selected"]:not([data-static]):hover,
+[data-record-card][data-state="selected"]:not([data-static]):hover:has([data-record-link]) {
+  border-color: var(--focus-ring);
+  background-color: color-mix(in oklab, var(--focus-ring) 15%, var(--card));
   box-shadow:
     inset 0 0 0 2px var(--focus-ring),
     0 1px 2px color-mix(in oklab, var(--logo-navy) 8%, transparent);
@@ -1041,9 +1054,6 @@ html
 @media (prefers-reduced-motion: reduce) {
   [data-record-card] {
     transition: none;
-  }
-  [data-record-card]:hover {
-    transform: none;
   }
 }
 [data-record-grid] > [data-grid-card] {
@@ -1068,6 +1078,8 @@ html
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
   gap: 0.75rem;
   padding: 0.75rem;
+  /* a faint canvas behind the cards (flat — no gradient) */
+  background-color: color-mix(in oklab, var(--brand-canvas) 38%, var(--card));
 }
 
 /* Report cards (financial reports): wider cards, no hover lift — a report card is a
@@ -1076,11 +1088,73 @@ html
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr));
   align-items: start;
 }
-[data-record-card][data-static]:hover {
-  transform: none;
-  border-color: color-mix(in oklab, var(--tone) var(--edge), var(--border));
-  border-inline-start-color: color-mix(in oklab, var(--tone) var(--edge-start), var(--border));
-  box-shadow:
-    inset 0 1px 0 var(--card-sheen),
-    0 1px 2px color-mix(in oklab, var(--logo-navy) 6%, transparent);
+
+/* ── Lead-distribution control: one colour per DISPLAYED state (§12.20) ───
+   continuous = green · time-limited = violet · manual = slate · paused = amber ·
+   blocked = red (a failure beats the mode) · unavailable = dashed neutral outline ·
+   loading = quiet outline. The structural base is the outline button (size, radius,
+   focus ring); every state defines rest / hover / pressed / open, and the pending
+   count is its own chip (a backlog is not a failure). */
+html [data-button][data-distribution-state] {
+  border-color: transparent;
+  background-color: var(--d-bg, transparent);
+  color: var(--d-fg, var(--foreground));
+  font-weight: 500;
+}
+html [data-button][data-distribution-state]:not(:disabled):hover {
+  background-color: var(--d-hover, var(--d-bg, transparent));
+}
+html [data-button][data-distribution-state]:not(:disabled):active,
+html [data-button][data-distribution-state][aria-expanded="true"] {
+  background-color: var(--d-hover, var(--d-bg, transparent));
+  box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--d-fg) 55%, transparent);
+}
+[data-distribution-state="continuous"] {
+  --d-bg: var(--success);
+  --d-fg: var(--success-foreground);
+  --d-hover: color-mix(in oklab, var(--success) 86%, black);
+}
+[data-distribution-state="timeLimited"] {
+  --d-bg: var(--state-scheduled);
+  --d-fg: #ffffff;
+  --d-hover: var(--state-scheduled-hover);
+}
+[data-distribution-state="manual"] {
+  --d-bg: var(--state-manual);
+  --d-fg: #ffffff;
+  --d-hover: var(--state-manual-hover);
+}
+[data-distribution-state="paused"] {
+  --d-bg: var(--warning);
+  --d-fg: var(--warning-foreground);
+  --d-hover: color-mix(in oklab, var(--warning) 88%, black);
+}
+[data-distribution-state="blocked"] {
+  --d-bg: var(--destructive);
+  --d-fg: var(--destructive-foreground);
+  --d-hover: color-mix(in oklab, var(--destructive) 86%, black);
+}
+html [data-button][data-distribution-state="unavailable"],
+html [data-button][data-distribution-state="loading"] {
+  --d-bg: var(--card);
+  --d-fg: var(--foreground);
+  --d-hover: var(--btn-soft-hover);
+  border: 1px dashed var(--control-edge);
+}
+html [data-button][data-distribution-state="loading"] {
+  border-style: solid;
+  border-color: var(--btn-outline-border);
+}
+[data-distribution-state] [data-slot="distribution-pending"] {
+  background-color: color-mix(in oklab, currentColor 18%, transparent);
+}
+/* The same colours as a soft chip (the dialog's "current mode"). */
+[data-distribution-chip] {
+  background-color: var(--d-bg);
+  color: var(--d-fg);
+}
+@media (prefers-reduced-motion: reduce) {
+  html [data-button][data-distribution-state] {
+    transition: none;
+  }
 }

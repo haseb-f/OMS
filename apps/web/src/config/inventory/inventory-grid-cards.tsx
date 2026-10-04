@@ -78,7 +78,7 @@ export function InventoryMovementGridCard({
   }
   return (
     <RecordGridCard
-      tone={movementTypeTone(row.type)}
+      tone="neutral"
       selected={selected}
       onToggleSelected={onToggleSelected}
       selectLabel={t("tableViews.card.selectRow", { name: productName })}

@@ -299,3 +299,79 @@ describe("LeadDistributionStatusButton", () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 });
+
+describe("one distinct colour per displayed state (R9 correction, §12.20)", () => {
+  const failing = snap({ failureCode: "ASSIGN_FAILED", failureReason: "Assignment failed." });
+
+  it("maps every supported state to its own visual state — no two states share one", () => {
+    const visual = {
+      continuous: describeDistributionControl(snap(), "CONTINUOUS").visual,
+      timeLimited: describeDistributionControl(snap(), "TIME_LIMITED").visual,
+      manual: describeDistributionControl(snap(), "MANUAL").visual,
+      paused: describeDistributionControl(snap(), "PAUSED").visual,
+      blocked: describeDistributionControl(failing, "CONTINUOUS").visual,
+    };
+    expect(visual).toEqual({
+      continuous: "continuous",
+      timeLimited: "timeLimited",
+      manual: "manual",
+      paused: "paused",
+      blocked: "blocked",
+    });
+    expect(new Set(Object.values(visual)).size).toBe(5);
+  });
+
+  it("a failure beats the mode, for BOTH automatic modes", () => {
+    expect(describeDistributionControl(failing, "CONTINUOUS").visual).toBe("blocked");
+    expect(describeDistributionControl(failing, "TIME_LIMITED").visual).toBe("blocked");
+  });
+
+  it("a manual or paused control never reads as blocked, even with a failure code on file", () => {
+    expect(describeDistributionControl(failing, "MANUAL").visual).toBe("manual");
+    expect(describeDistributionControl(failing, "PAUSED").visual).toBe("paused");
+  });
+
+  it("a backlog alone is not a failure", () => {
+    const backlog = snap({ pendingEligibleCount: 250 });
+    expect(describeDistributionControl(backlog, "CONTINUOUS").visual).toBe("continuous");
+  });
+
+  it("the button carries the state, names the mode when blocked, and keeps the count separate", () => {
+    render(
+      <LeadDistributionStatusButton
+        state={makeState("TIME_LIMITED", { snapshot: failing })}
+        onOpen={() => {}}
+      />,
+    );
+    const button = screen.getByTestId("lead-distribution-control");
+    expect(button.getAttribute("data-distribution-state")).toBe("blocked");
+    expect(button.textContent).toContain("leadOps.distribution.button.blocked");
+    // the MODE is written next to the failure
+    expect(button.textContent).toContain("crm.leads.distribution.control.modes.hours");
+    // the pending count is its own chip
+    const chip = button.querySelector('[data-slot="distribution-pending"]');
+    expect(chip?.textContent).toContain("leadOps.distribution.button.pending");
+  });
+
+  it("each read state has its own treatment too", () => {
+    cleanup();
+    const { rerender } = render(
+      <LeadDistributionStatusButton
+        state={makeState("PAUSED", { loading: true, snapshot: null })}
+        onOpen={() => {}}
+      />,
+    );
+    expect(
+      screen.getByTestId("lead-distribution-control").getAttribute("data-distribution-state"),
+    ).toBe("loading");
+    rerender(
+      <LeadDistributionStatusButton
+        state={makeState("PAUSED", { loadFailed: true, snapshot: null })}
+        onOpen={() => {}}
+      />,
+    );
+    expect(
+      screen.getByTestId("lead-distribution-control").getAttribute("data-distribution-state"),
+    ).toBe("unavailable");
+  });
+});

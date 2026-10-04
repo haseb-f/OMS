@@ -237,12 +237,23 @@ const PAIRS = [
   // Round 9 (§12.19): record cards — body text, muted labels and the reference on the strongest
   // tone wash (9 %, top of the gradient) and on the selected tint.
   ...["success", "warning", "destructive", "info", "neutral"].flatMap((t) => [
-    [`record card ${t}: text on wash`, "var(--foreground)", `color-mix(in oklab, var(--insight-${t}) 9%, var(--card))`, TEXT, "var(--card)"],
-    [`record card ${t}: muted label on wash`, "var(--muted-foreground)", `color-mix(in oklab, var(--insight-${t}) 9%, var(--card))`, TEXT, "var(--card)"],
+    [`record card ${t}: text on wash`, "var(--foreground)", `color-mix(in oklab, var(--insight-${t}) 14%, var(--card))`, TEXT, "var(--card)"],
+    [`record card ${t}: muted label on wash`, "var(--muted-foreground)", `color-mix(in oklab, var(--insight-${t}) 14%, var(--card))`, TEXT, "var(--card)"],
   ]),
-  ["record card selected: text", "var(--foreground)", "color-mix(in oklab, var(--focus-ring) 10%, var(--card))", TEXT, "var(--card)"],
-  ["record card selected: muted label", "var(--muted-foreground)", "color-mix(in oklab, var(--focus-ring) 10%, var(--card))", TEXT, "var(--card)"],
+  ["record card selected: text", "var(--foreground)", "color-mix(in oklab, var(--focus-ring) 15%, var(--card))", TEXT, "var(--card)"],
+  ["record card selected: muted label", "var(--muted-foreground)", "color-mix(in oklab, var(--focus-ring) 15%, var(--card))", TEXT, "var(--card)"],
   ["record card selection ring on card", "var(--focus-ring)", "var(--card)", UI],
+  // Round 9 (§12.20): lead-distribution state surfaces — label text on rest and hover.
+  ...[
+    ["continuous", "var(--success)", "var(--success-foreground)", "color-mix(in oklab, var(--success) 86%, black)"],
+    ["time-limited", "var(--state-scheduled)", "#ffffff", "var(--state-scheduled-hover)"],
+    ["manual", "var(--state-manual)", "#ffffff", "var(--state-manual-hover)"],
+    ["paused", "var(--warning)", "var(--warning-foreground)", "color-mix(in oklab, var(--warning) 88%, black)"],
+    ["blocked", "var(--destructive)", "var(--destructive-foreground)", "color-mix(in oklab, var(--destructive) 86%, black)"],
+  ].flatMap(([name, bg, fg, hover]) => [
+    [`distribution ${name}: label`, fg, bg, TEXT, "var(--card)"],
+    [`distribution ${name}: label (hover)`, fg, hover, TEXT, "var(--card)"],
+  ]),
   // design-system §12.10: the hairline ring stays light; the field's bottom
   // edge (--control-edge) carries the 3:1 boundary.
   ["control boundary (field edge)", "var(--control-edge)", "var(--card)", UI],

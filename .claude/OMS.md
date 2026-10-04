@@ -37,14 +37,17 @@ Icons · Motion · next-themes.
 - RTL must be real, not cosmetic — verify any new shell/layout component in both
   directions using logical properties (`ps-`/`pe-`/`ms-`/`me-`/`start-`/`end-`),
   never `left`/`right` or `ml-`/`mr-`.
-- Control colours come from the logo's arrow mark (R9, design-system §12.18): navy `#0a2442`,
-  blue `#336ac4`, teal `#41b3bd` (`--logo-*`). Primary = solid navy, secondary = soft blue tint,
-  outline / ghost = blue-tinted hairline / hover tint; a trigger outside a tone row takes the one default
-  step (blue); a row of related controls (`ListToolbar`, `SelectorRow`) steps navy → blue → teal in
-  logical order. Never colour a control locally (guarded by `selector-triggers.spec.tsx`). Brand colours
-  never mean status or selection; green / red / amber keep their meanings; text inputs and menu content
-  are never recoloured.
-- Every list has a Table / Grid switch (R9, §12.19): `EnterpriseDataTable` offers it by default and draws
+- Control colour is ONE blue family (R9 corrected, design-system §12.18): deep → medium → light blue
+  (`--toolbar-tone-1…5`), white text, one solid shade per control. Related controls (`ListToolbar`,
+  `SelectorRow`) step through it in logical order (RTL right → left); a standalone control takes the middle
+  step. Primary = solid navy, secondary = soft blue, outline / ghost = blue-tinted. Never a second hue on
+  neighbouring controls and never colour a control locally (guarded by `selector-triggers.spec.tsx`).
+  Blue is interaction colour, never status; green / red / amber keep their meanings; text inputs and menu
+  content are never recoloured.
+- The lead-distribution control shows one colour per displayed state (§12.20): green continuous, violet
+  24-hour, slate manual, amber paused, red blocked (failure beats the mode); the pending count is separate.
+- Every list has a Table / Grid switch (R9, §12.19; cards are flat, tinted by the entity's primary real state per
+  `specs/round9-brand-grid/card-palettes.md`, neutral when there is none): `EnterpriseDataTable` offers it by default and draws
   the automatic record card from column types unless the page supplies `renderGridCard`
   (`config/<domain>/*-grid-card.tsx`, contract `specs/round9-brand-grid/card-templates.md`). Hierarchical /
   financial lists get grouped cards, never the generic card. Both views share one query — a grid never

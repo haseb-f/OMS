@@ -144,9 +144,8 @@ describe("Purchasing / Inventory / Shipping Grid cards (round 9)", () => {
     expect(card.textContent).toContain("MOV-0001");
     expect(card.textContent).toContain("+12");
     expect(screen.getByText("inventory.movementType.PURCHASE_RECEIPT")).toBeTruthy();
-    expect(card.getAttribute("data-tone")).toBe("success");
-    // no cost on the row: the field reads as empty, never as a figure
-    expect(card.textContent).toContain("—");
+    // A movement type is a direction, not a workflow state: the surface stays neutral.
+    expect(card.getAttribute("data-tone")).toBe("neutral");
   });
 
   it("omits the stock value when the API withheld it", () => {

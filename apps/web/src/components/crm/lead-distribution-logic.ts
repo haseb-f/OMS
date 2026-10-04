@@ -25,8 +25,36 @@ export const MODE_KEY: Record<RuntimeStatus, DistributionModeKey> = {
 
 export const isAutoMode = (mode: RuntimeStatus) => mode === "CONTINUOUS" || mode === "TIME_LIMITED";
 
-/** Solid button tone: green active · amber paused/manual · red blocked. */
+/** Legacy semantic tone (kept for the result alerts / specs): green active · amber paused/manual · red blocked. */
 export type DistributionButtonTone = "success" | "warning" | "destructive";
+
+/**
+ * The state the control DISPLAYS — one distinct colour each (recipe
+ * `[data-distribution-state]` in theme/recipes.css, design-system §12.20):
+ *
+ *   continuous  green   auto round-robin, nothing wrong
+ *   timeLimited violet  auto for 24 hours (the only time-bound mode; there is no scheduler)
+ *   manual      slate   no automatic assignment, by choice
+ *   paused      amber   stopped (also: a 24-hour mode that has expired)
+ *   blocked     red     an AUTOMATIC mode whose last run failed / cannot assign
+ *
+ * Precedence: a failure beats the mode (an active mode with a failure shows
+ * "blocked"); the mode is still written next to it. A backlog alone is never
+ * a failure — the pending count is a separate indicator.
+ */
+export type DistributionVisualState =
+  "continuous" | "timeLimited" | "manual" | "paused" | "blocked";
+
+export function distributionVisualState(
+  status: RuntimeStatus,
+  blocked: boolean,
+): DistributionVisualState {
+  if (blocked) return "blocked";
+  if (status === "CONTINUOUS") return "continuous";
+  if (status === "TIME_LIMITED") return "timeLimited";
+  if (status === "MANUAL") return "manual";
+  return "paused";
+}
 
 export function describeDistributionControl(
   snapshot: LeadDistributionSnapshot | null,
@@ -43,6 +71,7 @@ export function describeDistributionControl(
     running,
     blocked,
     tone,
+    visual: distributionVisualState(status, blocked),
     modeKey: MODE_KEY[status],
     failureCode,
     failureReason,

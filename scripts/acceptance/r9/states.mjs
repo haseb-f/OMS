@@ -29,7 +29,7 @@ const b = await chromium.launch();
         border: cs.borderTopColor,
         shadow: cs.boxShadow.length,
         outline: cs.outlineStyle,
-        bg: cs.backgroundImage.slice(0, 60),
+        bg: cs.backgroundColor,
       };
     });
   const rest = await style();
@@ -39,9 +39,9 @@ const b = await chromium.launch();
   const hover = await style();
   await card.screenshot({ path: `${OUT}/card-hover.png` });
   check(
-    "hover: elevation + stronger edge (paint-only)",
-    hover.transform !== rest.transform && hover.border !== rest.border,
-    `${hover.transform}`,
+    "hover: surface tint + hairline step up, nothing moves",
+    hover.bg !== rest.bg && hover.border !== rest.border && hover.transform === "none",
+    `${rest.bg} -> ${hover.bg}`,
   );
   await page.mouse.move(3, 3);
   // keyboard focus: tab to the card's link

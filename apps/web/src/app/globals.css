@@ -259,15 +259,15 @@
   --selector-applied: var(--toolbar-tone-3);
   --selector-ring: var(--toolbar-tone-3-ring);
 
-  /* Brand control palette (Round 9, design-system §12.18) — the three colours of
-     the ARROW MARK in the canonical OMS logo (apps/web/public/brand/
-     oms-logo-light.png: median of each chevron's pixels): navy, royal blue, teal.
-     A related run of controls steps navy → blue → teal in logical order (five
-     steps: navy, navy-blue, blue, blue-teal, teal). Steps 4-5 carry navy text
-     (white on teal fails AA); every step has its own hover / pressed / edge /
-     label / chip / applied ring / open edge, all in contrast-check.mjs. The
-     palette is decorative: it never marks a status or a selection. */
-  --toolbar-tone-1: var(--logo-navy);
+  /* Control colour (Round 9 correction, design-system §12.18) — ONE blue family.
+     A related run of selector controls steps through five solid blues, deep → medium →
+     light, in logical order (RTL right → left, LTR mirrored); a standalone control takes
+     the middle step. White text on every step; every step has its own hover / pressed /
+     hairline / label / chip / applied ring / open edge (contrast-check.mjs). The ramp is
+     blue only: no teal, no second hue next to a neighbouring control. */
+  --ramp-navy: #04203c;
+  --ramp-blue: #3c78d0;
+  --toolbar-tone-1: color-mix(in oklab, var(--ramp-blue) 36%, var(--ramp-navy));
   --toolbar-tone-1-foreground: #ffffff;
   --toolbar-tone-1-hover: color-mix(in oklab, var(--toolbar-tone-1) 90%, black);
   --toolbar-tone-1-active: color-mix(in oklab, var(--toolbar-tone-1) 82%, black);
@@ -276,7 +276,7 @@
   --toolbar-tone-1-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-1));
   --toolbar-tone-1-ring: #dbeeff;
   --toolbar-tone-1-open-edge: #9cc9ff;
-  --toolbar-tone-2: color-mix(in oklab, var(--logo-blue) 45%, var(--logo-navy));
+  --toolbar-tone-2: color-mix(in oklab, var(--ramp-blue) 49%, var(--ramp-navy));
   --toolbar-tone-2-foreground: #ffffff;
   --toolbar-tone-2-hover: color-mix(in oklab, var(--toolbar-tone-2) 90%, black);
   --toolbar-tone-2-active: color-mix(in oklab, var(--toolbar-tone-2) 82%, black);
@@ -285,7 +285,7 @@
   --toolbar-tone-2-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-2));
   --toolbar-tone-2-ring: #dbeeff;
   --toolbar-tone-2-open-edge: #9cc9ff;
-  --toolbar-tone-3: var(--logo-blue);
+  --toolbar-tone-3: color-mix(in oklab, var(--ramp-blue) 62%, var(--ramp-navy));
   --toolbar-tone-3-foreground: #ffffff;
   --toolbar-tone-3-hover: color-mix(in oklab, var(--toolbar-tone-3) 90%, black);
   --toolbar-tone-3-active: color-mix(in oklab, var(--toolbar-tone-3) 82%, black);
@@ -294,24 +294,24 @@
   --toolbar-tone-3-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-3));
   --toolbar-tone-3-ring: #dbeeff;
   --toolbar-tone-3-open-edge: #9cc9ff;
-  --toolbar-tone-4: color-mix(in oklab, var(--logo-teal) 68%, var(--logo-blue));
-  --toolbar-tone-4-foreground: var(--logo-navy);
-  --toolbar-tone-4-hover: color-mix(in oklab, var(--toolbar-tone-4) 88%, white);
-  --toolbar-tone-4-active: color-mix(in oklab, var(--toolbar-tone-4) 76%, white);
-  --toolbar-tone-4-border: color-mix(in oklab, var(--toolbar-tone-4) 62%, var(--logo-navy));
-  --toolbar-tone-4-muted: color-mix(in oklab, var(--logo-navy) 96%, var(--toolbar-tone-4));
-  --toolbar-tone-4-chip: color-mix(in oklab, var(--logo-navy) 14%, var(--toolbar-tone-4));
-  --toolbar-tone-4-ring: var(--logo-navy);
-  --toolbar-tone-4-open-edge: var(--logo-navy);
-  --toolbar-tone-5: var(--logo-teal);
-  --toolbar-tone-5-foreground: var(--logo-navy);
-  --toolbar-tone-5-hover: color-mix(in oklab, var(--toolbar-tone-5) 88%, white);
-  --toolbar-tone-5-active: color-mix(in oklab, var(--toolbar-tone-5) 76%, white);
-  --toolbar-tone-5-border: color-mix(in oklab, var(--toolbar-tone-5) 62%, var(--logo-navy));
-  --toolbar-tone-5-muted: color-mix(in oklab, var(--logo-navy) 96%, var(--toolbar-tone-5));
-  --toolbar-tone-5-chip: color-mix(in oklab, var(--logo-navy) 14%, var(--toolbar-tone-5));
-  --toolbar-tone-5-ring: var(--logo-navy);
-  --toolbar-tone-5-open-edge: var(--logo-navy);
+  --toolbar-tone-4: color-mix(in oklab, var(--ramp-blue) 75%, var(--ramp-navy));
+  --toolbar-tone-4-foreground: #ffffff;
+  --toolbar-tone-4-hover: color-mix(in oklab, var(--toolbar-tone-4) 90%, black);
+  --toolbar-tone-4-active: color-mix(in oklab, var(--toolbar-tone-4) 82%, black);
+  --toolbar-tone-4-border: var(--toolbar-tone-4);
+  --toolbar-tone-4-muted: color-mix(in oklab, white 92%, var(--toolbar-tone-4));
+  --toolbar-tone-4-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-4));
+  --toolbar-tone-4-ring: #dbeeff;
+  --toolbar-tone-4-open-edge: #9cc9ff;
+  --toolbar-tone-5: color-mix(in oklab, var(--ramp-blue) 88%, var(--ramp-navy));
+  --toolbar-tone-5-foreground: #ffffff;
+  --toolbar-tone-5-hover: color-mix(in oklab, var(--toolbar-tone-5) 90%, black);
+  --toolbar-tone-5-active: color-mix(in oklab, var(--toolbar-tone-5) 82%, black);
+  --toolbar-tone-5-border: var(--toolbar-tone-5);
+  --toolbar-tone-5-muted: color-mix(in oklab, white 92%, var(--toolbar-tone-5));
+  --toolbar-tone-5-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-5));
+  --toolbar-tone-5-ring: #dbeeff;
+  --toolbar-tone-5-open-edge: #9cc9ff;
   /* Sidebar active rail (round 2) — thick accent on the outer edge with a
      restrained glow. */
   --sidebar-rail: var(--logo-blue);
@@ -355,6 +355,12 @@
      these (they keep --control-border). Semantic buttons (success / destructive /
      warning) are untouched. */
   --card-sheen: rgb(255 255 255 / 0.6);
+  /* Lead-distribution state colours (§12.20). Green / amber / red are the semantic
+     tokens; violet = time-limited, slate = manual. White text on each (AA). */
+  --state-scheduled: #5b3fc4;
+  --state-scheduled-hover: #4d33ad;
+  --state-manual: #475569;
+  --state-manual-hover: #3a4657;
   --btn-secondary: color-mix(in oklab, var(--logo-blue) 10%, white);
   --btn-secondary-border: color-mix(in oklab, var(--logo-blue) 28%, white);
   --btn-secondary-foreground: var(--logo-navy);
@@ -544,53 +550,53 @@
   --selector-chip: var(--toolbar-tone-3-chip);
   --selector-applied: var(--toolbar-tone-3);
   --selector-ring: var(--toolbar-tone-3-ring);
-  /* Dark brand control palette: the same logo trio, navy lifted off the canvas
-     (#0f2d52) with a light hairline on every step. */
-  --toolbar-tone-1: #0f2d52;
+  /* Dark control ramp: the same blue family, the deep end lifted off the canvas
+     (#0e2a4b) with a light hairline on every step. */
+  --toolbar-tone-1: #0e2a4b;
   --toolbar-tone-1-foreground: #ffffff;
   --toolbar-tone-1-hover: color-mix(in oklab, var(--toolbar-tone-1) 90%, black);
   --toolbar-tone-1-active: color-mix(in oklab, var(--toolbar-tone-1) 82%, black);
-  --toolbar-tone-1-border: color-mix(in oklab, #7fb2f0 62%, var(--toolbar-tone-1));
+  --toolbar-tone-1-border: color-mix(in oklab, #52a8ff 62%, var(--toolbar-tone-1));
   --toolbar-tone-1-muted: color-mix(in oklab, white 92%, var(--toolbar-tone-1));
   --toolbar-tone-1-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-1));
   --toolbar-tone-1-ring: #cfe6ff;
   --toolbar-tone-1-open-edge: #7fb2f0;
-  --toolbar-tone-2: color-mix(in oklab, var(--logo-blue) 40%, #0f2d52);
+  --toolbar-tone-2: color-mix(in oklab, var(--ramp-blue) 22%, #0e2a4b);
   --toolbar-tone-2-foreground: #ffffff;
   --toolbar-tone-2-hover: color-mix(in oklab, var(--toolbar-tone-2) 90%, black);
   --toolbar-tone-2-active: color-mix(in oklab, var(--toolbar-tone-2) 82%, black);
-  --toolbar-tone-2-border: color-mix(in oklab, #7fb2f0 62%, var(--toolbar-tone-2));
+  --toolbar-tone-2-border: color-mix(in oklab, #52a8ff 62%, var(--toolbar-tone-2));
   --toolbar-tone-2-muted: color-mix(in oklab, white 92%, var(--toolbar-tone-2));
   --toolbar-tone-2-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-2));
   --toolbar-tone-2-ring: #cfe6ff;
   --toolbar-tone-2-open-edge: #7fb2f0;
-  --toolbar-tone-3: var(--logo-blue);
+  --toolbar-tone-3: color-mix(in oklab, var(--ramp-blue) 44%, #0e2a4b);
   --toolbar-tone-3-foreground: #ffffff;
   --toolbar-tone-3-hover: color-mix(in oklab, var(--toolbar-tone-3) 90%, black);
   --toolbar-tone-3-active: color-mix(in oklab, var(--toolbar-tone-3) 82%, black);
-  --toolbar-tone-3-border: color-mix(in oklab, #7fb2f0 62%, var(--toolbar-tone-3));
+  --toolbar-tone-3-border: color-mix(in oklab, #52a8ff 62%, var(--toolbar-tone-3));
   --toolbar-tone-3-muted: color-mix(in oklab, white 92%, var(--toolbar-tone-3));
   --toolbar-tone-3-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-3));
   --toolbar-tone-3-ring: #cfe6ff;
   --toolbar-tone-3-open-edge: #7fb2f0;
-  --toolbar-tone-4: color-mix(in oklab, var(--logo-teal) 68%, var(--logo-blue));
-  --toolbar-tone-4-foreground: var(--logo-navy);
-  --toolbar-tone-4-hover: color-mix(in oklab, var(--toolbar-tone-4) 88%, white);
-  --toolbar-tone-4-active: color-mix(in oklab, var(--toolbar-tone-4) 76%, white);
-  --toolbar-tone-4-border: color-mix(in oklab, #a9e4ea 55%, var(--toolbar-tone-4));
-  --toolbar-tone-4-muted: color-mix(in oklab, var(--logo-navy) 96%, var(--toolbar-tone-4));
-  --toolbar-tone-4-chip: color-mix(in oklab, var(--logo-navy) 14%, var(--toolbar-tone-4));
-  --toolbar-tone-4-ring: var(--logo-navy);
-  --toolbar-tone-4-open-edge: var(--logo-navy);
-  --toolbar-tone-5: var(--logo-teal);
-  --toolbar-tone-5-foreground: var(--logo-navy);
-  --toolbar-tone-5-hover: color-mix(in oklab, var(--toolbar-tone-5) 88%, white);
-  --toolbar-tone-5-active: color-mix(in oklab, var(--toolbar-tone-5) 76%, white);
-  --toolbar-tone-5-border: color-mix(in oklab, #a9e4ea 55%, var(--toolbar-tone-5));
-  --toolbar-tone-5-muted: color-mix(in oklab, var(--logo-navy) 96%, var(--toolbar-tone-5));
-  --toolbar-tone-5-chip: color-mix(in oklab, var(--logo-navy) 14%, var(--toolbar-tone-5));
-  --toolbar-tone-5-ring: var(--logo-navy);
-  --toolbar-tone-5-open-edge: var(--logo-navy);
+  --toolbar-tone-4: color-mix(in oklab, var(--ramp-blue) 66%, #0e2a4b);
+  --toolbar-tone-4-foreground: #ffffff;
+  --toolbar-tone-4-hover: color-mix(in oklab, var(--toolbar-tone-4) 90%, black);
+  --toolbar-tone-4-active: color-mix(in oklab, var(--toolbar-tone-4) 82%, black);
+  --toolbar-tone-4-border: color-mix(in oklab, #52a8ff 62%, var(--toolbar-tone-4));
+  --toolbar-tone-4-muted: color-mix(in oklab, white 92%, var(--toolbar-tone-4));
+  --toolbar-tone-4-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-4));
+  --toolbar-tone-4-ring: #cfe6ff;
+  --toolbar-tone-4-open-edge: #7fb2f0;
+  --toolbar-tone-5: color-mix(in oklab, var(--ramp-blue) 88%, #0e2a4b);
+  --toolbar-tone-5-foreground: #ffffff;
+  --toolbar-tone-5-hover: color-mix(in oklab, var(--toolbar-tone-5) 90%, black);
+  --toolbar-tone-5-active: color-mix(in oklab, var(--toolbar-tone-5) 82%, black);
+  --toolbar-tone-5-border: color-mix(in oklab, #52a8ff 62%, var(--toolbar-tone-5));
+  --toolbar-tone-5-muted: color-mix(in oklab, white 92%, var(--toolbar-tone-5));
+  --toolbar-tone-5-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-5));
+  --toolbar-tone-5-ring: #cfe6ff;
+  --toolbar-tone-5-open-edge: #7fb2f0;
   --sidebar-rail: #52a8ff;
   --sidebar-rail-glow: color-mix(in oklab, #52a8ff 25%, transparent);
 
@@ -607,6 +613,10 @@
   --chart-1: var(--logo-blue);
   --chart-2: var(--logo-teal);
   --card-sheen: rgb(255 255 255 / 0.07);
+  --state-scheduled: #6b50d6;
+  --state-scheduled-hover: #7a62dd;
+  --state-manual: #56657a;
+  --state-manual-hover: #66768c;
   --btn-secondary: color-mix(in oklab, var(--logo-blue) 20%, #111111);
   --btn-secondary-border: color-mix(in oklab, var(--logo-blue) 42%, #111111);
   --btn-secondary-foreground: #e6eefb;

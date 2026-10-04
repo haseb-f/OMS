@@ -818,44 +818,30 @@ var(--brand-navy))`. Dark: the lifted navy `#0e2a4b` mixed toward the brand blue
   renumbers earlier controls when a later one appears. `contrast-check.mjs` already covers every
   tone, so the default shade is checked in light and dark.
 
-### 12.18 OMS brand control palette — the logo's arrow mark (Round 9, 2026-10-04)
+### 12.18 Control colour — ONE blue family (Round 9, corrected 2026-10-04)
 
-- **Source of the colours.** The arrow mark of the canonical logo
-  (`apps/web/public/brand/oms-logo-light.png`; no vector source exists in the repository, only the
-  PNGs and the `Brand/` concept boards). Each chevron's pixels were sampled (median of the chevron's
-  opaque, non-white pixels, `tmp` script in the R9 evidence):
-  **navy `#0a2442`, royal blue `#336ac4`, teal `#41b3bd`**. They are the named tokens
-  `--logo-navy`, `--logo-blue`, `--logo-teal`; `--brand-navy|blue|teal`, `--primary`, the chart and
-  sidebar-rail colours alias them (the earlier `#04203c / #3c78d0 / #3cb8c0` were approximations from
-  the concept boards).
-- **Roles (stable, never position-dependent):**
-  - _Primary action_ — solid navy (`--primary`, hover / pressed derived). One per context.
-  - _Secondary action_ — SOFT: a blue tint with navy text (`--btn-secondary*`).
-  - _Outline_ — card surface, blue-tinted hairline, navy text; hover = soft tint (`--btn-outline-*`,
-    `--btn-soft-hover|pressed`).
-  - _Ghost_ — transparent; hover / pressed = the same soft tints.
-  - _Selector triggers_ (select, combobox, filter, picker, labelled action menus) — solid, from the
-    palette ramp below. Standalone / stacked = the single default step (logo blue, step 3).
-  - _Semantic_ — green success, red destructive, amber warning, info: untouched.
-  - Plain text inputs and menu/popover content are never recoloured.
-- **Progression for related controls.** A run of related selector controls (`ListToolbar`, the
-  shared `SelectorRow`) steps through five stops in logical order — RTL right → left, LTR mirrored:
-  navy → navy-blue → blue → blue-teal → teal (`--toolbar-tone-1…5`). Steps 4–5 carry **navy text**
-  (white on teal fails AA); every step has its own hover / pressed / hairline / label / chip / applied
-  ring / open edge (`--toolbar-tone-N-*`). Numbering counts hidden controls and skips exempt ones, so a
-  control appearing or disappearing never recolours its neighbours. Dark mode keeps the same trio with
-  the navy lifted (`#0f2d52`) and a light hairline.
-- **Meaning is preserved.** Teal and blue are decorative: they never mark a workflow status, a
-  selection or a confirmation. Selection (rows, cards) is the checked checkbox + a distinct ring/tint;
-  success is green only.
-- **States** (distinct): hover, pressed, open (`aria-expanded` / `data-state=open`), selected (toggle
-  `aria-pressed`, exempt from the ramp), focus (2px ring), disabled (muted surface), invalid (red edge).
-- **Contrast.** `scripts/design/contrast-check.mjs` covers every step × state (value, label, icon,
-  applied ring, chevron chip, edge on card, open edge, ≥ 1.15:1 between neighbouring steps) and the
-  button roles (secondary, outline, ghost on rest / hover / pressed), light and dark.
-- **Dark primary** stays the light neutral (`#ededed`): a navy fill disappears on the dark canvas and the
-  brand blue fails AA as link text there; the brand shows through the selector ramp, outlines and soft
-  tints instead.
+- **Owner correction.** The first R9 pass spread the logo's navy / blue / teal over neighbouring controls.
+  That is withdrawn: buttons and dropdowns use **one coherent blue family only**, deep blue → medium blue →
+  light blue. (The sampled logo colours — navy `#0a2442`, blue `#336ac4`, teal `#41b3bd`, tokens
+  `--logo-*`, from `apps/web/public/brand/oms-logo-light.png` — stay documented for brand use such as
+  charts and the sidebar rail, never as a second hue on a control.)
+- **The sequence** is the one approved in R7/R8: five solid blues derived from `--ramp-navy #04203c` and
+  `--ramp-blue #3c78d0` (`--toolbar-tone-1…5`; dark mode lifts the deep end to `#0e2a4b` with a light
+  hairline). A related run of selector controls (`ListToolbar`, the shared `SelectorRow`) steps through
+  them in logical order — right → left in Arabic, mirrored in English; each control is ONE solid shade (no
+  gradient inside a button). White text on every step; every step carries its own hover / pressed /
+  hairline / label / chip / applied ring / open edge, all in `contrast-check.mjs`.
+- **Standalone and stacked** controls (a form field, a dialog select, a lone picker, an inline editor) take
+  the one default: the middle step (tone 3). Numbering counts hidden controls and skips exempt ones, so a
+  control appearing or disappearing never recolours its neighbours.
+- **Button roles:** primary = solid navy; secondary = soft blue tint with navy text; outline = blue-tinted
+  hairline on the card; ghost = transparent with the soft blue tint on hover/pressed (`--btn-*`). Same blue
+  family throughout. Semantic buttons — success (green), destructive (red), warning (amber) — are untouched,
+  as are plain text inputs and menu/popover content.
+- **States** (distinct): hover, pressed, open (`aria-expanded`), selected (toggle `aria-pressed`, exempt
+  from the ramp), focus (2px ring), disabled (muted surface), invalid (red edge).
+- **Meaning.** Blue is interaction colour: it never marks a workflow status or a confirmation.
+- **Dark primary** stays the light neutral (a navy fill vanishes on the dark canvas).
 
 ### 12.19 Table / Grid on every list (Round 9, 2026-10-04)
 
@@ -875,11 +861,15 @@ var(--brand-navy))`. Dark: the lifted navy `#0e2a4b` mixed toward the brand blue
   (`renderGridCard`, `config/<domain>/*-grid-card.tsx`, contract `specs/round9-brand-grid/card-templates.md`)
   give orders, leads, documents, customers, products, shipping, agents… business meaning.
 - **Card anatomy and look.** Header = selection checkbox (start), name (the one link, stretched), actions
-  kebab (end); body = reference + key figure, ≤ 4 fields, separate status badges; footer = next action.
-  Surface: a faint tone gradient, a delicate tone hairline, a 3px start-edge accent, a thin inner highlight —
-  no backdrop blur, one small shadow, radius `--radius-surface`. Tone = workflow meaning only
-  (`--insight-*`). **Hover** = stronger edge + a small elevation; **focus** = the 2px ring around the card;
-  **selected** = blue ring + tint (always with the checked checkbox). Reduced motion removes the lift.
+  kebab (end); body = reference (wraps), key figure on its own row, ≤ 4 label/value fields (empty ones
+  dropped), separate status badges; footer = next action. Surface: **flat** — no gradient — a translucent
+  tint of the record's primary workflow state over the card, a clean 1px hairline in that colour, a thin inner
+  highlight and one very small shadow, radius `--radius-surface`, over a faint flat canvas. The colour is the
+  entity's PRIMARY real state (`card-palettes.md`); a record with no workflow status is a neutral card.
+  **Hover** = the tint steps up and the hairline strengthens (plus a small elevation on a card that opens a
+  record); **keyboard focus** = the 2px ring around the whole card; **selected** = a 2px blue ring on a
+  neutral blue tint, always with the checked checkbox. 160ms transitions, none under reduced motion, nothing
+  moves or resizes.
 - **Grid sizing.** One rule: `repeat(auto-fill, minmax(min(100%, 17rem), 1fr))` — columns follow the usable
   width, one on a phone, never narrower than 17rem. Report cards use 24rem.
 - **Specialised (hierarchical / financial) lists.** Never the generic card:
@@ -891,3 +881,24 @@ var(--brand-navy))`. Dark: the lifted navy `#0e2a4b` mixed toward the brand blue
     its subtree, drawn by the page's own node renderer (expand/collapse, selection, actions intact).
 - **Parity.** Same record actions, selection (page / all matching / first N / clear) and bulk strip, selected
   count and scope, loading skeleton (cards), empty and error states, filtered exports.
+
+### 12.20 Lead-distribution control — one colour per displayed state (Round 9, 2026-10-04)
+
+The control is the outline button structurally; its surface is the recipe `[data-distribution-state]`.
+The state model is `RuntimeStatus` (`CONTINUOUS | TIME_LIMITED | MANUAL | PAUSED`) plus the operational
+condition "blocked" (an automatic mode whose last run failed / cannot assign) and the two read states.
+
+| Displayed state | Colour                           | Label (button)                          | When                                                                                                 |
+| --------------- | -------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| continuous      | **green** (`--success`)          | Distribution active                     | auto round-robin, no failure                                                                         |
+| timeLimited     | **violet** (`--state-scheduled`) | Distribution active until {time}        | the 24-hour automatic mode (the only time-bound mode; there is no scheduler)                         |
+| manual          | **slate** (`--state-manual`)     | Distribution manual                     | no automatic assignment, by choice                                                                   |
+| paused          | **amber** (`--warning`)          | Distribution paused                     | stopped; an expired 24-hour mode also reads paused                                                   |
+| blocked         | **red** (`--destructive`)        | Distribution blocked · {mode}           | an AUTOMATIC mode with a failure — **a failure beats the mode** in colour; the mode is still written |
+| unavailable     | dashed neutral outline           | Distribution status unavailable · Retry | the snapshot could not be read (no state is claimed)                                                 |
+| loading         | quiet outline                    | Loading distribution status…            | first snapshot pending                                                                               |
+
+The pending-lead count is its own chip inside the button — a non-zero backlog alone is never "blocked".
+Selecting a mode in the dialog previews it, Confirm applies it, Cancel changes nothing; the button and the
+dialog's "current mode" chip always show the server-confirmed state. Permissions (`crm.leads.manage`) and
+execution rules are unchanged. Contrast of every label on rest and hover is in `contrast-check.mjs`.

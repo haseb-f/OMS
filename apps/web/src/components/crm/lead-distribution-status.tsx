@@ -31,7 +31,6 @@ import {
   describeDistributionResult,
   isAutoMode,
   previewDistributionMode,
-  type DistributionButtonTone,
 } from "@/components/crm/lead-distribution-logic";
 import type { StatusTone } from "@/components/business/status-tone";
 import { LeadDistributionPool } from "@/components/crm/lead-distribution-pool";
@@ -46,12 +45,12 @@ const MODE_ICON: Record<RuntimeStatus, LucideIcon> = {
   PAUSED: CircleOff,
 };
 
-/** Solid status surface per tone — Button variants for green/amber; red is the solid destructive token pair. */
-const BUTTON_VARIANT: Record<DistributionButtonTone, "success" | "warning" | "destructive"> = {
-  success: "success",
-  warning: "warning",
-  destructive: "destructive",
-};
+/**
+ * The state surface is the recipe `[data-distribution-state]` (theme/recipes.css):
+ * one distinct colour per displayed state, so the button itself says which
+ * mode is applied and whether it is failing. The `outline` variant is only the
+ * structural base (size, radius, focus ring).
+ */
 
 /**
  * R6 spec C3 — the ONE lead distribution control: a solid status button
@@ -82,6 +81,7 @@ export function LeadDistributionStatusButton({
         aria-busy
         data-testid="lead-distribution-control"
         data-state-tone="loading"
+        data-distribution-state="loading"
       >
         <Spinner className="size-3.5" />
         {t("leadOps.distribution.button.loading")}
@@ -94,9 +94,10 @@ export function LeadDistributionStatusButton({
       <EnterpriseButton
         type="button"
         size="sm"
-        variant="destructive"
+        variant="outline"
         data-testid="lead-distribution-control"
         data-state-tone="error"
+        data-distribution-state="unavailable"
         onClick={() => void state.refresh()}
       >
         <TriangleAlert aria-hidden className="size-3.5" />
@@ -108,6 +109,9 @@ export function LeadDistributionStatusButton({
 
   const d = describeDistributionControl(state.snapshot, state.status);
   const StateIcon = d.blocked ? TriangleAlert : MODE_ICON[state.status];
+  // Mode and operational status are separate facts: a blocked automatic mode names
+  // BOTH ("blocked · Auto round-robin") — the failure wins the colour, not the text.
+  const modeText = t(`crm.leads.distribution.control.modes.${MODE_KEY[state.status]}`);
   const label = d.blocked
     ? t("leadOps.distribution.button.blocked")
     : d.running
@@ -122,18 +126,14 @@ export function LeadDistributionStatusButton({
     <EnterpriseButton
       type="button"
       size="sm"
-      variant={BUTTON_VARIANT[d.tone]}
+      variant="outline"
       disabled={state.busy}
       aria-busy={state.busy || undefined}
       aria-haspopup="dialog"
       data-testid="lead-distribution-control"
       data-state-tone={d.tone}
-      // The destructive variant is the soft red; a blocked state is solid red.
-      className={cn(
-        "max-w-full min-w-0",
-        d.tone === "destructive" &&
-          "border-transparent bg-destructive text-destructive-foreground not-disabled:hover:bg-destructive/90",
-      )}
+      data-distribution-state={d.visual}
+      className="max-w-full min-w-0"
       onClick={onOpen}
     >
       {state.busy ? (
@@ -142,9 +142,16 @@ export function LeadDistributionStatusButton({
         <StateIcon aria-hidden className="size-3.5" />
       )}
       <span className="truncate">{state.busy ? t("leadOps.distribution.button.busy") : label}</span>
+      {!state.busy && d.blocked ? (
+        <span className="truncate font-normal opacity-90">· {modeText}</span>
+      ) : null}
+      {/* The backlog is its own indicator — a non-zero count is not a failure. */}
       {!state.busy ? (
-        <span className="num font-normal opacity-90">
-          · {t("leadOps.distribution.button.pending", { count: d.pendingCount })}
+        <span
+          data-slot="distribution-pending"
+          className="num shrink-0 rounded-xs px-1.5 py-0.5 text-micro font-medium"
+        >
+          {t("leadOps.distribution.button.pending", { count: d.pendingCount })}
         </span>
       ) : null}
     </EnterpriseButton>
@@ -298,7 +305,15 @@ export function LeadDistributionDialog({
           <div className="col-span-2 flex min-w-0 flex-wrap items-center gap-1.5">
             <dt className="text-muted-foreground">{t("leadOps.distribution.dialog.current")}</dt>
             <dd>
-              <StatusBadge tone={d.tone} label={modeLabel(state.status)} />
+              <span
+                data-distribution-chip=""
+                data-distribution-state={d.visual}
+                className="inline-flex h-5 items-center rounded-xs px-2 text-caption font-medium"
+              >
+                {d.blocked
+                  ? `${t("leadOps.distribution.button.blocked")} · ${modeLabel(state.status)}`
+                  : modeLabel(state.status)}
+              </span>
             </dd>
             {d.expiresAt ? (
               <dd className="text-muted-foreground">
