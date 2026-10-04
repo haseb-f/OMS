@@ -11,6 +11,11 @@
 - The application shell (Sidebar + TopBar) is permanent architecture, not a page —
   every business page renders inside `AppShell` as `children`. Never rebuild the
   shell per module.
+- Home is not the Dashboard (R8): `/` (company) and `/agent` (agent portal) is the permission-aware
+  launcher every login lands on (`HomeLauncher`); the Dashboard is `/dashboard` and
+  `/agent/dashboard`. Home is ungated and derives its tiles from the navigation config through the
+  sidebar's own filter and the route guard's own access rule (`navigation/home-tiles.ts`) — never a
+  second permission list; the destinations stay guarded by the route guard and the API.
 - Navigation is entirely config-driven from `src/navigation/navigation.config.ts` —
   a flat, `parent`-id list assembled into a tree at render time. Adding a module to
   the sidebar means adding entries there, never editing a layout/sidebar component.
