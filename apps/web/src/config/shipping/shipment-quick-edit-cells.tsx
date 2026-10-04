@@ -210,7 +210,6 @@ export function ShippingCompanyQuickCell({
         getTitle={(company) => company.name}
         placeholder={t("shipping.quickEdit.selectCompanyPlaceholder")}
         searchPlaceholder={t("common.search")}
-        variant="ghost"
         triggerProps={{ "aria-label": t("shipping.filters.company") }}
       />
       <SavingIndicator state={state} />

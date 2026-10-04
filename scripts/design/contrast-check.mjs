@@ -359,13 +359,7 @@ const PAIRS = [
   ],
   ["selector edge on surface", "var(--selector-border)", "var(--card)", UI],
   ["selector edge on canvas", "var(--selector-border)", "var(--background)", UI],
-  [
-    "selector open edge",
-    "var(--selector-open-edge)",
-    "var(--selector-active)",
-    UI,
-    "var(--card)",
-  ],
+  ["selector open edge", "var(--selector-open-edge)", "var(--selector-active)", UI, "var(--card)"],
   ["sidebar rail on sidebar", "var(--sidebar-rail)", "var(--sidebar)", UI],
   // Round 5 (design-system §12.12): soft surfaces keep every text tone AA.
   ["soft surface text", "var(--foreground)", "var(--surface-soft)", TEXT, "var(--card)"],
@@ -392,6 +386,69 @@ const PAIRS = [
     TEXT,
     "var(--card)",
   ],
+  // Round 7 addendum (design-system §12.15): the toolbar tonal sequence.
+  // On every step and every state fill: value text, muted label / icon, the
+  // applied ring; plus the chevron chip, the step's edge against the card and
+  // the open edge on its pressed fill. Neighbouring steps must also stay
+  // apart from each other (≥ 1.15:1 fill-to-fill) so the ramp reads as steps.
+  ...[1, 2, 3, 4, 5].flatMap((n) => [
+    ...[
+      ["rest", `var(--toolbar-tone-${n})`],
+      ["hover", `var(--toolbar-tone-${n}-hover)`],
+      ["open/pressed", `var(--toolbar-tone-${n}-active)`],
+    ].flatMap(([state, fill]) => [
+      [
+        `toolbar tone ${n} value (${state})`,
+        "var(--toolbar-tone-foreground)",
+        fill,
+        TEXT,
+        "var(--card)",
+      ],
+      [
+        `toolbar tone ${n} label (${state})`,
+        `var(--toolbar-tone-${n}-muted)`,
+        fill,
+        TEXT,
+        "var(--card)",
+      ],
+      [
+        `toolbar tone ${n} icon (${state})`,
+        `var(--toolbar-tone-${n}-muted)`,
+        fill,
+        UI,
+        "var(--card)",
+      ],
+      [
+        `toolbar tone ${n} applied ring (${state})`,
+        "var(--toolbar-tone-applied-edge)",
+        fill,
+        UI,
+        "var(--card)",
+      ],
+    ]),
+    [
+      `toolbar tone ${n} chevron on chip`,
+      "var(--toolbar-tone-foreground)",
+      `var(--toolbar-tone-${n}-chip)`,
+      UI,
+      `var(--toolbar-tone-${n})`,
+    ],
+    [`toolbar tone ${n} edge on surface`, `var(--toolbar-tone-${n}-border)`, "var(--card)", UI],
+    [
+      `toolbar tone ${n} open edge`,
+      "var(--selector-open-edge)",
+      `var(--toolbar-tone-${n}-active)`,
+      UI,
+      "var(--card)",
+    ],
+  ]),
+  ...[1, 2, 3, 4].map((n) => [
+    `toolbar tone ${n} vs ${n + 1} step`,
+    `var(--toolbar-tone-${n})`,
+    `var(--toolbar-tone-${n + 1})`,
+    1.15,
+    "var(--card)",
+  ]),
 ];
 
 let failed = 0;

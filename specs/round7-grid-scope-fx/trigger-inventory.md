@@ -30,3 +30,19 @@ rest / hover / pressed / open / applied / disabled / invalid / keyboard-focus. T
 
 Computed-style check on the closed trigger in a form, a dialog, a filter toolbar, a report
 selector and an action menu, in AR/EN, light/dark, 1440/390 — recorded in `evidence-release.md`.
+
+## Round 8 update (2026-10-04) — blue everywhere
+
+Default shade = tone 3 (base `--selector*` alias `--toolbar-tone-3*`); rows use tones 1…5 via
+`ListToolbar` / `SelectorRow`. Audit on `feat/r8-blue-dropdowns`:
+
+| Family                                                                     | Result                                                                                       |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `SelectTrigger` default (forms, dialogs, pagination size, line grids)      | tone 3 via shared recipe; no local colour override (guarded by `selector-triggers.spec.tsx`) |
+| `field` buttons (EntityCombobox, SearchableSelect, FilterPopover, pickers) | tone 3, or the row's tone inside `ListToolbar` / `SelectorRow`                               |
+| `menu` buttons (Export, Import, Columns, switcher, company switcher, More) | tone 3 (header) or row tone (toolbar)                                                        |
+| `EntityCombobox` / `SearchableSelect` `variant="ghost"` (shipping company) | **removed** — inline editors are blue too                                                    |
+| `SelectTrigger variant="ghost"` (shipping status cell)                     | kept — semantic status badge inside                                                          |
+| Primary "New movement ▾", icon-only ghost/outline menus, selection ▾       | unchanged (primary action / icon controls)                                                   |
+| Native `<select>`                                                          | none                                                                                         |
+| `SelectorRow` adopters                                                     | report filter bar (`report-filter-row`), product browser filters                             |
