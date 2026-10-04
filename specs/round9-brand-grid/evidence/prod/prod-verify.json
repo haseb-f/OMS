@@ -1,0 +1,112 @@
+[
+  {
+    "name": "admin login lands on Home (/)",
+    "ok": true,
+    "detail": "https://oms.haseb.org/"
+  },
+  {
+    "name": "sidebar: Home precedes Dashboard",
+    "ok": false,
+    "detail": "{\"first\":[],\"all\":[]}"
+  },
+  {
+    "name": "Home shows authorized tiles",
+    "ok": true,
+    "detail": "22 tiles"
+  },
+  {
+    "name": "Dashboard separately reachable",
+    "ok": true,
+    "detail": "https://oms.haseb.org/dashboard (first tile → /dashboard)"
+  },
+  {
+    "name": "login ?next= deep link preserved",
+    "ok": true,
+    "detail": "https://oms.haseb.org/store-orders"
+  },
+  {
+    "name": "toolbar / dropdown triggers are blue",
+    "ok": false,
+    "detail": "oklab(0.361617 -0.0239064 -0.0909826) | oklab(0.405406 -0.0253043 -0.102187) | oklab(0.449196 -0.0267021 -0.113391)"
+  },
+  {
+    "name": "Table/Grid toggle present on store orders",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "store orders grid renders cards, no horizontal overflow",
+    "ok": true,
+    "detail": "20 cards, overflow 0"
+  },
+  {
+    "name": "switch back to table",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "/sales/invoices: grid draws 20 cards",
+    "ok": true,
+    "detail": "overflow 0"
+  },
+  {
+    "name": "/crm/leads: grid draws 20 cards",
+    "ok": true,
+    "detail": "overflow 0"
+  },
+  {
+    "name": "leads: distribution control shows a real state",
+    "ok": true,
+    "detail": "state=paused"
+  },
+  {
+    "name": "/sales/customers: grid draws 20 cards",
+    "ok": true,
+    "detail": "overflow 0"
+  },
+  {
+    "name": "agent login lands on agent Home (/agent)",
+    "ok": true,
+    "detail": "https://oms.haseb.org/agent"
+  },
+  {
+    "name": "agent Home lists only /agent destinations",
+    "ok": true,
+    "detail": "[\"/agent/dashboard\",\"/agent/leads\",\"/agent/orders\",\"/agent/stock\",\"/agent/statement\",\"/agent/commission\",\"/agent/payouts\",\"/agent/team\",\"/agent/orders/new\"]"
+  },
+  {
+    "name": "agent sidebar: Home before Dashboard",
+    "ok": false,
+    "detail": "[]"
+  },
+  {
+    "name": "agent Dashboard reachable",
+    "ok": true,
+    "detail": "https://oms.haseb.org/agent/dashboard"
+  },
+  {
+    "name": "agent orders: Table/Grid works",
+    "ok": true,
+    "detail": "10 cards"
+  },
+  {
+    "name": "agent cannot open internal /store-orders",
+    "ok": true,
+    "detail": "/agent"
+  },
+  {
+    "name": "no-cost persona: movements refused (403) — redaction not reachable",
+    "ok": true,
+    "detail": "status 403"
+  },
+  {
+    "name": "no-cost persona /inventory/movements: no cost columns",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "no-cost persona /inventory/stock: no cost columns",
+    "ok": true,
+    "detail": ""
+  }
+]
