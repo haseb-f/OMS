@@ -37,6 +37,11 @@ Icons · Motion · next-themes.
 - RTL must be real, not cosmetic — verify any new shell/layout component in both
   directions using logical properties (`ps-`/`pe-`/`ms-`/`me-`/`start-`/`end-`),
   never `left`/`right` or `ml-`/`mr-`.
+- Dropdown triggers are blue everywhere (R8, design-system §12.16): a trigger outside a tone row
+  takes the one default shade (tone 3); a row of related controls (`ListToolbar`, `SelectorRow`)
+  steps through tones 1–5 in logical order. Never colour a trigger locally (guarded by
+  `selector-triggers.spec.tsx`); semantic status controls, the primary action, toggles, icon-only
+  menus, text inputs and menu content keep their own colours.
 - No fabricated identity, notification, or business data in placeholder UI —
   placeholders must read unambiguously as placeholders (e.g. "Guest User," empty
   states) until the real backend feature exists.
