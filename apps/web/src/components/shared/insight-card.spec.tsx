@@ -68,3 +68,36 @@ describe("resolveInsightTone — colour follows meaning (Round 6)", () => {
     );
   });
 });
+
+describe("InsightCard interactivity (Round 8)", () => {
+  it("a tile that opens something always shows a chevron; a static summary never does", () => {
+    const { container, rerender } = render(<InsightCard label="Orders" value="9" tone="info" />);
+    expect(container.querySelector('[data-slot="insight-go"]')).toBeNull();
+    rerender(<InsightCard label="Orders" value="9" tone="info" href="/store-orders" />);
+    expect(container.querySelector('a[data-interactive] [data-slot="insight-go"]')).not.toBeNull();
+    // With an explicit action label the label is the cue — no second chevron.
+    rerender(
+      <InsightCard
+        label="Orders"
+        value="9"
+        tone="info"
+        href="/store-orders"
+        actionLabel="Open orders"
+      />,
+    );
+    expect(container.querySelector('[data-slot="insight-go"]')).toBeNull();
+    expect(container.querySelector('[data-slot="insight-action"]')).not.toBeNull();
+  });
+
+  it("keeps a visible keyboard focus ring (outline-solid, not just outline-2)", () => {
+    const { container } = render(<InsightCard label="Orders" value="9" href="/store-orders" />);
+    expect(container.querySelector("a")?.className).toMatch(/focus-visible:outline-solid/);
+  });
+
+  it("renders the headline figure at the large metric size", () => {
+    const { container } = render(<InsightCard label="Orders" value="9" />);
+    expect(container.querySelector('[data-slot="insight-value"]')?.className).toMatch(
+      /text-metric-lg/,
+    );
+  });
+});

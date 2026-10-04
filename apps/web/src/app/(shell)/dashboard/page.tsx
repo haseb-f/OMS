@@ -19,6 +19,7 @@ export default function DashboardPage() {
       access={{
         sales: hasPermission("crm.leads.view") || hasPermission("store-orders.view"),
         leads: hasPermission("crm.leads.view"),
+        orders: hasPermission("store-orders.view"),
         paymentReview: hasPermission("sales.receipts.view"),
         bank: hasPermission("accounting.bank-transactions.view"),
       }}

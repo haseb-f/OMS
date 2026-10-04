@@ -44,7 +44,10 @@ export function HomeLauncher() {
         {loading ? (
           <div aria-busy="true" className="flex flex-wrap justify-center gap-3">
             {Array.from({ length: 8 }, (_, index) => (
-              <Skeleton key={index} className="h-24 w-full basis-52 sm:max-w-72 sm:grow" />
+              <Skeleton
+                key={index}
+                className="h-24 w-full basis-full sm:basis-52 sm:max-w-72 sm:grow"
+              />
             ))}
           </div>
         ) : tiles.length === 0 ? (
@@ -64,7 +67,10 @@ export function HomeLauncher() {
               </h2>
               <ul className="flex flex-wrap justify-center gap-3">
                 {tiles.map((tile) => (
-                  <li key={tile.id} className="flex w-full basis-56 sm:max-w-72 sm:grow">
+                  <li
+                    key={tile.id}
+                    className="flex w-full basis-full sm:basis-56 sm:max-w-72 sm:grow"
+                  >
                     <LauncherTile
                       href={tile.href}
                       title={t(tile.titleKey)}
@@ -88,7 +94,10 @@ export function HomeLauncher() {
                 </h2>
                 <ul className="flex flex-wrap justify-center gap-2.5">
                   {actions.map((action) => (
-                    <li key={action.id} className="flex w-full basis-52 sm:max-w-64 sm:grow">
+                    <li
+                      key={action.id}
+                      className="flex w-full basis-full sm:basis-52 sm:max-w-64 sm:grow"
+                    >
                       <LauncherTile
                         href={action.href}
                         title={t(action.titleKey)}

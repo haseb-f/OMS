@@ -112,6 +112,8 @@ interface TileProps {
   context?: ReactNode;
   meta?: ReactNode;
   children?: ReactNode;
+  /** Opens the list the figure counts — set only where that destination is unambiguous. */
+  href?: string;
 }
 
 /**
@@ -284,6 +286,7 @@ export default function AgentDashboardPage() {
                 tone: "info",
                 label: t("agentPortal.dashboard.stages.total"),
                 value: data.fulfillment.total,
+                href: canViewOrders ? "/agent/orders" : undefined,
               })}
               {stageShares(data.fulfillment).map((stage) => {
                 const label = t(`agentPortal.dashboard.stages.${stage.key}`);
@@ -333,6 +336,7 @@ export default function AgentDashboardPage() {
                 tone: "info",
                 label: t("insights.agent.leadsAll"),
                 value: leads.all,
+                href: "/agent/leads",
               })}
               {tile({
                 id: "new",
@@ -453,6 +457,7 @@ export default function AgentDashboardPage() {
                           label: t("agentPortal.dashboard.kpi.available"),
                           value: money(data.position.available),
                           amount: data.position.available,
+                          href: statementLink ? "/agent/statement" : undefined,
                           context: (
                             <>
                               {t("agentPortal.dashboard.kpi.balance")}:{" "}
@@ -478,6 +483,7 @@ export default function AgentDashboardPage() {
                         label: t("agentPortal.dashboard.kpi.payouts"),
                         value: money(data.payouts.total),
                         amount: data.payouts.total,
+                        href: payoutsLink ? "/agent/payouts" : undefined,
                         context: t("agentPortal.dashboard.kpi.payoutsCount", {
                           count: data.payouts.count,
                         }),

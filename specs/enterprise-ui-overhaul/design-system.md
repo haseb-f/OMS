@@ -817,3 +817,47 @@ var(--brand-navy))`. Dark: the lifted navy `#0e2a4b` mixed toward the brand blue
   colour utility locally, if the default tokens stop aliasing tone 3, or if `SelectorRow`
   renumbers earlier controls when a later one appears. `contrast-check.mjs` already covers every
   tone, so the default shade is checked in light and dark.
+
+### 12.17 Home launcher and dashboard surfaces (Round 8, 2026-10-04)
+
+- **Home is not the dashboard.** `/` (company) and `/agent` (agent portal) is a permission-aware
+  launcher and the landing page of every login; the Dashboard is a separate page at `/dashboard`
+  and `/agent/dashboard`, listed after Home in the sidebar and as its own Home tile. Home is never
+  gated; it can only list what the user may open.
+- **Tiles come from one source.** `navigation/home-tiles.ts` builds one tile per authorized
+  top-level entry of `navigation.config.ts` (an internal module, or an agent portal page) with the
+  sidebar's own `filterNavigationByAuth` + `buildNavigationTree`; it opens the first authorized
+  page and captions up to three authorized pages. Quick actions (new quotation / order / invoice /
+  receipt / purchase order / purchase invoice / journal entry / agent order) use the route guard's
+  own `resolveRouteAccess` (reviewed create overrides first), the user's audience and the
+  super-admin bypass. Adding a module to the sidebar adds its tile; nothing is listed twice.
+- **Identity colours.** `homeTone` on a top-level nav item picks one of ten `--hue-*` tokens
+  (blue, sky, teal, emerald, amber, orange, rose, violet, indigo, slate; one lightness/chroma band,
+  light and dark). An item without one takes a fixed slot from `HOME_TONE_CYCLE`. The hue is
+  decoration, never a status; the title stays foreground colour.
+- **`LauncherTile`** (`shared/launcher-tile.tsx`, recipe `[data-slot="launcher-tile"]`): a
+  translucent tone gradient with a tone hairline, an inner highlight and a light backdrop blur over
+  the page's quiet colour wash (`[data-slot="home-surface"]`). Hover and keyboard focus: a 2px
+  rise, stronger edge and gradient, tinted shadow, the icon chip filling solid with a card-coloured
+  glyph, the arrow nudging in the reading direction. Paint-only; reduced motion removes every
+  transform and transition. One tile is one link; the caption is plain text.
+- **Layout.** A centred, wrapping flex grid (`max-w-6xl`, tiles `basis-56`, growing to 18rem):
+  one column on phones, centred rows when there are few tiles (an Agent Sales user sees three).
+- **Dashboard surfaces.** `--insight-tint-top/bottom/border/icon-fill` raised (24 / 9 / 50 / 30 %
+  light; 30 / 11 / 52 / 38 % dark), `--panel-header-tint` 20 % / `--panel-edge-tint` 34 %; toned
+  panels also get a faint body wash and the inner highlight (`--insight-sheen`). Headline figures
+  use `text-metric-lg` (28px) in a deep shade of the tone; the icon chip is 28px.
+- **Interactive vs static.** A static summary is flat: no shadow, default cursor, no chevron. A tile
+  that opens something has a resting lift, a pointer and a chevron (`insight-go`, or the action
+  label), and on hover / focus: a 1px rise, a stronger tone border and gradient (`--insight-tint-
+top/bottom-hover`), a tinted shadow, the icon chip filling solid, the figure moving to a more
+  vivid shade of the tone. The number, its size and the box never change; nothing reflows.
+- **Panel rows.** Attention rows (`data-slot="panel-row"`, `data-tone`) tint with their own tone on
+  hover / focus and draw a logical start-edge accent; the icon chip scales 1.08.
+- **Secondary text on tone.** `--insight-muted` (muted-foreground pulled toward the foreground) is
+  the label / unit / context / panel-description colour on a toned surface, so the stronger tint
+  keeps ≥ 4.5:1.
+- **Contrast.** `contrast-check.mjs` covers per-tone label, value (rest and hover), icon on chip,
+  card-coloured glyph on the solid chip, panel title / description / row text, and per hue: launcher
+  title and caption on the strongest tint, icon on chip, glyph on the solid chip and the arrow —
+  light and dark.

@@ -62,6 +62,8 @@ interface Figure {
   icon: LucideIcon;
   tone: InsightTone;
   bar?: number;
+  /** Opens the list the figure counts (only where the user may open it). */
+  href?: string;
   /** A current-state figure inside a period group — labelled «الآن» on the tile. */
   current?: boolean;
 }
@@ -75,11 +77,14 @@ export function SalesOverviewPanel({
   data,
   period,
   leadsHref,
+  ordersHref,
 }: {
   data: SalesPerformanceDashboard | null;
   period: SalesPeriod;
   /** The leads list, when the user may open it. */
   leadsHref?: string;
+  /** The store-orders list, when the user may open it. */
+  ordersHref?: string;
 }) {
   const { t } = useLocale();
   const periodLabel = t(PERIOD_LABEL_KEY[period]);
@@ -89,6 +94,7 @@ export function SalesOverviewPanel({
         {
           key: "newLeads",
           label: "crm.leads.dashboard.newLeads",
+          href: leadsHref,
           value: String(kpis.newLeads),
           context: t("insights.company.newLeads"),
           icon: UserPlus,
@@ -97,6 +103,7 @@ export function SalesOverviewPanel({
         {
           key: "converted",
           label: "crm.leads.dashboard.converted",
+          href: leadsHref,
           value: String(kpis.converted),
           context: t("insights.company.converted"),
           icon: ArrowRightLeft,
@@ -114,6 +121,7 @@ export function SalesOverviewPanel({
         {
           key: "orders",
           label: "docUi.dashboard.ordersInScope",
+          href: ordersHref,
           value: String(kpis.orders),
           icon: ShoppingBag,
           tone: "info",
@@ -121,6 +129,7 @@ export function SalesOverviewPanel({
         {
           key: "delivered",
           label: "crm.leads.dashboard.delivered",
+          href: ordersHref,
           value: String(kpis.delivered),
           context: t("insights.company.delivered"),
           icon: PackageCheck,
@@ -129,6 +138,7 @@ export function SalesOverviewPanel({
         {
           key: "inProgress",
           label: "crm.leads.dashboard.inProgress",
+          href: ordersHref,
           value: String(kpis.inProgress),
           context: t("insights.company.inProgress"),
           icon: Clock,
@@ -162,6 +172,7 @@ export function SalesOverviewPanel({
                 tone={figure.tone}
                 label={t(figure.label)}
                 value={figure.value}
+                href={figure.href}
                 context={figure.context}
                 meta={
                   figure.current ? (
@@ -219,7 +230,6 @@ export function ActivityPanel({
       tone="info"
       scope={{ kind: "toDate", label: t("insights.scope.pace") }}
       title={t("dashboard.overview.activityTitle")}
-      description={t("insights.company.salesScope")}
       busy={!data}
     >
       {partial ? (

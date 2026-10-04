@@ -32,6 +32,8 @@ export interface DashboardAccess {
   sales: boolean;
   /** The leads list itself (drill-down link). */
   leads: boolean;
+  /** The store-orders list itself (drill-down link). */
+  orders: boolean;
   paymentReview: boolean;
   bank: boolean;
 }
@@ -164,6 +166,7 @@ export function DashboardOverview({ access }: { access: DashboardAccess }) {
                     data={current}
                     period={period}
                     leadsHref={access.leads ? "/crm/leads" : undefined}
+                    ordersHref={access.orders ? "/store-orders" : undefined}
                   />
                 )}
               </div>

@@ -41,7 +41,7 @@ export function LauncherTile({
       data-size={size}
       aria-label={ariaLabel}
       className={cn(
-        "group items-center gap-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
+        "group items-center gap-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-focus-ring",
         compact ? "px-3 py-2.5" : "px-4 py-3.5",
         className,
       )}

@@ -172,7 +172,7 @@ export function InsightCard({
         data-interactive=""
         className={cn(
           shared,
-          "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
+          "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-focus-ring",
         )}
       >
         {body}
