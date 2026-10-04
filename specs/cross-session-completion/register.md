@@ -163,3 +163,26 @@ selected, four selection scopes, sidebar 10px, phone selection bar + "all matchi
   locally with tagged demo charges).
 
 **Repository alignment:** `origin/main` = deployed SHA; worktrees reconciled below.
+
+## Round 8 (2026-10-04) — blue dropdowns, Home, dashboards
+
+Owner message 2026-10-04: blue dropdown progression approved app-wide; Home screen and the dashboard
+visual requirements declared **incomplete** until implemented and verified. Releases kept separable.
+
+| #   | Milestone                                                                                                       | State                                                                                                                                                                    | Evidence                                                                                | Open                            |
+| --- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- | ------------------------------- |
+| 12  | Blue dropdown triggers on every dropdown (forms, dialogs, inline editors, report filters, toolbars)             | **Live** — `204ccca`, Production deployment 6838735744 (success); verified on oms.haseb.org with computed colours                                                        | `specs/round8-blue-dropdowns/evidence.md`; design-system §12.16; `trigger-inventory.md` | none                            |
+| 13  | **Home / الشاشة الرئيسية** launcher (`/`, `/agent`)                                                             | **Implemented, local only — awaiting owner visual approval.** `feat/r8-home-dashboard` @ `234f251`, review stack web :4401 / API :4405 / DB `oms_r7_final`. NOT deployed | `specs/round8-home-dashboard/evidence.md` (28/28 browser checks, server-side 403 proof) | Owner approval → merge + deploy |
+| 14  | Dashboard visual refinement (company + agent): visible tone palette, glass surfaces, 28 px figures, hover/focus | **Implemented, local only — awaiting owner visual approval** (same branch/commit; 41/41 browser checks incl. no layout shift)                                            | same; design-system §12.17                                                              | Owner approval → merge + deploy |
+
+**Milestone 1 (UI design system) is NOT closed:** Home and the dashboard refinement stay open until
+the owner approves 13–14 and they are released. Not claimed complete anywhere.
+
+Why the dashboard looked unchanged: the R6/R7 dashboard work was already on `main` (and in the
+owner's :4301 preview) but deliberately faint — see `specs/round8-home-dashboard/plan.md`. A Home
+screen had never been implemented anywhere.
+
+Defect found by this round's verification and fixed on the same branch: insight cards, attention rows
+and launcher tiles painted no keyboard focus ring (`outline-none` without `outline-solid`, Tailwind v4).
+Open (unchanged, owner): FX revaluation policy, Prod permission grants, prettier CI debt — see
+`.claude/OMS.md` / R7 evidence.
