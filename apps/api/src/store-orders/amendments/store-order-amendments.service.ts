@@ -555,13 +555,23 @@ export class StoreOrderAmendmentsService {
       !ownDestination &&
       !!changes.destination &&
       differs(customerAfter, customerBase);
+    // An explicit destination edit replaces the order's own address; a customer
+    // switch without one hands the parcel to the new customer's address (the
+    // order's own address is cleared, never silently kept or overwritten by a
+    // half-copied value).
     const orderDeliveryUpdate =
       !isAgentOrder && ownDestination && destinationChanged
-        ? {
-            deliveryCountryId: customerAfter.countryId,
-            deliveryCity: customerAfter.city?.trim() || null,
-            deliveryAddress: customerAfter.address?.trim() || null,
-          }
+        ? changes.destination
+          ? {
+              deliveryCountryId: customerAfter.countryId,
+              deliveryCity: customerAfter.city?.trim() || null,
+              deliveryAddress: customerAfter.address?.trim() || null,
+            }
+          : {
+              deliveryCountryId: null,
+              deliveryCity: null,
+              deliveryAddress: null,
+            }
         : null;
 
     const kinds: AmendmentChangeKinds = {

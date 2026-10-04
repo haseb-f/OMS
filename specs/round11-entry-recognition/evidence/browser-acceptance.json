@@ -1,0 +1,210 @@
+{
+  "tag": "R11UI429921",
+  "results": [
+    {
+      "name": "setup: tagged existing customer + prior order created",
+      "ok": true,
+      "detail": "201"
+    },
+    {
+      "name": "A. Existing / New customer toggle is offered",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A. the calling-code selector is INSIDE the phone field",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A. no separate full-width 'phone country' dropdown",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A. no delivery-country selector until it is asked for (country is not repeated)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A. name and phone sit side by side",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A. city and address sit side by side, address wider (content-aware widths)",
+      "ok": true,
+      "detail": "234 / 480"
+    },
+    {
+      "name": "A. no field fills the whole dialog width (no full-width selectors)",
+      "ok": true,
+      "detail": "768"
+    },
+    {
+      "name": "2/3. national: the existing customer is recognised before creating",
+      "ok": true,
+      "detail": "هذا العميل موجود بالفعل R11UI429921 Existing Customer · +9665•••••152 1 طلب سابق يمكنك فتحه STO-2026-026987 05 Oct 2026 "
+    },
+    {
+      "name": "3. the warning shows prior order reference, status/active flag and amount",
+      "ok": true,
+      "detail": "هذا العميل موجود بالفعل R11UI429921 Existing Customer · +9665•••••152 1 طلب سابق يمكنك فتحه STO-2026-026987 05 Oct 2026 جاهز نشط 150.00 A05C6E9 فتح الطلب الحالي طلب جديد لنفس العميل تعديل البيانات"
+    },
+    {
+      "name": "3. 'open existing order' and 'new order for this customer' are offered",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B. saving is blocked until the employee decides (no auto-submit)",
+      "ok": true,
+      "detail": "disabled=true"
+    },
+    {
+      "name": "2/3. +966 spaced: the existing customer is recognised before creating",
+      "ok": true,
+      "detail": "هذا العميل موجود بالفعل R11UI429921 Existing Customer · +9665•••••152 1 طلب سابق يمكنك فتحه STO-2026-026987 05 Oct 2026 "
+    },
+    {
+      "name": "2/3. Arabic digits: the existing customer is recognised before creating",
+      "ok": true,
+      "detail": "هذا العميل موجود بالفعل R11UI429921 Existing Customer · +9665•••••152 1 طلب سابق يمكنك فتحه STO-2026-026987 05 Oct 2026 "
+    },
+    {
+      "name": "2/3. 00 prefix: the existing customer is recognised before creating",
+      "ok": true,
+      "detail": "هذا العميل موجود بالفعل R11UI429921 Existing Customer · +9665•••••152 1 طلب سابق يمكنك فتحه STO-2026-026987 05 Oct 2026 "
+    },
+    {
+      "name": "4. cancelling creates no customer and no order",
+      "ok": true,
+      "detail": "{\"before\":{\"orders\":1,\"customers\":1},\"afterCancel\":{\"orders\":1,\"customers\":1}}"
+    },
+    {
+      "name": "5. after choosing 'new order for this customer' saving is enabled",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "5/6. one repeat order created (double click) on the SAME customer — no second customer",
+      "ok": true,
+      "detail": "{\"before\":{\"orders\":1,\"customers\":1},\"afterRepeat\":{\"orders\":2,\"customers\":1}}"
+    },
+    {
+      "name": "A. 'Existing customer' shows only a picker — no name / phone / address to re-enter",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A. a concise identity summary replaces the customer fields",
+      "ok": true,
+      "detail": "R11UI429921 Existing Customer +966576373152 Seed street 1، Riyadh تغيير العميل"
+    },
+    {
+      "name": "A. delivery fields stay hidden while the customer's own address is used",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A. 'deliver to a different address' reveals the order-only delivery fields",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A/5. the order is created for the EXISTING customer (no second customer)",
+      "ok": true,
+      "detail": "orders 2→3"
+    },
+    {
+      "name": "A. the different delivery address is stored on the order",
+      "ok": true,
+      "detail": "{\"c\":\"Dammam\",\"a\":\"R11UI429921 different address\"}"
+    },
+    {
+      "name": "A. the customer master is unchanged by it",
+      "ok": true,
+      "detail": "{\"c\":\"Riyadh\",\"a\":\"Seed street 1\"}"
+    },
+    {
+      "name": "8. another employee's list search finds nothing and offers the advanced lookup",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "7. the advanced lookup finds it (Arabic digits) with masked, read-only data and no open link",
+      "ok": true,
+      "detail": "رقم الهاتف أو اسم العميل بحث يُسجَّل كل بحث، ويُحدَّد عدد مرات البحث المتكرر. البيانات مخفية جزئيًا عمدًا. تم العثور على 1 عميل مطابق. · المتبقي 11 عملية بحث في هذه الفترة العميل آخر سجل الحالة الإسنا"
+    },
+    {
+      "name": "11. mobile 390: dialog and fields stay inside the viewport",
+      "ok": true,
+      "detail": "{\"dlgRight\":382,\"dlgLeft\":8,\"vw\":390,\"clipped\":0,\"overflow\":0}"
+    },
+    {
+      "name": "11. mobile 390: the submit action stays reachable",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "11. mobile 390: the calling-code list opens by touch and fits the screen",
+      "ok": true,
+      "detail": "{\"left\":8,\"right\":296,\"top\":342,\"bottom\":674,\"vw\":390,\"vh\":760}"
+    },
+    {
+      "name": "11. mobile 390: a country row is a comfortable touch target",
+      "ok": true,
+      "detail": "{\"h\":40}"
+    },
+    {
+      "name": "11. mobile 390: choosing a country by touch updates the calling code",
+      "ok": true,
+      "detail": "🇪🇬 +20"
+    },
+    {
+      "name": "11. mobile 390: a typed Egyptian number is accepted and the field stays in view",
+      "ok": true,
+      "detail": "inView=true"
+    },
+    {
+      "name": "11. mobile 390: 'different delivery country' opens its own selector (phone country kept)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "11. mobile 360: dialog and fields stay inside the viewport",
+      "ok": true,
+      "detail": "{\"dlgRight\":352,\"dlgLeft\":8,\"vw\":360,\"clipped\":0,\"overflow\":0}"
+    },
+    {
+      "name": "11. mobile 360: the submit action stays reachable",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "11. mobile 360: the calling-code list opens by touch and fits the screen",
+      "ok": true,
+      "detail": "{\"left\":8,\"right\":296,\"top\":342,\"bottom\":674,\"vw\":360,\"vh\":760}"
+    },
+    {
+      "name": "11. mobile 360: a country row is a comfortable touch target",
+      "ok": true,
+      "detail": "{\"h\":40}"
+    },
+    {
+      "name": "11. mobile 360: choosing a country by touch updates the calling code",
+      "ok": true,
+      "detail": "🇪🇬 +20"
+    },
+    {
+      "name": "11. mobile 360: a typed Egyptian number is accepted and the field stays in view",
+      "ok": true,
+      "detail": "inView=true"
+    },
+    {
+      "name": "11. mobile 360: 'different delivery country' opens its own selector (phone country kept)",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

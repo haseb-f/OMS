@@ -234,10 +234,9 @@ export class AgentPortalOrdersService {
         },
         { partner: { mobile: { contains: search } } },
         // The shared customer identity searched in any phone format (Arabic digits, national, 00/+).
-        ...phoneSearchCandidates(search).flatMap((digits) => [
-          { partner: { mobile: { contains: digits } } },
-          { partner: { phone: { contains: digits } } },
-        ]),
+        ...phoneSearchCandidates(search).map((digits) => ({
+          partner: { mobile: { contains: digits } },
+        })),
         { lead: { leadNumber: { contains: search, mode: 'insensitive' } } },
       ];
     }

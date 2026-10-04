@@ -237,6 +237,9 @@
   --input: #d1d1d1;
   --focus-ring: #0072f5;
   --ring: var(--focus-ring);
+  /* The native text caret (R11): brand blue — the same hue family as the focus ring, so it is
+     visible on every input surface in light and dark (contrast-checked as a UI component). */
+  --caret-color: var(--focus-ring);
 
   /* Selectors (Round 7, design-system §12.14) — select / combobox / filter /
      picker / action-menu triggers are solid deep brand-navy BUTTONS ("click to

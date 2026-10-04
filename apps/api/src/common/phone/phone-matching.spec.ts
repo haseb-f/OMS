@@ -36,15 +36,20 @@ describe('phone matching (R11)', () => {
       expect(phones.lookupCandidates('01063233211')).toContain('+201063233211');
     });
 
-    it('returns every valid reading of an ambiguous number, narrowest first', () => {
+    it('the chosen country is authoritative when the number is valid in it; otherwise every valid reading', () => {
       // 055… is a Saudi mobile AND an Egyptian landline.
-      const readings = phones.lookupCandidates('0550352030', 'EG');
-      expect(readings[0]).toBe('+20550352030');
-      expect(readings).toContain('+966550352030');
-      // The Create/Update guard keeps the single narrowest reading.
-      expect(phones.lookupCandidates('0550352030', 'EG', true)).toEqual([
+      expect(phones.lookupCandidates('0550352030', 'EG')).toEqual([
         '+20550352030',
       ]);
+      expect(phones.lookupCandidates('0550352030', 'SA')).toEqual([
+        '+966550352030',
+      ]);
+      // No country chosen: every valid reading is tried.
+      expect(phones.lookupCandidates('0550352030')).toEqual(
+        expect.arrayContaining(['+20550352030', '+966550352030']),
+      );
+      // The Create/Update guard keeps the single narrowest reading.
+      expect(phones.lookupCandidates('0550352030', null, true)).toHaveLength(1);
     });
 
     it('never matches by suffix or fragment', () => {

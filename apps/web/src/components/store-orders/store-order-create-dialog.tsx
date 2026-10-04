@@ -6,7 +6,6 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Banknote } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
-import { ModalFieldFullWidth } from "@/components/shared/modal-section";
 import { FormSection } from "@/components/documents/form-section";
 import {
   FormErrorSummary,
@@ -37,7 +36,7 @@ import {
   isLinePriceMissing,
   type ProductLineItemsGridLine,
 } from "@/components/sales/product-line-items-grid";
-import { FieldLabel, FieldMessage, Form } from "@/components/ui/form";
+import { FieldMessage, Form } from "@/components/ui/form";
 import { PartnerPicker } from "@/components/business/partner-picker";
 import { CustomerIdentitySummary } from "@/components/business/customer-identity-summary";
 import { DeliveryFields } from "@/components/shared/delivery-fields";
@@ -58,18 +57,13 @@ import {
   type DeclarationFormState,
 } from "@/components/payments/declaration/declaration-logic";
 import { stagingIdsOf, type ReceiptUploadItem } from "@/components/business/payment-receipts-field";
-import {
-  partnersService,
-  type CustomerGlobalLookupFull,
-  type PartnerPickerRow,
-} from "@/services/partners-service";
+import { partnersService, type PartnerPickerRow } from "@/services/partners-service";
 import {
   buildStoreOrderCreateSchema,
   storeOrderCreateDefaultValues,
   type StoreOrderCreateFormValues,
 } from "@/config/store-orders/store-order-create-schema";
 import { useLocale } from "@/providers/locale-provider";
-import { localizedName } from "@/lib/localized-name";
 import { useUserContext } from "@/providers/user-context";
 import { useCountries, useCurrencies } from "@/hooks/use-reference-data";
 import { toast, reportApiError, reportSuccess } from "@/lib/toast";
@@ -119,7 +113,7 @@ export function StoreOrderCreateDialog({
   /** Set when opened from the Global Lookup dialog's "Add New Order" action — reuses this Customer instead of prompting for one. */
   prefillCustomer?: StoreOrderCreatePrefillCustomer | null;
 }) {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   const { hasPermission } = useUserContext();
   // Same any-of rule the API applies to payment declarations.
   const canDeclarePayment =
@@ -310,21 +304,6 @@ export function StoreOrderCreateDialog({
     setDifferentAddress(false);
   };
 
-  const applyExistingCustomer = (customer: CustomerGlobalLookupFull) => {
-    form.setValue("customerName", customer.name, { shouldDirty: true, shouldValidate: true });
-    form.setValue("customerPhone", customer.phone || customer.mobile || "", {
-      shouldDirty: true,
-      shouldValidate: true,
-    });
-    form.setValue("countryId", customer.countryId || "", { shouldDirty: true });
-    form.setValue("city", customer.city || "", { shouldDirty: true });
-    form.setValue("address", customer.address || "", { shouldDirty: true });
-    setPhoneCountryOverride(
-      phoneCountryOverrideFor(customer.phone || customer.mobile, customer.countryId),
-    );
-    toast.success(t("storeOrders.createDialog.existingCustomer.applied"));
-  };
-
   // Spec 1B duplicate warning — debounced check of the typed phone / name.
   // A customer picked explicitly (picker or Global Lookup) answers its own
   // match; any other match must be answered before saving.
@@ -346,7 +325,20 @@ export function StoreOrderCreateDialog({
         .globalLookupByPhone(customerPhone)
         .then((customer) => {
           if (customer && !customer.restricted && customer.id === choice.customerId) {
-            applyExistingCustomer(customer);
+            // The recognised customer becomes THE customer of this order: the form shows
+            // who they are and asks only for what is missing or order-specific.
+            applyCustomer({
+              id: customer.id,
+              name: customer.name,
+              phone: customer.phone,
+              mobile: customer.mobile,
+              email: null,
+              countryId: customer.countryId,
+              city: customer.city,
+              address: customer.address,
+            } as unknown as PartnerPickerRow);
+            setCustomerMode("existing");
+            toast.success(t("storeOrders.createDialog.existingCustomer.applied"));
           }
         })
         .catch(() => undefined);

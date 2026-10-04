@@ -1039,18 +1039,28 @@ export class PartnersService extends MasterDataCrudService<
       },
       include: { country: { select: { code: true } } },
     });
-    // 2. Legacy rows that were never keyed (before the backfill, or a number
-    //    stored in a local format): normalized in memory with the partner's own
-    //    country — only these rows, never the whole table.
+    // 2. Legacy rows whose number is stored in a local / unclaimed format (never
+    //    keyed, or keyed only for another of their numbers): narrowed in SQL to the
+    //    rows containing the candidate's trailing digits, then compared as full
+    //    normalized numbers in memory with the partner's own country. A narrowing
+    //    step only — identity is never a fragment match.
+    const tails = [
+      ...new Set(
+        normalizedPhones.map((value) => value.replace(/\D/g, '').slice(-7)),
+      ),
+    ].filter((tail) => tail.length === 7);
     const legacy = await this.prisma.partner.findMany({
       where: {
         deletedAt: null,
         ...notSelf,
-        phoneKeys: { none: {} },
         id: { notIn: direct.map((partner) => partner.id) },
-        OR: [{ phone: { not: null } }, { mobile: { not: null } }],
+        OR: tails.flatMap((tail) => [
+          { phone: { contains: tail } },
+          { mobile: { contains: tail } },
+        ]),
       },
       include: { country: { select: { code: true } } },
+      take: 500,
     });
     const legacyMatches = legacy.filter((partner) =>
       [partner.phone, partner.mobile].some((raw) => {

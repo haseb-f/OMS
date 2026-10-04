@@ -1459,3 +1459,16 @@ html [data-button][data-distribution-state="loading"] {
     transition: none;
   }
 }
+
+/* ── Text caret (R11) ──────────────────────────────────────────────────────
+   The NATIVE blinking caret, tinted with the brand blue on every typing
+   surface. No simulated cursor: selection, IME, accessibility and mobile
+   keyboards keep working. Numeric fields are forced LTR inside RTL forms, so
+   the caret sits at the digits' own edge. */
+:where(
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"]),
+  textarea,
+  [contenteditable="true"]
+) {
+  caret-color: var(--caret-color);
+}

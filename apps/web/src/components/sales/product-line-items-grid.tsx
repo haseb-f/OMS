@@ -65,6 +65,12 @@ export interface ProductLineItemsGridLine {
   quantity: number;
   unitPrice: number;
   /**
+   * Unit-price mode only — the price has not been entered yet, so the field
+   * stays EMPTY (placeholder "0.00") instead of showing a 0 to delete. A saved
+   * line never carries it (an explicit 0 stays 0); typing — even "0" — clears it.
+   */
+  priceBlank?: boolean;
+  /**
    * `priceMode="lineAmount"` only — the amount agreed for the whole line
    * (Store Orders / Lead conversion), independent of quantity. `null`
    * means not entered yet; it is never silently treated as 0.
@@ -98,6 +104,7 @@ export function createEmptyLine(): ProductLineItemsGridLine {
     warehouse: null,
     quantity: 1,
     unitPrice: 0,
+    priceBlank: true,
     lineAmount: null,
     discountPercent: 0,
     taxId: null,
@@ -120,6 +127,7 @@ export function isLinePriceMissing(
   mode: LinePriceMode = "unit",
 ): boolean {
   if (!line.product) return false;
+  if (mode === "unit" && line.priceBlank) return true;
   const price = linePrice(line, mode);
   return !Number.isFinite(price) || price <= 0;
 }
@@ -516,6 +524,8 @@ export function ProductLineItemsGrid({
       product,
       // An agreed line amount is what the customer agreed to — never a catalogue price.
       unitPrice: catalogPrice && !lineAmountMode ? Number(catalogPrice) : 0,
+      // No catalogue price → the field stays empty until the user types one.
+      priceBlank: !(catalogPrice && !lineAmountMode),
       taxId: product.taxId ?? null,
       unitId: product.unitId,
       unitName: product.unit?.name ?? null,
@@ -554,13 +564,13 @@ export function ProductLineItemsGrid({
 
   /** Blank stays blank (null) in line-amount mode, so it can never be sent as 0. */
   const priceValue = (line: ProductLineItemsGridLine) =>
-    lineAmountMode ? (line.lineAmount ?? "") : line.unitPrice;
+    lineAmountMode ? (line.lineAmount ?? "") : line.priceBlank ? "" : line.unitPrice;
   const priceChange = (line: ProductLineItemsGridLine, raw: string, valueAsNumber: number) =>
     updateLine(
       line.id,
       lineAmountMode
         ? { lineAmount: raw === "" || Number.isNaN(valueAsNumber) ? null : valueAsNumber }
-        : { unitPrice: valueAsNumber || 0 },
+        : { unitPrice: valueAsNumber || 0, priceBlank: raw === "" },
     );
 
   const lineTotalFor = (line: ProductLineItemsGridLine) =>

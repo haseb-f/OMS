@@ -479,6 +479,16 @@ export class StoreOrdersService {
       );
     }
 
+    if (dto.delivery?.countryId) {
+      const country = await this.prisma.country.findFirst({
+        where: { id: dto.delivery.countryId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!country) {
+        throw new BadRequestException('Delivery country not found.');
+      }
+    }
+
     try {
       const order = await this.prisma.$transaction(async (tx) => {
         const orderPartnerId =

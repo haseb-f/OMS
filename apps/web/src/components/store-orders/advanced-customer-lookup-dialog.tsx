@@ -82,20 +82,6 @@ export function AdvancedCustomerLookupDialog({
   };
 
   const meaningful = isMeaningfulLookupQuery(query);
-  const autoRan = useRef(false);
-  useEffect(() => {
-    if (!open) {
-      autoRan.current = false;
-      return;
-    }
-    if (initialQuery && !autoRan.current && isMeaningfulLookupQuery(initialQuery)) {
-      autoRan.current = true;
-      setQuery(initialQuery);
-      void search(initialQuery);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialQuery]);
-
   const search = async (text: string = query) => {
     if (state === "loading") return;
     if (!isMeaningfulLookupQuery(text)) {
@@ -121,6 +107,20 @@ export function AdvancedCustomerLookupDialog({
       setState("error");
     }
   };
+
+  const autoRan = useRef(false);
+  useEffect(() => {
+    if (!open) {
+      autoRan.current = false;
+      return;
+    }
+    if (initialQuery && !autoRan.current && isMeaningfulLookupQuery(initialQuery)) {
+      autoRan.current = true;
+      setQuery(initialQuery);
+      void search(initialQuery);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialQuery]);
 
   return (
     <EnterpriseModal

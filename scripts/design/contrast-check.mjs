@@ -329,6 +329,7 @@ const PAIRS = [
   // edge (--control-edge) carries the 3:1 boundary.
   ["control boundary (field edge)", "var(--control-edge)", "var(--card)", UI],
   ["focus ring on surface", "var(--focus-ring)", "var(--card)", UI],
+  ["text caret on input surface", "var(--caret-color)", "var(--card)", UI],
   ["focus ring on canvas", "var(--focus-ring)", "var(--background)", UI],
   ["sidebar text", "var(--sidebar-foreground)", "var(--sidebar)", TEXT],
   ["sidebar muted text", "var(--sidebar-muted-foreground)", "var(--sidebar)", TEXT],

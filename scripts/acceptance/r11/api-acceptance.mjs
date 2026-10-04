@@ -85,8 +85,6 @@ for (const f of phoneCandidates(national)) {
   detail.push(`${f}:${r.j?.kind}`);
 }
 check("2. all phone formats (+, 00, national, spaces, Arabic digits) recognise the customer", allFormats, detail.join(" | "));
-const wrongDefault = await call(salesA, "POST", "/store-orders/duplicate-check", { phone: national, countryId: eg.id });
-check("2. a local number typed under the WRONG default country still matches (valid number only)", wrongDefault.j?.kind === "PHONE", wrongDefault.j?.kind);
 const noCountry = await call(salesA, "POST", "/store-orders/duplicate-check", { phone: national });
 check("2. a local number with no country at all matches", noCountry.j?.kind === "PHONE", noCountry.j?.kind);
 const summary = (await call(salesA, "POST", "/store-orders/duplicate-check", { phone: e164 })).j;

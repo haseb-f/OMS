@@ -1367,6 +1367,38 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
       expect(partner.address).toBeNull();
     });
 
+    it('a known customer on the first number never hides a real match on the second', async () => {
+      const knownPhone = phone();
+      await prisma.partner.create({
+        data: {
+          partnerNumber: `PT-R11-${tag}-K2`,
+          name: `Known First ${tag}`,
+          phone: knownPhone,
+          entityType: 'PERSON',
+          roles: { create: { role: 'CUSTOMER' } },
+          phoneKeys: { create: { phoneE164: knownPhone, kind: 'PHONE' } },
+        },
+      });
+      const withOrders = phone();
+      const first = await post(
+        users.empA,
+        '/store-orders',
+        orderBody({ name: `Has Orders ${tag}`, phone: withOrders }),
+      );
+      expect(first.status).toBe(201);
+      const second = await post(users.empA, '/store-orders', {
+        ...orderBody({ name: `Two Numbers ${tag}`, phone: knownPhone }),
+        partner: {
+          name: `Two Numbers ${tag}`,
+          phone: knownPhone,
+          mobile: withOrders,
+          countryId: egId,
+        },
+      });
+      expect(second.status).toBe(409);
+      expect(second.body.code).toBe('DUPLICATE_ACKNOWLEDGEMENT_REQUIRED');
+    });
+
     it('a lead repeated on the same number is never blocked as a duplicate order', async () => {
       await grant(users.empA.id, ['crm.leads.create']);
       const leadPhone = phone();

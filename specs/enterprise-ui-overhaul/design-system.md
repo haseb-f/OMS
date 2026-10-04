@@ -965,3 +965,22 @@ execution rules are unchanged. Contrast of every label on rest and hover is in `
 - **Lead-distribution dialog**: a server-confirmed success closes the dialog with one toast; a blocked run
   (saved but failing) and a failed request keep it open with the reason and the selection. The page owns the open
   state and only an explicit click sets it true. Duplicate submissions are guarded in the hook.
+
+### 12.22 Customer entry, phone and numeric inputs (Round 11, 2026-10-05)
+
+- **Customer entry**: a form that takes a customer offers **New customer / Existing customer**. Existing shows a
+  picker, then a concise identity summary (`CustomerIdentitySummary`); name, phone and address are never asked again —
+  only what is missing or an intentional, order-specific change. New asks name and phone side by side.
+- **Phone**: the calling code is a compact selector **inside** the phone field (`CallingCodePicker` via
+  `OMSPhoneInput countries`); there is no separate full-width "phone country" dropdown. It only changes how the
+  national number is read.
+- **Delivery** (`DeliveryFields`): City + Address once, side by side; the delivery country follows the phone country
+  until **Different delivery country** is opened. An order's destination is stored on the order, never on the
+  customer master. Pickup / all-service orders hide it.
+- **Widths**: related short fields share a row (container-query grid, content-aware spans); no selector fills a dialog
+  without a reason; fields reflow on phones and the footer actions stay reachable.
+- **Numeric money inputs** start genuinely empty with a `0.00` placeholder (illustration only, never saved). A saved
+  value, including an explicit 0, is shown as saved; blank and zero stay distinct (a required amount must be > 0).
+  Quantity = 1 and calculated totals are unchanged. Use `MoneyInput` — never a bare number input for money.
+- **Caret**: the native text caret takes `--caret-color` (the focus-ring blue) on every input / textarea; never a
+  simulated cursor.

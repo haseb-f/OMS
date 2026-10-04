@@ -326,6 +326,7 @@ export class StoreOrderDuplicatesService {
     );
     const region = await this.regionOf(input.countryId);
     const checked = new Set<string>();
+    let known: Evaluation | null = null;
     for (const value of raw) {
       // Every E.164 the typed number can validly mean (the form's phone
       // country first, then the number on its own, then the primary markets):
@@ -337,13 +338,20 @@ export class StoreOrderDuplicatesService {
       if (candidates.length === 0) continue;
       candidates.forEach((candidate) => checked.add(candidate));
       const matched = await this.phoneEvaluation(candidates, scope);
-      if (matched) return matched;
+      if (!matched) continue;
+      // A customer with no order yet is informational only: it must never
+      // hide a stronger match on another number of the same customer.
+      if (matched.result.kind === 'KNOWN') {
+        known ??= matched;
+        continue;
+      }
+      return matched;
     }
     const candidates = await this.nameCandidates(input.name, scope);
     if (candidates.length) {
       return { result: { kind: 'NAME', candidates } };
     }
-    return { result: { kind: 'NONE' } };
+    return known ?? { result: { kind: 'NONE' } };
   }
 
   private async regionOf(
@@ -392,16 +400,20 @@ export class StoreOrderDuplicatesService {
             deletedAt: null,
             roles: { some: { role: PartnerRoleType.CUSTOMER } },
           },
-          select: { name: true, phone: true, mobile: true },
+          select: { id: true, name: true, phone: true, mobile: true },
           orderBy: { createdAt: 'asc' },
         });
         return known
           ? {
+              // Every recognition of a customer outside the caller's records is
+              // written to the shared lookup ledger (audit + budget evidence).
+              audit: { phone, partnerId: known.id },
               result: {
                 kind: 'KNOWN',
                 customer: {
                   nameMasked: maskName(known.name),
-                  phoneMasked: maskPhone(known.mobile ?? known.phone),
+                  // The number the caller typed, masked — never a second stored number.
+                  phoneMasked: maskPhone(phone),
                 },
               },
             }
@@ -473,6 +485,15 @@ export class StoreOrderDuplicatesService {
         ? await this.agentTypedName(customer.id, scope.agentId, customer.name)
         : customer.name;
     const others = inScopeCustomers.slice(1);
+    const otherNames = new Map<string, string>();
+    for (const other of others) {
+      otherNames.set(
+        other.id,
+        scope.kind === 'AGENT'
+          ? await this.agentTypedName(other.id, scope.agentId, other.name)
+          : other.name,
+      );
+    }
     return {
       partnerNumber: customer.partnerNumber,
       orderNumbers: latest.map((row) => row.internalOrderId),
@@ -481,7 +502,7 @@ export class StoreOrderDuplicatesService {
             alternatives: others.map((other) => ({
               id: other.id,
               partnerNumber: other.partnerNumber,
-              name: other.name,
+              name: otherNames.get(other.id) ?? other.name,
             })),
           }
         : {}),
@@ -502,7 +523,7 @@ export class StoreOrderDuplicatesService {
           ? {
               alternatives: others.map((other) => ({
                 id: other.id,
-                name: other.name,
+                name: otherNames.get(other.id) ?? other.name,
                 phoneMasked: maskPhone(other.mobile ?? other.phone),
               })),
             }

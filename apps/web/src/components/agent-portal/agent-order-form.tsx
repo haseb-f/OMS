@@ -408,87 +408,95 @@ export function AgentOrderForm({
             </FormSection>
           ) : (
             <FormSection title={t("agentPortal.orderForm.sections.customer")}>
-              <FieldGrid className="grid grid-cols-1 gap-x-3 gap-y-2 @md:grid-cols-2">
-                <Field size="md" data-invalid={has("customerName") ? "true" : undefined}>
-                  <Label htmlFor={`${fieldId}-name`}>
-                    {t("agentPortal.orderForm.fields.customerName")}{" "}
-                    <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id={`${fieldId}-name`}
-                    value={state.customerName}
-                    aria-invalid={has("customerName") || undefined}
-                    onChange={(event) => set({ customerName: event.target.value })}
-                  />
-                  <FieldMessage announce={false}>
-                    {has("customerName") ? t("agentPortal.orderForm.errors.customerName") : null}
-                  </FieldMessage>
-                </Field>
-                <Field size="md" data-invalid={has("country") ? "true" : undefined}>
-                  <Label htmlFor={`${fieldId}-country`}>
-                    {t("agentPortal.orderForm.fields.country")}
-                    {state.fulfillmentMethod === "SHIPPING" ? (
-                      <span className="text-destructive"> *</span>
-                    ) : null}
-                  </Label>
-                  <SearchableSelect
-                    id={`${fieldId}-country`}
-                    value={state.countryId}
-                    onValueChange={(countryId) => set({ countryId })}
-                    placeholder={t("agentPortal.leads.choose")}
-                    emptyText={t("agentPortal.leads.noCountries")}
-                    error={has("country")}
-                    options={countries.map((country) => ({
-                      value: country.id,
-                      label: localizedName(country, locale),
-                      searchText: [country.name, country.nameEn, country.code]
-                        .filter(Boolean)
-                        .join(" "),
-                    }))}
-                  />
-                  <FieldMessage announce={false}>
-                    {countries.length === 0
-                      ? t("agentPortal.leads.noCountries")
-                      : has("country")
-                        ? t("agentPortal.orderForm.errors.country")
-                        : null}
-                  </FieldMessage>
-                </Field>
-                <Field size="md" data-invalid={has("mobile") ? "true" : undefined}>
-                  <Label htmlFor={`${fieldId}-mobile`}>
-                    {t("agentPortal.orderForm.fields.mobile")}{" "}
-                    <span className="text-destructive">*</span>
-                  </Label>
-                  <OMSPhoneInput
-                    id={`${fieldId}-mobile`}
-                    value={state.mobile}
-                    onChange={(mobile) => set({ mobile })}
-                    countryCode={countryCode}
-                    // The compact calling-code selector inside the field picks the order's country
-                    // (the agent tariff and the phone read the same country).
-                    countries={countries}
-                    availableCountryCodes={countries.map((country) => country.code)}
-                    onCountryChange={(iso2) => {
-                      const match = countries.find((country) => country.code === iso2);
-                      if (match) set({ countryId: match.id });
-                    }}
-                    forceValidation={showErrors}
-                    aria-invalid={has("mobile") || undefined}
-                  />
-                  <FieldMessage announce={false}>
-                    {has("mobile") ? t("agentPortal.orderForm.errors.mobile") : null}
-                  </FieldMessage>
-                </Field>
-                <Field size="md">
-                  <Label htmlFor={`${fieldId}-city`}>
-                    {t("agentPortal.orderForm.fields.city")}
-                  </Label>
-                  <Input
-                    id={`${fieldId}-city`}
-                    value={state.city}
-                    onChange={(event) => set({ city: event.target.value })}
-                  />
-                </Field>
+              <FieldGrid className="grid grid-cols-1 items-start gap-x-3 gap-y-2 @md:grid-cols-6">
+                <div className="@md:col-span-3">
+                  <Field size="md" data-invalid={has("customerName") ? "true" : undefined}>
+                    <Label htmlFor={`${fieldId}-name`}>
+                      {t("agentPortal.orderForm.fields.customerName")}{" "}
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id={`${fieldId}-name`}
+                      value={state.customerName}
+                      aria-invalid={has("customerName") || undefined}
+                      onChange={(event) => set({ customerName: event.target.value })}
+                    />
+                    <FieldMessage announce={false}>
+                      {has("customerName") ? t("agentPortal.orderForm.errors.customerName") : null}
+                    </FieldMessage>
+                  </Field>
+                </div>
+                <div className="@md:col-span-3">
+                  <Field size="md" data-invalid={has("mobile") ? "true" : undefined}>
+                    <Label htmlFor={`${fieldId}-mobile`}>
+                      {t("agentPortal.orderForm.fields.mobile")}{" "}
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <OMSPhoneInput
+                      id={`${fieldId}-mobile`}
+                      value={state.mobile}
+                      onChange={(mobile) => set({ mobile })}
+                      countryCode={countryCode}
+                      // The compact calling-code selector inside the field picks the order's country
+                      // (the agent tariff and the phone read the same country).
+                      countries={countries}
+                      availableCountryCodes={countries.map((country) => country.code)}
+                      onCountryChange={(iso2) => {
+                        const match = countries.find((country) => country.code === iso2);
+                        if (match) set({ countryId: match.id });
+                      }}
+                      forceValidation={showErrors}
+                      aria-invalid={has("mobile") || undefined}
+                    />
+                    <FieldMessage announce={false}>
+                      {has("mobile") ? t("agentPortal.orderForm.errors.mobile") : null}
+                    </FieldMessage>
+                  </Field>
+                </div>
+                <div className="@md:col-span-2">
+                  <Field size="md" data-invalid={has("country") ? "true" : undefined}>
+                    <Label htmlFor={`${fieldId}-country`}>
+                      {t("agentPortal.orderForm.fields.country")}
+                      {state.fulfillmentMethod === "SHIPPING" ? (
+                        <span className="text-destructive"> *</span>
+                      ) : null}
+                    </Label>
+                    <SearchableSelect
+                      id={`${fieldId}-country`}
+                      value={state.countryId}
+                      onValueChange={(countryId) => set({ countryId })}
+                      placeholder={t("agentPortal.leads.choose")}
+                      emptyText={t("agentPortal.leads.noCountries")}
+                      error={has("country")}
+                      options={countries.map((country) => ({
+                        value: country.id,
+                        label: localizedName(country, locale),
+                        searchText: [country.name, country.nameEn, country.code]
+                          .filter(Boolean)
+                          .join(" "),
+                      }))}
+                    />
+                    <FieldMessage announce={false}>
+                      {countries.length === 0
+                        ? t("agentPortal.leads.noCountries")
+                        : has("country")
+                          ? t("agentPortal.orderForm.errors.country")
+                          : null}
+                    </FieldMessage>
+                  </Field>
+                </div>
+                <div className="@md:col-span-4">
+                  <Field size="md">
+                    <Label htmlFor={`${fieldId}-city`}>
+                      {t("agentPortal.orderForm.fields.city")}
+                    </Label>
+                    <Input
+                      id={`${fieldId}-city`}
+                      value={state.city}
+                      onChange={(event) => set({ city: event.target.value })}
+                    />
+                  </Field>
+                </div>
               </FieldGrid>
               <FormCardField
                 label={t("agentPortal.orderForm.fields.address")}

@@ -328,7 +328,8 @@ export function FinancialTransactionEditor({
             </label>
             <MoneyInput
               id={`${fieldId}-amount`}
-              value={state.amount}
+              // A payment / receipt amount must be > 0: unset stays empty (placeholder), never a 0 to delete.
+              value={state.amount || ""}
               disabled={!canEdit}
               aria-invalid={fieldErrors?.amount ? true : undefined}
               onChange={(event) => handlers.onAmountChange(event.target.valueAsNumber || 0)}

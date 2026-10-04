@@ -351,19 +351,18 @@ export class PhoneNumberService {
   }
 
   /**
-   * Every E.164 a typed phone can validly mean, narrowest reading first: the
-   * caller's region (the form's phone country), then the number on its own
-   * ('+…', '00…', '966…', Arabic digits), then the primary markets for a bare
-   * national number. This is the ONE identity-matching path. Matching is always
-   * on a full valid E.164 — never a suffix or a digit fragment — so a local
-   * number typed under the wrong default country still finds its customer
-   * without ever matching an unrelated one.
+   * Every E.164 a typed phone can validly mean — the ONE identity matching path.
+   * The country the user chose (the form's phone country) is authoritative when
+   * the number is valid in it: only that reading is returned. Otherwise the
+   * number on its own ("+…", "00…", "966…", Arabic digits), otherwise every
+   * valid reading in the primary markets for a bare national number (a number
+   * can be valid in two markets and the customer must be found under whichever
+   * it was saved as). Matching is always on a full valid E.164 — never a suffix
+   * or a digit fragment — so a local number typed under the wrong default
+   * country still finds its customer without matching an unrelated one.
    *
-   * `narrow` returns only the first reading (Create/Update duplicate guards,
-   * where a false positive would block a legitimate save). Recognition (the
-   * order duplicate check, advanced lookup) uses every valid reading: a number
-   * can be valid in two markets ('055…' is a Saudi mobile and an Egyptian
-   * landline) and the customer must be found under whichever it was saved as.
+   * `narrow` keeps only the first reading (Create/Update guards, where a false
+   * positive would block a legitimate save).
    */
   lookupCandidates(
     rawInput: string | null | undefined,
@@ -371,8 +370,14 @@ export class PhoneNumberService {
     narrow = false,
   ): string[] {
     if (!rawInput?.trim()) return [];
+    const hinted = regionHint
+      ? this.normalizeToE164(rawInput, regionHint)
+      : null;
+    if (hinted) return [hinted];
+    const international = this.normalizeToE164(rawInput, null);
+    if (international) return [international];
     const out = new Set<string>();
-    for (const region of [regionHint, null, ...PHONE_FALLBACK_REGIONS]) {
+    for (const region of PHONE_FALLBACK_REGIONS) {
       const e164 = this.normalizeToE164(rawInput, region);
       if (e164) out.add(e164);
       if (narrow && out.size > 0) break;

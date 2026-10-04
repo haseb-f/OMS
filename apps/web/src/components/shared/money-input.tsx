@@ -33,7 +33,16 @@ export interface MoneyInputProps extends Omit<React.ComponentProps<typeof Input>
  * data-*, disabled, ...).
  */
 export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(function MoneyInput(
-  { className, align, inputSize = "compact-md", min = 0, step = "0.01", ...props },
+  {
+    className,
+    align,
+    inputSize = "compact-md",
+    min = 0,
+    step = "0.01",
+    // Illustrative only — a placeholder is never a value and is never saved.
+    placeholder = "0.00",
+    ...props
+  },
   ref,
 ) {
   const { direction } = useLocale();
@@ -47,6 +56,7 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(fu
       dir="ltr"
       min={min}
       step={step}
+      placeholder={placeholder}
       inputSize={inputSize}
       className={cn(
         "tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
