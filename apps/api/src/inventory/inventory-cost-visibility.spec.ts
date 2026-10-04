@@ -37,8 +37,8 @@ function build(granted: string[], superAdmin = false) {
     getStockCard: jest.fn().mockResolvedValue(card),
   };
   const permissions = {
-    hasPermission: jest.fn(
-      async (_id: string, name: string) => superAdmin || granted.includes(name),
+    hasPermission: jest.fn((_id: string, name: string) =>
+      Promise.resolve(superAdmin || granted.includes(name)),
     ),
   };
   const controller = new InventoryController(
@@ -88,10 +88,7 @@ describe('inventory cost visibility', () => {
   ])('%s', (_label, granted, superAdmin, sees) => {
     it(`movements list ${sees ? 'includes' : 'withholds'} unit cost`, async () => {
       const { controller } = build(granted, superAdmin);
-      const rows = (await controller.findAllMovements(
-        {} as never,
-        user,
-      )) as Array<{
+      const rows = (await controller.findAllMovements({}, user)) as Array<{
         unitCost: number | null;
         quantity: number;
       }>;
