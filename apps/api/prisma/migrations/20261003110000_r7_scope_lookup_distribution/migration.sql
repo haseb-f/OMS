@@ -58,5 +58,8 @@ WHERE u."deleted_at" IS NULL
     OR EXISTS (
       SELECT 1 FROM "leads" l
       WHERE l."sales_employee_id" = u."id" AND l."deleted_at" IS NULL AND l."agent_id" IS NULL
+        -- System administrators are never auto-flagged for merely owning a lead; the owner
+        -- designates them explicitly (Users form) if they really take part in distribution.
+        AND u."is_super_admin" = false
     )
   );
