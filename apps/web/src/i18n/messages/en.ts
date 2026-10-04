@@ -2762,7 +2762,7 @@ const en = {
         unassigned: "Unassigned",
         tabs: {
           continuous: "Continuous",
-          hours: "24 hours",
+          hours: "All-day automatic (24 h)",
           manual: "Manual",
         },
         continuousHint: "Every new unowned Lead is assigned automatically until you turn this off.",
@@ -2799,7 +2799,7 @@ const en = {
         running: "Distribution is active",
         states: {
           continuous: "Continuous",
-          hours: "Every 24 Hours",
+          hours: "All-day automatic (24 h)",
           manual: "Manual",
           paused: "Paused",
         },
@@ -2823,13 +2823,14 @@ const en = {
           label: "Distribution",
           modes: {
             continuous: "Auto round-robin",
-            hours: "Auto for 24 hours",
+            hours: "Automatic all day (24 h)",
             manual: "Manual",
             paused: "Paused",
           },
           modeHints: {
             continuous: "Assigns pending leads now, then every new lead in turn.",
-            hours: "Assigns now and keeps running for 24 hours, then stops.",
+            hours:
+              "Assigns now and keeps assigning automatically all day — 24 hours from confirmation — then stops. Not a schedule.",
             manual: "No automatic assignment; leads are assigned by hand.",
             paused: "Stops new automatic assignments; current owners stay.",
           },

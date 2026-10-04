@@ -36,6 +36,7 @@ import { formatDate } from "@/lib/date";
 import { formatAmount } from "@/lib/money";
 import type { MessageKey } from "@/i18n/translate";
 import { InventoryStockGridCard } from "@/config/inventory/inventory-grid-cards";
+import { canViewInventoryCost, omitInventoryCostColumns } from "@/config/inventory/cost-visibility";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { useUserContext } from "@/providers/user-context";
 
@@ -54,6 +55,8 @@ function InventoryStockPageContent() {
   const { hasPermission } = useUserContext();
   // The API enforces `settings.manage` on the company-wide costing method (SEC-03).
   const canManageValuation = hasPermission("settings.manage");
+  // Valuation data: shown only with a costing permission (the API enforces the same rule).
+  const canViewCost = canViewInventoryCost(hasPermission);
   const [rows, setRows] = useState<StockCardRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [valuationMethod, setValuationMethod] = useState<InventoryValuationMethod | null>(null);
@@ -93,7 +96,7 @@ function InventoryStockPageContent() {
     }
   };
 
-  const columns = useMemo<ColumnDef<StockCardRow, unknown>[]>(
+  const allColumns = useMemo<ColumnDef<StockCardRow, unknown>[]>(
     () => [
       {
         id: "productName",
@@ -173,6 +176,11 @@ function InventoryStockPageContent() {
       },
     ],
     [t],
+  );
+  // Cost columns (and their export columns) exist only for a caller who may see valuation data.
+  const columns = useMemo(
+    () => omitInventoryCostColumns(allColumns, canViewCost),
+    [allColumns, canViewCost],
   );
 
   return (

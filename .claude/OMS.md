@@ -45,7 +45,7 @@ Icons · Motion · next-themes.
   Blue is interaction colour, never status; green / red / amber keep their meanings; text inputs and menu
   content are never recoloured.
 - The lead-distribution control shows one colour per displayed state (§12.20): green continuous, violet
-  24-hour, slate manual, amber paused, red blocked (failure beats the mode); the pending count is separate.
+  all-day automatic (24 h), slate manual, amber paused, red blocked (failure beats the mode); the pending count is separate.
 - Every list has a Table / Grid switch (R9, §12.19; cards are flat, tinted by the entity's primary real state per
   `specs/round9-brand-grid/card-palettes.md`, neutral when there is none): `EnterpriseDataTable` offers it by default and draws
   the automatic record card from column types unless the page supplies `renderGridCard`

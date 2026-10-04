@@ -27,6 +27,8 @@ import { formatDateTime } from "@/lib/date";
 import { formatAmount } from "@/lib/money";
 import type { MessageKey } from "@/i18n/translate";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { useUserContext } from "@/providers/user-context";
+import { canViewInventoryCost, omitInventoryCostColumns } from "@/config/inventory/cost-visibility";
 
 /** Latin digits in both languages (shared formatter); unknown cost stays "—". */
 function formatMoney(value: number | null) {
@@ -51,6 +53,9 @@ function toExportRows<TRow>(
  * expose.
  */
 function ReportsInventoryPageContent() {
+  const { hasPermission } = useUserContext();
+  // Average cost / stock value are valuation data: only with a costing permission (the API enforces the same rule).
+  const canViewCost = canViewInventoryCost(hasPermission);
   const { t } = useLocale();
   const [movements, setMovements] = useState<InventoryMovementRow[]>([]);
   const [stockCards, setStockCards] = useState<StockCard[]>([]);
@@ -184,7 +189,7 @@ function ReportsInventoryPageContent() {
     [t],
   );
 
-  const stockColumns = useMemo<ColumnDef<StockCard, unknown>[]>(
+  const allStockColumns = useMemo<ColumnDef<StockCard, unknown>[]>(
     () => [
       {
         id: "sku",
@@ -231,6 +236,10 @@ function ReportsInventoryPageContent() {
       },
     ],
     [t],
+  );
+  const stockColumns = useMemo(
+    () => omitInventoryCostColumns(allStockColumns, canViewCost),
+    [allStockColumns, canViewCost],
   );
 
   const warehouseBalanceColumns = useMemo<ColumnDef<WarehouseBalanceRow, unknown>[]>(

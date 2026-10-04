@@ -28,6 +28,12 @@ import {
 } from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
+import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
+import {
+  INVENTORY_COST_PERMISSIONS,
+  redactMovementCost,
+  redactStockCardCost,
+} from './inventory-cost-visibility';
 
 /**
  * Business operations only — no generic CRUD for inventory movements.
@@ -39,7 +45,18 @@ import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @PermissionModule('inventory')
 export class InventoryController {
-  constructor(private readonly inventoryService: InventoryService) {}
+  constructor(
+    private readonly inventoryService: InventoryService,
+    private readonly permissions: PermissionsResolverService,
+  ) {}
+
+  /** Cost / valuation fields are only for callers holding an existing costing permission (see inventory-cost-visibility.ts). */
+  private async canViewCost(user: JwtPayload): Promise<boolean> {
+    for (const name of INVENTORY_COST_PERMISSIONS) {
+      if (await this.permissions.hasPermission(user.sub, name)) return true;
+    }
+    return false;
+  }
 
   /** "Opening Inventory" is its own Permission Matrix row (Part 3), separate from "Inventory" — method-level override. */
   @Post('opening-balance')
@@ -89,24 +106,44 @@ export class InventoryController {
   }
 
   @Get('movements')
-  findAllMovements(@Query() query: FindMovementsQueryDto) {
-    return this.inventoryService.findAllMovements(query);
+  async findAllMovements(
+    @Query() query: FindMovementsQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const [movements, canViewCost] = await Promise.all([
+      this.inventoryService.findAllMovements(query),
+      this.canViewCost(user),
+    ]);
+    return canViewCost ? movements : movements.map(redactMovementCost);
   }
 
   @Get('movements/:id')
-  findOneMovement(@Param('id') id: string) {
-    return this.inventoryService.findOneMovement(id);
+  async findOneMovement(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const movement = await this.inventoryService.findOneMovement(id);
+    return (await this.canViewCost(user))
+      ? movement
+      : redactMovementCost(movement);
   }
 
   /** Product Stock Card — every inventory product's on-hand/reserved/available/cost/last movement, in one call. */
   @Get('stock-cards')
-  getStockCards() {
-    return this.inventoryService.getStockCards();
+  async getStockCards(@CurrentUser() user: JwtPayload) {
+    const cards = await this.inventoryService.getStockCards();
+    return (await this.canViewCost(user))
+      ? cards
+      : cards.map(redactStockCardCost);
   }
 
   @Get('stock-card/:productId')
-  getStockCard(@Param('productId') productId: string) {
-    return this.inventoryService.getStockCard(productId);
+  async getStockCard(
+    @Param('productId') productId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const card = await this.inventoryService.getStockCard(productId);
+    return (await this.canViewCost(user)) ? card : redactStockCardCost(card);
   }
 
   /** Warehouse Balance report (TASK-029) — on-hand quantity per product, per warehouse. */

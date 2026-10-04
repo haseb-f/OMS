@@ -54,6 +54,7 @@ import {
 } from "@/config/traceability/record-routes";
 import { movementTypeTone } from "@/config/inventory/movement-type";
 import { InventoryMovementGridCard } from "@/config/inventory/inventory-grid-cards";
+import { canViewInventoryCost, omitInventoryCostColumns } from "@/config/inventory/cost-visibility";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
@@ -84,6 +85,8 @@ function InventoryMovementsPageContent() {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const canCreate = hasPermission("inventory.movements.create");
+  // Valuation data: shown only with a costing permission (the API enforces the same rule).
+  const canViewCost = canViewInventoryCost(hasPermission);
   const [rows, setRows] = useState<InventoryMovementRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [openingOpen, setOpeningOpen] = useState(false);
@@ -129,7 +132,7 @@ function InventoryMovementsPageContent() {
     void load();
   }, [load]);
 
-  const columns = useMemo<ColumnDef<InventoryMovementRow, unknown>[]>(
+  const allColumns = useMemo<ColumnDef<InventoryMovementRow, unknown>[]>(
     () => [
       {
         id: "movementNumber",
@@ -308,6 +311,11 @@ function InventoryMovementsPageContent() {
       },
     ],
     [t],
+  );
+  // Cost columns (and their export columns) exist only for a caller who may see valuation data.
+  const columns = useMemo(
+    () => omitInventoryCostColumns(allColumns, canViewCost),
+    [allColumns, canViewCost],
   );
 
   const filteredRows = useMemo(() => {

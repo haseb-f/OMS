@@ -888,15 +888,15 @@ The control is the outline button structurally; its surface is the recipe `[data
 The state model is `RuntimeStatus` (`CONTINUOUS | TIME_LIMITED | MANUAL | PAUSED`) plus the operational
 condition "blocked" (an automatic mode whose last run failed / cannot assign) and the two read states.
 
-| Displayed state | Colour                           | Label (button)                          | When                                                                                                 |
-| --------------- | -------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| continuous      | **green** (`--success`)          | Distribution active                     | auto round-robin, no failure                                                                         |
-| timeLimited     | **violet** (`--state-scheduled`) | Distribution active until {time}        | the 24-hour automatic mode (the only time-bound mode; there is no scheduler)                         |
-| manual          | **slate** (`--state-manual`)     | Distribution manual                     | no automatic assignment, by choice                                                                   |
-| paused          | **amber** (`--warning`)          | Distribution paused                     | stopped; an expired 24-hour mode also reads paused                                                   |
-| blocked         | **red** (`--destructive`)        | Distribution blocked · {mode}           | an AUTOMATIC mode with a failure — **a failure beats the mode** in colour; the mode is still written |
-| unavailable     | dashed neutral outline           | Distribution status unavailable · Retry | the snapshot could not be read (no state is claimed)                                                 |
-| loading         | quiet outline                    | Loading distribution status…            | first snapshot pending                                                                               |
+| Displayed state | Colour                           | Label (button)                          | When                                                                                                                      |
+| --------------- | -------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| continuous      | **green** (`--success`)          | Distribution active                     | auto round-robin, no failure                                                                                              |
+| timeLimited     | **violet** (`--state-scheduled`) | Distribution active until {time}        | the all-day automatic mode (24 h from confirmation; the only time-bound mode — it is NOT a schedule, no scheduler exists) |
+| manual          | **slate** (`--state-manual`)     | Distribution manual                     | no automatic assignment, by choice                                                                                        |
+| paused          | **amber** (`--warning`)          | Distribution paused                     | stopped; an expired 24-hour mode also reads paused                                                                        |
+| blocked         | **red** (`--destructive`)        | Distribution blocked · {mode}           | an AUTOMATIC mode with a failure — **a failure beats the mode** in colour; the mode is still written                      |
+| unavailable     | dashed neutral outline           | Distribution status unavailable · Retry | the snapshot could not be read (no state is claimed)                                                                      |
+| loading         | quiet outline                    | Loading distribution status…            | first snapshot pending                                                                                                    |
 
 The pending-lead count is its own chip inside the button — a non-zero backlog alone is never "blocked".
 Selecting a mode in the dialog previews it, Confirm applies it, Cancel changes nothing; the button and the
