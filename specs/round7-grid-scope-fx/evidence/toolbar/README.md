@@ -78,6 +78,9 @@ Full viewport plus a `-toolbar` crop of the first `ListToolbar` for each. `befor
 | Leads, Arabic, 375 (mobile)                                 | `before-leads-ar-375.png`          | `after-leads-ar-375.png`          |
 | Store Orders, Arabic, 375 (mobile)                          | `before-orders-ar-375.png`         | `after-orders-ar-375.png`         |
 | Leads, English, 1440, dark mode                             | `before-leads-en-1440-dark.png`    | `after-leads-en-1440-dark.png`    |
+| Agent portal — Leads, Arabic RTL, 1440 (agent persona)      | —                                  | `after-agent-leads-ar-1440.png`   |
+| Agent portal — Orders, Arabic RTL, 1440 (agent persona)     | —                                  | `after-agent-orders-ar-1440.png`  |
+| Agent portal — Leads, English LTR, 1440 (agent persona)     | —                                  | `after-agent-leads-en-1440.png`   |
 
 Tone assignment observed in the after captures (logical order): Leads — Status 1, Follow-up
 classification 2, Follow-up 3, Assigned employee 4, phone "Filters" 5 (hidden at this width),
@@ -85,10 +88,7 @@ Columns 1. Store Orders — Payment status 1 … Agent 5, Date range 1, Cost com
 Duplicate customers 3, phone "Filters" 4, Columns 5 ("Loss making only" toggle and the
 `aria-pressed` "Duplicate review" stay exempt).
 
-**Agent interface: not captured.** `oms_r7_int` contains the demo agent personas
-(`agent-a-admin.demo-agt@oms.local` …) but their password was set by whoever ran
-`ensure-agents-demo.ts` against that database and is not available to this session; the database
-is read-only for this task, so no credential was reset. The agent tables (`/agent/leads`,
-`/agent/orders`) render through the same `EnterpriseDataTable` → `ListToolbar`, so they receive
-the identical sequence (see the `after-leads-*` captures); the owner can confirm with an agent
-login.
+**Agent interface.** Captured after-only (the mechanism is shared, so a before is redundant) as
+`agent-a-admin.demo-agt@oms.local` against the verification clone `oms_r7_final`. Observed order:
+Agent Leads — Status 1, phone "Filters" 2, Columns 3; Agent Orders — Declared payment 1,
+Financial status 2, Fulfilment 3, Method 4, Date range 5, phone "Filters" 1, Columns 2.
