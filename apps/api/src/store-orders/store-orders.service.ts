@@ -1,3 +1,10 @@
+import { LookupThrottleService } from '../customer-lookup/lookup-throttle.service';
+import { CustomerLookupService } from '../customer-lookup/customer-lookup.service';
+import {
+  maskName,
+  maskPhone,
+  orderStatusBucket,
+} from '../customer-lookup/customer-lookup.util';
 import {
   BadRequestException,
   ConflictException,
@@ -308,6 +315,9 @@ export class StoreOrdersService {
     /** Agents milestone — pickup handover hook (B2). Optional only so unit specs can omit it. */
     @Optional()
     private readonly agentFulfillment?: AgentFulfillmentService,
+    /** R7 - shared lookup budget + disclosure rule. Optional only so unit specs can omit it. */
+    @Optional() private readonly lookupThrottle?: LookupThrottleService,
+    @Optional() private readonly customerLookup?: CustomerLookupService,
   ) {}
 
   /** The customer so far has agent orders only (no company order) — outside the company scope. */
@@ -1105,6 +1115,12 @@ export class StoreOrdersService {
    * or not — is written to `GlobalLookupAudit`.
    */
   async globalLookupByOrderNumber(orderNumber: string, userId: string) {
+    const reservation = await this.lookupThrottle?.reserve(
+      userId,
+      'GLOBAL_ORDER_LOOKUP',
+      'ORDER_NUMBER',
+      orderNumber,
+    );
     const order = await this.prisma.storeOrder.findFirst({
       where: {
         deletedAt: null,
@@ -1119,24 +1135,50 @@ export class StoreOrdersService {
         partner: {
           select: { id: true, name: true, phone: true, mobile: true },
         },
+        fulfillmentStatus: { select: { code: true } },
         items: { include: { product: true }, take: 5 },
         shipments: { orderBy: { attemptNumber: 'desc' }, take: 1 },
       },
     });
 
-    await this.prisma.globalLookupAudit.create({
-      data: {
-        userId,
-        action: 'GLOBAL_ORDER_LOOKUP',
-        method: 'ORDER_NUMBER',
-        queryValue: orderNumber,
+    if (reservation) {
+      await this.lookupThrottle?.finalise(reservation.reservationId, {
+        outcome: order ? 'MATCH' : 'NO_MATCH',
+        resultCount: order ? 1 : 0,
         matchedStoreOrderId: order?.id,
-      },
-    });
+      });
+    } else {
+      await this.prisma.globalLookupAudit.create({
+        data: {
+          userId,
+          action: 'GLOBAL_ORDER_LOOKUP',
+          method: 'ORDER_NUMBER',
+          queryValue: orderNumber,
+          matchedStoreOrderId: order?.id,
+        },
+      });
+    }
 
     if (!order) return null;
 
+    // R7 - an order the caller cannot open under their own scope is shown in
+    // the minimal masked shape only (no products, payment or shipping detail).
+    const mayOpen =
+      (await this.customerLookup?.callerCanOpenOrder(userId, order.id)) ??
+      false;
+    if (!mayOpen) {
+      return {
+        restricted: true as const,
+        orderNumber: order.internalOrderId,
+        statusBucket: orderStatusBucket(order.fulfillmentStatus?.code),
+        partialName: maskName(order.partner.name),
+        maskedPhone: maskPhone(order.partner.mobile ?? order.partner.phone),
+        notAssignedToYou: true as const,
+      };
+    }
+
     return {
+      restricted: false as const,
       id: order.id,
       orderNumber: order.internalOrderId,
       orderDate: order.orderDate,

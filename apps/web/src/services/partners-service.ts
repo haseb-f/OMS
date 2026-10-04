@@ -210,7 +210,16 @@ export interface CustomerGlobalLookupOrderSummary {
   shippingStatus: string | null;
 }
 
-export interface CustomerGlobalLookupResult {
+/** Somebody else’s customer: masked identity only (R7). */
+export interface CustomerGlobalLookupRestricted {
+  restricted: true;
+  partialName: string;
+  maskedPhone: string | null;
+  notAssignedToYou: true;
+}
+
+export interface CustomerGlobalLookupFull {
+  restricted: false;
   id: string;
   partnerNumber: string;
   name: string;
@@ -223,6 +232,8 @@ export interface CustomerGlobalLookupResult {
   lastOrder: CustomerGlobalLookupOrderSummary | null;
   recentOrders: CustomerGlobalLookupOrderSummary[];
 }
+
+export type CustomerGlobalLookupResult = CustomerGlobalLookupFull | CustomerGlobalLookupRestricted;
 
 /**
  * Role-scoped wrapper for `MasterDataPage` — Customers/Suppliers pages pass

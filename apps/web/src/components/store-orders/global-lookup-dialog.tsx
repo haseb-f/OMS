@@ -153,7 +153,11 @@ export function GlobalLookupDialog({
           </p>
         )}
 
-        {state === "customer-found" && customerResult && (
+        {state === "customer-found" && customerResult?.restricted && (
+          <RestrictedCard title={customerResult.partialName} phone={customerResult.maskedPhone} />
+        )}
+
+        {state === "customer-found" && customerResult && !customerResult.restricted && (
           <div className="flex flex-col gap-3 rounded-md border border-border p-3">
             <div className="flex flex-wrap items-center gap-2">
               <EnterpriseBadge variant="info" className="gap-1">
@@ -248,7 +252,16 @@ export function GlobalLookupDialog({
           </div>
         )}
 
-        {state === "order-found" && orderResult && (
+        {state === "order-found" && orderResult?.restricted && (
+          <RestrictedCard
+            title={orderResult.partialName}
+            phone={orderResult.maskedPhone}
+            reference={orderResult.orderNumber}
+            status={t(`customerLookup.status.${orderResult.statusBucket}`)}
+          />
+        )}
+
+        {state === "order-found" && orderResult && !orderResult.restricted && (
           <div className="flex flex-col gap-2 rounded-md border border-border p-3">
             <div className="flex flex-wrap items-center gap-2">
               <EnterpriseBadge variant="secondary" dir="ltr">
@@ -306,5 +319,42 @@ export function GlobalLookupDialog({
         )}
       </div>
     </EnterpriseModal>
+  );
+}
+
+/** Somebody else’s customer/order: masked, read-only, no actions (R7). */
+function RestrictedCard({
+  title,
+  phone,
+  reference,
+  status,
+}: {
+  title: string;
+  phone: string | null;
+  reference?: string;
+  status?: string;
+}) {
+  const { t } = useLocale();
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <EnterpriseBadge variant="warning">{t("customerLookup.notAssignedToYou")}</EnterpriseBadge>
+        <span className="text-sm font-medium">{title}</span>
+        {phone ? (
+          <span dir="ltr" className="text-xs text-muted-foreground">
+            {phone}
+          </span>
+        ) : null}
+      </div>
+      {reference ? (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span dir="ltr" className="font-medium">
+            {reference}
+          </span>
+          {status ? <EnterpriseBadge variant="secondary">{status}</EnterpriseBadge> : null}
+        </div>
+      ) : null}
+      <p className="text-xs text-muted-foreground">{t("customerLookup.noAccess")}</p>
+    </div>
   );
 }

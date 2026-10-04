@@ -23,7 +23,7 @@ WHERE NOT EXISTS (SELECT 1 FROM "permissions" p WHERE p."name" = 'customers.look
 --    ALL hold: active, not locked, not deleted, INTERNAL, currently holds
 --    crm.leads.edit (so today's pool is not widened), AND has a Sales
 --    footprint: member/manager of an active Sales Team, OR is in the SALES
---    department, OR holds the Sales Manager job title. Everyone else stays
+--    department, OR holds the Sales Manager job title, OR already owns a company lead. Everyone else stays
 --    false (Finance / Shipping / HR / Operations are never auto-flagged).
 UPDATE "users" u
 SET "sales_distribution_eligible" = true
@@ -51,5 +51,12 @@ WHERE u."deleted_at" IS NULL
     )
     OR EXISTS (
       SELECT 1 FROM "job_titles" j WHERE j."id" = u."job_title_id" AND j."code" = 'SALES_MANAGER'
+    )
+    -- Behavioural footprint (department / job-title CODES differ per tenant: Production's
+    -- Sales department is DEPT-0001, not DEPT-SALES): anyone who already owns a company
+    -- lead is doing sales work today and must not silently drop out of the pool.
+    OR EXISTS (
+      SELECT 1 FROM "leads" l
+      WHERE l."sales_employee_id" = u."id" AND l."deleted_at" IS NULL AND l."agent_id" IS NULL
     )
   );

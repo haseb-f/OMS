@@ -5,7 +5,10 @@
  */
 
 export const MIN_PHONE_DIGITS = 7;
-export const MIN_NAME_CHARS = 3;
+/** A name query is a person's name, not a prefix: two words, six letters in all. */
+export const MIN_NAME_WORDS = 2;
+export const MIN_NAME_WORD_CHARS = 2;
+export const MIN_NAME_CHARS = 6;
 export const MAX_QUERY_CHARS = 60;
 export const MAX_RESULTS = 5;
 
@@ -17,7 +20,7 @@ export const RATE_LIMIT_MAX_PER_DAY = 100;
 
 export type LookupQuery =
   | { kind: 'PHONE'; value: string; digits: string }
-  | { kind: 'NAME'; value: string }
+  | { kind: 'NAME'; value: string; words: string[] }
   | { kind: 'INVALID'; reason: 'TOO_SHORT' | 'TOO_LONG' | 'EMPTY' };
 
 const PHONE_SHAPE = /^[+\d\s().-]+$/;
@@ -36,10 +39,15 @@ export function classifyQuery(raw: string | null | undefined): LookupQuery {
     }
     return { kind: 'PHONE', value, digits };
   }
-  if ([...value.replace(/\s/g, '')].length < MIN_NAME_CHARS) {
+  const words = value.split(' ').filter(Boolean);
+  if (
+    words.length < MIN_NAME_WORDS ||
+    words.some((word) => [...word].length < MIN_NAME_WORD_CHARS) ||
+    [...words.join('')].length < MIN_NAME_CHARS
+  ) {
     return { kind: 'INVALID', reason: 'TOO_SHORT' };
   }
-  return { kind: 'NAME', value };
+  return { kind: 'NAME', value, words };
 }
 
 /** "+966501234567" -> "+966•••••567": country prefix + last three digits only. */

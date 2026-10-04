@@ -247,6 +247,9 @@ describe('R7 sales scope isolation (HTTP)', () => {
     ]);
     // Team manager WITHOUT crm.leads.manage — manages a team with A only.
     await makeUser('tm', ['crm.leads.view', 'store-orders.view']);
+    // Own-scope user who may post receipts: the permission must never reach
+    // an order outside their scope (review finding, commit 552114e).
+    await makeUser('receipts', ['store-orders.view', 'sales.receipts.create']);
     // Team manager WITH the explicit supervisory grant.
     await makeUser('tmManage', [
       'crm.leads.view',
@@ -557,6 +560,34 @@ describe('R7 sales scope isolation (HTTP)', () => {
         where: { id: order.B },
       });
       expect(row.deletedAt).toBeNull();
+    });
+
+    it('a receipts-permission user cannot post a payment on an order outside their scope', async () => {
+      // A REAL payment source: with a random id the request would fail on the
+      // source lookup and pass for the wrong reason, hiding a missing scope check.
+      const source = await prisma.paymentSource.findFirstOrThrow({
+        where: { deletedAt: null, isActive: true },
+      });
+      const account = await prisma.receivingAccount.findFirstOrThrow({
+        where: { deletedAt: null, isActive: true },
+      });
+      const before = await prisma.payment.count({
+        where: { storeOrderId: order.B },
+      });
+      const res = await request(http)
+        .post(`/store-orders/${order.B}/payments`)
+        .set(auth('receipts'))
+        .send({
+          paymentDate: new Date().toISOString(),
+          amount: 10,
+          paymentSourceId: source.id,
+          receivingAccountId: account.id,
+          senderName: 'R7 scope test',
+        });
+      expect([403, 404]).toContain(res.status);
+      expect(
+        await prisma.payment.count({ where: { storeOrderId: order.B } }),
+      ).toBe(before);
     });
 
     it('the duplicate-review filter needs its own permission and never becomes an unscoped list', async () => {

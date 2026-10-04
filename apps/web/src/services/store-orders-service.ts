@@ -357,7 +357,18 @@ export interface StoreOrderIdsResult {
  * `externalOrderId` is the order's unique identity; the Customer link is
  * matched by phone only during import, never re-derived here.
  */
-export interface OrderGlobalLookupResult {
+/** An order the caller cannot open: masked identity + coarse status only (R7). */
+export interface OrderGlobalLookupRestricted {
+  restricted: true;
+  orderNumber: string;
+  statusBucket: "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "RETURNED";
+  partialName: string;
+  maskedPhone: string | null;
+  notAssignedToYou: true;
+}
+
+export interface OrderGlobalLookupFull {
+  restricted: false;
   id: string;
   orderNumber: string;
   orderDate: string;
@@ -368,6 +379,8 @@ export interface OrderGlobalLookupResult {
   shippingStage: string;
   shippingStatus: string | null;
 }
+
+export type OrderGlobalLookupResult = OrderGlobalLookupFull | OrderGlobalLookupRestricted;
 
 export const storeOrdersService = {
   /** ADR-0018 — the one canonical Order Economics read; never recomputed client-side. */

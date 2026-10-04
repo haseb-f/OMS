@@ -203,6 +203,8 @@ describe('Advanced customer lookup (HTTP)', () => {
     await makeUser('searcher', ['customers.lookup_advanced']);
     await makeUser('owner', [
       'customers.lookup_advanced',
+      'customers.lookup_global',
+      'orders.lookup_global',
       'store-orders.view',
       'crm.leads.view',
     ]);
@@ -216,6 +218,12 @@ describe('Advanced customer lookup (HTTP)', () => {
     ]);
     await makeUser('rateLimited', ['customers.lookup_advanced']);
     await makeUser('rateLimitedOther', ['customers.lookup_advanced']);
+    await makeUser('burst', ['customers.lookup_advanced']);
+    await makeUser('globalOnly', [
+      'customers.lookup_global',
+      'orders.lookup_global',
+      'store-orders.view',
+    ]);
 
     const agentPartner = await prisma.partner.create({
       data: {
@@ -515,6 +523,163 @@ describe('Advanced customer lookup (HTTP)', () => {
 
       const other = await lookup('rateLimitedOther', phones.internal.national);
       expect(other.status).toBe(200);
+    });
+  });
+
+  describe('R7 review fixes', () => {
+    it('parallel burst cannot overshoot the per-window budget (atomic reservation)', async () => {
+      const burst = await Promise.all(
+        Array.from({ length: RATE_LIMIT_MAX_PER_WINDOW + 10 }, () =>
+          lookup('burst', phones.missing.national),
+        ),
+      );
+      const ok = burst.filter((r) => r.status === 200).length;
+      const limited = burst.filter((r) => r.status === 429).length;
+      expect(ok).toBe(RATE_LIMIT_MAX_PER_WINDOW);
+      expect(limited).toBe(10);
+      // No reservation is left PENDING once the calls settle.
+      expect(
+        await prisma.globalLookupAudit.count({
+          where: { userId: ids.burst, outcome: 'PENDING' },
+        }),
+      ).toBe(0);
+    });
+
+    it('a single word (a sweepable prefix) is refused', async () => {
+      const res = await lookup('searcher', 'Sweep');
+      expect(res.status).toBe(400);
+    });
+
+    it('a broad name matching more than the result cap returns no rows at all', async () => {
+      const common = `Sweep${suffix}`;
+      for (let i = 0; i < 7; i += 1) {
+        const partner = await prisma.partner.create({
+          data: {
+            name: `${common} Alpha${i}x`,
+            partnerNumber: `R7L-SW-${suffix}-${i}`,
+            roles: { create: { role: 'CUSTOMER' } },
+          },
+        });
+        partnerIds.push(partner.id);
+      }
+      const broad = await lookup('searcher', `${common} Alpha`);
+      expect(broad.status).toBe(200);
+      const body = broad.body as { matches: unknown[]; capped: boolean };
+      expect(body.matches).toHaveLength(0);
+      expect(body.capped).toBe(true);
+      // A specific full name still finds its customer.
+      const exact = await lookup('searcher', `${common} Alpha3x`);
+      expect((exact.body as { matches: unknown[] }).matches).toHaveLength(1);
+    });
+
+    it('a phone owned by a non-customer partner (supplier) is not a discovery hit', async () => {
+      const supplierPhone = nationalAndE164();
+      const supplier = await prisma.partner.create({
+        data: {
+          name: `R7 Lookup Supplier ${suffix}`,
+          partnerNumber: `R7L-SUP-${suffix}`,
+          roles: { create: { role: 'SUPPLIER' } },
+        },
+      });
+      partnerIds.push(supplier.id);
+      await prisma.partnerPhoneKey.create({
+        data: {
+          phoneE164: supplierPhone.e164,
+          partnerId: supplier.id,
+          kind: 'MOBILE',
+        },
+      });
+      const res = await lookup('searcher', supplierPhone.national);
+      expect(res.status).toBe(200);
+      expect((res.body as { exists: boolean }).exists).toBe(false);
+    });
+
+    it('legacy phone lookup: somebody else’s customer is masked, the caller’s own is full', async () => {
+      const other = await request(http)
+        .get('/partners/global-lookup')
+        .query({ phone: phones.internal.national })
+        .set(auth('globalOnly'));
+      expect(other.status).toBe(200);
+      const masked = other.body as Record<string, unknown>;
+      expect(masked.restricted).toBe(true);
+      expect(masked.notAssignedToYou).toBe(true);
+      for (const forbidden of [
+        'id',
+        'address',
+        'city',
+        'recentOrders',
+        'lastOrder',
+        'name',
+        'phone',
+        'mobile',
+      ]) {
+        expect(masked).not.toHaveProperty(forbidden);
+      }
+      expect(JSON.stringify(masked)).not.toContain(customer.internal);
+      expect(JSON.stringify(masked)).not.toContain(phones.internal.e164);
+
+      const mine = await request(http)
+        .get('/partners/global-lookup')
+        .query({ phone: phones.internal.national })
+        .set(auth('owner'));
+      expect(mine.status).toBe(200);
+      expect((mine.body as { restricted: boolean }).restricted).toBe(false);
+      expect((mine.body as { name: string }).name).toBe(customer.internal);
+    });
+
+    it('legacy phone lookup never returns an agent-only customer', async () => {
+      const res = await request(http)
+        .get('/partners/global-lookup')
+        .query({ phone: phones.agentOnly.national })
+        .set(auth('owner'));
+      expect(res.status).toBe(200);
+      expect(
+        res.body === null || Object.keys(res.body as object).length === 0,
+      ).toBe(true);
+    });
+
+    it('legacy order-number lookup: masked for another owner’s order, full for the owner', async () => {
+      const other = await request(http)
+        .get('/store-orders/global-lookup')
+        .query({ orderNumber: orderNumber.internal })
+        .set(auth('globalOnly'));
+      expect(other.status).toBe(200);
+      const masked = other.body as Record<string, unknown>;
+      expect(masked.restricted).toBe(true);
+      expect(masked.orderNumber).toBe(orderNumber.internal);
+      for (const forbidden of [
+        'id',
+        'products',
+        'paymentStatus',
+        'shippingStage',
+        'customerName',
+        'customerPhone',
+        'orderDate',
+      ]) {
+        expect(masked).not.toHaveProperty(forbidden);
+      }
+      const mine = await request(http)
+        .get('/store-orders/global-lookup')
+        .query({ orderNumber: orderNumber.internal })
+        .set(auth('owner'));
+      expect((mine.body as { restricted: boolean }).restricted).toBe(false);
+    });
+
+    it('legacy lookups draw on the same audited budget as the advanced lookup', async () => {
+      const before = await prisma.globalLookupAudit.count({
+        where: { userId: ids.globalOnly },
+      });
+      expect(before).toBeGreaterThanOrEqual(2);
+      const rows = await prisma.globalLookupAudit.findMany({
+        where: { userId: ids.globalOnly },
+      });
+      expect(rows.every((row) => row.outcome !== 'PENDING')).toBe(true);
+      expect(rows.some((row) => row.action === 'GLOBAL_CUSTOMER_LOOKUP')).toBe(
+        true,
+      );
+      expect(rows.some((row) => row.action === 'GLOBAL_ORDER_LOOKUP')).toBe(
+        true,
+      );
     });
   });
 });

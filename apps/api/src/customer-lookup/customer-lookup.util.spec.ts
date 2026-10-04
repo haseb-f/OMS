@@ -24,11 +24,18 @@ describe('customer lookup helpers', () => {
       });
     });
 
-    it('accepts a name of at least 3 letters (Arabic included) and rejects shorter', () => {
-      expect(classifyQuery('Ahm')).toMatchObject({ kind: 'NAME' });
-      expect(classifyQuery('أحمد')).toMatchObject({ kind: 'NAME' });
-      expect(classifyQuery('Al')).toMatchObject({ kind: 'INVALID' });
-      expect(classifyQuery('أح')).toMatchObject({ kind: 'INVALID' });
+    it('accepts only a first-and-last name (Arabic included), never a bare prefix', () => {
+      expect(classifyQuery('Ahmed Salem')).toMatchObject({
+        kind: 'NAME',
+        words: ['Ahmed', 'Salem'],
+      });
+      expect(classifyQuery('أحمد سالم')).toMatchObject({ kind: 'NAME' });
+      // A single word, however long, is a sweepable prefix — refused.
+      expect(classifyQuery('Ahmed')).toMatchObject({ kind: 'INVALID' });
+      expect(classifyQuery('أحمد')).toMatchObject({ kind: 'INVALID' });
+      // Each word needs two letters and the whole name six.
+      expect(classifyQuery('A Salem')).toMatchObject({ kind: 'INVALID' });
+      expect(classifyQuery('Al Ro')).toMatchObject({ kind: 'INVALID' });
     });
 
     it('rejects empty and over-long input', () => {

@@ -1,9 +1,13 @@
+import { LookupThrottleService } from '../customer-lookup/lookup-throttle.service';
+import { CustomerLookupService } from '../customer-lookup/customer-lookup.service';
+import { maskName, maskPhone } from '../customer-lookup/customer-lookup.util';
 import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import {
   PartnerRoleType,
@@ -137,6 +141,9 @@ export class PartnersService extends MasterDataCrudService<
     activityLog: MasterDataActivityLogService,
     private readonly numberingEngine: NumberingEngineService,
     private readonly phoneNumberService: PhoneNumberService,
+    /** R7 - shared lookup budget + disclosure rule. Optional only so unit specs can omit it. */
+    @Optional() private readonly lookupThrottle?: LookupThrottleService,
+    @Optional() private readonly customerLookup?: CustomerLookupService,
   ) {
     super(prisma, activityLog);
   }
@@ -748,12 +755,31 @@ export class PartnersService extends MasterDataCrudService<
     // country-agnostic behavior `findDuplicate`/`lookupByPhone` rely on for
     // Create/Update duplicate checks across every country.
     const normalized = this.phoneNumberService.normalizeToE164(phone, 'SA');
+    // R7 - one shared per-user budget (atomic) for every lookup route.
+    const reservation = await this.lookupThrottle?.reserve(
+      userId,
+      'GLOBAL_CUSTOMER_LOOKUP',
+      'PHONE',
+      normalized ?? phone,
+    );
     const matches =
       (await this.findPhoneMatches([phone], undefined, 'SA'))[0] ??
       (await this.findPhoneMatches([phone], undefined, 'EG'))[0] ??
       (await this.findPhoneMatches([phone], undefined, 'AE'))[0] ??
       (await this.findPhoneMatches([phone]))[0];
     let match: typeof matches | null = matches ?? null;
+
+    // R7 — customers only: a supplier / employee / investor phone is never a
+    // discovery hit.
+    if (match) {
+      const isCustomer = await this.prisma.partner.count({
+        where: {
+          id: match.id,
+          roles: { some: { role: PartnerRoleType.CUSTOMER } },
+        },
+      });
+      if (isCustomer === 0) match = null;
+    }
 
     // R7 — internal data only: a customer whose whole footprint belongs to an
     // agent (agent orders/leads, none of ours) is not visible to company staff.
@@ -789,17 +815,43 @@ export class PartnersService extends MasterDataCrudService<
       }
     }
 
-    await this.prisma.globalLookupAudit.create({
-      data: {
-        userId,
-        action: 'GLOBAL_CUSTOMER_LOOKUP',
-        method: 'PHONE',
+    const mayOpen = match
+      ? ((await this.customerLookup?.callerCanOpenPartner(userId, match.id)) ??
+        false)
+      : false;
+
+    if (reservation) {
+      await this.lookupThrottle?.finalise(reservation.reservationId, {
+        outcome: match ? 'MATCH' : 'NO_MATCH',
+        resultCount: match ? 1 : 0,
         queryValue: normalized ?? phone,
         matchedPartnerId: match?.id,
-      },
-    });
+      });
+    } else {
+      await this.prisma.globalLookupAudit.create({
+        data: {
+          userId,
+          action: 'GLOBAL_CUSTOMER_LOOKUP',
+          method: 'PHONE',
+          queryValue: normalized ?? phone,
+          matchedPartnerId: match?.id,
+        },
+      });
+    }
 
     if (!match) return null;
+
+    // R7 - somebody else’s customer: the minimal masked shape only (no id,
+    // address, order history or products). Full details stay available for a
+    // customer the caller can already open under their own scope.
+    if (!mayOpen) {
+      return {
+        restricted: true as const,
+        partialName: maskName(match.name),
+        maskedPhone: maskPhone(match.mobile ?? match.phone),
+        notAssignedToYou: true as const,
+      };
+    }
 
     const orders = await this.prisma.storeOrder.findMany({
       where: { partnerId: match.id, agentId: null, deletedAt: null },
@@ -828,6 +880,7 @@ export class PartnersService extends MasterDataCrudService<
     });
 
     return {
+      restricted: false as const,
       id: match.id,
       partnerNumber: match.partnerNumber,
       name: match.name,

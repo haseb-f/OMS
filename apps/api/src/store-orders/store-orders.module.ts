@@ -1,3 +1,4 @@
+import { CustomerLookupModule } from '../customer-lookup/customer-lookup.module';
 import { Module } from '@nestjs/common';
 import { PartnersModule } from '../partners/partners.module';
 import { NumberingModule } from '../numbering/numbering.module';
@@ -28,6 +29,7 @@ import { StoreOrderDuplicatesModule } from './duplicates/store-order-duplicates.
 @Module({
   imports: [
     PartnersModule,
+    CustomerLookupModule,
     NumberingModule,
     PostingEngineModule,
     ObjectStorageModule,

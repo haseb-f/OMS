@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  HttpException,
-  HttpStatus,
-  Injectable,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   GlobalLookupAction,
   GlobalLookupMethod,
@@ -11,6 +6,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { LookupThrottleService } from './lookup-throttle.service';
 import { PhoneNumberService } from '../common/phone/phone-number.service';
 import {
   SalesScopeService,
@@ -23,10 +19,6 @@ import {
   maskPhone,
   MAX_RESULTS,
   orderStatusBucket,
-  RATE_LIMIT_DAY_MS,
-  RATE_LIMIT_MAX_PER_DAY,
-  RATE_LIMIT_MAX_PER_WINDOW,
-  RATE_LIMIT_WINDOW_MS,
   type LeadStatusBucket,
   type OrderStatusBucket,
 } from './customer-lookup.util';
@@ -81,6 +73,7 @@ export class CustomerLookupService {
     private readonly prisma: PrismaService,
     private readonly phones: PhoneNumberService,
     private readonly salesScope: SalesScopeService,
+    private readonly throttle: LookupThrottleService,
   ) {}
 
   async lookup(
@@ -91,37 +84,47 @@ export class CustomerLookupService {
     const queryValue = (rawQuery ?? '').trim().slice(0, 60) || '(empty)';
 
     if (query.kind === 'INVALID') {
-      await this.audit(userId, 'PHONE', queryValue, 'REJECTED', 0);
+      await this.throttle.record(
+        userId,
+        GlobalLookupAction.ADVANCED_CUSTOMER_LOOKUP,
+        GlobalLookupMethod.PHONE,
+        queryValue,
+        'REJECTED',
+        0,
+      );
       throw new BadRequestException({
         code: 'LOOKUP_QUERY_TOO_SHORT',
         message:
           query.reason === 'TOO_LONG'
             ? 'Search text is too long.'
-            : 'Enter a phone number (7 digits or more) or at least 3 letters of the name.',
+            : 'Enter a phone number (7 digits or more) or the first and last name of the customer.',
       });
     }
 
     const { remaining: remainingBefore, reservationId } =
-      await this.assertWithinRateLimit(userId, query.kind, queryValue);
+      await this.throttle.reserve(
+        userId,
+        GlobalLookupAction.ADVANCED_CUSTOMER_LOOKUP,
+        query.kind === 'PHONE'
+          ? GlobalLookupMethod.PHONE
+          : GlobalLookupMethod.NAME,
+        queryValue,
+      );
 
     const scope = await this.salesScope.resolve(userId);
     const { matches, capped } =
       query.kind === 'PHONE'
         ? await this.searchByPhone(userId, scope, query.value)
-        : await this.searchByName(userId, scope, query.value);
+        : await this.searchByName(userId, scope, query.words);
 
-    const outcome = matches.length > 0 ? 'MATCH' : 'NO_MATCH';
-    await this.audit(
-      userId,
-      query.kind,
-      query.kind === 'PHONE'
-        ? (this.phoneCandidates(query.value)[0] ?? query.digits)
-        : query.value,
-      outcome,
-      matches.length,
-      undefined,
-      reservationId,
-    );
+    await this.throttle.finalise(reservationId, {
+      outcome: matches.length > 0 ? 'MATCH' : 'NO_MATCH',
+      resultCount: matches.length,
+      queryValue:
+        query.kind === 'PHONE'
+          ? (this.phoneCandidates(query.value)[0] ?? query.digits)
+          : query.value,
+    });
 
     return {
       exists: matches.length > 0,
@@ -129,135 +132,6 @@ export class CustomerLookupService {
       capped,
       remainingInWindow: Math.max(remainingBefore - 1, 0),
     };
-  }
-
-  // ── rate limit + audit ───────────────────────────────────────────────────
-
-  private async assertWithinRateLimit(
-    userId: string,
-    method: 'PHONE' | 'NAME',
-    queryValue: string,
-  ): Promise<{ remaining: number; reservationId: string }> {
-    const now = Date.now();
-    // Count and reserve under a per-user advisory lock so N parallel requests
-    // cannot all read the same count and slip past the limit. The reservation
-    // row ('PENDING') counts immediately and is finalised by `audit`.
-    const decision = await this.prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`customer-lookup:${userId}`}))`;
-      const counted: Prisma.GlobalLookupAuditWhereInput = {
-        userId,
-        action: GlobalLookupAction.ADVANCED_CUSTOMER_LOOKUP,
-        outcome: { not: 'RATE_LIMITED' },
-      };
-      const [inWindow, inDay] = await Promise.all([
-        tx.globalLookupAudit.count({
-          where: {
-            ...counted,
-            createdAt: { gte: new Date(now - RATE_LIMIT_WINDOW_MS) },
-          },
-        }),
-        tx.globalLookupAudit.count({
-          where: {
-            ...counted,
-            createdAt: { gte: new Date(now - RATE_LIMIT_DAY_MS) },
-          },
-        }),
-      ]);
-      if (
-        inWindow >= RATE_LIMIT_MAX_PER_WINDOW ||
-        inDay >= RATE_LIMIT_MAX_PER_DAY
-      ) {
-        return { limited: true as const, inDay };
-      }
-      const reservation = await tx.globalLookupAudit.create({
-        data: {
-          userId,
-          action: GlobalLookupAction.ADVANCED_CUSTOMER_LOOKUP,
-          method:
-            method === 'PHONE'
-              ? GlobalLookupMethod.PHONE
-              : GlobalLookupMethod.NAME,
-          queryValue,
-          outcome: 'PENDING',
-          resultCount: 0,
-        },
-        select: { id: true },
-      });
-      return {
-        limited: false as const,
-        reservationId: reservation.id,
-        remaining: Math.min(
-          RATE_LIMIT_MAX_PER_WINDOW - inWindow,
-          RATE_LIMIT_MAX_PER_DAY - inDay,
-        ),
-      };
-    });
-
-    if (decision.limited) {
-      // One throttle row per minute is enough evidence; a flood must not
-      // become an unbounded write.
-      const recentThrottle = await this.prisma.globalLookupAudit.count({
-        where: {
-          userId,
-          action: GlobalLookupAction.ADVANCED_CUSTOMER_LOOKUP,
-          outcome: 'RATE_LIMITED',
-          createdAt: { gte: new Date(now - 60_000) },
-        },
-      });
-      if (recentThrottle === 0) {
-        await this.audit(userId, method, queryValue, 'RATE_LIMITED', 0);
-      }
-      const retryAfterSeconds = Math.ceil(
-        (decision.inDay >= RATE_LIMIT_MAX_PER_DAY
-          ? RATE_LIMIT_DAY_MS
-          : RATE_LIMIT_WINDOW_MS) / 1000,
-      );
-      throw new HttpException(
-        {
-          code: 'LOOKUP_RATE_LIMITED',
-          message:
-            'Too many customer lookups. Please wait a few minutes before searching again.',
-          retryAfterSeconds,
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-    return {
-      remaining: decision.remaining,
-      reservationId: decision.reservationId,
-    };
-  }
-
-  private async audit(
-    userId: string,
-    method: 'PHONE' | 'NAME',
-    queryValue: string,
-    outcome: 'MATCH' | 'NO_MATCH' | 'RATE_LIMITED' | 'REJECTED',
-    resultCount: number,
-    matchedPartnerId?: string,
-    reservationId?: string,
-  ) {
-    if (reservationId) {
-      await this.prisma.globalLookupAudit.update({
-        where: { id: reservationId },
-        data: { queryValue, outcome, resultCount, matchedPartnerId },
-      });
-      return;
-    }
-    await this.prisma.globalLookupAudit.create({
-      data: {
-        userId,
-        action: GlobalLookupAction.ADVANCED_CUSTOMER_LOOKUP,
-        method:
-          method === 'PHONE'
-            ? GlobalLookupMethod.PHONE
-            : GlobalLookupMethod.NAME,
-        queryValue,
-        outcome,
-        resultCount,
-        matchedPartnerId,
-      },
-    });
   }
 
   // ── search ───────────────────────────────────────────────────────────────
@@ -314,22 +188,42 @@ export class CustomerLookupService {
     });
   }
 
-  private async searchByName(userId: string, scope: SalesScope, name: string) {
-    const [partners] = await Promise.all([
-      this.prisma.partner.findMany({
-        where: {
-          deletedAt: null,
-          name: { contains: name, mode: 'insensitive' },
-          roles: { some: { role: PartnerRoleType.CUSTOMER } },
-        },
-        select: { id: true },
-        take: CANDIDATE_LIMIT,
-      }),
-    ]);
-    return this.buildMatches(userId, scope, {
-      partnerIds: partners.map((p) => p.id),
-      leadWhere: { customerName: { contains: name, mode: 'insensitive' } },
+  /**
+   * Name discovery is deliberately narrow so it cannot be used to harvest
+   * customers by sweeping short prefixes: every word of the query must match
+   * (at least two words, see `classifyQuery`), and a query that is still too
+   * broad — more than `MAX_RESULTS` customers — returns NO rows at all and
+   * asks the user to refine. A specific full name finds its customer; a
+   * trigram sweep finds nothing.
+   */
+  private async searchByName(
+    userId: string,
+    scope: SalesScope,
+    words: string[],
+  ) {
+    const partners = await this.prisma.partner.findMany({
+      where: {
+        deletedAt: null,
+        roles: { some: { role: PartnerRoleType.CUSTOMER } },
+        AND: words.map((w) => ({
+          name: { contains: w, mode: 'insensitive' as const },
+        })),
+      },
+      select: { id: true },
+      take: CANDIDATE_LIMIT,
     });
+    const result = await this.buildMatches(userId, scope, {
+      partnerIds: partners.map((p) => p.id),
+      leadWhere: {
+        AND: words.map((w) => ({
+          customerName: { contains: w, mode: 'insensitive' as const },
+        })),
+      },
+    });
+    if (result.matches.length > MAX_RESULTS || result.capped) {
+      return { matches: [], capped: true };
+    }
+    return result;
   }
 
   /**
@@ -535,5 +429,43 @@ export class CustomerLookupService {
       select: { id: true },
     });
     return found !== null;
+  }
+
+  /**
+   * True when the caller may already open at least one internal order or lead
+   * of this customer under their own scope. The legacy lookups use it to
+   * decide between full details (their own customer) and the minimal masked
+   * shape (somebody else's customer).
+   */
+  async callerCanOpenPartner(
+    userId: string,
+    partnerId: string,
+  ): Promise<boolean> {
+    const scope = await this.salesScope.resolve(userId);
+    const [order, leads] = await Promise.all([
+      this.prisma.storeOrder.findFirst({
+        where: {
+          AND: [
+            { partnerId, agentId: null, deletedAt: null },
+            this.salesScope.storeOrderAccessWhere(scope),
+          ],
+        },
+        select: { id: true },
+      }),
+      this.prisma.lead.findMany({
+        where: { partnerId, agentId: null, deletedAt: null },
+        select: { id: true, salesEmployeeId: true, agentId: true },
+        take: 50,
+      }),
+    ]);
+    return (
+      order !== null ||
+      leads.some((lead) => this.salesScope.canAccessLead(scope, lead))
+    );
+  }
+
+  /** Same idea for a single order (the legacy order-number lookup). */
+  async callerCanOpenOrder(userId: string, orderId: string): Promise<boolean> {
+    return this.canOpenOrder(await this.salesScope.resolve(userId), orderId);
   }
 }

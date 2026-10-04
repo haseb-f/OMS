@@ -5,9 +5,9 @@ const customerLookupEn = {
   description:
     "Check whether a customer already exists and who it belongs to. Results are limited, masked and logged — this does not give you access to the customer's records.",
   queryLabel: "Phone number or customer name",
-  placeholder: "Phone (7+ digits) or name (3+ letters)",
+  placeholder: "Phone (7+ digits) or first and last name",
   search: "Search",
-  hintMinimum: "Enter a phone number of at least 7 digits or at least 3 letters of the name.",
+  hintMinimum: "Enter a phone number of at least 7 digits, or the customer's first and last name.",
   notice:
     "Every search is recorded. Repeated searches are rate-limited. Details are masked on purpose.",
   loading: "Searching…",

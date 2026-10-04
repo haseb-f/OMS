@@ -57,7 +57,7 @@ import {
 import { stagingIdsOf, type ReceiptUploadItem } from "@/components/business/payment-receipts-field";
 import {
   partnersService,
-  type CustomerGlobalLookupResult,
+  type CustomerGlobalLookupFull,
   type PartnerPickerRow,
 } from "@/services/partners-service";
 import {
@@ -264,7 +264,7 @@ export function StoreOrderCreateDialog({
     );
   };
 
-  const applyExistingCustomer = (customer: CustomerGlobalLookupResult) => {
+  const applyExistingCustomer = (customer: CustomerGlobalLookupFull) => {
     form.setValue("customerName", customer.name, { shouldDirty: true, shouldValidate: true });
     form.setValue("customerPhone", customer.phone || customer.mobile || "", {
       shouldDirty: true,
@@ -299,7 +299,9 @@ export function StoreOrderCreateDialog({
       partnersService
         .globalLookupByPhone(customerPhone)
         .then((customer) => {
-          if (customer?.id === choice.customerId) applyExistingCustomer(customer);
+          if (customer && !customer.restricted && customer.id === choice.customerId) {
+            applyExistingCustomer(customer);
+          }
         })
         .catch(() => undefined);
     }
