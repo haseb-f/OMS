@@ -94,6 +94,7 @@ import {
   responsiveHideClass,
   layoutDetailRegions,
   hasTableDetailContent,
+  RecordGridCard,
   RowActionsMenu,
   RowIdentityLink,
   SelectCustomCountDialog,
@@ -294,6 +295,7 @@ export function EnterpriseDataTable<TData>({
   filterBar,
   renderMobileRow,
   renderGridCard,
+  gridView = true,
   getRowHref,
   identityOnlyNavigation,
   footerRow,
@@ -386,6 +388,14 @@ export function EnterpriseDataTable<TData>({
    */
   renderGridCard?: (args: MobileRowRenderArgs<TData>) => ReactNode;
   /**
+   * The Table / Grid switch is part of EVERY list (R9, design-system §12.19).
+   * Without `renderGridCard` the Grid draws the automatic record card, derived
+   * from the table's own columns (identity → title, code/reference → reference,
+   * status columns → badges, money + date → the key figure, then up to four more
+   * fields). Pass `false` only for a table where a card makes no sense.
+   */
+  gridView?: boolean;
+  /**
    * Detail route for a row. Opt-in: tables for entities with no detail route
    * simply omit it. When present, the whole row navigates on click — the
    * column marked `meta.identity` additionally renders as a real `<a>`, so
@@ -460,7 +470,8 @@ export function EnterpriseDataTable<TData>({
   // Density and the Table/Grid view are per-USER, per-table preferences (R7 A).
   const [density, setDensity] = useTableDensityPreference(tableId, user?.id);
   const [view, setView] = useTableViewPreference(tableId, user?.id);
-  const isGrid = Boolean(renderGridCard) && view === "grid";
+  const gridEnabled = gridView !== false;
+  const isGrid = gridEnabled && view === "grid";
   // Enterprise Data Grid (TASK-060B Part 3) — column width/order/pinning/
   // filters persisted per user per table, same `oms.table.${tableId}.*`
   // localStorage convention as the pre-existing visibility/density state.
@@ -1510,6 +1521,106 @@ export function EnterpriseDataTable<TData>({
     [data, visibleColumnKey, columnWidths, density, pagination.pageIndex, pagination.pageSize],
   );
 
+  // Automatic Grid card (R9): the row's own cells, ordered into the record-card
+  // slots by column type — never a second copy of the data. Identity → title;
+  // code/reference → reference; status columns → badges; date + money → the
+  // key-figure line; then up to four more label/value fields. The table's own
+  // selection checkbox and actions cell are reused, so selection scope and row
+  // actions are the table's.
+  const renderAutoGridCard = (row: (typeof pageRows)[number]) => {
+    const cells = row.getVisibleCells();
+    const renderCell = (cell: (typeof cells)[number]) => {
+      const layout = layoutById.get(cell.column.id);
+      const raw = columnsWithExplicitCell.has(cell.column.id)
+        ? flexRender(cell.column.columnDef.cell, cell.getContext())
+        : cell.renderValue<ReactNode>();
+      return applySemanticCellContent(raw, layout?.type);
+    };
+    const typeOf = (cell: (typeof cells)[number]) => layoutById.get(cell.column.id)?.type;
+    const hasSelect = cells.some((cell) => cell.column.id === "select");
+    const actionsCell = cells.find((cell) => cell.column.id === "__actions");
+    const dataCells = cells.filter(
+      (cell) => cell.column.id !== "select" && !cell.column.id.startsWith("__"),
+    );
+    // A person / company name is the title even when the identity column is the
+    // record number (customers, invoices); the number then becomes the reference.
+    const identityCell = dataCells.find((cell) => cell.column.columnDef.meta?.identity);
+    const isRef = (cell: (typeof cells)[number]) =>
+      typeOf(cell) === "code" || typeOf(cell) === "reference";
+    const nameCell =
+      identityCell && typeOf(identityCell) === "name"
+        ? identityCell
+        : dataCells.find((cell) => typeOf(cell) === "name");
+    const titleCell = nameCell ?? identityCell ?? dataCells[0];
+    const rest = dataCells.filter((cell) => cell !== titleCell);
+    const referenceCell =
+      identityCell && identityCell !== titleCell && isRef(identityCell)
+        ? identityCell
+        : rest.find(isRef);
+    const statusCells = rest.filter((cell) => typeOf(cell) === "status").slice(0, 3);
+    const moneyCell = rest.find((cell) => typeOf(cell) === "money");
+    const dateCell = rest.find((cell) => typeOf(cell) === "date");
+    const used = new Set([referenceCell, moneyCell, dateCell, ...statusCells]);
+    const isEmpty = (cell: (typeof cells)[number]) => {
+      const display = String(
+        getColumnDisplayValue(cell.column.columnDef, row.original, t) ?? "",
+      ).trim();
+      return display === "" || display === "—";
+    };
+    const fieldCells = rest.filter((cell) => !used.has(cell) && !isEmpty(cell)).slice(0, 4);
+    const name = titleCell
+      ? String(getColumnDisplayValue(titleCell.column.columnDef, row.original, t) ?? "")
+      : "";
+    const referenceText = referenceCell
+      ? String(getColumnDisplayValue(referenceCell.column.columnDef, row.original, t) ?? "")
+      : "";
+    const recordName = [name, referenceText].filter(Boolean).join(" — ");
+    const headline = [dateCell, moneyCell].filter((cell): cell is NonNullable<typeof cell> =>
+      Boolean(cell),
+    );
+    return (
+      <RecordGridCard
+        tone="neutral"
+        selected={row.getIsSelected()}
+        onToggleSelected={hasSelect && row.getCanSelect() ? () => row.toggleSelected() : undefined}
+        selectLabel={t("tableViews.card.selectRow", { name: recordName })}
+        recordLabel={recordName}
+        title={titleCell ? renderCell(titleCell) : null}
+        href={getRowHref?.(row.original) ?? undefined}
+        reference={referenceCell ? renderCell(referenceCell) : null}
+        meta={
+          headline.length > 0 ? (
+            <span className="inline-flex items-baseline gap-2">
+              {headline.map((cell) => (
+                <span key={cell.id} className="text-foreground">
+                  {renderCell(cell)}
+                </span>
+              ))}
+            </span>
+          ) : null
+        }
+        badges={
+          statusCells.length > 0 ? (
+            <>
+              {statusCells.map((cell) => (
+                <span key={cell.id}>{renderCell(cell)}</span>
+              ))}
+            </>
+          ) : null
+        }
+        fields={fieldCells.map((cell) => ({
+          key: cell.id,
+          label: cell.column.columnDef.meta?.titleKey
+            ? t(cell.column.columnDef.meta.titleKey)
+            : cell.column.id,
+          value: renderCell(cell),
+          numeric: isNumericColumnType(typeOf(cell)),
+        }))}
+        actionsNode={actionsCell ? renderCell(actionsCell) : undefined}
+      />
+    );
+  };
+
   const isUtilityLayout = (columnId: string) => {
     const type = layoutById.get(columnId)?.type;
     return (
@@ -1602,7 +1713,7 @@ export function EnterpriseDataTable<TData>({
                   />
                 </IconActionButton>
               )}
-              {renderGridCard && !bulkStripOpen ? (
+              {gridEnabled && !bulkStripOpen ? (
                 <EnterpriseTableViewToggle view={view} onViewChange={setView} />
               ) : null}
               {isGrid ? <EnterpriseTableSortMenu table={table} /> : null}
@@ -1701,7 +1812,7 @@ export function EnterpriseDataTable<TData>({
 
               {/* The strip overlays the toolbar, so the view switch stays reachable here: switching keeps the selection. */}
               <div className="ms-auto flex shrink-0 items-center gap-3">
-                {renderGridCard ? (
+                {gridEnabled ? (
                   <EnterpriseTableViewToggle view={view} onViewChange={setView} />
                 ) : null}
                 <EnterpriseButton
@@ -1732,7 +1843,26 @@ export function EnterpriseDataTable<TData>({
             viewportFill && "lg:min-h-0 lg:flex-1 lg:overflow-y-auto",
           )}
         >
-          {isLoading ? (
+          {isLoading && isGrid ? (
+            <div data-record-grid="" aria-busy="true">
+              {Array.from({ length: Math.min(Math.max(pagination.pageSize, 4), 12) }).map(
+                (_, index) => (
+                  <div
+                    key={index}
+                    data-record-card=""
+                    className="flex flex-col gap-2 p-3"
+                    aria-hidden
+                  >
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-3 w-1/2" />
+                    <Skeleton className="h-4 w-1/3" />
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-5 w-1/2" />
+                  </div>
+                ),
+              )}
+            </div>
+          ) : isLoading ? (
             Array.from({ length: 4 }).map((_, index) => (
               <div key={index} className="flex flex-col gap-1.5 border-b border-border p-3">
                 <Skeleton className="h-4 w-2/3" />
@@ -1745,12 +1875,7 @@ export function EnterpriseDataTable<TData>({
           ) : !hasRows ? (
             <EmptyState icon={Inbox} {...emptyStateProps} />
           ) : (
-            <div
-              className={cn(
-                isGrid &&
-                  "grid grid-cols-1 gap-2 p-2 @2xl/enterprise-table:grid-cols-2 @5xl/enterprise-table:grid-cols-3 @7xl/enterprise-table:grid-cols-4 group-data-[density=comfortable]/record-grid:gap-3 group-data-[density=comfortable]/record-grid:p-3",
-              )}
-            >
+            <div data-record-grid={isGrid ? "" : undefined}>
               {mobileSelectHeader ? (
                 // Phones get the same selection control as the table header:
                 // select this page, and the scope menu (all matching, first N,
@@ -1772,7 +1897,11 @@ export function EnterpriseDataTable<TData>({
                 </div>
               ) : null}
               {pageRows.map((row) =>
-                cardRenderer ? (
+                !cardRenderer && isGrid ? (
+                  <div key={row.id} data-mobile-row="" data-grid-card="">
+                    {renderAutoGridCard(row)}
+                  </div>
+                ) : cardRenderer ? (
                   <div key={row.id} data-mobile-row="" data-grid-card={isGrid ? "" : undefined}>
                     {cardRenderer({
                       row: row.original,

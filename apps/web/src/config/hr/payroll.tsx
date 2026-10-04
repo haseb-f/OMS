@@ -30,7 +30,7 @@ export function buildPayrollRunsColumns(
   return [
     {
       id: "period",
-      meta: { titleKey: "hr.payroll.fields.period" },
+      meta: { titleKey: "hr.payroll.fields.period", type: "date" },
       accessorFn: (row) => row.period,
       cell: (info) => <span className="num font-medium">{info.getValue() as string}</span>,
     },
@@ -38,6 +38,7 @@ export function buildPayrollRunsColumns(
       id: "status",
       meta: {
         titleKey: "hr.payroll.fields.status",
+        type: "status",
         displayValue: (row, tr) => tr(`hr.payroll.status.${row.status}` as MessageKey),
       },
       accessorFn: (row) => row.status,
@@ -51,13 +52,15 @@ export function buildPayrollRunsColumns(
     },
     {
       id: "grossEarnings",
-      meta: { titleKey: "hr.payroll.fields.grossEarnings", align: "end", type: "money" },
+      // Gross / deductions are `number` so the Grid card's key figure (the first
+      // `money` column) is the run's NET PAY, the amount actually paid out.
+      meta: { titleKey: "hr.payroll.fields.grossEarnings", align: "end", type: "number" },
       accessorFn: (row) => Number(row.grossEarnings),
       cell: ({ row }) => <MoneyCell value={row.original.grossEarnings} />,
     },
     {
       id: "totalDeductions",
-      meta: { titleKey: "hr.payroll.fields.totalDeductions", align: "end", type: "money" },
+      meta: { titleKey: "hr.payroll.fields.totalDeductions", align: "end", type: "number" },
       accessorFn: (row) => Number(row.totalDeductions),
       cell: ({ row }) => <MoneyCell value={row.original.totalDeductions} />,
     },

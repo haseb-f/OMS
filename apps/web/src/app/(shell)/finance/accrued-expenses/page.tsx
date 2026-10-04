@@ -60,30 +60,42 @@ function AccrualStatusCell({ status }: { status: AccruedExpenseRow["status"] }) 
 }
 
 const columns: ColumnDef<AccruedExpenseRow, unknown>[] = [
-  textColumn("accrualNumber", "accounting.accruals.fields.accrualNumber", (r) => r.accrualNumber),
-  textColumn("name", "masterData.fields.name", (r) => r.name),
+  textColumn(
+    "accrualNumber",
+    "accounting.accruals.fields.accrualNumber",
+    (r) => r.accrualNumber,
+    "code",
+  ),
+  textColumn("name", "masterData.fields.name", (r) => r.name, "name"),
   {
     ...textColumn("amount", "masterData.expenses.fields.amount", (r) => formatAmount(r.amount)),
     meta: { titleKey: "masterData.expenses.fields.amount", type: "money" },
   },
-  textColumn("recognitionDate", "accounting.accruals.fields.recognitionDate", (r) =>
-    formatDate(r.recognitionDate),
+  textColumn(
+    "recognitionDate",
+    "accounting.accruals.fields.recognitionDate",
+    (r) => formatDate(r.recognitionDate),
+    "date",
   ),
-  textColumn("expenseAccount", "accounting.accruals.fields.expenseAccount", (r) =>
-    r.expenseAccount ? `${r.expenseAccount.code} — ${r.expenseAccount.name}` : null,
+  textColumn(
+    "expenseAccount",
+    "accounting.accruals.fields.expenseAccount",
+    (r) => (r.expenseAccount ? `${r.expenseAccount.code} — ${r.expenseAccount.name}` : null),
+    "default",
   ),
   {
     id: "status",
     accessorFn: (row) => row.status,
     meta: {
       titleKey: "accounting.accruals.fields.status",
+      type: "status",
       displayValue: (row, t) => t(`accounting.lifecycleStatus.${row.status}` as MessageKey),
     },
     cell: ({ row }) => <AccrualStatusCell status={row.original.status} />,
   },
   {
     id: "journal",
-    meta: { titleKey: "accounting.journalEntries.fields.viewJournalEntry" },
+    meta: { titleKey: "accounting.journalEntries.fields.viewJournalEntry", type: "default" },
     cell: ({ row }) =>
       row.original.status === "DRAFT" ? (
         <span className="text-muted-foreground">—</span>

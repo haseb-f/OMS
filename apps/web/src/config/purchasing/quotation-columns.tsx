@@ -38,7 +38,7 @@ export interface QuotationRowHandlers {
   onArchive: (row: PurchaseQuotationRow) => void;
 }
 
-function ActionsCell({
+export function QuotationActionsCell({
   row,
   handlers,
 }: {
@@ -150,7 +150,7 @@ export function buildQuotationColumns(
     },
     {
       id: "status",
-      meta: { titleKey: "purchasing.suppliers.fields.status" },
+      meta: { titleKey: "purchasing.suppliers.fields.status", type: "status" },
       enableSorting: false,
       cell: ({ row }) => (
         <StackedCell
@@ -191,7 +191,7 @@ export function buildQuotationColumns(
       meta: { titleKey: "common.actions" },
       enableHiding: false,
       enableSorting: false,
-      cell: ({ row }) => <ActionsCell row={row.original} handlers={handlers} />,
+      cell: ({ row }) => <QuotationActionsCell row={row.original} handlers={handlers} />,
     },
   ];
 }

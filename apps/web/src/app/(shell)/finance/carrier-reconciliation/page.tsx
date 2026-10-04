@@ -194,13 +194,17 @@ function CarrierReconciliationContent() {
       {
         id: "carrier",
         header: t("carrierReconciliation.fields.carrier"),
-        meta: { titleKey: "carrierReconciliation.fields.carrier" as MessageKey },
+        // The carrier is the card title (the agent column below would otherwise be inferred as the name).
+        meta: { titleKey: "carrierReconciliation.fields.carrier" as MessageKey, type: "name" },
         accessorFn: (row) => row.shippingCompany?.name ?? row.carrierNameRaw,
       },
       {
         id: "reference",
         header: t("carrierReconciliation.fields.reference"),
-        meta: { titleKey: "carrierReconciliation.fields.reference" as MessageKey },
+        meta: {
+          titleKey: "carrierReconciliation.fields.reference" as MessageKey,
+          type: "reference",
+        },
         cell: (info) => {
           const row = info.row.original;
           return (
@@ -213,7 +217,7 @@ function CarrierReconciliationContent() {
       {
         id: "order",
         header: t("carrierReconciliation.fields.order"),
-        meta: { titleKey: "carrierReconciliation.fields.order" as MessageKey },
+        meta: { titleKey: "carrierReconciliation.fields.order" as MessageKey, type: "default" },
         cell: (info) => {
           const shipment = info.row.original.shipment;
           if (!shipment) return "—";
@@ -227,7 +231,7 @@ function CarrierReconciliationContent() {
       {
         id: "agent",
         header: t("carrierReconciliation.columns.agent"),
-        meta: { titleKey: "carrierReconciliation.columns.agent" as MessageKey },
+        meta: { titleKey: "carrierReconciliation.columns.agent" as MessageKey, type: "default" },
         accessorFn: (row) => {
           const agent = row.shipment?.storeOrder?.agent;
           return agent ? `${agent.name} (${agent.agentNumber})` : "—";
@@ -236,7 +240,7 @@ function CarrierReconciliationContent() {
       {
         id: "kind",
         header: t("carrierReconciliation.columns.kind"),
-        meta: { titleKey: "carrierReconciliation.columns.kind" as MessageKey },
+        meta: { titleKey: "carrierReconciliation.columns.kind" as MessageKey, type: "status" },
         cell: (info) => {
           const kind = info.row.original.chargeKind ?? "BASE";
           return (
@@ -266,13 +270,13 @@ function CarrierReconciliationContent() {
       {
         id: "chargeDate",
         header: t("carrierReconciliation.fields.chargeDate"),
-        meta: { titleKey: "carrierReconciliation.fields.chargeDate" as MessageKey },
+        meta: { titleKey: "carrierReconciliation.fields.chargeDate" as MessageKey, type: "date" },
         accessorFn: (row) => formatDate(row.chargeDate),
       },
       {
         id: "state",
         header: t("common.status"),
-        meta: { titleKey: "common.status" as MessageKey },
+        meta: { titleKey: "common.status" as MessageKey, type: "status" },
         cell: (info) => {
           const state = info.row.original.reconciliationState;
           return (
@@ -286,7 +290,7 @@ function CarrierReconciliationContent() {
       {
         id: "stage",
         header: t("carrierReconciliation.columns.stage"),
-        meta: { titleKey: "carrierReconciliation.columns.stage" as MessageKey },
+        meta: { titleKey: "carrierReconciliation.columns.stage" as MessageKey, type: "status" },
         cell: (info) => {
           const row = info.row.original;
           const stage = carrierCostStage(row);

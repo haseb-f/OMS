@@ -47,10 +47,12 @@ const columns: ColumnDef<Row, unknown>[] = [
 function Harness({
   tableId = "r7-grid-spec",
   withGrid = true,
+  gridView,
   initialSelection = {},
 }: {
   tableId?: string;
   withGrid?: boolean;
+  gridView?: boolean;
   initialSelection?: RowSelectionState;
 }) {
   const [selection, setSelection] = useState<RowSelectionState>(initialSelection);
@@ -63,6 +65,7 @@ function Harness({
         getRowId={(row) => row.id}
         rowSelection={selection}
         onRowSelectionChange={setSelection}
+        gridView={gridView}
         renderGridCard={
           withGrid
             ? ({ row, selected, onToggleSelected }) => (
@@ -103,10 +106,26 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("Table/Grid switch", () => {
-  it("is opt-in: a table without a grid renderer shows no switch", () => {
+  it("is universal (R9): a table without a grid renderer still offers the switch", () => {
     const { container } = render(<Harness withGrid={false} />);
-    expect(container.querySelector("[data-view-toggle]")).toBeNull();
+    expect(container.querySelector("[data-view-toggle]")).not.toBeNull();
     expect(view(container)).toBe("cards");
+  });
+
+  it("draws the AUTOMATIC record card for a table with no renderer, one per row of the page", () => {
+    const { container } = render(<Harness withGrid={false} />);
+    switchTo(container, "grid");
+    expect(view(container)).toBe("grid");
+    const cards = container.querySelectorAll("[data-record-grid] [data-record-card]");
+    expect(cards).toHaveLength(rows.length);
+    expect(cards[0].textContent).toContain("Alpha");
+    // The same page, in the same order, as the table.
+    expect(tableIds(container)).toHaveLength(rows.length);
+  });
+
+  it("a table can opt out explicitly (gridView={false}) and shows no switch", () => {
+    const { container } = render(<Harness withGrid={false} gridView={false} />);
+    expect(container.querySelector("[data-view-toggle]")).toBeNull();
   });
 
   it("starts as the table; Grid forces the card branch and draws every row of the page", () => {

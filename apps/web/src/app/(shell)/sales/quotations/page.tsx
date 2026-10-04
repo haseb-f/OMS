@@ -34,7 +34,13 @@ import {
 } from "@/services/sales-quotations-service";
 import { partnersService, type PartnerPickerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
-import { buildQuotationColumns, quotationExportColumns } from "@/config/sales/quotation-columns";
+import {
+  buildQuotationColumns,
+  QuotationActionsCell,
+  quotationExportColumns,
+  type QuotationRowHandlers,
+} from "@/config/sales/quotation-columns";
+import { QuotationGridCard } from "@/config/sales/sales-grid-cards";
 import {
   QUOTATION_ARCHIVABLE_STATUSES,
   QUOTATION_FILTERABLE_STATUSES,
@@ -214,19 +220,19 @@ function QuotationsPageContent() {
     }
   };
 
-  const quotationColumns = useMemo(
-    () =>
-      buildQuotationColumns({
-        usersById,
-        onView: (row) => router.push(`/sales/quotations/${row.id}`),
-        onDuplicate: handleDuplicate,
-        onPrint: handlePrintRow,
-        onCancel: setCancelTarget,
-        onArchive: setArchiveTarget,
-      }),
+  const rowHandlers = useMemo<QuotationRowHandlers>(
+    () => ({
+      usersById,
+      onView: (row) => router.push(`/sales/quotations/${row.id}`),
+      onDuplicate: handleDuplicate,
+      onPrint: handlePrintRow,
+      onCancel: setCancelTarget,
+      onArchive: setArchiveTarget,
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [router, usersById, activeCompany, user],
   );
+  const quotationColumns = useMemo(() => buildQuotationColumns(rowHandlers), [rowHandlers]);
 
   const { selectedIds, selectedRecords, resolve } = useSelectedRecords({
     items,
@@ -406,6 +412,15 @@ function QuotationsPageContent() {
             onShowMore: () => router.push(`/sales/quotations/${row.id}`),
           })
         }
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <QuotationGridCard
+            row={row}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            href={`/sales/quotations/${row.id}`}
+            actionsNode={<QuotationActionsCell row={row} handlers={rowHandlers} />}
+          />
+        )}
         getRowId={(row) => row.id}
         getRowHref={(row) => `/sales/quotations/${row.id}`}
       />

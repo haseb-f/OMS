@@ -39,7 +39,8 @@ export interface QuotationRowHandlers {
   onArchive: (row: SalesQuotationRow) => void;
 }
 
-function ActionsCell({
+/** The row's actions control — the Grid card renders this same component, so both views share one permission model. */
+export function QuotationActionsCell({
   row,
   handlers,
 }: {
@@ -131,7 +132,7 @@ export function buildQuotationColumns(
     },
     {
       id: "customer",
-      meta: { titleKey: "sales.quotations.fields.customer" },
+      meta: { titleKey: "sales.quotations.fields.customer", type: "name" },
       accessorFn: (row) => row.partner?.name ?? "—",
       cell: ({ row }) => (
         <StackedCell
@@ -152,7 +153,7 @@ export function buildQuotationColumns(
     },
     {
       id: "status",
-      meta: { titleKey: "sales.customers.fields.status" },
+      meta: { titleKey: "sales.customers.fields.status", type: "status" },
       enableSorting: false,
       cell: ({ row }) => (
         <StackedCell
@@ -163,13 +164,13 @@ export function buildQuotationColumns(
     },
     {
       id: "grandTotal",
-      meta: { titleKey: "sales.quotations.fields.grandTotal", defaultHidden: true },
+      meta: { titleKey: "sales.quotations.fields.grandTotal", defaultHidden: true, type: "money" },
       accessorFn: (row) => row.grandTotal,
       cell: ({ row }) => <MoneyValue value={row.original.grandTotal} />,
     },
     {
       id: "createdAt",
-      meta: { titleKey: "sales.quotations.fields.date" },
+      meta: { titleKey: "sales.quotations.fields.date", type: "date" },
       accessorFn: (row) => formatDate(row.createdAt),
       cell: ({ row }) => (
         <StackedCell
@@ -193,7 +194,7 @@ export function buildQuotationColumns(
       meta: { titleKey: "common.actions" },
       enableHiding: false,
       enableSorting: false,
-      cell: ({ row }) => <ActionsCell row={row.original} handlers={handlers} />,
+      cell: ({ row }) => <QuotationActionsCell row={row.original} handlers={handlers} />,
     },
   ];
 }

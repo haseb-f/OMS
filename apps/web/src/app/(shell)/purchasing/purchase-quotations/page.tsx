@@ -38,6 +38,8 @@ import {
   buildQuotationColumns,
   quotationExportColumns,
 } from "@/config/purchasing/quotation-columns";
+import { PurchaseQuotationGridCard } from "@/config/purchasing/purchasing-grid-cards";
+import type { QuotationRowHandlers } from "@/config/purchasing/quotation-columns";
 import {
   QUOTATION_ARCHIVABLE_STATUSES,
   QUOTATION_FILTERABLE_STATUSES,
@@ -218,19 +220,19 @@ function PurchaseQuotationsPageContent() {
     }
   };
 
-  const quotationColumns = useMemo(
-    () =>
-      buildQuotationColumns({
-        usersById,
-        onView: (row) => router.push(`/purchasing/purchase-quotations/${row.id}`),
-        onDuplicate: handleDuplicate,
-        onPrint: handlePrintRow,
-        onCancel: setCancelTarget,
-        onArchive: setArchiveTarget,
-      }),
+  const rowHandlers = useMemo<QuotationRowHandlers>(
+    () => ({
+      usersById,
+      onView: (row) => router.push(`/purchasing/purchase-quotations/${row.id}`),
+      onDuplicate: handleDuplicate,
+      onPrint: handlePrintRow,
+      onCancel: setCancelTarget,
+      onArchive: setArchiveTarget,
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [router, usersById, activeCompany, user],
   );
+  const quotationColumns = useMemo(() => buildQuotationColumns(rowHandlers), [rowHandlers]);
 
   const { selectedIds, selectedRecords, resolve } = useSelectedRecords({
     items,
@@ -413,6 +415,15 @@ function PurchaseQuotationsPageContent() {
             onShowMore: () => router.push(`/purchasing/purchase-quotations/${row.id}`),
           })
         }
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <PurchaseQuotationGridCard
+            row={row}
+            handlers={rowHandlers}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            href={`/purchasing/purchase-quotations/${row.id}`}
+          />
+        )}
         getRowId={(row) => row.id}
         getRowHref={(row) => `/purchasing/purchase-quotations/${row.id}`}
       />

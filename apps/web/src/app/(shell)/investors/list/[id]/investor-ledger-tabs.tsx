@@ -10,7 +10,7 @@ import {
   type CompactDetailColumn,
 } from "@/components/shared/data-table/compact-detail-table";
 import {
-  FinancialReportTable,
+  FinancialReportView,
   ReportPagination,
   type FinancialReportColumn,
   type FinancialReportLine,
@@ -235,7 +235,7 @@ export function StatementTab({ investorId }: { investorId: string }) {
   return (
     <DetailSection>
       <div className="overflow-hidden rounded-md border border-border bg-card">
-        <FinancialReportTable
+        <FinancialReportView
           lines={lines}
           columns={STATEMENT_COLUMNS}
           textColumns={textColumns}

@@ -1,5 +1,7 @@
 export { FinancialReport } from "./financial-report";
 export { FinancialReportTable } from "./financial-report-table";
+export { FinancialReportCards } from "./financial-report-cards";
+export { FinancialReportView } from "./financial-report-view";
 export {
   FinancialReportSummary as FinancialReportSummaryStrip,
   ReconciliationCard,

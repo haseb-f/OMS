@@ -13,6 +13,7 @@ import {
   supplierExportColumns,
   partnerRowLabel,
 } from "@/config/partners/partner-columns";
+import { PartnerGridCard } from "@/config/partners/partner-grid-card";
 import { buildPartnerSchema, partnerDefaultValuesForRole } from "@/config/partners/partner-form";
 import { useLocale } from "@/providers/locale-provider";
 import { PermissionGate } from "@/components/shared/permission-gate";
@@ -160,6 +161,16 @@ function SuppliersPageContent() {
       permissionPrefix="partners"
       rowLabel={partnerRowLabel}
       getRowHref={(row) => `/purchasing/suppliers/${row.id}`}
+      renderGridCard={({ row, selected, onToggleSelected, actionsNode }) => (
+        <PartnerGridCard
+          row={row}
+          role="supplier"
+          selected={selected}
+          onToggleSelected={onToggleSelected}
+          href={`/purchasing/suppliers/${row.id}`}
+          actionsNode={actionsNode}
+        />
+      )}
       extraListParams={{ role: ["SUPPLIER"] }}
       extraActions={<ModuleImportButtons importType="SUPPLIERS" />}
       extraRowActions={(entity): RowAction[] => [

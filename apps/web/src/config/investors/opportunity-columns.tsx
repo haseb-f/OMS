@@ -101,7 +101,12 @@ export function buildOpportunityColumns(
   return [
     {
       id: "code",
-      meta: { titleKey: "investors.opportunities.fields.code", identity: true, stacked: true },
+      meta: {
+        titleKey: "investors.opportunities.fields.code",
+        type: "code",
+        identity: true,
+        stacked: true,
+      },
       accessorFn: (row) => row.code,
       cell: ({ row }) => (
         <StackedCell primary={row.original.code} secondary={row.original.nameAr} />
@@ -121,7 +126,7 @@ export function buildOpportunityColumns(
     },
     {
       id: "status",
-      meta: { titleKey: "investors.opportunities.fields.status" },
+      meta: { titleKey: "investors.opportunities.fields.status", type: "status" },
       cell: ({ row }) => <StatusCell status={row.original.status} />,
       enableSorting: false,
     },

@@ -84,6 +84,7 @@ export function buildAgentColumns(): ColumnDef<AgentRow, unknown>[] {
       id: "activeAgreement",
       meta: {
         titleKey: "agents.fields.activeAgreement",
+        type: "default",
         stacked: true,
         importance: "medium",
         minWidth: 150,

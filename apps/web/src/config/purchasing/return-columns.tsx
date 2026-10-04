@@ -34,7 +34,13 @@ export interface ReturnRowHandlers {
   onArchive: (row: PurchaseReturnRow) => void;
 }
 
-function ActionsCell({ row, handlers }: { row: PurchaseReturnRow; handlers: ReturnRowHandlers }) {
+export function ReturnActionsCell({
+  row,
+  handlers,
+}: {
+  row: PurchaseReturnRow;
+  handlers: ReturnRowHandlers;
+}) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const access = documentRowAccess(hasPermission, "purchasing.returns");
@@ -133,7 +139,7 @@ export function buildReturnColumns(
     },
     {
       id: "status",
-      meta: { titleKey: "purchasing.suppliers.fields.status" },
+      meta: { titleKey: "purchasing.suppliers.fields.status", type: "status" },
       enableSorting: false,
       cell: ({ row }) => (
         <StackedCell
@@ -174,7 +180,7 @@ export function buildReturnColumns(
       meta: { titleKey: "common.actions" },
       enableHiding: false,
       enableSorting: false,
-      cell: ({ row }) => <ActionsCell row={row.original} handlers={handlers} />,
+      cell: ({ row }) => <ReturnActionsCell row={row.original} handlers={handlers} />,
     },
   ];
 }

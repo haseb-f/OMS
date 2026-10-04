@@ -1,0 +1,887 @@
+[
+  {
+    "route": "/agent/leads",
+    "toggle": false,
+    "pageErrors": 0
+  },
+  {
+    "route": "/agent/orders",
+    "toggle": false,
+    "pageErrors": 0
+  },
+  {
+    "route": "/agent/payouts",
+    "toggle": false,
+    "pageErrors": 0
+  },
+  {
+    "route": "/agent/statement",
+    "toggle": false,
+    "pageErrors": 0
+  },
+  {
+    "route": "/agent/stock",
+    "toggle": false,
+    "pageErrors": 0
+  },
+  {
+    "route": "/agents",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Agent 24FF7A-35AG-T-24FF7A-35عملة التسويةSARالطلبات1المستخدمون0نشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/agents/collections",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/crm/leads",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Other Lead 290787+20 10 71069409LD-2026-018325Dup empa 290787جديد لكتم الإسنادالتالي:التوا",
+    "pageErrors": 0
+  },
+  {
+    "route": "/crm/sales-teams",
+    "toggle": true,
+    "cards": 14,
+    "checkboxes": 14,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Funnel Team 2fd30b0aST-SF-c73936c7القسمQADEPT-0001مدير الفريقRR Managerالأعضاء3",
+    "pageErrors": 0
+  },
+  {
+    "route": "/data-management/import-center",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "google-sheet.csv04 Oct 2026 — 08:51نوع الاستيرادطلبات المتجرالمصدرGoogle Sheetsإجمالي الصف",
+    "pageErrors": 0
+  },
+  {
+    "route": "/expenses/cost-components",
+    "toggle": true,
+    "cards": 9,
+    "checkboxes": 9,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "PrintingPRINTINGالتصنيف المحاسبيأخرىنشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/finance/accrued-expenses",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/finance/bank-transactions",
+    "toggle": true,
+    "cards": 1,
+    "checkboxes": 1,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Cash Flow Test Cash Source 2TXN-b9eec714-89a0-4782-b482-28c80821c87007 Sep 20262,000.00 US",
+    "pageErrors": 0
+  },
+  {
+    "route": "/finance/carrier-reconciliation",
+    "toggle": true,
+    "cards": 25,
+    "checkboxes": 25,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Dup D5A91DDUP-D5A91D01 Jan 202640.00 SARرسوم إضافيةغير مطابق—",
+    "pageErrors": 0
+  },
+  {
+    "route": "/finance/chart-of-accounts",
+    "toggle": true,
+    "cards": 412,
+    "checkboxes": 500,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "1الأصولأصولحساب تجميعي11النقدية والبنوكأصولحساب تجميعي111الصندوقأصولحساب قابل للترحيل11101",
+    "pageErrors": 0
+  },
+  {
+    "route": "/finance/cost-allocation-rules",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/finance/cost-centers",
+    "toggle": true,
+    "cards": 4,
+    "checkboxes": 4,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "الإدارةCC-ADMINنشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/finance/expenses",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/finance/fiscal-periods",
+    "toggle": true,
+    "cards": 1,
+    "checkboxes": 1,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "FY2026-Import-Test01 Jan 2026 – 31 Dec 2026الفترات12مفتوحة",
+    "pageErrors": 0
+  },
+  {
+    "route": "/finance/fixed-assets",
+    "toggle": true,
+    "cards": 6,
+    "checkboxes": 6,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "DEMO-ACCEPTANCE-20260922-1053 Laptop AssetFA-2026-00000601 Jul 20261,200.00العمر الإنتاجي ",
+    "pageErrors": 0
+  },
+  {
+    "route": "/finance/fulfillment-cost-rules",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/finance/journal-entries",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "JV-2026-00850504 Oct 202610.00الوصفAG-T-24FF7A-33 Agent 24FF7A-33 — Commission reversed fo",
+    "pageErrors": 0
+  },
+  {
+    "route": "/finance/journals",
+    "toggle": true,
+    "cards": 5,
+    "checkboxes": 5,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "دفتر البنكBNKنوع دفتر اليوميةBANKنشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/finance/payment-review",
+    "toggle": true,
+    "cards": 50,
+    "checkboxes": 50,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Agent customer 24FF7APAY-AGT-24FF7A-2702 Oct 2026100.00 SARالطلب / الفاتورةSO-AGT-24FF7A-2",
+    "pageErrors": 0
+  },
+  {
+    "route": "/finance/payment-sources",
+    "toggle": true,
+    "cards": 13,
+    "checkboxes": 13,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Payment Gateway——نشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/finance/prepaid-expenses",
+    "toggle": true,
+    "cards": 6,
+    "checkboxes": 6,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "DEMO-ACCEPTANCE-20260922-1053 Prepaid InsurancePE-2026-00000601 Jul 2026300.00تاريخ النهاي",
+    "pageErrors": 0
+  },
+  {
+    "route": "/finance/projects",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/hr/commission-plans",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/hr/commissions",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/hr/employees",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/hr/kpi-evaluations",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/hr/kpi-templates",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/hr/payroll",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/hr/payroll-components",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/hr/ranking",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/hr/sales-targets",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/inventory/movements",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "AGT-B 24FF7AAGT-WH-24FF7A — Agent WH 24FF7AMV/10/2026/000111+1التاريخ04 Oct 2026 — 08:48ال",
+    "pageErrors": 0
+  },
+  {
+    "route": "/inventory/physical-count",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/inventory/stock",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 0,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "AGT-A 0293F2AGT-A-0293F2المتاح92الكمية المتوفرة92المحجوز0",
+    "pageErrors": 0
+  },
+  {
+    "route": "/investors/list",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Lock Test Investor—النوعمؤسسةالاستثمارات النشطة0نشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/investors/opportunities",
+    "toggle": true,
+    "cards": 10,
+    "checkboxes": 10,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "IOP-2026-000323DEMO-ACCEPTANCE-20260922-1117 فرصة استثمارية21 Sep 20261,000.00 SARتاريخ ال",
+    "pageErrors": 0
+  },
+  {
+    "route": "/investors/settings/investor-types",
+    "toggle": true,
+    "cards": 5,
+    "checkboxes": 5,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "فردIT-000001الاسم بالإنجليزيةIndividualالترتيب0نشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/analytic-accounts",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Email MarketingCMP-EMAILخطة التحليلالحملات التسويقيةنشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/analytic-plans",
+    "toggle": true,
+    "cards": 6,
+    "checkboxes": 6,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "الإداراتDEPARTMENTSترتيب العرض2نشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/brands",
+    "toggle": true,
+    "cards": 2,
+    "checkboxes": 2,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "حاسبالوصفعلامة تجارية للأجهزة الإلكترونية والحاسوبيةنشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/categories",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Arabic Search Cat 656fb47bنشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/cities",
+    "toggle": true,
+    "cards": 8,
+    "checkboxes": 8,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "الإسكندريةALXنشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/countries",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "آيسلنداISالاسم بالإنجليزيةIcelandنشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/currencies",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Agent Test 05C6E9A05C6E9نشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/customer-classifications",
+    "toggle": true,
+    "cards": 2,
+    "checkboxes": 2,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "جملةWHOLESALEالاسم بالإنجليزيةWholesaleالترتيب0نشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/customer-groups",
+    "toggle": true,
+    "cards": 2,
+    "checkboxes": 2,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "عملاء التجزئةRETAILنشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/departments",
+    "toggle": true,
+    "cards": 4,
+    "checkboxes": 4,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "المبيعاتDEPT-SALESالاسم بالإنجليزيةSalesالترتيب0نشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/job-titles",
+    "toggle": true,
+    "cards": 9,
+    "checkboxes": 9,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "موظف الشحنSHIPPING_STAFFالاسم بالإنجليزيةShipping Staffالترتيب0نشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/languages",
+    "toggle": true,
+    "cards": 2,
+    "checkboxes": 2,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "الإنجليزيةenالاسم بلغته الأصليةEnglishاتجاه النصLTRنشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/lead-follow-up-types",
+    "toggle": true,
+    "cards": 4,
+    "checkboxes": 4,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "اتصال هاتفيPHONEالاسم بالإنجليزيةPhone Callالترتيب0نشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/no-purchase-reasons",
+    "toggle": true,
+    "cards": 3,
+    "checkboxes": 3,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "السعر مرتفعPRICEالاسم بالإنجليزيةPrice too highالترتيب0نشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/payment-methods",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Agent Method 05C6E9نشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/payment-terms",
+    "toggle": true,
+    "cards": 1,
+    "checkboxes": 1,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Net 30PT-000001عدد الأيام30نشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/shipping-companies",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Amend carrier 099C01النوعEXTERNAL_COMPANYنشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/shipping-statuses",
+    "toggle": true,
+    "cards": 7,
+    "checkboxes": 7,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "جاهز للشحنافتراضي · نظاميتحت المزامنةنشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/supplier-groups",
+    "toggle": true,
+    "cards": 2,
+    "checkboxes": 2,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "موردون محليونLOCALنشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/taxes",
+    "toggle": true,
+    "cards": 3,
+    "checkboxes": 3,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "ضريبة القيمة المضافة 14%VAT14النسبة (%)14نشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/transaction-types",
+    "toggle": true,
+    "cards": 9,
+    "checkboxes": 9,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "تحصيل طلب متجرنظاميSTORE_ORDER_COLLECTIONهدف المقابلةطلب متجرمعالجة الحساباتإيراد تشغيلينش",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/unit-conversions",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/units",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Arabic Search Unit 656fb47bنشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/warehouse-locations",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/warehouses",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Agent WH 0293F2AGT-WH-0293F2نشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/master-data/workflow-statuses",
+    "toggle": true,
+    "cards": 7,
+    "checkboxes": 7,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "جديدافتراضي · نظاميNEWالترتيب0نشط",
+    "pageErrors": 0
+  },
+  {
+    "route": "/products",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "F7 24FF7ASO Import Test Category f47efe4c-305c-498b-8253-cc4d1c34b810AGT-F7-24FF7Aنوع الصن",
+    "pageErrors": 0
+  },
+  {
+    "route": "/purchasing/landed-cost",
+    "toggle": true,
+    "cards": 1,
+    "checkboxes": 0,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "—LC-2026-0000011,000.00 SARفاتورة الشراءPI-2026-000004التاريخ16 Sep 2026مرحّل",
+    "pageErrors": 0
+  },
+  {
+    "route": "/purchasing/payments",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "QA-PN-20260928T124354 SupplierSP-2026-00080387.00التاريخ28 Sep 2026أُنشئ بواسطةSara Al-Ami",
+    "pageErrors": 0
+  },
+  {
+    "route": "/purchasing/purchase-invoices",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "QA-PN-20260928T124354 SupplierPI-2026-00002887.00التاريخ28 Sep 2026المرجعQA-PN-20260928T12",
+    "pageErrors": 0
+  },
+  {
+    "route": "/purchasing/purchase-orders",
+    "toggle": true,
+    "cards": 16,
+    "checkboxes": 16,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "DEMO-ACCEPTANCE-20260922-1053 SupplierPO-2026-000018350.00التاريخ26 Sep 2026المرجعDEMO-ACC",
+    "pageErrors": 0
+  },
+  {
+    "route": "/purchasing/purchase-quotations",
+    "toggle": true,
+    "cards": 14,
+    "checkboxes": 14,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "DEMO-ACCEPTANCE-20260922-1053 SupplierPQ-2026-000014350.00التاريخ26 Sep 2026المرجعDEMO-ACC",
+    "pageErrors": 0
+  },
+  {
+    "route": "/purchasing/purchase-returns",
+    "toggle": true,
+    "cards": 3,
+    "checkboxes": 3,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "DEMO-ACCEPTANCE-20260922-1053 SupplierPR-2026-00000370.00التاريخ22 Sep 2026المرجعDEMO-ACCE",
+    "pageErrors": 0
+  },
+  {
+    "route": "/purchasing/suppliers",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Cash Flow Test SupplierPT-2026-014153نشطمورد",
+    "pageErrors": 0
+  },
+  {
+    "route": "/reports/finance",
+    "toggle": true,
+    "cards": 6,
+    "checkboxes": 0,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "1الأصول11النقدية والبنوكالرصيد الافتتاحي0.00مدين16,100.00دائن5,550.00الرصيد الختامي10,550.",
+    "pageErrors": 0
+  },
+  {
+    "route": "/reports/inventory",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "AGT-B 24FF7AMV/10/2026/00011104 Oct 2026 — 08:48المستودعAGT-WH-24FF7A — Agent WH 24FF7Aالك",
+    "pageErrors": 0
+  },
+  {
+    "route": "/sales/customers",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Accept A+966 55 977 1367PT-2026-008515الدولةالسعوديةنشطعميل",
+    "pageErrors": 0
+  },
+  {
+    "route": "/sales/invoices",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Amend Customer C993E4-43+20 11 84095744AMD-INV-C993E4-460.00التاريخ04 Oct 2026المبلغ المتب",
+    "pageErrors": 0
+  },
+  {
+    "route": "/sales/orders",
+    "toggle": true,
+    "cards": 10,
+    "checkboxes": 10,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "DEMO-ACCEPTANCE-20260922-1053 Customer B2BSO-2026-000011DEMO-ACCEPTANCE-20260922-1053 B2B1",
+    "pageErrors": 0
+  },
+  {
+    "route": "/sales/payments",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Agent customer 24FF7APAY-AGT-24FF7A-24CR-2026-002358250.00 SARالتاريخ04 Oct 2026مصدر الدفع",
+    "pageErrors": 0
+  },
+  {
+    "route": "/sales/quotations",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "DEMO-ACCEPTANCE-20260922-1053 Customer B2BQT-2026-0000230.00التاريخ26 Sep 2026معتمد",
+    "pageErrors": 0
+  },
+  {
+    "route": "/sales/returns",
+    "toggle": true,
+    "cards": 5,
+    "checkboxes": 5,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "DEMO-ACCEPTANCE-20260922-1053 Customer C Return+20 10 00488205SR-2026-000005DEMO-ACCEPTANC",
+    "pageErrors": 0
+  },
+  {
+    "route": "/settings/document-numbering",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Accrued ExpenseACCRUED_EXPENSEالقالب{DOC}-{YEAR}-{SEQ}مفعّل",
+    "pageErrors": 0
+  },
+  {
+    "route": "/settings/users",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "AA AhmedQAsf_8dd498d2البريد الإلكترونيsf-8dd498d2@example.comنشطداخلي",
+    "pageErrors": 0
+  },
+  {
+    "route": "/shipping",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Agent customer 24FF7ASO-AGT-24FF7A-34رقم التتبعلا يوجد رقم تتبعتم التسليم",
+    "pageErrors": 0
+  },
+  {
+    "route": "/shipping/import",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "google-sheet.csv04 Oct 2026 — 08:47إجمالي الصفوف1ناجح1أخطاء0مكتمل",
+    "pageErrors": 0
+  },
+  {
+    "route": "/store-orders",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "Agent customer 24FF7ASO-AGT-24FF7A-3604 Oct 2026100.00 SARبانتظار التحصيلغير جاهزالتالي:تح",
+    "pageErrors": 0
+  },
+  {
+    "route": "/store-orders/import",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "google-sheet.csv04 Oct 2026 — 08:51إجمالي الصفوف2ناجح1أخطاء0مكتمل",
+    "pageErrors": 0
+  },
+  {
+    "route": "/store-orders/needs-review",
+    "toggle": true,
+    "cards": 0,
+    "checkboxes": 0,
+    "noGrid": true,
+    "overflow": 0,
+    "text": "",
+    "pageErrors": 0
+  }
+]

@@ -33,19 +33,20 @@ export function buildSalesTargetsColumns(
   return [
     {
       id: "period",
-      meta: { titleKey: "hr.salesTargets.fields.period" },
+      meta: { titleKey: "hr.salesTargets.fields.period", type: "date" },
       accessorFn: (row) => row.period,
       cell: (info) => <span className="num">{info.getValue() as string}</span>,
     },
     {
       id: "scope",
-      meta: { titleKey: "hr.salesTargets.fields.scopeType" },
+      // The employee / team the target belongs to is the card title.
+      meta: { titleKey: "hr.salesTargets.fields.scopeType", type: "name" },
       accessorFn: (row) => salesTargetScopeLabel(row),
       cell: ({ row }) => <SalesTargetScopeCell row={row.original} t={t} />,
     },
     {
       id: "metric",
-      meta: { titleKey: "hr.salesTargets.fields.metric" },
+      meta: { titleKey: "hr.salesTargets.fields.metric", type: "default" },
       accessorFn: (row) => t(`hr.salesTargets.metric.${row.metric}` as MessageKey),
       cell: (info) => info.getValue() as string,
     },

@@ -25,7 +25,12 @@ import {
 import { BULK_LIMITS } from "@/lib/bulk-limits";
 import { ShippingBulkActions } from "@/components/shipping/shipping-bulk-actions";
 import { ShipmentManageDialog } from "@/components/shipping/shipment-manage-dialog";
-import { buildShipmentColumns, shipmentExportColumns } from "@/config/shipping/shipment-columns";
+import {
+  buildShipmentColumns,
+  shipmentExportColumns,
+  type ShipmentRowHandlers,
+} from "@/config/shipping/shipment-columns";
+import { ShipmentGridCard } from "@/config/shipping/shipment-grid-card";
 import {
   SHIPMENT_STATUS_LABEL_KEY,
   SHIPMENT_STATUS_VALUES,
@@ -191,20 +196,20 @@ function ShippingPageContent() {
     void load();
   }, [load]);
 
-  const columns = useMemo(
-    () =>
-      buildShipmentColumns({
-        onView: (row) => router.push(`/store-orders/${row.storeOrderId}`),
-        onManage: (row) => setManageTarget(row),
-        quickEdit: {
-          canEdit: canQuickEdit,
-          statuses,
-          companies,
-          onPatched: handleRowPatched,
-        },
-      }),
+  const rowHandlers = useMemo<ShipmentRowHandlers>(
+    () => ({
+      onView: (row) => router.push(`/store-orders/${row.storeOrderId}`),
+      onManage: (row) => setManageTarget(row),
+      quickEdit: {
+        canEdit: canQuickEdit,
+        statuses,
+        companies,
+        onPatched: handleRowPatched,
+      },
+    }),
     [router, canQuickEdit, statuses, companies, handleRowPatched],
   );
+  const columns = useMemo(() => buildShipmentColumns(rowHandlers), [rowHandlers]);
 
   const toPrintRow = useCallback(
     (item: ShipmentListRow): Record<string, string> => ({
@@ -430,6 +435,15 @@ function ShippingPageContent() {
           )
         }
         emptyTitle={t("shipping.empty")}
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <ShipmentGridCard
+            row={row}
+            handlers={rowHandlers}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            href={`/store-orders/${row.storeOrderId}`}
+          />
+        )}
         getRowId={(row) => row.id}
         getRowHref={(row) => `/store-orders/${row.storeOrderId}`}
         identityOnlyNavigation

@@ -35,6 +35,7 @@ import { reportApiError, toast } from "@/lib/toast";
 import { formatDate } from "@/lib/date";
 import { formatAmount } from "@/lib/money";
 import type { MessageKey } from "@/i18n/translate";
+import { InventoryStockGridCard } from "@/config/inventory/inventory-grid-cards";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { useUserContext } from "@/providers/user-context";
 
@@ -215,6 +216,7 @@ function InventoryStockPageContent() {
         columns={columns}
         data={rows}
         getRowId={(row) => row.productId}
+        renderGridCard={({ row }) => <InventoryStockGridCard row={row} />}
         isLoading={isLoading}
         exportColumns={exportColumnsFromKeys(
           columns,

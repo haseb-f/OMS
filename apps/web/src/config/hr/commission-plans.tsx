@@ -12,19 +12,20 @@ export function buildCommissionPlansColumns(
   return [
     {
       id: "name",
-      meta: { titleKey: "hr.commissionPlans.fields.name" },
+      meta: { titleKey: "hr.commissionPlans.fields.name", type: "name" },
       accessorFn: (row) => row.name,
       cell: (info) => info.getValue() as string,
     },
     {
       id: "basis",
-      meta: { titleKey: "hr.commissionPlans.fields.basis" },
+      meta: { titleKey: "hr.commissionPlans.fields.basis", type: "default" },
       accessorFn: (row) => t(`hr.commissionPlans.basis.${row.basis}` as MessageKey),
       cell: (info) => info.getValue() as string,
     },
     {
       id: "ruleType",
-      meta: { titleKey: "hr.commissionPlans.fields.ruleType" },
+      // A plan's rule kind is a descriptor, not a workflow state: a plain field on the card.
+      meta: { titleKey: "hr.commissionPlans.fields.ruleType", type: "default" },
       accessorFn: (row) => t(`hr.commissionPlans.ruleType.${row.ruleType}` as MessageKey),
       cell: (info) => info.getValue() as string,
     },

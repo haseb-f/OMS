@@ -18,7 +18,8 @@ import {
 } from "@/components/ui/select";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
 import { SelectFilter } from "@/components/shared/data-table/select-filter";
-import { RowActionsMenu } from "@/components/shared/data-table";
+import { RowActionsMenu, type RowAction } from "@/components/shared/data-table";
+import { NeedsReviewGridCard } from "@/components/store-orders/needs-review-grid-card";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { useUserContext } from "@/providers/user-context";
 import {
@@ -216,6 +217,26 @@ function NeedsReviewContent() {
     void loadRows();
   };
 
+  /** Confirm / Reject - one builder for the table's actions column and the Grid card. */
+  const rowActions = (row: ImportJobRowRecord): RowAction[] => [
+    {
+      key: "confirm",
+      label: t("storeOrders.needsReview.confirm"),
+      icon: Check,
+      hidden: !canManage,
+      onSelect: () => handleConfirmRow(row),
+    },
+    {
+      key: "reject",
+      label: t("storeOrders.needsReview.reject"),
+      icon: X,
+      hidden: !canManage,
+      destructive: true,
+      separatorBefore: true,
+      onSelect: () => setRejectTarget(row),
+    },
+  ];
+
   const columns = useMemo<ColumnDef<ImportJobRowRecord, unknown>[]>(
     () => [
       {
@@ -303,24 +324,7 @@ function NeedsReviewContent() {
               cell: (info: { row: { original: ImportJobRowRecord } }) => (
                 <RowActionsMenu
                   label={t("common.actions")}
-                  actions={[
-                    {
-                      key: "confirm",
-                      label: t("storeOrders.needsReview.confirm"),
-                      icon: Check,
-                      hidden: !canManage,
-                      onSelect: () => handleConfirmRow(info.row.original),
-                    },
-                    {
-                      key: "reject",
-                      label: t("storeOrders.needsReview.reject"),
-                      icon: X,
-                      hidden: !canManage,
-                      destructive: true,
-                      separatorBefore: true,
-                      onSelect: () => setRejectTarget(info.row.original),
-                    },
-                  ]}
+                  actions={rowActions(info.row.original)}
                 />
               ),
             } satisfies ColumnDef<ImportJobRowRecord, unknown>,
@@ -377,6 +381,14 @@ function NeedsReviewContent() {
           data={rows}
           isLoading={isLoadingRows}
           getRowId={(row) => row.id}
+          renderGridCard={({ row, selected, onToggleSelected }) => (
+            <NeedsReviewGridCard
+              row={row}
+              selected={selected}
+              onToggleSelected={onToggleSelected}
+              actions={viewStatus === "REJECTED" ? undefined : rowActions(row)}
+            />
+          )}
           rowSelection={rowSelection}
           onRowSelectionChange={setRowSelection}
           bulkActions={

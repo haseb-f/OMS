@@ -13,6 +13,7 @@ import {
 } from "@/components/master-data/enterprise-data-table";
 import { MultiSelectFilter, getColumnDisplayValue } from "@/components/shared/data-table";
 import type { ColumnDef } from "@tanstack/react-table";
+import { LandedCostGridCard } from "@/config/purchasing/purchasing-grid-cards";
 import { landedCostService, type LandedCostDocumentRow } from "@/services/landed-cost-service";
 import {
   LANDED_COST_FILTERABLE_STATUSES,
@@ -66,7 +67,7 @@ function LandedCostPageContent() {
       {
         id: "documentNumber",
         header: t("purchasing.landedCost.fields.number"),
-        meta: { titleKey: "purchasing.landedCost.fields.number" },
+        meta: { titleKey: "purchasing.landedCost.fields.number", type: "code" },
         accessorFn: (row) => row.documentNumber,
         cell: (info) => (
           <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
@@ -83,19 +84,19 @@ function LandedCostPageContent() {
       {
         id: "provider",
         header: t("purchasing.landedCost.fields.provider"),
-        meta: { titleKey: "purchasing.landedCost.fields.provider" },
+        meta: { titleKey: "purchasing.landedCost.fields.provider", type: "name" },
         accessorFn: (row) => row.provider?.name ?? "—",
       },
       {
         id: "netTotal",
         header: t("purchasing.landedCost.fields.netTotal"),
-        meta: { titleKey: "purchasing.landedCost.fields.netTotal" },
+        meta: { titleKey: "purchasing.landedCost.fields.netTotal", type: "money" },
         accessorFn: (row) => formatNumber(row.netTotal, { minDecimals: 2 }),
       },
       {
         id: "status",
         header: t("common.status"),
-        meta: { titleKey: "common.status" },
+        meta: { titleKey: "common.status", type: "status" },
         accessorFn: (row) => t(LANDED_COST_STATUS_LABEL_KEY[row.status]),
         cell: ({ row }) => (
           <StatusBadge
@@ -107,7 +108,7 @@ function LandedCostPageContent() {
       {
         id: "documentDate",
         header: t("purchasing.landedCost.fields.date"),
-        meta: { titleKey: "purchasing.landedCost.fields.date" },
+        meta: { titleKey: "purchasing.landedCost.fields.date", type: "date" },
         accessorFn: (row) => formatDate(row.documentDate),
       },
     ],
@@ -165,6 +166,9 @@ function LandedCostPageContent() {
           )
         }
         emptyTitle={t("purchasing.landedCost.empty")}
+        renderGridCard={({ row }) => (
+          <LandedCostGridCard row={row} href={`/purchasing/landed-cost/${row.id}`} />
+        )}
         getRowId={(row) => row.id}
         getRowHref={(row) => `/purchasing/landed-cost/${row.id}`}
       />

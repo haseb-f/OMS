@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
-import { Ban, Eye, Pencil, Plus, Printer, Archive } from "lucide-react";
+import { Plus } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { HeaderActions } from "@/components/shared/header-actions";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
@@ -16,11 +16,7 @@ import { StatusBadge } from "@/components/business/status-badge";
 import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
-import {
-  SalesDocumentRowActionsMenu,
-  SalesListBulkActions,
-  type SalesDocumentRowAction,
-} from "@/components/sales";
+import { SalesListBulkActions } from "@/components/sales";
 import {
   EnterpriseDataTable,
   exportColumnsFromKeys,
@@ -46,6 +42,11 @@ import {
   TRANSACTION_STATUS_TONE,
 } from "@/config/financial-transactions/status";
 import { buildPaymentPrintPayload } from "@/config/purchasing/payment-print";
+import {
+  SupplierPaymentActionsCell,
+  type SupplierPaymentRowHandlers,
+} from "@/config/purchasing/payment-row-actions";
+import { SupplierPaymentGridCard } from "@/config/purchasing/purchasing-grid-cards";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { useCompany } from "@/providers/company-provider";
@@ -192,6 +193,17 @@ function SupplierPaymentsPageContent() {
     }
   };
 
+  const rowHandlers = useMemo<SupplierPaymentRowHandlers>(
+    () => ({
+      onView: (row) => router.push(`/purchasing/payments/${row.id}`),
+      onPrint: handlePrintRow,
+      onCancel: setCancelTarget,
+      onArchive: setArchiveTarget,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [router, activeCompany, user],
+  );
+
   const columns = useMemo<ColumnDef<FinancialTransactionRow, unknown>[]>(
     () => [
       {
@@ -266,60 +278,10 @@ function SupplierPaymentsPageContent() {
         meta: { titleKey: "common.actions" },
         enableHiding: false,
         enableSorting: false,
-        cell: ({ row }) => {
-          const item = row.original;
-          const isDraft = item.status === "DRAFT";
-          const canView = hasPermission("purchasing.payments.view");
-          const canEdit = hasPermission("purchasing.payments.edit");
-          const canPrint = hasPermission("purchasing.payments.print");
-          const canCancel = hasPermission("purchasing.payments.cancel");
-          const canArchive = hasPermission("purchasing.payments.archive");
-          const actions: SalesDocumentRowAction[] = [
-            {
-              key: "view",
-              label: t("common.view"),
-              icon: Eye,
-              hidden: !canView,
-              onSelect: () => router.push(`/purchasing/payments/${item.id}`),
-            },
-            {
-              key: "edit",
-              label: t("common.edit"),
-              icon: Pencil,
-              hidden: !isDraft || !canEdit,
-              onSelect: () => router.push(`/purchasing/payments/${item.id}`),
-            },
-            {
-              key: "print",
-              label: t("table.print"),
-              icon: Printer,
-              hidden: !canPrint,
-              onSelect: () => handlePrintRow(item),
-            },
-            {
-              key: "cancel",
-              label: t("financialTransactions.actions.cancel"),
-              icon: Ban,
-              hidden: item.status !== "CONFIRMED" || !canCancel,
-              destructive: true,
-              separatorBefore: true,
-              onSelect: () => setCancelTarget(item),
-            },
-            {
-              key: "archive",
-              label: t("common.archive"),
-              icon: Archive,
-              hidden: !TRANSACTION_ARCHIVABLE_STATUSES.includes(item.status) || !canArchive,
-              destructive: true,
-              onSelect: () => setArchiveTarget(item),
-            },
-          ];
-          return <SalesDocumentRowActionsMenu actions={actions} label={t("common.actions")} />;
-        },
+        cell: ({ row }) => <SupplierPaymentActionsCell row={row.original} handlers={rowHandlers} />,
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, usersById, router, activeCompany, user],
+    [t, usersById, rowHandlers],
   );
 
   const exportColumnKeys = [
@@ -499,6 +461,16 @@ function SupplierPaymentsPageContent() {
           )
         }
         emptyTitle={t("purchasing.payments.empty")}
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <SupplierPaymentGridCard
+            row={row}
+            handlers={rowHandlers}
+            usersById={usersById}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            href={`/purchasing/payments/${row.id}`}
+          />
+        )}
         getRowId={(row) => row.id}
         getRowHref={(row) => `/purchasing/payments/${row.id}`}
       />

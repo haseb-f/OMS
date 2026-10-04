@@ -26,7 +26,13 @@ export interface ShipmentRowHandlers {
   quickEdit: ShipmentQuickEditContext;
 }
 
-function ActionsCell({ row, handlers }: { row: ShipmentListRow; handlers: ShipmentRowHandlers }) {
+export function ShipmentActionsCell({
+  row,
+  handlers,
+}: {
+  row: ShipmentListRow;
+  handlers: ShipmentRowHandlers;
+}) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   return (
@@ -189,7 +195,7 @@ export function buildShipmentColumns(
       meta: { titleKey: "common.actions" },
       enableHiding: false,
       enableSorting: false,
-      cell: ({ row }) => <ActionsCell row={row.original} handlers={handlers} />,
+      cell: ({ row }) => <ShipmentActionsCell row={row.original} handlers={handlers} />,
     },
   ];
 }

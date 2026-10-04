@@ -7,7 +7,7 @@ import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
   FinancialReport,
-  FinancialReportTable,
+  FinancialReportView,
   ReportPagination,
   fetchAllReportPages,
   lineSideValues,
@@ -246,7 +246,7 @@ export function JournalReportTab() {
       >
         {detail ? (
           <div className="overflow-hidden rounded-md border border-border">
-            <FinancialReportTable
+            <FinancialReportView
               lines={detailLines}
               columns={COLUMNS}
               textColumns={[

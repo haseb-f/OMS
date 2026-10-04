@@ -1,6 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useTableViewPreference } from "./table-preferences";
+import { EnterpriseTableViewToggle } from "./data-table-view-toggle";
+import { useUserContext } from "@/providers/user-context";
 import {
   Table,
   TableBody,
@@ -42,15 +45,7 @@ export interface CompactDetailColumn<T> {
  * so wide line tables never scroll sideways on phones. Column `footer`s
  * render as a totals card; a custom `footer` node stays desktop-only.
  */
-export function CompactDetailTable<T>({
-  columns,
-  rows,
-  rowKey,
-  empty,
-  footer,
-  stacked = false,
-  className,
-}: {
+export interface CompactDetailTableProps<T> {
   columns: CompactDetailColumn<T>[];
   rows: T[];
   rowKey: (row: T) => string;
@@ -58,7 +53,104 @@ export function CompactDetailTable<T>({
   footer?: ReactNode;
   stacked?: boolean;
   className?: string;
-}) {
+  /**
+   * Makes this table a LIST SCREEN with a Table / Grid switch (R9, design-system
+   * §12.19): the id the user's choice is remembered under (per user, per screen).
+   * Leave unset for a table that is only a section of a detail page.
+   */
+  viewId?: string;
+}
+
+/** A compact list with the Table / Grid switch when it has a `viewId`; otherwise the plain table. */
+export function CompactDetailTable<T>(props: CompactDetailTableProps<T>) {
+  return props.viewId ? (
+    <SwitchableCompactTable {...props} viewId={props.viewId} />
+  ) : (
+    <CompactDetailTableBase {...props} />
+  );
+}
+
+function SwitchableCompactTable<T>({
+  viewId,
+  ...props
+}: CompactDetailTableProps<T> & { viewId: string }) {
+  const { user } = useUserContext();
+  const [view, setView] = useTableViewPreference(viewId, user?.id);
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <div className="flex justify-end">
+        <EnterpriseTableViewToggle view={view} onViewChange={setView} />
+      </div>
+      {view === "grid" ? <CompactRecordCards {...props} /> : <CompactDetailTableBase {...props} />}
+    </div>
+  );
+}
+
+/**
+ * The Grid of a compact list: one card per row, the first column as its title and
+ * every other column as a label/value pair (the table's own cell renderers — never
+ * a second copy of the data); column footers become a totals card. Same
+ * `[data-record-card]` look as every Grid view.
+ */
+function CompactRecordCards<T>({ columns, rows, rowKey, empty }: CompactDetailTableProps<T>) {
+  const [titleColumn, ...detailColumns] = columns;
+  const footers = columns.filter((column) => column.footer != null);
+  if (rows.length === 0) {
+    return <p className="p-3 text-center text-caption text-muted-foreground">{empty}</p>;
+  }
+  return (
+    <div data-record-grid="">
+      {rows.map((row) => (
+        <article
+          key={rowKey(row)}
+          data-record-card=""
+          data-static=""
+          data-tone="neutral"
+          className="flex min-w-0 flex-col gap-2 p-3"
+        >
+          {titleColumn ? (
+            <div className="min-w-0 text-body font-medium text-foreground">
+              {titleColumn.cell(row)}
+            </div>
+          ) : null}
+          {detailColumns.length > 0 ? (
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+              {detailColumns.map((column) => (
+                <div
+                  key={column.id}
+                  className={cn("min-w-0", column.align === "end" && "text-end")}
+                >
+                  <dt className="truncate text-micro text-muted-foreground">{column.header}</dt>
+                  <dd className="min-w-0 text-table text-foreground">{column.cell(row)}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+        </article>
+      ))}
+      {footers.length > 0 ? (
+        <article
+          data-record-card=""
+          data-static=""
+          data-tone="neutral"
+          className="min-w-0 bg-surface-sunken p-3 font-semibold"
+        >
+          <StackedPairs columns={footers} value={(column) => column.footer} />
+        </article>
+      ) : null}
+    </div>
+  );
+}
+
+function CompactDetailTableBase<T>({
+  columns,
+  rows,
+  rowKey,
+  empty,
+  footer,
+  stacked = false,
+  className,
+}: CompactDetailTableProps<T>) {
   const hasColumnFooters = columns.some((column) => column.footer != null);
   const table = (
     <div

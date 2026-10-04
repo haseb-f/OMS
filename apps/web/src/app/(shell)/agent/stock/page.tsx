@@ -10,6 +10,7 @@ import {
 } from "@/components/master-data/enterprise-data-table";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
+import { PortalStockGridCard } from "@/components/agent-portal/portal-grid-cards";
 import { localizedName } from "@/config/agent-portal/labels";
 import {
   agentPortalService,
@@ -149,6 +150,9 @@ export default function AgentStockPage() {
         }
         emptyTitle={t("agentPortal.stock.empty")}
         getRowId={(row) => `${row.productId}:${row.warehouseId ?? "none"}`}
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <PortalStockGridCard row={row} selected={selected} onToggleSelected={onToggleSelected} />
+        )}
       />
     </PageWorkspace>
   );

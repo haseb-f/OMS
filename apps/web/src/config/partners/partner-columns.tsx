@@ -37,7 +37,8 @@ function SourceCell({ source }: { source: PartnerSourceValue }) {
   );
 }
 
-function RolesCell({ roles }: { roles: PartnerRow["roles"] }) {
+/** The partner's role badges — exported so the Grid card shows the table's own badges. */
+export function RolesCell({ roles }: { roles: PartnerRow["roles"] }) {
   const { t } = useLocale();
   if (roles.length === 0) return <span className="text-muted-foreground">—</span>;
   return (

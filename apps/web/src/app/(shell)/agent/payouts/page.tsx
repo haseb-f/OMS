@@ -11,6 +11,7 @@ import {
 import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StatusBadge } from "@/components/business/status-badge";
+import { PortalPayoutGridCard } from "@/components/agent-portal/portal-grid-cards";
 import { agentPortalService, type PortalPayoutRow } from "@/services/agent-portal-service";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
@@ -183,6 +184,13 @@ export default function AgentPayoutsPage() {
         emptyTitle={t("agentPortal.payouts.empty")}
         getRowId={(row) => row.id}
         getRowHref={(row) => `/agent/payouts/${row.id}`}
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <PortalPayoutGridCard
+            payout={row}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+          />
+        )}
       />
     </PageWorkspace>
   );

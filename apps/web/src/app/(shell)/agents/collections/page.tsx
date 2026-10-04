@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/business/status-badge";
 import { AttachmentPreviewDialog } from "@/components/business/attachment-preview-dialog";
 import { AgentBadge, AgentFilter } from "@/components/agents/agent-options";
+import { AgentCollectionGridCard } from "@/components/agents/agent-collection-grid-card";
 import {
   agentFinanceService,
   type AgentCollectionRow,
@@ -173,6 +174,38 @@ function AgentCollectionsContent() {
     }
   };
 
+  // Verify / Reject for a collection awaiting review - the ONE control behind the
+  // table's Actions cell and the Grid card (same permission: `canVerify` gates both).
+  const renderActions = useCallback(
+    (row: AgentCollectionRow) =>
+      row.status === "PENDING" || row.status === "MATCHED" ? (
+        <span className="flex flex-wrap justify-end gap-1">
+          <EnterpriseButton
+            type="button"
+            size="sm"
+            variant="success"
+            onClick={() => setVerifyTarget(row)}
+          >
+            <CheckCircle2 />
+            {t("agents.collections.verify")}
+          </EnterpriseButton>
+          <EnterpriseButton
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setReason("");
+              setRejectTarget(row);
+            }}
+          >
+            <XCircle />
+            {t("agents.collections.reject")}
+          </EnterpriseButton>
+        </span>
+      ) : null,
+    [t],
+  );
+
   const columns = useMemo<ColumnDef<AgentCollectionRow, unknown>[]>(
     () => [
       {
@@ -195,7 +228,12 @@ function AgentCollectionsContent() {
       },
       {
         id: "agent",
-        meta: { titleKey: "agents.collections.agent", importance: "high", minWidth: 140 },
+        meta: {
+          titleKey: "agents.collections.agent",
+          type: "name",
+          importance: "high",
+          minWidth: 140,
+        },
         enableSorting: false,
         accessorFn: (row) => row.agent?.name ?? "",
         cell: ({ row }) => <AgentBadge agent={row.original.agent} />,
@@ -204,6 +242,7 @@ function AgentCollectionsContent() {
         id: "order",
         meta: {
           titleKey: "agents.collections.order",
+          type: "default",
           stacked: true,
           importance: "high",
           minWidth: 150,
@@ -231,6 +270,7 @@ function AgentCollectionsContent() {
         id: "destination",
         meta: {
           titleKey: "agents.collections.destination",
+          type: "default",
           stacked: true,
           importance: "medium",
           minWidth: 140,
@@ -246,7 +286,12 @@ function AgentCollectionsContent() {
       },
       {
         id: "reference",
-        meta: { titleKey: "agents.collections.reference", importance: "low", defaultHidden: true },
+        meta: {
+          titleKey: "agents.collections.reference",
+          type: "reference",
+          importance: "low",
+          defaultHidden: true,
+        },
         enableSorting: false,
         accessorFn: (row) => row.referenceNumber ?? row.senderName ?? "",
       },
@@ -283,7 +328,12 @@ function AgentCollectionsContent() {
       },
       {
         id: "evidence",
-        meta: { titleKey: "agents.collections.evidence", importance: "medium", minWidth: 120 },
+        meta: {
+          titleKey: "agents.collections.evidence",
+          type: "default",
+          importance: "medium",
+          minWidth: 120,
+        },
         enableSorting: false,
         cell: ({ row }) => <EvidenceCell row={row.original} onPreview={setPreview} />,
       },
@@ -294,37 +344,12 @@ function AgentCollectionsContent() {
               meta: { titleKey: "common.actions", importance: "critical" },
               enableSorting: false,
               enableHiding: false,
-              cell: ({ row }) =>
-                row.original.status === "PENDING" || row.original.status === "MATCHED" ? (
-                  <span className="flex flex-wrap justify-end gap-1">
-                    <EnterpriseButton
-                      type="button"
-                      size="sm"
-                      variant="success"
-                      onClick={() => setVerifyTarget(row.original)}
-                    >
-                      <CheckCircle2 />
-                      {t("agents.collections.verify")}
-                    </EnterpriseButton>
-                    <EnterpriseButton
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setReason("");
-                        setRejectTarget(row.original);
-                      }}
-                    >
-                      <XCircle />
-                      {t("agents.collections.reject")}
-                    </EnterpriseButton>
-                  </span>
-                ) : null,
+              cell: ({ row }) => renderActions(row.original),
             },
           ] satisfies ColumnDef<AgentCollectionRow, unknown>[])
         : []),
     ],
-    [canVerify, t],
+    [canVerify, t, renderActions],
   );
 
   return (
@@ -387,6 +412,17 @@ function AgentCollectionsContent() {
         }}
         emptyTitle={t("agents.collections.empty")}
         getRowId={(row) => row.id}
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <AgentCollectionGridCard
+            collection={row}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            statusLabel={t(`agents.collections.statusValues.${row.status}`)}
+            statusTone={STATUS_TONE[row.status]}
+            evidence={<EvidenceCell row={row} onPreview={setPreview} />}
+            actions={canVerify ? renderActions(row) : null}
+          />
+        )}
       />
 
       <ConfirmationDialog

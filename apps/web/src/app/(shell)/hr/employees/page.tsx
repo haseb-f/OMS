@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Plus } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
+import { EmployeeGridCard } from "@/components/hr/employee-grid-card";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
 import {
   employeesService,
@@ -107,6 +108,14 @@ export default function EmployeesPage() {
       defaultSortBy="createdAt"
       defaultSortOrder="desc"
       getRowHref={(row) => `/hr/employees/${row.id}`}
+      renderGridCard={({ row, selected, onToggleSelected, actionsNode }) => (
+        <EmployeeGridCard
+          employee={row}
+          selected={selected}
+          onToggleSelected={onToggleSelected}
+          actionsNode={actionsNode}
+        />
+      )}
       primaryAction={{
         key: "add-new",
         label: t("hr.employees.addNew"),

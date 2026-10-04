@@ -37,7 +37,13 @@ export interface InvoiceRowHandlers {
   onCreateReturn: (row: PurchaseInvoiceRow) => void;
 }
 
-function ActionsCell({ row, handlers }: { row: PurchaseInvoiceRow; handlers: InvoiceRowHandlers }) {
+export function InvoiceActionsCell({
+  row,
+  handlers,
+}: {
+  row: PurchaseInvoiceRow;
+  handlers: InvoiceRowHandlers;
+}) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const access = documentRowAccess(hasPermission, "purchasing.invoices");
@@ -150,7 +156,7 @@ export function buildInvoiceColumns(
     },
     {
       id: "status",
-      meta: { titleKey: "purchasing.suppliers.fields.status" },
+      meta: { titleKey: "purchasing.suppliers.fields.status", type: "status" },
       enableSorting: false,
       cell: ({ row }) => (
         <StackedCell
@@ -197,7 +203,7 @@ export function buildInvoiceColumns(
       meta: { titleKey: "common.actions" },
       enableHiding: false,
       enableSorting: false,
-      cell: ({ row }) => <ActionsCell row={row.original} handlers={handlers} />,
+      cell: ({ row }) => <InvoiceActionsCell row={row.original} handlers={handlers} />,
     },
   ];
 }

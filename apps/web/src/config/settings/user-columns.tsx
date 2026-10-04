@@ -23,7 +23,12 @@ export interface UserRowHandlers {
   onOpenAgentTeam: (row: UserRow) => void;
 }
 
-function StatusCell({ row }: { row: UserRow }) {
+/** Locked / Active / Inactive tone - the one rule behind the table badge and the Grid card. */
+export function userStatusTone(row: Pick<UserRow, "isLocked" | "isActive">) {
+  return row.isLocked ? "destructive" : row.isActive ? "success" : "neutral";
+}
+
+export function StatusCell({ row }: { row: UserRow }) {
   const { t } = useLocale();
   if (row.isLocked) {
     return <StatusBadge label={t("settings.users.status.locked")} tone="destructive" />;
@@ -36,7 +41,7 @@ function StatusCell({ row }: { row: UserRow }) {
 }
 
 /** Agents milestone — Internal vs Agent (+ the agent's name). */
-function UserTypeCell({ row }: { row: UserRow }) {
+export function UserTypeCell({ row }: { row: UserRow }) {
   const { t } = useLocale();
   if (row.userType !== "AGENT") {
     return <StatusBadge label={t("agents.users.INTERNAL")} tone="neutral" />;
@@ -49,7 +54,8 @@ function UserTypeCell({ row }: { row: UserRow }) {
   );
 }
 
-function ActionsCell({ row, handlers }: { row: UserRow; handlers: UserRowHandlers }) {
+/** The row's actions menu - exported so the Grid card carries the exact same permission-gated actions. */
+export function ActionsCell({ row, handlers }: { row: UserRow; handlers: UserRowHandlers }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const { user } = useAuth();
@@ -126,7 +132,7 @@ export function buildUserColumns(handlers: UserRowHandlers): ColumnDef<UserRow, 
   return [
     {
       id: "fullName",
-      meta: { titleKey: "settings.users.fields.fullName" },
+      meta: { titleKey: "settings.users.fields.fullName", type: "name" },
       accessorFn: (row) => row.fullName,
       cell: ({ row }) => (
         <StackedCell
@@ -137,13 +143,13 @@ export function buildUserColumns(handlers: UserRowHandlers): ColumnDef<UserRow, 
     },
     {
       id: "username",
-      meta: { titleKey: "settings.users.fields.username", defaultHidden: true },
+      meta: { titleKey: "settings.users.fields.username", type: "code", defaultHidden: true },
       accessorFn: (row) => row.username,
       cell: (info) => <SemanticValue kind="id">{info.getValue() as string}</SemanticValue>,
     },
     {
       id: "email",
-      meta: { titleKey: "settings.users.fields.email" },
+      meta: { titleKey: "settings.users.fields.email", type: "default" },
       accessorFn: (row) => row.email,
       cell: ({ row }) => (
         <StackedCell
@@ -164,7 +170,7 @@ export function buildUserColumns(handlers: UserRowHandlers): ColumnDef<UserRow, 
     },
     {
       id: "mobile",
-      meta: { titleKey: "settings.users.fields.mobile", defaultHidden: true },
+      meta: { titleKey: "settings.users.fields.mobile", type: "phone", defaultHidden: true },
       accessorFn: (row) => row.mobile ?? "—",
       cell: ({ row }) =>
         row.original.mobile ? (
@@ -175,14 +181,14 @@ export function buildUserColumns(handlers: UserRowHandlers): ColumnDef<UserRow, 
     },
     {
       id: "userType",
-      meta: { titleKey: "agents.users.type", stacked: true },
+      meta: { titleKey: "agents.users.type", type: "status", stacked: true },
       accessorFn: (row) =>
         row.userType === "AGENT" ? `AGENT ${row.agent?.name ?? ""}` : "INTERNAL",
       cell: ({ row }) => <UserTypeCell row={row.original} />,
     },
     {
       id: "jobTitle",
-      meta: { titleKey: "settings.users.fields.jobTitle" },
+      meta: { titleKey: "settings.users.fields.jobTitle", type: "default" },
       accessorFn: (row) => row.jobTitle?.name ?? "—",
       cell: ({ row }) => (
         <StackedCell
@@ -193,22 +199,22 @@ export function buildUserColumns(handlers: UserRowHandlers): ColumnDef<UserRow, 
     },
     {
       id: "department",
-      meta: { titleKey: "settings.users.fields.department", defaultHidden: true },
+      meta: { titleKey: "settings.users.fields.department", type: "default", defaultHidden: true },
       accessorFn: (row) => row.department?.name ?? "—",
     },
     {
       id: "branch",
-      meta: { titleKey: "settings.users.fields.branch" },
+      meta: { titleKey: "settings.users.fields.branch", type: "default" },
       accessorFn: (row) => row.branch?.name ?? "—",
     },
     {
       id: "status",
-      meta: { titleKey: "settings.users.fields.status" },
+      meta: { titleKey: "settings.users.fields.status", type: "status" },
       cell: ({ row }) => <StatusCell row={row.original} />,
     },
     {
       id: "lastLoginAt",
-      meta: { titleKey: "settings.users.fields.lastLogin" },
+      meta: { titleKey: "settings.users.fields.lastLogin", type: "date" },
       accessorFn: (row) => (row.lastLoginAt ? formatDateTime(row.lastLoginAt) : "—"),
     },
     {

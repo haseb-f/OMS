@@ -271,7 +271,12 @@ export default function AgentTeamPage() {
         {users.length === 0 ? (
           <EmptyState icon={Users} title={t("agentPortal.team.empty")} />
         ) : (
-          <CompactDetailTable columns={columns} rows={users} rowKey={(row) => row.id} />
+          <CompactDetailTable
+            columns={columns}
+            rows={users}
+            rowKey={(row) => row.id}
+            viewId="agent-portal-team"
+          />
         )}
       </DetailSection>
 

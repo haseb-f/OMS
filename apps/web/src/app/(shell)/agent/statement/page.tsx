@@ -41,6 +41,7 @@ import {
   type PortalStatement,
   type PortalStatementLine,
 } from "@/services/agent-portal-service";
+import { PortalStatementGridCard } from "@/components/agent-portal/portal-grid-cards";
 import { usePrintEngine } from "@/hooks/use-print-engine";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { usePrintCompany } from "@/components/print/print-brand";
@@ -441,6 +442,13 @@ export default function AgentStatementPage() {
         }
         emptyTitle={t("agentPortal.statement.empty")}
         getRowId={(row) => row.id}
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <PortalStatementGridCard
+            line={row}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+          />
+        )}
       />
     </PageWorkspace>
   );

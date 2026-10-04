@@ -16,6 +16,7 @@ import { StatusBadge } from "@/components/business/status-badge";
 import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
+import { ReceiptGridCard } from "@/config/sales/sales-grid-cards";
 import {
   SalesDocumentRowActionsMenu,
   SalesListBulkActions,
@@ -215,12 +216,64 @@ function CustomerReceiptsPageContent() {
     }
   };
 
+  // One actions control for both views (table cell + Grid card): same permissions.
+  const renderRowActions = (item: FinancialTransactionRow) => {
+    const isDraft = item.status === "DRAFT";
+    const canView = hasPermission(`${permissionPrefix}.view`);
+    const canEdit = hasPermission(`${permissionPrefix}.edit`);
+    const canPrint = hasPermission(`${permissionPrefix}.print`);
+    const canCancel = hasPermission(`${permissionPrefix}.cancel`);
+    const canArchive = hasPermission(`${permissionPrefix}.archive`);
+    const actions: SalesDocumentRowAction[] = [
+      {
+        key: "view",
+        label: t("common.view"),
+        icon: Eye,
+        hidden: !canView,
+        onSelect: () => router.push(detailHref(item.id)),
+      },
+      {
+        key: "edit",
+        label: t("common.edit"),
+        icon: Pencil,
+        hidden: !isDraft || !canEdit,
+        onSelect: () => router.push(detailHref(item.id)),
+      },
+      {
+        key: "print",
+        label: t("table.print"),
+        icon: Printer,
+        hidden: !canPrint,
+        onSelect: () => handlePrintRow(item),
+      },
+      {
+        key: "cancel",
+        label: t("financialTransactions.actions.cancel"),
+        icon: Ban,
+        hidden: item.status !== "CONFIRMED" || !canCancel,
+        destructive: true,
+        separatorBefore: true,
+        onSelect: () => setCancelTarget(item),
+      },
+      {
+        key: "archive",
+        label: t("common.archive"),
+        icon: Archive,
+        hidden: !TRANSACTION_ARCHIVABLE_STATUSES.includes(item.status) || !canArchive,
+        destructive: true,
+        onSelect: () => setArchiveTarget(item),
+      },
+    ];
+    return <SalesDocumentRowActionsMenu actions={actions} label={t("common.actions")} />;
+  };
+
   const columns = useMemo<ColumnDef<FinancialTransactionRow, unknown>[]>(
     () => [
       {
         id: "transactionNumber",
         meta: {
           titleKey: isRefunds ? "sales.refunds.fields.number" : "sales.receipts.fields.number",
+          type: "code",
           identity: true,
         },
         accessorFn: (row) => row.transactionNumber,
@@ -235,7 +288,7 @@ function CustomerReceiptsPageContent() {
       },
       {
         id: "customer",
-        meta: { titleKey: "sales.receipts.fields.customer" },
+        meta: { titleKey: "sales.receipts.fields.customer", type: "name" },
         accessorFn: (row) => row.partner?.name ?? "—",
         cell: ({ row }) => {
           // A refund names the Sales Return(s) it pays back; a receipt its reference.
@@ -263,7 +316,7 @@ function CustomerReceiptsPageContent() {
       },
       {
         id: "status",
-        meta: { titleKey: "purchasing.suppliers.fields.status" },
+        meta: { titleKey: "purchasing.suppliers.fields.status", type: "status" },
         enableSorting: false,
         cell: ({ row }) => (
           <StackedCell
@@ -279,13 +332,13 @@ function CustomerReceiptsPageContent() {
       },
       {
         id: "amount",
-        meta: { titleKey: "sales.receipts.fields.amount", defaultHidden: true },
+        meta: { titleKey: "sales.receipts.fields.amount", defaultHidden: true, type: "money" },
         accessorFn: (row) => row.amount,
         cell: (info) => <MoneyValue value={info.getValue() as string} />,
       },
       {
         id: "createdAt",
-        meta: { titleKey: "sales.receipts.fields.date", defaultHidden: true },
+        meta: { titleKey: "sales.receipts.fields.date", defaultHidden: true, type: "date" },
         accessorFn: (row) => formatDate(row.createdAt),
       },
       {
@@ -299,56 +352,7 @@ function CustomerReceiptsPageContent() {
         meta: { titleKey: "common.actions" },
         enableHiding: false,
         enableSorting: false,
-        cell: ({ row }) => {
-          const item = row.original;
-          const isDraft = item.status === "DRAFT";
-          const canView = hasPermission(`${permissionPrefix}.view`);
-          const canEdit = hasPermission(`${permissionPrefix}.edit`);
-          const canPrint = hasPermission(`${permissionPrefix}.print`);
-          const canCancel = hasPermission(`${permissionPrefix}.cancel`);
-          const canArchive = hasPermission(`${permissionPrefix}.archive`);
-          const actions: SalesDocumentRowAction[] = [
-            {
-              key: "view",
-              label: t("common.view"),
-              icon: Eye,
-              hidden: !canView,
-              onSelect: () => router.push(detailHref(item.id)),
-            },
-            {
-              key: "edit",
-              label: t("common.edit"),
-              icon: Pencil,
-              hidden: !isDraft || !canEdit,
-              onSelect: () => router.push(detailHref(item.id)),
-            },
-            {
-              key: "print",
-              label: t("table.print"),
-              icon: Printer,
-              hidden: !canPrint,
-              onSelect: () => handlePrintRow(item),
-            },
-            {
-              key: "cancel",
-              label: t("financialTransactions.actions.cancel"),
-              icon: Ban,
-              hidden: item.status !== "CONFIRMED" || !canCancel,
-              destructive: true,
-              separatorBefore: true,
-              onSelect: () => setCancelTarget(item),
-            },
-            {
-              key: "archive",
-              label: t("common.archive"),
-              icon: Archive,
-              hidden: !TRANSACTION_ARCHIVABLE_STATUSES.includes(item.status) || !canArchive,
-              destructive: true,
-              onSelect: () => setArchiveTarget(item),
-            },
-          ];
-          return <SalesDocumentRowActionsMenu actions={actions} label={t("common.actions")} />;
-        },
+        cell: ({ row }) => renderRowActions(row.original),
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -552,6 +556,16 @@ function CustomerReceiptsPageContent() {
           )
         }
         emptyTitle={t(isRefunds ? "sales.refunds.empty" : "sales.receipts.empty")}
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <ReceiptGridCard
+            row={row}
+            isRefund={isRefunds}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            href={detailHref(row.id)}
+            actionsNode={renderRowActions(row)}
+          />
+        )}
         getRowId={(row) => row.id}
         getRowHref={(row) => detailHref(row.id)}
       />

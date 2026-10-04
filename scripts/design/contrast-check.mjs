@@ -224,6 +224,25 @@ const PAIRS = [
     "color-mix(in oklab, var(--insight-destructive) var(--insight-tint-top), var(--card))",
     UI,
   ],
+  // Round 9 (§12.18): brand button roles — text on every fill the role can take.
+  ["secondary button text", "var(--btn-secondary-foreground)", "var(--btn-secondary)", TEXT, "var(--card)"],
+  ["secondary button text (hover)", "var(--btn-secondary-foreground)", "var(--btn-secondary-hover)", TEXT, "var(--card)"],
+  ["outline button text", "var(--btn-outline-foreground)", "var(--card)", TEXT],
+  ["outline button text (hover)", "var(--btn-outline-foreground)", "var(--btn-soft-hover)", TEXT, "var(--card)"],
+  ["outline button text (pressed)", "var(--btn-outline-foreground)", "var(--btn-soft-pressed)", TEXT, "var(--card)"],
+  ["ghost button text (hover)", "var(--foreground)", "var(--btn-soft-hover)", TEXT, "var(--card)"],
+  ["ghost button text (pressed)", "var(--foreground)", "var(--btn-soft-pressed)", TEXT, "var(--card)"],
+  ["muted icon on soft hover", "var(--muted-foreground)", "var(--btn-soft-hover)", UI, "var(--card)"],
+  ["outline hairline on card", "var(--btn-outline-border)", "var(--card)", 1.25],
+  // Round 9 (§12.19): record cards — body text, muted labels and the reference on the strongest
+  // tone wash (9 %, top of the gradient) and on the selected tint.
+  ...["success", "warning", "destructive", "info", "neutral"].flatMap((t) => [
+    [`record card ${t}: text on wash`, "var(--foreground)", `color-mix(in oklab, var(--insight-${t}) 9%, var(--card))`, TEXT, "var(--card)"],
+    [`record card ${t}: muted label on wash`, "var(--muted-foreground)", `color-mix(in oklab, var(--insight-${t}) 9%, var(--card))`, TEXT, "var(--card)"],
+  ]),
+  ["record card selected: text", "var(--foreground)", "color-mix(in oklab, var(--focus-ring) 10%, var(--card))", TEXT, "var(--card)"],
+  ["record card selected: muted label", "var(--muted-foreground)", "color-mix(in oklab, var(--focus-ring) 10%, var(--card))", TEXT, "var(--card)"],
+  ["record card selection ring on card", "var(--focus-ring)", "var(--card)", UI],
   // design-system §12.10: the hairline ring stays light; the field's bottom
   // edge (--control-edge) carries the 3:1 boundary.
   ["control boundary (field edge)", "var(--control-edge)", "var(--card)", UI],
@@ -328,7 +347,7 @@ const PAIRS = [
     ].flatMap(([state, fill]) => [
       [
         `toolbar tone ${n} value (${state})`,
-        "var(--toolbar-tone-foreground)",
+        `var(--toolbar-tone-${n}-foreground)`,
         fill,
         TEXT,
         "var(--card)",
@@ -349,7 +368,7 @@ const PAIRS = [
       ],
       [
         `toolbar tone ${n} applied ring (${state})`,
-        "var(--toolbar-tone-applied-edge)",
+        `var(--toolbar-tone-${n}-ring)`,
         fill,
         UI,
         "var(--card)",
@@ -357,7 +376,7 @@ const PAIRS = [
     ]),
     [
       `toolbar tone ${n} chevron on chip`,
-      "var(--toolbar-tone-foreground)",
+      `var(--toolbar-tone-${n}-foreground)`,
       `var(--toolbar-tone-${n}-chip)`,
       UI,
       `var(--toolbar-tone-${n})`,
@@ -365,7 +384,7 @@ const PAIRS = [
     [`toolbar tone ${n} edge on surface`, `var(--toolbar-tone-${n}-border)`, "var(--card)", UI],
     [
       `toolbar tone ${n} open edge`,
-      "var(--selector-open-edge)",
+      `var(--toolbar-tone-${n}-open-edge)`,
       `var(--toolbar-tone-${n}-active)`,
       UI,
       "var(--card)",

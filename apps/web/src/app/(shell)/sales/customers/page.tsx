@@ -17,6 +17,7 @@ import {
   customerExportColumns,
   partnerRowLabel,
 } from "@/config/partners/partner-columns";
+import { PartnerGridCard } from "@/config/partners/partner-grid-card";
 import { buildPartnerSchema, partnerDefaultValuesForRole } from "@/config/partners/partner-form";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { PaymentTermRow, CustomerGroupRow } from "@/config/master-data/entities";
@@ -166,6 +167,16 @@ function CustomersPageContent() {
       permissionPrefix="partners"
       rowLabel={partnerRowLabel}
       getRowHref={(row) => `/sales/customers/${row.id}`}
+      renderGridCard={({ row, selected, onToggleSelected, actionsNode }) => (
+        <PartnerGridCard
+          row={row}
+          role="customer"
+          selected={selected}
+          onToggleSelected={onToggleSelected}
+          href={`/sales/customers/${row.id}`}
+          actionsNode={actionsNode}
+        />
+      )}
       supportsSelectAllMatching
       extraActions={<ModuleImportButtons importType="CUSTOMERS" />}
       extraListParams={{

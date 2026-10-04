@@ -134,7 +134,11 @@ export function AgentProductsTab({
       },
       {
         id: "itemType",
-        meta: { titleKey: "agentPricing.products.columns.itemType", importance: "high" },
+        meta: {
+          titleKey: "agentPricing.products.columns.itemType",
+          type: "default",
+          importance: "high",
+        },
         enableSorting: false,
         accessorFn: (row) => row.itemType ?? "UNSET",
         cell: ({ row }) =>

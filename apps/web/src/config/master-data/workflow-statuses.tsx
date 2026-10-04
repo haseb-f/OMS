@@ -50,14 +50,14 @@ export type WorkflowTypeValue = (typeof WORKFLOW_TYPES)[number];
 export const workflowStatusesColumns: ColumnDef<WorkflowStatusRow, unknown>[] = [
   {
     id: "name",
-    meta: { titleKey: "masterData.fields.name" },
+    meta: { titleKey: "masterData.fields.name", type: "name" },
     accessorFn: (row) => row.name,
     cell: ({ row }) => <WorkflowStatusNameCell row={row.original} />,
   },
   textColumn("code", "masterData.workflowStatuses.code", (r) => r.code),
   {
     id: "sortOrder",
-    meta: { titleKey: "masterData.fields.sortOrder" },
+    meta: { titleKey: "masterData.fields.sortOrder", type: "number" },
     accessorFn: (row) => row.sortOrder,
   },
   statusColumn<WorkflowStatusRow>(),

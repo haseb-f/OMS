@@ -857,9 +857,6 @@ html
    arm. Position is decorative: the APPLIED indicator is one pale ring on
    every step, never a lighter or darker fill. Semantic controls (success /
    destructive / status / pressed toggles) never carry a tone. */
-[data-toolbar-tone] {
-  --selector-foreground: var(--toolbar-tone-foreground);
-}
 [data-toolbar-tone="1"] {
   --selector: var(--toolbar-tone-1);
   --selector-hover: var(--toolbar-tone-1-hover);
@@ -867,6 +864,9 @@ html
   --selector-border: var(--toolbar-tone-1-border);
   --selector-muted: var(--toolbar-tone-1-muted);
   --selector-chip: var(--toolbar-tone-1-chip);
+  --selector-foreground: var(--toolbar-tone-1-foreground);
+  --selector-open-edge: var(--toolbar-tone-1-open-edge);
+  --selector-ring: var(--toolbar-tone-1-ring);
   --selector-applied: var(--toolbar-tone-1);
 }
 [data-toolbar-tone="2"] {
@@ -876,6 +876,9 @@ html
   --selector-border: var(--toolbar-tone-2-border);
   --selector-muted: var(--toolbar-tone-2-muted);
   --selector-chip: var(--toolbar-tone-2-chip);
+  --selector-foreground: var(--toolbar-tone-2-foreground);
+  --selector-open-edge: var(--toolbar-tone-2-open-edge);
+  --selector-ring: var(--toolbar-tone-2-ring);
   --selector-applied: var(--toolbar-tone-2);
 }
 [data-toolbar-tone="3"] {
@@ -885,6 +888,9 @@ html
   --selector-border: var(--toolbar-tone-3-border);
   --selector-muted: var(--toolbar-tone-3-muted);
   --selector-chip: var(--toolbar-tone-3-chip);
+  --selector-foreground: var(--toolbar-tone-3-foreground);
+  --selector-open-edge: var(--toolbar-tone-3-open-edge);
+  --selector-ring: var(--toolbar-tone-3-ring);
   --selector-applied: var(--toolbar-tone-3);
 }
 [data-toolbar-tone="4"] {
@@ -894,6 +900,9 @@ html
   --selector-border: var(--toolbar-tone-4-border);
   --selector-muted: var(--toolbar-tone-4-muted);
   --selector-chip: var(--toolbar-tone-4-chip);
+  --selector-foreground: var(--toolbar-tone-4-foreground);
+  --selector-open-edge: var(--toolbar-tone-4-open-edge);
+  --selector-ring: var(--toolbar-tone-4-ring);
   --selector-applied: var(--toolbar-tone-4);
 }
 [data-toolbar-tone="5"] {
@@ -903,6 +912,9 @@ html
   --selector-border: var(--toolbar-tone-5-border);
   --selector-muted: var(--toolbar-tone-5-muted);
   --selector-chip: var(--toolbar-tone-5-chip);
+  --selector-foreground: var(--toolbar-tone-5-foreground);
+  --selector-open-edge: var(--toolbar-tone-5-open-edge);
+  --selector-ring: var(--toolbar-tone-5-ring);
   --selector-applied: var(--toolbar-tone-5);
 }
 /* A toned outline button drops its grey hairline: the recipe's inset ring
@@ -916,7 +928,7 @@ html [data-button][data-variant="outline"][data-toolbar-tone] {
 html [data-button][data-filter-trigger][data-active][data-toolbar-tone]:not(:disabled) {
   background-color: var(--selector);
   box-shadow:
-    inset 0 0 0 2px var(--toolbar-tone-applied-edge),
+    inset 0 0 0 2px var(--selector-ring),
     var(--control-shadow);
 }
 html
@@ -936,6 +948,139 @@ html
   ) {
   background-color: var(--selector-active);
   box-shadow:
-    inset 0 0 0 2px var(--toolbar-tone-applied-edge),
+    inset 0 0 0 2px var(--selector-ring),
     var(--control-inset-solid);
+}
+
+/* ── Record card (Table/Grid view, design-system §12.19) ───────────────────
+   A clean, soft card with a restrained glass treatment: a faint top → bottom
+   tone gradient over the card surface, a delicate tone hairline, a start-edge
+   accent in the workflow tone and a thin inner highlight. No backdrop blur and
+   one small shadow. Three distinct interaction treatments:
+     hover    → stronger tone edge + a small elevation (paint-only, 1px rise);
+     focus    → the 2px focus ring around the whole card (keyboard);
+     selected → blue selection ring + tint (always with the checked checkbox).
+   Tone = workflow meaning only (`--insight-*`), never a brand decoration. */
+[data-record-card] {
+  --tone: var(--insight-neutral);
+  --edge: 22%;
+  --edge-start: 30%;
+  --wash: 4%;
+  border: 1px solid color-mix(in oklab, var(--tone) var(--edge), var(--border));
+  border-inline-start: 3px solid color-mix(in oklab, var(--tone) var(--edge-start), var(--border));
+  border-radius: var(--radius-surface);
+  background-color: var(--card);
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--tone) var(--wash), var(--card)),
+    color-mix(in oklab, var(--tone) calc(var(--wash) / 3), var(--card)) 65%
+  );
+  box-shadow:
+    inset 0 1px 0 var(--card-sheen),
+    0 1px 2px color-mix(in oklab, var(--logo-navy) 6%, transparent);
+  color: var(--card-foreground);
+  transition:
+    border-color var(--duration-base) var(--ease-standard),
+    box-shadow var(--duration-base) var(--ease-standard),
+    transform var(--duration-base) var(--ease-standard);
+}
+[data-record-card]:is(
+  [data-tone="success"],
+  [data-tone="warning"],
+  [data-tone="info"],
+  [data-tone="destructive"]
+) {
+  --edge: 24%;
+  --edge-start: 72%;
+  --wash: 9%;
+}
+/* Info is the tone nearest the selection blue — keep it quieter than the others. */
+[data-record-card][data-tone="info"] {
+  --edge: 16%;
+  --wash: 5%;
+}
+[data-record-card][data-tone="success"] {
+  --tone: var(--insight-success);
+}
+[data-record-card][data-tone="warning"] {
+  --tone: var(--insight-warning);
+}
+[data-record-card][data-tone="info"] {
+  --tone: var(--insight-info);
+}
+[data-record-card][data-tone="destructive"] {
+  --tone: var(--insight-destructive);
+}
+[data-record-card]:hover {
+  border-color: color-mix(in oklab, var(--tone) 40%, var(--border));
+  border-inline-start-color: var(--tone);
+}
+[data-record-card]:hover:has([data-record-link]) {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 var(--card-sheen),
+    0 8px 16px -10px color-mix(in oklab, var(--tone) 45%, transparent),
+    0 1px 2px color-mix(in oklab, var(--logo-navy) 8%, transparent);
+}
+[data-record-card]:has([data-record-link]:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+[data-record-card] [data-record-link]:focus-visible {
+  outline: none;
+}
+[data-record-card][data-state="selected"] {
+  border-color: var(--focus-ring);
+  border-inline-start-color: var(--focus-ring);
+  background-image: none;
+  background-color: color-mix(in oklab, var(--focus-ring) 10%, var(--card));
+  box-shadow:
+    inset 0 0 0 2px var(--focus-ring),
+    0 1px 2px color-mix(in oklab, var(--logo-navy) 8%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-record-card] {
+    transition: none;
+  }
+  [data-record-card]:hover {
+    transform: none;
+  }
+}
+[data-record-grid] > [data-grid-card] {
+  display: flex;
+  min-width: 0;
+}
+[data-record-grid] > [data-grid-card] > [data-record-card] {
+  flex: 1 1 auto;
+}
+@media print {
+  [data-record-card] {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+}
+
+/* The Grid container: ONE rule, no per-breakpoint column counts. Columns are
+   chosen from the usable width (a card never narrower than 17rem), so it is one
+   column on a phone and fills a wide screen without squeezing the content. */
+[data-record-grid] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+/* Report cards (financial reports): wider cards, no hover lift — a report card is a
+   statement section, not a record you open. */
+[data-record-grid="wide"] {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr));
+  align-items: start;
+}
+[data-record-card][data-static]:hover {
+  transform: none;
+  border-color: color-mix(in oklab, var(--tone) var(--edge), var(--border));
+  border-inline-start-color: color-mix(in oklab, var(--tone) var(--edge-start), var(--border));
+  box-shadow:
+    inset 0 1px 0 var(--card-sheen),
+    0 1px 2px color-mix(in oklab, var(--logo-navy) 6%, transparent);
 }

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { StatusBadge } from "@/components/business/status-badge";
+import type { StatusTone } from "@/components/business/status-tone";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,24 @@ export interface ShipmentQuickEditContext {
   onPatched: (shipmentId: string, patch: Partial<ShipmentListRow>) => void;
 }
 
+/** The shipment status badge (catalog status, else the lifecycle label) - shared by the table cell and the Grid card. */
+export function ShipmentStatusBadge({ row }: { row: ShipmentListRow }) {
+  const { t } = useLocale();
+  return (
+    <StatusBadge
+      label={shippingStatusName(row.shippingStatus, t) ?? t(shipmentStatusLabelKey(row.status))}
+      tone={shipmentRowTone(row)}
+    />
+  );
+}
+
+/** Workflow tone of a shipment row: the catalog colour when it has one, else the lifecycle tone. */
+export function shipmentRowTone(row: ShipmentListRow): StatusTone {
+  return row.shippingStatus
+    ? catalogStatusTone(row.shippingStatus.color)
+    : shipmentStatusTone(row.status);
+}
+
 /**
  * Inline Shipping Status cell — the direct "change to any status" catalog
  * picker (same canonical operation `ShipmentManageDialog` already uses),
@@ -79,16 +98,7 @@ export function ShippingStatusQuickCell({
   const { state, setState, markSaved } = useSaveState();
   const currentId = row.shippingStatus?.id ?? "";
 
-  const badge = (
-    <StatusBadge
-      label={shippingStatusName(row.shippingStatus, t) ?? t(shipmentStatusLabelKey(row.status))}
-      tone={
-        row.shippingStatus
-          ? catalogStatusTone(row.shippingStatus.color)
-          : shipmentStatusTone(row.status)
-      }
-    />
-  );
+  const badge = <ShipmentStatusBadge row={row} />;
 
   if (!ctx.canEdit || !row.isCurrentAttempt || ctx.statuses.length === 0) {
     return (

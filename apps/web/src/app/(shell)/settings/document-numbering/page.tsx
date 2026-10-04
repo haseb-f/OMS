@@ -245,7 +245,7 @@ export default function SettingsDocumentNumberingPage() {
     () => [
       {
         id: "label",
-        meta: { titleKey: "settings.documentNumbering.table.label" },
+        meta: { titleKey: "settings.documentNumbering.table.label", type: "name" },
         accessorFn: (row) => row.label,
         cell: ({ row }) => (
           <StackedCell
@@ -256,7 +256,11 @@ export default function SettingsDocumentNumberingPage() {
       },
       {
         id: "documentType",
-        meta: { titleKey: "settings.documentNumbering.table.documentType", defaultHidden: true },
+        meta: {
+          titleKey: "settings.documentNumbering.table.documentType",
+          type: "code",
+          defaultHidden: true,
+        },
         accessorFn: (row) => row.documentType,
         cell: (info) => (
           <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
@@ -266,7 +270,7 @@ export default function SettingsDocumentNumberingPage() {
       },
       {
         id: "template",
-        meta: { titleKey: "settings.documentNumbering.table.template" },
+        meta: { titleKey: "settings.documentNumbering.table.template", type: "default" },
         accessorFn: (row) => row.template,
         cell: (info) => (
           <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs">
@@ -276,7 +280,7 @@ export default function SettingsDocumentNumberingPage() {
       },
       {
         id: "preview",
-        meta: { titleKey: "settings.documentNumbering.table.preview" },
+        meta: { titleKey: "settings.documentNumbering.table.preview", type: "default" },
         enableSorting: false,
         cell: ({ row }) => (
           <span dir="ltr">
@@ -299,7 +303,11 @@ export default function SettingsDocumentNumberingPage() {
       },
       {
         id: "reset",
-        meta: { titleKey: "settings.documentNumbering.table.reset", defaultHidden: true },
+        meta: {
+          titleKey: "settings.documentNumbering.table.reset",
+          type: "default",
+          defaultHidden: true,
+        },
         enableSorting: false,
         cell: ({ row }) => {
           const rule = resetRuleTone(row.original);
@@ -313,7 +321,7 @@ export default function SettingsDocumentNumberingPage() {
       },
       {
         id: "active",
-        meta: { titleKey: "settings.documentNumbering.table.status" },
+        meta: { titleKey: "settings.documentNumbering.table.status", type: "status" },
         accessorFn: (row) => row.active,
         cell: ({ row }) => (
           <StatusBadge

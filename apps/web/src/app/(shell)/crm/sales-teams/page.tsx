@@ -63,17 +63,17 @@ function SalesTeamsPageContent() {
     () => [
       {
         id: "code",
-        meta: { titleKey: "crm.salesTeams.fields.code" },
+        meta: { titleKey: "crm.salesTeams.fields.code", type: "code" },
         accessorFn: (row) => row.code,
       },
       {
         id: "name",
-        meta: { titleKey: "crm.salesTeams.fields.name" },
+        meta: { titleKey: "crm.salesTeams.fields.name", type: "name" },
         accessorFn: (row) => row.name,
       },
       {
         id: "department",
-        meta: { titleKey: "crm.salesTeams.fields.department" },
+        meta: { titleKey: "crm.salesTeams.fields.department", type: "default" },
         accessorFn: (row) =>
           locale === "en" && row.department.nameEn ? row.department.nameEn : row.department.name,
         cell: ({ row }) => (
@@ -93,7 +93,7 @@ function SalesTeamsPageContent() {
       },
       {
         id: "manager",
-        meta: { titleKey: "crm.salesTeams.fields.manager" },
+        meta: { titleKey: "crm.salesTeams.fields.manager", type: "default" },
         accessorFn: (row) => row.manager.fullName,
       },
       {

@@ -33,6 +33,8 @@ import type { PurchaseDocumentStatusValue } from "@/services/purchase-quotations
 import { partnersService, type PartnerPickerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import { buildReturnColumns, returnExportColumns } from "@/config/purchasing/return-columns";
+import { PurchaseReturnGridCard } from "@/config/purchasing/purchasing-grid-cards";
+import type { ReturnRowHandlers } from "@/config/purchasing/return-columns";
 import {
   RETURN_ARCHIVABLE_STATUSES,
   RETURN_FILTERABLE_STATUSES,
@@ -183,18 +185,18 @@ function PurchaseReturnsPageContent() {
     }
   };
 
-  const returnColumns = useMemo(
-    () =>
-      buildReturnColumns({
-        usersById,
-        onView: (row) => router.push(`/purchasing/purchase-returns/${row.id}`),
-        onPrint: handlePrintRow,
-        onCancel: setCancelTarget,
-        onArchive: setArchiveTarget,
-      }),
+  const rowHandlers = useMemo<ReturnRowHandlers>(
+    () => ({
+      usersById,
+      onView: (row) => router.push(`/purchasing/purchase-returns/${row.id}`),
+      onPrint: handlePrintRow,
+      onCancel: setCancelTarget,
+      onArchive: setArchiveTarget,
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [router, usersById, activeCompany, user],
   );
+  const returnColumns = useMemo(() => buildReturnColumns(rowHandlers), [rowHandlers]);
 
   const { selectedIds, selectedRecords, resolve } = useSelectedRecords({
     items,
@@ -364,6 +366,15 @@ function PurchaseReturnsPageContent() {
             onShowMore: () => router.push(`/purchasing/purchase-returns/${row.id}`),
           })
         }
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <PurchaseReturnGridCard
+            row={row}
+            handlers={rowHandlers}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            href={`/purchasing/purchase-returns/${row.id}`}
+          />
+        )}
         getRowId={(row) => row.id}
         getRowHref={(row) => `/purchasing/purchase-returns/${row.id}`}
       />

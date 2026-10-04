@@ -16,6 +16,9 @@ import {
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { HeaderActions } from "@/components/shared/header-actions";
 import { ListSurface, ListToolbar } from "@/components/shared/data-table/list-surface";
+import { EnterpriseTableViewToggle } from "@/components/shared/data-table/data-table-view-toggle";
+import { useTableViewPreference } from "@/components/shared/data-table/table-preferences";
+import { TreeGridCards } from "@/components/shared/tree-grid-cards";
 import { SearchInput } from "@/components/shared/search-input";
 import { TreeToggleButton } from "@/components/shared/tree-toggle-button";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -134,6 +137,7 @@ function ChartOfAccountsPageContent() {
   const { printList } = usePrintEngine();
   const printCompany = usePrintCompany();
   const { user, hasPermission } = useUserContext();
+  const [view, setView] = useTableViewPreference("finance-chart-of-accounts", user?.id);
   const canOverrideCode = hasPermission("accounting.chart-of-accounts.override-code");
   const canCreate = hasPermission("accounting.chart-of-accounts.create");
   const canEdit = hasPermission("accounting.chart-of-accounts.edit");
@@ -639,6 +643,7 @@ function ChartOfAccountsPageContent() {
             {t("common.showArchived")}
           </EnterpriseButton>
           <div className="ms-auto flex flex-wrap items-center gap-2">
+            <EnterpriseTableViewToggle view={view} onViewChange={setView} />
             <EnterpriseButton type="button" variant="outline" size="sm" onClick={expandAll}>
               {t("masterData.chartOfAccounts.expandAll")}
             </EnterpriseButton>
@@ -712,6 +717,8 @@ function ChartOfAccountsPageContent() {
             </div>
           ) : tree.length === 0 ? (
             <EmptyState icon={FileText} title={t("masterData.chartOfAccounts.empty")} />
+          ) : view === "grid" ? (
+            <TreeGridCards nodes={tree} renderNode={(node) => renderNode(node, 0)} />
           ) : (
             tree.map((node) => renderNode(node, 0))
           )}

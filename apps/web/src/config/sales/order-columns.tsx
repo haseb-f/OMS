@@ -33,7 +33,14 @@ export interface OrderRowHandlers {
   onArchive: (row: SalesOrderRow) => void;
 }
 
-function ActionsCell({ row, handlers }: { row: SalesOrderRow; handlers: OrderRowHandlers }) {
+/** The row's actions control — the Grid card renders this same component, so both views share one permission model. */
+export function OrderActionsCell({
+  row,
+  handlers,
+}: {
+  row: SalesOrderRow;
+  handlers: OrderRowHandlers;
+}) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const access = documentRowAccess(hasPermission, "sales.orders");
@@ -143,7 +150,7 @@ export function buildOrderColumns(handlers: OrderRowHandlers): ColumnDef<SalesOr
     },
     {
       id: "grandTotal",
-      meta: { titleKey: "sales.orders.fields.grandTotal", defaultHidden: true },
+      meta: { titleKey: "sales.orders.fields.grandTotal", defaultHidden: true, type: "money" },
       accessorFn: (row) => row.grandTotal,
       cell: ({ row }) => <MoneyValue value={row.original.grandTotal} />,
     },
@@ -173,7 +180,7 @@ export function buildOrderColumns(handlers: OrderRowHandlers): ColumnDef<SalesOr
       meta: { titleKey: "common.actions" },
       enableHiding: false,
       enableSorting: false,
-      cell: ({ row }) => <ActionsCell row={row.original} handlers={handlers} />,
+      cell: ({ row }) => <OrderActionsCell row={row.original} handlers={handlers} />,
     },
   ];
 }

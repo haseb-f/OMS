@@ -24,19 +24,20 @@ export function buildInvestorsColumns(
     },
     {
       id: "entityType",
-      meta: { titleKey: "investors.list.fields.entityType" },
+      // Person / organisation: a descriptor, a plain field on the card (not a state).
+      meta: { titleKey: "investors.list.fields.entityType", type: "default" },
       accessorFn: (row) => t(`investors.list.entityType.${row.entityType}` as MessageKey),
       cell: (info) => info.getValue() as string,
     },
     {
       id: "investorType",
-      meta: { titleKey: "investors.list.fields.investorType" },
+      meta: { titleKey: "investors.list.fields.investorType", type: "default" },
       accessorFn: (row) => row.investorType?.name ?? "—",
       cell: (info) => info.getValue() as string,
     },
     {
       id: "email",
-      meta: { titleKey: "investors.list.fields.email" },
+      meta: { titleKey: "investors.list.fields.email", type: "default" },
       accessorFn: (row) => row.email ?? "—",
       cell: (info) => info.getValue() as string,
     },

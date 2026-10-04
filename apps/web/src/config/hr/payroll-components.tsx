@@ -34,7 +34,7 @@ export function buildPayrollComponentsColumns(
   return [
     {
       id: "nameAr",
-      meta: { titleKey: "hr.payrollComponents.fields.nameAr" },
+      meta: { titleKey: "hr.payrollComponents.fields.nameAr", type: "name" },
       accessorFn: (row) => row.nameAr,
       cell: ({ row }) => <PayrollComponentNameCell row={row.original} />,
     },
@@ -42,6 +42,7 @@ export function buildPayrollComponentsColumns(
       id: "type",
       meta: {
         titleKey: "hr.payrollComponents.fields.type",
+        type: "status",
         displayValue: (row, tr) => tr(`hr.payrollComponents.type.${row.type}` as MessageKey),
       },
       accessorFn: (row) => row.type,
@@ -50,14 +51,16 @@ export function buildPayrollComponentsColumns(
     },
     {
       id: "calculationType",
-      meta: { titleKey: "hr.payrollComponents.fields.calculationType" },
+      // Plain translated text (not a badge): a field on the card, not a status.
+      meta: { titleKey: "hr.payrollComponents.fields.calculationType", type: "default" },
       accessorFn: (row) =>
         t(`hr.payrollComponents.calculationType.${row.calculationType}` as MessageKey),
       cell: (info) => info.getValue() as string,
     },
     {
       id: "defaultValue",
-      meta: { titleKey: "hr.payrollComponents.fields.defaultValue" },
+      // A percentage or an amount depending on the calculation type - a plain number.
+      meta: { titleKey: "hr.payrollComponents.fields.defaultValue", type: "number" },
       accessorFn: (row) => (row.defaultValue != null ? Number(row.defaultValue) : ""),
       cell: (info) => {
         const value = info.getValue() as number | "";
@@ -66,7 +69,7 @@ export function buildPayrollComponentsColumns(
     },
     {
       id: "sortOrder",
-      meta: { titleKey: "masterData.fields.sortOrder", defaultHidden: true },
+      meta: { titleKey: "masterData.fields.sortOrder", type: "number", defaultHidden: true },
       accessorFn: (row) => row.sortOrder,
       cell: (info) => String(info.getValue()),
     },

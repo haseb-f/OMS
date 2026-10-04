@@ -24,7 +24,7 @@ function StatusCell({ status }: { status: PurchaseOrderRow["status"] }) {
   return <StatusBadge label={t(ORDER_STATUS_LABEL_KEY[status])} tone={ORDER_STATUS_TONE[status]} />;
 }
 
-function orderGrandTotal(row: PurchaseOrderRow) {
+export function orderGrandTotal(row: PurchaseOrderRow) {
   return row.items.reduce((sum, item) => sum + Number(item.subtotal), 0);
 }
 
@@ -37,7 +37,13 @@ export interface OrderRowHandlers {
   onArchive: (row: PurchaseOrderRow) => void;
 }
 
-function ActionsCell({ row, handlers }: { row: PurchaseOrderRow; handlers: OrderRowHandlers }) {
+export function OrderActionsCell({
+  row,
+  handlers,
+}: {
+  row: PurchaseOrderRow;
+  handlers: OrderRowHandlers;
+}) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const access = documentRowAccess(hasPermission, "purchasing.orders");
@@ -142,7 +148,7 @@ export function buildOrderColumns(
     },
     {
       id: "status",
-      meta: { titleKey: "purchasing.suppliers.fields.status" },
+      meta: { titleKey: "purchasing.suppliers.fields.status", type: "status" },
       cell: ({ row }) => (
         <StackedCell
           primary={<StatusCell status={row.original.status} />}
@@ -180,7 +186,7 @@ export function buildOrderColumns(
       id: "__actions",
       meta: { titleKey: "common.actions" },
       enableHiding: false,
-      cell: ({ row }) => <ActionsCell row={row.original} handlers={handlers} />,
+      cell: ({ row }) => <OrderActionsCell row={row.original} handlers={handlers} />,
     },
   ];
 }

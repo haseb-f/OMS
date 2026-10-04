@@ -288,6 +288,7 @@ function FxPageContent() {
               columns={runColumns}
               rows={runs}
               rowKey={(row) => row.id}
+              viewId="finance-exchange-rate-runs"
               empty={t("common.noDataAvailable")}
             />
           </EnterpriseCardContent>

@@ -1,0 +1,62 @@
+[
+  {
+    "route": "/agent/leads",
+    "toggle": true,
+    "cards": 12,
+    "checkboxes": 12,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "عميل O1 — DEMO-AGT-20260928-011826+20 10 28620263LD-2026-01659129 Sep 2026تم التحويل",
+    "pageErrors": 0
+  },
+  {
+    "route": "/agent/orders",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "عميل O6 — DEMO-AGT-20260928-011826+20 10 49894290STO-2026-02241029 Sep 2026200.00 SARبانتظ",
+    "pageErrors": 0
+  },
+  {
+    "route": "/agent/payouts",
+    "toggle": true,
+    "cards": 18,
+    "checkboxes": 18,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "APO-2026-00054حساب استلام بنك الوكلاء — DEMO-AGT-2026092829 Sep 2026500.00 SARالمرجعDEMO-A",
+    "pageErrors": 0
+  },
+  {
+    "route": "/agent/statement",
+    "toggle": true,
+    "cards": 20,
+    "checkboxes": 20,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "STO-2026-022323تحصيل استلمته الشركةتحصيل PAY-2026-001973 استلمته الشركة — الطلب STO-2026-0",
+    "pageErrors": 0
+  },
+  {
+    "route": "/agent/stock",
+    "toggle": true,
+    "cards": 2,
+    "checkboxes": 2,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "دورة رقمية للوكيل A — DEMO-AGT-20260928PRD-2026-001549بدون مستودع بعدالمتاح0الرصيد الفعلي0",
+    "pageErrors": 0
+  },
+  {
+    "route": "/agent/team",
+    "toggle": true,
+    "cards": 3,
+    "checkboxes": 0,
+    "noGrid": false,
+    "overflow": 0,
+    "text": "مدير الوكيل A — DEMO-AGT-20260928agent-a-admin.demo-agt@oms.localالدورمدير الوكيلالحالةنشط",
+    "pageErrors": 0
+  }
+]

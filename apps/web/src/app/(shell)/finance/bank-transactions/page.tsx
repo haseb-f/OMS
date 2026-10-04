@@ -230,6 +230,7 @@ function CashFlowPageContent() {
               id: "classification",
               meta: {
                 titleKey: "masterData.bankTransactions.fields.classification",
+                type: "default",
                 displayValue: (row, tr) =>
                   row.outgoingType
                     ? tr(

@@ -14,7 +14,12 @@ import {
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { GeneratedPasswordDialog } from "@/components/settings/generated-password-dialog";
 import { UserEditorModal } from "@/components/settings/user-editor-modal";
-import { buildUserColumns, userExportColumns } from "@/config/settings/user-columns";
+import { UserGridCard } from "@/components/settings/user-grid-card";
+import {
+  buildUserColumns,
+  userExportColumns,
+  type UserRowHandlers,
+} from "@/config/settings/user-columns";
 import { usersService, type UserRow } from "@/services/users-service";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
@@ -80,7 +85,8 @@ function UsersPageContent() {
     setEditorOpen(true);
   };
 
-  const columns = buildUserColumns({
+  // One handler set drives both the table's Actions cell and the Grid card.
+  const handlers: UserRowHandlers = {
     onEdit: openEdit,
     onLock: setLockTarget,
     onUnlock: setUnlockTarget,
@@ -88,7 +94,8 @@ function UsersPageContent() {
     onForcePasswordChange: setForceChangeTarget,
     onArchive: setArchiveTarget,
     onOpenAgentTeam: (row) => row.agent && router.push(`/agents/${row.agent.id}?tab=team`),
-  });
+  };
+  const columns = buildUserColumns(handlers);
 
   return (
     <PageWorkspace
@@ -155,6 +162,14 @@ function UsersPageContent() {
           )
         }
         emptyTitle={t("settings.users.empty")}
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <UserGridCard
+            user={row}
+            handlers={handlers}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+          />
+        )}
       />
 
       <UserEditorModal

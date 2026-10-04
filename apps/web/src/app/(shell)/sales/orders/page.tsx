@@ -35,7 +35,13 @@ import {
 } from "@/services/sales-orders-service";
 import { partnersService, type PartnerPickerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
-import { buildOrderColumns, orderExportColumns } from "@/config/sales/order-columns";
+import {
+  buildOrderColumns,
+  OrderActionsCell,
+  orderExportColumns,
+  type OrderRowHandlers,
+} from "@/config/sales/order-columns";
+import { OrderGridCard } from "@/config/sales/sales-grid-cards";
 import {
   ORDER_ARCHIVABLE_STATUSES,
   ORDER_FILTERABLE_STATUSES,
@@ -217,19 +223,19 @@ function SalesOrdersPageContent() {
     }
   };
 
-  const orderColumns = useMemo(
-    () =>
-      buildOrderColumns({
-        usersById,
-        onView: (row) => router.push(`/sales/orders/${row.id}`),
-        onDuplicate: handleDuplicate,
-        onPrint: handlePrintRow,
-        onCancel: setCancelTarget,
-        onArchive: setArchiveTarget,
-      }),
+  const rowHandlers = useMemo<OrderRowHandlers>(
+    () => ({
+      usersById,
+      onView: (row) => router.push(`/sales/orders/${row.id}`),
+      onDuplicate: handleDuplicate,
+      onPrint: handlePrintRow,
+      onCancel: setCancelTarget,
+      onArchive: setArchiveTarget,
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [router, usersById, activeCompany, user],
   );
+  const orderColumns = useMemo(() => buildOrderColumns(rowHandlers), [rowHandlers]);
 
   const { selectedIds, selectedRecords, resolve } = useSelectedRecords({
     items,
@@ -419,6 +425,15 @@ function SalesOrdersPageContent() {
             onShowMore: () => router.push(`/sales/orders/${row.id}`),
           })
         }
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <OrderGridCard
+            row={row}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            href={`/sales/orders/${row.id}`}
+            actionsNode={<OrderActionsCell row={row} handlers={rowHandlers} />}
+          />
+        )}
         getRowId={(row) => row.id}
         getRowHref={(row) => `/sales/orders/${row.id}`}
       />

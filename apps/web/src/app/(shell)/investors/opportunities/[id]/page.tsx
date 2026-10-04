@@ -33,7 +33,7 @@ import {
   type CompactDetailColumn,
 } from "@/components/shared/data-table/compact-detail-table";
 import {
-  FinancialReportTable,
+  FinancialReportView,
   type FinancialReportColumn,
   type FinancialReportLine,
 } from "@/components/accounting/financial-report";
@@ -1725,7 +1725,7 @@ function ProfitTab({
         </p>
       ) : null}
       <div className="mb-4 overflow-hidden rounded-md border border-border bg-card">
-        <FinancialReportTable
+        <FinancialReportView
           lines={waterfall}
           columns={WATERFALL_COLUMNS}
           expanded={NO_EXPANDED}

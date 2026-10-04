@@ -25,7 +25,7 @@ function JobTitleNameCell({ row }: { row: JobTitleRow }) {
 export const jobTitlesColumns: ColumnDef<JobTitleRow, unknown>[] = [
   {
     id: "name",
-    meta: { titleKey: "masterData.fields.name" },
+    meta: { titleKey: "masterData.fields.name", type: "name" },
     accessorFn: (row) => row.name,
     cell: ({ row }) => <JobTitleNameCell row={row.original} />,
   },

@@ -21,6 +21,7 @@ import {
 } from "@/components/master-data/enterprise-data-table";
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { productsColumns, productsExportColumns } from "@/config/products/columns";
+import { ProductGridCard } from "@/config/products/product-grid-card";
 import { ProductModal } from "./product-modal";
 import { ProductCreateDialog } from "@/components/business/product-create-dialog";
 import { ProductSuccessDialog } from "./product-success-dialog";
@@ -173,6 +174,56 @@ function ProductsPageContent() {
     load();
   };
 
+  // One actions control for both views (table cell + Grid card): same permissions.
+  const renderRowActions = (product: ProductRow) => {
+    const isArchived = !!product.deletedAt;
+    return (
+      <RowActionsMenu
+        label={t("common.actions")}
+        actions={[
+          {
+            key: "preview",
+            label: t("common.view"),
+            icon: Eye,
+            hidden: !canView,
+            onSelect: () => setPreviewProduct(product),
+          },
+          {
+            key: "edit",
+            label: t("common.edit"),
+            icon: Pencil,
+            hidden: !canEdit || isArchived,
+            onSelect: () => openEdit(product),
+          },
+          {
+            key: "duplicate",
+            label: t("products.actions.duplicate"),
+            icon: Copy,
+            hidden: !canCreate || isArchived,
+            onSelect: () => openDuplicate(product),
+          },
+          {
+            key: "archive",
+            label: t("common.archive"),
+            icon: ArchiveIcon,
+            hidden: !canArchive || isArchived,
+            destructive: true,
+            separatorBefore: true,
+            onSelect: () => setArchiveTarget(product),
+          },
+          {
+            key: "restore",
+            label: t("common.restore"),
+            icon: RotateCcw,
+            hidden: !canArchive || !isArchived,
+            separatorBefore: true,
+            onSelect: () => setRestoreTarget(product),
+          },
+        ]}
+      />
+    );
+  };
+
   const tableColumns = useMemo(
     () =>
       [
@@ -182,58 +233,12 @@ function ProductsPageContent() {
           meta: { titleKey: "common.actions" as const },
           enableHiding: false,
           enableSorting: false,
-          cell: ({ row }: { row: { original: ProductRow } }) => {
-            const product = row.original;
-            const isArchived = !!product.deletedAt;
-            return (
-              <RowActionsMenu
-                label={t("common.actions")}
-                actions={[
-                  {
-                    key: "preview",
-                    label: t("common.view"),
-                    icon: Eye,
-                    hidden: !canView,
-                    onSelect: () => setPreviewProduct(product),
-                  },
-                  {
-                    key: "edit",
-                    label: t("common.edit"),
-                    icon: Pencil,
-                    hidden: !canEdit || isArchived,
-                    onSelect: () => openEdit(product),
-                  },
-                  {
-                    key: "duplicate",
-                    label: t("products.actions.duplicate"),
-                    icon: Copy,
-                    hidden: !canCreate || isArchived,
-                    onSelect: () => openDuplicate(product),
-                  },
-                  {
-                    key: "archive",
-                    label: t("common.archive"),
-                    icon: ArchiveIcon,
-                    hidden: !canArchive || isArchived,
-                    destructive: true,
-                    separatorBefore: true,
-                    onSelect: () => setArchiveTarget(product),
-                  },
-                  {
-                    key: "restore",
-                    label: t("common.restore"),
-                    icon: RotateCcw,
-                    hidden: !canArchive || !isArchived,
-                    separatorBefore: true,
-                    onSelect: () => setRestoreTarget(product),
-                  },
-                ]}
-              />
-            );
-          },
+          cell: ({ row }: { row: { original: ProductRow } }) => renderRowActions(row.original),
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ] as any,
+    // `renderRowActions` closes over the same permission flags and `t` listed here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [canView, canEdit, canCreate, canArchive, t],
   );
 
@@ -308,6 +313,15 @@ function ProductsPageContent() {
           )
         }
         onRefresh={load}
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <ProductGridCard
+            row={row}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            href={`/products/${row.id}`}
+            actionsNode={renderRowActions(row)}
+          />
+        )}
         getRowHref={(row) => `/products/${row.id}`}
         exportColumns={exportColumnsFromKeys(productsColumns, productsExportColumns, t)}
         onExport={(selectedKeys, labels) =>

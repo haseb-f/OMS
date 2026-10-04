@@ -458,6 +458,10 @@ export function AgentStatementTab({ agentId }: { agentId: string }) {
 
           <EnterpriseDataTable
             tableId="agent-statement"
+            // A running-balance ledger: it reads as a sequence, and a card per line would
+            // drop that order and headline an arbitrary figure. (The agent PORTAL statement
+            // has its own line card that names the line's reference, debit, credit, balance.)
+            gridView={false}
             printTitle={`${t("agents.statement.printTitle")} — ${statement.agent.name} (${periodLabel})`}
             columns={columns}
             data={statement.lines}

@@ -35,7 +35,14 @@ export interface ReturnRowHandlers {
   onArchive: (row: SalesReturnRow) => void;
 }
 
-function ActionsCell({ row, handlers }: { row: SalesReturnRow; handlers: ReturnRowHandlers }) {
+/** The row's actions control — the Grid card renders this same component, so both views share one permission model. */
+export function ReturnActionsCell({
+  row,
+  handlers,
+}: {
+  row: SalesReturnRow;
+  handlers: ReturnRowHandlers;
+}) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const access = documentRowAccess(hasPermission, "sales.returns");
@@ -120,7 +127,7 @@ export function buildReturnColumns(
     },
     {
       id: "customer",
-      meta: { titleKey: "sales.returns.fields.customer" },
+      meta: { titleKey: "sales.returns.fields.customer", type: "name" },
       accessorFn: (row) => row.partner?.name ?? "—",
       cell: ({ row }) => (
         <StackedCell
@@ -141,7 +148,7 @@ export function buildReturnColumns(
     },
     {
       id: "status",
-      meta: { titleKey: "sales.customers.fields.status" },
+      meta: { titleKey: "sales.customers.fields.status", type: "status" },
       enableSorting: false,
       cell: ({ row }) => (
         <StackedCell
@@ -152,13 +159,13 @@ export function buildReturnColumns(
     },
     {
       id: "grandTotal",
-      meta: { titleKey: "sales.returns.fields.grandTotal", defaultHidden: true },
+      meta: { titleKey: "sales.returns.fields.grandTotal", defaultHidden: true, type: "money" },
       accessorFn: (row) => row.grandTotal,
       cell: ({ row }) => <MoneyValue value={row.original.grandTotal} />,
     },
     {
       id: "createdAt",
-      meta: { titleKey: "sales.returns.fields.date" },
+      meta: { titleKey: "sales.returns.fields.date", type: "date" },
       accessorFn: (row) => formatDate(row.createdAt),
       cell: ({ row }) => (
         <StackedCell
@@ -182,7 +189,7 @@ export function buildReturnColumns(
       meta: { titleKey: "common.actions" },
       enableHiding: false,
       enableSorting: false,
-      cell: ({ row }) => <ActionsCell row={row.original} handlers={handlers} />,
+      cell: ({ row }) => <ReturnActionsCell row={row.original} handlers={handlers} />,
     },
   ];
 }

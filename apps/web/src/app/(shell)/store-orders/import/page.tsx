@@ -67,7 +67,7 @@ function StoreOrdersImportContent() {
       {
         id: "status",
         header: t("importCenter.table.status"),
-        meta: { titleKey: "importCenter.table.status" },
+        meta: { titleKey: "importCenter.table.status", type: "status" },
         cell: (info) => {
           const status = info.row.original.status;
           return (
@@ -81,7 +81,7 @@ function StoreOrdersImportContent() {
       {
         id: "fileName",
         header: t("importCenter.table.fileName"),
-        meta: { titleKey: "importCenter.table.fileName" },
+        meta: { titleKey: "importCenter.table.fileName", type: "name" },
         accessorFn: (row) => row.fileName || "—",
       },
       {
@@ -93,19 +93,19 @@ function StoreOrdersImportContent() {
       {
         id: "successCount",
         header: t("importCenter.table.successCount"),
-        meta: { titleKey: "importCenter.table.successCount" },
+        meta: { titleKey: "importCenter.table.successCount", type: "number" },
         accessorFn: (row) => row.successCount,
       },
       {
         id: "errorCount",
         header: t("importCenter.table.errorCount"),
-        meta: { titleKey: "importCenter.table.errorCount" },
+        meta: { titleKey: "importCenter.table.errorCount", type: "number" },
         accessorFn: (row) => row.errorCount,
       },
       {
         id: "createdAt",
         header: t("importCenter.table.createdAt"),
-        meta: { titleKey: "importCenter.table.createdAt" },
+        meta: { titleKey: "importCenter.table.createdAt", type: "date" },
         accessorFn: (row) => formatDateTime(row.createdAt),
       },
       {

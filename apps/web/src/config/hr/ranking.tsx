@@ -31,7 +31,7 @@ export function buildRankingColumns(
     },
     {
       id: "employee",
-      meta: { titleKey: "hr.commissions.fields.employee" },
+      meta: { titleKey: "hr.commissions.fields.employee", type: "name" },
       accessorFn: (row) => row.name,
       cell: ({ row }) => (
         <StackedCell primary={row.original.name} secondary={row.original.employeeCode} />
@@ -39,7 +39,9 @@ export function buildRankingColumns(
     },
     {
       id: "targetAmount",
-      meta: { titleKey: "hr.salesTargets.fields.targetAmount", align: "end", type: "money" },
+      // `number`, not `money`: the Grid card's key figure is the FIRST money column,
+      // and on a leaderboard that must be the actual amount, not the target.
+      meta: { titleKey: "hr.salesTargets.fields.targetAmount", align: "end", type: "number" },
       accessorFn: (row) => formatTargetAmount(row.targetAmount),
       cell: (info) => info.getValue() as string,
     },

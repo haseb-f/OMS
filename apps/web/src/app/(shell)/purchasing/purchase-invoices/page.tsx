@@ -35,6 +35,8 @@ import type { PurchaseDocumentStatusValue } from "@/services/purchase-quotations
 import { partnersService, type PartnerPickerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import { buildInvoiceColumns, invoiceExportColumns } from "@/config/purchasing/invoice-columns";
+import { PurchaseInvoiceGridCard } from "@/config/purchasing/purchasing-grid-cards";
+import type { InvoiceRowHandlers } from "@/config/purchasing/invoice-columns";
 import {
   INVOICE_ARCHIVABLE_STATUSES,
   INVOICE_FILTERABLE_STATUSES,
@@ -217,20 +219,20 @@ function PurchaseInvoicesPageContent() {
     }
   };
 
-  const invoiceColumns = useMemo(
-    () =>
-      buildInvoiceColumns({
-        usersById,
-        onView: (row) => router.push(`/purchasing/purchase-invoices/${row.id}`),
-        onDuplicate: handleDuplicate,
-        onPrint: handlePrintRow,
-        onCancel: setCancelTarget,
-        onArchive: setArchiveTarget,
-        onCreateReturn: setReturnTarget,
-      }),
+  const rowHandlers = useMemo<InvoiceRowHandlers>(
+    () => ({
+      usersById,
+      onView: (row) => router.push(`/purchasing/purchase-invoices/${row.id}`),
+      onDuplicate: handleDuplicate,
+      onPrint: handlePrintRow,
+      onCancel: setCancelTarget,
+      onArchive: setArchiveTarget,
+      onCreateReturn: setReturnTarget,
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [router, usersById, activeCompany, user],
   );
+  const invoiceColumns = useMemo(() => buildInvoiceColumns(rowHandlers), [rowHandlers]);
 
   const { selectedIds, selectedRecords, resolve } = useSelectedRecords({
     items,
@@ -413,6 +415,15 @@ function PurchaseInvoicesPageContent() {
             onShowMore: () => router.push(`/purchasing/purchase-invoices/${row.id}`),
           })
         }
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <PurchaseInvoiceGridCard
+            row={row}
+            handlers={rowHandlers}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            href={`/purchasing/purchase-invoices/${row.id}`}
+          />
+        )}
         getRowId={(row) => row.id}
         getRowHref={(row) => `/purchasing/purchase-invoices/${row.id}`}
       />

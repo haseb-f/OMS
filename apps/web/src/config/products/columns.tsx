@@ -18,19 +18,19 @@ const TYPE_TONE: Record<ProductRow["type"], "success" | "info" | "warning" | "ne
   EXPENSE_ITEM: "neutral",
 };
 
-function TypeCell({ type }: { type: ProductRow["type"] }) {
+export function TypeCell({ type }: { type: ProductRow["type"] }) {
   const { t } = useLocale();
   return <StatusBadge tone={TYPE_TONE[type]} label={t(`products.type.${type}` as MessageKey)} />;
 }
 
-const STATUS_TONE: Record<ProductStatus, StatusTone> = {
+export const STATUS_TONE: Record<ProductStatus, StatusTone> = {
   DRAFT: "warning",
   ACTIVE: "success",
   INACTIVE: "neutral",
 };
 
 /** Archived (soft-deleted) always wins the badge — otherwise shows the real DRAFT/ACTIVE/INACTIVE lifecycle state, not just a binary active/archived flag. */
-function ProductStatusCell({
+export function ProductStatusCell({
   status,
   deletedAt,
 }: {
@@ -45,7 +45,7 @@ function ProductStatusCell({
   );
 }
 
-function ItemTypeLabel({ itemType }: { itemType: "PRODUCT" | "SERVICE" | null }) {
+export function ItemTypeLabel({ itemType }: { itemType: "PRODUCT" | "SERVICE" | null }) {
   const { t } = useLocale();
   return itemType ? (
     <span>{t(`productCommission.classValue.${itemType}`)}</span>
@@ -104,14 +104,14 @@ export const productsColumns: ColumnDef<ProductRow, unknown>[] = [
   },
   {
     id: "salesPrice",
-    meta: { titleKey: "products.table.salesPrice" },
+    meta: { titleKey: "products.table.salesPrice", type: "money" },
     accessorFn: (row) => row.salesPrice,
     cell: ({ row }) =>
       row.original.salesPrice ? <MoneyValue value={row.original.salesPrice} /> : "—",
   },
   {
     id: "status",
-    meta: { titleKey: "products.table.status" },
+    meta: { titleKey: "products.table.status", type: "status" },
     enableSorting: false,
     cell: ({ row }) => (
       <ProductStatusCell status={row.original.status} deletedAt={row.original.deletedAt} />

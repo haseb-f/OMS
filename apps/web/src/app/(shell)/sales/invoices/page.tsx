@@ -34,7 +34,13 @@ import {
 } from "@/services/sales-invoices-service";
 import { partnersService, type PartnerPickerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
-import { buildInvoiceColumns, invoiceExportColumns } from "@/config/sales/invoice-columns";
+import {
+  buildInvoiceColumns,
+  InvoiceActionsCell,
+  invoiceExportColumns,
+  type InvoiceRowHandlers,
+} from "@/config/sales/invoice-columns";
+import { InvoiceGridCard } from "@/config/sales/sales-grid-cards";
 import {
   INVOICE_ARCHIVABLE_STATUSES,
   INVOICE_FILTERABLE_STATUSES,
@@ -214,19 +220,19 @@ function SalesInvoicesPageContent() {
     }
   };
 
-  const invoiceColumns = useMemo(
-    () =>
-      buildInvoiceColumns({
-        usersById,
-        onView: (row) => router.push(`/sales/invoices/${row.id}`),
-        onDuplicate: handleDuplicate,
-        onPrint: handlePrintRow,
-        onCancel: setCancelTarget,
-        onArchive: setArchiveTarget,
-      }),
+  const rowHandlers = useMemo<InvoiceRowHandlers>(
+    () => ({
+      usersById,
+      onView: (row) => router.push(`/sales/invoices/${row.id}`),
+      onDuplicate: handleDuplicate,
+      onPrint: handlePrintRow,
+      onCancel: setCancelTarget,
+      onArchive: setArchiveTarget,
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [router, usersById, activeCompany, user],
   );
+  const invoiceColumns = useMemo(() => buildInvoiceColumns(rowHandlers), [rowHandlers]);
 
   const { selectedIds, selectedRecords, resolve } = useSelectedRecords({
     items,
@@ -405,6 +411,15 @@ function SalesInvoicesPageContent() {
             onShowMore: () => router.push(`/sales/invoices/${row.id}`),
           })
         }
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <InvoiceGridCard
+            row={row}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            href={`/sales/invoices/${row.id}`}
+            actionsNode={<InvoiceActionsCell row={row} handlers={rowHandlers} />}
+          />
+        )}
         getRowId={(row) => row.id}
         getRowHref={(row) => `/sales/invoices/${row.id}`}
       />

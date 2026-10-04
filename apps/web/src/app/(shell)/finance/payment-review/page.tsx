@@ -20,6 +20,7 @@ import { RelatedRecordLink } from "@/components/shared/record-preview";
 import { StoreOrderLineAmountsDialog } from "@/components/store-orders/store-order-line-amounts-dialog";
 import { PaymentActionButton } from "@/components/payments/payment-action-button";
 import { PaymentClaimBadge } from "@/components/payments/payment-term-badge";
+import { PaymentReviewGridCard } from "@/components/payments/review/payment-review-grid-card";
 import { PaymentMatchPanel } from "@/components/payments/match-panel/payment-match-panel";
 import { confirmPostSentence } from "@/components/payments/match-panel/match-panel-model";
 import { BulkResultDialog } from "@/components/payments/bulk-result-dialog";
@@ -389,6 +390,100 @@ function PaymentReviewPageContent() {
   const bulkConfirmLabel = (action: string) =>
     bulkProgress ? t("paymentVocabulary.bulk.progress", bulkProgress) : action;
 
+  // The row's primary action + Reject + menu - the ONE control behind the table's
+  // Actions cell and the Grid card (permissions, block reasons and busy state are
+  // shared). `wrap` lets the card's narrower footer break the strip onto two lines.
+  const renderRowActions = useCallback(
+    (payment: PaymentReviewRow, wrap = false) => {
+      const busy = busyId === payment.id;
+      const open = isOpen(payment);
+      const workspaceMethodId = reconciledMethodId(payment);
+      const blocked = confirmBlockReason(payment);
+      return (
+        <div
+          className={`flex ${wrap ? "flex-wrap" : "flex-nowrap"} items-center justify-end gap-1`}
+        >
+          {canConfirm && open && workspaceMethodId ? (
+            <PaymentActionButton
+              intent="match"
+              size="xs"
+              quiet
+              disabled={busy}
+              data-testid="payment-match-review"
+              onClick={() => setPanelId(payment.id)}
+            />
+          ) : null}
+          {canConfirm && open && !workspaceMethodId ? (
+            <PaymentActionButton
+              intent="confirmPost"
+              size="xs"
+              disabled={busy}
+              disabledReason={blocked ? t(blocked) : null}
+              data-testid="payment-confirm-post"
+              onClick={() => setConfirmTarget(payment)}
+            />
+          ) : null}
+          {canConfirm && open ? (
+            <PaymentActionButton
+              intent="rejectDeclaration"
+              size="xs"
+              disabled={busy}
+              disabledReason={
+                rejectBlockReason(payment) ? t(rejectBlockReason(payment) as MessageKey) : null
+              }
+              data-testid="payment-reject"
+              onClick={() => setRejectTarget(payment)}
+            />
+          ) : null}
+          {!open ? (
+            <PaymentActionButton
+              intent="review"
+              size="xs"
+              quiet
+              onClick={() => setPanelId(payment.id)}
+            />
+          ) : null}
+          <RowActionsMenu
+            label={t("common.actions")}
+            actions={[
+              {
+                key: "review",
+                label: t("paymentVocabulary.action.review"),
+                icon: Eye,
+                onSelect: () => setPanelId(payment.id),
+              },
+              {
+                key: "set-price",
+                label: t("finance.paymentReview.actions.setPrice"),
+                icon: Tags,
+                hidden: !(canConfirm && open && needsPrice(payment) && canEditOrders),
+                onSelect: () => setPriceTarget(payment),
+              },
+              {
+                key: "sync-receipt",
+                label: t("docFlow.payments.syncReceipt"),
+                icon: RefreshCw,
+                hidden: !(canConfirm && payment.status === "VERIFIED" && payment.storeOrder),
+                disabled: busy,
+                onSelect: () => void confirmAndPost(payment),
+              },
+              {
+                key: "dispute",
+                label: t("paymentVocabulary.action.dispute"),
+                icon: CircleAlert,
+                hidden: !(canConfirm && open && payment.storeOrder),
+                disabled: busy,
+                separatorBefore: true,
+                onSelect: () => setPanelId(payment.id),
+              },
+            ]}
+          />
+        </div>
+      );
+    },
+    [busyId, canConfirm, canEditOrders, confirmAndPost, t],
+  );
+
   const columns = useMemo<ColumnDef<PaymentReviewRow, unknown>[]>(
     () => [
       {
@@ -410,7 +505,7 @@ function PaymentReviewPageContent() {
       },
       {
         id: "customer",
-        meta: { titleKey: "finance.paymentReview.fields.customer" },
+        meta: { titleKey: "finance.paymentReview.fields.customer", type: "name" },
         accessorFn: (row) =>
           row.storeOrder?.partner?.name ?? row.lead?.customerName ?? row.senderName,
       },
@@ -453,7 +548,7 @@ function PaymentReviewPageContent() {
       },
       {
         id: "method",
-        meta: { titleKey: "paymentDeclaration.review.method" },
+        meta: { titleKey: "paymentDeclaration.review.method", type: "default" },
         cell: ({ row }) => (
           <span className="inline-flex flex-col">
             <span>
@@ -476,28 +571,33 @@ function PaymentReviewPageContent() {
       },
       {
         id: "account",
-        meta: { titleKey: "paymentDeclaration.review.debitAccount", importance: "low" },
+        meta: {
+          titleKey: "paymentDeclaration.review.debitAccount",
+          type: "default",
+          importance: "low",
+        },
         accessorFn: (row) => debitAccountLabel(row, t),
       },
       {
         id: "reference",
-        meta: { titleKey: "finance.paymentReview.fields.reference" },
+        meta: { titleKey: "finance.paymentReview.fields.reference", type: "reference" },
         accessorFn: (row) => row.referenceNumber ?? "—",
       },
       {
         id: "proof",
-        meta: { titleKey: "finance.paymentReview.fields.proof" },
+        meta: { titleKey: "finance.paymentReview.fields.proof", type: "number" },
         accessorFn: (row) => row.attachments.length,
       },
       {
         id: "date",
-        meta: { titleKey: "finance.paymentReview.fields.date" },
+        meta: { titleKey: "finance.paymentReview.fields.date", type: "date" },
         accessorFn: (row) => formatDate(row.paymentDate),
       },
       {
         id: "status",
         meta: {
           titleKey: "finance.paymentReview.fields.status",
+          type: "status",
           displayValue: (row, tr) => {
             const term = paymentRecordTerm(row.status);
             return term ? tr(paymentTerm(term).labelKey) : row.status;
@@ -514,95 +614,10 @@ function PaymentReviewPageContent() {
         id: "__actions",
         // Primary action + Reject + row menu on one line — never spilling into the date.
         meta: { titleKey: "common.actions", fixedWidth: 330 },
-        cell: ({ row }) => {
-          const payment = row.original;
-          const busy = busyId === payment.id;
-          const open = isOpen(payment);
-          const workspaceMethodId = reconciledMethodId(payment);
-          const blocked = confirmBlockReason(payment);
-          return (
-            <div className="flex flex-nowrap items-center justify-end gap-1">
-              {canConfirm && open && workspaceMethodId ? (
-                <PaymentActionButton
-                  intent="match"
-                  size="xs"
-                  quiet
-                  disabled={busy}
-                  data-testid="payment-match-review"
-                  onClick={() => setPanelId(payment.id)}
-                />
-              ) : null}
-              {canConfirm && open && !workspaceMethodId ? (
-                <PaymentActionButton
-                  intent="confirmPost"
-                  size="xs"
-                  disabled={busy}
-                  disabledReason={blocked ? t(blocked) : null}
-                  data-testid="payment-confirm-post"
-                  onClick={() => setConfirmTarget(payment)}
-                />
-              ) : null}
-              {canConfirm && open ? (
-                <PaymentActionButton
-                  intent="rejectDeclaration"
-                  size="xs"
-                  disabled={busy}
-                  disabledReason={
-                    rejectBlockReason(payment) ? t(rejectBlockReason(payment) as MessageKey) : null
-                  }
-                  data-testid="payment-reject"
-                  onClick={() => setRejectTarget(payment)}
-                />
-              ) : null}
-              {!open ? (
-                <PaymentActionButton
-                  intent="review"
-                  size="xs"
-                  quiet
-                  onClick={() => setPanelId(payment.id)}
-                />
-              ) : null}
-              <RowActionsMenu
-                label={t("common.actions")}
-                actions={[
-                  {
-                    key: "review",
-                    label: t("paymentVocabulary.action.review"),
-                    icon: Eye,
-                    onSelect: () => setPanelId(payment.id),
-                  },
-                  {
-                    key: "set-price",
-                    label: t("finance.paymentReview.actions.setPrice"),
-                    icon: Tags,
-                    hidden: !(canConfirm && open && needsPrice(payment) && canEditOrders),
-                    onSelect: () => setPriceTarget(payment),
-                  },
-                  {
-                    key: "sync-receipt",
-                    label: t("docFlow.payments.syncReceipt"),
-                    icon: RefreshCw,
-                    hidden: !(canConfirm && payment.status === "VERIFIED" && payment.storeOrder),
-                    disabled: busy,
-                    onSelect: () => void confirmAndPost(payment),
-                  },
-                  {
-                    key: "dispute",
-                    label: t("paymentVocabulary.action.dispute"),
-                    icon: CircleAlert,
-                    hidden: !(canConfirm && open && payment.storeOrder),
-                    disabled: busy,
-                    separatorBefore: true,
-                    onSelect: () => setPanelId(payment.id),
-                  },
-                ]}
-              />
-            </div>
-          );
-        },
+        cell: ({ row }) => renderRowActions(row.original),
       },
     ],
-    [busyId, canConfirm, canEditOrders, confirmAndPost, t],
+    [renderRowActions, t],
   );
 
   const bulkTotals = bulk
@@ -653,6 +668,14 @@ function PaymentReviewPageContent() {
           isLoading={isLoading}
           getRowId={(row) => row.id}
           onRefresh={() => void reloadAll()}
+          renderGridCard={({ row, selected, onToggleSelected }) => (
+            <PaymentReviewGridCard
+              payment={row}
+              selected={selected}
+              onToggleSelected={canConfirm ? onToggleSelected : undefined}
+              actions={renderRowActions(row, true)}
+            />
+          )}
           rowSelection={canConfirm ? rowSelection : undefined}
           onRowSelectionChange={canConfirm ? setRowSelection : undefined}
           selectionResetKey={selectionQuery}

@@ -266,6 +266,9 @@ export default function PayrollRunDetailPage() {
       <div className="mt-4">
         <EnterpriseDataTable
           tableId="payroll-run-lines"
+          // A nine-figure earnings/deductions matrix: a card would show only some of the
+          // figures (and omit net pay), which misleads - the table is the faithful view.
+          gridView={false}
           printTitle={`${t("hr.payroll.lines.title")} — ${run.period}`}
           columns={columns}
           data={lines}

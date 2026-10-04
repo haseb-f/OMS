@@ -25,7 +25,7 @@ import { downloadReport, type ReportExportFormat } from "@/lib/report-export";
 import { reportApiError, toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import type { MessageKey } from "@/i18n/translate";
-import { FinancialReportTable } from "./financial-report-table";
+import { FinancialReportView } from "./financial-report-view";
 import { FinancialReportSummary } from "./financial-report-summary";
 import { buildFinancialReportDocument, toReportPrintPayload } from "./financial-report-export";
 import { collectReportAlerts, summaryToText } from "./summary-format";
@@ -425,7 +425,7 @@ export function FinancialReport({
             className={cn("flex min-h-0 flex-col lg:flex-1", isLoading && "opacity-60")}
             aria-busy={isLoading || undefined}
           >
-            <FinancialReportTable
+            <FinancialReportView
               lines={lines}
               columns={columns}
               expanded={expanded}

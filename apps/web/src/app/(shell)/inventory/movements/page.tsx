@@ -52,19 +52,13 @@ import {
   RECORD_ROUTES,
   recordHref,
 } from "@/config/traceability/record-routes";
+import { movementTypeTone } from "@/config/inventory/movement-type";
+import { InventoryMovementGridCard } from "@/config/inventory/inventory-grid-cards";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 const warehousesService = createMasterDataService<WarehouseRow>("/warehouses");
-
-const POSITIVE_TYPES = new Set([
-  "OPENING_BALANCE",
-  "PURCHASE_RECEIPT",
-  "SALES_RETURN",
-  "PRODUCTION_OUTPUT",
-  "ASSEMBLY",
-]);
 
 const MOVEMENT_TYPES = [
   "OPENING_BALANCE",
@@ -161,7 +155,7 @@ function InventoryMovementsPageContent() {
           const type = info.getValue() as string;
           return (
             <StatusBadge
-              tone={POSITIVE_TYPES.has(type) ? "success" : "neutral"}
+              tone={movementTypeTone(type)}
               label={t(`inventory.movementType.${type}` as MessageKey)}
             />
           );
@@ -459,6 +453,13 @@ function InventoryMovementsPageContent() {
         data={filteredRows}
         isLoading={isLoading}
         getRowId={(row) => row.id}
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <InventoryMovementGridCard
+            row={row}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+          />
+        )}
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
         selectionResetKey={{

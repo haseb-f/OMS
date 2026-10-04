@@ -137,7 +137,7 @@ function ImportCenterPageContent() {
       {
         id: "importType",
         header: t("importCenter.table.importType"),
-        meta: { titleKey: "importCenter.table.importType" },
+        meta: { titleKey: "importCenter.table.importType", type: "default" },
         accessorFn: (row) => {
           const typeDef = typeByKey.get(row.importType);
           return typeDef ? t(typeDef.labelKey as MessageKey) : row.importType;
@@ -149,6 +149,7 @@ function ImportCenterPageContent() {
         header: t("importCenter.table.status"),
         meta: {
           titleKey: "importCenter.table.status",
+          type: "status",
           displayValue: (row, tr) => tr(IMPORT_JOB_STATUS_LABEL_KEY[row.status]),
         },
         accessorFn: (row) => row.status,
@@ -165,7 +166,7 @@ function ImportCenterPageContent() {
       {
         id: "fileName",
         header: t("importCenter.table.fileName"),
-        meta: { titleKey: "importCenter.table.fileName" },
+        meta: { titleKey: "importCenter.table.fileName", type: "name" },
         accessorFn: (row) => row.fileName || "—",
         cell: (info) => (
           <span dir="ltr" className="text-caption text-muted-foreground">
@@ -200,14 +201,14 @@ function ImportCenterPageContent() {
       {
         id: "successCount",
         header: t("importCenter.table.successCount"),
-        meta: { titleKey: "importCenter.table.successCount" },
+        meta: { titleKey: "importCenter.table.successCount", type: "number" },
         accessorFn: (row) => row.successCount,
         cell: (info) => <span className="text-success">{info.getValue() as number}</span>,
       },
       {
         id: "errorCount",
         header: t("importCenter.table.errorCount"),
-        meta: { titleKey: "importCenter.table.errorCount" },
+        meta: { titleKey: "importCenter.table.errorCount", type: "number" },
         accessorFn: (row) => row.errorCount,
         cell: (info) => {
           const value = info.getValue() as number;
@@ -227,7 +228,7 @@ function ImportCenterPageContent() {
       {
         id: "lastSynced",
         header: t("importCenter.table.lastSynced"),
-        meta: { titleKey: "importCenter.table.lastSynced" },
+        meta: { titleKey: "importCenter.table.lastSynced", type: "default" },
         accessorFn: (row) =>
           row.sourceConnector === "google-sheets"
             ? row.lastSyncedAt
@@ -251,7 +252,7 @@ function ImportCenterPageContent() {
       {
         id: "createdAt",
         header: t("importCenter.table.createdAt"),
-        meta: { titleKey: "importCenter.table.createdAt" },
+        meta: { titleKey: "importCenter.table.createdAt", type: "date" },
         accessorFn: (row) => formatDateTime(row.createdAt),
         cell: (info) => <span className="num">{info.getValue() as string}</span>,
       },

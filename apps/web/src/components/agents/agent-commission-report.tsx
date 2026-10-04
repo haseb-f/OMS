@@ -345,6 +345,10 @@ export function AgentCommissionReportView({
 
       <EnterpriseDataTable
         tableId="agent-commission-report"
+        // A line-by-line money-component matrix (shipping, retained, carrier, margin,
+        // commission, net): none of its columns is a name or reference, so a card would
+        // headline an arbitrary figure. The table is the faithful view.
+        gridView={false}
         printTitle={`${t("agents.commission.report.title")} — ${periodLabel}`}
         columns={columns}
         data={report?.lines ?? []}

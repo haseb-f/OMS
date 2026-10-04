@@ -36,7 +36,14 @@ export interface InvoiceRowHandlers {
   onArchive: (row: SalesInvoiceRow) => void;
 }
 
-function ActionsCell({ row, handlers }: { row: SalesInvoiceRow; handlers: InvoiceRowHandlers }) {
+/** The row's actions control — the Grid card renders this same component, so both views share one permission model. */
+export function InvoiceActionsCell({
+  row,
+  handlers,
+}: {
+  row: SalesInvoiceRow;
+  handlers: InvoiceRowHandlers;
+}) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const access = documentRowAccess(hasPermission, "sales.invoices");
@@ -142,7 +149,7 @@ export function buildInvoiceColumns(
     },
     {
       id: "status",
-      meta: { titleKey: "sales.customers.fields.status" },
+      meta: { titleKey: "sales.customers.fields.status", type: "status" },
       enableSorting: false,
       cell: ({ row }) => (
         <StackedCell
@@ -153,19 +160,19 @@ export function buildInvoiceColumns(
     },
     {
       id: "grandTotal",
-      meta: { titleKey: "sales.invoices.fields.grandTotal", defaultHidden: true },
+      meta: { titleKey: "sales.invoices.fields.grandTotal", defaultHidden: true, type: "money" },
       accessorFn: (row) => row.grandTotal,
       cell: ({ row }) => <MoneyValue value={row.original.grandTotal} />,
     },
     {
       id: "paymentStatus",
-      meta: { titleKey: "financialTransactions.paymentSummary.title" },
+      meta: { titleKey: "financialTransactions.paymentSummary.title", type: "status" },
       enableSorting: false,
       cell: ({ row }) => <InvoicePaymentBadge paymentStatus={row.original.paymentStatus} />,
     },
     {
       id: "createdAt",
-      meta: { titleKey: "sales.invoices.fields.date" },
+      meta: { titleKey: "sales.invoices.fields.date", type: "date" },
       accessorFn: (row) => formatDate(row.createdAt),
       cell: ({ row }) => (
         <StackedCell
@@ -189,7 +196,7 @@ export function buildInvoiceColumns(
       meta: { titleKey: "common.actions" },
       enableHiding: false,
       enableSorting: false,
-      cell: ({ row }) => <ActionsCell row={row.original} handlers={handlers} />,
+      cell: ({ row }) => <InvoiceActionsCell row={row.original} handlers={handlers} />,
     },
   ];
 }

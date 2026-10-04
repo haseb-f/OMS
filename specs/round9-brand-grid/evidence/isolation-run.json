@@ -1,0 +1,182 @@
+[
+  {
+    "name": "A admin /agent/orders: grid shows the same records as the table",
+    "ok": true,
+    "detail": "table 20 refs / grid 20 refs"
+  },
+  {
+    "name": "A admin /agent/orders: no restricted cost/margin wording in cards",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "A admin /agent/leads: grid shows the same records as the table",
+    "ok": true,
+    "detail": "table 12 refs / grid 12 refs"
+  },
+  {
+    "name": "A admin /agent/leads: no restricted cost/margin wording in cards",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "A admin /agent/stock: grid shows the same records as the table",
+    "ok": true,
+    "detail": "table 2 refs / grid 2 refs"
+  },
+  {
+    "name": "A admin /agent/stock: no restricted cost/margin wording in cards",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "A admin /agent/payouts: grid shows the same records as the table",
+    "ok": true,
+    "detail": "table 18 refs / grid 18 refs"
+  },
+  {
+    "name": "A admin /agent/payouts: no restricted cost/margin wording in cards",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "A admin /agent/statement: grid shows the same records as the table",
+    "ok": true,
+    "detail": "table 23 refs / grid 23 refs"
+  },
+  {
+    "name": "A admin /agent/statement: no restricted cost/margin wording in cards",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "A sales /agent/orders: grid shows the same records as the table",
+    "ok": true,
+    "detail": "table 20 refs / grid 20 refs"
+  },
+  {
+    "name": "A sales /agent/orders: no restricted cost/margin wording in cards",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "A sales /agent/leads: grid shows the same records as the table",
+    "ok": true,
+    "detail": "table 12 refs / grid 12 refs"
+  },
+  {
+    "name": "A sales /agent/leads: no restricted cost/margin wording in cards",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "A sales /agent/stock: no switch = the page is not permitted for this role",
+    "ok": true,
+    "detail": "access denied (permission)"
+  },
+  {
+    "name": "A sales /agent/payouts: no switch = the page is not permitted for this role",
+    "ok": true,
+    "detail": "access denied (permission)"
+  },
+  {
+    "name": "A sales /agent/statement: no switch = the page is not permitted for this role",
+    "ok": true,
+    "detail": "access denied (permission)"
+  },
+  {
+    "name": "B admin /agent/orders: grid shows the same records as the table",
+    "ok": true,
+    "detail": "table 5 refs / grid 5 refs"
+  },
+  {
+    "name": "B admin /agent/orders: no restricted cost/margin wording in cards",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "B admin /agent/leads: grid shows the same records as the table",
+    "ok": true,
+    "detail": "table 0 refs / grid 0 refs"
+  },
+  {
+    "name": "B admin /agent/leads: no restricted cost/margin wording in cards",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "B admin /agent/stock: grid shows the same records as the table",
+    "ok": true,
+    "detail": "table 2 refs / grid 2 refs"
+  },
+  {
+    "name": "B admin /agent/stock: no restricted cost/margin wording in cards",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "B admin /agent/payouts: grid shows the same records as the table",
+    "ok": true,
+    "detail": "table 0 refs / grid 0 refs"
+  },
+  {
+    "name": "B admin /agent/payouts: no restricted cost/margin wording in cards",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "B admin /agent/statement: grid shows the same records as the table",
+    "ok": true,
+    "detail": "table 10 refs / grid 10 refs"
+  },
+  {
+    "name": "B admin /agent/statement: no restricted cost/margin wording in cards",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "agent A vs agent B /agent/orders: grid records are disjoint",
+    "ok": true,
+    "detail": "A 20, B 5, shared 0"
+  },
+  {
+    "name": "agent A vs agent B /agent/leads: grid records are disjoint",
+    "ok": true,
+    "detail": "A 12, B 0, shared 0"
+  },
+  {
+    "name": "agent A vs agent B /agent/stock: grid records are disjoint",
+    "ok": true,
+    "detail": "A 2, B 2, shared 0"
+  },
+  {
+    "name": "agent A vs agent B /agent/payouts: grid records are disjoint",
+    "ok": true,
+    "detail": "A 18, B 0, shared 0"
+  },
+  {
+    "name": "agent A vs agent B /agent/statement: grid records are disjoint",
+    "ok": true,
+    "detail": "A 23, B 10, shared 0"
+  },
+  {
+    "name": "API /agent-portal/orders: agent A and agent B share no record",
+    "ok": true,
+    "detail": "A 49, B 5, shared 0"
+  },
+  {
+    "name": "API /agent-portal/orders: agent A sales (own scope) ⊆ agent A admin",
+    "ok": true,
+    "detail": "sales 44 ⊆ admin 49"
+  },
+  {
+    "name": "API /agent-portal/leads: agent A and agent B share no record",
+    "ok": true,
+    "detail": "A 12, B 0, shared 0"
+  },
+  {
+    "name": "API /agent-portal/leads: agent A sales (own scope) ⊆ agent A admin",
+    "ok": true,
+    "detail": "sales 12 ⊆ admin 12"
+  }
+]

@@ -17,7 +17,11 @@ function EmployeeWorkCell({ row }: { row: EmployeeRow }) {
   return <StackedCell primary={row.jobTitle?.name ?? "—"} secondary={row.department?.name} />;
 }
 
-const statusTone: Record<EmployeeRow["employmentStatus"], "success" | "neutral" | "destructive"> = {
+/** Employment status -> tone: the one map behind the table badge and the Grid card. */
+export const employeeStatusTone: Record<
+  EmployeeRow["employmentStatus"],
+  "success" | "neutral" | "destructive"
+> = {
   ACTIVE: "success",
   INACTIVE: "neutral",
   TERMINATED: "destructive",
@@ -27,7 +31,7 @@ function EmploymentStatusCell({ row, t }: { row: EmployeeRow; t: (key: MessageKe
   return (
     <StatusBadge
       label={t(`hr.employees.status.${row.employmentStatus}` as MessageKey)}
-      tone={statusTone[row.employmentStatus]}
+      tone={employeeStatusTone[row.employmentStatus]}
     />
   );
 }
@@ -38,25 +42,25 @@ export function buildEmployeesColumns(
   return [
     {
       id: "name",
-      meta: { titleKey: "hr.employees.fields.name" },
+      meta: { titleKey: "hr.employees.fields.name", type: "name" },
       accessorFn: (row) => row.name,
       cell: ({ row }) => <EmployeeNameCell row={row.original} />,
     },
     {
       id: "work",
-      meta: { titleKey: "hr.employees.fields.jobTitle" },
+      meta: { titleKey: "hr.employees.fields.jobTitle", type: "default" },
       accessorFn: (row) => row.jobTitle?.name ?? "",
       cell: ({ row }) => <EmployeeWorkCell row={row.original} />,
     },
     {
       id: "mobile",
-      meta: { titleKey: "hr.employees.fields.mobile" },
+      meta: { titleKey: "hr.employees.fields.mobile", type: "phone" },
       accessorFn: (row) => row.mobile ?? "—",
       cell: (info) => info.getValue() as string,
     },
     {
       id: "hireDate",
-      meta: { titleKey: "hr.employees.fields.hireDate" },
+      meta: { titleKey: "hr.employees.fields.hireDate", type: "date" },
       accessorFn: (row) => (row.hireDate ? formatDate(row.hireDate) : "—"),
       cell: (info) => info.getValue() as string,
     },
@@ -64,6 +68,7 @@ export function buildEmployeesColumns(
       id: "employmentStatus",
       meta: {
         titleKey: "hr.employees.fields.employmentStatus",
+        type: "status",
         displayValue: (row, tr) => tr(`hr.employees.status.${row.employmentStatus}` as MessageKey),
       },
       accessorFn: (row) => row.employmentStatus,

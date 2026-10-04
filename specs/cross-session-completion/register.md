@@ -186,3 +186,18 @@ Defect found by this round's verification and fixed on the same branch: insight 
 and launcher tiles painted no keyboard focus ring (`outline-none` without `outline-solid`, Tailwind v4).
 Open (unchanged, owner): FX revaluation policy, Prod permission grants, prettier CI debt — see
 `.claude/OMS.md` / R7 evidence.
+
+## Round 9 (2026-10-04) — OMS brand control palette and Table / Grid everywhere
+
+Owner message 2026-10-04: replace the blue-only direction with the logo's arrow-mark colours for every
+control; every list gets Table / جدول and Grid / شبكة with a clean, soft, professional card; hierarchical
+and financial lists get grouped cards; verify agent isolation in both views; **obtain visual approval before
+deploying**. Home / dashboard (R8) stays a separate deliverable.
+
+| #   | Milestone                                                                                       | State                                                                                                                                                                                   | Evidence                                                             | Open                                                          |
+| --- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 15  | Brand control palette from the logo arrow mark (navy `#0a2442`, blue `#336ac4`, teal `#41b3bd`) | **Implemented, local only — awaiting owner visual approval.** `feat/r9-brand-grid`; review stack web :4601 / API :4605. Not deployed                                                    | `specs/round9-brand-grid/evidence/palette`, `before-palette`; §12.18 | Owner approval → merge + deploy                               |
+| 16  | Table / Grid on every list + grouped cards for hierarchical / financial lists                   | **Implemented, local only — awaiting owner visual approval.** 73 list routes verified with cards in the browser, 19 more verified as empty state (no demo data), documented gaps listed | `specs/round9-brand-grid/coverage.md`, `research.md`, §12.19         | Owner approval → merge + deploy; gaps listed in `coverage.md` |
+| 17  | Agent isolation in both views                                                                   | **Verified** (36/36): grid = table per record set for Agent A / A-sales / B; agent A and B share no record at the API; cards carry portal fields only                                   | `evidence/isolation-run.json`, `portal-grid-cards.spec.tsx`          | none                                                          |
+
+Milestone 1 (UI design system) stays open: Home + dashboards (R8) and this round are both awaiting approval.

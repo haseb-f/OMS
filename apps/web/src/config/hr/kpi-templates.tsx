@@ -14,19 +14,19 @@ export function buildKpiTemplatesColumns(): ColumnDef<KpiTemplateRow, unknown>[]
   return [
     {
       id: "name",
-      meta: { titleKey: "hr.kpiTemplates.fields.name" },
+      meta: { titleKey: "hr.kpiTemplates.fields.name", type: "name" },
       accessorFn: (row) => row.name,
       cell: ({ row }) => <TemplateNameCell row={row.original} />,
     },
     {
       id: "description",
-      meta: { titleKey: "hr.kpiTemplates.fields.description" },
+      meta: { titleKey: "hr.kpiTemplates.fields.description", type: "description" },
       accessorFn: (row) => row.description ?? "—",
       cell: (info) => info.getValue() as string,
     },
     {
       id: "itemsCount",
-      meta: { titleKey: "hr.kpiTemplates.items.title" },
+      meta: { titleKey: "hr.kpiTemplates.items.title", type: "number" },
       accessorFn: (row) => row.items?.length ?? 0,
       cell: (info) => info.getValue() as number,
       enableSorting: false,

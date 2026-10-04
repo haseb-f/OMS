@@ -64,16 +64,30 @@ function PrepaidStatusCell({ status }: { status: PrepaidExpenseRow["status"] }) 
 }
 
 const columns: ColumnDef<PrepaidExpenseRow, unknown>[] = [
-  textColumn("prepaidNumber", "accounting.prepaid.fields.prepaidNumber", (r) => r.prepaidNumber),
-  textColumn("name", "masterData.fields.name", (r) => r.name),
+  textColumn(
+    "prepaidNumber",
+    "accounting.prepaid.fields.prepaidNumber",
+    (r) => r.prepaidNumber,
+    "code",
+  ),
+  textColumn("name", "masterData.fields.name", (r) => r.name, "name"),
   {
     ...textColumn("amount", "masterData.expenses.fields.amount", (r) => formatAmount(r.amount)),
     meta: { titleKey: "masterData.expenses.fields.amount", type: "money" },
   },
-  textColumn("startDate", "accounting.prepaid.fields.startDate", (r) => formatDate(r.startDate)),
-  textColumn("endDate", "accounting.prepaid.fields.endDate", (r) => formatDate(r.endDate)),
-  textColumn("totalPeriods", "accounting.prepaid.fields.totalPeriods", (r) =>
-    String(r.totalPeriods),
+  textColumn(
+    "startDate",
+    "accounting.prepaid.fields.startDate",
+    (r) => formatDate(r.startDate),
+    "date",
+  ),
+  textColumn("endDate", "accounting.prepaid.fields.endDate", (r) => formatDate(r.endDate), "date"),
+  // A count of periods (the id contains "period", which would infer `date`).
+  textColumn(
+    "totalPeriods",
+    "accounting.prepaid.fields.totalPeriods",
+    (r) => String(r.totalPeriods),
+    "number",
   ),
   {
     ...textColumn("recognizedAmount", "accounting.prepaid.fields.recognizedAmount", (r) =>
@@ -86,13 +100,14 @@ const columns: ColumnDef<PrepaidExpenseRow, unknown>[] = [
     accessorFn: (row) => row.status,
     meta: {
       titleKey: "accounting.prepaid.fields.status",
+      type: "status",
       displayValue: (row, t) => t(`accounting.lifecycleStatus.${row.status}` as MessageKey),
     },
     cell: ({ row }) => <PrepaidStatusCell status={row.original.status} />,
   },
   {
     id: "journal",
-    meta: { titleKey: "accounting.journalEntries.fields.viewJournalEntry" },
+    meta: { titleKey: "accounting.journalEntries.fields.viewJournalEntry", type: "default" },
     cell: ({ row }) =>
       row.original.status === "DRAFT" ? (
         <span className="text-muted-foreground">—</span>

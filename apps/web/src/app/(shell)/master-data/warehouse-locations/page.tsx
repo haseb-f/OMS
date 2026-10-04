@@ -11,6 +11,9 @@ import { SearchableSelect } from "@/components/shared/searchable-select";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { HeaderActions } from "@/components/shared/header-actions";
 import { ListSurface, ListToolbar } from "@/components/shared/data-table/list-surface";
+import { EnterpriseTableViewToggle } from "@/components/shared/data-table/data-table-view-toggle";
+import { useTableViewPreference } from "@/components/shared/data-table/table-preferences";
+import { TreeGridCards } from "@/components/shared/tree-grid-cards";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
@@ -57,7 +60,8 @@ const emptyForm: FormState = { name: "", description: "", isActive: true };
 
 function WarehouseLocationsPageContent() {
   const { t } = useLocale();
-  const { hasPermission } = useUserContext();
+  const { user, hasPermission } = useUserContext();
+  const [view, setView] = useTableViewPreference("master-data-warehouse-locations", user?.id);
   const canCreate = hasPermission("masterdata.warehouse-locations.create");
   const canEdit = hasPermission("masterdata.warehouse-locations.edit");
   const canArchive = hasPermission("masterdata.warehouse-locations.archive");
@@ -308,6 +312,9 @@ function WarehouseLocationsPageContent() {
             placeholder={t("masterData.fields.warehouse")}
             className="sm:max-w-(--width-control-search)"
           />
+          <div className="ms-auto">
+            <EnterpriseTableViewToggle view={view} onViewChange={setView} />
+          </div>
         </ListToolbar>
         <div className="min-h-40 p-2">
           {isLoading ? (
@@ -322,6 +329,8 @@ function WarehouseLocationsPageContent() {
                 warehouseId ? undefined : t("masterData.warehouseLocations.selectWarehouse")
               }
             />
+          ) : view === "grid" ? (
+            <TreeGridCards nodes={tree} renderNode={(node) => renderNode(node, 0)} />
           ) : (
             tree.map((node) => renderNode(node, 0))
           )}

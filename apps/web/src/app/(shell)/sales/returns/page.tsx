@@ -32,7 +32,13 @@ import {
 } from "@/services/sales-returns-service";
 import { partnersService, type PartnerPickerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
-import { buildReturnColumns, returnExportColumns } from "@/config/sales/return-columns";
+import {
+  buildReturnColumns,
+  ReturnActionsCell,
+  returnExportColumns,
+  type ReturnRowHandlers,
+} from "@/config/sales/return-columns";
+import { ReturnGridCard } from "@/config/sales/sales-grid-cards";
 import {
   RETURN_ARCHIVABLE_STATUSES,
   RETURN_FILTERABLE_STATUSES,
@@ -216,19 +222,19 @@ function SalesReturnsPageContent() {
     }
   };
 
-  const returnColumns = useMemo(
-    () =>
-      buildReturnColumns({
-        usersById,
-        onView: (row) => router.push(`/sales/returns/${row.id}`),
-        onDuplicate: handleDuplicate,
-        onPrint: handlePrintRow,
-        onCancel: setCancelTarget,
-        onArchive: setArchiveTarget,
-      }),
+  const rowHandlers = useMemo<ReturnRowHandlers>(
+    () => ({
+      usersById,
+      onView: (row) => router.push(`/sales/returns/${row.id}`),
+      onDuplicate: handleDuplicate,
+      onPrint: handlePrintRow,
+      onCancel: setCancelTarget,
+      onArchive: setArchiveTarget,
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [router, usersById, activeCompany, user],
   );
+  const returnColumns = useMemo(() => buildReturnColumns(rowHandlers), [rowHandlers]);
 
   const { selectedIds, selectedRecords, resolve } = useSelectedRecords({
     items,
@@ -397,6 +403,15 @@ function SalesReturnsPageContent() {
             onShowMore: () => router.push(`/sales/returns/${row.id}`),
           })
         }
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <ReturnGridCard
+            row={row}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            href={`/sales/returns/${row.id}`}
+            actionsNode={<ReturnActionsCell row={row} handlers={rowHandlers} />}
+          />
+        )}
         getRowId={(row) => row.id}
         getRowHref={(row) => `/sales/returns/${row.id}`}
       />

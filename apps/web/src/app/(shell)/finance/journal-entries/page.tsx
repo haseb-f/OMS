@@ -230,7 +230,11 @@ function JournalEntriesPageContent() {
     () => [
       {
         id: "entryNumber",
-        meta: { titleKey: "accounting.journalEntries.fields.number", identity: true },
+        meta: {
+          titleKey: "accounting.journalEntries.fields.number",
+          type: "code",
+          identity: true,
+        },
         accessorFn: (row) => row.entryNumber,
         cell: ({ row }) => (
           <StackedCell
@@ -243,7 +247,7 @@ function JournalEntriesPageContent() {
       },
       {
         id: "description",
-        meta: { titleKey: "accounting.journalEntries.fields.description" },
+        meta: { titleKey: "accounting.journalEntries.fields.description", type: "description" },
         accessorFn: (row) => row.description ?? "—",
         enableSorting: false,
         cell: ({ row }) => (
@@ -255,25 +259,29 @@ function JournalEntriesPageContent() {
       },
       {
         id: "journal",
-        meta: { titleKey: "accounting.journalEntries.fields.journal", defaultHidden: true },
+        meta: {
+          titleKey: "accounting.journalEntries.fields.journal",
+          type: "default",
+          defaultHidden: true,
+        },
         enableSorting: false,
         accessorFn: (row) => row.journal?.name ?? "—",
       },
       {
         id: "totalDebit",
-        meta: { titleKey: "accounting.journalEntries.fields.totalDebit" },
+        meta: { titleKey: "accounting.journalEntries.fields.totalDebit", type: "money" },
         accessorFn: (row) => row.totalDebit,
         cell: (info) => <MoneyValue value={info.getValue() as string} />,
       },
       {
         id: "totalCredit",
-        meta: { titleKey: "accounting.journalEntries.fields.totalCredit" },
+        meta: { titleKey: "accounting.journalEntries.fields.totalCredit", type: "money" },
         accessorFn: (row) => row.totalCredit,
         cell: (info) => <MoneyValue value={info.getValue() as string} />,
       },
       {
         id: "status",
-        meta: { titleKey: "accounting.journalEntries.fields.status" },
+        meta: { titleKey: "accounting.journalEntries.fields.status", type: "status" },
         enableSorting: false,
         cell: ({ row }) => (
           <StatusBadge
@@ -284,12 +292,20 @@ function JournalEntriesPageContent() {
       },
       {
         id: "entryDate",
-        meta: { titleKey: "accounting.journalEntries.fields.entryDate", defaultHidden: true },
+        meta: {
+          titleKey: "accounting.journalEntries.fields.entryDate",
+          type: "date",
+          defaultHidden: true,
+        },
         accessorFn: (row) => formatDate(row.entryDate),
       },
       {
         id: "createdBy",
-        meta: { titleKey: "accounting.journalEntries.fields.createdBy", defaultHidden: true },
+        meta: {
+          titleKey: "accounting.journalEntries.fields.createdBy",
+          type: "default",
+          defaultHidden: true,
+        },
         enableSorting: false,
         accessorFn: (row) => (row.createdBy ? (usersById[row.createdBy] ?? "—") : "—"),
       },

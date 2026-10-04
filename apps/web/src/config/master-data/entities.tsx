@@ -304,8 +304,8 @@ export interface LanguageRow {
 export const warehousesColumns: ColumnDef<WarehouseRow, unknown>[] = [
   textColumn("code", "masterData.fields.code", (r) => r.code),
   textColumn("name", "masterData.fields.name", (r) => r.name),
-  textColumn("warehouseType", "masterData.fields.warehouseType", (r) => r.warehouseType),
-  textColumn("manager", "masterData.fields.manager", (r) => r.manager?.fullName),
+  textColumn("warehouseType", "masterData.fields.warehouseType", (r) => r.warehouseType, "default"),
+  textColumn("manager", "masterData.fields.manager", (r) => r.manager?.fullName, "default"),
   statusColumn<WarehouseRow>(),
 ];
 
@@ -413,8 +413,9 @@ export const costCenterRowLabel = (row: CostCenterRow) => `${row.code} — ${row
 // ---------------------------------------------------------------------------
 
 export const expensesColumns: ColumnDef<ExpenseRow, unknown>[] = [
-  textColumn("date", "masterData.expenses.fields.date", (r) => formatDate(r.date)),
-  textColumn("description", "masterData.fields.description", (r) => r.description),
+  textColumn("date", "masterData.expenses.fields.date", (r) => formatDate(r.date), "date"),
+  // An expense is named by what it paid for — the Grid card's title.
+  textColumn("description", "masterData.fields.description", (r) => r.description, "name"),
   {
     ...textColumn("amount", "masterData.expenses.fields.amount", (r) => formatAmount(r.amount)),
     meta: { titleKey: "masterData.expenses.fields.amount", type: "money" },
@@ -423,11 +424,13 @@ export const expensesColumns: ColumnDef<ExpenseRow, unknown>[] = [
     "costCenter",
     "masterData.expenses.fields.costCenter",
     (r) => r.costCenter?.name ?? null,
+    "default",
   ),
   textColumn(
     "paymentMethod",
     "masterData.expenses.fields.paymentMethod",
     (r) => r.paymentMethod?.name ?? null,
+    "default",
   ),
   statusColumn<ExpenseRow>(),
 ];
@@ -476,15 +479,21 @@ function FixedAssetStatusCell({ status }: { status: FixedAssetRow["status"] }) {
 export const fixedAssetsColumns: ColumnDef<FixedAssetRow, unknown>[] = [
   textColumn("name", "masterData.fields.name", (r) => r.name),
   textColumn("code", "masterData.fields.code", (r) => r.code),
-  textColumn("acquisitionDate", "masterData.fixedAssets.fields.acquisitionDate", (r) =>
-    formatDate(r.acquisitionDate),
+  textColumn(
+    "acquisitionDate",
+    "masterData.fixedAssets.fields.acquisitionDate",
+    (r) => formatDate(r.acquisitionDate),
+    "date",
   ),
   {
     ...textColumn("cost", "masterData.fixedAssets.fields.cost", (r) => formatAmount(r.cost)),
     meta: { titleKey: "masterData.fixedAssets.fields.cost", type: "money" },
   },
-  textColumn("usefulLifeMonths", "masterData.fixedAssets.fields.usefulLifeMonths", (r) =>
-    r.usefulLifeMonths != null ? String(r.usefulLifeMonths) : null,
+  textColumn(
+    "usefulLifeMonths",
+    "masterData.fixedAssets.fields.usefulLifeMonths",
+    (r) => (r.usefulLifeMonths != null ? String(r.usefulLifeMonths) : null),
+    "number",
   ),
   {
     ...textColumn(
@@ -498,12 +507,14 @@ export const fixedAssetsColumns: ColumnDef<FixedAssetRow, unknown>[] = [
     "costCenter",
     "masterData.expenses.fields.costCenter",
     (r) => r.costCenter?.name ?? null,
+    "default",
   ),
   {
     id: "assetStatus",
     accessorFn: (row) => row.status,
     meta: {
       titleKey: "masterData.fixedAssets.fields.status",
+      type: "status",
       displayValue: (row, t) =>
         t(`accounting.lifecycleStatus.${row.status ?? "DRAFT"}` as MessageKey),
     },
@@ -614,7 +625,7 @@ function TaxInclusiveCell({ inclusive }: { inclusive: boolean }) {
 export const taxesColumns: ColumnDef<TaxRow, unknown>[] = [
   textColumn("code", "masterData.fields.code", (r) => r.code),
   textColumn("name", "masterData.fields.name", (r) => r.name),
-  textColumn("rate", "masterData.fields.rate", (r) => String(r.rate)),
+  textColumn("rate", "masterData.fields.rate", (r) => String(r.rate), "percent"),
   {
     id: "inclusive",
     accessorFn: (row) => row.inclusive,
@@ -683,10 +694,14 @@ export const unitRowLabel = (row: UnitRow) => row.name;
 // ---------------------------------------------------------------------------
 
 export const unitConversionsColumns: ColumnDef<UnitConversionRow, unknown>[] = [
-  textColumn("fromUnit", "masterData.fields.fromUnit", (r) => r.fromUnit?.name),
-  textColumn("toUnit", "masterData.fields.toUnit", (r) => r.toUnit?.name),
-  textColumn("conversionRatio", "masterData.fields.conversionRatio", (r) =>
-    String(r.conversionRatio),
+  // No single "name": the source unit is the card title, the target a field.
+  textColumn("fromUnit", "masterData.fields.fromUnit", (r) => r.fromUnit?.name, "name"),
+  textColumn("toUnit", "masterData.fields.toUnit", (r) => r.toUnit?.name, "default"),
+  textColumn(
+    "conversionRatio",
+    "masterData.fields.conversionRatio",
+    (r) => String(r.conversionRatio),
+    "number",
   ),
   textColumn("description", "masterData.fields.description", (r) => r.description),
   statusColumn<UnitConversionRow>(),
@@ -824,8 +839,18 @@ export const analyticPlanRowLabel = (row: AnalyticPlanRow) => `${row.code} — $
 export const analyticAccountsColumns: ColumnDef<AnalyticAccountRow, unknown>[] = [
   textColumn("code", "masterData.fields.code", (r) => r.code),
   textColumn("name", "masterData.fields.name", (r) => r.name),
-  textColumn("analyticPlan", "masterData.fields.analyticPlan", (r) => r.analyticPlan?.name),
-  textColumn("parentAccount", "masterData.fields.parentAccount", (r) => r.parentAccount?.name),
+  textColumn(
+    "analyticPlan",
+    "masterData.fields.analyticPlan",
+    (r) => r.analyticPlan?.name,
+    "default",
+  ),
+  textColumn(
+    "parentAccount",
+    "masterData.fields.parentAccount",
+    (r) => r.parentAccount?.name,
+    "default",
+  ),
   statusColumn<AnalyticAccountRow>(),
 ];
 
@@ -916,8 +941,9 @@ export interface JournalRow {
 export const journalsColumns: ColumnDef<JournalRow, unknown>[] = [
   textColumn("code", "masterData.fields.code", (r) => r.code),
   textColumn("name", "masterData.fields.name", (r) => r.name),
-  textColumn("type", "masterData.fields.journalType", (r) => r.type),
-  textColumn("currency", "masterData.fields.currency", (r) => r.currency?.code),
+  // The journal's kind is a descriptor, not a workflow state: a plain field on the card.
+  textColumn("type", "masterData.fields.journalType", (r) => r.type, "default"),
+  textColumn("currency", "masterData.fields.currency", (r) => r.currency?.code, "default"),
   statusColumn<JournalRow>(),
 ];
 
@@ -958,8 +984,11 @@ export const journalRowLabel = (row: JournalRow) => `${row.code} — ${row.name}
 export const paymentMethodsColumns: ColumnDef<PaymentMethodRow, unknown>[] = [
   textColumn("name", "masterData.fields.name", (r) => r.name),
   textColumn("description", "masterData.fields.description", (r) => r.description),
-  textColumn("account", "masterData.fields.account", (r) =>
-    r.account ? `${r.account.code} — ${r.account.name}` : null,
+  textColumn(
+    "account",
+    "masterData.fields.account",
+    (r) => (r.account ? `${r.account.code} — ${r.account.name}` : null),
+    "default",
   ),
   statusColumn<PaymentMethodRow>(),
 ];
@@ -1032,11 +1061,17 @@ export interface PaymentSourceRow {
 export const paymentSourcesColumns: ColumnDef<PaymentSourceRow, unknown>[] = [
   textColumn("name", "masterData.fields.name", (r) => r.name),
   textColumn("code", "masterData.fields.code", (r) => r.code),
-  textColumn("feePercentage", "masterData.fields.feePercentage", (r) =>
-    r.feePercentage != null ? `${r.feePercentage}%` : null,
+  textColumn(
+    "feePercentage",
+    "masterData.fields.feePercentage",
+    (r) => (r.feePercentage != null ? `${r.feePercentage}%` : null),
+    "percent",
   ),
-  textColumn("feeFixedAmount", "masterData.fields.feeFixedAmount", (r) =>
-    r.feeFixedAmount != null ? String(r.feeFixedAmount) : null,
+  textColumn(
+    "feeFixedAmount",
+    "masterData.fields.feeFixedAmount",
+    (r) => (r.feeFixedAmount != null ? String(r.feeFixedAmount) : null),
+    "money",
   ),
   statusColumn<PaymentSourceRow>(),
 ];
@@ -1101,11 +1136,24 @@ export interface DirectFulfillmentCostRuleRow {
 
 export const fulfillmentCostRulesColumns: ColumnDef<DirectFulfillmentCostRuleRow, unknown>[] = [
   textColumn("name", "masterData.fields.name", (r) => r.name),
-  textColumn("costAmount", "masterData.fields.costAmount", (r) =>
-    `${r.costAmount} ${r.currency?.code ?? ""}`.trim(),
+  textColumn(
+    "costAmount",
+    "masterData.fields.costAmount",
+    (r) => `${r.costAmount} ${r.currency?.code ?? ""}`.trim(),
+    "money",
   ),
-  textColumn("effectiveFrom", "masterData.fields.effectiveFrom", (r) => r.effectiveFrom),
-  textColumn("effectiveTo", "masterData.fields.effectiveTo", (r) => r.effectiveTo),
+  textColumn(
+    "effectiveFrom",
+    "masterData.fields.effectiveFrom",
+    (r) => formatDate(r.effectiveFrom) || null,
+    "date",
+  ),
+  textColumn(
+    "effectiveTo",
+    "masterData.fields.effectiveTo",
+    (r) => formatDate(r.effectiveTo) || null,
+    "date",
+  ),
   statusColumn<DirectFulfillmentCostRuleRow>(),
 ];
 
@@ -1190,13 +1238,13 @@ export const costAllocationRulesColumns: ColumnDef<CostAllocationRuleRow, unknow
   textColumn("name", "masterData.fields.name", (r) => r.name),
   {
     id: "method",
-    meta: { titleKey: "masterData.costAllocationRules.method" },
+    meta: { titleKey: "masterData.costAllocationRules.method", type: "default" },
     accessorFn: (row) => row.method,
     cell: ({ row }) => <MethodCell method={row.original.method} />,
   },
   {
     id: "targetDimension",
-    meta: { titleKey: "masterData.costAllocationRules.targetDimension" },
+    meta: { titleKey: "masterData.costAllocationRules.targetDimension", type: "default" },
     accessorFn: (row) => row.targetDimension ?? "",
     cell: ({ row }) => <DimensionCell dimension={row.original.targetDimension} />,
   },
@@ -1329,7 +1377,7 @@ export const customerClassificationsColumns: ColumnDef<CustomerClassificationRow
   textColumn("code", "masterData.fields.code", (r) => r.code),
   {
     id: "name",
-    meta: { titleKey: "masterData.fields.name" },
+    meta: { titleKey: "masterData.fields.name", type: "name" },
     accessorFn: (row) => row.name,
     cell: ({ row }) => <ClassificationBadge label={row.original.name} color={row.original.color} />,
   },
@@ -1522,7 +1570,7 @@ export const leadFollowUpTypeRowLabel = (row: LeadFollowUpTypeRow) => `${row.cod
 
 export const shippingMethodsColumns: ColumnDef<ShippingMethodRow, unknown>[] = [
   textColumn("name", "masterData.fields.name", (r) => r.name),
-  textColumn("type", "masterData.fields.type", (r) => r.type),
+  textColumn("type", "masterData.fields.type", (r) => r.type, "default"),
   statusColumn<ShippingMethodRow>(),
 ];
 
@@ -1557,7 +1605,7 @@ export const shippingMethodRowLabel = (row: ShippingMethodRow) => row.name;
 
 export const shippingCompaniesColumns: ColumnDef<ShippingCompanyRow, unknown>[] = [
   textColumn("name", "masterData.fields.name", (r) => r.name),
-  textColumn("type", "masterData.fields.type", (r) => r.type),
+  textColumn("type", "masterData.fields.type", (r) => r.type, "default"),
   textColumn("description", "masterData.fields.description", (r) => r.description),
   statusColumn<ShippingCompanyRow>(),
 ];
@@ -1636,13 +1684,13 @@ function ShippingSyncBehaviorCell({ row }: { row: ShippingStatusRow }) {
 export const shippingStatusesColumns: ColumnDef<ShippingStatusRow, unknown>[] = [
   {
     id: "name",
-    meta: { titleKey: "masterData.fields.name" },
+    meta: { titleKey: "masterData.fields.name", type: "name" },
     accessorFn: (row) => row.name,
     cell: ({ row }) => <ShippingStatusNameCell row={row.original} />,
   },
   {
     id: "syncBehavior",
-    meta: { titleKey: "masterData.shippingStatuses.syncBehavior.label" },
+    meta: { titleKey: "masterData.shippingStatuses.syncBehavior.label", type: "status" },
     accessorFn: (row) => row.syncBehavior,
     cell: ({ row }) => <ShippingSyncBehaviorCell row={row.original} />,
   },
@@ -1782,7 +1830,7 @@ export const countryRowLabel = (row: CountryRow) => `${row.code} — ${row.name}
 export const citiesColumns: ColumnDef<CityRow, unknown>[] = [
   textColumn("code", "masterData.fields.code", (r) => r.code),
   textColumn("name", "masterData.fields.name", (r) => r.name),
-  textColumn("country", "masterData.fields.country", (r) => r.country?.name),
+  textColumn("country", "masterData.fields.country", (r) => r.country?.name, "default"),
   statusColumn<CityRow>(),
 ];
 
@@ -1891,27 +1939,27 @@ function TransactionTypeActiveCell({ row }: { row: TransactionTypeRow }) {
 export const transactionTypesColumns: ColumnDef<TransactionTypeRow, unknown>[] = [
   {
     id: "nameAr",
-    meta: { titleKey: "masterData.fields.name" },
+    meta: { titleKey: "masterData.fields.name", type: "name" },
     accessorFn: (row) => row.nameAr,
     cell: ({ row }) => <TransactionTypeNameCell row={row.original} />,
   },
   textColumn<TransactionTypeRow>("code", "masterData.transactionTypes.fields.code", (r) => r.code),
   {
     id: "matchingTarget",
-    meta: { titleKey: "masterData.transactionTypes.fields.matchingTarget" },
+    meta: { titleKey: "masterData.transactionTypes.fields.matchingTarget", type: "default" },
     accessorFn: (row) => row.matchingTarget ?? row.nature,
     cell: ({ row }) => <TransactionTypeMatchingTargetCell row={row.original} />,
     enableSorting: false,
   },
   {
     id: "defaultAccountingTreatment",
-    meta: { titleKey: "masterData.transactionTypes.fields.accountingTreatment" },
+    meta: { titleKey: "masterData.transactionTypes.fields.accountingTreatment", type: "default" },
     accessorFn: (row) => row.defaultAccountingTreatment,
     cell: ({ row }) => <TransactionTypeTreatmentCell row={row.original} />,
   },
   {
     id: "isActive",
-    meta: { titleKey: "common.status" },
+    meta: { titleKey: "common.status", type: "status" },
     accessorFn: (row) => (row.isActive ? "active" : "inactive"),
     cell: ({ row }) => <TransactionTypeActiveCell row={row.original} />,
   },
@@ -2016,13 +2064,13 @@ export const costComponentsColumns: ColumnDef<CostComponentRow, unknown>[] = [
   textColumn("nameEn", "masterData.fields.nameEn", (r) => r.nameEn),
   {
     id: "accountingClass",
-    meta: { titleKey: "masterData.fields.accountingClass" },
+    meta: { titleKey: "masterData.fields.accountingClass", type: "default" },
     accessorFn: (row) => row.accountingClass,
     cell: ({ row }) => <CostComponentAccountingClassCell row={row.original} />,
   },
   {
     id: "capitalizable",
-    meta: { titleKey: "masterData.fields.capitalizable" },
+    meta: { titleKey: "masterData.fields.capitalizable", type: "default" },
     accessorFn: (row) => row.capitalizable,
     cell: ({ row }) => <CostComponentCapitalizableCell row={row.original} />,
     enableSorting: false,

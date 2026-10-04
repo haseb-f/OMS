@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
-import { Plus, Eye } from "lucide-react";
+import { Plus } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { HeaderActions } from "@/components/shared/header-actions";
 import {
@@ -26,15 +26,14 @@ import { useUserContext } from "@/providers/user-context";
 import { reportApiError } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
 import type { MessageKey } from "@/i18n/translate";
+import { PHYSICAL_COUNT_STATUS_TONE } from "@/config/inventory/movement-type";
+import {
+  PhysicalCountGridCard,
+  physicalCountRowActions,
+} from "@/config/inventory/inventory-grid-cards";
 import { PermissionGate } from "@/components/shared/permission-gate";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
-
-const STATUS_TONE: Record<string, "success" | "neutral" | "warning"> = {
-  DRAFT: "warning",
-  CONFIRMED: "success",
-  CANCELLED: "neutral",
-};
 
 function PhysicalCountPageContent() {
   const { t } = useLocale();
@@ -102,7 +101,7 @@ function PhysicalCountPageContent() {
           const status = info.getValue() as string;
           return (
             <StatusBadge
-              tone={STATUS_TONE[status]}
+              tone={PHYSICAL_COUNT_STATUS_TONE[status]}
               label={t(`inventory.physicalCount.status.${status}` as MessageKey)}
             />
           );
@@ -128,14 +127,7 @@ function PhysicalCountPageContent() {
         cell: ({ row }) => (
           <RowActionsMenu
             label={t("common.actions")}
-            actions={[
-              {
-                key: "view",
-                label: t("common.view"),
-                icon: Eye,
-                onSelect: () => setOpenCountId(row.original.id),
-              },
-            ]}
+            actions={physicalCountRowActions(row.original, t, (count) => setOpenCountId(count.id))}
           />
         ),
       },
@@ -187,6 +179,14 @@ function PhysicalCountPageContent() {
         data={filteredRows}
         isLoading={isLoading}
         getRowId={(row) => row.id}
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <PhysicalCountGridCard
+            row={row}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            actions={physicalCountRowActions(row, t, (count) => setOpenCountId(count.id))}
+          />
+        )}
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
         selectionResetKey={dateRange}

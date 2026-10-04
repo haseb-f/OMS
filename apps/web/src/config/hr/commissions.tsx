@@ -21,6 +21,32 @@ function MoneyCell({ value }: { value: string }) {
   return <span dir="ltr">{formatMoney(value)}</span>;
 }
 
+/** The row's "view breakdown" control - shared by the table's detail column and the Grid card. */
+export function CommissionDetailButton({
+  row,
+  label,
+  onOpenDetail,
+}: {
+  row: CommissionCalculationRow;
+  label: string;
+  onOpenDetail: (row: CommissionCalculationRow) => void;
+}) {
+  return (
+    <EnterpriseButton
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      aria-label={label}
+      onClick={(event) => {
+        event.stopPropagation();
+        onOpenDetail(row);
+      }}
+    >
+      <Eye className="size-4" />
+    </EnterpriseButton>
+  );
+}
+
 export function buildCommissionsColumns(
   t: (key: MessageKey) => string,
   onOpenDetail: (row: CommissionCalculationRow) => void,
@@ -28,7 +54,7 @@ export function buildCommissionsColumns(
   return [
     {
       id: "employee",
-      meta: { titleKey: "hr.commissions.fields.employee" },
+      meta: { titleKey: "hr.commissions.fields.employee", type: "name" },
       accessorFn: (row) => row.employeeProfile.partner.name,
       cell: ({ row }) => (
         <StackedCell
@@ -39,7 +65,7 @@ export function buildCommissionsColumns(
     },
     {
       id: "period",
-      meta: { titleKey: "hr.commissions.fields.period" },
+      meta: { titleKey: "hr.commissions.fields.period", type: "date" },
       accessorFn: (row) => row.period,
       cell: (info) => (
         <span dir="ltr" className="font-medium">
@@ -49,7 +75,7 @@ export function buildCommissionsColumns(
     },
     {
       id: "plan",
-      meta: { titleKey: "hr.commissions.fields.plan" },
+      meta: { titleKey: "hr.commissions.fields.plan", type: "default" },
       accessorFn: (row) => row.commissionPlan?.name ?? "",
       cell: (info) => (info.getValue() as string) || "—",
     },
@@ -95,6 +121,7 @@ export function buildCommissionsColumns(
       id: "status",
       meta: {
         titleKey: "hr.commissions.fields.status",
+        type: "status",
         displayValue: (row, tr) => tr(`hr.commissions.status.${row.status}` as MessageKey),
       },
       accessorFn: (row) => row.status,
@@ -112,18 +139,11 @@ export function buildCommissionsColumns(
       accessorFn: () => "",
       enableSorting: false,
       cell: ({ row }) => (
-        <EnterpriseButton
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("common.view")}
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpenDetail(row.original);
-          }}
-        >
-          <Eye className="size-4" />
-        </EnterpriseButton>
+        <CommissionDetailButton
+          row={row.original}
+          label={t("common.view")}
+          onOpenDetail={onOpenDetail}
+        />
       ),
     },
   ];

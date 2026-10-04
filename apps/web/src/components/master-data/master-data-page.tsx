@@ -205,8 +205,12 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
   hideCreateButton?: boolean;
   /** Opt-in detail route for a row — only for an entity that has a real detail page (Customers, Suppliers, Leads); forwarded to the table, where it turns the `meta.identity` column into a link. */
   getRowHref?: (row: TEntity) => string | null | undefined;
-  /** Opt-in Table/Grid switch (R7): forwarded to the table, which draws each row with this card in Grid view. */
-  renderGridCard?: (args: MobileRowRenderArgs<TEntity>) => ReactNode;
+  /**
+   * Grid-view card template (R7/R9): forwarded to the table, which draws each row with it in Grid
+   * view. `actionsNode` is this page's own row-actions menu for that row, so the card and the
+   * table's Actions cell share one permission model — pass it to the card's `actionsNode`.
+   */
+  renderGridCard?: (args: MobileRowRenderArgs<TEntity> & { actionsNode: ReactNode }) => ReactNode;
   /**
    * Business-rule protection (e.g. the default shipping status) — hides
    * Archive only. Uses the existing RowActionsMenu; does not change menu geometry.
@@ -571,86 +575,80 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
     }
   };
 
-  const actionsColumn = useMemo<ColumnDef<TEntity, unknown>>(
-    () => ({
-      id: "__actions",
-      meta: { titleKey: "common.actions" },
-      enableHiding: false,
-      enableSorting: false,
-      cell: ({ row }) => {
-        const entity = row.original;
-        const isArchived = !!entity.deletedAt;
-        const extras = extraRowActions?.(entity) ?? [];
-        const isViewAction = (action: RowAction) =>
-          action.key === "view" || action.key === "view-profile";
-        const isDestructiveAction = (action: RowAction) =>
-          Boolean(action.destructive) ||
-          action.key === "archive" ||
-          action.key === "delete" ||
-          action.key === "restore";
-        const hasExternalView = extras.some(isViewAction);
-        const viewExtras = extras.filter(isViewAction);
-        const otherExtras = extras.filter(
-          (action) => !isViewAction(action) && !isDestructiveAction(action),
-        );
-        const destructiveExtras = extras.filter(
-          (action) => !isViewAction(action) && isDestructiveAction(action),
-        );
-        const actions: RowAction[] = [
-          ...viewExtras,
-          {
-            key: "quick-preview",
-            label: t("common.view"),
-            icon: Eye,
-            hidden: !canView || hasExternalView,
-            onSelect: () => setPreviewEntity(entity),
-          },
-          {
-            key: "edit",
-            label: t("common.edit"),
-            icon: Pencil,
-            onSelect: () => openEdit(entity),
-            hidden: !canEdit || isArchived,
-          },
-          {
-            key: "duplicate",
-            label: t("table.duplicate"),
-            icon: Copy,
-            onSelect: () => openDuplicate(entity),
-            hidden: !canCreate || isArchived,
-          },
-          ...otherExtras,
-          {
-            key: "view-activity",
-            label: t("masterData.actions.viewActivity"),
-            icon: History,
-            onSelect: () => setActivityEntity(entity),
-          },
-          ...destructiveExtras.map((action, index) => ({
-            ...action,
-            separatorBefore: index === 0 || action.separatorBefore,
-          })),
-          {
-            key: "archive",
-            label: t("common.archive"),
-            icon: ArchiveIcon,
-            onSelect: () => setArchiveTarget(entity),
-            hidden: !canArchive || isArchived || Boolean(isRowProtected?.(entity)),
-            destructive: true,
-            separatorBefore: destructiveExtras.length === 0,
-          },
-          {
-            key: "restore",
-            label: t("common.restore"),
-            icon: RotateCcw,
-            onSelect: () => setRestoreTarget(entity),
-            hidden: !canArchive || !isArchived,
-            separatorBefore: true,
-          },
-        ];
-        return <RowActionsMenu actions={actions} label={t("common.actions")} />;
-      },
-    }),
+  // The row's actions menu — the one control behind both the table's Actions cell and the Grid card.
+  const renderRowActions = useCallback(
+    (entity: TEntity) => {
+      const isArchived = !!entity.deletedAt;
+      const extras = extraRowActions?.(entity) ?? [];
+      const isViewAction = (action: RowAction) =>
+        action.key === "view" || action.key === "view-profile";
+      const isDestructiveAction = (action: RowAction) =>
+        Boolean(action.destructive) ||
+        action.key === "archive" ||
+        action.key === "delete" ||
+        action.key === "restore";
+      const hasExternalView = extras.some(isViewAction);
+      const viewExtras = extras.filter(isViewAction);
+      const otherExtras = extras.filter(
+        (action) => !isViewAction(action) && !isDestructiveAction(action),
+      );
+      const destructiveExtras = extras.filter(
+        (action) => !isViewAction(action) && isDestructiveAction(action),
+      );
+      const actions: RowAction[] = [
+        ...viewExtras,
+        {
+          key: "quick-preview",
+          label: t("common.view"),
+          icon: Eye,
+          hidden: !canView || hasExternalView,
+          onSelect: () => setPreviewEntity(entity),
+        },
+        {
+          key: "edit",
+          label: t("common.edit"),
+          icon: Pencil,
+          onSelect: () => openEdit(entity),
+          hidden: !canEdit || isArchived,
+        },
+        {
+          key: "duplicate",
+          label: t("table.duplicate"),
+          icon: Copy,
+          onSelect: () => openDuplicate(entity),
+          hidden: !canCreate || isArchived,
+        },
+        ...otherExtras,
+        {
+          key: "view-activity",
+          label: t("masterData.actions.viewActivity"),
+          icon: History,
+          onSelect: () => setActivityEntity(entity),
+        },
+        ...destructiveExtras.map((action, index) => ({
+          ...action,
+          separatorBefore: index === 0 || action.separatorBefore,
+        })),
+        {
+          key: "archive",
+          label: t("common.archive"),
+          icon: ArchiveIcon,
+          onSelect: () => setArchiveTarget(entity),
+          hidden: !canArchive || isArchived || Boolean(isRowProtected?.(entity)),
+          destructive: true,
+          separatorBefore: destructiveExtras.length === 0,
+        },
+        {
+          key: "restore",
+          label: t("common.restore"),
+          icon: RotateCcw,
+          onSelect: () => setRestoreTarget(entity),
+          hidden: !canArchive || !isArchived,
+          separatorBefore: true,
+        },
+      ];
+      return <RowActionsMenu actions={actions} label={t("common.actions")} />;
+    },
     [
       canEdit,
       canArchive,
@@ -662,6 +660,17 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       extraRowActions,
       isRowProtected,
     ],
+  );
+
+  const actionsColumn = useMemo<ColumnDef<TEntity, unknown>>(
+    () => ({
+      id: "__actions",
+      meta: { titleKey: "common.actions" },
+      enableHiding: false,
+      enableSorting: false,
+      cell: ({ row }) => renderRowActions(row.original),
+    }),
+    [renderRowActions],
   );
 
   const tableColumns = useMemo(() => [...columns, actionsColumn], [columns, actionsColumn]);
@@ -785,7 +794,11 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
           }
           onRefresh={load}
           getRowHref={getRowHref}
-          renderGridCard={renderGridCard}
+          renderGridCard={
+            renderGridCard
+              ? (args) => renderGridCard({ ...args, actionsNode: renderRowActions(args.row) })
+              : undefined
+          }
           exportColumns={exportColumnsFromKeys(columns, exportColumnKeys, t)}
           onExport={(selectedKeys, labels) =>
             exportRowsToCsv(

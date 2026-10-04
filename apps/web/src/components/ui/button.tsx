@@ -15,7 +15,7 @@ const enterpriseButtonVariants = cva(
           "bg-primary text-primary-foreground not-disabled:hover:bg-primary-hover active:not-aria-[haspopup]:bg-primary-active",
         /** Secondary actions: solid surface, neutral hairline, neutral hover. */
         outline:
-          "border-(--control-border) bg-card text-foreground not-disabled:hover:border-(--control-border-hover) not-disabled:hover:bg-(--control-hover) not-disabled:active:border-(--control-border-hover) not-disabled:active:bg-(--control-pressed) aria-expanded:border-(--control-border-hover) aria-expanded:bg-(--control-pressed) data-[state=open]:bg-(--control-pressed)",
+          "border-(--btn-outline-border) bg-card text-(--btn-outline-foreground) not-disabled:hover:border-(--btn-outline-border-hover) not-disabled:hover:bg-(--btn-soft-hover) not-disabled:active:border-(--btn-outline-border-hover) not-disabled:active:bg-(--btn-soft-pressed) aria-expanded:border-(--btn-outline-border-hover) aria-expanded:bg-(--btn-soft-pressed) data-[state=open]:bg-(--btn-soft-pressed)",
         /**
          * Selector trigger (combobox, filter, date/month picker) and labelled
          * action-menu trigger (`menu`: Export ▾, Import ▾, Columns) — the same
@@ -26,14 +26,15 @@ const enterpriseButtonVariants = cva(
          */
         field: "border-transparent bg-selector font-normal text-selector-foreground",
         menu: "border-transparent bg-selector font-normal text-selector-foreground",
+        /** Secondary action: a soft blue tint with navy text (brand palette, §12.18). */
         secondary:
-          "border-border bg-secondary text-secondary-foreground not-disabled:hover:bg-accent aria-expanded:bg-accent",
+          "border-(--btn-secondary-border) bg-(--btn-secondary) text-(--btn-secondary-foreground) not-disabled:hover:bg-(--btn-secondary-hover) aria-expanded:bg-(--btn-secondary-hover)",
         info: "bg-info text-info-foreground not-disabled:hover:bg-info/90",
         /** The one green "primary positive" action (Activate, Approve, ...) — never a one-off inline green className. */
         success: "bg-success text-success-foreground not-disabled:hover:bg-success/90",
         warning: "bg-warning text-warning-foreground not-disabled:hover:bg-warning/90",
         ghost:
-          "text-foreground not-disabled:hover:bg-(--control-hover) not-disabled:active:bg-(--control-pressed) aria-expanded:bg-(--control-pressed)",
+          "text-foreground not-disabled:hover:bg-(--btn-soft-hover) not-disabled:active:bg-(--btn-soft-pressed) aria-expanded:bg-(--btn-soft-pressed)",
         destructive:
           "border-destructive-border bg-destructive-soft text-destructive-soft-foreground not-disabled:hover:border-destructive not-disabled:hover:bg-destructive not-disabled:hover:text-destructive-foreground",
         link: "text-(--link) underline-offset-4 not-disabled:hover:underline",

@@ -817,3 +817,77 @@ var(--brand-navy))`. Dark: the lifted navy `#0e2a4b` mixed toward the brand blue
   colour utility locally, if the default tokens stop aliasing tone 3, or if `SelectorRow`
   renumbers earlier controls when a later one appears. `contrast-check.mjs` already covers every
   tone, so the default shade is checked in light and dark.
+
+### 12.18 OMS brand control palette — the logo's arrow mark (Round 9, 2026-10-04)
+
+- **Source of the colours.** The arrow mark of the canonical logo
+  (`apps/web/public/brand/oms-logo-light.png`; no vector source exists in the repository, only the
+  PNGs and the `Brand/` concept boards). Each chevron's pixels were sampled (median of the chevron's
+  opaque, non-white pixels, `tmp` script in the R9 evidence):
+  **navy `#0a2442`, royal blue `#336ac4`, teal `#41b3bd`**. They are the named tokens
+  `--logo-navy`, `--logo-blue`, `--logo-teal`; `--brand-navy|blue|teal`, `--primary`, the chart and
+  sidebar-rail colours alias them (the earlier `#04203c / #3c78d0 / #3cb8c0` were approximations from
+  the concept boards).
+- **Roles (stable, never position-dependent):**
+  - _Primary action_ — solid navy (`--primary`, hover / pressed derived). One per context.
+  - _Secondary action_ — SOFT: a blue tint with navy text (`--btn-secondary*`).
+  - _Outline_ — card surface, blue-tinted hairline, navy text; hover = soft tint (`--btn-outline-*`,
+    `--btn-soft-hover|pressed`).
+  - _Ghost_ — transparent; hover / pressed = the same soft tints.
+  - _Selector triggers_ (select, combobox, filter, picker, labelled action menus) — solid, from the
+    palette ramp below. Standalone / stacked = the single default step (logo blue, step 3).
+  - _Semantic_ — green success, red destructive, amber warning, info: untouched.
+  - Plain text inputs and menu/popover content are never recoloured.
+- **Progression for related controls.** A run of related selector controls (`ListToolbar`, the
+  shared `SelectorRow`) steps through five stops in logical order — RTL right → left, LTR mirrored:
+  navy → navy-blue → blue → blue-teal → teal (`--toolbar-tone-1…5`). Steps 4–5 carry **navy text**
+  (white on teal fails AA); every step has its own hover / pressed / hairline / label / chip / applied
+  ring / open edge (`--toolbar-tone-N-*`). Numbering counts hidden controls and skips exempt ones, so a
+  control appearing or disappearing never recolours its neighbours. Dark mode keeps the same trio with
+  the navy lifted (`#0f2d52`) and a light hairline.
+- **Meaning is preserved.** Teal and blue are decorative: they never mark a workflow status, a
+  selection or a confirmation. Selection (rows, cards) is the checked checkbox + a distinct ring/tint;
+  success is green only.
+- **States** (distinct): hover, pressed, open (`aria-expanded` / `data-state=open`), selected (toggle
+  `aria-pressed`, exempt from the ramp), focus (2px ring), disabled (muted surface), invalid (red edge).
+- **Contrast.** `scripts/design/contrast-check.mjs` covers every step × state (value, label, icon,
+  applied ring, chevron chip, edge on card, open edge, ≥ 1.15:1 between neighbouring steps) and the
+  button roles (secondary, outline, ghost on rest / hover / pressed), light and dark.
+- **Dark primary** stays the light neutral (`#ededed`): a navy fill disappears on the dark canvas and the
+  brand blue fails AA as link text there; the brand shows through the selector ramp, outlines and soft
+  tints instead.
+
+### 12.19 Table / Grid on every list (Round 9, 2026-10-04)
+
+- **Reference pattern and why.** `specs/round9-brand-grid/research.md`: neither shadcn/ui nor Kumo ships a
+  selectable record-card grid; OMS composes `RecordGridCard` from shadcn-card anatomy (header with action
+  slot → body → footer), Carbon's selectable-tile rule (one stretched link, controls above it), Fluent's
+  selection semantics and an auto-fill CSS grid. No library was added.
+- **Universal switch.** `EnterpriseDataTable` shows the Table / Grid switch on every list (`gridView`, default
+  on; `false` only where a card would mislead). The choice is remembered per user and per table id
+  (`oms.table.<user>.<table>.view`). Both views use the table's own query: server pagination, search,
+  filters, sort, scope, totals and exports are identical — the Grid never fetches more (it draws the
+  current page).
+- **Automatic card.** Without a page template the Grid derives a card from the column types: name →
+  title (the record number becomes the reference when the identity column is a code), code/reference →
+  reference, status columns → badges, date + money → the key-figure line, then at most four label/value
+  fields; the table's own selection checkbox and actions cell are reused. Page **templates**
+  (`renderGridCard`, `config/<domain>/*-grid-card.tsx`, contract `specs/round9-brand-grid/card-templates.md`)
+  give orders, leads, documents, customers, products, shipping, agents… business meaning.
+- **Card anatomy and look.** Header = selection checkbox (start), name (the one link, stretched), actions
+  kebab (end); body = reference + key figure, ≤ 4 fields, separate status badges; footer = next action.
+  Surface: a faint tone gradient, a delicate tone hairline, a 3px start-edge accent, a thin inner highlight —
+  no backdrop blur, one small shadow, radius `--radius-surface`. Tone = workflow meaning only
+  (`--insight-*`). **Hover** = stronger edge + a small elevation; **focus** = the 2px ring around the card;
+  **selected** = blue ring + tint (always with the checked checkbox). Reduced motion removes the lift.
+- **Grid sizing.** One rule: `repeat(auto-fill, minmax(min(100%, 17rem), 1fr))` — columns follow the usable
+  width, one on a phone, never narrower than 17rem. Report cards use 24rem.
+- **Specialised (hierarchical / financial) lists.** Never the generic card:
+  - Financial reports (`FinancialReportView`): the Grid is **grouped cards** — one card per top-level
+    section/group with its descendants in order and indentation, every amount column named on each row,
+    subtotal and grand-total rows keeping their weight and fill, the report totals in a closing card;
+    expansion, drill-through, links and sign convention are the table's. Print/export are unchanged.
+  - Chart of accounts and warehouse locations (`TreeGridCards`): one card per top-level node containing
+    its subtree, drawn by the page's own node renderer (expand/collapse, selection, actions intact).
+- **Parity.** Same record actions, selection (page / all matching / first N / clear) and bulk strip, selected
+  count and scope, loading skeleton (cards), empty and error states, filtered exports.

@@ -81,7 +81,7 @@ export default function FiscalPeriodsPage() {
       {
         id: "name",
         header: t("accounting.fiscalYears.fields.name"),
-        meta: { titleKey: "accounting.fiscalYears.fields.name" },
+        meta: { titleKey: "accounting.fiscalYears.fields.name", type: "name" },
         accessorFn: (row) => row.name,
         cell: (info) => (
           <StackedCell
@@ -107,26 +107,35 @@ export default function FiscalPeriodsPage() {
       {
         id: "startDate",
         header: t("accounting.fiscalYears.fields.startDate"),
-        meta: { titleKey: "accounting.fiscalYears.fields.startDate", defaultHidden: true },
+        meta: {
+          titleKey: "accounting.fiscalYears.fields.startDate",
+          type: "date",
+          defaultHidden: true,
+        },
         accessorFn: (row) => formatDate(row.startDate),
       },
       {
         id: "endDate",
         header: t("accounting.fiscalYears.fields.endDate"),
-        meta: { titleKey: "accounting.fiscalYears.fields.endDate", defaultHidden: true },
+        meta: {
+          titleKey: "accounting.fiscalYears.fields.endDate",
+          type: "date",
+          defaultHidden: true,
+        },
         accessorFn: (row) => formatDate(row.endDate),
       },
       {
         id: "periods",
         header: t("accounting.fiscalYears.fields.periods"),
-        meta: { titleKey: "accounting.fiscalYears.fields.periods" },
+        // A count of periods (the id would otherwise infer `date`).
+        meta: { titleKey: "accounting.fiscalYears.fields.periods", type: "number" },
         enableSorting: false,
         accessorFn: (row) => row.periods.length,
       },
       {
         id: "status",
         header: t("common.status"),
-        meta: { titleKey: "common.status" },
+        meta: { titleKey: "common.status", type: "status" },
         enableSorting: false,
         cell: ({ row }) => (
           <StatusBadge

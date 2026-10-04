@@ -52,19 +52,19 @@ export function buildKpiEvaluationsColumns(
   return [
     {
       id: "employee",
-      meta: { titleKey: "hr.kpiEvaluations.fields.employee" },
+      meta: { titleKey: "hr.kpiEvaluations.fields.employee", type: "name" },
       accessorFn: (row) => row.employeeProfile.partner.name,
       cell: ({ row }) => <EmployeeCell row={row.original} />,
     },
     {
       id: "period",
-      meta: { titleKey: "hr.kpiEvaluations.fields.period" },
+      meta: { titleKey: "hr.kpiEvaluations.fields.period", type: "date" },
       accessorFn: (row) => row.period,
       cell: (info) => <SemanticValue kind="id">{info.getValue() as string}</SemanticValue>,
     },
     {
       id: "template",
-      meta: { titleKey: "hr.kpiEvaluations.fields.template" },
+      meta: { titleKey: "hr.kpiEvaluations.fields.template", type: "default" },
       accessorFn: (row) => templateNameById[row.kpiTemplateId] ?? "—",
       cell: (info) => info.getValue() as string,
       enableSorting: false,
@@ -73,6 +73,7 @@ export function buildKpiEvaluationsColumns(
       id: "status",
       meta: {
         titleKey: "hr.kpiEvaluations.fields.status",
+        type: "status",
         displayValue: (row, tr) => tr(`hr.kpiEvaluations.status.${row.status}` as MessageKey),
       },
       accessorFn: (row) => row.status,
@@ -81,7 +82,7 @@ export function buildKpiEvaluationsColumns(
     },
     {
       id: "finalScore",
-      meta: { titleKey: "hr.kpiEvaluations.fields.finalScore", type: "number" },
+      meta: { titleKey: "hr.kpiEvaluations.fields.finalScore", type: "percent" },
       accessorFn: (row) =>
         row.finalScore === null ? "—" : `${formatScoreAmount(row.finalScore)}%`,
       cell: (info) => info.getValue() as string,

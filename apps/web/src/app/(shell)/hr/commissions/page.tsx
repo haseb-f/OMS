@@ -26,6 +26,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/business/status-badge";
+import { CommissionGridCard } from "@/components/hr/commission-grid-card";
 import { formatMoney } from "@/lib/money";
 import {
   commissionsService,
@@ -362,6 +363,14 @@ export default function CommissionsPage() {
         onExport={(keys, labels) =>
           exportRowsToCsv(rows.map(toExportRow), keys, "commissions.csv", labels)
         }
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <CommissionGridCard
+            commission={row}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            onOpenDetail={(target) => setSelectedId(target.id)}
+          />
+        )}
       />
 
       <EnterpriseModal

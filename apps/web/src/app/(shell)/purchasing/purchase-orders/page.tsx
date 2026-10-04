@@ -35,6 +35,8 @@ import {
 import { partnersService, type PartnerPickerRow } from "@/services/partners-service";
 import { useUsersLookup } from "@/hooks/use-reference-data";
 import { buildOrderColumns, orderExportColumns } from "@/config/purchasing/order-columns";
+import { PurchaseOrderGridCard } from "@/config/purchasing/purchasing-grid-cards";
+import type { OrderRowHandlers } from "@/config/purchasing/order-columns";
 import {
   ORDER_ARCHIVABLE_STATUSES,
   ORDER_FILTERABLE_STATUSES,
@@ -215,19 +217,19 @@ function PurchaseOrdersPageContent() {
     }
   };
 
-  const orderColumns = useMemo(
-    () =>
-      buildOrderColumns({
-        usersById,
-        onView: (row) => router.push(`/purchasing/purchase-orders/${row.id}`),
-        onDuplicate: handleDuplicate,
-        onPrint: handlePrintRow,
-        onCancel: setCancelTarget,
-        onArchive: setArchiveTarget,
-      }),
+  const rowHandlers = useMemo<OrderRowHandlers>(
+    () => ({
+      usersById,
+      onView: (row) => router.push(`/purchasing/purchase-orders/${row.id}`),
+      onDuplicate: handleDuplicate,
+      onPrint: handlePrintRow,
+      onCancel: setCancelTarget,
+      onArchive: setArchiveTarget,
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [usersById, router, activeCompany, user],
   );
+  const orderColumns = useMemo(() => buildOrderColumns(rowHandlers), [rowHandlers]);
 
   const { selectedIds, selectedRecords, resolve } = useSelectedRecords({
     items,
@@ -409,6 +411,15 @@ function PurchaseOrdersPageContent() {
             onShowMore: () => router.push(`/purchasing/purchase-orders/${row.id}`),
           })
         }
+        renderGridCard={({ row, selected, onToggleSelected }) => (
+          <PurchaseOrderGridCard
+            row={row}
+            handlers={rowHandlers}
+            selected={selected}
+            onToggleSelected={onToggleSelected}
+            href={`/purchasing/purchase-orders/${row.id}`}
+          />
+        )}
         getRowId={(row) => row.id}
         getRowHref={(row) => `/purchasing/purchase-orders/${row.id}`}
       />

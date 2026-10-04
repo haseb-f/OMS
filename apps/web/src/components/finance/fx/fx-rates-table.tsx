@@ -57,6 +57,7 @@ export function FxRatesTable({ rates }: { rates: ExchangeRateRow[] }) {
       columns={columns}
       rows={rates}
       rowKey={(row) => row.id}
+      viewId="finance-exchange-rates"
       empty={t("common.noDataAvailable")}
     />
   );
