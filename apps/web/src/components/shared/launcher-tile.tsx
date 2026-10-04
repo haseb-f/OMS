@@ -17,6 +17,7 @@ export function LauncherTile({
   href,
   title,
   caption,
+  meta,
   icon: Icon,
   tone,
   size = "module",
@@ -26,6 +27,8 @@ export function LauncherTile({
   href: string;
   title: string;
   caption?: ReactNode;
+  /** A short trailing figure (e.g. a record count) — plain text, never a second link. */
+  meta?: ReactNode;
   icon?: LucideIcon;
   tone: HomeTone;
   size?: "module" | "action";
@@ -76,6 +79,14 @@ export function LauncherTile({
           </span>
         ) : null}
       </span>
+      {meta && !compact ? (
+        <span
+          data-slot="launcher-meta"
+          className="num shrink-0 rounded-xs border border-border bg-surface-sunken px-1.5 py-0.5 text-caption font-medium text-foreground"
+        >
+          {meta}
+        </span>
+      ) : null}
       <ChevronRight
         data-slot="launcher-arrow"
         aria-hidden

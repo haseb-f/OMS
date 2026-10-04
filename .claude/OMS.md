@@ -16,6 +16,9 @@
   `/agent/dashboard`. Home is ungated and derives its tiles from the navigation config through the
   sidebar's own filter and the route guard's own access rule (`navigation/home-tiles.ts`) — never a
   second permission list; the destinations stay guarded by the route guard and the API.
+- A Home module tile opens the module overview (`/modules/<id>`, design-system §12.21), never its first page;
+  the overview lists only authorized destinations from `navigation.config.ts` (no second menu) and every
+  destination needs a `home.destinations.<id>` line in en + ar.
 - Navigation is entirely config-driven from `src/navigation/navigation.config.ts` —
   a flat, `parent`-id list assembled into a tree at render time. Adding a module to
   the sidebar means adding entries there, never editing a layout/sidebar component.

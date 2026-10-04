@@ -37,6 +37,7 @@ import { LeadDistributionPool } from "@/components/crm/lead-distribution-pool";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDateTime } from "@/lib/date";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/toast";
 
 const MODE_ICON: Record<RuntimeStatus, LucideIcon> = {
   CONTINUOUS: Repeat,
@@ -250,12 +251,18 @@ export function LeadDistributionDialog({
                   pending: pendingAfter,
                   held: heldAfter,
                 });
-    setResult({
-      text: `${text}${until}`,
-      tone,
-      failureCode: kind === "blocked" ? (outcome.run?.failureCode ?? null) : null,
-    });
-    setSelected(mode);
+    const message = `${text}${until}`;
+    // A blocked run is saved but failing: the dialog stays open with the reason and
+    // the fix links. Every other server-confirmed outcome closes it — the toolbar
+    // already shows the new state — with one brief confirmation.
+    if (kind === "blocked") {
+      setResult({ text: message, tone, failureCode: outcome.run?.failureCode ?? null });
+      setSelected(mode);
+      return;
+    }
+    if (kind === "nothing" || kind === "alreadyRunning") toast.info(message);
+    else toast.success(message);
+    onOpenChange(false);
   };
 
   const showFixLinks = result?.failureCode === "NO_ELIGIBLE_EMPLOYEES" || (!result && d.emptyPool);

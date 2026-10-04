@@ -6,6 +6,7 @@ import {
   filterNavigationByAuth,
   flattenNavigationTree,
 } from "./build-navigation-tree";
+import { isModuleEntry, moduleOverviewPath } from "./module-overview";
 import { isRouteAccessAllowed, resolveRouteAccess, routeAudienceMismatch } from "./route-access";
 
 /**
@@ -31,7 +32,7 @@ export interface HomeTile {
   titleKey: MessageKey;
   icon?: IconName;
   tone: HomeTone;
-  /** Where the tile opens: the item's own route, or its first authorized page. */
+  /** Where the tile opens: a module's overview (`/modules/<id>`), or a page entry's own route. */
   href: string;
   /** Up to three authorized pages inside a module — a caption, not links. */
   previewKeys: MessageKey[];
@@ -53,9 +54,11 @@ export const HOME_TONE_CYCLE: readonly HomeTone[] = [
 
 const PREVIEW_COUNT = 3;
 
-function firstRoute(item: NavigationItem): string | undefined {
-  if (item.route) return item.route;
-  return flattenNavigationTree(item.children ?? []).find((child) => child.route)?.route;
+function tileHref(item: NavigationItem): string | undefined {
+  // A module (an entry that groups pages) always opens its overview — even with a
+  // single authorized page — so the user picks the destination, never lands on the first.
+  if (isModuleEntry(item)) return moduleOverviewPath(item.id);
+  return item.route;
 }
 
 /**
@@ -74,7 +77,7 @@ export function buildHomeTiles(
   });
   const roots = buildNavigationTree(allowed).filter((item) => !item.homeHidden);
   return roots.flatMap((item, index) => {
-    const href = firstRoute(item);
+    const href = tileHref(item);
     if (!href) return [];
     const leaves = flattenNavigationTree(item.children ?? []).filter((child) => child.route);
     return [

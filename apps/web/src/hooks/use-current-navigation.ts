@@ -9,6 +9,7 @@ import {
   findNavigationParentRoute,
   getNavigationBreadcrumb,
 } from "@/navigation/build-navigation-tree";
+import { parseModuleOverviewPath } from "@/navigation/module-overview";
 
 /**
  * Resolves the current route to its navigation entry + breadcrumb trail,
@@ -26,6 +27,21 @@ export function useCurrentNavigation() {
   const search = useSearchParams()?.toString() ?? "";
 
   return useMemo(() => {
+    // A module overview (`/modules/<id>`) is owned by its top-level entry: the trail is
+    // Home › <Module>, and Back returns to Home.
+    const moduleId = parseModuleOverviewPath(pathname);
+    const moduleItem = moduleId
+      ? navigationConfig.find((item) => item.id === moduleId && !item.parent)
+      : undefined;
+    if (moduleItem) {
+      return {
+        pathname,
+        current: moduleItem,
+        breadcrumb: [moduleItem],
+        parentRoute: "/" as string | undefined,
+        isExactMatch: true,
+      };
+    }
     const exact = findNavigationItemByRoute(navigationConfig, pathname, search);
     const current = exact ?? findNavigationAncestorByRoute(navigationConfig, pathname, search);
     const breadcrumb = current ? getNavigationBreadcrumb(navigationConfig, current) : [];

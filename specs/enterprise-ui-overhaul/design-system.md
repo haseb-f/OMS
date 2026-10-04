@@ -946,3 +946,22 @@ The pending-lead count is its own chip inside the button — a non-zero backlog 
 Selecting a mode in the dialog previews it, Confirm applies it, Cancel changes nothing; the button and the
 dialog's "current mode" chip always show the server-confirmed state. Permissions (`crm.leads.manage`) and
 execution rules are unchanged. Contrast of every label on rest and hover is in `contrast-check.mjs`.
+
+### 12.21 Module overview, metric titles, distribution dialog (Round 10, 2026-10-04)
+
+- **Module overview** (`/modules/<id>`): a Home tile of a module (an entry that groups pages) opens the module's
+  overview — never its first submenu — even when only one page is authorized. A page entry (Dashboard, an agent
+  portal page) still opens directly; the agent portal has no modules, so its tiles stay direct. The overview is
+  derived from `navigation.config.ts` through `buildModuleOverview` (same `filterNavigationByAuth` as the sidebar,
+  sub-groups from `NAVIGATION_GROUPS`) — no second menu. Each destination is a `LauncherTile` with a one-line
+  description (`home.destinations.<navigation id>`, en + ar; the spec fails on a missing line) and, where the
+  destination's own list endpoint reports a total, a count (`DESTINATION_COUNT_SOURCES`; a failed request shows
+  nothing, never 0). An unknown or unauthorized module shows the no-access state. The breadcrumb is Home › Module.
+- **Metric titles**: `InsightCard` labels use the shared `text-metric-label` token (14 px, one step above caption);
+  they wrap, never clip.
+- **Conversion rate card** is a drill-down to the leads list like its sibling figures (same `leadsHref`
+  authorization), so it gets the same hover, focus ring and chevron; without leads access it is a static summary
+  like the others.
+- **Lead-distribution dialog**: a server-confirmed success closes the dialog with one toast; a blocked run
+  (saved but failing) and a failed request keep it open with the reason and the selection. The page owns the open
+  state and only an explicit click sets it true. Duplicate submissions are guarded in the hook.

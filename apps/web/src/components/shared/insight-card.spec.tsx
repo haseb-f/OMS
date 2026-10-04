@@ -100,4 +100,11 @@ describe("InsightCard interactivity (Round 8)", () => {
       /text-metric-lg/,
     );
   });
+
+  it("sets the metric title one step above caption through the shared token", () => {
+    const { container } = render(<InsightCard label="Orders" value="9" />);
+    const label = container.querySelector('[data-slot="insight-label"]');
+    expect(label?.className).toMatch(/text-metric-label/);
+    expect(label?.className).not.toMatch(/truncate/);
+  });
 });

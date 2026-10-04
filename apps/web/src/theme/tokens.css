@@ -65,6 +65,10 @@
   --text-metric-lg: 1.75rem; /* 28px */
   --text-metric-lg--line-height: 1.15;
   --text-metric-lg--font-weight: 650;
+  /* Round 10: the title of a metric tile (InsightCard label) — one step above caption, wraps, never clips. */
+  --text-metric-label: 0.875rem; /* 14px */
+  --text-metric-label--line-height: 1.4;
+  --text-metric-label--font-weight: 500;
 }
 
 /* Numbers: tabular digits, isolated LTR run so amounts, references and

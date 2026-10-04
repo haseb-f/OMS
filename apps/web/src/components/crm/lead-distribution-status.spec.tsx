@@ -1,5 +1,9 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
+
+const toasts = vi.hoisted(() => ({ success: vi.fn(), info: vi.fn() }));
+vi.mock("@/lib/toast", () => ({ toast: toasts }));
 
 vi.mock("@/providers/locale-provider", () => ({
   useLocale: () => ({
@@ -155,7 +159,10 @@ describe("preview / confirm rules", () => {
 });
 
 describe("LeadDistributionDialog", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
 
   function openDialog(state: LeadDistributionState, onOpenChange = vi.fn()) {
     render(
@@ -197,18 +204,73 @@ describe("LeadDistributionDialog", () => {
     expect(state.applyMode).not.toHaveBeenCalled();
   });
 
-  it("confirm calls the activate path once and shows the server result", async () => {
+  it("confirm calls the activate path once, then closes with one success toast", async () => {
     const state = makeState("PAUSED");
-    openDialog(state);
-    fireEvent.click(screen.getByRole("radio", { name: /modes\.continuous/ }));
+    const onOpenChange = openDialog(state);
+    fireEvent.click(screen.getByRole("radio", { name: /modes.continuous/ }));
     await act(async () => {
       fireEvent.click(confirmButton());
     });
     expect(state.applyMode).toHaveBeenCalledTimes(1);
     expect(state.applyMode).toHaveBeenCalledWith("CONTINUOUS");
-    expect(screen.getByTestId("lead-distribution-result").textContent).toContain(
+    expect(onOpenChange).toHaveBeenCalledTimes(1);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(toasts.success).toHaveBeenCalledTimes(1);
+    expect(toasts.success.mock.calls[0][0]).toContain(
       'leadOps.distribution.dialog.resultAssigned {"assigned":3,"pending":0,"held":0}',
     );
+  });
+
+  it("a failed request keeps the dialog open with the selection and sends no toast", async () => {
+    const state = makeState("PAUSED", { applyMode: vi.fn(async () => null) });
+    const onOpenChange = openDialog(state);
+    fireEvent.click(screen.getByRole("radio", { name: /modes.continuous/ }));
+    await act(async () => {
+      fireEvent.click(confirmButton());
+    });
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(toasts.success).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("radio", { name: /modes.continuous/ }).getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(confirmButton()).toHaveProperty("disabled", false);
+  });
+
+  it("stays closed after success even when the state refetches and rerenders", async () => {
+    let current = makeState("PAUSED");
+    function Page() {
+      const [open, setOpen] = useState(true);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            reopen
+          </button>
+          <LeadDistributionDialog
+            open={open}
+            onOpenChange={setOpen}
+            state={current}
+            onOpenTools={vi.fn()}
+          />
+        </>
+      );
+    }
+    const { rerender } = render(<Page />);
+    fireEvent.click(screen.getByRole("radio", { name: /modes.continuous/ }));
+    await act(async () => {
+      fireEvent.click(confirmButton());
+    });
+    expect(screen.queryByTestId("lead-distribution-dialog")).toBeNull();
+    // the refetch lands: new snapshot, new status, new object identity
+    current = makeState("CONTINUOUS");
+    rerender(<Page />);
+    rerender(<Page />);
+    expect(screen.queryByTestId("lead-distribution-dialog")).toBeNull();
+    // only an explicit click reopens it, starting from the applied mode
+    fireEvent.click(screen.getByRole("button", { name: "reopen" }));
+    expect(screen.getByTestId("lead-distribution-dialog")).toBeTruthy();
+    expect(
+      screen.getByRole("radio", { name: /modes.continuous/ }).getAttribute("aria-checked"),
+    ).toBe("true");
   });
 
   it("a blocked run shows the failure code and the fix links", async () => {
@@ -234,6 +296,8 @@ describe("LeadDistributionDialog", () => {
     expect(screen.getByRole("link", { name: /fixUsers/ }).getAttribute("href")).toBe(
       "/settings/users",
     );
+    // a blocked run is not a success: no toast, the dialog stays for the fix links
+    expect(toasts.success).not.toHaveBeenCalled();
   });
 
   it("while a confirm is running the dialog cannot submit again or close", () => {

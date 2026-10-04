@@ -31,12 +31,13 @@ describe("buildHomeTiles — company users", () => {
     expect(ids(tiles).some((id) => id.startsWith("agent-portal"))).toBe(false);
   });
 
-  it("offers only the module a sales-only user may open, at its first authorized page", () => {
+  it("offers only the module a sales-only user may open, at its overview", () => {
     const tiles = buildHomeTiles(navigationConfig, internal(["crm.leads.view"]));
     expect(ids(tiles)).toContain("crm");
     expect(ids(tiles)).not.toContain("finance");
     expect(ids(tiles)).not.toContain("settings");
-    expect(tiles.find((tile) => tile.id === "crm")?.href).toBe("/crm/leads");
+    // A module opens its overview, never its first page — even with one authorized page.
+    expect(tiles.find((tile) => tile.id === "crm")?.href).toBe("/modules/crm");
   });
 
   it("never lists a page the user cannot open inside a tile", () => {
@@ -55,8 +56,9 @@ describe("buildHomeTiles — company users", () => {
     }).filter((item) => !item.parent && !item.homeHidden);
     // Every tile is a sidebar module the same user sees…
     for (const tile of tiles) expect(visibleRoots.map((item) => item.id)).toContain(tile.id);
-    // …and every tile's destination passes the route guard's own rule.
-    for (const tile of tiles) {
+    // …and every tile's destination passes the route guard's own rule (a module's overview is
+    // ungated itself; each page it lists is checked in module-overview.spec.ts).
+    for (const tile of tiles.filter((entry) => !entry.href.startsWith("/modules/"))) {
       const access = resolveRouteAccess(navigationConfig, tile.href);
       const ok =
         access.permissions.length === 0 ||

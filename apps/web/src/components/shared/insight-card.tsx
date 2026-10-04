@@ -117,7 +117,7 @@ export function InsightCard({
             concise; the period / scope lives in the group header). */}
         <span
           data-slot="insight-label"
-          className="min-w-0 flex-1 text-caption font-medium text-pretty break-words text-muted-foreground"
+          className="min-w-0 flex-1 text-metric-label text-pretty break-words text-muted-foreground"
         >
           {label}
         </span>

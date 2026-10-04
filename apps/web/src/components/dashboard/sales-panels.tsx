@@ -112,6 +112,8 @@ export function SalesOverviewPanel({
         {
           key: "conversionRate",
           label: "crm.leads.dashboard.conversionRate",
+          // The rate is over the leads list, like its sibling figures (same authorization).
+          href: leadsHref,
           value: `${kpis.conversionRate}%`,
           context: t("insights.company.conversion"),
           icon: Percent,

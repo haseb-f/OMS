@@ -57,7 +57,7 @@ describe("HomeLauncher", () => {
     const { container, getByText } = render(<HomeLauncher />);
     const found = hrefs(container);
     expect(found).toContain("/dashboard");
-    expect(found).toContain("/crm/leads");
+    expect(found).toContain("/modules/crm");
     expect(found).toContain("/sales/orders/new");
     expect(found.some((href) => href?.startsWith("/finance"))).toBe(false);
     expect(found.some((href) => href?.startsWith("/settings"))).toBe(false);
@@ -67,7 +67,7 @@ describe("HomeLauncher", () => {
   it("omits the quick-action section when the user can create nothing", () => {
     as({ permissions: ["crm.leads.view"] });
     const { container, queryByText } = render(<HomeLauncher />);
-    expect(hrefs(container)).toContain("/crm/leads");
+    expect(hrefs(container)).toContain("/modules/crm");
     expect(queryByText("Quick actions")).toBeNull();
   });
 
@@ -100,7 +100,7 @@ describe("HomeLauncher", () => {
   it("gives a super admin every module and none of the agent pages", () => {
     as({ isSuperAdmin: true });
     const found = hrefs(render(<HomeLauncher />).container);
-    expect(found).toEqual(expect.arrayContaining(["/dashboard", "/crm/leads"]));
+    expect(found).toEqual(expect.arrayContaining(["/dashboard", "/modules/crm", "/modules/sales"]));
     expect(found.some((href) => href === "/agent" || href?.startsWith("/agent/"))).toBe(false);
   });
 });

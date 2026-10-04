@@ -58,6 +58,45 @@ describe("useLeadDistribution", () => {
     expect(service.activate24h).toHaveBeenCalledWith({ teamId: "team-1", departmentId: null });
   });
 
+  it("two confirms in one frame send one request (duplicate-submit guard)", async () => {
+    const snapshot = { status: "PAUSED" as const, policy: null, eligible: [] };
+    service.distribution.mockResolvedValue(snapshot);
+    let release: (value: unknown) => void = () => {};
+    service.activateContinuous.mockReturnValue(new Promise((resolve) => (release = resolve)));
+    const { result } = renderHook(() => useLeadDistribution());
+    await waitFor(() => expect(result.current.snapshot).not.toBeNull());
+
+    let first: Promise<unknown> = Promise.resolve();
+    let second: unknown = "unset";
+    await act(async () => {
+      first = result.current.applyMode("CONTINUOUS");
+      second = await result.current.applyMode("CONTINUOUS");
+      release({ ...snapshot, status: "CONTINUOUS", run: null });
+      await first;
+    });
+    expect(second).toBeNull();
+    expect(service.activateContinuous).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed save releases the guard so the same mode can be retried", async () => {
+    const snapshot = { status: "PAUSED" as const, policy: null, eligible: [] };
+    service.distribution.mockResolvedValue(snapshot);
+    service.activateContinuous.mockRejectedValueOnce(new Error("boom"));
+    service.activateContinuous.mockResolvedValueOnce({ ...snapshot, run: null });
+    const { result } = renderHook(() => useLeadDistribution());
+    await waitFor(() => expect(result.current.snapshot).not.toBeNull());
+    let outcomes: unknown[] = [];
+    await act(async () => {
+      outcomes = [await result.current.applyMode("CONTINUOUS")];
+    });
+    expect(outcomes[0]).toBeNull();
+    await act(async () => {
+      outcomes.push(await result.current.applyMode("CONTINUOUS"));
+    });
+    expect(outcomes[1]).not.toBeNull();
+    expect(service.activateContinuous).toHaveBeenCalledTimes(2);
+  });
+
   it("is loading until the snapshot arrives, and reports a failed read instead of PAUSED", async () => {
     service.distribution.mockRejectedValue(new Error("offline"));
     const { result } = renderHook(() => useLeadDistribution());
