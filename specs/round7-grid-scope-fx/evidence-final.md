@@ -69,4 +69,17 @@ Awaits the owner's visual approval before merge.
 
 ## 5. Release
 
-Filled in after deployment (SHA, deployment id, Production checks).
+- Commit `e0b8263` on `main` (pushed 2026-10-04 ~05:58 UTC) → Vercel Production deployment `6837487541`
+  (`sha e0b8263c37d1990ac89401575e3eef5b51e0c91e`, created 2026-10-04T05:59:03Z, state `success`); the build
+  ran `prisma migrate deploy` (one additive catalog row). A docs-only commit follows it (this section).
+- Production read-only check (`scripts/acceptance/r7-prod-release-check.mjs`, QA personas, GET only): 10/10 —
+  catalog contains `store-orders.view_all`; the QA sales persona lists only its own 4 leads / 20 orders, another
+  owner's order is 404 by id and 404 on `/activities`, 403 on `/shipments`, its own order's activities 200; FX
+  scheduler enabled, last run SUCCESS, newest effective date 2026-10-01; distribution eligibility payload served.
+- Production grants after release (`r7-prod-grants-readonly.mjs`): `store-orders.view_all` and
+  `customers.lookup_advanced` appear only in the Super Admin's effective list (nobody is granted them); the Sales-
+  department employee holding `store-orders.manage` is now limited to their own orders.
+- Not released: the toolbar blue tonal sequence (`feat/r7-toolbar`, awaiting visual approval).
+- Known CI note: the GitHub "lint" check (`prettier --check .`) was already failing before this release
+  (`1f806f3`) on pre-existing files (acceptance scripts, seed script, a CBE HTML fixture prettier cannot parse);
+  every file changed in this release is prettier-clean. Local API/web ESLint: 0 errors.

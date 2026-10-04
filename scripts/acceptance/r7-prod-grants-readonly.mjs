@@ -33,7 +33,17 @@ const EMAIL = process.env.EMAIL ?? "qa-admin@oms.haseb.org";
 const PW = process.env.PW ?? process.env.QA_PASSWORD ?? "";
 const OUT = resolve(ROOT, process.env.OUT ?? "tmp/r7-prod-grants.json");
 
-const WIDE = ["crm.leads.manage", "store-orders.manage", "store-orders.view_all", "crm.leads.edit", "shipping.view", "finance.view", "customers.lookup_global", "orders.lookup_global", "customers.lookup_advanced"];
+const WIDE = [
+  "crm.leads.manage",
+  "store-orders.manage",
+  "store-orders.view_all",
+  "crm.leads.edit",
+  "shipping.view",
+  "finance.view",
+  "customers.lookup_global",
+  "orders.lookup_global",
+  "customers.lookup_advanced",
+];
 
 async function main() {
   if (!PW) throw new Error("no password (tmp/.qa.env QA_PASSWORD)");
@@ -45,7 +55,9 @@ async function main() {
   const body = await login.json().catch(() => ({}));
   if (!body.accessToken) throw new Error(`login failed: ${login.status}`);
   const get = async (path) => {
-    const res = await fetch(`${API}${path}`, { headers: { Authorization: `Bearer ${body.accessToken}` } });
+    const res = await fetch(`${API}${path}`, {
+      headers: { Authorization: `Bearer ${body.accessToken}` },
+    });
     return { status: res.status, json: await res.json().catch(() => null) };
   };
 
@@ -62,7 +74,10 @@ async function main() {
     if (u.userType && u.userType !== "INTERNAL") continue;
     const perms = await get(`/users/${u.id}/permissions`);
     const names = new Set(
-      (Array.isArray(perms.json) ? perms.json : (perms.json?.granted ?? perms.json?.permissions ?? [])).map((p) => (typeof p === "string" ? p : p.name)),
+      (Array.isArray(perms.json)
+        ? perms.json
+        : (perms.json?.granted ?? perms.json?.permissions ?? [])
+      ).map((p) => (typeof p === "string" ? p : p.name)),
     );
     rows.push({
       id: u.id,
@@ -78,16 +93,34 @@ async function main() {
     });
   }
   mkdirSync(dirname(OUT), { recursive: true });
-  writeFileSync(OUT, JSON.stringify({ capturedAt: new Date().toISOString(), api: API, rows }, null, 2));
+  writeFileSync(
+    OUT,
+    JSON.stringify({ capturedAt: new Date().toISOString(), api: API, rows }, null, 2),
+  );
 
   const count = (p) => rows.filter((r) => r.held.includes(p)).length;
-  console.log(JSON.stringify({
-    api: API,
-    internalUsers: rows.length,
-    holders: Object.fromEntries(WIDE.map((p) => [p, count(p)])),
-    leadsEditNotFlagged: rows.filter((r) => r.active && !r.locked && r.held.includes("crm.leads.edit") && r.salesDistributionEligible === false).length,
-    flaggedEligible: rows.filter((r) => r.salesDistributionEligible === true).length,
-    out: OUT,
-  }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        api: API,
+        internalUsers: rows.length,
+        holders: Object.fromEntries(WIDE.map((p) => [p, count(p)])),
+        leadsEditNotFlagged: rows.filter(
+          (r) =>
+            r.active &&
+            !r.locked &&
+            r.held.includes("crm.leads.edit") &&
+            r.salesDistributionEligible === false,
+        ).length,
+        flaggedEligible: rows.filter((r) => r.salesDistributionEligible === true).length,
+        out: OUT,
+      },
+      null,
+      2,
+    ),
+  );
 }
-main().catch((e) => { console.error("FAILED:", e.message); process.exit(1); });
+main().catch((e) => {
+  console.error("FAILED:", e.message);
+  process.exit(1);
+});

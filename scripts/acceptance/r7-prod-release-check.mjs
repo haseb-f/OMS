@@ -18,7 +18,8 @@ for (const file of [resolve(ROOT, "tmp/.qa.env"), "D:/Systems/OMS/tmp/.qa.env"])
   if (!existsSync(file)) continue;
   for (const raw of readFileSync(file, "utf8").split(/\r?\n/)) {
     const i = raw.indexOf("=");
-    if (i > 0 && !raw.startsWith("#") && !process.env[raw.slice(0, i)]) process.env[raw.slice(0, i)] = raw.slice(i + 1).replace(/^["']|["']$/g, "");
+    if (i > 0 && !raw.startsWith("#") && !process.env[raw.slice(0, i)])
+      process.env[raw.slice(0, i)] = raw.slice(i + 1).replace(/^["']|["']$/g, "");
   }
   break;
 }
@@ -34,14 +35,23 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? "  -> " + detail : ""}`);
 };
 async function login(email) {
-  const r = await fetch(`${API}/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: PW, rememberMe: false }) });
+  const r = await fetch(`${API}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password: PW, rememberMe: false }),
+  });
   const j = await r.json().catch(() => ({}));
   if (!j.accessToken) throw new Error(`login failed for ${email}: ${r.status} ${j.code ?? ""}`);
   return j.accessToken;
 }
 const get = async (token, path) => {
   const r = await fetch(`${API}${path}`, { headers: { Authorization: `Bearer ${token}` } });
-  let json = null; try { json = await r.json(); } catch { /* empty */ }
+  let json = null;
+  try {
+    json = await r.json();
+  } catch {
+    /* empty */
+  }
   return { status: r.status, json };
 };
 const rowsOf = (j) => (Array.isArray(j) ? j : (j?.data ?? j?.items ?? j?.rows ?? []));
@@ -56,36 +66,76 @@ async function main() {
 
   const catalog = await get(admin, "/permissions/catalog");
   const catalogText = JSON.stringify(catalog.json ?? {});
-  check("catalog contains store-orders.view_all", catalogText.includes("store-orders.view_all"), `http=${catalog.status}`);
+  check(
+    "catalog contains store-orders.view_all",
+    catalogText.includes("store-orders.view_all"),
+    `http=${catalog.status}`,
+  );
 
   const leads = await get(sales, "/leads?limit=200");
   const leadRows = rowsOf(leads.json);
-  check("sales: every listed lead is own", leads.status === 200 && leadRows.every((l) => (l.salesEmployeeId ?? l.salesEmployee?.id) === salesId), `rows=${leadRows.length}`);
+  check(
+    "sales: every listed lead is own",
+    leads.status === 200 &&
+      leadRows.every((l) => (l.salesEmployeeId ?? l.salesEmployee?.id) === salesId),
+    `rows=${leadRows.length}`,
+  );
 
   const orders = await get(sales, "/store-orders?limit=200");
   const orderRows = rowsOf(orders.json);
-  check("sales: every listed order is own", orders.status === 200 && orderRows.every((o) => (o.employeeId ?? o.employee?.id) === salesId), `rows=${orderRows.length}`);
+  check(
+    "sales: every listed order is own",
+    orders.status === 200 && orderRows.every((o) => (o.employeeId ?? o.employee?.id) === salesId),
+    `rows=${orderRows.length}`,
+  );
 
   const all = await get(admin, "/store-orders?limit=200");
-  const other = rowsOf(all.json).find((o) => (o.employeeId ?? o.employee?.id) && (o.employeeId ?? o.employee?.id) !== salesId && !o.agentId);
+  const other = rowsOf(all.json).find(
+    (o) =>
+      (o.employeeId ?? o.employee?.id) &&
+      (o.employeeId ?? o.employee?.id) !== salesId &&
+      !o.agentId,
+  );
   if (other) {
     const byId = await get(sales, `/store-orders/${other.id}`);
     check("sales: another owner's order by id is 404", byId.status === 404, `http=${byId.status}`);
     const act = await get(sales, `/store-orders/${other.id}/activities`);
-    check("sales: another owner's order activities are 404", act.status === 404, `http=${act.status}`);
+    check(
+      "sales: another owner's order activities are 404",
+      act.status === 404,
+      `http=${act.status}`,
+    );
     const ship = await get(sales, `/store-orders/${other.id}/shipments`);
-    check("sales: another owner's order shipments are 403/404", ship.status === 404 || ship.status === 403, `http=${ship.status}`);
+    check(
+      "sales: another owner's order shipments are 403/404",
+      ship.status === 404 || ship.status === 403,
+      `http=${ship.status}`,
+    );
   } else {
-    check("sales: another owner's order exists to test against", false, "no order owned by someone else found");
+    check(
+      "sales: another owner's order exists to test against",
+      false,
+      "no order owned by someone else found",
+    );
   }
   const own = orderRows[0];
   if (own) {
     const ownAct = await get(sales, `/store-orders/${own.id}/activities`);
-    check("sales: own order activities are readable", ownAct.status === 200, `http=${ownAct.status}`);
+    check(
+      "sales: own order activities are readable",
+      ownAct.status === 200,
+      `http=${ownAct.status}`,
+    );
   }
 
   const fx = await get(admin, "/exchange-rates/sync/status");
-  check("fx: scheduler status healthy", fx.status === 200 && fx.json?.enabled === true && fx.json?.lastRun?.status === "SUCCESS", `enabled=${fx.json?.enabled} lastRun=${fx.json?.lastRun?.status} newest=${fx.json?.newestEffectiveDate}`);
+  check(
+    "fx: scheduler status healthy",
+    fx.status === 200 &&
+      (fx.json?.settings?.enabled ?? fx.json?.enabled) === true &&
+      fx.json?.lastRun?.status === "SUCCESS",
+    `enabled=${fx.json?.settings?.enabled ?? fx.json?.enabled} lastRun=${fx.json?.lastRun?.status} newest=${fx.json?.newestEffectiveDate}`,
+  );
 
   const dist = await get(admin, "/leads/distribution");
   check("distribution: eligibility payload served", dist.status === 200, `http=${dist.status}`);
@@ -94,4 +144,7 @@ async function main() {
   console.log(`\n${results.length - failed}/${results.length} passed  (api=${API})`);
   process.exit(failed ? 1 : 0);
 }
-main().catch((e) => { console.error("FAILED:", e.message); process.exit(1); });
+main().catch((e) => {
+  console.error("FAILED:", e.message);
+  process.exit(1);
+});
