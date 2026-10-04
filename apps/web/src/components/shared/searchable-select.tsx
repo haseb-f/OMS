@@ -50,7 +50,6 @@ export function SearchableSelect({
   createAction,
   selectedLabel,
   subtitleDir,
-  variant,
   className,
   id,
   "aria-label": ariaLabel,
@@ -73,7 +72,6 @@ export function SearchableSelect({
   /** Label to show when `value` is set but not (yet) among `options` — e.g. an archived record. */
   selectedLabel?: string;
   subtitleDir?: "ltr" | "rtl";
-  variant?: "default" | "ghost";
   className?: string;
   id?: string;
   "aria-label"?: string;
@@ -114,7 +112,6 @@ export function SearchableSelect({
       icon={icon}
       createAction={createAction}
       subtitleDir={subtitleDir}
-      variant={variant}
       triggerClassName={className}
       triggerProps={{ "aria-label": ariaLabel, "aria-describedby": ariaDescribedBy }}
     />

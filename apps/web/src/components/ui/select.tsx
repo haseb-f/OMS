@@ -33,7 +33,11 @@ function SelectTrigger({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
   size?: "sm" | "default";
-  /** `"ghost"` is the borderless trigger for inline table cells; forms use the default. */
+  /**
+   * `"ghost"` is ONLY for a cell whose trigger shows a semantic status badge
+   * (the colour there is the operational status, so the trigger stays neutral).
+   * Every other select — forms, dialogs, filters, inline editors — uses the default.
+   */
   variant?: "default" | "ghost";
 }) {
   return (

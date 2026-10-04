@@ -788,3 +788,32 @@ var(--brand-navy))`. Dark: the lifted navy `#0e2a4b` mixed toward the brand blue
 - **Contrast.** `scripts/design/contrast-check.mjs` checks, per step and per state fill, the value
   (≥ 4.5), the muted label and icon (≥ 4.5 / ≥ 3), the applied ring, the chevron chip, the edge on
   the card, the open edge on the pressed fill, and that neighbouring steps differ by ≥ 1.15:1.
+
+### 12.16 Blue triggers everywhere (Round 8, 2026-10-04)
+
+- **Owner decision.** The blue tonal progression of §12.15 is approved and applies to **every**
+  dropdown trigger in OMS, not only table toolbars. This supersedes §12.14's "deep brand navy" and
+  §12.15's "forms, dialogs and report selectors stay navy".
+- **Default shade (standalone and stacked controls).** The base `--selector*` tokens now alias
+  **tone 3** (`--toolbar-tone-3*`, light and dark). A form select, dialog combobox, lone picker,
+  header action menu or inline cell editor therefore takes one fixed mid-ramp blue — vertical
+  stacks are not a progression, and a field never changes colour when a conditional field appears.
+- **Rows of related controls.** A run of selectors that sit side by side as ONE row steps through
+  tones 1…5 in logical order (deepest at the reading start; RTL/LTR mirror for free) — via
+  `ListToolbar` (all table toolbars) or the shared `SelectorRow` (`shared/selector-row.tsx`: report
+  filter bar, product browser filters). `SelectorRow` is opt-in because a form grid reflows with
+  the viewport and is not a row. Numbering counts hidden controls and skips exempt ones, so
+  conditional controls appended at the end never recolour earlier ones.
+- **Inline editors.** The light in-cell outline trigger is gone: `EntityCombobox` /
+  `SearchableSelect` no longer have a `ghost` variant (the shipping company cell now uses the
+  default blue trigger).
+- **Semantic exceptions (unchanged).** `SelectTrigger variant="ghost"` remains ONLY for the
+  shipping-status cell, whose trigger shows a semantic status badge (the colour there is the
+  operational status). Pressed toggles, success / destructive / status controls, badges inside
+  triggers, the primary "New movement ▾" action, icon-only ghost / outline menu buttons (row
+  actions, profile, theme, language, selection ▾), menu content and plain text inputs keep their
+  own colours.
+- **Guards.** `shared/selector-triggers.spec.tsx` fails if any select / field / menu trigger sets a
+  colour utility locally, if the default tokens stop aliasing tone 3, or if `SelectorRow`
+  renumbers earlier controls when a later one appears. `contrast-check.mjs` already covers every
+  tone, so the default shade is checked in light and dark.

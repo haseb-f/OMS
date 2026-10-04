@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/com
 import { Toggle } from "@/components/ui/toggle";
 import { SelectFilter } from "@/components/shared/data-table/select-filter";
 import { FilterTrigger } from "@/components/shared/data-table/filter-popover";
+import { SelectorRow } from "@/components/shared/selector-row";
 import {
   EnterpriseDateRangePicker,
   type DateRangeValue,
@@ -470,7 +471,10 @@ export function ReportFilterRow({
     ) : null;
 
   return (
-    <div data-slot="report-filter-row" className="flex min-w-0 flex-wrap items-center gap-1.5">
+    <SelectorRow
+      data-slot="report-filter-row"
+      className="flex min-w-0 flex-wrap items-center gap-1.5"
+    >
       {leading}
       {accountControl(false)}
       {/* md+: primary filters inline, secondary behind «فلاتر إضافية». */}
@@ -555,6 +559,6 @@ export function ReportFilterRow({
           </SheetFooter>
         </SheetContent>
       </Sheet>
-    </div>
+    </SelectorRow>
   );
 }

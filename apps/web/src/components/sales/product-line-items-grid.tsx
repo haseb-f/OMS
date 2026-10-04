@@ -668,7 +668,6 @@ export function ProductLineItemsGrid({
       onValueChange={(value) => updateLine(line.id, { taxId: value || null })}
       options={taxOptions}
       allowClear
-      variant="default"
       // Mobile line cards size every control like their neighbours (h-10).
       className={cn(isMobile && !inCell && "h-10")}
       placeholder={t("sales.editor.grid.noTax")}

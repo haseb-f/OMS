@@ -8,6 +8,7 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SelectFilter } from "@/components/shared/data-table/select-filter";
+import { SelectorRow } from "@/components/shared/selector-row";
 import {
   CREATE_PRODUCT_PERMISSION,
   InlineProductCreate,
@@ -187,7 +188,7 @@ export function ProductBrowserDialog({
           isLoading={loading}
           placeholder={t("sales.editor.grid.productSearchPlaceholder")}
         />
-        <div className="flex flex-wrap items-center gap-2">
+        <SelectorRow className="flex flex-wrap items-center gap-2">
           <SelectFilter
             label={t("products.fields.category")}
             value={categoryId}
@@ -213,7 +214,7 @@ export function ProductBrowserDialog({
               searchable
             />
           ) : null}
-        </div>
+        </SelectorRow>
 
         <div className="rounded-xs border border-border">
           <div className="flex min-h-9 items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-1">

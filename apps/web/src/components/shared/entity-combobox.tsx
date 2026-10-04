@@ -79,7 +79,6 @@ export function EntityCombobox<T>({
   subtitleDir,
   id,
   loading = false,
-  variant = "default",
 }: {
   items?: T[];
   onSearch?: (query: string) => Promise<T[]>;
@@ -112,8 +111,6 @@ export function EntityCombobox<T>({
   id?: string;
   /** Local (`items`) mode: the caller's list is still loading — show the loading state instead of "no results". */
   loading?: boolean;
-  /** `"ghost"` is the borderless trigger for inline table cells; forms use the default. */
-  variant?: "default" | "ghost";
 }) {
   const { t } = useLocale();
   // In a list filter bar the empty text is the filter's NAME, not a hint:
@@ -203,8 +200,8 @@ export function EntityCombobox<T>({
         <EnterpriseButton
           id={id}
           type="button"
-          // Forms/filters: the navy selector trigger; inline table cells: the light outline button.
-          variant={variant === "ghost" ? "outline" : "field"}
+          // Forms, filters, dialogs and inline cell editors alike: the blue selector trigger (§12.14).
+          variant="field"
           role="combobox"
           aria-expanded={open}
           aria-haspopup="listbox"
@@ -226,7 +223,6 @@ export function EntityCombobox<T>({
           }}
           className={cn(
             "h-(--control-height-md) min-w-0 w-full justify-between text-body",
-            variant === "ghost" && "px-1.5",
             triggerClassName,
             triggerProps?.className,
           )}
