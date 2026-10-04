@@ -184,7 +184,7 @@ const PAIRS = [
     (t) => [
       [
         `tile ${t} label on tint`,
-        "var(--muted-foreground)",
+        "var(--insight-muted)",
         `color-mix(in oklab, var(--insight-${t}) var(--insight-tint-top), var(--card))`,
         TEXT,
       ],
@@ -213,11 +213,82 @@ const PAIRS = [
     ],
     [
       `panel ${t} description on header tint`,
-      "var(--muted-foreground)",
+      "var(--insight-muted)",
       `color-mix(in oklab, var(--insight-${t}) var(--panel-header-tint), var(--card))`,
       TEXT,
     ],
   ]),
+  // Round 8 (§12.17): the deep headline figure at rest, the pure-tone figure and
+  // the card-coloured glyph on the solid icon chip on hover, and panel rows.
+  ...["info", "success", "warning", "destructive", "revenue", "expense", "profit", "loss"].flatMap(
+    (t) => [
+      [
+        `tile ${t} value (rest) on tint`,
+        `color-mix(in oklab, var(--insight-${t}) 55%, var(--foreground))`,
+        `color-mix(in oklab, var(--insight-${t}) var(--insight-tint-top), var(--card))`,
+        TEXT,
+      ],
+      [
+        `tile ${t} value (hover) on hover tint`,
+        `color-mix(in oklab, var(--insight-${t}) 72%, var(--foreground))`,
+        `color-mix(in oklab, var(--insight-${t}) var(--insight-tint-top-hover), var(--card))`,
+        TEXT,
+      ],
+      [
+        `tile ${t} label on hover tint`,
+        "var(--insight-muted)",
+        `color-mix(in oklab, var(--insight-${t}) var(--insight-tint-top-hover), var(--card))`,
+        TEXT,
+      ],
+      [`tile ${t} hover glyph on solid chip`, "var(--card)", `var(--insight-${t})`, UI],
+    ],
+  ),
+  ...["info", "success", "warning", "destructive"].flatMap((t) => [
+    [
+      `panel row ${t} text on hover tint`,
+      "var(--foreground)",
+      `color-mix(in oklab, var(--insight-${t}) 10%, var(--card))`,
+      TEXT,
+    ],
+    [
+      `panel row ${t} muted on hover tint`,
+      "var(--muted-foreground)",
+      `color-mix(in oklab, var(--insight-${t}) 10%, var(--card))`,
+      TEXT,
+    ],
+  ]),
+  // Round 8 Home launcher: title and caption on the strongest (hover) glass tint
+  // of each identity hue, the icon on its chip, the white glyph on the solid hover
+  // chip and the arrow.
+  ...["blue", "sky", "teal", "emerald", "amber", "orange", "rose", "violet", "indigo", "slate"].flatMap(
+    (h) => [
+      [
+        `launcher ${h} title on hover tint`,
+        "var(--foreground)",
+        `color-mix(in oklab, var(--hue-${h}) 30%, var(--card))`,
+        TEXT,
+      ],
+      [
+        `launcher ${h} caption on hover tint`,
+        "var(--insight-muted)",
+        `color-mix(in oklab, var(--hue-${h}) 30%, var(--card))`,
+        TEXT,
+      ],
+      [
+        `launcher ${h} icon on chip`,
+        `var(--hue-${h})`,
+        `color-mix(in oklab, var(--hue-${h}) 18%, var(--card))`,
+        UI,
+      ],
+      [`launcher ${h} hover glyph on solid chip`, "var(--card)", `var(--hue-${h})`, UI],
+      [
+        `launcher ${h} arrow on tint`,
+        `color-mix(in oklab, var(--hue-${h}) 70%, var(--muted-foreground))`,
+        `color-mix(in oklab, var(--hue-${h}) 22%, var(--card))`,
+        UI,
+      ],
+    ],
+  ),
   [
     "tile destructive value on tint",
     "var(--destructive-text)",

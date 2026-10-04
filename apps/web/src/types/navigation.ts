@@ -1,6 +1,13 @@
 import type { IconName } from "../navigation/icon-registry";
 import type { MessageKey } from "../i18n/translate";
 
+/**
+ * Identity colour of a Home launcher tile (design-system §12.17). Decorative
+ * module identity — never a status. Tokens: `--hue-*` in app/globals.css.
+ */
+export type HomeTone =
+  "blue" | "sky" | "teal" | "emerald" | "amber" | "orange" | "rose" | "violet" | "indigo" | "slate";
+
 export type NavigationGroupId =
   | "finance-operations"
   | "finance-ledger"
@@ -55,6 +62,13 @@ export interface NavigationItem {
    * `internal`.
    */
   audience?: "internal" | "agent";
+  /**
+   * Home launcher (`/`): the tile's identity colour. Only top-level modules /
+   * agent pages need it; an item without one falls back to a stable palette
+   * slot by its order. Set `homeHidden` to keep an item off the launcher.
+   */
+  homeTone?: HomeTone;
+  homeHidden?: boolean;
   /** Feature flag key gating this item. No feature-flag system exists yet — reserved for future use. */
   featureFlag?: string;
   badge?: {

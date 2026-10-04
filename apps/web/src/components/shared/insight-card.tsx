@@ -49,13 +49,14 @@ export function resolveInsightTone(
 }
 
 /**
- * Compact summary tile (design-system §12.8, Round 3.2): a concise label, the
+ * Compact summary tile (design-system §12.8 / §12.17): a concise label, the
  * figure with its unit on one line, and at most one line of essential
- * context. The tone is a restrained accent (a small tinted icon; a start-edge
- * accent + tone figure with `emphasis`); the label carries the meaning,
- * never the colour alone. Only tiles with an `href` react to hover and
- * keyboard focus (tone border, faint tint, soft elevation — no transform, no
- * layout shift); static tiles stay still.
+ * context. Round 8: the tone is a clearly visible tinted, glass-like surface
+ * with a larger figure; the label carries the meaning, never the colour alone.
+ * Only tiles with an `href` are interactive: a resting lift, a chevron, and a
+ * restrained hover / keyboard-focus response (rise, tone edge, icon chip fill,
+ * figure deepens — the number never changes, nothing reflows). Static
+ * summaries stay flat and still, so the two are never confused.
  */
 export function InsightCard({
   label,
@@ -106,10 +107,10 @@ export function InsightCard({
         {Icon ? (
           <span
             data-slot="insight-icon"
-            className="flex size-6 shrink-0 items-center justify-center rounded-sm"
+            className="flex size-7 shrink-0 items-center justify-center rounded-md"
             aria-hidden
           >
-            <Icon className="size-3.5" strokeWidth={2} />
+            <Icon className="size-4" strokeWidth={2} />
           </span>
         ) : null}
         {/* Round 6: a label is never truncated — it wraps (labels are kept
@@ -124,10 +125,7 @@ export function InsightCard({
       </div>
       <div className="mt-1.5 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <span
-            data-slot="insight-value"
-            className="num text-metric leading-tight font-semibold tracking-tight"
-          >
+          <span data-slot="insight-value" className="num text-metric-lg tracking-tight">
             {value}
           </span>
           {unit ? (
@@ -142,6 +140,9 @@ export function InsightCard({
             {actionLabel}
             <Chevron className="size-3.5" aria-hidden />
           </span>
+        ) : href ? (
+          // A tile that opens something always says so — static summaries never carry it.
+          <Chevron data-slot="insight-go" className="size-4 shrink-0" aria-hidden />
         ) : null}
       </div>
       {children ? <div className="mt-1.5">{children}</div> : null}
@@ -171,7 +172,7 @@ export function InsightCard({
         data-interactive=""
         className={cn(
           shared,
-          "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
+          "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-focus-ring",
         )}
       >
         {body}

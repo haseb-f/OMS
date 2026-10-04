@@ -48,16 +48,37 @@ export const NAVIGATION_GROUPS: Record<NavigationGroupId, { titleKey: MessageKey
  * a later phase — that is expected, not a bug.
  */
 export const navigationConfig: NavigationItem[] = [
+  // Home (the permission-aware launcher) comes BEFORE the Dashboard: `/` is
+  // where every login lands; the Dashboard is its own page under it. Home is
+  // never gated — each tile it shows is filtered by the destination's own
+  // permissions (home-tiles.ts), so it can only ever list what the user may open.
+  {
+    id: "home",
+    titleKey: "nav.home",
+    subtitleKey: "nav.homeSubtitle",
+    icon: "home",
+    route: "/",
+    order: -1,
+    homeHidden: true,
+  },
   {
     id: "dashboard",
+    homeTone: "blue",
     titleKey: "nav.dashboard",
     subtitleKey: "nav.dashboardSubtitle",
     icon: "dashboard",
-    route: "/",
+    route: "/dashboard",
     order: 0,
   },
 
-  { id: "crm", titleKey: "nav.crm", icon: "users", order: 10, permissions: ["crm.view"] },
+  {
+    id: "crm",
+    homeTone: "violet",
+    titleKey: "nav.crm",
+    icon: "users",
+    order: 10,
+    permissions: ["crm.view"],
+  },
   {
     id: "crm-leads",
     titleKey: "nav.crmLeads",
@@ -88,6 +109,7 @@ export const navigationConfig: NavigationItem[] = [
 
   {
     id: "sales",
+    homeTone: "emerald",
     titleKey: "nav.sales",
     icon: "shopping-cart",
     order: 20,
@@ -179,6 +201,7 @@ export const navigationConfig: NavigationItem[] = [
   /// must not appear under Products or Basic Data.
   {
     id: "shipping",
+    homeTone: "sky",
     titleKey: "nav.shipping",
     icon: "ship",
     order: 25,
@@ -246,6 +269,7 @@ export const navigationConfig: NavigationItem[] = [
 
   {
     id: "purchasing",
+    homeTone: "amber",
     titleKey: "nav.purchasing",
     icon: "shopping-bag",
     order: 30,
@@ -316,6 +340,7 @@ export const navigationConfig: NavigationItem[] = [
   },
   {
     id: "products",
+    homeTone: "indigo",
     titleKey: "nav.products",
     shortTitleKey: "sidebar.short.products",
     icon: "package",
@@ -414,6 +439,7 @@ export const navigationConfig: NavigationItem[] = [
 
   {
     id: "hr",
+    homeTone: "rose",
     titleKey: "nav.hr",
     icon: "users",
     order: 50,
@@ -511,6 +537,7 @@ export const navigationConfig: NavigationItem[] = [
 
   {
     id: "investors",
+    homeTone: "teal",
     titleKey: "nav.investors",
     icon: "trending-up",
     order: 55,
@@ -558,6 +585,7 @@ export const navigationConfig: NavigationItem[] = [
   // separate set of entries.
   {
     id: "agents",
+    homeTone: "orange",
     titleKey: "agents.nav.section",
     icon: "handshake",
     order: 57,
@@ -584,6 +612,7 @@ export const navigationConfig: NavigationItem[] = [
 
   {
     id: "expenses",
+    homeTone: "amber",
     titleKey: "nav.expenses",
     icon: "calculator",
     order: 60,
@@ -620,6 +649,7 @@ export const navigationConfig: NavigationItem[] = [
 
   {
     id: "finance",
+    homeTone: "blue",
     titleKey: "nav.finance",
     icon: "landmark",
     order: 70,
@@ -956,6 +986,7 @@ export const navigationConfig: NavigationItem[] = [
   /// covers Sales/Purchasing/Inventory/CRM data.
   {
     id: "data-management",
+    homeTone: "slate",
     titleKey: "nav.dataManagement",
     icon: "layers",
     order: 85,
@@ -976,6 +1007,7 @@ export const navigationConfig: NavigationItem[] = [
   /// payment methods, customer groups, …) lives under its owning section.
   {
     id: "master-data",
+    homeTone: "slate",
     titleKey: "nav.masterData",
     icon: "database",
     order: 80,
@@ -1023,6 +1055,7 @@ export const navigationConfig: NavigationItem[] = [
   /// Master Data above.
   {
     id: "reports",
+    homeTone: "indigo",
     titleKey: "nav.reports",
     icon: "bar-chart",
     order: 90,
@@ -1135,6 +1168,7 @@ export const navigationConfig: NavigationItem[] = [
   /// `settings.manage` (user administration belongs to no domain).
   {
     id: "settings",
+    homeTone: "slate",
     titleKey: "nav.settings",
     icon: "settings",
     order: 100,
@@ -1275,17 +1309,31 @@ export const navigationConfig: NavigationItem[] = [
   // External agent portal (specs/agents-fulfillment-partners §10) — audience
   // "agent": shown only to AGENT users, never to internal staff. Each entry
   // gates on the `agent.*` permission its page's API requires.
+  // The portal opens on Home (`/agent`, ungated like the internal Home); the
+  // agent dashboard is its own page, still gated by `agent.dashboard.view`.
+  {
+    id: "agent-portal-home",
+    titleKey: "nav.home",
+    subtitleKey: "nav.homeSubtitle",
+    icon: "home",
+    route: "/agent",
+    order: -1,
+    audience: "agent",
+    homeHidden: true,
+  },
   {
     id: "agent-portal-dashboard",
+    homeTone: "blue",
     titleKey: "agentPortal.nav.dashboard",
     icon: "dashboard",
-    route: "/agent",
+    route: "/agent/dashboard",
     order: 0,
     audience: "agent",
     permissions: ["agent.dashboard.view"],
   },
   {
     id: "agent-portal-leads",
+    homeTone: "violet",
     titleKey: "agentPortal.nav.leads",
     icon: "contact",
     route: "/agent/leads",
@@ -1295,6 +1343,7 @@ export const navigationConfig: NavigationItem[] = [
   },
   {
     id: "agent-portal-orders",
+    homeTone: "emerald",
     titleKey: "agentPortal.nav.orders",
     icon: "shopping-cart",
     route: "/agent/orders",
@@ -1304,6 +1353,7 @@ export const navigationConfig: NavigationItem[] = [
   },
   {
     id: "agent-portal-stock",
+    homeTone: "sky",
     titleKey: "agentPortal.nav.stock",
     icon: "boxes",
     route: "/agent/stock",
@@ -1313,6 +1363,7 @@ export const navigationConfig: NavigationItem[] = [
   },
   {
     id: "agent-portal-statement",
+    homeTone: "indigo",
     titleKey: "agentPortal.nav.statement",
     icon: "book-text",
     route: "/agent/statement",
@@ -1322,6 +1373,7 @@ export const navigationConfig: NavigationItem[] = [
   },
   {
     id: "agent-portal-commission",
+    homeTone: "amber",
     titleKey: "agentPortal.nav.commission",
     icon: "percent",
     route: "/agent/commission",
@@ -1331,6 +1383,7 @@ export const navigationConfig: NavigationItem[] = [
   },
   {
     id: "agent-portal-payouts",
+    homeTone: "teal",
     titleKey: "agentPortal.nav.payouts",
     icon: "hand-coins",
     route: "/agent/payouts",
@@ -1340,6 +1393,7 @@ export const navigationConfig: NavigationItem[] = [
   },
   {
     id: "agent-portal-team",
+    homeTone: "rose",
     titleKey: "agentPortal.nav.team",
     icon: "users-round",
     route: "/agent/team",

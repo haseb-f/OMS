@@ -23,12 +23,18 @@ html[dir="ltr"] :is(h1, h2) {
   letter-spacing: -0.02em;
 }
 
-/* ── Round 3.2: compact summary tiles (design-system §12.8) ───────────────
-   `InsightCard` is a compact tile: tone = a small tinted icon, the verdict
-   colour on the figure only where it means something, and — for open work /
-   discrepancies — a start-edge accent. Neutral surface otherwise. Only
-   cards that open something react to hover/focus: tone border + faint tint
-   + a soft elevation. No transform, no size change, no layout shift. */
+/* ── Summary tiles and dashboard surfaces (design-system §12.8 / §12.17) ───
+   Round 8: the tone is a clearly visible tinted, glass-like surface — a
+   top → bottom gradient of the tone, a perceptible tone hairline and a thin
+   inner highlight (`--insight-sheen`) — not a tiny coloured icon on white.
+   Colour follows meaning only; every text pair is checked by
+   scripts/design/contrast-check.mjs.
+   Static summaries stay FLAT (no shadow, default cursor). Only a tile that
+   opens something (`data-interactive`) carries a resting lift, a chevron, and
+   reacts to hover and keyboard focus: a 1px rise, a stronger tone border and
+   gradient, a tinted shadow, the icon chip filling solid, the figure deepening
+   to the pure tone. The number never changes and nothing reflows (transforms
+   are paint-only; reduced motion removes them). */
 
 [data-slot="insight-card"] {
   --tone: var(--insight-neutral);
@@ -36,9 +42,6 @@ html[dir="ltr"] :is(h1, h2) {
   --tone-bottom: var(--insight-tint-bottom);
   --tone-border: var(--insight-tint-border);
   --accent-edge: 3px;
-  /* Round 6 soft tile (§12.13): its own card, a clearly perceptible tone
-     gradient (top → bottom) and a hairline in the tone. Flat at rest — no
-     shadow, no blur; colour follows meaning only. */
   background-color: var(--card);
   background-image: linear-gradient(
     180deg,
@@ -46,16 +49,18 @@ html[dir="ltr"] :is(h1, h2) {
     color-mix(in oklab, var(--tone) var(--tone-bottom), var(--card))
   );
   border-color: color-mix(in oklab, var(--tone) var(--tone-border), var(--card));
-  box-shadow: none;
+  box-shadow: inset 0 1px 0 var(--insight-sheen);
   color: var(--card-foreground);
   transition:
     border-color var(--duration-base) var(--ease-standard),
-    box-shadow var(--duration-base) var(--ease-standard);
+    box-shadow var(--duration-base) var(--ease-standard),
+    transform var(--duration-base) var(--ease-standard);
 }
 /* Neutral tiles stay neutral: plain card, the standard hairline. */
 [data-slot="insight-card"]:is([data-tone="neutral"], :not([data-tone])) {
   background-image: none;
   border-color: var(--border);
+  box-shadow: none;
 }
 [data-slot="insight-card"][data-tone="info"] {
   --tone: var(--insight-info);
@@ -82,50 +87,135 @@ html[dir="ltr"] :is(h1, h2) {
   --tone: var(--insight-loss);
 }
 
+/* Secondary text (label, unit, context, action) on a toned tile reads from the
+   pulled-in muted token so the stronger tint still holds AA. */
+[data-slot="insight-card"][data-tone]:not([data-tone="neutral"]) {
+  --muted-foreground: var(--insight-muted);
+}
 [data-slot="insight-card"] [data-slot="insight-icon"] {
   color: var(--tone);
   background-color: color-mix(in oklab, var(--tone) var(--insight-icon-fill), var(--card));
+  transition:
+    background-color var(--duration-base) var(--ease-standard),
+    color var(--duration-base) var(--ease-standard),
+    transform var(--duration-base) var(--ease-standard);
+}
+/* The headline figure: a deep shade of the tone (neutral stays foreground). */
+[data-slot="insight-card"][data-tone]:not([data-tone="neutral"]) [data-slot="insight-value"] {
+  color: color-mix(in oklab, var(--tone) 55%, var(--foreground));
+  transition: color var(--duration-base) var(--ease-standard);
 }
 [data-slot="insight-card"] [data-slot="insight-bar"] {
   background-color: var(--tone);
 }
-/* Emphasis (open work / discrepancy): start-edge accent. The figure stays in
-   the foreground colour; only a destructive / loss figure turns red. */
+/* Emphasis (open work / discrepancy): start-edge accent. */
 [data-slot="insight-card"][data-emphasis] {
-  box-shadow: inset var(--accent-edge) 0 0 var(--tone);
+  box-shadow:
+    inset var(--accent-edge) 0 0 var(--tone),
+    inset 0 1px 0 var(--insight-sheen);
 }
 [dir="rtl"] [data-slot="insight-card"][data-emphasis] {
-  box-shadow: inset calc(var(--accent-edge) * -1) 0 0 var(--tone);
+  box-shadow:
+    inset calc(var(--accent-edge) * -1) 0 0 var(--tone),
+    inset 0 1px 0 var(--insight-sheen);
 }
 [data-slot="insight-card"]:is([data-tone="destructive"], [data-tone="loss"])[data-emphasis]
   [data-slot="insight-value"] {
   color: var(--destructive-text);
 }
-[data-slot="insight-card"] [data-slot="insight-action"] {
+[data-slot="insight-card"] [data-slot="insight-action"],
+[data-slot="insight-card"] [data-slot="insight-go"] {
   color: var(--muted-foreground);
-  transition: color var(--duration-base) var(--ease-standard);
+  transition:
+    color var(--duration-base) var(--ease-standard),
+    transform var(--duration-base) var(--ease-standard);
 }
 
-/* Interactive tiles only: hover and keyboard focus = tone border (~45%) and a
-   soft lift — no fill change, no transform, no layout shift. */
+/* Interactive tiles ONLY. Resting: a soft lift, a pointer and the chevron.
+   Hover / keyboard focus: see the header comment. */
+[data-slot="insight-card"][data-interactive] {
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 var(--insight-sheen),
+    var(--insight-rest-shadow);
+}
+[data-slot="insight-card"][data-interactive][data-emphasis] {
+  box-shadow:
+    inset var(--accent-edge) 0 0 var(--tone),
+    inset 0 1px 0 var(--insight-sheen),
+    var(--insight-rest-shadow);
+}
+[dir="rtl"] [data-slot="insight-card"][data-interactive][data-emphasis] {
+  box-shadow:
+    inset calc(var(--accent-edge) * -1) 0 0 var(--tone),
+    inset 0 1px 0 var(--insight-sheen),
+    var(--insight-rest-shadow);
+}
 [data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible) {
-  border-color: color-mix(in oklab, var(--tone) 45%, var(--card));
-  box-shadow: var(--surface-soft-shadow-hover);
+  transform: translateY(-1px);
+  border-color: color-mix(in oklab, var(--tone) 72%, var(--card));
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--tone) var(--insight-tint-top-hover), var(--card)),
+    color-mix(in oklab, var(--tone) var(--insight-tint-bottom-hover), var(--card))
+  );
+  box-shadow:
+    inset 0 1px 0 var(--insight-sheen),
+    0 8px 18px -10px color-mix(in oklab, var(--tone) 60%, transparent),
+    var(--insight-rest-shadow);
 }
 [data-slot="insight-card"][data-interactive][data-emphasis]:is(:hover, :focus-visible) {
   box-shadow:
     inset var(--accent-edge) 0 0 var(--tone),
-    var(--surface-soft-shadow-hover);
+    inset 0 1px 0 var(--insight-sheen),
+    0 8px 18px -10px color-mix(in oklab, var(--tone) 60%, transparent),
+    var(--insight-rest-shadow);
 }
 [dir="rtl"] [data-slot="insight-card"][data-interactive][data-emphasis]:is(:hover, :focus-visible) {
   box-shadow:
     inset calc(var(--accent-edge) * -1) 0 0 var(--tone),
-    var(--surface-soft-shadow-hover);
+    inset 0 1px 0 var(--insight-sheen),
+    0 8px 18px -10px color-mix(in oklab, var(--tone) 60%, transparent),
+    var(--insight-rest-shadow);
+}
+/* A neutral tile that opens something: no tint, a stronger edge and a surface. */
+[data-slot="insight-card"][data-interactive]:is([data-tone="neutral"], :not([data-tone])):is(
+    :hover,
+    :focus-visible
+  ) {
+  background-image: none;
+  background-color: var(--surface-soft-row-hover);
+  border-color: var(--border-strong);
+  box-shadow: var(--surface-soft-shadow-hover);
+}
+[data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible) [data-slot="insight-icon"] {
+  background-color: var(--tone);
+  color: var(--card);
+  transform: scale(1.08);
+}
+[data-slot="insight-card"][data-interactive][data-tone]:not([data-tone="neutral"]):is(
+    :hover,
+    :focus-visible
+  )
+  [data-slot="insight-value"] {
+  color: color-mix(in oklab, var(--tone) 72%, var(--foreground));
 }
 [data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible)
-  [data-slot="insight-action"] {
+  :is([data-slot="insight-action"], [data-slot="insight-go"]) {
   color: var(--foreground);
 }
+[data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible) [data-slot="insight-go"] {
+  transform: translateX(2px);
+}
+[dir="rtl"]
+  [data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible)
+  [data-slot="insight-go"] {
+  transform: translateX(-2px);
+}
+[data-slot="insight-card"][data-interactive]:active {
+  transform: none;
+}
+
 /* Round 6 (§12.13): a dashboard panel's header icon sits in a small chip
    tinted by the panel's meaning (`DashboardPanel tone`) — the same accent as
    a tile icon, so a panel and its figures read as one family. */
@@ -146,13 +236,22 @@ html[dir="ltr"] :is(h1, h2) {
 [data-slot="panel-icon"][data-tone="destructive"] {
   --tone: var(--insight-destructive);
 }
-/* Round 7 (§12.14): a dashboard panel carries its meaning in a tone-tinted
-   header (a soft gradient fading to the card) and a faintly toned edge, so
-   panels read at a glance — blue activity, green success, amber pending, red
-   overdue / error — without a saturated block. Neutral panels stay plain. */
+/* Round 8 (§12.17): a dashboard panel is a tinted, glass-like surface — a
+   visibly tone-tinted header (gradient fading into the card), a toned edge, a
+   faint tone wash into the body and the inner highlight — so blue activity,
+   green success, amber pending and red overdue read at a glance. Neutral
+   panels stay plain. */
 [data-slot="card"][data-surface="soft"][data-tone]:not([data-tone="neutral"]) {
   --tone: var(--insight-neutral);
   border-color: color-mix(in oklab, var(--tone) var(--panel-edge-tint), var(--card));
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--tone) 7%, var(--card)),
+    var(--card) 12rem
+  );
+  box-shadow:
+    inset 0 1px 0 var(--insight-sheen),
+    var(--surface-soft-shadow);
 }
 [data-slot="card"][data-surface="soft"][data-tone="info"] {
   --tone: var(--insight-info);
@@ -168,6 +267,7 @@ html[dir="ltr"] :is(h1, h2) {
 }
 [data-slot="card"][data-surface="soft"][data-tone]:not([data-tone="neutral"])
   > [data-slot="card-header"] {
+  --muted-foreground: var(--insight-muted);
   background-image: linear-gradient(
     180deg,
     color-mix(in oklab, var(--tone) var(--panel-header-tint), var(--card)),
@@ -183,6 +283,41 @@ html[dir="ltr"] :is(h1, h2) {
   border-color: var(--surface-soft-border);
 }
 
+/* Rows inside a panel that open something (attention queues, ranking links):
+   hover and keyboard focus tint the row with its own tone and draw a start-edge
+   accent; the icon chip answers with a small scale. Paint-only. */
+[data-slot="panel-row"] {
+  --tone: var(--insight-neutral);
+  transition:
+    background-color var(--duration-base) var(--ease-standard),
+    box-shadow var(--duration-base) var(--ease-standard);
+}
+[data-slot="panel-row"][data-tone="info"] {
+  --tone: var(--insight-info);
+}
+[data-slot="panel-row"][data-tone="success"] {
+  --tone: var(--insight-success);
+}
+[data-slot="panel-row"][data-tone="warning"] {
+  --tone: var(--insight-warning);
+}
+[data-slot="panel-row"][data-tone="destructive"] {
+  --tone: var(--insight-destructive);
+}
+[data-slot="panel-row"]:is(:hover, :focus-visible) {
+  background-color: color-mix(in oklab, var(--tone) 10%, var(--card));
+  box-shadow: inset 3px 0 0 var(--tone);
+}
+[dir="rtl"] [data-slot="panel-row"]:is(:hover, :focus-visible) {
+  box-shadow: inset -3px 0 0 var(--tone);
+}
+[data-slot="panel-row"] [data-slot="panel-row-icon"] {
+  transition: transform var(--duration-base) var(--ease-standard);
+}
+[data-slot="panel-row"]:is(:hover, :focus-visible) [data-slot="panel-row-icon"] {
+  transform: scale(1.08);
+}
+
 /* Metric group (`InsightGroup`): a gap-separated row of tile cards; the group
    draws nothing itself. */
 [data-slot="insight-group"] {
@@ -193,8 +328,17 @@ html[dir="ltr"] :is(h1, h2) {
 
 @media (prefers-reduced-motion: reduce) {
   [data-slot="insight-card"],
-  [data-slot="insight-card"] [data-slot="insight-action"] {
+  [data-slot="insight-card"] :is([data-slot="insight-icon"], [data-slot="insight-value"]),
+  [data-slot="insight-card"] :is([data-slot="insight-action"], [data-slot="insight-go"]),
+  [data-slot="panel-row"],
+  [data-slot="panel-row"] [data-slot="panel-row-icon"] {
     transition: none;
+  }
+  [data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible, :active),
+  [data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible)
+    :is([data-slot="insight-icon"], [data-slot="insight-go"]),
+  [data-slot="panel-row"]:is(:hover, :focus-visible) [data-slot="panel-row-icon"] {
+    transform: none;
   }
 }
 
@@ -843,6 +987,163 @@ html
     )
     svg {
     transition: none;
+  }
+}
+
+/* ── Home launcher (design-system §12.17) ─────────────────────────────────
+   `LauncherTile`: a soft glass-like tile in its module's identity hue
+   (`--hue-*`, `data-tone`): a translucent tone gradient over the page's quiet
+   colour wash, a tone hairline, an inner highlight and a light backdrop blur.
+   Hover and keyboard focus: a 2px rise, a stronger edge and gradient, a tinted
+   shadow, the icon chip filling solid with a white glyph, the arrow nudging
+   toward the reading direction. Paint-only (no reflow); reduced motion removes
+   every transform and transition. The title keeps the foreground colour — the
+   hue is identity, never the only carrier of meaning. */
+[data-slot="home-surface"] {
+  position: relative;
+  isolation: isolate;
+}
+[data-slot="home-surface"]::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: -2rem;
+  height: 32rem;
+  z-index: -1;
+  pointer-events: none;
+  /* The wash fades out on every side — never a visible band or edge. */
+  background:
+    radial-gradient(
+      44rem 15rem at 80% 34%,
+      color-mix(in oklab, var(--hue-blue) 11%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      38rem 14rem at 16% 40%,
+      color-mix(in oklab, var(--hue-teal) 8%, transparent),
+      transparent 70%
+    );
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 4rem, #000 18rem, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 4rem, #000 18rem, transparent);
+}
+
+[data-slot="launcher-tile"] {
+  --tone: var(--hue-blue);
+  --arrow-shift: 3px;
+  position: relative;
+  display: flex;
+  min-width: 0;
+  border: 1px solid color-mix(in oklab, var(--tone) 34%, var(--card));
+  border-radius: var(--radius-surface);
+  background-color: color-mix(in oklab, var(--tone) 3%, transparent);
+  background-image: linear-gradient(
+    150deg,
+    color-mix(in oklab, var(--tone) 22%, transparent),
+    color-mix(in oklab, var(--tone) 8%, transparent)
+  );
+  box-shadow:
+    inset 0 1px 0 var(--launcher-sheen),
+    0 1px 2px color-mix(in oklab, var(--tone) 14%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(1.15);
+  backdrop-filter: blur(10px) saturate(1.15);
+  color: var(--card-foreground);
+  text-decoration: none;
+  transition:
+    transform var(--duration-base) var(--ease-standard),
+    border-color var(--duration-base) var(--ease-standard),
+    box-shadow var(--duration-base) var(--ease-standard);
+}
+[dir="rtl"] [data-slot="launcher-tile"] {
+  --arrow-shift: -3px;
+}
+[data-slot="launcher-tile"][data-tone="blue"] {
+  --tone: var(--hue-blue);
+}
+[data-slot="launcher-tile"][data-tone="sky"] {
+  --tone: var(--hue-sky);
+}
+[data-slot="launcher-tile"][data-tone="teal"] {
+  --tone: var(--hue-teal);
+}
+[data-slot="launcher-tile"][data-tone="emerald"] {
+  --tone: var(--hue-emerald);
+}
+[data-slot="launcher-tile"][data-tone="amber"] {
+  --tone: var(--hue-amber);
+}
+[data-slot="launcher-tile"][data-tone="orange"] {
+  --tone: var(--hue-orange);
+}
+[data-slot="launcher-tile"][data-tone="rose"] {
+  --tone: var(--hue-rose);
+}
+[data-slot="launcher-tile"][data-tone="violet"] {
+  --tone: var(--hue-violet);
+}
+[data-slot="launcher-tile"][data-tone="indigo"] {
+  --tone: var(--hue-indigo);
+}
+[data-slot="launcher-tile"][data-tone="slate"] {
+  --tone: var(--hue-slate);
+}
+[data-slot="launcher-tile"] [data-slot="launcher-icon"] {
+  color: var(--tone);
+  background-color: color-mix(in oklab, var(--tone) 18%, var(--card));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone) 26%, transparent);
+  transition:
+    background-color var(--duration-base) var(--ease-standard),
+    color var(--duration-base) var(--ease-standard),
+    transform var(--duration-base) var(--ease-standard);
+}
+[data-slot="launcher-tile"] [data-slot="launcher-caption"] {
+  color: var(--insight-muted);
+}
+[data-slot="launcher-tile"] [data-slot="launcher-arrow"] {
+  color: color-mix(in oklab, var(--tone) 70%, var(--muted-foreground));
+  transition:
+    color var(--duration-base) var(--ease-standard),
+    transform var(--duration-base) var(--ease-standard);
+}
+[data-slot="launcher-tile"]:is(:hover, :focus-visible) {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklab, var(--tone) 62%, var(--card));
+  background-image: linear-gradient(
+    150deg,
+    color-mix(in oklab, var(--tone) 30%, transparent),
+    color-mix(in oklab, var(--tone) 12%, transparent)
+  );
+  box-shadow:
+    inset 0 1px 0 var(--launcher-sheen),
+    0 12px 24px -12px color-mix(in oklab, var(--tone) 55%, transparent),
+    0 2px 4px color-mix(in oklab, var(--tone) 16%, transparent);
+}
+[data-slot="launcher-tile"]:is(:hover, :focus-visible) [data-slot="launcher-icon"] {
+  background-color: var(--tone);
+  color: var(--card);
+  transform: scale(1.06);
+}
+[data-slot="launcher-tile"]:is(:hover, :focus-visible) [data-slot="launcher-arrow"] {
+  color: var(--tone);
+  transform: translateX(var(--arrow-shift));
+}
+[data-slot="launcher-tile"]:active {
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="launcher-tile"],
+  [data-slot="launcher-tile"] [data-slot="launcher-icon"],
+  [data-slot="launcher-tile"] [data-slot="launcher-arrow"] {
+    transition: none;
+  }
+  [data-slot="launcher-tile"]:is(:hover, :focus-visible, :active),
+  [data-slot="launcher-tile"]:is(:hover, :focus-visible)
+    :is([data-slot="launcher-icon"], [data-slot="launcher-arrow"]) {
+    transform: none;
+  }
+}
+@media print {
+  [data-slot="home-surface"]::before {
+    display: none;
   }
 }
 

@@ -61,6 +61,10 @@
   --text-metric: 1.375rem; /* 22px */
   --text-metric--line-height: 1.2;
   --text-metric--font-weight: 600;
+  /* Round 8: the dashboard's headline figures (InsightCard) — larger, never clipped. */
+  --text-metric-lg: 1.75rem; /* 28px */
+  --text-metric-lg--line-height: 1.15;
+  --text-metric-lg--font-weight: 650;
 }
 
 /* Numbers: tabular digits, isolated LTR run so amounts, references and

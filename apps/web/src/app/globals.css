@@ -450,12 +450,37 @@
   /* Round 7: tone accents one step stronger (blue = activity / new, green =
      success, amber = pending, red = overdue / error) — still tinted, never a
      saturated block; every text pair stays AA (contrast-check.mjs). */
-  --insight-tint-top: 14.5%;
-  --insight-tint-bottom: 5.5%;
-  --insight-tint-border: 36%;
-  --insight-icon-fill: 24%;
-  --panel-header-tint: 11%;
-  --panel-edge-tint: 22%;
+  /* Round 8 (§12.17): the tone is now clearly visible on the surface — a
+     tinted, glass-like gradient (top → bottom) with a perceptible hairline —
+     while every text pair stays AA (contrast-check.mjs). */
+  --insight-tint-top: 24%;
+  --insight-tint-bottom: 9%;
+  --insight-tint-border: 50%;
+  --insight-icon-fill: 30%;
+  --insight-sheen: rgb(255 255 255 / 0.65);
+  --insight-tint-top-hover: 32%;
+  --insight-tint-bottom-hover: 13%;
+  /* Secondary text on a tone-tinted surface: pulled toward the foreground so the
+     stronger tint keeps >= 4.5:1 (checked per tone in contrast-check.mjs). */
+  --insight-muted: color-mix(in oklab, var(--muted-foreground) 55%, var(--foreground));
+  --insight-rest-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 10px -6px rgb(0 0 0 / 0.12);
+  --panel-header-tint: 20%;
+  --panel-edge-tint: 34%;
+
+  /* Home launcher palette (§12.17): ten module-identity hues at one lightness
+     and chroma band so any two sit together. Decorative identity, never a
+     status. Used as the tile tone (`HomeTone`). */
+  --hue-blue: oklch(0.5 0.17 255);
+  --hue-sky: oklch(0.52 0.12 232);
+  --hue-teal: oklch(0.5 0.1 190);
+  --hue-emerald: oklch(0.5 0.12 158);
+  --hue-amber: oklch(0.5 0.12 72);
+  --hue-orange: oklch(0.53 0.15 48);
+  --hue-rose: oklch(0.53 0.18 12);
+  --hue-violet: oklch(0.5 0.17 295);
+  --hue-indigo: oklch(0.48 0.17 275);
+  --hue-slate: oklch(0.45 0.03 255);
+  --launcher-sheen: rgb(255 255 255 / 0.7);
   --surface-soft-row-hover: color-mix(in oklab, var(--brand-canvas) 55%, var(--card));
   --form-card-width-narrow: 32.5rem;
   --form-card-width: 40rem;
@@ -671,12 +696,28 @@
   --surface-soft-shadow-hover: 0 0 0 1px rgb(255 255 255 / 0.03), 0 8px 18px -8px rgb(0 0 0 / 0.75);
   --surface-soft-tone-strength: 7%;
   --surface-soft-tone-border-strength: 18%;
-  --insight-tint-top: 22%;
-  --insight-tint-bottom: 8%;
-  --insight-tint-border: 40%;
-  --insight-icon-fill: 32%;
-  --panel-header-tint: 14%;
-  --panel-edge-tint: 28%;
+  --insight-tint-top: 30%;
+  --insight-tint-bottom: 11%;
+  --insight-tint-border: 52%;
+  --insight-sheen: rgb(255 255 255 / 0.1);
+  --insight-tint-top-hover: 38%;
+  --insight-tint-bottom-hover: 15%;
+  --insight-muted: color-mix(in oklab, var(--muted-foreground) 55%, var(--foreground));
+  --insight-rest-shadow: 0 0 0 1px rgb(255 255 255 / 0.03);
+  --hue-blue: oklch(0.76 0.12 255);
+  --hue-sky: oklch(0.78 0.1 232);
+  --hue-teal: oklch(0.77 0.09 190);
+  --hue-emerald: oklch(0.77 0.11 158);
+  --hue-amber: oklch(0.8 0.12 78);
+  --hue-orange: oklch(0.76 0.13 50);
+  --hue-rose: oklch(0.76 0.14 12);
+  --hue-violet: oklch(0.76 0.13 295);
+  --hue-indigo: oklch(0.75 0.13 275);
+  --hue-slate: oklch(0.75 0.03 255);
+  --launcher-sheen: rgb(255 255 255 / 0.1);
+  --insight-icon-fill: 38%;
+  --panel-header-tint: 24%;
+  --panel-edge-tint: 38%;
   --surface-soft-row-hover: color-mix(in oklab, #52a8ff 6%, var(--card));
 }
 

@@ -418,6 +418,8 @@ const ar = {
   nav: {
     dashboard: "لوحة التحكم",
     dashboardSubtitle: "نظرة عامة على جميع وحدات النظام",
+    home: "الشاشة الرئيسية",
+    homeSubtitle: "افتح أي وحدة تملك صلاحية الوصول إليها",
     crm: "إدارة علاقات العملاء",
     crmLeads: "العملاء المحتملون",
     crmSalesTeams: "فرق المبيعات",
