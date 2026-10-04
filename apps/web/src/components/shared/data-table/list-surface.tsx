@@ -2,6 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { useToolbarTones } from "./toolbar-tones";
 
 /**
  * Viewport-fill contract (design-system §6 "Scroll"). A list workspace that
@@ -76,10 +77,17 @@ export function ListSurface({
  * controls are pushed to the end edge. `ListToolbarGroup` keeps related
  * controls together where they must wrap as one.
  * `relative` so a bulk-action strip can overlay it in place.
+ *
+ * The strip also owns the toolbar tonal sequence (§12.15): its ordinary
+ * controls are numbered `data-toolbar-tone` 1…5 in logical order by
+ * `useToolbarTones`, and the recipe paints each number one step of the blue
+ * ramp. Pass `data-tone-exempt` on a control or a wrapper to keep it out.
  */
 export function ListToolbar({ children, className }: { children: ReactNode; className?: string }) {
+  const ref = useToolbarTones<HTMLDivElement>();
   return (
     <div
+      ref={ref}
       data-slot="list-toolbar"
       className={cn(
         "relative flex shrink-0 flex-wrap items-center gap-x-1 gap-y-1.5 border-b border-border bg-card px-3 py-1.5 sm:px-4",
