@@ -38,5 +38,20 @@ export default tseslint.config(
       "no-console": ["warn", { allow: ["warn", "error"] }],
     },
   },
+  {
+    // Per-round acceptance scripts drive a real browser: callbacks passed to
+    // page.evaluate() run in the page and use these DOM globals. Listed
+    // explicitly — the full browser set collides with common local names, and
+    // the older top-level scripts declare theirs with `/* global */` comments.
+    files: ["scripts/acceptance/r*/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        document: "readonly",
+        getComputedStyle: "readonly",
+        Image: "readonly",
+        window: "readonly",
+      },
+    },
+  },
   eslintConfigPrettier,
 );
