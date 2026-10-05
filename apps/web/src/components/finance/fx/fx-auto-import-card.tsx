@@ -274,7 +274,7 @@ export function FxAutoImportCard({
         <div className="min-w-0">
           <EnterpriseCardTitle>{t("fxSettings.autoImport.title")}</EnterpriseCardTitle>
           <p className="text-caption text-muted-foreground">
-            {t("fxSettings.autoImport.description", { base: baseCode || "EGP" })}
+            {t("fxSettings.autoImport.description", { base: baseCode || "—" })}
           </p>
         </div>
         {canManage ? (

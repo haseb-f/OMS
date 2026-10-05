@@ -57,7 +57,7 @@ const KNOWN_NOTES: Array<{ prefix: string; key: MessageKey }> = [
     key: "reports.finance.cashAvailabilityReport.limitations.notBankConfirmed",
   },
   {
-    prefix: "EGP equivalents",
+    prefix: "Functional-currency equivalents",
     key: "reports.finance.cashAvailabilityReport.limitations.egpRates",
   },
 ];
@@ -193,7 +193,7 @@ export function CashAvailabilityTab() {
           id: "egpConsolidated",
           label: t("reports.finance.cashAvailabilityReport.egpConsolidated"),
           value: result.egpConsolidated.availableToSpend,
-          currency: "EGP",
+          currency: result.functionalCurrencyCode || undefined,
           emphasize: true,
         },
       ]

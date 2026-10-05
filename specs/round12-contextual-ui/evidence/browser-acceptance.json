@@ -1,5 +1,5 @@
 {
-  "tag": "R12UI248784",
+  "tag": "R12UI903156",
   "results": [
     {
       "name": "setup: tagged existing customer + prior order",
@@ -43,6 +43,11 @@
     },
     {
       "name": "3. a manually chosen currency (USD) is NOT overwritten by a country change",
+      "ok": true,
+      "detail": "USD"
+    },
+    {
+      "name": "4a. other countries propose USD (Kuwait → USD, not the system base currency)",
       "ok": true,
       "detail": "USD"
     },
@@ -109,7 +114,7 @@
     {
       "name": "11. an order number is searched in the SAME dialog",
       "ok": true,
-      "detail": "STO-2026-027273"
+      "detail": "STO-2026-027275"
     },
     {
       "name": "11. too-short input shows a validation hint, no request result",

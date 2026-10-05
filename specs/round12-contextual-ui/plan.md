@@ -27,6 +27,11 @@ R11 (compact entry, recognition, in-field calling code, order-level delivery, em
 
 `ControlSurface` (`toolbar` default | `form`) → `data-surface` on `SelectTrigger` / `EnterpriseButton variant="field"`; recipe in `theme/recipes.css` re-points only the `--selector*` tokens (light and dark). Providers: `DialogContent`, `SheetContent`, `Form`, `EditorWorkspace`, `PageWorkspace controlSurface="form"` (+ accounting settings, KPI template form, inline carrier cell); `ListToolbar` / `SelectorRow` restore `toolbar`. Audit: `scripts/acceptance/r12/dropdown-audit.mjs` (135 routes).
 
+## 4b. Owner decisions (2026-10-05, after the local review)
+
+- Order-currency proposal per country: Saudi Arabia → SAR, Egypt → EGP, **every other country → USD** (migration `20261005140000_r12_country_default_currency_usd`, seed; editable in Master data → Countries). It is an order proposal only and never the system's base currency.
+- **The base (functional) currency and the financial statements' currency come from Settings → Accounting only** (`posting_settings.functional_currency_id`); no currency is assumed in code: report fallbacks to EGP removed (cash availability, period profit), static "EGP" labels replaced by base-currency wording, the order dialog no longer falls back to SAR, the dev seed sets a base currency only when `SEED_BASE_CURRENCY` is given. Posting still fails closed when unset; the base currency still cannot change once entries are posted.
+
 ## 5. Decisions / limits
 
 - A page-level selector outside a toolbar / form (cost explorer product pickers, fiscal-year pickers, exchange-rate currency pickers, funnel date range) stays `toolbar` — they are filters.

@@ -461,12 +461,14 @@ async function main() {
     ),
   );
 
-  // Local/dev fixtures are SAR-denominated, so the dev ledger's base
-  // currency is set explicitly (the engine no longer guesses one). Only
-  // fills an unset value — never re-denominates an existing ledger.
-  const devBaseCurrency = await prisma.currency.findUnique({
-    where: { code: 'SAR' },
-  });
+  // The base (functional) currency is a Settings decision, never a code
+  // default. A dev database may opt in explicitly with SEED_BASE_CURRENCY=<code>
+  // (only fills an unset value — never re-denominates an existing ledger).
+  const devBaseCurrencyCode =
+    process.env.SEED_BASE_CURRENCY?.trim().toUpperCase();
+  const devBaseCurrency = devBaseCurrencyCode
+    ? await prisma.currency.findUnique({ where: { code: devBaseCurrencyCode } })
+    : null;
   const postingSettings = await prisma.postingSettings.findFirst();
   if (devBaseCurrency && !postingSettings?.functionalCurrencyId) {
     if (postingSettings) {
@@ -505,9 +507,7 @@ async function main() {
   // fabricated pairing for a currency this system doesn't seed.
   const defaultCurrencyByCountryCode: Record<string, string> = {
     SA: 'SAR',
-    AE: 'AED',
     EG: 'EGP',
-    US: 'USD',
   };
   for (const [countryCode, currencyCode] of Object.entries(
     defaultCurrencyByCountryCode,
@@ -519,6 +519,16 @@ async function main() {
     await prisma.country.update({
       where: { code: countryCode },
       data: { defaultCurrencyId: currency.id },
+    });
+  }
+  // Every other country proposes USD for an order (an order proposal only — it
+  // is NOT the system's base currency). Fills unset countries; never overwrites
+  // a value edited in Master data → Countries.
+  const usd = await prisma.currency.findUnique({ where: { code: 'USD' } });
+  if (usd) {
+    await prisma.country.updateMany({
+      where: { defaultCurrencyId: null, code: { notIn: ['SA', 'EG'] } },
+      data: { defaultCurrencyId: usd.id },
     });
   }
 

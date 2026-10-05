@@ -1712,8 +1712,8 @@ export class AccountingReportsService {
             where: { id: functionalId },
             select: { code: true },
           })
-        )?.code ?? 'EGP')
-      : 'EGP';
+        )?.code ?? '')
+      : '';
 
     const accounts = [];
     const totalsByCurrency = new Map<
@@ -1825,7 +1825,7 @@ export class AccountingReportsService {
           rateEffectiveDate,
           rateSource,
           convention: Number.isFinite(rateToEgp)
-            ? `1 ${currencyCode} = ${rateToEgp} EGP`
+            ? `1 ${currencyCode} = ${rateToEgp} ${functionalCode}`
             : null,
         },
       });
@@ -1839,10 +1839,12 @@ export class AccountingReportsService {
       limitations: [
         'recordedHolds are not tracked in OMS — always 0.',
         'bankConfirmedAvailable is not tracked — do not treat availableToSpend as guaranteed spendable cash.',
-        'EGP equivalents use the latest directed rate on or before as-of; missing rates omit that account from the EGP total.',
+        'Functional-currency equivalents use the latest directed rate on or before as-of; missing rates omit that account from the consolidated total.',
       ],
       accounts,
       totalsByCurrency: [...totalsByCurrency.values()],
+      /** The configured base (functional) currency of the figures below (Settings → Accounting). Empty = not configured. */
+      functionalCurrencyCode: functionalCode,
       egpConsolidated: {
         bookBalance: roundReportMoney(egpBook),
         availableToSpend: roundReportMoney(egpAvailable),
@@ -1980,14 +1982,14 @@ export class AccountingReportsService {
           .toISOString()
           .slice(0, 10),
         source: resolvedRate.source,
-        convention: `1 ${currency.code} = ${rate} ${functional?.code ?? 'EGP'}`,
+        convention: `1 ${currency.code} = ${rate} ${functional?.code ?? ''}`,
         presentationOnly: true,
       });
     }
 
     return {
       netProfitEgp,
-      functionalCurrencyCode: functional?.code ?? 'EGP',
+      functionalCurrencyCode: functional?.code ?? '',
       asOfDate: asOfBusinessDate,
       income,
       equivalents,

@@ -1711,8 +1711,8 @@ const en = {
         holds: "Holds",
         committed: "Committed out",
         available: "Available to spend",
-        egpAvailable: "EGP available",
-        egpConsolidated: "EGP consolidated",
+        egpAvailable: "Available (base currency)",
+        egpConsolidated: "Consolidated (base currency)",
         currencyTotal: "Total {currency}",
         empty: "No cash or bank receiving accounts found.",
         asOf: "As of",
@@ -1723,7 +1723,7 @@ const en = {
           notBankConfirmed:
             "Bank-confirmed availability is not tracked — do not treat the available figure as guaranteed spendable cash.",
           egpRates:
-            "EGP equivalents use the latest rate on or before the as-of date; accounts without a rate are left out of the EGP total.",
+            "Base-currency equivalents (the currency set in Accounting settings) use the latest rate on or before the as-of date; accounts without a rate are left out of the total.",
         },
       },
       arAging: "AR Aging",
@@ -5391,9 +5391,9 @@ const en = {
         unrealizedFx: "Unrealized FX Gain/Loss",
         otherIncome: "Other Income",
         otherExpense: "Other Expense",
-        functionalCurrency: "Functional Currency",
+        functionalCurrency: "System base currency (and financial statements)",
         functionalCurrencyHint:
-          "The unit every posted amount is stored in. It cannot be changed after journal entries have been posted.",
+          "Set here only (no currency is assumed in code): every posted amount is stored in it and the financial statements and reports are shown in it. It cannot be changed after journal entries have been posted. The country order-currency proposal (Master data → Countries) does not change it.",
         functionalCurrencyMissing:
           "Not set — documents that carry a currency cannot be posted until the company base currency is chosen.",
       },

@@ -506,6 +506,8 @@ export interface CashAvailabilityResult {
     };
   }>;
   totalsByCurrency: Array<{ currencyCode: string; book: number; available: number }>;
+  /** The configured base (functional) currency the consolidated figures are in (empty = not configured). */
+  functionalCurrencyCode: string;
   egpConsolidated: { bookBalance: number; availableToSpend: number; note: string };
 }
 

@@ -216,8 +216,21 @@ const browser = await chromium.launch();
   const dlg2 = page.locator('[role="dialog"]').first();
   await pickInCombobox(page, await countryField(dlg2), "الكويت");
   const cur2 = await currencyField(dlg2);
-  check("4. a country without a configured currency leaves currency empty and says so", /اختر|Select|Choose/.test(await text(cur2)) || (await text(cur2)) === "" || !/SAR/.test(await text(cur2)), await text(cur2));
-  check("4. the calling code still follows (+965)", (await callingCode(dlg2)) === "+965", await callingCode(dlg2));
+  check("4a. other countries propose USD (Kuwait → USD, not the system base currency)", /USD/.test(await text(cur2)), await text(cur2));
+  // …and a country whose default was cleared is asked, never guessed.
+  const kwRow = (await call(adminT, "GET", "/countries?search=KW&pageSize=5")).j.items.find((c) => c.code === "KW");
+  const kwDefault = kwRow.defaultCurrencyId;
+  await call(adminT, "PATCH", `/countries/${kwRow.id}`, { defaultCurrencyId: "" });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await settle(page, 1500);
+  await page.getByRole("button", { name: NEW_ORDER }).first().click();
+  await page.locator('[role="dialog"]').first().waitFor();
+  await page.waitForTimeout(600);
+  await pickInCombobox(page, await countryField(page.locator('[role="dialog"]').first()), "الكويت");
+  const cur3 = await currencyField(page.locator('[role="dialog"]').first());
+  check("4. a country without a configured currency leaves currency empty and says so", /اختر|Select|Choose/.test(await text(cur3)) || !/USD|SAR|EGP/.test(await text(cur3)), await text(cur3));
+  await call(adminT, "PATCH", `/countries/${kwRow.id}`, { defaultCurrencyId: kwDefault ?? "" });
+  check("4. the calling code still follows (+965)", (await callingCode(page.locator('[role="dialog"]').first())) === "+965", await callingCode(page.locator('[role="dialog"]').first()));
   await shot(page, "order-form-no-currency-default");
 
   // typed number keeps its calling code when the country changes afterwards

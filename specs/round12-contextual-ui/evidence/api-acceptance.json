@@ -1,5 +1,5 @@
 {
-  "tag": "R12ACC861845",
+  "tag": "R12ACC896140",
   "results": [
     {
       "name": "countries expose defaultCurrencyId (SA → SAR)",
@@ -12,9 +12,9 @@
       "detail": "EGP"
     },
     {
-      "name": "a country without a configured currency stays unset (asked, never guessed)",
+      "name": "every other country proposes USD (KW → USD) — an order proposal, not the base currency",
       "ok": true,
-      "detail": ""
+      "detail": "USD"
     },
     {
       "name": "unknown default currency refused (400)",

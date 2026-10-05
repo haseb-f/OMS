@@ -73,7 +73,7 @@ const eg = countries.find((c) => c.code === "EG");
 check("countries expose defaultCurrencyId (SA → SAR)", byId(sa.defaultCurrencyId) === "SAR", byId(sa.defaultCurrencyId));
 check("countries expose defaultCurrencyId (EG → EGP)", byId(eg.defaultCurrencyId) === "EGP", byId(eg.defaultCurrencyId));
 const kw = countries.find((c) => c.code === "KW");
-check("a country without a configured currency stays unset (asked, never guessed)", !kw.defaultCurrencyId);
+check("every other country proposes USD (KW → USD) — an order proposal, not the base currency", byId(kw.defaultCurrencyId) === "USD", byId(kw.defaultCurrencyId));
 
 // admin can maintain it; a bad id is refused; clearing works (restored afterwards)
 const original = kw.defaultCurrencyId ?? null;

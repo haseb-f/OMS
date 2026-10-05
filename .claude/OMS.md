@@ -171,6 +171,9 @@ Icons · Motion · next-themes.
 - There is exactly one customer-discovery entry point: "Advanced customer lookup" (`customers.lookup_advanced`) —
   phone (any format, Arabic digits), first + last name or an order number; exact identifiers may list up to 20 rows
   (paged in the dialog), names stay capped at 5. Previous orders appear only for records the caller can already open.
+- The base (functional) currency and the currency of the financial statements are Settings values
+  (Settings → Accounting); never a code default or fallback. A country's order-currency proposal
+  (`Country.defaultCurrencyId`: SA → SAR, EG → EGP, others → USD) is unrelated to it.
 - Order entry (R12): the customer's country proposes the calling code and the order currency
   (`Country.defaultCurrencyId`); a manual choice is never overwritten, a typed number is never re-read under another
   code, no configured currency means the user is asked. Delivery country is separate from the phone / customer country.

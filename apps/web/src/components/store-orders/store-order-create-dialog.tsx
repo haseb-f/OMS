@@ -268,18 +268,16 @@ export function StoreOrderCreateDialog({
       setPhoneCountryOverride(phoneCountryId || null);
     }
   };
-  // The currency follows the country's configured default until the user chooses one. A country
-  // without a configured default leaves it empty (asked, never guessed); with no country at all
-  // the company currency (SAR) applies as before.
-  const fallbackCurrencyId =
-    currencies.find((currency) => currency.code === "SAR")?.id ?? currencies[0]?.id ?? "";
+  // The currency follows the country's configured default (Master data -> Countries) until the
+  // user chooses one. No configured default, or no country yet, leaves it empty: asked, never
+  // guessed - and never the system's base currency by assumption.
   useEffect(() => {
     if (currencyTouchedRef.current || currencies.length === 0) return;
-    const next = proposal.currencyId ?? (countryId ? "" : fallbackCurrencyId);
+    const next = proposal.currencyId ?? "";
     if (form.getValues("currencyId") !== next) {
       form.setValue("currencyId", next, { shouldDirty: false });
     }
-  }, [proposal.currencyId, countryId, fallbackCurrencyId, currencies.length, form]);
+  }, [proposal.currencyId, currencies.length, form]);
   const noCurrencyDefault = !selectedCurrencyId && !!countryId && currencies.length > 0;
   const currencyCode =
     currencies.find((currency) => currency.id === selectedCurrencyId)?.code ?? "";
