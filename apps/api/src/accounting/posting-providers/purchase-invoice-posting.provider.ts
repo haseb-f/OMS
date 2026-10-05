@@ -24,7 +24,8 @@ import type {
  * Every account id resolved through `AccountMappingService` (TASK-047);
  * Dr/Cr structure and amounts unchanged from TASK-046. Also updates the
  * moving-average cost of every inventory-tracked line via
- * `InventoryValuationService.applyPurchaseReceipt` — the "Inventory
+ * `InventoryValuationService.applyPurchaseReceiptLines` (once per product,
+ * all of the document's lines of that product together) — the "Inventory
  * Valuation Service" step in the required architecture — so the cost used
  * by a later Sales Invoice's COGS posting reflects this receipt.
  */
@@ -85,6 +86,13 @@ export class PurchaseInvoicePostingProvider
     // so each linked Fixed Asset / Prepaid Expense carries exactly the base
     // amount this entry recorded for it.
     const recognitionLines: PostingLine[] = [];
+    // R13 (F8) — receipt lines grouped per product: the moving average is
+    // blended ONCE per product against the on-hand before the whole
+    // document, so the same product on two lines never distorts it.
+    const receivedByProduct = new Map<
+      string,
+      { quantity: number; unitCost: number }[]
+    >();
     for (const item of invoice.items) {
       const netAmount = Number(item.lineTotal) - Number(item.taxAmount);
       const roundedNet = Math.round(netAmount * 100) / 100;
@@ -120,13 +128,10 @@ export class PurchaseInvoicePostingProvider
             ? Math.round((netAmount / item.quantity) * exchangeRate * 10000) /
               10000
             : Number(item.unitPrice) * exchangeRate;
-        await this.inventoryValuation.applyPurchaseReceipt(
-          item.productId,
-          item.quantity,
-          functionalUnitCost,
-          tx,
-          userId,
-        );
+        receivedByProduct.set(item.productId, [
+          ...(receivedByProduct.get(item.productId) ?? []),
+          { quantity: item.quantity, unitCost: functionalUnitCost },
+        ]);
       } else {
         const accountId = await this.accountMapping.resolvePurchaseAccount(
           invoice.partner.id,
@@ -138,6 +143,14 @@ export class PurchaseInvoicePostingProvider
           (debitByAccount.get(accountId) ?? 0) + netAmount,
         );
       }
+    }
+    for (const [productId, received] of receivedByProduct) {
+      await this.inventoryValuation.applyPurchaseReceiptLines(
+        productId,
+        received,
+        tx,
+        userId,
+      );
     }
     for (const [accountId, amount] of debitByAccount) {
       if (amount === 0) continue;

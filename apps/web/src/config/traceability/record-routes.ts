@@ -1,5 +1,6 @@
 import type { MessageKey } from "@/i18n/translate";
 import type { TraceKind } from "@/services/traceability-service";
+import { assemblyHref } from "@/config/inventory/assembly";
 
 /**
  * The one record-kind → page map. A kind without `href` has no detail page
@@ -76,3 +77,30 @@ export const MOVEMENT_REFERENCE_KIND: Record<string, TraceKind> = {
   PURCHASE_INVOICE: "PURCHASE_INVOICE",
   PURCHASE_RETURN: "PURCHASE_RETURN",
 };
+
+/**
+ * Movement references whose document has a page of its own but is not a
+ * traceability-graph kind (R13: assembly orders).
+ */
+export const MOVEMENT_REFERENCE_PAGES: Record<
+  string,
+  { labelKey: MessageKey; href: (id: string) => string }
+> = {
+  ASSEMBLY_ORDER: { labelKey: "assembly.referenceLabel", href: assemblyHref },
+};
+
+/** The label and (when the document has a page) the link of a stock movement's source document. */
+export function movementReferenceLink(
+  referenceType: string | null | undefined,
+  referenceId: string | null | undefined,
+): { labelKey: MessageKey; href: string | null } | null {
+  if (!referenceType) return null;
+  const page = MOVEMENT_REFERENCE_PAGES[referenceType];
+  if (page) return { labelKey: page.labelKey, href: referenceId ? page.href(referenceId) : null };
+  const kind = MOVEMENT_REFERENCE_KIND[referenceType];
+  if (!kind) return null;
+  return {
+    labelKey: RECORD_ROUTES[kind].labelKey,
+    href: referenceId ? recordHref(kind, referenceId) : null,
+  };
+}

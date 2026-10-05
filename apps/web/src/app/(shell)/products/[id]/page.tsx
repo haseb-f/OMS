@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Archive, CheckCircle2, Package, Pencil } from "lucide-react";
+import { Archive, Boxes, CheckCircle2, Package, Pencil } from "lucide-react";
 import {
   DetailField,
   DetailFieldRow,
@@ -40,6 +40,8 @@ import {
 } from "@/components/products/product-form-dialog";
 import { RecipePanel } from "@/components/products/recipe-panel";
 import { usesRecipe } from "@/config/products/attribute-rules";
+import { AssemblyCreateDialog } from "@/components/inventory/assembly-create-dialog";
+import { ASSEMBLY_PERMISSIONS } from "@/config/inventory/assembly";
 
 const STATUS_TONE: Record<ProductRow["status"], StatusTone> = {
   DRAFT: "warning",
@@ -60,6 +62,8 @@ function ProductDetailContent() {
   const { hasPermission } = useUserContext();
   const canEdit = hasPermission("products.edit");
   const canArchive = hasPermission("products.archive");
+  const canAssemble = hasPermission(ASSEMBLY_PERMISSIONS.create);
+  const [assembleOpen, setAssembleOpen] = useState(false);
 
   const [product, setProduct] = useState<ProductRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -447,6 +451,18 @@ function ProductDetailContent() {
                 hidden: !canEdit || !isDraft,
                 onSelect: () => openEdit(undefined),
               },
+              {
+                // R13 — shortcut to the assembly dialog, prefilled with this product.
+                key: "assemble",
+                label: t("assembly.assembleAction"),
+                icon: Boxes,
+                hidden:
+                  !canAssemble ||
+                  product.supplyMethod !== "ASSEMBLED" ||
+                  product.status !== "ACTIVE" ||
+                  !!product.deletedAt,
+                onSelect: () => setAssembleOpen(true),
+              },
             ]}
             destructive={[
               {
@@ -491,6 +507,15 @@ function ProductDetailContent() {
           },
         ]}
       />
+
+      {canAssemble && product.supplyMethod === "ASSEMBLED" ? (
+        <AssemblyCreateDialog
+          open={assembleOpen}
+          onOpenChange={setAssembleOpen}
+          initialProduct={product}
+          onCreated={() => void loadActivities()}
+        />
+      ) : null}
 
       <ProductFormDialog
         open={editOpen}

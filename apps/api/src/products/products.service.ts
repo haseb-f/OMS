@@ -248,6 +248,7 @@ export class ProductsService {
       isInventoryItem: query.isInventoryItem,
       isSellable: query.isSellable,
       isPurchasable: query.isPurchasable,
+      supplyMethod: query.supplyMethod,
       ownerAgentId: query.agentId
         ? query.agentId
         : query.ownership === 'COMPANY'

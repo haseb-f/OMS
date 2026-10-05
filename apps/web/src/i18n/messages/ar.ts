@@ -14,6 +14,7 @@ import shippingHandoffAr from "./modules/shipping-handoff.ar";
 import leadOpsAr from "./modules/lead-ops.ar";
 import customerLookupAr from "./modules/customer-lookup.ar";
 import tableViewsAr from "./modules/table-views.ar";
+import assemblyAr from "./modules/assembly.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
@@ -23,6 +24,7 @@ const ar = {
   leadOps: leadOpsAr,
   customerLookup: customerLookupAr,
   tableViews: tableViewsAr,
+  assembly: assemblyAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
@@ -453,6 +455,7 @@ const ar = {
     inventoryMovements: "حركات المخزون",
     inventoryStock: "الرصيد الفعلي",
     inventoryPhysicalCount: "الجرد الفعلي",
+    inventoryAssembly: "التجميع",
     expenses: "التكاليف",
     expensesComponents: "فئات التكلفة",
     expensesProductCost: "تكلفة المنتج",
@@ -1212,6 +1215,12 @@ const ar = {
         inventoryAccountId: "الحساب الذي يمثل قيمة مخزون منتجات هذه الفئة.",
         cogsAccountId: "الحساب المستخدم لتسجيل تكلفة المنتجات المباعة من هذه الفئة.",
         purchaseAccountId: "الحساب المستخدم عند شراء منتجات هذه الفئة.",
+        defaultUnitId: "تُقترح كوحدة المنتج الجديد في هذه الفئة (يمكن تغييرها).",
+        defaultTaxId: "تُقترح كضريبة المنتج الجديد في هذه الفئة (يمكن تغييرها).",
+      },
+      fields: {
+        defaultUnit: "الوحدة الافتراضية",
+        defaultTax: "الضريبة الافتراضية",
       },
     },
     brands: {
@@ -2395,6 +2404,8 @@ const ar = {
       itemType: "نوع الصنف",
       itemTypeUnset: "غير مصنّف",
       traits: "بيع / شراء / مخزون",
+      allSupplyMethods: "كل طرق التوريد",
+      allItemTypes: "كل أنواع الأصناف",
     },
     traits: {
       sold: "يُباع",
@@ -2566,6 +2577,22 @@ const ar = {
     },
     stock: {
       description: "الكمية الحالية والمحجوزة والتكلفة والقيمة لكل منتج مخزون.",
+      companyValueTotal: "قيمة مخزون الشركة",
+      companyValueNote:
+        "إجماليات قيمة المخزون تشمل مخزون الشركة فقط — مخزون الوكلاء لا يُقيَّم كأصل للشركة.",
+    },
+    owner: {
+      label: "المالك",
+      all: "كل المالكين",
+      COMPANY: "الشركة",
+      AGENT: "مخزون الوكلاء",
+      unknownAgent: "وكيل",
+    },
+    trace: {
+      title: "الطقم / التجميع",
+      partOf: "ضمن {name}",
+      recipeVersion: "الوصفة إصدار {version}",
+      unknownProduct: "منتج غير ظاهر",
     },
     fields: {
       movementNumber: "رقم الحركة",
@@ -3547,6 +3574,17 @@ const ar = {
       },
     },
     invoices: {
+      kit: {
+        title: "مكوّنات الطقم المسلَّمة",
+        note: "الطقم لا يملك مخزوناً: كل مكوّن أدناه خرج من المخزون عند تأكيد الفاتورة.",
+        component: "المكوّن",
+        perKit: "لكل طقم",
+        delivered: "المسلَّم",
+        unitCost: "تكلفة الوحدة",
+        line: "{product} × {quantity}",
+        recipeVersion: "الوصفة إصدار {version}",
+        unknownComponent: "مكوّن غير ظاهر",
+      },
       title: "الفواتير",
       description: "إصدار فواتير للعملاء وتخفيض المخزون عند التأكيد.",
       addNew: "فاتورة جديدة",
@@ -4797,6 +4835,16 @@ const ar = {
         reconciled: "التوزيع متوازن تمامًا — جاهز للاعتماد.",
         notReconciled: "التوزيع غير متوازن بعد.",
       },
+      posted: {
+        title: "التوزيع المرحَّل",
+        exchangeRate: "سعر الصرف (مثبَّت عند الترحيل)",
+        allocatedQuantity: "الكمية الموزعة",
+        allocatedAmount: "الموزع",
+        capitalized: "مرسمل على المخزون",
+        variance: "مباع مسبقاً (فرق تكلفة المبيعات)",
+        explanation:
+          "حصة الوحدات التي ما زالت في المخزون تُضاف إلى قيمته وتعدّل متوسط التكلفة؛ وحصة الوحدات المباعة مسبقاً تُحمَّل على تكلفة البضاعة المباعة.",
+      },
       relatedPurchaseInvoice: "فاتورة الشراء",
       relatedJournalEntry: "قيد اليومية",
     },
@@ -5467,6 +5515,7 @@ const ar = {
         inventoryAsset: "حساب أصول المخزون",
         inventoryAdjustment: "حساب تسوية المخزون",
         landedCostClearing: "حساب تسوية التكاليف المرحلة",
+        assemblyCost: "تكلفة التجميع (التكاليف المباشرة المحمّلة)",
         purchase: "حساب المشتريات",
         purchaseDiscount: "حساب خصم المشتريات",
         purchaseReturn: "حساب مرتجعات المشتريات",

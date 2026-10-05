@@ -65,8 +65,9 @@ function ProductsPageContent() {
 
   const warehouses = useWarehouses();
 
-  // R13 facets — only those the list API filters on (it has no supply-method parameter).
+  // R13 facets — each one is a list API filter.
   const [itemTypeFilter, setItemTypeFilter] = usePathRestorableState("itemType", "");
+  const [supplyMethodFilter, setSupplyMethodFilter] = usePathRestorableState("supplyMethod", "");
   const [sellableFilter, setSellableFilter] = usePathRestorableState("sellable", "");
   const [purchasableFilter, setPurchasableFilter] = usePathRestorableState("purchasable", "");
   const [trackedFilter, setTrackedFilter] = usePathRestorableState("tracked", "");
@@ -91,6 +92,7 @@ function ProductsPageContent() {
       sortOrder,
       includeArchived,
       itemType: (itemTypeFilter || undefined) as ProductListParams["itemType"],
+      supplyMethod: (supplyMethodFilter || undefined) as ProductListParams["supplyMethod"],
       isSellable: toBooleanFilter(sellableFilter),
       isPurchasable: toBooleanFilter(purchasableFilter),
       isInventoryItem: toBooleanFilter(trackedFilter),
@@ -102,6 +104,7 @@ function ProductsPageContent() {
       sortOrder,
       includeArchived,
       itemTypeFilter,
+      supplyMethodFilter,
       sellableFilter,
       purchasableFilter,
       trackedFilter,
@@ -299,6 +302,19 @@ function ProductsPageContent() {
                 { value: "SERVICE", label: t("products.attr.itemType.SERVICE") },
                 { value: "UNSET", label: t("products.facets.itemTypeUnset") },
               ]}
+            />
+            <SelectFilter
+              label={t("products.attr.supplyMethod.label")}
+              value={supplyMethodFilter}
+              onChange={(value) => {
+                setSupplyMethodFilter(value);
+                setPage(1);
+              }}
+              allLabel={t("products.facets.allSupplyMethods")}
+              options={(["PURCHASED", "ASSEMBLED", "KIT"] as const).map((value) => ({
+                value,
+                label: t(`products.attr.supplyMethod.${value}`),
+              }))}
             />
             {(
               [

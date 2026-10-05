@@ -41,6 +41,21 @@ export interface SalesInvoiceItemRow {
   taxAmount: string;
   lineTotal: string;
   notes: string | null;
+  /** R13 — a kit line: the recipe version and the components it was fulfilled from (null for any other line). */
+  fulfillmentSnapshot?: KitFulfillmentSnapshot | null;
+}
+
+/** R13 (api-contract §6) — what a kit sale line delivered: components per kit and their cost snapshot. */
+export interface KitFulfillmentSnapshot {
+  recipeId: string;
+  version: number;
+  components: {
+    productId: string;
+    /** Whole stock units of the component per kit. */
+    qtyPerKit: number | string;
+    /** Moving-average cost at delivery; withheld (null/absent) without cost visibility. */
+    unitCost?: string | number | null;
+  }[];
 }
 
 export interface SalesInvoiceRow {

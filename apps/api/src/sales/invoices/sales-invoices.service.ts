@@ -23,6 +23,7 @@ import { ProductsService } from '../../products/products.service';
 import { WarehousesService } from '../../warehouses/warehouses.service';
 import { PartnersService } from '../../partners/partners.service';
 import { InventoryService } from '../../inventory/inventory.service';
+import { StockLineResolver } from '../../inventory/stock-lines/stock-line-resolver';
 import { PostingEngineService } from '../../accounting/posting-engine/posting-engine.service';
 import { AccountMappingService } from '../../accounting/account-mapping/account-mapping.service';
 import { resolveLineTaxes } from '../../taxes/document-tax';
@@ -48,8 +49,21 @@ import { FindSalesInvoicesQueryDto } from './dto/find-sales-invoices-query.dto';
 import type { SalesLineItemInputDto } from '../shared/sales-line-item-input.dto';
 import { assertActiveProduct } from '../../products/assert-active-product.util';
 import { prismaEnumFilter } from '../../common/query/enum-list';
+import {
+  resolveAndLockStockLines,
+  stockLineMovementKey,
+  stockLineTrace,
+} from '../shared/stock-fulfillment';
+import { kitSnapshotJson } from '../shared/kit-snapshot';
+import {
+  releaseAllReserved,
+  releaseReserved,
+  reservedUnderReference,
+  SALES_ORDER_RESERVATION_REFERENCE,
+  type ReservedBalance,
+} from '../shared/order-reservations';
 
-const ORDER_REFERENCE_TYPE = 'SALES_ORDER_DOC';
+const ORDER_REFERENCE_TYPE = SALES_ORDER_RESERVATION_REFERENCE;
 const INVOICE_REFERENCE_TYPE = 'SALES_INVOICE';
 
 interface ComputedInvoiceLines {
@@ -65,6 +79,7 @@ export class SalesInvoicesService {
     private readonly productsService: ProductsService,
     private readonly warehousesService: WarehousesService,
     private readonly inventoryService: InventoryService,
+    private readonly stockLines: StockLineResolver,
     private readonly activityService: SalesInvoiceActivityService,
     private readonly numberingEngine: NumberingEngineService,
     private readonly postingEngine: PostingEngineService,
@@ -458,35 +473,7 @@ export class SalesInvoicesService {
           tx,
         );
       }
-      for (const item of invoice.items) {
-        // Services / non-stock lines deliver nothing and were never reserved.
-        if (!item.product.isInventoryItem) continue;
-        await this.inventoryService.postSalesDelivery(
-          {
-            productId: item.productId,
-            warehouseId: item.warehouseId,
-            quantity: item.quantity,
-            referenceType: INVOICE_REFERENCE_TYPE,
-            referenceId: invoice.id,
-          },
-          userId,
-          tx,
-        );
-
-        if (item.salesOrderItemId && invoice.salesOrderId) {
-          await this.inventoryService.release(
-            {
-              productId: item.productId,
-              warehouseId: item.warehouseId,
-              quantity: item.quantity,
-              referenceType: ORDER_REFERENCE_TYPE,
-              referenceId: invoice.salesOrderId,
-            },
-            userId,
-            tx,
-          );
-        }
-      }
+      await this.deliverInvoiceLines(tx, invoice, userId);
 
       const updated = await tx.salesInvoice.update({
         where: { id },
@@ -521,6 +508,7 @@ export class SalesInvoicesService {
               orderItemId: item.salesOrderItemId as string,
               quantity: item.quantity,
             })),
+          userId,
         );
       }
 
@@ -528,6 +516,100 @@ export class SalesInvoicesService {
 
       return updated;
     });
+  }
+
+  /**
+   * R13 — the stock side of confirming: lines resolve to the stock they move
+   * (a kit delivers its components, a service nothing), every product row is
+   * locked once, each delivery is keyed per invoice line (+ component) so it
+   * can never be posted twice, a kit line keeps its recipe/cost snapshot, and
+   * an order's own reservation is consumed by the delivery
+   * (`ignoreReservedForReference`) and then released — never more than is
+   * still reserved under the order.
+   */
+  private async deliverInvoiceLines(
+    tx: Prisma.TransactionClient,
+    invoice: {
+      id: string;
+      salesOrderId: string | null;
+      items: Array<{
+        id: string;
+        productId: string;
+        warehouseId: string;
+        quantity: number;
+        salesOrderItemId: string | null;
+      }>;
+    },
+    userId?: string,
+  ) {
+    const resolved = await resolveAndLockStockLines(
+      tx,
+      this.stockLines,
+      invoice.items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        warehouseId: item.warehouseId,
+        lineKey: item.id,
+      })),
+    );
+    const orderReference = invoice.salesOrderId
+      ? {
+          referenceType: ORDER_REFERENCE_TYPE,
+          referenceId: invoice.salesOrderId,
+        }
+      : null;
+    const fromOrder = new Set(
+      invoice.items
+        .filter((item) => item.salesOrderItemId)
+        .map((item) => item.id),
+    );
+    const reserved = orderReference
+      ? await reservedUnderReference(
+          tx,
+          orderReference.referenceType,
+          orderReference.referenceId,
+        )
+      : new Map<string, ReservedBalance>();
+    // Each delivery is followed by the release of what it consumed, so the
+    // next line of the same product never sees that quantity both delivered
+    // and still reserved.
+    for (const line of resolved.stock) {
+      await this.inventoryService.postSalesDelivery(
+        {
+          productId: line.productId,
+          warehouseId: line.warehouseId,
+          quantity: line.quantity,
+          referenceType: INVOICE_REFERENCE_TYPE,
+          referenceId: invoice.id,
+          idempotencyKey: stockLineMovementKey(
+            INVOICE_REFERENCE_TYPE,
+            invoice.id,
+            line,
+            'SALES_DELIVERY',
+          ),
+          ...stockLineTrace(line),
+          ignoreReservedForReference: orderReference ?? undefined,
+        },
+        userId,
+        tx,
+      );
+      if (orderReference && fromOrder.has(line.lineKey)) {
+        await releaseReserved(
+          tx,
+          this.inventoryService,
+          reserved,
+          orderReference,
+          line,
+          userId,
+        );
+      }
+    }
+    for (const [lineKey, snapshot] of Object.entries(resolved.kitSnapshots)) {
+      await tx.salesInvoiceItem.update({
+        where: { id: lineKey },
+        data: { fulfillmentSnapshot: kitSnapshotJson(snapshot) },
+      });
+    }
   }
 
   /**
@@ -540,6 +622,7 @@ export class SalesInvoicesService {
     tx: Prisma.TransactionClient,
     orderId: string,
     deliveries: { orderItemId: string; quantity: number }[],
+    userId?: string,
   ) {
     for (const delivery of deliveries) {
       await tx.salesOrderDocumentItem.update({
@@ -561,6 +644,18 @@ export class SalesInvoicesService {
       : anyDelivered
         ? SalesDocumentStatus.PARTIALLY_DELIVERED
         : order.status;
+
+    // A fully delivered order holds nothing any more: release what may be
+    // left under it (e.g. components of a kit whose recipe changed between
+    // the order's confirmation and its invoice). No-op otherwise.
+    if (fullyDelivered) {
+      await releaseAllReserved(
+        tx,
+        this.inventoryService,
+        { referenceType: ORDER_REFERENCE_TYPE, referenceId: orderId },
+        userId,
+      );
+    }
 
     if (nextStatus !== order.status) {
       await tx.salesOrderDocument.update({

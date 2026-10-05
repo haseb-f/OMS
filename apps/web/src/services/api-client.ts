@@ -315,8 +315,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const apiClient = {
   get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
+  /** `headers` — per-request extras (e.g. an `Idempotency-Key` that makes a retried create safe). */
+  post: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
+    request<T>(path, {
+      method: "POST",
+      body: body ? JSON.stringify(body) : undefined,
+      ...(headers ? { headers } : {}),
+    }),
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
   put: <T>(path: string, body?: unknown) =>

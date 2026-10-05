@@ -436,6 +436,16 @@ export const navigationConfig: NavigationItem[] = [
     order: 9,
     permissions: ["inventory.view"],
   },
+  {
+    // R13 — assembly orders of ASSEMBLED products (reads are the plain inventory boundary).
+    id: "inventory-assembly",
+    titleKey: "nav.inventoryAssembly",
+    parent: "products",
+    route: "/inventory/assembly",
+    icon: "boxes",
+    order: 10,
+    permissions: ["inventory.view"],
+  },
 
   {
     id: "hr",

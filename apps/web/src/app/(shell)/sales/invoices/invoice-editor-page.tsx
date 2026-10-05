@@ -44,6 +44,7 @@ import { useExchangeRateRecovery } from "@/hooks/use-exchange-rate-recovery";
 import { lifecycleActions } from "@/config/documents/lifecycle-actions";
 import { ApiError } from "@/services/api-client";
 import { CreateReturnDialog } from "./create-return-dialog";
+import { KitComponentsSection } from "@/components/sales/kit-components-section";
 import {
   InvoicePaymentBadge,
   InvoicePaymentSummary,
@@ -481,6 +482,9 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
           )
         }
       />
+
+      {/* R13 — what each kit line delivered (components are the stock that moved). */}
+      {invoice ? <KitComponentsSection items={invoice.items} /> : null}
 
       {invoice && (
         <CreateReturnDialog

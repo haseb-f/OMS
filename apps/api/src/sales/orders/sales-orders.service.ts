@@ -19,6 +19,7 @@ import { ProductsService } from '../../products/products.service';
 import { WarehousesService } from '../../warehouses/warehouses.service';
 import { PartnersService } from '../../partners/partners.service';
 import { InventoryService } from '../../inventory/inventory.service';
+import { StockLineResolver } from '../../inventory/stock-lines/stock-line-resolver';
 import { resolveLineTaxes } from '../../taxes/document-tax';
 import {
   SalesOrderDocumentActivityService,
@@ -39,8 +40,16 @@ import type { SalesLineItemInputDto } from '../shared/sales-line-item-input.dto'
 import { SalesInvoicesService } from '../invoices/sales-invoices.service';
 import { assertActiveProduct } from '../../products/assert-active-product.util';
 import { prismaEnumFilter } from '../../common/query/enum-list';
+import {
+  resolveAndLockStockLines,
+  stockLineTrace,
+} from '../shared/stock-fulfillment';
+import {
+  releaseAllReserved,
+  SALES_ORDER_RESERVATION_REFERENCE,
+} from '../shared/order-reservations';
 
-const REFERENCE_TYPE = 'SALES_ORDER_DOC';
+const REFERENCE_TYPE = SALES_ORDER_RESERVATION_REFERENCE;
 
 /** The list order: `customer` sorts by the partner's name; ties break by id. */
 function salesOrderOrderBy(
@@ -61,6 +70,7 @@ export class SalesOrdersService {
     private readonly productsService: ProductsService,
     private readonly warehousesService: WarehousesService,
     private readonly inventoryService: InventoryService,
+    private readonly stockLines: StockLineResolver,
     private readonly invoicesService: SalesInvoicesService,
     private readonly activityService: SalesOrderDocumentActivityService,
     private readonly numberingEngine: NumberingEngineService,
@@ -442,15 +452,27 @@ export class SalesOrdersService {
           `Sales Order ${order.orderNumber} was changed by someone else — reload and try again.`,
         );
       }
-      for (const item of order.items) {
-        if (!item.product.isInventoryItem) continue;
+      // R13 — kit lines reserve their components (resolver), services
+      // reserve nothing; every product row is locked once, up front.
+      const resolved = await resolveAndLockStockLines(
+        tx,
+        this.stockLines,
+        order.items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          warehouseId: item.warehouseId,
+          lineKey: item.id,
+        })),
+      );
+      for (const line of resolved.stock) {
         await this.inventoryService.reserve(
           {
-            productId: item.productId,
-            warehouseId: item.warehouseId,
-            quantity: item.quantity,
+            productId: line.productId,
+            warehouseId: line.warehouseId,
+            quantity: line.quantity,
             referenceType: REFERENCE_TYPE,
             referenceId: order.id,
+            ...stockLineTrace(line),
           },
           userId,
           tx,
@@ -490,7 +512,11 @@ export class SalesOrdersService {
     });
   }
 
-  /** Releases whatever's still reserved (ordered minus already-delivered per line) before cancelling. */
+  /**
+   * Releases whatever is still reserved under the order (read from the
+   * reserved ledger — never recomputed from the lines or a kit's current
+   * recipe) in the same transaction as the cancellation.
+   */
   async cancel(id: string, userId?: string) {
     const order = await this.findOne(id);
     const cancellableFrom: SalesDocumentStatus[] = [
@@ -505,25 +531,15 @@ export class SalesOrdersService {
       );
     }
 
-    if (order.status === SalesDocumentStatus.CONFIRMED) {
-      for (const item of order.items) {
-        const remaining = item.quantity - item.deliveredQuantity;
-        if (remaining > 0 && item.product.isInventoryItem) {
-          await this.inventoryService.release(
-            {
-              productId: item.productId,
-              warehouseId: item.warehouseId,
-              quantity: remaining,
-              referenceType: REFERENCE_TYPE,
-              referenceId: order.id,
-            },
-            userId,
-          );
-        }
-      }
-    }
-
     return this.prisma.$transaction(async (tx) => {
+      if (order.status === SalesDocumentStatus.CONFIRMED) {
+        await releaseAllReserved(
+          tx,
+          this.inventoryService,
+          { referenceType: REFERENCE_TYPE, referenceId: order.id },
+          userId,
+        );
+      }
       const updated = await tx.salesOrderDocument.update({
         where: { id },
         data: {
@@ -751,20 +767,12 @@ export class SalesOrdersService {
         );
       }
       if (order.status === SalesDocumentStatus.CONFIRMED) {
-        for (const item of order.items) {
-          if (!item.product.isInventoryItem) continue;
-          await this.inventoryService.release(
-            {
-              productId: item.productId,
-              warehouseId: item.warehouseId,
-              quantity: item.quantity,
-              referenceType: REFERENCE_TYPE,
-              referenceId: order.id,
-            },
-            userId,
-            tx,
-          );
-        }
+        await releaseAllReserved(
+          tx,
+          this.inventoryService,
+          { referenceType: REFERENCE_TYPE, referenceId: order.id },
+          userId,
+        );
       }
       await this.activityService.log(
         id,

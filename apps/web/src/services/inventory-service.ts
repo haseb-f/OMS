@@ -52,12 +52,26 @@ export interface InventoryMovementRow {
   referenceType: string | null;
   referenceId: string | null;
   notes: string | null;
+  /** Owner snapshot at insert (null = company stock). */
+  ownerAgentId?: string | null;
+  /** R13 traceability: the kit / assembled product this component movement belongs to (ids only). */
+  parentProductId?: string | null;
+  recipeId?: string | null;
   createdAt: string;
   createdBy: string | null;
   createdByUser?: { fullName: string } | null;
 }
 
-export interface StockCard {
+/** R13 owner of a stock row (api-contract §5): null = company-owned. */
+export interface StockOwnerFields {
+  ownerAgentId: string | null;
+  ownerAgentName: string | null;
+}
+
+/** `owner` query of the stock reads: company stock, any agent's stock, or one agent id. Omitted = all. */
+export type StockOwnerQuery = "COMPANY" | "AGENT" | (string & {});
+
+export interface StockCard extends Partial<StockOwnerFields> {
   productId: string;
   sku: string;
   productName: string;
@@ -66,11 +80,12 @@ export interface StockCard {
   available: number;
   averageCost: number | null;
   lastCost: number | null;
+  /** Company figure only — `null` for agent-owned stock (never part of a company valuation total). */
   stockValue: number | null;
   lastMovement: { id: string; movementNumber: string; type: string; createdAt: string } | null;
 }
 
-export interface WarehouseBalanceRow {
+export interface WarehouseBalanceRow extends Partial<StockOwnerFields> {
   productId: string;
   product: { sku: string; name: string; displayName: string } | null;
   warehouseId: string;
@@ -113,8 +128,12 @@ export const inventoryService = {
       referenceId?: string | string[];
     } = {},
   ) => apiClient.get<InventoryMovementRow[]>(`/inventory/movements${buildQueryString(params)}`),
-  getStockCards: () => apiClient.get<StockCard[]>("/inventory/stock-cards"),
-  getWarehouseBalances: () => apiClient.get<WarehouseBalanceRow[]>("/inventory/warehouse-balances"),
+  getStockCards: (owner?: StockOwnerQuery) =>
+    apiClient.get<StockCard[]>(`/inventory/stock-cards${buildQueryString({ owner })}`),
+  getWarehouseBalances: (owner?: StockOwnerQuery) =>
+    apiClient.get<WarehouseBalanceRow[]>(
+      `/inventory/warehouse-balances${buildQueryString({ owner })}`,
+    ),
   getStockCard: (productId: string) =>
     apiClient.get<StockCard>(`/inventory/stock-card/${productId}`),
   getValuationSettings: () => apiClient.get<InventorySettings>("/inventory/valuation-method"),

@@ -21,6 +21,10 @@ export interface LandedCostAllocationRow {
   purchaseInvoiceItemId: string;
   allocatedQuantity: number;
   allocatedAmount: string;
+  /** R13 — set when posted: the part capitalized into inventory (units still on hand)… */
+  capitalizedAmount?: string | null;
+  /** …and the part charged to COGS as landed-cost variance (units already sold). */
+  cogsVarianceAmount?: string | null;
   purchaseInvoiceItem?: {
     id: string;
     productId: string;
@@ -47,6 +51,8 @@ export interface LandedCostDocumentRow {
   provider?: { id: string; name: string } | null;
   currencyId: string;
   currency?: CurrencyRow | null;
+  /** R13 — the exchange rate frozen on the document (functional per document currency). */
+  exchangeRate?: string | number | null;
   referenceNumber: string | null;
   documentDate: string;
   allocationMethod: LandedCostAllocationMethodValue;

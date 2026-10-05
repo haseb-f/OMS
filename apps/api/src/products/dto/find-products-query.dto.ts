@@ -9,7 +9,11 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { ProductStatus, ProductType } from '@prisma/client';
+import {
+  ProductStatus,
+  ProductSupplyMethod,
+  ProductType,
+} from '@prisma/client';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 import {
   TransformEnumList,
@@ -65,6 +69,11 @@ export class FindProductsQueryDto {
   @IsIn(['PRODUCT', 'SERVICE', 'UNSET'])
   @IsOptional()
   itemType?: 'PRODUCT' | 'SERVICE' | 'UNSET';
+
+  /** R13 — supply method (purchased / assembled / kit). */
+  @IsEnum(ProductSupplyMethod)
+  @IsOptional()
+  supplyMethod?: ProductSupplyMethod;
 
   /** Inventory movement pickers (Transfer/Adjustment/Opening) — only products a movement can legally apply to (ADR-0013). */
   @Transform(({ value }) => value === true || value === 'true')

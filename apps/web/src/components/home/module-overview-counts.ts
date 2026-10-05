@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { assemblyService } from "@/services/assembly-service";
 import { employeesService } from "@/services/employees-service";
 import { leadsService } from "@/services/leads-service";
 import { productsService } from "@/services/products-service";
@@ -28,6 +29,7 @@ export const DESTINATION_COUNT_SOURCES: Readonly<Record<string, () => Promise<nu
   "purchasing-orders": async () => (await purchaseOrdersService.list(ONE_ROW)).total,
   "products-list": async () => (await productsService.list(ONE_ROW)).total,
   "hr-employees": async () => (await employeesService.list(ONE_ROW)).total,
+  "inventory-assembly": async () => (await assemblyService.list(ONE_ROW)).total,
 };
 
 /**

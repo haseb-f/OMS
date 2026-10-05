@@ -1,13 +1,26 @@
 import { Injectable } from '@nestjs/common';
 import {
   AgentLedgerEntryType,
+  InventoryMovementType,
   PaymentStatus,
   Prisma,
+  ProductSupplyMethod,
   StoreOrderFulfillmentMethod,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
-import { InventoryService } from '../../inventory/inventory.service';
+import {
+  InventoryService,
+  lockProductsForUpdate,
+} from '../../inventory/inventory.service';
+import { StockLineResolver } from '../../inventory/stock-lines/stock-line-resolver';
+import { movementIdempotencyKey } from '../../inventory/dto/movement-trace';
+import { RECIPE_INCLUDE, RecipeService } from '../../recipes/recipe.service';
+import {
+  resolveAndLockStockLines,
+  stockLineMovementKey,
+  stockLineTrace,
+} from '../../sales/shared/stock-fulfillment';
 import {
   lockStoreOrderRow,
   roundMoney,
@@ -66,6 +79,10 @@ export const AGENT_SOURCE = {
   PAYOUT: 'AGENT_PAYOUT',
 } as const;
 
+/** Stock movement references of agent dispatch / agent returns. */
+const DISPATCH_REFERENCE = 'STORE_ORDER';
+const RETURN_REFERENCE = 'AGENT_ORDER_RETURN';
+
 const ORDER_SELECT = {
   id: true,
   internalOrderId: true,
@@ -95,6 +112,7 @@ const ORDER_SELECT = {
       product: {
         select: {
           isInventoryItem: true,
+          supplyMethod: true,
           preferredWarehouseId: true,
           itemType: true,
           sku: true,
@@ -204,6 +222,8 @@ export class AgentFulfillmentService {
     private readonly inventory: InventoryService,
     private readonly ledger: AgentLedgerService,
     private readonly shippingPricing: AgentShippingPricingService,
+    private readonly stockLines: StockLineResolver,
+    private readonly recipes: RecipeService,
   ) {}
 
   async loadOrder(tx: Tx | PrismaService, storeOrderId: string) {
@@ -229,6 +249,21 @@ export class AgentFulfillmentService {
     const lines = this.snapshotOf(order).lines;
     const frozen = lines?.find((line) => line.productId === item.productId);
     return frozen ? frozen.inventoryLine : item.product.isInventoryItem;
+  }
+
+  /**
+   * Whether a line issues stock at dispatch: a stocked line (frozen flag
+   * above), or a KIT — fulfilled from its components (R13 spec §3B). A kit is
+   * never stocked itself, so its frozen flag is false.
+   */
+  private movesStock(
+    order: AgentOrderContext,
+    item: AgentOrderContext['items'][number],
+  ): boolean {
+    return (
+      this.isInventoryLine(order, item) ||
+      item.product.supplyMethod === ProductSupplyMethod.KIT
+    );
   }
 
   isDigitalOnly(order: AgentOrderContext): boolean {
@@ -310,21 +345,41 @@ export class AgentFulfillmentService {
     // whose fee still waits for the delivery method never leaves.
     await this.shippingPricing.beforeDispatch(tx, order.id, userId);
     const inventoryItems = order.items.filter((item) =>
-      this.isInventoryLine(order, item),
+      this.movesStock(order, item),
     );
     const warehouses = await resolveStoreOrderLineWarehouses(
       tx,
       inventoryItems,
     );
-    for (const [index, item] of inventoryItems.entries()) {
+    // R13 — kits issue their components (the resolver enforces one owner
+    // across the kit and its components), every product row is locked once
+    // and each movement is keyed per order line (+ component).
+    const resolved = await resolveAndLockStockLines(
+      tx,
+      this.stockLines,
+      inventoryItems.map((item, index) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        warehouseId: warehouses[index],
+        lineKey: item.id,
+      })),
+    );
+    for (const line of resolved.stock) {
       await this.inventory.postSalesDelivery(
         {
-          productId: item.productId,
-          warehouseId: warehouses[index],
-          quantity: item.quantity,
-          referenceType: 'STORE_ORDER',
+          productId: line.productId,
+          warehouseId: line.warehouseId,
+          quantity: line.quantity,
+          referenceType: DISPATCH_REFERENCE,
           referenceId: order.id,
           notes: `Agent order ${order.internalOrderId} dispatched`,
+          idempotencyKey: stockLineMovementKey(
+            DISPATCH_REFERENCE,
+            order.id,
+            line,
+            InventoryMovementType.SALES_DELIVERY,
+          ),
+          ...stockLineTrace(line),
         },
         userId,
         tx,
@@ -803,7 +858,7 @@ export class AgentFulfillmentService {
             storeOrderItemId: item.id,
             productId: item.productId,
             quantity,
-            isInventoryItem: this.isInventoryLine(order, item),
+            isInventoryItem: this.movesStock(order, item),
             merchandiseAmount: returnedLineAmount(
               storeOrderLineAmount(item),
               item.quantity,
@@ -838,21 +893,13 @@ export class AgentFulfillmentService {
             createdBy: userId ?? null,
           },
         });
-        for (const line of lines) {
-          if (!line.isInventoryItem) continue;
-          await this.inventory.postSalesReturn(
-            {
-              productId: line.productId,
-              warehouseId: input.warehouseId,
-              quantity: line.quantity,
-              referenceType: 'AGENT_ORDER_RETURN',
-              referenceId: record.id,
-              notes: `Agent return ${returnNumber} — order ${order.internalOrderId}`,
-            },
-            userId,
-            tx,
-          );
-        }
+        await this.returnStock(
+          tx,
+          order,
+          lines.filter((line) => line.isInventoryItem),
+          { id: record.id, returnNumber, warehouseId: input.warehouseId },
+          userId,
+        );
         const now = new Date();
         const returnFee = round2(terms.returnFeePerShipment);
         // F-L4: the fee is per returned shipment, not per receipt. Keyed by
@@ -911,6 +958,114 @@ export class AgentFulfillmentService {
       { maxWait: 10_000, timeout: 60_000 },
     );
     return { ...created, replayed: false };
+  }
+
+  /**
+   * Stock side of an agent return. A plain line comes back as itself; a kit
+   * line returns its components using the recipe its DISPATCH used (read from
+   * the dispatch movements of that order line — never the kit's current
+   * recipe). A kit line that issued nothing at dispatch returns nothing.
+   * Every product row is locked once; each movement is keyed per return line
+   * (+ component).
+   */
+  private async returnStock(
+    tx: Tx,
+    order: AgentOrderContext,
+    lines: Array<{
+      storeOrderItemId: string;
+      productId: string;
+      quantity: number;
+    }>,
+    receipt: { id: string; returnNumber: string; warehouseId: string },
+    userId?: string,
+  ) {
+    const kitIds = new Set(
+      order.items
+        .filter((item) => item.product.supplyMethod === ProductSupplyMethod.KIT)
+        .map((item) => item.productId),
+    );
+    const movements: Array<{
+      lineKey: string;
+      productId: string;
+      quantity: number;
+      parentProductId?: string;
+      recipeId?: string;
+    }> = [];
+    for (const line of lines) {
+      if (!kitIds.has(line.productId)) {
+        movements.push({
+          lineKey: line.storeOrderItemId,
+          productId: line.productId,
+          quantity: line.quantity,
+        });
+        continue;
+      }
+      const dispatched = await tx.inventoryMovement.findFirst({
+        where: {
+          referenceType: DISPATCH_REFERENCE,
+          referenceId: order.id,
+          type: InventoryMovementType.SALES_DELIVERY,
+          parentProductId: line.productId,
+          recipeId: { not: null },
+          idempotencyKey: {
+            startsWith: `${DISPATCH_REFERENCE}:${order.id}:${line.storeOrderItemId}:`,
+          },
+        },
+        select: { recipeId: true },
+      });
+      if (!dispatched?.recipeId) continue;
+      const recipe = await tx.productRecipe.findUniqueOrThrow({
+        where: { id: dispatched.recipeId },
+        include: RECIPE_INCLUDE,
+      });
+      const components = await this.recipes.resolveStockQuantities(
+        tx,
+        recipe,
+        line.quantity,
+      );
+      for (const component of components) {
+        movements.push({
+          lineKey: line.storeOrderItemId,
+          productId: component.componentProductId,
+          quantity: component.quantity,
+          parentProductId: line.productId,
+          recipeId: recipe.id,
+        });
+      }
+    }
+    if (movements.length === 0) return;
+    await lockProductsForUpdate(
+      tx,
+      movements.map((movement) => movement.productId),
+    );
+    for (const movement of movements) {
+      await this.inventory.postSalesReturn(
+        {
+          productId: movement.productId,
+          warehouseId: receipt.warehouseId,
+          quantity: movement.quantity,
+          referenceType: RETURN_REFERENCE,
+          referenceId: receipt.id,
+          notes: `Agent return ${receipt.returnNumber} — order ${order.internalOrderId}`,
+          idempotencyKey: movementIdempotencyKey(
+            RETURN_REFERENCE,
+            receipt.id,
+            movement.parentProductId
+              ? `${movement.lineKey}:${movement.productId}`
+              : movement.lineKey,
+            InventoryMovementType.SALES_RETURN,
+          ),
+          ...(movement.parentProductId
+            ? {
+                parentProductId: movement.parentProductId,
+                recipeId: movement.recipeId,
+              }
+            : {}),
+        },
+        userId,
+        tx,
+      );
+    }
   }
 
   private async reverseCommissionForReturn(

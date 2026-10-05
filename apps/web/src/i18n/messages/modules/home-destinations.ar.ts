@@ -35,6 +35,7 @@ const destinations = {
   "inventory-movements": "جميع حركات المخزون، الداخلة والخارجة.",
   "inventory-stock": "الكميات المتاحة لكل منتج ومستودع.",
   "inventory-physical-count": "جرد المخزون وتسجيل الفروقات.",
+  "inventory-assembly": "تجميع المنتجات النهائية من مكوّنات وصفتها.",
   "hr-my-profile": "ملفك الوظيفي الشخصي.",
   "hr-employees": "ملفات الموظفين وبياناتهم الوظيفية.",
   "hr-kpi-templates": "قوالب مؤشرات الأداء للتقييمات.",

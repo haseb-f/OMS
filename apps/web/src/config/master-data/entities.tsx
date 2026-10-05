@@ -782,6 +782,9 @@ export const categoriesSchema = z.object({
   inventoryAccountId: z.string().optional().or(z.literal("")),
   cogsAccountId: z.string().optional().or(z.literal("")),
   purchaseAccountId: z.string().optional().or(z.literal("")),
+  /** R13 — optional defaults a new product of this category inherits. */
+  defaultUnitId: z.string().optional().or(z.literal("")),
+  defaultTaxId: z.string().optional().or(z.literal("")),
 });
 
 export const categoriesDefaultValues = {
@@ -791,6 +794,8 @@ export const categoriesDefaultValues = {
   inventoryAccountId: "",
   cogsAccountId: "",
   purchaseAccountId: "",
+  defaultUnitId: "",
+  defaultTaxId: "",
 };
 export const categoriesExportColumns = ["name"];
 export const categoryRowLabel = (row: CategoryRow) => row.name;

@@ -7,7 +7,7 @@ import type { RecordGridCardField } from "@/components/shared/data-table/record-
 import { LocaleText } from "@/components/shared/locale-text";
 import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
-import { MOVEMENT_REFERENCE_KIND, RECORD_ROUTES } from "@/config/traceability/record-routes";
+import { movementReferenceLink } from "@/config/traceability/record-routes";
 import { formatDate, formatDateTime } from "@/lib/date";
 import { formatAmount } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,10 @@ import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
 import type { InventoryMovementRow, StockCard } from "@/services/inventory-service";
 import type { PhysicalCountListRow } from "@/services/physical-count-service";
+import type { AssemblyOrder } from "@/services/assembly-service";
 import { movementTypeTone, PHYSICAL_COUNT_STATUS_TONE } from "./movement-type";
+import { ASSEMBLY_STATUS_TONE, assemblyHref } from "./assembly";
+import { stockOwnerLabel } from "./stock-owner";
 
 /**
  * Round 9 record-card templates of the Inventory lists. Quantities and amounts
@@ -49,7 +52,7 @@ export function InventoryMovementGridCard({
   const { t } = useLocale();
   const productName = row.product?.displayName || row.product?.name || row.productId;
   const warehouse = row.warehouse ? `${row.warehouse.code} — ${row.warehouse.name}` : null;
-  const referenceKind = row.referenceType ? MOVEMENT_REFERENCE_KIND[row.referenceType] : undefined;
+  const reference = movementReferenceLink(row.referenceType, row.referenceId);
   const fields: RecordGridCardField[] = [
     {
       key: "date",
@@ -73,7 +76,7 @@ export function InventoryMovementGridCard({
     fields.push({
       key: "reference",
       label: t("inventory.fields.reference"),
-      value: referenceKind ? t(RECORD_ROUTES[referenceKind].labelKey) : row.referenceType,
+      value: reference ? t(reference.labelKey) : row.referenceType,
     });
   }
   return (
@@ -109,6 +112,14 @@ export function InventoryStockGridCard({ row }: { row: StockCard }) {
       tone="neutral"
       selected={false}
       title={<LocaleText>{row.productName}</LocaleText>}
+      subtitle={
+        <LocaleText>
+          {stockOwnerLabel(row, {
+            company: t("inventory.owner.COMPANY"),
+            unknownAgent: t("inventory.owner.unknownAgent"),
+          })}
+        </LocaleText>
+      }
       reference={
         row.sku ? (
           <SemanticValue kind="id" className="font-medium">
@@ -200,6 +211,64 @@ export function PhysicalCountGridCard({
         <StatusBadge
           tone={tone}
           label={t(`inventory.physicalCount.status.${row.status}` as MessageKey)}
+        />
+      }
+      actions={actions}
+      actionsLabel={t("tableViews.card.actions")}
+    />
+  );
+}
+
+/** Assembly orders: the finished product is the title, the order number the reference, the cost only when returned. */
+export function AssemblyOrderGridCard({
+  row,
+  selected,
+  onToggleSelected,
+  actions,
+}: SelectableChrome & { row: AssemblyOrder; actions: RowAction[] }) {
+  const { t } = useLocale();
+  const fields: RecordGridCardField[] = [
+    {
+      key: "quantity",
+      label: t("assembly.fields.quantity"),
+      value: <span className="num">{row.quantity}</span>,
+      numeric: true,
+    },
+    {
+      key: "warehouse",
+      label: t("assembly.fields.warehouse"),
+      value: <LocaleText>{row.warehouse.name}</LocaleText>,
+    },
+  ];
+  if (row.totalCost !== null) {
+    fields.push({
+      key: "totalCost",
+      label: t("assembly.fields.totalCost"),
+      value: <MoneyValue value={row.totalCost} />,
+      numeric: true,
+    });
+  }
+  return (
+    <RecordGridCard
+      tone={ASSEMBLY_STATUS_TONE[row.status]}
+      selected={selected}
+      onToggleSelected={onToggleSelected}
+      selectLabel={t("tableViews.card.selectRow", { name: row.assemblyNumber })}
+      recordLabel={`${row.product.name} — ${row.assemblyNumber}`}
+      title={<LocaleText>{row.product.name}</LocaleText>}
+      subtitle={<SemanticValue kind="id">{row.product.sku}</SemanticValue>}
+      reference={
+        <SemanticValue kind="id" className="font-medium">
+          {row.assemblyNumber}
+        </SemanticValue>
+      }
+      href={assemblyHref(row.id)}
+      meta={<SemanticValue kind="date">{formatDate(row.createdAt)}</SemanticValue>}
+      fields={fields}
+      badges={
+        <StatusBadge
+          tone={ASSEMBLY_STATUS_TONE[row.status]}
+          label={t(`assembly.status.${row.status}`)}
         />
       }
       actions={actions}

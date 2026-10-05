@@ -1,12 +1,20 @@
 import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, ProductSupplyMethod } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PostingEngineService } from '../posting-engine/posting-engine.service';
-import { InventoryValuationService } from '../inventory-valuation/inventory-valuation.service';
+import {
+  InventoryValuationService,
+  round2,
+} from '../inventory-valuation/inventory-valuation.service';
 import { AccountMappingService } from '../account-mapping/account-mapping.service';
 import { ExchangeRatesService } from '../fx/exchange-rates.service';
 import { snapshotDocumentExchangeRate } from '../fx/snapshot-document-rate';
 import { assertPostedTaxAmountsHaveTax } from '../../taxes/document-tax';
+import {
+  kitComponentValue,
+  kitUnitCost,
+  readKitSnapshot,
+} from '../../sales/shared/kit-snapshot';
 import type {
   PostingLine,
   PostingProvider,
@@ -25,8 +33,15 @@ import type {
  * Cr Sales Revenue (per resolved account)   grandTotal - taxTotal
  * Cr VAT Output (per resolved account)      taxAmount
  * ----------------------------------------------------------------
- * Dr Cost Of Goods Sold (per resolved account)   sum(quantity * unit cost)
- * Cr Inventory (per resolved account)            sum(quantity * unit cost)
+ * Dr Cost Of Goods Sold (per resolved account)   sum(round2(quantity * unit cost))
+ * Cr Inventory (per resolved account)            sum(round2(quantity * unit cost))
+ *
+ * R13 kit lines (spec §3B/§4): the kit itself moves no stock, its line carries
+ * `fulfillmentSnapshot` (written when its components were delivered). COGS is
+ * recognised ONCE for the line = Σ round2(qtyPerKit × quantity × component
+ * cost), debited to the KIT's COGS account and credited to EACH component's
+ * inventory account; the line's `unitCost` = Σ qtyPerKit × component cost.
+ * Service / non-stock lines post no COGS.
  *
  * Every account id is resolved through `AccountMappingService` (Product
  * Category / Customer Group / Tax overrides, falling back to Accounting
@@ -39,6 +54,8 @@ import type {
  * SalesInvoicesService) — same cross-module-avoidance pattern
  * FinancialTransactionsService already uses for the same tables.
  */
+const ZERO = new Prisma.Decimal(0);
+
 @Injectable()
 export class SalesInvoicePostingProvider
   implements PostingProvider, OnModuleInit
@@ -76,6 +93,7 @@ export class SalesInvoicePostingProvider
             product: {
               select: {
                 isInventoryItem: true,
+                supplyMethod: true,
                 categoryId: true,
                 currentCost: true,
                 sku: true,
@@ -187,50 +205,101 @@ export class SalesInvoicePostingProvider
       });
     }
 
-    const costByLine = new Map<string, number>();
-    const inventoryByLine = new Map<string, number>();
+    const costByLine = new Map<string, Prisma.Decimal>();
+    const inventoryByLine = new Map<string, Prisma.Decimal>();
+    const addCost = (
+      cogsAccountId: string,
+      inventoryAccountId: string,
+      value: Prisma.Decimal,
+    ) => {
+      costByLine.set(
+        cogsAccountId,
+        (costByLine.get(cogsAccountId) ?? ZERO).add(value),
+      );
+      inventoryByLine.set(
+        inventoryAccountId,
+        (inventoryByLine.get(inventoryAccountId) ?? ZERO).add(value),
+      );
+    };
+    const kitComponents = await this.loadKitComponents(invoice.items, tx);
     for (const item of invoice.items) {
+      const kit = readKitSnapshot(item.fulfillmentSnapshot);
+      if (kit) {
+        // Kit: COGS once, from the components' snapshot costs.
+        await tx.salesInvoiceItem.update({
+          where: { id: item.id },
+          data: { unitCost: kitUnitCost(kit) },
+        });
+        const cogsAccountId = await this.accountMapping.resolveCogsAccount(
+          item.product.categoryId,
+          tx,
+        );
+        for (const component of kit.components) {
+          const product = kitComponents.get(component.productId);
+          if (!product || product.currentCost == null) {
+            throw new BadRequestException(
+              `Product ${product?.sku ?? component.productId} (component of kit ${item.product.sku}) has no recorded cost. Record a product cost or opening balance before invoicing — COGS cannot silently post as zero.`,
+            );
+          }
+          const value = kitComponentValue(component, item.quantity);
+          if (value.isZero()) continue;
+          addCost(
+            cogsAccountId,
+            await this.accountMapping.resolveInventoryAccount(
+              product.categoryId,
+              tx,
+            ),
+            value,
+          );
+        }
+        continue;
+      }
+      if (item.product.supplyMethod === ProductSupplyMethod.KIT) {
+        throw new BadRequestException(
+          `Kit ${item.product.sku} on Sales Invoice ${invoice.invoiceNumber} has no fulfillment snapshot — its components were not delivered, so COGS cannot be posted.`,
+        );
+      }
       if (!item.product.isInventoryItem) continue;
       if (item.product.currentCost == null) {
         throw new BadRequestException(
           `Product ${item.product.sku} has no recorded cost. Record a product cost or opening balance before invoicing — COGS cannot silently post as zero.`,
         );
       }
-      const unitCost = await this.inventoryValuation.getUnitCost(
-        item.productId,
-        tx,
-      );
       // TASK-057 — snapshot the cost actually charged so a later Sales
       // Return reverses this exact amount instead of re-reading the
-      // product's (possibly since-changed) current cost.
-      await tx.salesInvoiceItem.update({
-        where: { id: item.id },
-        data: { unitCost },
-      });
-      const cost = unitCost * item.quantity;
-      if (cost === 0) continue;
-      const cogsAccountId = await this.accountMapping.resolveCogsAccount(
-        item.product.categoryId,
-        tx,
-      );
-      const inventoryAccountId =
+      // product's (possibly since-changed) current cost. Set once: a
+      // re-post (FX correction) replays the snapshot, never today's cost.
+      const unitCost =
+        item.unitCost != null
+          ? new Prisma.Decimal(item.unitCost)
+          : await this.inventoryValuation.getUnitCostDecimal(
+              item.productId,
+              tx,
+            );
+      if (item.unitCost == null) {
+        await tx.salesInvoiceItem.update({
+          where: { id: item.id },
+          data: { unitCost },
+        });
+      }
+      const cost = round2(unitCost.mul(item.quantity));
+      if (cost.isZero()) continue;
+      addCost(
+        await this.accountMapping.resolveCogsAccount(
+          item.product.categoryId,
+          tx,
+        ),
         await this.accountMapping.resolveInventoryAccount(
           item.product.categoryId,
           tx,
-        );
-      costByLine.set(
-        cogsAccountId,
-        (costByLine.get(cogsAccountId) ?? 0) + cost,
-      );
-      inventoryByLine.set(
-        inventoryAccountId,
-        (inventoryByLine.get(inventoryAccountId) ?? 0) + cost,
+        ),
+        cost,
       );
     }
     for (const [accountId, amount] of costByLine) {
       lines.push({
         accountId,
-        debit: amount,
+        debit: amount.toNumber(),
         description: `COGS — ${invoice.invoiceNumber}`,
         functionalAmount: true,
       });
@@ -238,7 +307,7 @@ export class SalesInvoicePostingProvider
     for (const [accountId, amount] of inventoryByLine) {
       lines.push({
         accountId,
-        credit: amount,
+        credit: amount.toNumber(),
         description: `Inventory relieved — ${invoice.invoiceNumber}`,
         functionalAmount: true,
       });
@@ -257,4 +326,34 @@ export class SalesInvoicePostingProvider
       entryDate: invoice.confirmedAt ?? invoice.createdAt,
     };
   }
+
+  /** Category + cost of every component named by the invoice's kit snapshots (one query). */
+  private async loadKitComponents(
+    items: Array<{ fulfillmentSnapshot: Prisma.JsonValue | null }>,
+    tx: Prisma.TransactionClient,
+  ): Promise<Map<string, KitComponentProduct>> {
+    const ids = [
+      ...new Set(
+        items.flatMap(
+          (item) =>
+            readKitSnapshot(item.fulfillmentSnapshot)?.components.map(
+              (component) => component.productId,
+            ) ?? [],
+        ),
+      ),
+    ];
+    if (ids.length === 0) return new Map();
+    const products = await tx.product.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, sku: true, categoryId: true, currentCost: true },
+    });
+    return new Map(products.map((product) => [product.id, product]));
+  }
 }
+
+type KitComponentProduct = {
+  id: string;
+  sku: string;
+  categoryId: string;
+  currentCost: Prisma.Decimal | null;
+};

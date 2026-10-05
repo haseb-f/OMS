@@ -14,6 +14,7 @@ import shippingHandoffEn from "./modules/shipping-handoff.en";
 import leadOpsEn from "./modules/lead-ops.en";
 import customerLookupEn from "./modules/customer-lookup.en";
 import tableViewsEn from "./modules/table-views.en";
+import assemblyEn from "./modules/assembly.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
@@ -23,6 +24,7 @@ const en = {
   leadOps: leadOpsEn,
   customerLookup: customerLookupEn,
   tableViews: tableViewsEn,
+  assembly: assemblyEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
@@ -453,6 +455,7 @@ const en = {
     inventoryMovements: "Movements",
     inventoryStock: "Actual Stock",
     inventoryPhysicalCount: "Physical Count",
+    inventoryAssembly: "Assembly",
     expenses: "Expenses",
     expensesComponents: "Cost Categories",
     expensesProductCost: "Product Cost",
@@ -1216,6 +1219,12 @@ const en = {
         inventoryAccountId: "The account representing this category's inventory value.",
         cogsAccountId: "The account used to record the cost of goods sold from this category.",
         purchaseAccountId: "The account used when purchasing products in this category.",
+        defaultUnitId: "Pre-filled as the unit of a new product in this category (can be changed).",
+        defaultTaxId: "Pre-filled as the tax of a new product in this category (can be changed).",
+      },
+      fields: {
+        defaultUnit: "Default unit",
+        defaultTax: "Default tax",
       },
     },
     brands: {
@@ -2408,6 +2417,8 @@ const en = {
       itemType: "Item type",
       itemTypeUnset: "Not classified",
       traits: "Sold / purchased / tracked",
+      allSupplyMethods: "All supply methods",
+      allItemTypes: "All item types",
     },
     traits: {
       sold: "Sold",
@@ -2585,6 +2596,22 @@ const en = {
     stock: {
       description:
         "Every inventory product's current quantity, reserved quantity, cost, and value.",
+      companyValueTotal: "Company stock value",
+      companyValueNote:
+        "Stock value totals count company-owned stock only — agent-owned stock is never valued as a company asset.",
+    },
+    owner: {
+      label: "Owner",
+      all: "All owners",
+      COMPANY: "Company",
+      AGENT: "Agent stock",
+      unknownAgent: "Agent",
+    },
+    trace: {
+      title: "Kit / assembly",
+      partOf: "Part of {name}",
+      recipeVersion: "Recipe v{version}",
+      unknownProduct: "Product not visible",
     },
     fields: {
       movementNumber: "Movement No.",
@@ -3578,6 +3605,17 @@ const en = {
       },
     },
     invoices: {
+      kit: {
+        title: "Kit components delivered",
+        note: "A kit owns no stock: each component below left stock when the invoice was confirmed.",
+        component: "Component",
+        perKit: "Per kit",
+        delivered: "Delivered",
+        unitCost: "Unit cost",
+        line: "{product} × {quantity}",
+        recipeVersion: "Recipe v{version}",
+        unknownComponent: "Component not visible",
+      },
       title: "Sales Invoices",
       description: "Bill customers and reduce inventory once confirmed.",
       addNew: "New Sales Invoice",
@@ -4844,6 +4882,16 @@ const en = {
         reconciled: "Allocation reconciles exactly — ready to approve.",
         notReconciled: "Allocation does not reconcile yet.",
       },
+      posted: {
+        title: "Posted allocation",
+        exchangeRate: "Exchange rate (frozen at posting)",
+        allocatedQuantity: "Allocated qty.",
+        allocatedAmount: "Allocated",
+        capitalized: "Capitalized to inventory",
+        variance: "Already sold (COGS variance)",
+        explanation:
+          "The share for units still in stock is added to inventory and moves the average cost; the share for units already sold is charged to cost of goods sold.",
+      },
       relatedPurchaseInvoice: "Purchase Invoice",
       relatedJournalEntry: "Journal Entry",
     },
@@ -5524,6 +5572,7 @@ const en = {
         inventoryAsset: "Inventory Asset Account",
         inventoryAdjustment: "Inventory Adjustment Account",
         landedCostClearing: "Landed Cost Clearing Account",
+        assemblyCost: "Assembly cost (absorbed direct costs)",
         purchase: "Purchase Account",
         purchaseDiscount: "Purchase Discount Account",
         purchaseReturn: "Purchase Return Account",

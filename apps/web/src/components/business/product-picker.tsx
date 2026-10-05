@@ -4,7 +4,11 @@ import { useState, type ButtonHTMLAttributes } from "react";
 import { Package } from "lucide-react";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
-import { productsService, type ProductRow } from "@/services/products-service";
+import {
+  productsService,
+  type ProductRow,
+  type ProductSupplyMethod,
+} from "@/services/products-service";
 import { cachedLookup, invalidateLookups } from "@/lib/lookup-cache";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -63,6 +67,10 @@ export function ProductPicker({
   investmentEligibleOnly = false,
   allowCreate = true,
   agentId,
+  supplyMethod,
+  placeholder,
+  emptyText,
+  id,
 }: {
   value: ProductRow | null | undefined;
   onChange: (product: ProductRow) => void;
@@ -86,6 +94,13 @@ export function ProductPicker({
   allowCreate?: boolean;
   /** Lists this agent's products instead of the company's (an agent-owned recipe's components) — needs `agents.view`. */
   agentId?: string;
+  /** Only products of this supply method (e.g. ASSEMBLED for an assembly order). */
+  supplyMethod?: ProductSupplyMethod;
+  placeholder?: string;
+  /** Shown when the catalog has no product for this picker at all. */
+  emptyText?: string;
+  /** Forwarded to the trigger so an external `<Label htmlFor>` can name it. */
+  id?: string;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -95,11 +110,13 @@ export function ProductPicker({
     allowCreate &&
     !inventoryOnly &&
     !investmentEligibleOnly &&
+    !supplyMethod &&
     hasPermission(CREATE_PRODUCT_PERMISSION);
 
   return (
     <>
       <EntityCombobox
+        id={id}
         value={value ?? null}
         onChange={(product) => {
           if (product) onChange(product);
@@ -115,11 +132,15 @@ export function ProductPicker({
             ...(sellableOnly && !inventoryOnly && !purchasableOnly ? { isSellable: true } : {}),
             ...(investmentEligibleOnly ? { investmentEligible: true } : {}),
             ...(agentId ? { agentId } : {}),
+            ...(supplyMethod ? { supplyMethod } : {}),
           };
           const result = await cachedLookup(`products:${JSON.stringify(params)}`, () =>
             productsService.catalog(params),
           );
-          return result.items;
+          // The rule is also applied here so the picker can never offer another kind of item.
+          return supplyMethod
+            ? result.items.filter((product) => product.supplyMethod === supplyMethod)
+            : result.items;
         }}
         getId={(product) => product.id}
         getTitle={(product) => product.displayName || product.name}
@@ -134,13 +155,14 @@ export function ProductPicker({
           `${product.sku} ${product.barcode ?? ""} ${product.internalName} ${product.name}`
         }
         subtitleDir="ltr"
-        placeholder={t("sales.editor.grid.selectProduct")}
+        placeholder={placeholder ?? t("sales.editor.grid.selectProduct")}
         searchPlaceholder={t("sales.editor.grid.productSearchPlaceholder")}
         loadingText={t("sales.editor.grid.loadingProducts")}
         emptyText={
-          investmentEligibleOnly
+          emptyText ??
+          (investmentEligibleOnly
             ? t("docFlow.products.noInvestmentEligible")
-            : t("sales.editor.grid.noActiveProducts")
+            : t("sales.editor.grid.noActiveProducts"))
         }
         noMatchText={t("sales.editor.grid.noMatchingProducts")}
         errorText={t("sales.editor.grid.productsLoadError")}

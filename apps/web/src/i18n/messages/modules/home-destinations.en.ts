@@ -35,6 +35,7 @@ const destinations = {
   "inventory-movements": "Every stock movement, in and out.",
   "inventory-stock": "Quantity on hand per product and warehouse.",
   "inventory-physical-count": "Count stock and post the differences.",
+  "inventory-assembly": "Assemble finished items from their recipe components.",
   "hr-my-profile": "Your own employment record.",
   "hr-employees": "Employee records and employment details.",
   "hr-kpi-templates": "Reusable KPI sets for evaluations.",

@@ -36,6 +36,13 @@ import {
   computeSalesLine,
 } from '../sales/shared/sales-totals.util';
 import { resolveStoreOrderLineWarehouses } from './store-order-warehouse.util';
+import { StockLineResolver } from '../inventory/stock-lines/stock-line-resolver';
+import {
+  resolveAndLockStockLines,
+  stockLineMovementKey,
+  stockLineTrace,
+} from '../sales/shared/stock-fulfillment';
+import { kitSnapshotJson } from '../sales/shared/kit-snapshot';
 import { resolveTaxesById } from '../taxes/document-tax';
 import { buildDateRangeFilter } from '../sales/shared/sales-list-query.util';
 import { prismaEnumFilter } from '../common/query/enum-list';
@@ -315,6 +322,7 @@ export class StoreOrdersService {
     private readonly salesScope: SalesScopeService,
     private readonly productsService: ProductsService,
     private readonly inventoryService: InventoryService,
+    private readonly stockLines: StockLineResolver,
     private readonly fulfillmentCostService: FulfillmentCostService,
     private readonly storeOrderCollection: StoreOrderCollectionService,
     private readonly orderEconomicsService: OrderEconomicsService,
@@ -2154,6 +2162,9 @@ export class StoreOrdersService {
       includeFulfillment: Boolean(fulfillmentRule),
     });
 
+    // Line ids are assigned here so every delivery / kit snapshot is keyed
+    // to its own invoice line.
+    const invoiceItemIds = order.items.map(() => randomUUID());
     const invoice = await this.prisma.$transaction(async (tx) => {
       const created = await tx.salesInvoice.create({
         data: {
@@ -2170,6 +2181,7 @@ export class StoreOrdersService {
           updatedBy: userId,
           items: {
             create: order.items.map((item, index) => ({
+              id: invoiceItemIds[index],
               productId: item.productId,
               warehouseId: resolvedWarehouseIds[index],
               unitId: item.product.unitId,
@@ -2192,19 +2204,44 @@ export class StoreOrdersService {
       // here exactly, guarded to inventory-item products only (a Store
       // Order can legitimately contain non-stocked/service products, which
       // `postSalesDelivery` would otherwise reject).
-      for (const [index, item] of order.items.entries()) {
-        if (!item.product.isInventoryItem) continue;
+      // R13 — a kit line delivers its components (snapshot kept on the
+      // invoice line for COGS and returns); every product row is locked
+      // once and each movement is keyed per invoice line (+ component).
+      const resolved = await resolveAndLockStockLines(
+        tx,
+        this.stockLines,
+        order.items.map((item, index) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          warehouseId: resolvedWarehouseIds[index],
+          lineKey: invoiceItemIds[index],
+        })),
+      );
+      for (const line of resolved.stock) {
         await this.inventoryService.postSalesDelivery(
           {
-            productId: item.productId,
-            warehouseId: resolvedWarehouseIds[index],
-            quantity: item.quantity,
+            productId: line.productId,
+            warehouseId: line.warehouseId,
+            quantity: line.quantity,
             referenceType: 'SALES_INVOICE',
             referenceId: created.id,
+            idempotencyKey: stockLineMovementKey(
+              'SALES_INVOICE',
+              created.id,
+              line,
+              'SALES_DELIVERY',
+            ),
+            ...stockLineTrace(line),
           },
           userId,
           tx,
         );
+      }
+      for (const [lineKey, snapshot] of Object.entries(resolved.kitSnapshots)) {
+        await tx.salesInvoiceItem.update({
+          where: { id: lineKey },
+          data: { fulfillmentSnapshot: kitSnapshotJson(snapshot) },
+        });
       }
 
       // ADR-0018 (Order Economics M2.2) — the same recognition moment as

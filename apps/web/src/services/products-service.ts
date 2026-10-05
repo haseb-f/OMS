@@ -245,6 +245,8 @@ export interface ProductListParams {
   type?: ProductType | ProductType[];
   /** `UNSET` lists legacy rows still to be classified. */
   itemType?: ProductItemType | "UNSET";
+  /** R13 — Purchased / Assembled / Kit (list and catalog). */
+  supplyMethod?: ProductSupplyMethod;
   isInventoryItem?: boolean;
   isSellable?: boolean;
   isPurchasable?: boolean;

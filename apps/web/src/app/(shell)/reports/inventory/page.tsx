@@ -29,6 +29,15 @@ import type { MessageKey } from "@/i18n/translate";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { useUserContext } from "@/providers/user-context";
 import { canViewInventoryCost, omitInventoryCostColumns } from "@/config/inventory/cost-visibility";
+import { SelectFilter } from "@/components/shared/data-table";
+import { MoneyValue } from "@/components/shared/money-value";
+import {
+  STOCK_OWNER_FILTERS,
+  companyStockValueTotal,
+  stockOwnerLabel,
+  stockOwnerQuery,
+} from "@/config/inventory/stock-owner";
+import type { StockOwnerFields } from "@/services/inventory-service";
 
 /** Latin digits in both languages (shared formatter); unknown cost stays "—". */
 function formatMoney(value: number | null) {
@@ -62,13 +71,15 @@ function ReportsInventoryPageContent() {
   const [warehouseBalances, setWarehouseBalances] = useState<WarehouseBalanceRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [movementRange, setMovementRange] = useState<DateRangeValue>({ from: null, to: null });
+  // R13 — stock reads by owner (company / agents / all); the owner is shown on every row.
+  const [ownerFilter, setOwnerFilter] = useState("");
 
-  const load = () => {
+  const load = (owner: string) => {
     setIsLoading(true);
     Promise.all([
       inventoryService.getMovements(),
-      inventoryService.getStockCards(),
-      inventoryService.getWarehouseBalances(),
+      inventoryService.getStockCards(stockOwnerQuery(owner)),
+      inventoryService.getWarehouseBalances(stockOwnerQuery(owner)),
     ])
       .then(([movementRows, stockRows, balanceRows]) => {
         setMovements(movementRows);
@@ -81,8 +92,39 @@ function ReportsInventoryPageContent() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    load();
-  }, []);
+    load(ownerFilter);
+  }, [ownerFilter]);
+
+  const ownerColumn = useMemo(
+    () => ({
+      id: "owner",
+      header: t("inventory.owner.label"),
+      meta: { titleKey: "inventory.owner.label" as const },
+      accessorFn: (row: Partial<StockOwnerFields>) =>
+        stockOwnerLabel(row, {
+          company: t("inventory.owner.COMPANY"),
+          unknownAgent: t("inventory.owner.unknownAgent"),
+        }),
+    }),
+    [t],
+  );
+  const ownerFilterControl = (
+    <SelectFilter
+      label={t("inventory.owner.label")}
+      value={ownerFilter}
+      onChange={setOwnerFilter}
+      allLabel={t("inventory.owner.all")}
+      options={STOCK_OWNER_FILTERS.map((value) => ({
+        value,
+        label: t(`inventory.owner.${value}`),
+      }))}
+    />
+  );
+  // Valuation total = company-owned stock only.
+  const companyValue = useMemo(
+    () => (canViewCost ? companyStockValueTotal(stockCards) : null),
+    [stockCards, canViewCost],
+  );
 
   const negativeStock = useMemo(() => stockCards.filter((row) => row.onHand < 0), [stockCards]);
 
@@ -167,6 +209,7 @@ function ReportsInventoryPageContent() {
         meta: { titleKey: "masterData.fields.name" },
         accessorFn: (row) => row.productName,
       },
+      ownerColumn,
       {
         id: "onHand",
         header: t("inventory.fields.onHand"),
@@ -186,7 +229,7 @@ function ReportsInventoryPageContent() {
         accessorFn: (row) => formatMoney(row.stockValue),
       },
     ],
-    [t],
+    [t, ownerColumn],
   );
 
   const allStockColumns = useMemo<ColumnDef<StockCard, unknown>[]>(
@@ -208,6 +251,7 @@ function ReportsInventoryPageContent() {
         meta: { titleKey: "masterData.fields.name" },
         accessorFn: (row) => row.productName,
       },
+      ownerColumn,
       {
         id: "onHand",
         header: t("inventory.fields.onHand"),
@@ -235,7 +279,7 @@ function ReportsInventoryPageContent() {
         accessorFn: (row) => row.available,
       },
     ],
-    [t],
+    [t, ownerColumn],
   );
   const stockColumns = useMemo(
     () => omitInventoryCostColumns(allStockColumns, canViewCost),
@@ -268,6 +312,7 @@ function ReportsInventoryPageContent() {
         meta: { titleKey: "masterData.fields.name" },
         accessorFn: (row) => row.product?.displayName || row.product?.name || "",
       },
+      ownerColumn,
       {
         id: "onHand",
         header: t("inventory.fields.onHand"),
@@ -283,7 +328,7 @@ function ReportsInventoryPageContent() {
         },
       },
     ],
-    [t],
+    [t, ownerColumn],
   );
 
   return (
@@ -341,6 +386,15 @@ function ReportsInventoryPageContent() {
           <EnterpriseDataTable
             tableId="reports-inventory-valuation"
             printTitle={t("reports.inventory.valuation")}
+            filterBar={ownerFilterControl}
+            footerRow={
+              companyValue !== null
+                ? {
+                    productName: t("inventory.stock.companyValueTotal"),
+                    stockValue: <MoneyValue value={companyValue} />,
+                  }
+                : undefined
+            }
             columns={valuationColumns}
             data={stockCards}
             getRowId={(row) => row.productId}
@@ -359,11 +413,17 @@ function ReportsInventoryPageContent() {
               )
             }
           />
+          {canViewCost ? (
+            <p className="mt-2 text-caption text-muted-foreground">
+              {t("inventory.stock.companyValueNote")}
+            </p>
+          ) : null}
         </TabsContent>
         <TabsContent value="stock">
           <EnterpriseDataTable
             tableId="reports-inventory-stock"
             printTitle={t("reports.inventory.currentStock")}
+            filterBar={ownerFilterControl}
             columns={stockColumns}
             data={stockCards}
             getRowId={(row) => row.productId}
@@ -411,9 +471,12 @@ function ReportsInventoryPageContent() {
           <EnterpriseDataTable
             tableId="reports-inventory-warehouse-balance"
             printTitle={t("reports.inventory.warehouseBalance")}
+            filterBar={ownerFilterControl}
             columns={warehouseBalanceColumns}
             data={warehouseBalances}
-            getRowId={(row) => `${row.warehouseId}-${row.productId}`}
+            getRowId={(row) =>
+              `${row.warehouseId}-${row.productId}-${row.ownerAgentId ?? "company"}`
+            }
             isLoading={isLoading}
             exportColumns={exportColumnsFromKeys(
               warehouseBalanceColumns,

@@ -105,6 +105,11 @@ const SECTIONS: SectionConfig[] = [
         key: "landedCostClearingAccountId",
         labelKey: "accounting.settings.fields.landedCostClearing",
       },
+      {
+        // R13 — credited with the approved direct cost an assembly order absorbs (required once a direct cost is entered).
+        key: "assemblyCostAccountId",
+        labelKey: "accounting.settings.fields.assemblyCost",
+      },
     ],
   },
   {
@@ -352,7 +357,13 @@ export default function AccountingSettingsPage() {
         for (const section of SECTIONS) {
           for (const field of section.fields) {
             const refKey = field.key.replace(/Id$/, "") as keyof AccountingSettingsRow;
-            next[field.key] = toChartRow(row[refKey] as AccountRef | null);
+            const id = row[field.key];
+            // A saved id whose account object the API did not include is kept as is — saving
+            // the page must never clear a configured account it merely could not label.
+            next[field.key] = toChartRow(
+              (row[refKey] as AccountRef | null | undefined) ??
+                (id ? { id, code: "", name: "" } : null),
+            );
           }
         }
         setValues(next);
