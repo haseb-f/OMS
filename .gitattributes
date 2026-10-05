@@ -1,0 +1,5 @@
+# Client copies (scripts/package-client-copy.sh -> `git archive`) ship tracked
+# source only. Internal QA evidence (screenshots, run logs) stays in the repo
+# but is left out of the package.
+specs/**/evidence export-ignore
+docs/user-guide/evidence export-ignore
