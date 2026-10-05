@@ -1,5 +1,8 @@
 import { Test, type TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
@@ -276,27 +279,44 @@ describe('InvestmentOpportunitiesService', () => {
     expect(body.message).toContain('غير متاح لفرص الاستثمار');
   });
 
-  it('rejects a flagged Product that is not ACTIVE or is archived (eligibility = active + not deleted + flag)', async () => {
+  it('rejects a flagged Product that is not ACTIVE or is archived with 422 PRODUCT_INVESTMENT_NOT_ALLOWED', async () => {
     const productCDto = () => ({
       ...baseDto(),
       products: [{ productId: productCId, fundedUnits: 10, fundedUnitCost: 5 }],
     });
+    const expectBlocked = async (reason: string) => {
+      const error = await service
+        .create(productCDto())
+        .catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(UnprocessableEntityException);
+      expect(
+        (error as UnprocessableEntityException).getResponse(),
+      ).toMatchObject({ code: 'PRODUCT_INVESTMENT_NOT_ALLOWED', reason });
+    };
     try {
       await prisma.product.update({
         where: { id: productCId },
         data: { availableForInvestmentOpportunities: true, status: 'DRAFT' },
       });
-      await expect(service.create(productCDto())).rejects.toThrow(
-        BadRequestException,
-      );
+      await expectBlocked('NOT_ACTIVE');
 
       await prisma.product.update({
         where: { id: productCId },
         data: { status: 'ACTIVE', deletedAt: new Date() },
       });
-      await expect(service.create(productCDto())).rejects.toThrow(
-        BadRequestException,
-      );
+      await expectBlocked('NOT_ACTIVE');
+
+      await prisma.product.update({
+        where: { id: productCId },
+        data: { deletedAt: null, isSellable: false },
+      });
+      await expectBlocked('NOT_SELLABLE');
+
+      await prisma.product.update({
+        where: { id: productCId },
+        data: { isSellable: true, itemType: 'SERVICE' },
+      });
+      await expectBlocked('SERVICE');
     } finally {
       await prisma.product.update({
         where: { id: productCId },
@@ -304,6 +324,8 @@ describe('InvestmentOpportunitiesService', () => {
           availableForInvestmentOpportunities: false,
           status: 'ACTIVE',
           deletedAt: null,
+          isSellable: true,
+          itemType: null,
         },
       });
     }

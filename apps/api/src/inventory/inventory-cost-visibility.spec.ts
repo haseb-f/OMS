@@ -104,7 +104,7 @@ describe('inventory cost visibility', () => {
     });
     it(`stock cards ${sees ? 'include' : 'withhold'} valuation`, async () => {
       const { controller } = build(granted, superAdmin);
-      const cards = (await controller.getStockCards(user)) as Array<{
+      const cards = (await controller.getStockCards({}, user)) as Array<{
         stockValue: number | null;
         onHand: number;
       }>;

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import {
   InvestmentOpportunityStatus,
@@ -18,7 +19,9 @@ import { FindInvestmentOpportunitiesQueryDto } from './dto/find-investment-oppor
 import { OpportunityProductInputDto } from './dto/opportunity-product-input.dto';
 import { computeTargetCapital, round2 } from './shared/opportunity-totals.util';
 import {
+  investmentBlockedReason,
   investmentIneligibleMessage,
+  investmentNotAllowedBody,
   isInvestmentEligible,
 } from './shared/investment-eligibility.util';
 
@@ -148,7 +151,8 @@ export class InvestmentOpportunitiesService {
    *
    * Rule (see `isInvestmentEligible`): a NEW selection must be an ACTIVE,
    * non-archived Product with `availableForInvestmentOpportunities = true`,
-   * otherwise 400. A Product that loses eligibility after this Opportunity
+   * otherwise 400; agent-owned / service / non-sellable / inactive goods are
+   * refused first with 422 PRODUCT_INVESTMENT_NOT_ALLOWED. A Product that loses eligibility after this Opportunity
    * already references it is grandfathered — the Opportunity keeps it and
    * re-saving an edit that still includes it never fails (history is never
    * broken) — but it cannot be newly added to this or any other Opportunity.
@@ -171,6 +175,10 @@ export class InvestmentOpportunitiesService {
         deletedAt: true,
         displayName: true,
         availableForInvestmentOpportunities: true,
+        ownerAgentId: true,
+        itemType: true,
+        type: true,
+        isSellable: true,
       },
     });
     const byId = new Map(rows.map((r) => [r.id, r]));
@@ -179,12 +187,25 @@ export class InvestmentOpportunitiesService {
       if (!full) {
         throw new NotFoundException(`Product ${p.productId} not found`);
       }
-      if (!existingProductIds.has(p.productId) && !isInvestmentEligible(full)) {
-        throw new BadRequestException({
-          code: 'VALIDATION_ERROR',
-          message: investmentIneligibleMessage(full),
-          fields: [{ field: 'products', constraints: ['investmentEligible'] }],
-        });
+      // Grandfathered: a Product already on this Opportunity is never re-checked.
+      if (!existingProductIds.has(p.productId)) {
+        // R13 — structural rules first (agent-owned / service / non-sellable /
+        // inactive), enforced here and not only in the picker.
+        const blocked = investmentBlockedReason(full);
+        if (blocked) {
+          throw new UnprocessableEntityException(
+            investmentNotAllowedBody(blocked, full.displayName),
+          );
+        }
+        if (!isInvestmentEligible(full)) {
+          throw new BadRequestException({
+            code: 'VALIDATION_ERROR',
+            message: investmentIneligibleMessage(full),
+            fields: [
+              { field: 'products', constraints: ['investmentEligible'] },
+            ],
+          });
+        }
       }
       return {
         productId: p.productId,

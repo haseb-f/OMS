@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -30,16 +31,31 @@ import { ReserveDto } from './dto/reserve.dto';
 import { ReleaseDto } from './dto/release.dto';
 import { FindMovementsQueryDto } from './dto/find-movements-query.dto';
 import { BaseQuantityMovementDto } from './dto/base-quantity-movement.dto';
-import { PostSalesDeliveryDto } from './dto/post-sales-delivery.dto';
 import { PostSalesReturnDto } from './dto/post-sales-return.dto';
 import { PostPurchaseReceiptDto } from './dto/post-purchase-receipt.dto';
 import { PostPurchaseReturnDto } from './dto/post-purchase-return.dto';
 import { prismaEnumFilter } from '../common/query/enum-list';
+import {
+  type MovementTrace,
+  type PostSalesDeliveryInput,
+} from './dto/movement-trace';
+import { ownerAgentCondition } from './dto/owner-filter';
+import { round2 } from '../accounting/inventory-valuation/inventory-valuation.service';
 
 const RESERVATION_TYPES: InventoryMovementType[] = [
   InventoryMovementType.RESERVATION,
   InventoryMovementType.RESERVATION_RELEASE,
 ];
+
+/** The product columns a stock card reads (owner shown on the card — R13). */
+type StockCardProduct = {
+  id: string;
+  sku: string;
+  name: string;
+  displayName: string;
+  currentCost: Prisma.Decimal | null;
+  ownerAgent?: { id: string; name: string } | null;
+};
 
 /**
  * Owner agent of a product at movement time (spec §4). Share-locks the
@@ -54,6 +70,44 @@ export async function movementOwnerAgentId(
     SELECT owner_agent_id FROM products WHERE id = ${productId}::uuid FOR SHARE
   `;
   return rows[0]?.owner_agent_id ?? null;
+}
+
+/**
+ * R13 — the single stock-writer lock. Takes `SELECT … FOR UPDATE` on the
+ * affected `products` rows, in sorted id order (so two transactions that touch
+ * the same products in a different order can never deadlock), BEFORE the
+ * writer reads on-hand. Concurrent decrements of the same product therefore
+ * serialize and the second one re-reads the committed balance. It also
+ * conflicts with `movementOwnerAgentId`'s FOR SHARE and with the owner-change
+ * lock of ProductsService, which is what we want.
+ */
+export async function lockProductsForUpdate(
+  tx: Prisma.TransactionClient,
+  productIds: string[],
+): Promise<void> {
+  const ids = [...new Set(productIds)].sort();
+  if (ids.length === 0) return;
+  await tx.$queryRaw`
+    SELECT id FROM products WHERE id = ANY(${ids}::uuid[]) ORDER BY id FOR UPDATE
+  `;
+}
+
+function duplicateMovementError(idempotencyKey: string) {
+  return new ConflictException({
+    code: 'INVENTORY_DUPLICATE_MOVEMENT',
+    message:
+      'This stock movement was already posted — the operation was not repeated.',
+    idempotencyKey,
+  });
+}
+
+/** The traceability columns of a document-driven movement (undefined ones are omitted by Prisma). */
+function traceFields(trace: MovementTrace) {
+  return {
+    idempotencyKey: trace.idempotencyKey,
+    parentProductId: trace.parentProductId,
+    recipeId: trace.recipeId,
+  };
 }
 
 @Injectable()
@@ -73,6 +127,7 @@ export class InventoryService {
     const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
 
     const movement = await this.prisma.$transaction(async (tx) => {
+      await lockProductsForUpdate(tx, [dto.productId]);
       const quantityBefore = await this.getOnHandQuantity(
         tx,
         dto.productId,
@@ -80,6 +135,9 @@ export class InventoryService {
       );
       const quantityAfter = quantityBefore + dto.quantity;
 
+      // Opening balances are deliberately NOT posted to the GL (Opening
+      // Balance Wizard / fiscal-year opening entries own that); transfers are
+      // value-neutral per company and also never post.
       const movement = await this.createMovement(tx, {
         movementNumber: await this.numberingEngine.generateNumber(
           'OPENING_INVENTORY',
@@ -131,6 +189,7 @@ export class InventoryService {
     const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
 
     return this.prisma.$transaction(async (tx) => {
+      await lockProductsForUpdate(tx, [dto.productId]);
       const quantityBefore = await this.getOnHandQuantity(
         tx,
         dto.productId,
@@ -204,6 +263,11 @@ export class InventoryService {
     );
 
     return this.prisma.$transaction(async (tx) => {
+      // Every line's product, once, in sorted order — before any on-hand read.
+      await lockProductsForUpdate(
+        tx,
+        dto.lines.map((line) => line.productId),
+      );
       const transferId = randomUUID();
       const transferNumber = await this.numberingEngine.generateNumber(
         'WAREHOUSE_TRANSFER',
@@ -314,7 +378,7 @@ export class InventoryService {
    *  (Sales Order confirm) is all-or-nothing — a retry after a failed line
    *  must never double-reserve the lines that had already succeeded. */
   async reserve(
-    dto: ReserveDto,
+    dto: ReserveDto & MovementTrace,
     userId?: string,
     outerTx?: Prisma.TransactionClient,
   ) {
@@ -322,6 +386,7 @@ export class InventoryService {
     const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
 
     const run = async (tx: Prisma.TransactionClient) => {
+      await lockProductsForUpdate(tx, [dto.productId]);
       const onHand = await this.getOnHandQuantity(
         tx,
         dto.productId,
@@ -356,6 +421,7 @@ export class InventoryService {
         referenceId: dto.referenceId,
         notes: dto.notes,
         createdBy: userId ?? null,
+        ...traceFields(dto),
       });
 
       await this.activityService.log(
@@ -373,7 +439,7 @@ export class InventoryService {
 
   /** Accepts an optional caller-supplied `tx` (TASK-057) — see `postPurchaseReceipt`'s doc comment for why. */
   async release(
-    dto: ReleaseDto,
+    dto: ReleaseDto & MovementTrace,
     userId?: string,
     tx?: Prisma.TransactionClient,
   ) {
@@ -381,6 +447,7 @@ export class InventoryService {
     const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
 
     const run = async (client: Prisma.TransactionClient) => {
+      await lockProductsForUpdate(client, [dto.productId]);
       const onHand = await this.getOnHandQuantity(
         client,
         dto.productId,
@@ -414,6 +481,7 @@ export class InventoryService {
         referenceId: dto.referenceId,
         notes: dto.notes,
         createdBy: userId ?? null,
+        ...traceFields(dto),
       });
 
       await this.activityService.log(
@@ -438,7 +506,7 @@ export class InventoryService {
    */
   /** Accepts an optional caller-supplied `tx` (TASK-057) — see `postPurchaseReceipt`'s doc comment for why. */
   async postSalesDelivery(
-    dto: PostSalesDeliveryDto,
+    dto: PostSalesDeliveryInput,
     userId?: string,
     tx?: Prisma.TransactionClient,
   ) {
@@ -446,6 +514,7 @@ export class InventoryService {
     const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
 
     const run = async (client: Prisma.TransactionClient) => {
+      await lockProductsForUpdate(client, [dto.productId]);
       const quantityBefore = await this.getOnHandQuantity(
         client,
         dto.productId,
@@ -457,6 +526,41 @@ export class InventoryService {
         throw new BadRequestException(
           `Delivery quantity exceeds on-hand stock for ${product.sku} at warehouse ${warehouse.code} (on-hand ${quantityBefore}, requested ${dto.quantity}). Post an opening balance or inventory adjustment first.`,
         );
+      }
+
+      // R13 (F7) — delivery checks AVAILABILITY, not just on-hand: stock
+      // reserved for other documents cannot be shipped.
+      //
+      // The reservation of the delivery's own flow may be consumed: the caller
+      // names it with `ignoreReservedForReference` (e.g. the Sales Order a
+      // Sales Invoice fulfils); when it does not, the delivery's own
+      // referenceType/referenceId is used (a reservation made under the same
+      // reference). At most the delivered quantity of that reservation is
+      // credited, because that is all the caller will release afterwards:
+      //   available = onHand − (reservedTotal − min(ownReserved, quantity))
+      // Existing callers that release their reservation AFTER delivering (the
+      // B2B invoice) therefore keep working once they name the order; callers
+      // that release first simply see a smaller reservedTotal.
+      const ownReference = dto.ignoreReservedForReference ?? {
+        referenceType: dto.referenceType,
+        referenceId: dto.referenceId,
+      };
+      const [reserved, ownReserved] = await Promise.all([
+        this.getReservedQuantity(client, dto.productId, dto.warehouseId),
+        this.getReservedQuantity(
+          client,
+          dto.productId,
+          dto.warehouseId,
+          ownReference,
+        ),
+      ]);
+      const credited = Math.min(Math.max(ownReserved, 0), dto.quantity);
+      const available = quantityBefore - (reserved - credited);
+      if (dto.quantity > available) {
+        throw new BadRequestException({
+          code: 'INVENTORY_AVAILABLE_INSUFFICIENT',
+          message: `Delivery quantity exceeds the available stock for ${product.sku} at warehouse ${warehouse.code} (on-hand ${quantityBefore}, reserved for other documents ${reserved - credited}, requested ${dto.quantity}).`,
+        });
       }
 
       const movement = await this.createMovement(client, {
@@ -475,6 +579,7 @@ export class InventoryService {
         referenceId: dto.referenceId,
         notes: dto.notes,
         createdBy: userId ?? null,
+        ...traceFields(dto),
       });
 
       await this.activityService.log(
@@ -498,7 +603,7 @@ export class InventoryService {
    */
   /** Accepts an optional caller-supplied `tx` (TASK-057) — see `postPurchaseReceipt`'s doc comment for why. */
   async postSalesReturn(
-    dto: PostSalesReturnDto,
+    dto: PostSalesReturnDto & MovementTrace,
     userId?: string,
     tx?: Prisma.TransactionClient,
   ) {
@@ -506,6 +611,7 @@ export class InventoryService {
     const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
 
     const run = async (client: Prisma.TransactionClient) => {
+      await lockProductsForUpdate(client, [dto.productId]);
       const quantityBefore = await this.getOnHandQuantity(
         client,
         dto.productId,
@@ -529,6 +635,7 @@ export class InventoryService {
         referenceId: dto.referenceId,
         notes: dto.notes,
         createdBy: userId ?? null,
+        ...traceFields(dto),
       });
 
       await this.activityService.log(
@@ -558,7 +665,7 @@ export class InventoryService {
    * Approved (which would double-receive on a retry).
    */
   async postPurchaseReceipt(
-    dto: PostPurchaseReceiptDto,
+    dto: PostPurchaseReceiptDto & MovementTrace,
     userId?: string,
     tx?: Prisma.TransactionClient,
   ) {
@@ -566,6 +673,7 @@ export class InventoryService {
     const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
 
     const run = async (client: Prisma.TransactionClient) => {
+      await lockProductsForUpdate(client, [dto.productId]);
       const quantityBefore = await this.getOnHandQuantity(
         client,
         dto.productId,
@@ -590,6 +698,7 @@ export class InventoryService {
         referenceId: dto.referenceId,
         notes: dto.notes,
         createdBy: userId ?? null,
+        ...traceFields(dto),
       });
 
       await this.activityService.log(
@@ -619,7 +728,7 @@ export class InventoryService {
    */
   /** Accepts an optional caller-supplied `tx` (TASK-057), same atomicity reasoning as `postPurchaseReceipt`. */
   async postPurchaseReturn(
-    dto: PostPurchaseReturnDto,
+    dto: PostPurchaseReturnDto & MovementTrace,
     userId?: string,
     tx?: Prisma.TransactionClient,
   ) {
@@ -627,6 +736,7 @@ export class InventoryService {
     const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
 
     const run = async (client: Prisma.TransactionClient) => {
+      await lockProductsForUpdate(client, [dto.productId]);
       const quantityBefore = await this.getOnHandQuantity(
         client,
         dto.productId,
@@ -654,6 +764,7 @@ export class InventoryService {
         referenceId: dto.referenceId,
         notes: dto.notes,
         createdBy: userId ?? null,
+        ...traceFields(dto),
       });
 
       await this.activityService.log(
@@ -704,22 +815,35 @@ export class InventoryService {
     return movement;
   }
 
-  async getStock(productId: string, warehouseId?: string) {
-    await this.productsService.findOne(productId);
+  /**
+   * Derived stock of one product (optionally one warehouse). R13: the row
+   * carries the product's owner (`ownerAgentId` / `ownerAgentName`, null =
+   * company) and the optional `owner` filter (`COMPANY|AGENT|<agentId>`) —
+   * a product whose owner does not match reads as zero, never as somebody
+   * else's stock.
+   */
+  async getStock(productId: string, warehouseId?: string, owner?: string) {
+    const product = await this.productsService.findOne(productId);
     if (warehouseId) {
       await this.warehousesService.findOne(warehouseId);
     }
 
-    const onHand = await this.getOnHandQuantity(
-      this.prisma,
-      productId,
-      warehouseId,
-    );
-    const reserved = await this.getReservedQuantity(
-      this.prisma,
-      productId,
-      warehouseId,
-    );
+    const ownerCondition = ownerAgentCondition(owner);
+    const [onHand, reserved] = await Promise.all([
+      this.getOnHandQuantity(
+        this.prisma,
+        productId,
+        warehouseId,
+        ownerCondition,
+      ),
+      this.getReservedQuantity(
+        this.prisma,
+        productId,
+        warehouseId,
+        undefined,
+        ownerCondition,
+      ),
+    ]);
 
     return {
       productId,
@@ -727,6 +851,8 @@ export class InventoryService {
       onHand,
       reserved,
       available: onHand - reserved,
+      ownerAgentId: product.ownerAgent?.id ?? null,
+      ownerAgentName: product.ownerAgent?.name ?? null,
     };
   }
 
@@ -883,10 +1009,15 @@ export class InventoryService {
    * `groupBy` each for on-hand/reserved and one `distinct` query for the
    * latest movement per product, regardless of catalog size.
    */
-  async getStockCards() {
+  async getStockCards(owner?: string) {
     const products = await this.prisma.product.findMany({
-      where: { isInventoryItem: true, deletedAt: null },
+      where: {
+        isInventoryItem: true,
+        deletedAt: null,
+        ownerAgentId: ownerAgentCondition(owner),
+      },
       orderBy: { name: 'asc' },
+      include: { ownerAgent: { select: { id: true, name: true } } },
     });
     if (products.length === 0) return [];
     const productIds = products.map((p) => p.id);
@@ -928,17 +1059,12 @@ export class InventoryService {
       const onHand = onHandByProduct.get(product.id) ?? 0;
       const reserved = reservedByProduct.get(product.id) ?? 0;
       const lastMovement = lastMovementByProduct.get(product.id) ?? null;
-      const cost = product.currentCost ? Number(product.currentCost) : null;
       return {
-        productId: product.id,
-        sku: product.sku,
-        productName: product.displayName || product.name,
+        ...this.stockCardIdentity(product),
         onHand,
         reserved,
         available: onHand - reserved,
-        averageCost: cost,
-        lastCost: cost,
-        stockValue: cost !== null ? cost * onHand : null,
+        ...this.stockCardCost(product, onHand),
         lastMovement: lastMovement
           ? {
               id: lastMovement.id,
@@ -951,13 +1077,36 @@ export class InventoryService {
     });
   }
 
-  private async buildStockCard(product: {
-    id: string;
-    sku: string;
-    name: string;
-    displayName: string;
-    currentCost: Prisma.Decimal | null;
-  }) {
+  /** Product + owner columns shared by every stock card shape (R13: owner shown on the card). */
+  private stockCardIdentity(product: StockCardProduct) {
+    return {
+      productId: product.id,
+      sku: product.sku,
+      productName: product.displayName || product.name,
+      ownerAgentId: product.ownerAgent?.id ?? null,
+      ownerAgentName: product.ownerAgent?.name ?? null,
+    };
+  }
+
+  /**
+   * Cost columns of a stock card. `stockValue` is a COMPANY figure: agent-owned
+   * stock is never a company asset (R13 spec §5), so an agent product's card
+   * carries `null` here and can never add to a valuation total.
+   */
+  private stockCardCost(product: StockCardProduct, onHand: number) {
+    const cost = product.currentCost ? Number(product.currentCost) : null;
+    const companyOwned = !product.ownerAgent;
+    return {
+      averageCost: cost,
+      lastCost: cost,
+      stockValue:
+        cost !== null && companyOwned
+          ? round2(product.currentCost!.mul(onHand)).toNumber()
+          : null,
+    };
+  }
+
+  private async buildStockCard(product: StockCardProduct) {
     const [onHand, reserved, lastMovement] = await Promise.all([
       this.getOnHandQuantity(this.prisma, product.id),
       this.getReservedQuantity(this.prisma, product.id),
@@ -966,18 +1115,13 @@ export class InventoryService {
         orderBy: { createdAt: 'desc' },
       }),
     ]);
-    const cost = product.currentCost ? Number(product.currentCost) : null;
 
     return {
-      productId: product.id,
-      sku: product.sku,
-      productName: product.displayName || product.name,
+      ...this.stockCardIdentity(product),
       onHand,
       reserved,
       available: onHand - reserved,
-      averageCost: cost,
-      lastCost: cost,
-      stockValue: cost !== null ? cost * onHand : null,
+      ...this.stockCardCost(product, onHand),
       lastMovement: lastMovement
         ? {
             id: lastMovement.id,
@@ -996,17 +1140,29 @@ export class InventoryService {
    * with at least one movement are returned — no fabricated zero rows for
    * every product×warehouse combination that never happened.
    */
-  async getWarehouseBalances() {
+  async getWarehouseBalances(owner?: string) {
+    // The owner is the movement's snapshot (never re-attributed), so a row is
+    // one product + warehouse + owner — company and agent stock never mix.
     const grouped = await this.prisma.inventoryMovement.groupBy({
-      by: ['productId', 'warehouseId'],
-      where: { type: { notIn: RESERVATION_TYPES } },
+      by: ['productId', 'warehouseId', 'ownerAgentId'],
+      where: {
+        type: { notIn: RESERVATION_TYPES },
+        ownerAgentId: ownerAgentCondition(owner),
+      },
       _sum: { quantity: true },
     });
 
     const productIds = [...new Set(grouped.map((row) => row.productId))];
     const warehouseIds = [...new Set(grouped.map((row) => row.warehouseId))];
+    const agentIds = [
+      ...new Set(
+        grouped
+          .map((row) => row.ownerAgentId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
 
-    const [products, warehouses] = await Promise.all([
+    const [products, warehouses, agents] = await Promise.all([
       this.prisma.product.findMany({
         where: { id: { in: productIds } },
         select: { id: true, sku: true, name: true, displayName: true },
@@ -1015,9 +1171,16 @@ export class InventoryService {
         where: { id: { in: warehouseIds } },
         select: { id: true, code: true, name: true },
       }),
+      agentIds.length
+        ? this.prisma.agent.findMany({
+            where: { id: { in: agentIds } },
+            select: { id: true, name: true },
+          })
+        : Promise.resolve([]),
     ]);
     const productMap = new Map(products.map((p) => [p.id, p]));
     const warehouseMap = new Map(warehouses.map((w) => [w.id, w]));
+    const agentMap = new Map(agents.map((a) => [a.id, a.name]));
 
     return grouped
       .map((row) => ({
@@ -1025,6 +1188,10 @@ export class InventoryService {
         product: productMap.get(row.productId) ?? null,
         warehouseId: row.warehouseId,
         warehouse: warehouseMap.get(row.warehouseId) ?? null,
+        ownerAgentId: row.ownerAgentId,
+        ownerAgentName: row.ownerAgentId
+          ? (agentMap.get(row.ownerAgentId) ?? null)
+          : null,
         onHand: row._sum.quantity ?? 0,
       }))
       .filter((row) => row.onHand !== 0);
@@ -1061,6 +1228,7 @@ export class InventoryService {
     const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
 
     return this.prisma.$transaction(async (tx) => {
+      await lockProductsForUpdate(tx, [dto.productId]);
       const quantityBefore = await this.getOnHandQuantity(
         tx,
         dto.productId,
@@ -1098,8 +1266,163 @@ export class InventoryService {
         tx,
       );
 
+      // Write-off at the current average (forward-only, same Dr/Cr as an
+      // adjustment); agent-owned goods never reach the company GL — the
+      // provider skips them (R13 spec §6, F11).
+      await this.postingEngine.post(
+        'INVENTORY_ADJUSTMENT',
+        movement.id,
+        userId,
+        tx,
+      );
+
       return movement;
     });
+  }
+
+  /**
+   * R13 — a confirmed Physical Count's line, through the same locked and
+   * validated path as every other writer: the product row is locked, the
+   * before/after are read from the locked ledger inside `tx`, and the
+   * PHYSICAL_COUNT movement is posted to the GL like an adjustment. The caller
+   * (PhysicalCountService) locks all of the count's products once, sorted,
+   * before the first line. Duplicate protection: one movement per count line.
+   */
+  async postPhysicalCountLine(
+    tx: Prisma.TransactionClient,
+    input: {
+      countId: string;
+      countLineId: string;
+      movementNumber: string;
+      productId: string;
+      sku: string;
+      warehouseId: string;
+      countNumber: string;
+      difference: number;
+      notes?: string | null;
+      userId?: string;
+    },
+  ) {
+    await lockProductsForUpdate(tx, [input.productId]);
+    const quantityBefore = await this.getOnHandQuantity(
+      tx,
+      input.productId,
+      input.warehouseId,
+    );
+    const quantityAfter = quantityBefore + input.difference;
+    if (quantityAfter < 0) {
+      throw new BadRequestException(
+        `Confirming would result in negative stock for ${input.sku}.`,
+      );
+    }
+
+    const movement = await this.createMovement(tx, {
+      movementNumber: input.movementNumber,
+      type: InventoryMovementType.PHYSICAL_COUNT,
+      productId: input.productId,
+      warehouseId: input.warehouseId,
+      quantity: input.difference,
+      quantityBefore,
+      quantityAfter,
+      referenceType: 'PHYSICAL_COUNT',
+      referenceId: input.countId,
+      reason: 'Physical Count',
+      notes: input.notes,
+      createdBy: input.userId ?? null,
+      idempotencyKey: `PHYSICAL_COUNT:${input.countId}:${input.countLineId}:${InventoryMovementType.PHYSICAL_COUNT}`,
+    });
+    await this.activityService.log(
+      movement.id,
+      InventoryMovementActivityType.PHYSICAL_COUNT_ADJUSTED,
+      `Physical count ${input.countNumber} adjusted ${input.sku} by ${input.difference}`,
+      undefined,
+      tx,
+    );
+    await this.postingEngine.post(
+      'INVENTORY_ADJUSTMENT',
+      movement.id,
+      input.userId,
+      tx,
+    );
+    return movement;
+  }
+
+  /**
+   * R13 — the stock side of an assembly order (and of its reversal): one
+   * PRODUCTION_CONSUMPTION (component out, negative) or PRODUCTION_OUTPUT
+   * (finished item in, positive) movement per call, through the locked,
+   * non-negative, idempotent path. The caller (assembly service) locks every
+   * affected product once, sorted, with `lockProductsForUpdate` first. Reversal
+   * is the opposite sign with its own idempotency key. Posting is the caller's
+   * (ASSEMBLY_ORDER provider) — nothing is posted here.
+   */
+  async postProductionMovement(
+    tx: Prisma.TransactionClient,
+    input: {
+      type: 'PRODUCTION_CONSUMPTION' | 'PRODUCTION_OUTPUT';
+      productId: string;
+      warehouseId: string;
+      /** Signed whole units — negative removes stock, positive adds it. */
+      quantity: number;
+      referenceType: string;
+      referenceId: string;
+      idempotencyKey: string;
+      unitCost?: Prisma.Decimal | string | number;
+      notes?: string;
+      userId?: string;
+    } & Pick<MovementTrace, 'parentProductId' | 'recipeId'>,
+  ) {
+    if (!Number.isInteger(input.quantity) || input.quantity === 0) {
+      throw new BadRequestException(
+        'A production movement needs a non-zero whole quantity.',
+      );
+    }
+    const product = await this.assertInventoryProduct(input.productId);
+    const warehouse = await this.assertActiveWarehouse(input.warehouseId);
+    await lockProductsForUpdate(tx, [input.productId]);
+
+    const quantityBefore = await this.getOnHandQuantity(
+      tx,
+      input.productId,
+      input.warehouseId,
+    );
+    const quantityAfter = quantityBefore + input.quantity;
+    if (quantityAfter < 0) {
+      throw new BadRequestException(
+        `Not enough stock of ${product.sku} at ${warehouse.code} (on-hand ${quantityBefore}, needed ${-input.quantity}).`,
+      );
+    }
+    const movement = await this.createMovement(tx, {
+      movementNumber: await this.numberingEngine.generateNumber(
+        'INVENTORY_MOVEMENT',
+        undefined,
+        tx,
+      ),
+      type: InventoryMovementType[input.type],
+      productId: input.productId,
+      warehouseId: input.warehouseId,
+      quantity: input.quantity,
+      quantityBefore,
+      quantityAfter,
+      unitCost: input.unitCost,
+      referenceType: input.referenceType,
+      referenceId: input.referenceId,
+      notes: input.notes,
+      createdBy: input.userId ?? null,
+      idempotencyKey: input.idempotencyKey,
+      parentProductId: input.parentProductId,
+      recipeId: input.recipeId,
+    });
+    await this.activityService.log(
+      movement.id,
+      input.quantity < 0
+        ? InventoryMovementActivityType.PRODUCTION_CONSUMED
+        : InventoryMovementActivityType.PRODUCTION_OUTPUT_RECEIVED,
+      `${input.quantity < 0 ? 'Consumed' : 'Received'} ${Math.abs(input.quantity)} of ${product.sku} at ${warehouse.code}`,
+      undefined,
+      tx,
+    );
+    return movement;
   }
 
   /** "Inventory products only. Service and Digital products must not generate stock." */
@@ -1132,8 +1455,32 @@ export class InventoryService {
     tx: Prisma.TransactionClient,
     data: Prisma.InventoryMovementUncheckedCreateInput,
   ) {
+    // Duplicate protection (R13): a document-driven writer's key was already
+    // used — a 409, never a second movement. The product lock taken by the
+    // writer makes this check race-free; the unique index is the backstop.
+    const { idempotencyKey } = data;
+    if (idempotencyKey) {
+      const existing = await tx.inventoryMovement.findUnique({
+        where: { idempotencyKey },
+        select: { id: true },
+      });
+      if (existing) throw duplicateMovementError(idempotencyKey);
+    }
     const ownerAgentId = await movementOwnerAgentId(tx, data.productId);
-    return tx.inventoryMovement.create({ data: { ...data, ownerAgentId } });
+    try {
+      return await tx.inventoryMovement.create({
+        data: { ...data, ownerAgentId },
+      });
+    } catch (error) {
+      if (
+        idempotencyKey &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw duplicateMovementError(idempotencyKey);
+      }
+      throw error;
+    }
   }
 
   /** On-hand quantity: excludes the reserved ledger (RESERVATION/RESERVATION_RELEASE). */
@@ -1141,11 +1488,13 @@ export class InventoryService {
     tx: Prisma.TransactionClient | PrismaService,
     productId: string,
     warehouseId?: string,
+    ownerAgentId?: Prisma.StringNullableFilter | null,
   ): Promise<number> {
     const result = await tx.inventoryMovement.aggregate({
       where: {
         productId,
         warehouseId,
+        ownerAgentId,
         type: { notIn: RESERVATION_TYPES },
       },
       _sum: { quantity: true },
@@ -1153,16 +1502,24 @@ export class InventoryService {
     return result._sum.quantity ?? 0;
   }
 
-  /** Reserved ledger only: RESERVATION (+) and RESERVATION_RELEASE (-). */
+  /**
+   * Reserved ledger only: RESERVATION (+) and RESERVATION_RELEASE (-).
+   * `reference` narrows it to the reservations of one business document.
+   */
   private async getReservedQuantity(
     tx: Prisma.TransactionClient | PrismaService,
     productId: string,
     warehouseId?: string,
+    reference?: { referenceType: string; referenceId: string },
+    ownerAgentId?: Prisma.StringNullableFilter | null,
   ): Promise<number> {
     const result = await tx.inventoryMovement.aggregate({
       where: {
         productId,
         warehouseId,
+        ownerAgentId,
+        referenceType: reference?.referenceType,
+        referenceId: reference?.referenceId,
         type: { in: RESERVATION_TYPES },
       },
       _sum: { quantity: true },

@@ -13,6 +13,7 @@ import {
   ItemType,
   ProductCostingMethod,
   ProductStatus,
+  ProductSupplyMethod,
   ProductType,
 } from '@prisma/client';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
@@ -72,9 +73,12 @@ export class CreateProductDto {
   @IsOptionalUuid()
   brandId?: string;
 
-  /** Required. */
-  @IsUUID()
-  unitId!: string;
+  /**
+   * Optional since R13 — omitted, the category's default unit is used
+   * (ProductsService; 400 when the category has none either).
+   */
+  @IsOptionalUuid()
+  unitId?: string;
 
   @IsOptionalUuid()
   taxId?: string;
@@ -99,10 +103,10 @@ export class CreateProductDto {
   longDescription?: string;
 
   /**
-   * Optional — never a mandatory extra step in the creation wizard.
-   * Defaults to `PURCHASE_AND_SALE` in `ProductsService.create()` when
-   * omitted (the safest default: sellable AND purchasable), still editable
-   * later like every other field.
+   * DEPRECATED (R13) — the stored `type` is derived from itemType / flags /
+   * supplyMethod on every write. Accepted only as an input hint for old
+   * callers and import files that send nothing else: it is mapped onto the
+   * independent attributes (`legacyTypeToAttributes`) and otherwise ignored.
    */
   @IsEnum(ProductType)
   @IsOptional()
@@ -116,8 +120,12 @@ export class CreateProductDto {
   @IsOptional()
   imageUrl?: string;
 
-  /** Defaults by type when omitted (see ProductsService); manual override always allowed.
-   * Doubles as "Available For Purchase" / "Available For Sale" / "Track Inventory". */
+  /**
+   * Independent attributes (R13). Omitted values default from `itemType`
+   * (PRODUCT: sell + buy, tracked; SERVICE: sell only, untracked); explicit
+   * values always win, subject to the hard rules in `product-attributes.ts`.
+   * Doubles as "Available For Purchase" / "Available For Sale" / "Track Inventory".
+   */
   @IsBoolean()
   @IsOptional()
   isPurchasable?: boolean;
@@ -132,14 +140,26 @@ export class CreateProductDto {
 
   /**
    * commission-policy.md A2 — explicit commercial type (PRODUCT / SERVICE),
-   * independent of stocking. Omitted on create: SERVICE for a SERVICE type,
-   * PRODUCT for a stocked item, otherwise left unclassified for review.
+   * independent of stocking. Omitted on create: inferred from the legacy
+   * `type` hint, else PRODUCT.
    */
   @IsEnum(ItemType)
   @IsOptional()
   itemType?: ItemType;
 
-  /** Investor Engine Milestone 4, Part B — explicit opt-in for the Investment Opportunity Product picker. Defaults false. */
+  /**
+   * How the item is supplied (R13): PURCHASED, ASSEMBLED (stocked, built by an
+   * assembly order from its recipe) or KIT (no stock of its own; sold from
+   * components). SERVICE is always PURCHASED.
+   */
+  @IsEnum(ProductSupplyMethod)
+  @IsOptional()
+  supplyMethod?: ProductSupplyMethod;
+
+  /**
+   * Investor Engine Milestone 4, Part B — explicit opt-in for the Investment Opportunity Product picker. Defaults false.
+   * R13: `true` only for company-owned, sellable, ACTIVE, non-service products (422 PRODUCT_INVESTMENT_NOT_ALLOWED).
+   */
   @IsBoolean()
   @IsOptional()
   availableForInvestmentOpportunities?: boolean;

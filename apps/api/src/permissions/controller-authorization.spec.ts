@@ -76,8 +76,6 @@ const AUDIT_TRAIL_SUFFIXES = [
   '/notes/',
   '/status-history/',
   '/shipments/',
-  '/components/',
-  '/variants/',
 ];
 
 function isAuditTrailSubResource(relPath: string): boolean {
