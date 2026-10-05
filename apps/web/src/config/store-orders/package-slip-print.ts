@@ -1,4 +1,5 @@
 import { formatDate } from "@/lib/date";
+import { orderDestination } from "@/config/store-orders/order-destination";
 import type { PackageSlipPayload, PrintCompanyInfo, SlipCollection } from "@/types/print-engine";
 import type { FulfillmentGateResult, StoreOrderRow } from "@/services/store-orders-service";
 
@@ -108,7 +109,7 @@ export function buildPackageSlipPayload(
     customer: {
       name: partner?.name ?? "",
       phone: partner?.mobile || partner?.phone || undefined,
-      addressLines: [partner?.address, partner?.city].filter(
+      addressLines: [orderDestination(order).address, orderDestination(order).city].filter(
         (value): value is string => !!value && value.trim() !== "",
       ),
     },

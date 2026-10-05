@@ -1,5 +1,10 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import { GlobalLookupAction, GlobalLookupMethod, Prisma } from '@prisma/client';
+import {
+  GlobalLookupAction,
+  GlobalLookupMethod,
+  PartnerRoleType,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PartnersService } from '../../partners/partners.service';
 import { PhoneNumberService } from '../../common/phone/phone-number.service';
@@ -7,6 +12,7 @@ import { SalesScopeService } from '../../sales-scope/sales-scope.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { personNameKey, personNameKeySql } from '../../common/text/person-name';
 import { storeOrderPayableTotal } from '../store-order-line-amount';
+import { maskName } from '../../customer-lookup/customer-lookup.util';
 import { agentCustomerScopeWhere } from '../../agents/orders/agent-customer';
 import { readAgentCustomerSnapshot } from '../../agents/common/agent-terms';
 import {
@@ -87,6 +93,8 @@ const ORDER_SUMMARY_SELECT = {
 
 interface Evaluation {
   result: DuplicateCheckResult;
+  /** Other customer records holding the number (server-side) — the allowed answers besides the shown customer. */
+  alternatives?: { id: string; partnerNumber: string; name: string }[];
   /** Phone match inside the scope. */
   partnerNumber?: string;
   /** Latest order numbers of that customer inside the customer scope — for the audit row only, never returned. */
@@ -212,8 +220,11 @@ export class StoreOrderDuplicatesService {
       partnerNumber,
       orderNumbers = [],
       crossScopePartnerId,
+      alternatives = [],
     } = await this.evaluate(input, scope);
-    if (result.kind === 'NONE') return NO_DUPLICATE;
+    // KNOWN is informational: the order is attached to the number's one
+    // customer by the create path itself (one phone = one customer).
+    if (result.kind === 'NONE' || result.kind === 'KNOWN') return NO_DUPLICATE;
 
     if (result.kind === 'PHONE' && result.crossScope) {
       if (!resolution) throw duplicateAcknowledgementRequired(result);
@@ -228,11 +239,34 @@ export class StoreOrderDuplicatesService {
       if (resolution.decision === 'DIFFERENT_CUSTOMER') {
         throw duplicateAcknowledgementRequired(result, 'INVALID');
       }
+      // Several records hold this number: the caller must name the right one —
+      // never chosen silently, never merged.
+      if (alternatives.length > 0 && !resolution.customerId) {
+        throw duplicateAcknowledgementRequired(result, 'AMBIGUOUS');
+      }
+      const alternative = alternatives.find(
+        (candidate) => candidate.id === resolution.customerId,
+      );
       if (
         resolution.customerId &&
-        resolution.customerId !== result.customer.id
+        resolution.customerId !== result.customer.id &&
+        !alternative
       ) {
         throw duplicateAcknowledgementRequired(result, 'STALE');
+      }
+      if (alternative) {
+        const chosenIntentional =
+          resolution.decision === 'INTENTIONAL_NEW_ORDER';
+        return {
+          partnerId: alternative.id,
+          reviewPending: false,
+          activity: {
+            action: chosenIntentional
+              ? DUPLICATE_ACTIVITY.INTENTIONAL_NEW_ORDER
+              : DUPLICATE_ACTIVITY.USE_EXISTING_CUSTOMER,
+            details: `${chosenIntentional ? 'Intentional new order' : 'Existing customer used'} — phone matches several customer records; the creator chose ${alternative.partnerNumber} (${alternative.name}).`,
+          },
+        };
       }
       const orders = orderNumbers.length
         ? `; existing orders: ${orderNumbers.join(', ')}`
@@ -290,36 +324,45 @@ export class StoreOrderDuplicatesService {
     const raw = [input.phone, ...(input.phones ?? [])].filter(
       (value): value is string => !!value?.trim(),
     );
+    const region = await this.regionOf(input.countryId);
     const checked = new Set<string>();
+    let known: Evaluation | null = null;
     for (const value of raw) {
-      const phone = await this.normalizePhone(value, input.countryId);
-      if (!phone || checked.has(phone)) continue;
-      checked.add(phone);
-      const matched = await this.phoneEvaluation(phone, scope);
-      if (matched) return matched;
+      // Every E.164 the typed number can validly mean (the form's phone
+      // country first, then the number on its own, then the primary markets):
+      // a local number typed under the wrong default country still finds its
+      // customer. Always a full valid number — never a suffix match.
+      const candidates = this.phones
+        .lookupCandidates(value, region)
+        .filter((candidate) => !checked.has(candidate));
+      if (candidates.length === 0) continue;
+      candidates.forEach((candidate) => checked.add(candidate));
+      const matched = await this.phoneEvaluation(candidates, scope);
+      if (!matched) continue;
+      // A customer with no order yet is informational only: it must never
+      // hide a stronger match on another number of the same customer.
+      if (matched.result.kind === 'KNOWN') {
+        known ??= matched;
+        continue;
+      }
+      return matched;
     }
     const candidates = await this.nameCandidates(input.name, scope);
     if (candidates.length) {
       return { result: { kind: 'NAME', candidates } };
     }
-    return { result: { kind: 'NONE' } };
+    return known ?? { result: { kind: 'NONE' } };
   }
 
-  private async normalizePhone(
-    raw: string | null | undefined,
+  private async regionOf(
     countryId: string | null | undefined,
   ): Promise<string | null> {
-    if (!raw?.trim()) return null;
-    const country = countryId
-      ? await this.prisma.country.findFirst({
-          where: { id: countryId, deletedAt: null },
-          select: { code: true },
-        })
-      : null;
-    return (
-      this.phones.normalizeToE164(raw, country?.code) ??
-      this.phones.normalizeToE164(raw)
-    );
+    if (!countryId) return null;
+    const country = await this.prisma.country.findFirst({
+      where: { id: countryId, deletedAt: null },
+      select: { code: true },
+    });
+    return country?.code ?? null;
   }
 
   /**
@@ -328,10 +371,11 @@ export class StoreOrderDuplicatesService {
    * customer of the number — O3) first, then the oldest record.
    */
   private async phoneEvaluation(
-    phone: string,
+    candidates: string[],
     scope: DuplicateScope,
   ): Promise<Evaluation | null> {
-    const matches = await this.partners.lookupAllByPhone(phone);
+    const phone = candidates[0];
+    const matches = await this.partners.lookupAllByPhones(candidates);
     if (!matches.length) return null;
     const owner = matches[0];
     const withOrders = await this.prisma.storeOrder.groupBy({
@@ -346,9 +390,35 @@ export class StoreOrderDuplicatesService {
       .filter((m) => ids.has(m.id))
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
     if (!customers.length) {
-      // O3 — a partner with no order yet. Company: reused silently (the
-      // Partner dedup). Agent: outside its own customers → cross-scope.
-      if (scope.kind === 'COMPANY') return null;
+      // O3 — a partner with no order yet. Company: the existing customer is
+      // recognised (informational, masked) and reused by the create path.
+      // Agent: outside its own customers → cross-scope.
+      if (scope.kind === 'COMPANY') {
+        const known = await this.prisma.partner.findFirst({
+          where: {
+            id: { in: matches.map((m) => m.id) },
+            deletedAt: null,
+            roles: { some: { role: PartnerRoleType.CUSTOMER } },
+          },
+          select: { id: true, name: true, phone: true, mobile: true },
+          orderBy: { createdAt: 'asc' },
+        });
+        return known
+          ? {
+              // Every recognition of a customer outside the caller's records is
+              // written to the shared lookup ledger (audit + budget evidence).
+              audit: { phone, partnerId: known.id },
+              result: {
+                kind: 'KNOWN',
+                customer: {
+                  nameMasked: maskName(known.name),
+                  // The number the caller typed, masked — never a second stored number.
+                  phoneMasked: maskPhone(phone),
+                },
+              },
+            }
+          : null;
+      }
       const own = await this.prisma.partner.count({
         where: { id: owner.id, ...this.customerScopeWhere(scope) },
       });
@@ -370,7 +440,8 @@ export class StoreOrderDuplicatesService {
         select: { id: true },
       })
     ).map((row) => row.id);
-    const customer = customers.find((c) => inScopeIds.includes(c.id));
+    const inScopeCustomers = customers.filter((c) => inScopeIds.includes(c.id));
+    const customer = inScopeCustomers[0];
     if (!customer) {
       // The one customer of the number: the key owner, else the oldest.
       return {
@@ -413,9 +484,28 @@ export class StoreOrderDuplicatesService {
       scope.kind === 'AGENT'
         ? await this.agentTypedName(customer.id, scope.agentId, customer.name)
         : customer.name;
+    const others = inScopeCustomers.slice(1);
+    const otherNames = new Map<string, string>();
+    for (const other of others) {
+      otherNames.set(
+        other.id,
+        scope.kind === 'AGENT'
+          ? await this.agentTypedName(other.id, scope.agentId, other.name)
+          : other.name,
+      );
+    }
     return {
       partnerNumber: customer.partnerNumber,
       orderNumbers: latest.map((row) => row.internalOrderId),
+      ...(others.length > 0
+        ? {
+            alternatives: others.map((other) => ({
+              id: other.id,
+              partnerNumber: other.partnerNumber,
+              name: otherNames.get(other.id) ?? other.name,
+            })),
+          }
+        : {}),
       ...(otherOrdersCount > 0
         ? { audit: { phone, partnerId: customer.id } }
         : {}),
@@ -429,6 +519,15 @@ export class StoreOrderDuplicatesService {
         },
         orders,
         otherOrdersCount,
+        ...(others.length > 0
+          ? {
+              alternatives: others.map((other) => ({
+                id: other.id,
+                name: otherNames.get(other.id) ?? other.name,
+                phoneMasked: maskPhone(other.mobile ?? other.phone),
+              })),
+            }
+          : {}),
       },
     };
   }

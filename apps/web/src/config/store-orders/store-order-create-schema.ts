@@ -28,6 +28,7 @@ export function buildStoreOrderCreateSchema(
       orderDate: z.string().optional().or(z.literal("")),
       currencyId: z.string().min(1, t("common.required")),
       paymentType: z.enum(["PREPAID", "CASH_ON_DELIVERY"]),
+      fulfillmentMethod: z.enum(["SHIPPING", "PICKUP"]),
       notes: z.string().optional().or(z.literal("")),
       receiptName: z.string().optional().or(z.literal("")),
       receiptUrl: z.string().optional().or(z.literal("")),
@@ -56,6 +57,7 @@ export type StoreOrderCreateFormValues = {
   orderDate?: string;
   currencyId: string;
   paymentType: "PREPAID" | "CASH_ON_DELIVERY";
+  fulfillmentMethod: "SHIPPING" | "PICKUP";
   notes?: string;
   receiptName?: string;
   receiptUrl?: string;
@@ -74,6 +76,7 @@ export function storeOrderCreateDefaultValues(): StoreOrderCreateFormValues {
     orderDate: toISODate(new Date()),
     currencyId: "",
     paymentType: "PREPAID",
+    fulfillmentMethod: "SHIPPING",
     notes: "",
     receiptName: "",
     receiptUrl: "",

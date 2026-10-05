@@ -1,5 +1,6 @@
 "use client";
 
+import { orderDestination } from "@/config/store-orders/order-destination";
 import type { ReactNode } from "react";
 import { AlertTriangle } from "lucide-react";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -81,7 +82,7 @@ export function StoreOrderCompactCard({
   const phone = typed ? typed.mobile : order.partner?.phone || order.partner?.mobile || null;
   const destination = typed
     ? [typed.city, typed.address].filter(Boolean).join("، ")
-    : [order.partner?.address, order.partner?.city].filter(Boolean).join("، ");
+    : [orderDestination(order).address, orderDestination(order).city].filter(Boolean).join("، ");
   const breakdown = agentOrderBreakdown(order);
   const stateKey = shippingStateKey(order);
   const total = Number(order.total ?? 0);

@@ -10,6 +10,8 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { EnterpriseButton } from "@/components/ui/button";
+import { CallingCodePicker } from "@/components/shared/calling-code-picker";
+import type { PhoneCountryOption } from "@/components/shared/phone-country-selector";
 import { useLocale } from "@/providers/locale-provider";
 import {
   parsePhone,
@@ -48,6 +50,7 @@ export function OMSPhoneInput({
   countryCode: selectedCountryCode,
   onCountryChange,
   availableCountryCodes,
+  countries,
   forceValidation,
   disabled,
   readOnly,
@@ -65,6 +68,13 @@ export function OMSPhoneInput({
   onCountryChange?: (iso2: CountryCode) => void;
   /** ISO2 codes `onCountryChange` can actually switch to (the form's own country list). Omit to allow any. */
   availableCountryCodes?: readonly string[];
+  /**
+   * The form's own country list. With it (and `onCountryChange`) the "+CC" prefix
+   * becomes a compact calling-code selector inside the field — no separate
+   * "phone country" dropdown. It only changes how the national number is read;
+   * the form decides whether the delivery country follows.
+   */
+  countries?: readonly PhoneCountryOption[];
   /** Show the validation state even before the first blur — pass the form's "submit attempted" flag. */
   forceValidation?: boolean;
   disabled?: boolean;
@@ -135,10 +145,22 @@ export function OMSPhoneInput({
       <InputGroup className="h-(--control-height-md)" dir="ltr">
         {/* The locked prefix only describes a national number — once the
             draft carries its own "+CC" it would read as a second code. */}
-        {callingCode && !draft.trim().startsWith("+") && (
-          <InputGroupAddon className="text-foreground tabular-nums" aria-hidden>
-            +{callingCode}
+        {countries && onCountryChange ? (
+          <InputGroupAddon className="ps-0.5 pe-0">
+            <CallingCodePicker
+              countryCode={countryCode}
+              countries={countries}
+              onSelect={(iso2) => onCountryChange(iso2 as CountryCode)}
+              disabled={disabled || readOnly}
+            />
           </InputGroupAddon>
+        ) : (
+          callingCode &&
+          !draft.trim().startsWith("+") && (
+            <InputGroupAddon className="text-foreground tabular-nums" aria-hidden>
+              +{callingCode}
+            </InputGroupAddon>
+          )
         )}
         <InputGroupInput
           ref={inputRef}

@@ -44,7 +44,7 @@ const schema = z.object({
 
 const defaultValues = {
   name: "",
-  amount: 0,
+  amount: undefined as unknown as number, // new, unset → the field stays empty (placeholder "0.00"), never a 0 to delete
   recognitionDate: "",
   expenseAccountId: "",
   receivingAccountId: "",
@@ -130,6 +130,7 @@ function AccruedExpensesPageContent() {
         name: "amount",
         label: "masterData.expenses.fields.amount",
         type: "number",
+        money: true,
         required: true,
       },
       {

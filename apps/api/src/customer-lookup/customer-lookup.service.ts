@@ -23,8 +23,6 @@ import {
   type OrderStatusBucket,
 } from './customer-lookup.util';
 
-/** Phone regions tried for a bare local number — same primary markets as the partner phone keys. */
-const PHONE_REGIONS = [null, 'SA', 'EG', 'AE'] as const;
 /** Candidate rows read before the visibility filter and the response cap. */
 const CANDIDATE_LIMIT = 25;
 
@@ -136,13 +134,9 @@ export class CustomerLookupService {
 
   // ── search ───────────────────────────────────────────────────────────────
 
+  /** The one canonical matching path — `PhoneNumberService.lookupCandidates`. */
   private phoneCandidates(raw: string): string[] {
-    const out = new Set<string>();
-    for (const region of PHONE_REGIONS) {
-      const e164 = this.phones.normalizeToE164(raw, region);
-      if (e164) out.add(e164);
-    }
-    return [...out];
+    return this.phones.lookupCandidates(raw, null);
   }
 
   private async searchByPhone(userId: string, scope: SalesScope, raw: string) {

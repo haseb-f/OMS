@@ -153,6 +153,9 @@ export const STORE_ORDER_AGENT_SELECT = {
 
 const ORDER_INCLUDE = {
   partner: true,
+  deliveryCountry: {
+    select: { id: true, name: true, nameEn: true, code: true },
+  },
   agent: STORE_ORDER_AGENT_SELECT,
   currency: true,
   employee: { select: { id: true, fullName: true } },
@@ -223,6 +226,9 @@ export type StoreOrderListActor = string | { duplicateReviewer: true };
  */
 const ORDER_LIST_INCLUDE = {
   agent: STORE_ORDER_AGENT_SELECT,
+  deliveryCountry: {
+    select: { id: true, name: true, nameEn: true, code: true },
+  },
   partner: {
     select: {
       id: true,
@@ -473,6 +479,16 @@ export class StoreOrdersService {
       );
     }
 
+    if (dto.delivery?.countryId) {
+      const country = await this.prisma.country.findFirst({
+        where: { id: dto.delivery.countryId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!country) {
+        throw new BadRequestException('Delivery country not found.');
+      }
+    }
+
     try {
       const order = await this.prisma.$transaction(async (tx) => {
         const orderPartnerId =
@@ -506,6 +522,16 @@ export class StoreOrdersService {
             fulfillmentStatusId:
               this.statusResolver.fulfillmentStatusIdByCode(fulfillmentCode),
             notes: dto.notes,
+            // R11 — the order's own destination (a pickup order has none).
+            ...(!agentOrder &&
+            dto.delivery &&
+            fulfillmentMethod !== StoreOrderFulfillmentMethod.PICKUP
+              ? {
+                  deliveryCountryId: dto.delivery.countryId ?? null,
+                  deliveryCity: dto.delivery.city ?? null,
+                  deliveryAddress: dto.delivery.address ?? null,
+                }
+              : {}),
             createdBy: userId,
             updatedBy: userId,
             ...(agentOrder ? agentOrderColumns(agentOrder) : {}),

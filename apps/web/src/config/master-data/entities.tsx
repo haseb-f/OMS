@@ -437,7 +437,13 @@ export const expensesColumns: ColumnDef<ExpenseRow, unknown>[] = [
 
 export const expensesFormFields: MasterDataFormField[] = [
   { name: "date", label: "masterData.expenses.fields.date", type: "date", required: true },
-  { name: "amount", label: "masterData.expenses.fields.amount", type: "number", required: true },
+  {
+    name: "amount",
+    label: "masterData.expenses.fields.amount",
+    type: "number",
+    money: true,
+    required: true,
+  },
   {
     name: "description",
     label: "masterData.fields.description",
@@ -458,7 +464,7 @@ export const expensesSchema = z.object({
 
 export const expensesDefaultValues = {
   date: "",
-  amount: 0,
+  amount: undefined as unknown as number, // new, unset → the field stays empty (placeholder "0.00"), never a 0 to delete
   description: "",
   costCenterId: "",
   paymentMethodId: "",
@@ -532,7 +538,13 @@ export const fixedAssetsFormFields: MasterDataFormField[] = [
     type: "date",
     required: true,
   },
-  { name: "cost", label: "masterData.fixedAssets.fields.cost", type: "number", required: true },
+  {
+    name: "cost",
+    label: "masterData.fixedAssets.fields.cost",
+    type: "number",
+    money: true,
+    required: true,
+  },
   {
     name: "usefulLifeMonths",
     label: "masterData.fixedAssets.fields.usefulLifeMonths",
@@ -542,6 +554,7 @@ export const fixedAssetsFormFields: MasterDataFormField[] = [
     name: "salvageValue",
     label: "masterData.fixedAssets.fields.salvageValue",
     type: "number",
+    money: true,
   },
   {
     name: "depreciationStartDate",
@@ -569,9 +582,9 @@ export const fixedAssetsDefaultValues = {
   name: "",
   code: "",
   acquisitionDate: "",
-  cost: 0,
+  cost: undefined as unknown as number, // new, unset → the field stays empty (placeholder "0.00"), never a 0 to delete
   usefulLifeMonths: 0,
-  salvageValue: 0,
+  salvageValue: undefined as unknown as number, // new, unset → the field stays empty (placeholder "0.00"), never a 0 to delete
   depreciationStartDate: "",
   costCenterId: "",
   receivingAccountId: "",

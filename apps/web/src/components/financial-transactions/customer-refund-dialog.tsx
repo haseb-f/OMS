@@ -194,7 +194,7 @@ export function CustomerRefundDialog({
                 {t("sales.refunds.dialog.amount")} <span className="text-destructive">*</span>
               </Label>
               <MoneyInput
-                value={amount}
+                value={amount || ""}
                 aria-invalid={exceeds || undefined}
                 onChange={(event) => setAmount(event.target.valueAsNumber || 0)}
               />

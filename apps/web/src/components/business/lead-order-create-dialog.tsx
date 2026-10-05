@@ -77,12 +77,22 @@ export function LeadOrderCreateDialog({
 
   useEffect(() => {
     if (!open) return;
-    form.reset(leadOrderCreateDefaultValues);
+    // The lead's country follows the calling code of its phone (Saudi Arabia by default,
+    // O2) — there is no second country field to fill in on this quick form.
+    const defaultCountry = countries.find((country) => country.code === "SA");
+    form.reset({ ...leadOrderCreateDefaultValues, countryId: defaultCountry?.id ?? "" });
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSubmitAttempted(false);
     setServerErrors([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Countries can arrive after the dialog opened: fill the (hidden) default once they do.
+  useEffect(() => {
+    if (!open || form.getValues("countryId")) return;
+    const defaultCountry = countries.find((country) => country.code === "SA");
+    if (defaultCountry) form.setValue("countryId", defaultCountry.id, { shouldDirty: false });
+  }, [open, countries, form]);
 
   const isDirty = form.formState.isDirty;
   const isSubmitting = form.formState.isSubmitting;
@@ -90,7 +100,7 @@ export function LeadOrderCreateDialog({
   const sections = useMemo<MasterDataFormSection[]>(() => {
     const base: MasterDataFormSection = {
       title: t("crm.leads.sections.general"),
-      columns: 3,
+      columns: 2,
       fields: [
         {
           name: "customerName",
@@ -98,7 +108,6 @@ export function LeadOrderCreateDialog({
           type: "text",
           required: true,
         },
-        { name: "countryId", label: "crm.leads.fields.country", type: "country", required: true },
         {
           name: "mobileNumber",
           label: "crm.leads.fields.mobileNumber",

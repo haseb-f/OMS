@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Contact, Archive, Eye, Plus, UserPlus, Workflow, Download } from "lucide-react";
+import {
+  AdvancedCustomerLookupButton,
+  AdvancedLookupFallback,
+} from "@/components/store-orders/advanced-customer-lookup-dialog";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import type { MasterDataFormSection } from "@/components/master-data/master-data-form";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
@@ -438,8 +442,10 @@ function CrmLeadsPageContent() {
             />
           ) : null
         }
+        searchEmptyExtra={(term) => <AdvancedLookupFallback term={term} />}
         extraActions={
           <>
+            <AdvancedCustomerLookupButton />
             <ModuleImportButtons
               importType="LEADS"
               onImported={() => setRefreshToken((n) => n + 1)}

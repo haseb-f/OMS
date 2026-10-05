@@ -1,0 +1,3117 @@
+{
+  "generatedAt": "2026-10-04T21:45:05.535Z",
+  "widths": {
+    "360": [
+      {
+        "persona": "company",
+        "route": "/modules/finance",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/modules/sales",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/crm/funnel",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/crm/leads",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 42,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/crm/sales-teams",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 16,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/dashboard",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/data-management/import-center",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/expenses/cost-components",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 11,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/expenses/cost-explorer",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/expenses/product-cost",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/accounting-settings",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 46,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/accrued-expenses",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/bank-transactions",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 3,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/carrier-reconciliation",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 29,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/chart-of-accounts",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 524,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/cost-allocation-rules",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/cost-centers",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 6,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/exchange-rates",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 3,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/expenses",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/fiscal-periods",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 3,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/fixed-assets",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 8,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/fulfillment-cost-rules",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/journal-entries",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/journal-entries/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/journals",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 7,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/opening-balances",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 1,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/payment-reconciliation",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/payment-review",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 202,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/payment-sources",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 15,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/prepaid-expenses",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 8,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/projects",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/receiving-accounts",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/year-closing",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/commission-plans",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/commission-plans/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/commissions",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/employees",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/employees/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 1,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/kpi-evaluations",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/kpi-templates",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/kpi-templates/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 1,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/my-profile",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/payroll",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/payroll-components",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/ranking",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/sales-targets",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/inventory/movements",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 42,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/inventory/physical-count",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/inventory/stock",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/investors",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/investors/list",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 42,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/investors/opportunities",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 12,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/investors/opportunities/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/investors/settings/investor-types",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 7,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/analytic-accounts",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/analytic-plans",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 8,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/brands",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 4,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/categories",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/cities",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 10,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/countries",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/currencies",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/customer-classifications",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 4,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/customer-groups",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 4,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/departments",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 6,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/job-titles",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 11,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/languages",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 4,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/lead-follow-up-types",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 6,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/no-purchase-reasons",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 5,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/payment-methods",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/payment-terms",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 3,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/shipping-companies",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/shipping-methods",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/shipping-statuses",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 9,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/supplier-groups",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 4,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/taxes",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 5,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/transaction-types",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 11,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/unit-conversions",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/units",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/warehouse-locations",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/warehouses",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/workflow-statuses",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 9,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/workflow-transitions",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/products",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/profile/password",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/landed-cost",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 3,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/landed-cost/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/payments",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/payments/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/purchase-invoices",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 34,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/purchase-invoices/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/purchase-orders",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/purchase-orders/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/purchase-quotations",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 17,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/purchase-quotations/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/purchase-returns",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 5,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/suppliers",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 42,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/analytics",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/crm",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/custom",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/customers",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 13,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/executive",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/expenses",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/finance",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 414,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/inventory",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/purchasing",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/sales",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/shipping",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/suppliers",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 10,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/customers",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 42,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/invoices",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 42,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/invoices/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/orders",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 19,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/orders/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/payments",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/payments/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/quotations",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 38,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/quotations/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/refunds",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 5,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/returns",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 9,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/settings/backup",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/settings/document-numbering",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/settings/general",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/settings/integrations",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/settings/notifications",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/settings/print-settings",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/settings/security",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/settings/users",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/shipping",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 43,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/shipping/import",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/store-orders",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/store-orders/import",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/store-orders/needs-review",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/store-orders/0c77da3a-7fb7-4442-a16c-bd4c6dd55711",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/crm/leads/7171f6a8-85bb-4fed-8879-57e163247d1e",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/invoices/a0b76dba-56be-47ad-aafb-60d0d9f859eb",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 1,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/orders/979d3b0f-7bbb-4f6a-9843-83e9634ca613",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 1,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/customers/00757d87-83e6-4268-8e68-cce8f94299da",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/purchase-orders/a1fa58fa-5e16-459e-befc-fe3380b65e41",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 1,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/dashboard",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 10,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/leads",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 26,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/orders",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 42,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/orders/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/stock",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 4,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/statement",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 62,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/commission",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 78,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/payouts",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 38,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/team",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/orders/d1b81033-74e6-4b8b-b2d4-a3c1017b3d91",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 360,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/leads/780669b7-9b23-4160-a601-88d3e6ae9ca9",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 360,
+        "bad": false
+      }
+    ],
+    "390": [
+      {
+        "persona": "company",
+        "route": "/modules/finance",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/modules/sales",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/crm/funnel",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/crm/leads",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 28,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/crm/sales-teams",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 16,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/dashboard",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/data-management/import-center",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/expenses/cost-components",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 11,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/expenses/cost-explorer",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/expenses/product-cost",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/accounting-settings",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 46,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/accrued-expenses",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/bank-transactions",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 3,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/carrier-reconciliation",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 29,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/chart-of-accounts",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 524,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/cost-allocation-rules",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/cost-centers",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 6,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/exchange-rates",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 3,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/expenses",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/fiscal-periods",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 3,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/fixed-assets",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 8,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/fulfillment-cost-rules",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/journal-entries",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/journal-entries/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/journals",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 7,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/opening-balances",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 1,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/payment-reconciliation",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/payment-review",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 202,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/payment-sources",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 15,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/prepaid-expenses",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 8,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/projects",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/receiving-accounts",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/finance/year-closing",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/commission-plans",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/commission-plans/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/commissions",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/employees",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/employees/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 1,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/kpi-evaluations",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/kpi-templates",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/kpi-templates/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 1,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/my-profile",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/payroll",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/payroll-components",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/ranking",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/hr/sales-targets",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/inventory/movements",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 42,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/inventory/physical-count",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/inventory/stock",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/investors",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/investors/list",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/investors/opportunities",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 12,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/investors/opportunities/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/investors/settings/investor-types",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 7,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/analytic-accounts",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/analytic-plans",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 8,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/brands",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 4,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/categories",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/cities",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 10,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/countries",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/currencies",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/customer-classifications",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 4,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/customer-groups",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 4,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/departments",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 6,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/job-titles",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 11,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/languages",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 4,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/lead-follow-up-types",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 6,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/no-purchase-reasons",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 5,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/payment-methods",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/payment-terms",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 3,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/shipping-companies",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/shipping-methods",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/shipping-statuses",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 9,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/supplier-groups",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 4,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/taxes",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 5,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/transaction-types",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 11,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/unit-conversions",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/units",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/warehouse-locations",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/warehouses",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/workflow-statuses",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 9,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/master-data/workflow-transitions",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/products",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/profile/password",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/landed-cost",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 3,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/landed-cost/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/payments",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/payments/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/purchase-invoices",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/purchase-invoices/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/purchase-orders",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 19,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/purchase-orders/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/purchase-quotations",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 17,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/purchase-quotations/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/purchase-returns",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 5,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/suppliers",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/analytics",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/crm",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/custom",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/customers",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 13,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/executive",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/expenses",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/finance",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 414,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/inventory",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/purchasing",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/sales",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/shipping",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/reports/suppliers",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 10,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/customers",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/invoices",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/invoices/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/orders",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 19,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/orders/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/payments",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/payments/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/quotations",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 23,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/quotations/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/refunds",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 5,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/returns",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 7,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/settings/backup",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/settings/document-numbering",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/settings/general",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/settings/integrations",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/settings/notifications",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/settings/print-settings",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/settings/security",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/settings/users",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/shipping",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 43,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/shipping/import",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/store-orders",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/store-orders/import",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/store-orders/needs-review",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/store-orders/0c77da3a-7fb7-4442-a16c-bd4c6dd55711",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/crm/leads/7171f6a8-85bb-4fed-8879-57e163247d1e",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/invoices/a0b76dba-56be-47ad-aafb-60d0d9f859eb",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 1,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/orders/979d3b0f-7bbb-4f6a-9843-83e9634ca613",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 1,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/sales/customers/00757d87-83e6-4268-8e68-cce8f94299da",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "company",
+        "route": "/purchasing/purchase-orders/a1fa58fa-5e16-459e-befc-fe3380b65e41",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 1,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/dashboard",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 10,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/leads",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 26,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/orders",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 22,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/orders/new",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/stock",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 4,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/statement",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 62,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/commission",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 78,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/payouts",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 38,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/team",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 0,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/orders/d1b81033-74e6-4b8b-b2d4-a3c1017b3d91",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 390,
+        "bad": false
+      },
+      {
+        "persona": "agent",
+        "route": "/agent/leads/780669b7-9b23-4160-a601-88d3e6ae9ca9",
+        "status": 200,
+        "overflow": 0,
+        "offenders": [],
+        "smallTargets": 2,
+        "vw": 390,
+        "bad": false
+      }
+    ]
+  },
+  "dialogs": [
+    {
+      "width": 390,
+      "route": "/store-orders",
+      "opened": true,
+      "fitsWidth": true,
+      "fitsHeight": true,
+      "footerButtons": 2,
+      "footerReachable": true,
+      "scrollers": 1,
+      "overflow": 0
+    },
+    {
+      "width": 390,
+      "route": "/crm/leads",
+      "opened": true,
+      "fitsWidth": true,
+      "fitsHeight": true,
+      "footerButtons": 2,
+      "footerReachable": true,
+      "scrollers": 0,
+      "overflow": 0
+    },
+    {
+      "width": 390,
+      "route": "/sales/customers",
+      "opened": true,
+      "fitsWidth": true,
+      "fitsHeight": true,
+      "footerButtons": 3,
+      "footerReachable": true,
+      "scrollers": 1,
+      "overflow": 0
+    },
+    {
+      "width": 360,
+      "route": "/store-orders",
+      "opened": true,
+      "fitsWidth": true,
+      "fitsHeight": true,
+      "footerButtons": 2,
+      "footerReachable": true,
+      "scrollers": 1,
+      "overflow": 0
+    },
+    {
+      "width": 360,
+      "route": "/crm/leads",
+      "opened": true,
+      "fitsWidth": true,
+      "fitsHeight": true,
+      "footerButtons": 2,
+      "footerReachable": true,
+      "scrollers": 0,
+      "overflow": 0
+    },
+    {
+      "width": 360,
+      "route": "/sales/customers",
+      "opened": true,
+      "fitsWidth": true,
+      "fitsHeight": true,
+      "footerButtons": 3,
+      "footerReachable": true,
+      "scrollers": 1,
+      "overflow": 0
+    }
+  ]
+}

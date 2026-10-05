@@ -4,6 +4,8 @@
  * testable on their own.
  */
 
+import { normalizePhoneDigits } from '../common/phone/phone-number.service';
+
 export const MIN_PHONE_DIGITS = 7;
 /** A name query is a person's name, not a prefix: two words, six letters in all. */
 export const MIN_NAME_WORDS = 2;
@@ -27,7 +29,11 @@ const PHONE_SHAPE = /^[+\d\s().-]+$/;
 
 /** Phone if it looks like one (digits and phone punctuation only), else name. */
 export function classifyQuery(raw: string | null | undefined): LookupQuery {
-  const value = (raw ?? '').trim().replace(/\s+/g, ' ');
+  // Arabic-Indic / Persian digits and a full-width "＋" are digits and a plus: a
+  // phone typed on an Arabic keyboard is a phone, not a one-word name.
+  const value = normalizePhoneDigits(raw ?? '')
+    .trim()
+    .replace(/\s+/g, ' ');
   if (!value) return { kind: 'INVALID', reason: 'EMPTY' };
   if (value.length > MAX_QUERY_CHARS) {
     return { kind: 'INVALID', reason: 'TOO_LONG' };

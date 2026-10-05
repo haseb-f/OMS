@@ -22,7 +22,7 @@ export type DuplicateChoice =
   /** Phone match outside the caller's scope: create and send for review. */
   | { kind: "CONTINUE_WITH_REVIEW" };
 
-export type DuplicatePanelMode = "none" | "phone" | "crossScope" | "name";
+export type DuplicatePanelMode = "none" | "known" | "phone" | "crossScope" | "name";
 
 export interface DuplicatePanelState {
   status: "idle" | "checking" | "ready" | "failed";
@@ -69,13 +69,23 @@ function toAsciiDigits(value: string): string {
 
 export function panelMode(result: DuplicateCheckResult | null): DuplicatePanelMode {
   if (!result || result.kind === "NONE") return "none";
+  if (result.kind === "KNOWN") return "known";
   if (result.kind === "NAME") return result.candidates.length ? "name" : "none";
   return result.crossScope ? "crossScope" : "phone";
 }
 
-/** Whether the user must answer before submitting. */
+/** Whether the user must answer before submitting (a known customer with no orders is only shown). */
 export function requiresChoice(result: DuplicateCheckResult | null): boolean {
-  return panelMode(result) !== "none";
+  const mode = panelMode(result);
+  return mode !== "none" && mode !== "known";
+}
+
+/** Every customer record a phone match can be answered with: the shown one, then the other records of the number. */
+export function phoneMatchRecords(
+  result: DuplicateCheckResult | null,
+): Array<{ id: string; name: string; phoneMasked: string | null }> {
+  if (result?.kind !== "PHONE" || result.crossScope) return [];
+  return [result.customer, ...(result.alternatives ?? [])];
 }
 
 /** Is `choice` a valid answer to `result`? (A stale answer to an older result is not.) */
@@ -87,7 +97,7 @@ export function choiceFits(result: DuplicateCheckResult | null, choice: Duplicat
         choice.kind === "NEW_ORDER" &&
         result?.kind === "PHONE" &&
         !result.crossScope &&
-        choice.customerId === result.customer.id
+        phoneMatchRecords(result).some((record) => record.id === choice.customerId)
       );
     case "crossScope":
       return choice.kind === "CONTINUE_WITH_REVIEW";
@@ -141,7 +151,11 @@ export function impliedChoice(
   knownCustomerId: string | null | undefined,
 ): DuplicateChoice | null {
   if (!knownCustomerId || !result) return null;
-  if (result.kind === "PHONE" && !result.crossScope && result.customer.id === knownCustomerId) {
+  if (
+    result.kind === "PHONE" &&
+    !result.crossScope &&
+    phoneMatchRecords(result).some((record) => record.id === knownCustomerId)
+  ) {
     return { kind: "NEW_ORDER", customerId: knownCustomerId };
   }
   if (

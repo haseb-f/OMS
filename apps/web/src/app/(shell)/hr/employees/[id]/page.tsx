@@ -179,12 +179,22 @@ export default function EmployeeProfilePage() {
 
   const compensationForm = useForm<CompensationValues>({
     resolver: zodResolver(compensationSchema),
-    defaultValues: { effectiveFrom: "", basicSalary: 0, kpiMaxPay: 0, notes: "" },
+    defaultValues: {
+      effectiveFrom: "",
+      basicSalary: undefined as unknown as number,
+      kpiMaxPay: undefined,
+      notes: "",
+    },
   });
 
   useEffect(() => {
     if (!compensationOpen) return;
-    compensationForm.reset({ effectiveFrom: "", basicSalary: 0, kpiMaxPay: 0, notes: "" });
+    compensationForm.reset({
+      effectiveFrom: "",
+      basicSalary: undefined as unknown as number,
+      kpiMaxPay: undefined,
+      notes: "",
+    });
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCompensationLines([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -258,9 +268,10 @@ export default function EmployeeProfilePage() {
       name: "basicSalary",
       label: "hr.compensation.fields.basicSalary",
       type: "number",
+      money: true,
       required: true,
     },
-    { name: "kpiMaxPay", label: "hr.compensation.fields.kpiMaxPay", type: "number" },
+    { name: "kpiMaxPay", label: "hr.compensation.fields.kpiMaxPay", type: "number", money: true },
     { name: "notes", label: "hr.compensation.fields.notes", type: "textarea" },
   ];
 

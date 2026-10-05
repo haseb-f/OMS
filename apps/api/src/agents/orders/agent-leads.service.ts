@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { phoneSearchCandidates } from '../../common/phone/phone-number.service';
 import { LeadAssignmentMethod, LeadSource, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
@@ -108,6 +109,10 @@ export class AgentLeadsService {
       where.OR = [
         { customerName: { contains: search, mode: 'insensitive' } },
         { mobileNumber: { contains: search } },
+        // Phone typed in any format (Arabic digits, national, 00/+): same digit candidates as every list.
+        ...phoneSearchCandidates(search).map((digits) => ({
+          mobileNumber: { contains: digits },
+        })),
         { leadNumber: { contains: search, mode: 'insensitive' } },
       ];
     }

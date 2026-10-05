@@ -24,6 +24,28 @@ import { CreateStoreOrderPaymentDto } from './create-store-order-payment.dto';
 import { CreateOrderPaymentDeclarationDto } from './declare-store-order-payment.dto';
 import { DuplicateResolutionDto } from '../duplicates/dto/duplicate.dto';
 
+/**
+ * R11 — where this order is delivered when it differs from the customer record
+ * (a repeat order to another address, or an address entered on this order).
+ * Stored on the order only; the customer master is never rewritten by an order.
+ */
+export class StoreOrderDeliveryDto {
+  @IsOptionalUuid()
+  countryId?: string;
+
+  @Transform(emptyToUndefined)
+  @IsString()
+  @MaxLength(120)
+  @IsOptional()
+  city?: string;
+
+  @Transform(emptyToUndefined)
+  @IsString()
+  @MaxLength(500)
+  @IsOptional()
+  address?: string;
+}
+
 /** The store order's counterparty is always CUSTOMER-role — `role` is fixed server-side, never accepted from the caller. */
 export class StoreOrderPartnerDto extends OmitType(FindOrCreatePartnerDto, [
   'role',
@@ -83,6 +105,12 @@ export class CreateStoreOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CreateStoreOrderItemDto)
   items!: CreateStoreOrderItemDto[];
+
+  /** R11 — this order's own delivery destination (never written back to the customer). */
+  @ValidateNested()
+  @Type(() => StoreOrderDeliveryDto)
+  @IsOptional()
+  delivery?: StoreOrderDeliveryDto;
 
   /** Optional first payment, created atomically with the order (e.g. a marketplace order that arrives already partially paid). */
   @ValidateNested()

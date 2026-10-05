@@ -801,7 +801,9 @@ export class WorkflowEngineService {
       : await this.resolvePartnerForLead(
           {
             ...shippingLead,
-            partnerId: shippingLead.partnerId ?? confirmedPartnerId,
+            // The customer the employee confirmed in the duplicate check wins over a
+            // stale lead link — an acknowledged choice is never silently replaced.
+            partnerId: confirmedPartnerId ?? shippingLead.partnerId,
           },
           userId,
           tx,
@@ -819,16 +821,27 @@ export class WorkflowEngineService {
         payload?.countryId) &&
       (await this.isExclusiveCompanyCustomer(tx, partnerId))
     ) {
-      await tx.partner.update({
+      // The order carries its own destination (below); the customer record is
+      // only COMPLETED where it has no address yet — never overwritten by a
+      // repeat order that is delivered elsewhere.
+      const current = await tx.partner.findUniqueOrThrow({
         where: { id: partnerId },
-        data: {
-          ...(payload.countryId ? { countryId: payload.countryId } : {}),
-          ...(payload.city !== undefined ? { city: payload.city } : {}),
-          ...(payload.address !== undefined
-            ? { address: payload.address }
-            : {}),
-        },
+        select: { countryId: true, city: true, address: true },
       });
+      const fill = {
+        ...(payload.countryId && !current.countryId
+          ? { countryId: payload.countryId }
+          : {}),
+        ...(payload.city && !current.city?.trim()
+          ? { city: payload.city }
+          : {}),
+        ...(payload.address && !current.address?.trim()
+          ? { address: payload.address }
+          : {}),
+      };
+      if (Object.keys(fill).length > 0) {
+        await tx.partner.update({ where: { id: partnerId }, data: fill });
+      }
     }
 
     const paymentType = agentOrder
@@ -895,6 +908,17 @@ export class WorkflowEngineService {
           .findByCode(WorkflowType.FULFILLMENT, fulfillmentCode)
           .then((s) => s?.id),
         notes: payload?.notes,
+        // R11 — the destination this lead asked for is the ORDER's own destination
+        // (a repeat customer's master record is never rewritten by it).
+        ...(!agentOrder &&
+        fulfillmentMethod !== StoreOrderFulfillmentMethod.PICKUP &&
+        (shippingLead.countryId || shippingLead.city || shippingLead.address)
+          ? {
+              deliveryCountryId: shippingLead.countryId ?? null,
+              deliveryCity: shippingLead.city ?? null,
+              deliveryAddress: shippingLead.address ?? null,
+            }
+          : {}),
         createdBy: userId,
         updatedBy: userId,
         source: this.mapLeadSource(lead.source),

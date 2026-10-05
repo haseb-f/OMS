@@ -46,7 +46,7 @@ function FixedAssetsPageContent() {
   const [tableKey, setTableKey] = useState(0);
   const [capitalizeTarget, setCapitalizeTarget] = useState<FixedAssetRow | null>(null);
   const [disposeTarget, setDisposeTarget] = useState<FixedAssetRow | null>(null);
-  const [disposeAmount, setDisposeAmount] = useState("0");
+  const [disposeAmount, setDisposeAmount] = useState("");
   const [runOpen, setRunOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -197,7 +197,7 @@ function FixedAssetsPageContent() {
             icon: Trash2,
             hidden: entity.status !== "CAPITALIZED" || Boolean(entity.deletedAt),
             onSelect: () => {
-              setDisposeAmount("0");
+              setDisposeAmount("");
               setDisposeTarget(entity);
             },
           },
@@ -267,6 +267,7 @@ function FixedAssetsPageContent() {
               type="number"
               min={0}
               step="0.01"
+              placeholder="0.00"
               value={disposeAmount}
               onChange={(event) => setDisposeAmount(event.target.value)}
             />

@@ -19,6 +19,12 @@
 - A Home module tile opens the module overview (`/modules/<id>`, design-system §12.21), never its first page;
   the overview lists only authorized destinations from `navigation.config.ts` (no second menu) and every
   destination needs a `home.destinations.<id>` line in en + ar.
+- Phone identity is ONE path (R11): `PhoneNumberService.lookupCandidates` — the chosen phone country is authoritative
+  when the number is valid in it, otherwise the number on its own, otherwise every valid reading in SA / EG / AE;
+  always a full valid E.164, never a suffix. List search uses `phoneSearchCandidates` (Arabic digits, trunk 0 / 00).
+  An order needs an acknowledgement for an existing customer (server-enforced); several records on one number must be
+  chosen, never silently picked; leads are never blocked. A company order's delivery destination lives on the order,
+  never on the customer master (design-system §12.22).
 - Navigation is entirely config-driven from `src/navigation/navigation.config.ts` —
   a flat, `parent`-id list assembled into a tree at render time. Adding a module to
   the sidebar means adding entries there, never editing a layout/sidebar component.

@@ -8,6 +8,7 @@ import { EnterpriseButton } from "@/components/ui/button";
 import {
   choiceFits,
   panelMode,
+  phoneMatchRecords,
   primaryExistingOrder,
   sortOrdersForPanel,
   type DuplicateChoice,
@@ -72,6 +73,29 @@ export function DuplicateCustomerPanel({
       {t("orderDuplicates.phone.editDetails")}
     </EnterpriseButton>
   ) : null;
+
+  if (mode === "known" && result?.kind === "KNOWN") {
+    return (
+      <Alert tone="info" role="status" data-testid="duplicate-panel" data-mode="known">
+        <UserCheck aria-hidden />
+        <AlertDescription className="flex flex-col gap-1">
+          <AlertTitle>{t("orderDuplicates.known.title")}</AlertTitle>
+          <p>
+            <bdi className="font-medium">{result.customer.nameMasked}</bdi>
+            {result.customer.phoneMasked ? (
+              <>
+                {" · "}
+                <bdi dir="ltr" className="num">
+                  {result.customer.phoneMasked}
+                </bdi>
+              </>
+            ) : null}
+          </p>
+          <p>{t("orderDuplicates.known.description")}</p>
+        </AlertDescription>
+      </Alert>
+    );
+  }
 
   if (mode === "crossScope") {
     return (
@@ -179,8 +203,14 @@ export function DuplicateCustomerPanel({
   const match = result as Extract<DuplicateCheckResult, { kind: "PHONE"; crossScope: false }>;
   const orders = sortOrdersForPanel(match.orders).slice(0, MAX_ORDERS_SHOWN);
   const primary = primaryExistingOrder(match);
+  const records = phoneMatchRecords(match);
+  const ambiguous = records.length > 1;
+  const chosenRecord =
+    choice?.kind === "NEW_ORDER"
+      ? records.find((record) => record.id === choice.customerId)
+      : undefined;
   return (
-    <Alert tone="warning" role="status" data-testid="duplicate-panel">
+    <Alert tone="warning" role="status" data-testid="duplicate-panel" data-mode="phone">
       <UserCheck aria-hidden />
       <AlertDescription className="flex flex-col gap-2">
         <AlertTitle>{t("orderDuplicates.phone.title")}</AlertTitle>
@@ -195,6 +225,11 @@ export function DuplicateCustomerPanel({
             </>
           ) : null}
         </p>
+        {orders.length > 0 ? (
+          <p className="font-medium">
+            {t("orderDuplicates.phone.hasOrders", { count: match.orders.length })}
+          </p>
+        ) : null}
         {orders.length > 0 ? (
           <ul className="flex flex-col divide-y divide-border rounded-sm border border-border bg-card">
             {orders.map((order) => (
@@ -211,9 +246,51 @@ export function DuplicateCustomerPanel({
         ) : null}
         {answered ? (
           <ChosenLine
-            text={t("orderDuplicates.phone.chosen", { name: match.customer.name })}
+            text={t("orderDuplicates.phone.chosen", {
+              name: chosenRecord?.name ?? match.customer.name,
+            })}
             onChange={() => onChoose(null)}
           />
+        ) : ambiguous ? (
+          <div className="flex flex-col gap-2" data-testid="duplicate-records">
+            <p>{t("orderDuplicates.phone.whichRecord")}</p>
+            <ul className="flex flex-col divide-y divide-border rounded-sm border border-border bg-card">
+              {records.map((record) => (
+                <li
+                  key={record.id}
+                  className="flex flex-wrap items-center justify-between gap-2 px-2 py-1.5"
+                >
+                  <span className="flex min-w-0 flex-col">
+                    <bdi className="truncate font-medium text-foreground">{record.name}</bdi>
+                    {record.phoneMasked ? (
+                      <bdi dir="ltr" className="num text-muted-foreground">
+                        {record.phoneMasked}
+                      </bdi>
+                    ) : null}
+                  </span>
+                  <EnterpriseButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onChoose({ kind: "NEW_ORDER", customerId: record.id })}
+                  >
+                    {t("orderDuplicates.phone.useRecord")}
+                  </EnterpriseButton>
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap gap-2">
+              {primary ? (
+                <EnterpriseButton asChild variant="outline" size="sm">
+                  <Link href={orderHref(primary.id)}>
+                    <ExternalLink aria-hidden />
+                    {t("orderDuplicates.phone.openExisting")}
+                  </Link>
+                </EnterpriseButton>
+              ) : null}
+              {editButton}
+            </div>
+          </div>
         ) : (
           <div className="flex flex-wrap gap-2">
             {primary ? (

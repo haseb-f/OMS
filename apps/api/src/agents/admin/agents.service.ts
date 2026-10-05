@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { phoneSearchCandidates } from '../../common/phone/phone-number.service';
 import { PartnerEntityType, PartnerRoleType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
@@ -127,6 +128,9 @@ export class AgentsService {
         { legalName: { contains: search, mode: 'insensitive' } },
         { agentNumber: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search } },
+        ...phoneSearchCandidates(search).map((digits) => ({
+          phone: { contains: digits },
+        })),
         { email: { contains: search, mode: 'insensitive' } },
       ];
     }

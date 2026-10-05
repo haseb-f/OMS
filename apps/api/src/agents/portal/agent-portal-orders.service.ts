@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { phoneSearchCandidates } from '../../common/phone/phone-number.service';
 import { PaymentStatus, Prisma } from '@prisma/client';
 import { evaluateShippingReadiness } from '../../store-orders/shipments/shipping-handoff';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -232,6 +233,10 @@ export class AgentPortalOrdersService {
           },
         },
         { partner: { mobile: { contains: search } } },
+        // The shared customer identity searched in any phone format (Arabic digits, national, 00/+).
+        ...phoneSearchCandidates(search).map((digits) => ({
+          partner: { mobile: { contains: digits } },
+        })),
         { lead: { leadNumber: { contains: search, mode: 'insensitive' } } },
       ];
     }

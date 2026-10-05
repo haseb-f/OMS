@@ -7,6 +7,7 @@ import { findArabicNormalizedIds } from '../common/text/arabic-search.query';
 import { MasterDataActivityLogService } from './master-data-activity-log.service';
 import { MasterDataQueryDto } from './dto/master-data-query.dto';
 import { listOrderBy } from '../common/query/list-order-by';
+import { phoneSearchCandidates } from '../common/phone/phone-number.service';
 
 /** The minimal shape every Prisma model delegate exposes — enough to drive generic CRUD. */
 export interface MasterDataDelegate<TEntity> {
@@ -64,6 +65,13 @@ export abstract class MasterDataCrudService<
    * instead of) the plain `searchFields` match.
    */
   protected readonly normalizedSearch?: { table: string; columns: string[] };
+  /**
+   * Columns holding a phone number (E.164 or a legacy local format). A search
+   * that looks like a phone (Arabic digits, spaces, "00"/"+", a trunk "0") also
+   * matches these on its digit candidates (`phoneSearchCandidates`), so every
+   * list finds a number however it was typed — in addition to the plain match.
+   */
+  protected readonly phoneSearchFields?: readonly string[];
 
   constructor(
     protected readonly prisma: PrismaService,
@@ -87,6 +95,13 @@ export abstract class MasterDataCrudService<
       }));
       const normalizedIds = await this.findNormalizedSearchIds(query.search);
       if (normalizedIds?.length) or.push({ id: { in: normalizedIds } });
+      for (const field of this.phoneSearchFields ?? []) {
+        // Skipped when the caller narrowed the searchable fields (no contact rights).
+        if (!searchFields.includes(field)) continue;
+        for (const digits of phoneSearchCandidates(query.search)) {
+          or.push({ [field]: { contains: digits } });
+        }
+      }
       where.OR = or;
     }
     return where;

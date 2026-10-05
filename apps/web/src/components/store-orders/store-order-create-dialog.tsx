@@ -4,9 +4,8 @@ import { DisclosureTrigger } from "@/components/shared/disclosure-trigger";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Banknote, Globe } from "lucide-react";
+import { Banknote } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
-import { ModalFieldFullWidth } from "@/components/shared/modal-section";
 import { FormSection } from "@/components/documents/form-section";
 import {
   FormErrorSummary,
@@ -37,9 +36,12 @@ import {
   isLinePriceMissing,
   type ProductLineItemsGridLine,
 } from "@/components/sales/product-line-items-grid";
-import { FieldLabel, FieldMessage, Form } from "@/components/ui/form";
+import { FieldMessage, Form } from "@/components/ui/form";
 import { PartnerPicker } from "@/components/business/partner-picker";
-import { PhoneCountrySelector } from "@/components/shared/phone-country-selector";
+import { CustomerIdentitySummary } from "@/components/business/customer-identity-summary";
+import { DeliveryFields } from "@/components/shared/delivery-fields";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { EnterpriseButton } from "@/components/ui/button";
 import { defaultPhoneCountry, parsePhone } from "@/services/phone-service";
 import { storeOrdersService, type StoreOrderRow } from "@/services/store-orders-service";
 import {
@@ -55,18 +57,13 @@ import {
   type DeclarationFormState,
 } from "@/components/payments/declaration/declaration-logic";
 import { stagingIdsOf, type ReceiptUploadItem } from "@/components/business/payment-receipts-field";
-import {
-  partnersService,
-  type CustomerGlobalLookupFull,
-  type PartnerPickerRow,
-} from "@/services/partners-service";
+import { partnersService, type PartnerPickerRow } from "@/services/partners-service";
 import {
   buildStoreOrderCreateSchema,
   storeOrderCreateDefaultValues,
   type StoreOrderCreateFormValues,
 } from "@/config/store-orders/store-order-create-schema";
 import { useLocale } from "@/providers/locale-provider";
-import { localizedName } from "@/lib/localized-name";
 import { useUserContext } from "@/providers/user-context";
 import { useCountries, useCurrencies } from "@/hooks/use-reference-data";
 import { toast, reportApiError, reportSuccess } from "@/lib/toast";
@@ -83,6 +80,7 @@ const FIELD_LABEL_KEY: Record<string, MessageKey> = {
   customerPhone: "storeOrders.fields.phone",
   countryId: "storeOrders.createDialog.fields.country",
   city: "storeOrders.createDialog.fields.city",
+  fulfillmentMethod: "storeOrders.createDialog.entry.method",
   customerEmail: "storeOrders.createDialog.fields.customerEmail",
   address: "storeOrders.createDialog.fields.address",
   externalOrderId: "storeOrders.fields.externalOrderId",
@@ -115,7 +113,7 @@ export function StoreOrderCreateDialog({
   /** Set when opened from the Global Lookup dialog's "Add New Order" action — reuses this Customer instead of prompting for one. */
   prefillCustomer?: StoreOrderCreatePrefillCustomer | null;
 }) {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   const { hasPermission } = useUserContext();
   // Same any-of rule the API applies to payment declarations.
   const canDeclarePayment =
@@ -148,6 +146,13 @@ export function StoreOrderCreateDialog({
   // (`phoneCountryOverride`), and a legitimate difference is kept. Not a form
   // field — the committed E.164 value already carries its country.
   const [phoneCountryOverride, setPhoneCountryOverride] = useState<string | null>(null);
+  // Existing / New customer — the customer is entered ONCE: an existing one is
+  // shown as a summary (its details are never re-asked); a new one is name + phone.
+  const [customerMode, setCustomerMode] = useState<"new" | "existing">("new");
+  // The delivery country follows the phone country unless the user says otherwise.
+  const [differentCountry, setDifferentCountry] = useState(false);
+  // Existing customer only: deliver this order somewhere other than the customer's address.
+  const [differentAddress, setDifferentAddress] = useState(false);
   const phoneCountryCodeRef = useRef<string | null>(null);
   const schema = useMemo(
     () => buildStoreOrderCreateSchema(t, () => phoneCountryCodeRef.current),
@@ -169,6 +174,23 @@ export function StoreOrderCreateDialog({
         ? phoneCountryOverrideFor(prefillCustomer.phone, prefillCustomer.countryId)
         : null,
     );
+    setCustomerMode(prefillCustomer?.id ? "existing" : "new");
+    setSelectedCustomer(
+      prefillCustomer?.id
+        ? ({
+            id: prefillCustomer.id,
+            name: prefillCustomer.name,
+            phone: prefillCustomer.phone ?? null,
+            mobile: null,
+            email: null,
+            countryId: prefillCustomer.countryId ?? null,
+            city: prefillCustomer.city ?? null,
+            address: prefillCustomer.address ?? null,
+          } as unknown as PartnerPickerRow)
+        : null,
+    );
+    setDifferentCountry(false);
+    setDifferentAddress(false);
     if (prefillCustomer) {
       form.setValue("customerName", prefillCustomer.name, { shouldDirty: true });
       form.setValue("customerPhone", prefillCustomer.phone || "", { shouldDirty: true });
@@ -201,11 +223,17 @@ export function StoreOrderCreateDialog({
     const code = defaultPhoneCountry(countries.map((country) => country.code));
     return code ? (countries.find((country) => country.code === code)?.id ?? "") : "";
   }, [countries]);
-  const phoneCountryId = phoneCountryOverride ?? (countryId || defaultPhoneCountryId);
+  const phoneCountryId = phoneCountryOverride ?? defaultPhoneCountryId;
   const phoneCountryCode = countries.find((country) => country.id === phoneCountryId)?.code ?? null;
   useEffect(() => {
     phoneCountryCodeRef.current = phoneCountryCode;
   }, [phoneCountryCode]);
+  // Delivery country = phone country until "Different delivery country" is opened.
+  useEffect(() => {
+    if (!differentCountry && phoneCountryId && form.getValues("countryId") !== phoneCountryId) {
+      form.setValue("countryId", phoneCountryId, { shouldDirty: false });
+    }
+  }, [differentCountry, phoneCountryId, form]);
 
   /** The phone's own country (from a stored E.164) when it differs from the customer's shipping country — otherwise follow the shipping country. */
   function phoneCountryOverrideFor(
@@ -219,10 +247,6 @@ export function StoreOrderCreateDialog({
 
   const selectPhoneCountry = (id: string) => {
     setPhoneCountryOverride(id || null);
-    // Vice versa: an empty shipping country defaults to the phone country.
-    if (id && !form.getValues("countryId")) {
-      form.setValue("countryId", id, { shouldDirty: true });
-    }
   };
   const defaultCurrencyId =
     currencies.find((currency) => currency.code === "SAR")?.id ?? currencies[0]?.id ?? "";
@@ -244,6 +268,19 @@ export function StoreOrderCreateDialog({
     : null;
   const paidAmount = declares ? declarationAmount(declaration, itemsTotal) : 0;
   const namedLines = lines.filter((line) => line.product);
+  const fulfillmentMethod = useWatch({ control: form.control, name: "fulfillmentMethod" });
+  // A service never ships — the delivery address is asked unless every chosen line is a service.
+  const hasPhysicalLine =
+    namedLines.length === 0 || namedLines.some((line) => line.product!.itemType !== "SERVICE");
+  const needsDelivery = fulfillmentMethod !== "PICKUP" && hasPhysicalLine;
+  const existingCustomer = customerMode === "existing" ? selectedCustomer : null;
+  const existingMissingAddress =
+    !!existingCustomer && !existingCustomer.city?.trim() && !existingCustomer.address?.trim();
+  const showDeliveryFields =
+    needsDelivery && (customerMode === "new" || differentAddress || existingMissingAddress);
+  const effectiveCountryId = differentCountry ? countryId || "" : phoneCountryId;
+  const existingNeedsPhone =
+    !!existingCustomer && !(existingCustomer.phone || existingCustomer.mobile);
   const summaryProduct =
     namedLines.map((line) => line.product!.displayName || line.product!.name).join(" · ") || "—";
   const summaryQuantity = namedLines.reduce((sum, line) => sum + line.quantity, 0);
@@ -259,24 +296,12 @@ export function StoreOrderCreateDialog({
     form.setValue("countryId", customer.countryId || "", { shouldDirty: true });
     form.setValue("city", customer.city || "", { shouldDirty: true });
     form.setValue("address", customer.address || "", { shouldDirty: true });
-    setPhoneCountryOverride(
-      phoneCountryOverrideFor(customer.phone || customer.mobile, customer.countryId),
-    );
-  };
-
-  const applyExistingCustomer = (customer: CustomerGlobalLookupFull) => {
-    form.setValue("customerName", customer.name, { shouldDirty: true, shouldValidate: true });
-    form.setValue("customerPhone", customer.phone || customer.mobile || "", {
-      shouldDirty: true,
-      shouldValidate: true,
-    });
-    form.setValue("countryId", customer.countryId || "", { shouldDirty: true });
-    form.setValue("city", customer.city || "", { shouldDirty: true });
-    form.setValue("address", customer.address || "", { shouldDirty: true });
-    setPhoneCountryOverride(
-      phoneCountryOverrideFor(customer.phone || customer.mobile, customer.countryId),
-    );
-    toast.success(t("storeOrders.createDialog.existingCustomer.applied"));
+    const override = phoneCountryOverrideFor(customer.phone || customer.mobile, customer.countryId);
+    setPhoneCountryOverride(override);
+    // The customer's own address is the default destination; a country that differs
+    // from the phone's is kept (international phone, local delivery).
+    setDifferentCountry(Boolean(customer.countryId && override));
+    setDifferentAddress(false);
   };
 
   // Spec 1B duplicate warning — debounced check of the typed phone / name.
@@ -300,10 +325,60 @@ export function StoreOrderCreateDialog({
         .globalLookupByPhone(customerPhone)
         .then((customer) => {
           if (customer && !customer.restricted && customer.id === choice.customerId) {
-            applyExistingCustomer(customer);
+            // The recognised customer becomes THE customer of this order: the form shows
+            // who they are and asks only for what is missing or order-specific.
+            applyCustomer({
+              id: customer.id,
+              name: customer.name,
+              phone: customer.phone,
+              mobile: customer.mobile,
+              email: null,
+              countryId: customer.countryId,
+              city: customer.city,
+              address: customer.address,
+            } as unknown as PartnerPickerRow);
+            setCustomerMode("existing");
+            toast.success(t("storeOrders.createDialog.existingCustomer.applied"));
           }
         })
         .catch(() => undefined);
+    }
+  };
+
+  const clearCustomerFields = () => {
+    for (const name of [
+      "customerName",
+      "customerPhone",
+      "customerEmail",
+      "city",
+      "address",
+    ] as const) {
+      form.setValue(name, "", { shouldDirty: false });
+    }
+  };
+  const switchCustomerMode = (mode: "new" | "existing") => {
+    if (mode === customerMode) return;
+    setCustomerMode(mode);
+    setSelectedCustomer(null);
+    setPhoneCountryOverride(null);
+    setDifferentCountry(false);
+    setDifferentAddress(false);
+    clearCustomerFields();
+  };
+  const clearExistingCustomer = () => {
+    setSelectedCustomer(null);
+    setPhoneCountryOverride(null);
+    setDifferentCountry(false);
+    setDifferentAddress(false);
+    clearCustomerFields();
+  };
+  /** Existing customer: deliver to this order's own address, or back to the customer's. */
+  const toggleDifferentAddress = (on: boolean) => {
+    setDifferentAddress(on);
+    if (!on && selectedCustomer) {
+      form.setValue("city", selectedCustomer.city || "", { shouldDirty: true });
+      form.setValue("address", selectedCustomer.address || "", { shouldDirty: true });
+      form.setValue("countryId", selectedCustomer.countryId || "", { shouldDirty: true });
     }
   };
 
@@ -373,14 +448,36 @@ export function StoreOrderCreateDialog({
     try {
       const created = await storeOrdersService.create({
         externalOrderId: values.externalOrderId || undefined,
-        partner: {
-          name: values.customerName,
-          phone: values.customerPhone || undefined,
-          email: values.customerEmail || undefined,
-          countryId: values.countryId || undefined,
-          city: values.city || undefined,
-          address: values.address || undefined,
-        },
+        // An existing customer is reused as-is by the server (never rewritten by an order);
+        // a new one is created with the address entered here.
+        partner: existingCustomer
+          ? {
+              name: existingCustomer.name,
+              phone: values.customerPhone || undefined,
+              email: existingCustomer.email || undefined,
+              countryId: existingCustomer.countryId || undefined,
+              city: existingCustomer.city || undefined,
+              address: existingCustomer.address || undefined,
+            }
+          : {
+              name: values.customerName,
+              phone: values.customerPhone || undefined,
+              email: values.customerEmail || undefined,
+              countryId: effectiveCountryId || undefined,
+              city: needsDelivery ? values.city || undefined : undefined,
+              address: needsDelivery ? values.address || undefined : undefined,
+            },
+        fulfillmentMethod: values.fulfillmentMethod,
+        // This order's own destination (stored on the order only — never on the customer master).
+        ...(needsDelivery && (values.city || values.address || effectiveCountryId)
+          ? {
+              delivery: {
+                countryId: effectiveCountryId || undefined,
+                city: values.city || undefined,
+                address: values.address || undefined,
+              },
+            }
+          : {}),
         orderDate: values.orderDate || undefined,
         source: "MANUAL",
         currencyId: values.currencyId,
@@ -479,95 +576,155 @@ export function StoreOrderCreateDialog({
       <Form {...form}>
         <div ref={bodyRef} className="flex flex-col gap-4">
           <FormSection title={t("storeOrders.createDialog.sections.customer")}>
-            <div className="grid grid-cols-1 gap-x-3 gap-y-2 @md:grid-cols-2 @2xl:grid-cols-3 items-start">
-              <ModalFieldFullWidth>
-                <div className="flex flex-col gap-1">
-                  <FieldLabel>{t("storeOrders.createDialog.fields.customer")}</FieldLabel>
+            <div className="flex flex-col gap-3">
+              <ToggleGroup
+                type="single"
+                value={customerMode}
+                onValueChange={(value) => value && switchCustomerMode(value as "new" | "existing")}
+                aria-label={t("storeOrders.createDialog.entry.modeLabel")}
+                data-testid="customer-mode"
+              >
+                <ToggleGroupItem value="new" size="default">
+                  {t("storeOrders.createDialog.entry.modeNew")}
+                </ToggleGroupItem>
+                <ToggleGroupItem value="existing" size="default">
+                  {t("storeOrders.createDialog.entry.modeExisting")}
+                </ToggleGroupItem>
+              </ToggleGroup>
+
+              {customerMode === "existing" && !existingCustomer ? (
+                <div className="flex max-w-xl flex-col gap-1">
                   <PartnerPicker
                     role="CUSTOMER"
                     value={selectedCustomer}
                     onChange={applyCustomer}
                     className="max-w-none"
                   />
+                  <p className="text-caption text-muted-foreground">
+                    {t("storeOrders.createDialog.entry.findExisting")}
+                  </p>
                 </div>
-              </ModalFieldFullWidth>
-              <TextFormField
-                control={form.control}
-                name="customerName"
-                label={t("storeOrders.createDialog.fields.customerName")}
-                required
-              />
-              <div className="flex flex-col gap-1">
-                <FieldLabel>{t("phone.phoneCountryLabel")}</FieldLabel>
-                <PhoneCountrySelector
-                  value={phoneCountryId}
-                  onChange={selectPhoneCountry}
-                  countries={countries}
+              ) : null}
+
+              {existingCustomer ? (
+                <CustomerIdentitySummary
+                  name={existingCustomer.name}
+                  phone={existingCustomer.phone || existingCustomer.mobile}
+                  location={[existingCustomer.address, existingCustomer.city]
+                    .filter(Boolean)
+                    .join("، ")}
+                  changeLabel={t("storeOrders.createDialog.entry.changeCustomer")}
+                  onChange={clearExistingCustomer}
                 />
-              </div>
-              <PhoneFormField
-                control={form.control}
-                name="customerPhone"
-                label={t("storeOrders.fields.phone")}
-                required
-                countryCode={phoneCountryCode}
-                availableCountryCodes={countries.map((country) => country.code)}
-                onCountryChange={(iso2) => {
-                  const match = countries.find((country) => country.code === iso2);
-                  if (match) selectPhoneCountry(match.id);
-                }}
-              />
-              <ModalFieldFullWidth>
+              ) : null}
+
+              {customerMode === "new" || existingNeedsPhone ? (
+                <div className="grid grid-cols-1 items-start gap-x-3 gap-y-2 @md:grid-cols-2">
+                  {customerMode === "new" ? (
+                    <TextFormField
+                      control={form.control}
+                      name="customerName"
+                      label={t("storeOrders.createDialog.fields.customerName")}
+                      required
+                    />
+                  ) : null}
+                  <PhoneFormField
+                    control={form.control}
+                    name="customerPhone"
+                    label={t("storeOrders.fields.phone")}
+                    required
+                    countryCode={phoneCountryCode}
+                    availableCountryCodes={countries.map((country) => country.code)}
+                    countries={countries}
+                    onCountryChange={(iso2) => {
+                      const match = countries.find((country) => country.code === iso2);
+                      if (match) selectPhoneCountry(match.id);
+                    }}
+                  />
+                </div>
+              ) : null}
+
+              {customerMode === "new" || existingNeedsPhone ? (
                 <DuplicateCustomerPanel
                   state={duplicates.state}
                   onChoose={chooseDuplicate}
                   orderHref={(id) => `/store-orders/${id}`}
                   onEditDetails={() => form.setFocus("customerPhone")}
                 />
-              </ModalFieldFullWidth>
-              <ComboboxFormField
-                control={form.control}
-                name="countryId"
-                label={t("storeOrders.createDialog.fields.country")}
-                optional
-                items={countries}
-                getId={(country) => country.id}
-                getTitle={(country) => localizedName(country, locale)}
-                getSearchText={(country) =>
-                  [country.name, country.nameEn, country.code, country.iso3, country.callingCode]
-                    .filter(Boolean)
-                    .join(" ")
-                }
-                allowClear
-                icon={<Globe className="size-3.5 shrink-0 text-muted-foreground" />}
-              />
-              <TextFormField
-                control={form.control}
-                name="city"
-                label={t("storeOrders.createDialog.fields.city")}
-                optional
-              />
-              <TextFormField
-                control={form.control}
-                name="customerEmail"
-                label={t("storeOrders.createDialog.fields.customerEmail")}
-                optional
-                dir="ltr"
-                inputMode="email"
-              />
-              <ModalFieldFullWidth>
-                <TextFormField
-                  control={form.control}
-                  name="address"
-                  label={t("storeOrders.createDialog.fields.address")}
-                  optional
-                />
-              </ModalFieldFullWidth>
+              ) : null}
+
+              {existingCustomer && needsDelivery && !existingMissingAddress ? (
+                <EnterpriseButton
+                  type="button"
+                  variant="link"
+                  size="inline"
+                  className="self-start"
+                  aria-pressed={differentAddress}
+                  onClick={() => toggleDifferentAddress(!differentAddress)}
+                  data-testid="different-address-toggle"
+                >
+                  {differentAddress
+                    ? t("storeOrders.createDialog.entry.customerAddress")
+                    : t("storeOrders.createDialog.entry.differentAddress")}
+                </EnterpriseButton>
+              ) : null}
+
+              {showDeliveryFields ? (
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-caption font-medium text-muted-foreground">
+                    {t("storeOrders.createDialog.entry.deliveryTitle")}
+                    {existingCustomer
+                      ? ` — ${existingMissingAddress ? t("storeOrders.createDialog.entry.missingAddress") : t("storeOrders.createDialog.entry.orderOnlyNote")}`
+                      : ""}
+                  </p>
+                  <DeliveryFields
+                    control={form.control}
+                    names={{ countryId: "countryId", city: "city", address: "address" }}
+                    labels={{
+                      country: t("storeOrders.createDialog.fields.country"),
+                      city: t("storeOrders.createDialog.fields.city"),
+                      address: t("storeOrders.createDialog.fields.address"),
+                    }}
+                    countries={countries}
+                    differentCountry={differentCountry}
+                    onDifferentCountryChange={setDifferentCountry}
+                  />
+                </div>
+              ) : !needsDelivery ? (
+                <p className="text-caption text-muted-foreground" data-testid="no-delivery-note">
+                  {fulfillmentMethod === "PICKUP"
+                    ? t("storeOrders.createDialog.entry.pickupNote")
+                    : t("storeOrders.createDialog.entry.nonPhysicalNote")}
+                </p>
+              ) : null}
+
+              {customerMode === "new" ? (
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <DisclosureTrigger>
+                      {t("storeOrders.createDialog.entry.moreDetails")}
+                      <span className="font-normal">({t("common.optional")})</span>
+                    </DisclosureTrigger>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-2">
+                    <div className="max-w-md">
+                      <TextFormField
+                        control={form.control}
+                        name="customerEmail"
+                        label={t("storeOrders.createDialog.fields.customerEmail")}
+                        optional
+                        dir="ltr"
+                        inputMode="email"
+                      />
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              ) : null}
             </div>
           </FormSection>
 
           <FormSection title={t("storeOrders.createDialog.sections.orderInfo")}>
-            <div className="grid grid-cols-1 gap-x-3 gap-y-2 @md:grid-cols-2 @2xl:grid-cols-4">
+            <div className="grid grid-cols-1 items-start gap-x-3 gap-y-2 @md:grid-cols-2 @2xl:grid-cols-3">
               <TextFormField
                 control={form.control}
                 name="externalOrderId"
@@ -603,6 +760,15 @@ export function StoreOrderCreateDialog({
                     value: "CASH_ON_DELIVERY",
                     label: t("storeOrders.paymentType.CASH_ON_DELIVERY"),
                   },
+                ]}
+              />
+              <SelectFormField
+                control={form.control}
+                name="fulfillmentMethod"
+                label={t("storeOrders.createDialog.entry.method")}
+                options={[
+                  { value: "SHIPPING", label: t("storeOrders.createDialog.entry.methodShipping") },
+                  { value: "PICKUP", label: t("storeOrders.createDialog.entry.methodPickup") },
                 ]}
               />
             </div>

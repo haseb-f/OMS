@@ -1,0 +1,180 @@
+{
+  "tag": "R11ACC173347",
+  "results": [
+    {
+      "name": "1. order for a new customer is created",
+      "ok": true,
+      "detail": "201 STO-2026-026979"
+    },
+    {
+      "name": "1. the order keeps its own delivery destination",
+      "ok": true,
+      "detail": "{\"c\":\"Riyadh\",\"a\":\"Street 1\"}"
+    },
+    {
+      "name": "2. all phone formats (+, 00, national, spaces, Arabic digits) recognise the customer",
+      "ok": true,
+      "detail": "+966568373497:PHONE | 00966568373497:PHONE | 0568373497:PHONE | 568373497:PHONE | +966 56 837 3497:PHONE | ٠٥٦٨٣٧٣٤٩٧:PHONE | +٩٦٦٥٦٨٣٧٣٤٩٧:PHONE"
+    },
+    {
+      "name": "2. a local number with no country at all matches",
+      "ok": true,
+      "detail": "PHONE"
+    },
+    {
+      "name": "3. the summary has reference, date, amount/currency, status and an active flag",
+      "ok": true,
+      "detail": "{\"id\":\"465312d4-e2d3-41a5-9565-1aed10481de5\",\"orderNumber\":\"STO-2026-026979\",\"orderDate\":\"2026-10-04T21:42:55.367Z\",\"active\":true,\"paymentStatus\":\"PAYMENT_PENDING\",\"declaredPaymentStatus\":\"UNPAID\",\"fulfillmentStatus\":{\"code\":\"READY\",\"name\":\"جاهز\",\"nameEn\":\"Ready\"},\"total\":100,\"currencyCode\":\"A05C6E9\"}"
+    },
+    {
+      "name": "3. the customer is named (masked phone) and a prior order is openable",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "2. a number differing by one digit never matches (no suffix stripping)",
+      "ok": true,
+      "detail": "NONE"
+    },
+    {
+      "name": "4. cancelling after the warning leaves exactly one customer and one order",
+      "ok": true,
+      "detail": "orders=1 customers=1"
+    },
+    {
+      "name": "B3. creating without acknowledging the existing customer is refused (409)",
+      "ok": true,
+      "detail": "409 DUPLICATE_ACKNOWLEDGEMENT_REQUIRED"
+    },
+    {
+      "name": "B3. another employee entering the same number in another format is refused too",
+      "ok": true,
+      "detail": "409"
+    },
+    {
+      "name": "B3. an acknowledgement for the wrong customer is refused (stale)",
+      "ok": true,
+      "detail": "409"
+    },
+    {
+      "name": "B3. 'different customer' is refused for a matching phone (no second customer for one number)",
+      "ok": true,
+      "detail": "409"
+    },
+    {
+      "name": "5. the repeat order is created after the acknowledgement",
+      "ok": true,
+      "detail": "201"
+    },
+    {
+      "name": "5. it reuses the existing customer (same partner)",
+      "ok": true,
+      "detail": "233bf11e-b5f8-4245-bf4b-26a28d543bf9 / 233bf11e-b5f8-4245-bf4b-26a28d543bf9"
+    },
+    {
+      "name": "5. the other delivery address is on the order and the customer master is unchanged",
+      "ok": true,
+      "detail": "Jeddah"
+    },
+    {
+      "name": "5. still exactly one customer for the number",
+      "ok": true,
+      "detail": "1"
+    },
+    {
+      "name": "6. a double click with one key creates ONE order",
+      "ok": true,
+      "detail": "200/201 ids=1"
+    },
+    {
+      "name": "6. a later retry returns the same order",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "6. the customer has exactly 3 orders (first, repeat, double-click once)",
+      "ok": true,
+      "detail": "3"
+    },
+    {
+      "name": "7. another employee finds the customer through the advanced lookup",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "7. the response is minimal: masked phone, two letters per word, no owner, no link",
+      "ok": true,
+      "detail": "{\"kind\":\"CUSTOMER\",\"maskedPhone\":\"+966••••••497\",\"partialName\":\"R1••• Cu•••\",\"reference\":{\"type\":\"ORDER\",\"number\":\"STO-2026-026981\",\"status\":\"IN_PROGRESS\"},\"notAssignedToYou\":true,\"openable\":null}"
+    },
+    {
+      "name": "7. an Arabic-digit query works",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "7. discovery grants no access to the order (404) and no edit",
+      "ok": true,
+      "detail": "404/404"
+    },
+    {
+      "name": "8. the owner's list search finds it in every format (national, Arabic digits)",
+      "ok": true,
+      "detail": "3/3"
+    },
+    {
+      "name": "8. another employee's list search does NOT find it (scope preserved)",
+      "ok": true,
+      "detail": "orders=0 leads=0"
+    },
+    {
+      "name": "8. the customers list finds a national / Arabic-digit number",
+      "ok": true,
+      "detail": "1/1"
+    },
+    {
+      "name": "9. another agent's customer is a flag only (no name, id, order)",
+      "ok": true,
+      "detail": "{\"kind\":\"PHONE\",\"crossScope\":true}"
+    },
+    {
+      "name": "9. another agent cannot open the order (404)",
+      "ok": true,
+      "detail": "404"
+    },
+    {
+      "name": "9. an agent cannot use the company advanced lookup",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "name": "9. an agent entering a company customer's number gets a flag only",
+      "ok": true,
+      "detail": "{\"kind\":\"PHONE\",\"crossScope\":true}"
+    },
+    {
+      "name": "10. repeated leads on the same number are all created (no order-confirmation block)",
+      "ok": true,
+      "detail": "201/201/201 "
+    },
+    {
+      "name": "12. an Egyptian phone with a Saudi delivery address is accepted",
+      "ok": true,
+      "detail": "201"
+    },
+    {
+      "name": "12. both are preserved (phone +20, delivery country SA)",
+      "ok": true,
+      "detail": "+201070174527 / 7a9b0c41-94b1-4fb5-bcb8-ada44be4e691"
+    },
+    {
+      "name": "12. the Egyptian national format is recognised even with Saudi selected",
+      "ok": true,
+      "detail": "PHONE"
+    },
+    {
+      "name": "B. an unknown number is NONE",
+      "ok": true,
+      "detail": "NONE"
+    }
+  ]
+}

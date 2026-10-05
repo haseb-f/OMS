@@ -65,6 +65,8 @@ export interface MasterDataFormField {
     | "colorToken";
   required?: boolean;
   placeholder?: string;
+  /** `type: "number"` only — a monetary amount: the empty field illustrates "0.00" (never a value). */
+  money?: boolean;
   /** Pre-resolved display text (translated or a raw entity name) — the page builds this via `t()`/live data, not a MessageKey itself. */
   options?: { value: string; label: string }[];
   /** `type: "account"` only — restricts the picker to leaf/posting accounts (e.g. Payment Method's linked account must never be a header account). */
@@ -133,6 +135,8 @@ function PhoneFormField<TFieldValues extends FieldValues>({
       // The form owns the country: a calling-code conflict offers an explicit
       // switch to the number's own country (never an automatic one).
       availableCountryCodes={countries.map((c) => c.code)}
+      // The compact calling-code selector lives inside the field (linked to the sibling country field).
+      countries={countryFieldName ? countries : undefined}
       onCountryChange={
         countryFieldName
           ? (iso2) => {
@@ -418,7 +422,10 @@ function FormFieldGrid<TFieldValues extends FieldValues>({
                     ) : (
                       <Input
                         type={field.type === "number" ? "number" : "text"}
-                        placeholder={field.placeholder}
+                        placeholder={
+                          field.placeholder ??
+                          (field.type === "number" ? (field.money ? "0.00" : "0") : undefined)
+                        }
                         {...rhfField}
                         value={rhfField.value ?? ""}
                         onChange={(event) => {
