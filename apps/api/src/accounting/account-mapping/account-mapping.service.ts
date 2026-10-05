@@ -387,6 +387,20 @@ export class AccountMappingService {
     ]);
   }
 
+  /**
+   * R13 � the credit side of an assembly order's approved direct cost
+   * (labour / overhead absorbed into the finished item). Global default only;
+   * fails closed with a named configuration error, never a guessed account.
+   */
+  async resolveAssemblyCostAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(settings?.assemblyCostAccountId, 'Assembly Cost', [
+      'PostingSettings.assemblyCostAccountId',
+    ]);
+  }
+
   async resolveSalesDiscountAccount(
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
   ): Promise<string | null> {

@@ -222,6 +222,8 @@ export class ApiError extends Error {
     public readonly fields?: ErrorFieldDetail[],
     /** Machine-readable context for recoverable codes (see MISSING_EXCHANGE_RATE). */
     public readonly details?: Record<string, unknown>,
+    /** The whole error body — business codes (e.g. PRODUCT_BARCODE_DUPLICATE) carry their own extra fields (`sku`, `reason`…). */
+    public readonly body?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "ApiError";
@@ -282,7 +284,14 @@ async function requestRaw(path: string, init?: RequestInit): Promise<Response> {
     const log = response.status === 404 ? console.warn : console.error;
     log(`[api-client] ${response.status} ${code} on ${path}:`, body?.message, body?.fields);
     const message = friendlyMessage(code, body?.message, body?.fields, locale, response.status);
-    throw new ApiError(response.status, message, code, body?.fields, body?.details);
+    throw new ApiError(
+      response.status,
+      message,
+      code,
+      body?.fields,
+      body?.details,
+      body as Record<string, unknown> | undefined,
+    );
   }
 
   return response;

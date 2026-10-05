@@ -8,13 +8,21 @@ import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { useLocale } from "@/providers/locale-provider";
 import type { ProductRow } from "@/services/products-service";
-import { ItemTypeLabel, ProductStatusCell, STATUS_TONE, TypeCell } from "./columns";
+import {
+  ItemTypeLabel,
+  ProductStatusCell,
+  ProductTraits,
+  STATUS_TONE,
+  SupplyMethodCell,
+  ownershipLabel,
+} from "./columns";
 
 /**
  * Grid-view template of the Products list (round 9). Shows exactly what the
- * table shows: name, SKU, category, sales price, status, type, unit and the
- * commission item type. Purchase price and any cost/margin are on the row type
- * but NOT in the table, so they are never drawn here either.
+ * table shows: name, SKU, category, sales price, status, item type, supply
+ * method, the sold / purchased / tracked traits, ownership and unit. Purchase
+ * price and any cost/margin are on the row type but NOT in the table, so they
+ * are never drawn here either.
  */
 export function ProductGridCard({
   row,
@@ -38,8 +46,18 @@ export function ProductGridCard({
     { key: "unit", label: t("products.fields.unit"), value: row.unit?.name ?? "—" },
     {
       key: "itemType",
-      label: t("productCommission.itemType.label"),
+      label: t("products.facets.itemType"),
       value: <ItemTypeLabel itemType={row.itemType ?? null} />,
+    },
+    {
+      key: "traits",
+      label: t("products.facets.traits"),
+      value: <ProductTraits row={row} />,
+    },
+    {
+      key: "ownership",
+      label: t("agentPricing.ownership.label"),
+      value: ownershipLabel(row, t),
     },
   ];
 
@@ -64,7 +82,7 @@ export function ProductGridCard({
       badges={
         <>
           <ProductStatusCell status={row.status} deletedAt={row.deletedAt} />
-          <TypeCell type={row.type} />
+          <SupplyMethodCell row={row} />
         </>
       }
       actionsNode={actionsNode}

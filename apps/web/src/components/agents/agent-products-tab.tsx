@@ -23,16 +23,7 @@ import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-ta
 import { EnterpriseButton } from "@/components/ui/button";
 import { StatusBadge } from "@/components/business/status-badge";
 import { ProductCommissionSection } from "@/components/products/product-commission-section";
-import { ProductModal } from "@/app/(shell)/products/product-modal";
-import {
-  useAnalyticAccounts,
-  useProductBrands,
-  useProductCategories,
-  useSuppliers,
-  useTaxes,
-  useUnits,
-  useWarehouses,
-} from "@/hooks/use-reference-data";
+import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import {
   agentsService,
   type AgentLinkableProduct,
@@ -448,29 +439,11 @@ function AgentNewProductModal({
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
-  const categories = useProductCategories();
-  const brands = useProductBrands();
-  const units = useUnits();
-  const taxes = useTaxes();
-  const analyticAccounts = useAnalyticAccounts();
-  const suppliers = useSuppliers();
-  const warehouses = useWarehouses();
   return (
-    <ProductModal
+    <ProductFormDialog
       open
       onOpenChange={onOpenChange}
-      icon={Package}
-      editingProduct={null}
-      duplicateSource={null}
-      categories={categories}
-      brands={brands}
-      units={units}
-      taxes={taxes}
-      analyticAccounts={analyticAccounts}
-      suppliers={suppliers}
-      warehouses={warehouses}
-      onSaved={onSaved}
-      onCategoryCreated={(category) => useProductCategories.add(category)}
+      onSaved={() => onSaved()}
       initialOwnerAgentId={agentId}
     />
   );

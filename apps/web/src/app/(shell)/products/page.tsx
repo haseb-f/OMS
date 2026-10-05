@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Package, Plus, Eye, Pencil, Copy, Archive as ArchiveIcon, RotateCcw } from "lucide-react";
+import { Plus, Eye, Pencil, Copy, Archive as ArchiveIcon, RotateCcw } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { HeaderActions } from "@/components/shared/header-actions";
@@ -19,23 +19,18 @@ import {
   exportColumnsFromKeys,
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
-import { RowActionsMenu } from "@/components/shared/data-table";
+import { RowActionsMenu, SelectFilter } from "@/components/shared/data-table";
 import { productsColumns, productsExportColumns } from "@/config/products/columns";
 import { ProductGridCard } from "@/config/products/product-grid-card";
-import { ProductModal } from "./product-modal";
-import { ProductCreateDialog } from "@/components/business/product-create-dialog";
+import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import { ProductSuccessDialog } from "./product-success-dialog";
 import { ProductOpeningBalanceDialog } from "./product-opening-balance-dialog";
-import { productsService, type ProductRow } from "@/services/products-service";
 import {
-  useProductCategories,
-  useProductBrands,
-  useUnits,
-  useTaxes,
-  useAnalyticAccounts,
-  useSuppliers,
-  useWarehouses,
-} from "@/hooks/use-reference-data";
+  productsService,
+  type ProductListParams,
+  type ProductRow,
+} from "@/services/products-service";
+import { useWarehouses } from "@/hooks/use-reference-data";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
@@ -45,6 +40,9 @@ import { PermissionGate } from "@/components/shared/permission-gate";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import { formatNumber } from "@/lib/format-number";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
+
+/** "" = no filter; "true" / "false" filter on the flag. */
+const toBooleanFilter = (value: string) => (value === "" ? undefined : value === "true");
 
 function ProductsPageContent() {
   const { t } = useLocale();
@@ -65,19 +63,19 @@ function ProductsPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState({});
 
-  const categories = useProductCategories();
-  const brands = useProductBrands();
-  const units = useUnits();
-  const taxes = useTaxes();
-  const analyticAccounts = useAnalyticAccounts();
-  const suppliers = useSuppliers();
   const warehouses = useWarehouses();
 
-  const [modalOpen, setModalOpen] = useState(false);
+  // R13 facets — only those the list API filters on (it has no supply-method parameter).
+  const [itemTypeFilter, setItemTypeFilter] = usePathRestorableState("itemType", "");
+  const [sellableFilter, setSellableFilter] = usePathRestorableState("sellable", "");
+  const [purchasableFilter, setPurchasableFilter] = usePathRestorableState("purchasable", "");
+  const [trackedFilter, setTrackedFilter] = usePathRestorableState("tracked", "");
+  const [ownershipFilter, setOwnershipFilter] = usePathRestorableState("ownership", "");
+
+  const [formOpen, setFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductRow | null>(null);
   const [duplicateSource, setDuplicateSource] = useState<ProductRow | null>(null);
 
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
   const [openingBalanceOpen, setOpeningBalanceOpen] = useState(false);
   const [createdProduct, setCreatedProduct] = useState<ProductRow | null>(null);
@@ -87,8 +85,28 @@ function ProductsPageContent() {
   const [previewProduct, setPreviewProduct] = useState<ProductRow | null>(null);
 
   const listFilters = useMemo(
-    () => ({ search: search || undefined, sortBy, sortOrder, includeArchived }),
-    [search, sortBy, sortOrder, includeArchived],
+    () => ({
+      search: search || undefined,
+      sortBy,
+      sortOrder,
+      includeArchived,
+      itemType: (itemTypeFilter || undefined) as ProductListParams["itemType"],
+      isSellable: toBooleanFilter(sellableFilter),
+      isPurchasable: toBooleanFilter(purchasableFilter),
+      isInventoryItem: toBooleanFilter(trackedFilter),
+      ownership: (ownershipFilter || undefined) as ProductListParams["ownership"],
+    }),
+    [
+      search,
+      sortBy,
+      sortOrder,
+      includeArchived,
+      itemTypeFilter,
+      sellableFilter,
+      purchasableFilter,
+      trackedFilter,
+      ownershipFilter,
+    ],
   );
 
   const load = useCallback(() => {
@@ -117,21 +135,27 @@ function ProductsPageContent() {
     void load();
   }, [load]);
 
-  const openCreate = () => setCreateDialogOpen(true);
+  const openCreate = () => {
+    setEditingProduct(null);
+    setDuplicateSource(null);
+    setFormOpen(true);
+  };
   const openEdit = (product: ProductRow) => {
     setEditingProduct(product);
     setDuplicateSource(null);
-    setModalOpen(true);
+    setFormOpen(true);
   };
   const openDuplicate = (product: ProductRow) => {
     setEditingProduct(null);
     setDuplicateSource(product);
-    setModalOpen(true);
+    setFormOpen(true);
   };
 
-  const handleCreated = (product: ProductRow) => {
-    setCreatedProduct(product);
-    setSuccessDialogOpen(true);
+  const handleSaved = (product: ProductRow, mode: "create" | "edit") => {
+    if (mode === "create") {
+      setCreatedProduct(product);
+      setSuccessDialogOpen(true);
+    }
     load();
   };
 
@@ -262,16 +286,68 @@ function ProductsPageContent() {
     >
       <EnterpriseDataTable
         filterBar={
-          <EnterpriseButton
-            type="button"
-            variant={includeArchived ? "secondary" : "outline"}
-            size="sm"
-            onClick={() => setIncludeArchived((value) => !value)}
-          >
-            {t("common.showArchived")}
-          </EnterpriseButton>
+          <>
+            <SelectFilter
+              label={t("products.facets.itemType")}
+              value={itemTypeFilter}
+              onChange={(value) => {
+                setItemTypeFilter(value);
+                setPage(1);
+              }}
+              options={[
+                { value: "PRODUCT", label: t("products.attr.itemType.PRODUCT") },
+                { value: "SERVICE", label: t("products.attr.itemType.SERVICE") },
+                { value: "UNSET", label: t("products.facets.itemTypeUnset") },
+              ]}
+            />
+            {(
+              [
+                ["sellable", "products.attr.canSell", sellableFilter, setSellableFilter],
+                [
+                  "purchasable",
+                  "products.attr.canPurchase",
+                  purchasableFilter,
+                  setPurchasableFilter,
+                ],
+                ["tracked", "products.attr.trackStock", trackedFilter, setTrackedFilter],
+              ] as const
+            ).map(([key, label, value, setValue]) => (
+              <SelectFilter
+                key={key}
+                label={t(label)}
+                value={value}
+                onChange={(next) => {
+                  setValue(next);
+                  setPage(1);
+                }}
+                options={[
+                  { value: "true", label: t("common.yes") },
+                  { value: "false", label: t("common.no") },
+                ]}
+              />
+            ))}
+            <SelectFilter
+              label={t("agentPricing.ownership.label")}
+              value={ownershipFilter}
+              onChange={(value) => {
+                setOwnershipFilter(value);
+                setPage(1);
+              }}
+              options={[
+                { value: "COMPANY", label: t("agentPricing.ownership.COMPANY") },
+                { value: "AGENT", label: t("agentPricing.ownership.AGENT") },
+              ]}
+            />
+            <EnterpriseButton
+              type="button"
+              variant={includeArchived ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setIncludeArchived((value) => !value)}
+            >
+              {t("common.showArchived")}
+            </EnterpriseButton>
+          </>
         }
-
         tableId="products"
         printTitle={t("products.printTitle")}
         columns={tableColumns}
@@ -334,25 +410,13 @@ function ProductsPageContent() {
         }
       />
 
-      <ProductCreateDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        icon={Package}
-        categories={categories}
-        units={units}
-        taxes={taxes}
-        suppliers={suppliers}
-        warehouses={warehouses}
-        onCreated={handleCreated}
-      />
-
       <ProductSuccessDialog
         open={successDialogOpen}
         onOpenChange={setSuccessDialogOpen}
         product={createdProduct}
         onAddAnother={() => {
           setSuccessDialogOpen(false);
-          setCreateDialogOpen(true);
+          openCreate();
         }}
         onOpenProduct={() => {
           setSuccessDialogOpen(false);
@@ -372,21 +436,12 @@ function ProductsPageContent() {
         warehouses={warehouses}
       />
 
-      <ProductModal
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        icon={Package}
+      <ProductFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
         editingProduct={editingProduct}
         duplicateSource={duplicateSource}
-        categories={categories}
-        brands={brands}
-        units={units}
-        taxes={taxes}
-        analyticAccounts={analyticAccounts}
-        suppliers={suppliers}
-        warehouses={warehouses}
-        onSaved={load}
-        onCategoryCreated={(category) => useProductCategories.add(category)}
+        onSaved={handleSaved}
       />
 
       <ConfirmationDialog
@@ -420,7 +475,20 @@ function ProductsPageContent() {
           {previewProduct && (
             <div className="flex flex-col gap-4 overflow-y-auto px-4 pb-4">
               <div className="flex items-center gap-2">
-                <StatusBadge tone="info" label={t(`products.type.${previewProduct.type}`)} />
+                <StatusBadge
+                  tone="info"
+                  label={
+                    previewProduct.itemType
+                      ? t(`products.attr.itemType.${previewProduct.itemType}`)
+                      : t("productCommission.itemType.UNSET")
+                  }
+                />
+                {previewProduct.itemType !== "SERVICE" && (
+                  <StatusBadge
+                    tone="neutral"
+                    label={t(`products.attr.supplyMethod.${previewProduct.supplyMethod}`)}
+                  />
+                )}
                 <StatusBadge
                   tone={previewProduct.deletedAt ? "neutral" : "success"}
                   label={t(previewProduct.deletedAt ? "common.archived" : "common.active")}

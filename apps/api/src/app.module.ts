@@ -46,6 +46,8 @@ import { UnitsModule } from './units/units.module';
 import { ProductsModule } from './products/products.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { PhysicalCountModule } from './physical-count/physical-count.module';
+import { RecipesModule } from './recipes/recipes.module';
+import { AssemblyModule } from './assembly/assembly.module';
 import { CostComponentsModule } from './cost-components/cost-components.module';
 import { ProductCostModule } from './product-cost/product-cost.module';
 import { PartnersModule } from './partners/partners.module';
@@ -161,6 +163,8 @@ import { StoreOrderAmendmentsModule } from './store-orders/amendments/store-orde
     ProductsModule,
     InventoryModule,
     PhysicalCountModule,
+    RecipesModule,
+    AssemblyModule,
     CostComponentsModule,
     ProductCostModule,
     PartnersModule,

@@ -161,6 +161,9 @@ export interface CategoryRow {
   id: string;
   name: string;
   description: string | null;
+  /// R13 — defaults a new product of this category inherits (visible in the product form).
+  defaultUnitId?: string | null;
+  defaultTaxId?: string | null;
   /// TASK-047 (Accounting Configuration) — optional overrides of the
   /// Accounting Settings defaults for this category's products.
   revenueAccountId: string | null;

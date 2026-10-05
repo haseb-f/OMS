@@ -303,6 +303,7 @@ const en = {
       lookupAdvanced: "Advanced customer lookup",
       viewAll: "View all records (every owner)",
       amend: "Amend order",
+      directCost: "Enter direct assembly cost",
     },
     modules: {
       dashboard: "Dashboard",
@@ -414,6 +415,8 @@ const en = {
       investmentAccounting: "Investor Accounting Settings",
       investorSettings: "Investor Settings",
       investorPortal: "Investor Portal",
+      assembly: "Assembly",
+      productRecipes: "Product recipes",
     },
   },
   nav: {
@@ -2169,14 +2172,7 @@ const en = {
     duplicateTitle: "Duplicate Product",
     quickPreview: "Quick Preview",
     tabs: {
-      general: "General",
-      classification: "Classification",
-      sales: "Sales",
-      purchasing: "Purchasing",
-      inventory: "Inventory",
-      cost: "Cost",
       stockMovements: "Stock Movements",
-      bom: "Bill of Materials (BOM)",
       variants: "Variants",
       attachments: "Attachments",
     },
@@ -2191,8 +2187,6 @@ const en = {
       qrCodeValue: "QR Code Value",
       imageUrl: "Image URL",
       description: "Description",
-      shortDescription: "Short Description",
-      longDescription: "Long Description",
       internalNotes: "Internal Notes",
       tags: "Tags",
       tagsHint: "Comma-separated.",
@@ -2207,13 +2201,15 @@ const en = {
       salesTaxIncluded: "Tax Included",
       salesDescription: "Sales Description",
       allowDiscount: "Allow Discount",
-      availableForSale: "Available For Sale",
       purchasePrice: "Purchase Price",
+      expectedPurchasePrice: "Expected purchase price (estimate)",
+      expectedPurchasePriceHint:
+        "An estimate only. The actual cost is the moving average of real receipts.",
+      searchKeywords: "Search keywords",
+      searchKeywordsHint: "Extra words that find this product in searches.",
       preferredSupplier: "Preferred Supplier",
       purchaseDescription: "Purchase Description",
-      availableForPurchase: "Available For Purchase",
       trackInventory: "Track Inventory",
-      availableForInvestmentOpportunities: "Available for investment opportunities",
       availableForInvestmentOpportunitiesHint:
         "When enabled, this product (if active) appears in the Investment Opportunity product selector. Disabling it later keeps it on existing opportunities but blocks selecting it for new ones.",
       reorderLevel: "Reorder Point",
@@ -2222,10 +2218,7 @@ const en = {
       minQuantity: "Minimum Quantity",
       maxQuantity: "Maximum Quantity",
       storageLocation: "Storage Location",
-      serialNumberTracking: "Serial Number Tracking",
-      batchTracking: "Batch Tracking",
       preferredWarehouse: "Preferred Warehouse",
-      costingMethod: "Costing Method",
       inventoryTracking: "Inventory Tracking",
       weight: "Weight",
       width: "Width",
@@ -2235,14 +2228,10 @@ const en = {
       color: "Color",
       size: "Size",
       variantWeight: "Weight",
-      priceAdjustment: "Price Adjustment",
-      variantSku: "Variant SKU",
       fileUrl: "File URL",
       fileName: "File Name",
-      attachmentDescription: "Description",
       createdBy: "Created By",
       createdAt: "Created Date",
-      updatedBy: "Updated By",
       updatedAt: "Updated Date",
     },
     type: {
@@ -2252,19 +2241,6 @@ const en = {
       MANUFACTURED: "Manufactured Product",
       SERVICE: "Service",
       EXPENSE_ITEM: "Expense Item",
-    },
-    typeHint: {
-      PURCHASE_ONLY: "Enters inventory, never sold.",
-      SALES_ONLY: "Sold from stock — not purchased through this system.",
-      PURCHASE_AND_SALE: "Normal inventory item — bought and sold.",
-      MANUFACTURED: "Sold as one item, built from component products (BOM).",
-      SERVICE: "No inventory.",
-      EXPENSE_ITEM: "Bought and expensed — not stocked or sold.",
-    },
-    costingMethod: {
-      AVERAGE: "Average Cost",
-      FIFO: "FIFO",
-      STANDARD: "Standard Cost",
     },
     inventoryTracking: {
       NONE: "None",
@@ -2312,25 +2288,11 @@ const en = {
     variantSaved: "Variant saved.",
     variantRemoved: "Variant removed.",
     attachmentAdded: "Attachment added.",
-    createDialog: {
-      title: "Add Product",
-      description: "Only what's needed to save — everything else can be added after.",
-    },
     wizard: {
       steps: {
-        basics: "Basics",
         pricing: "Pricing & Commerce",
         inventory: "Inventory",
-        review: "Review & Create",
       },
-      back: "Back",
-      next: "Next",
-      createDraft: "Create as Draft",
-      createDraftNow: "Create as Draft Now",
-      reviewIntro:
-        "Review before creating — any field can be completed later from the product page.",
-      willStartAsDraft:
-        'The product will start as a Draft — use the "Activate Product" action later to make it available for sale and purchase.',
       notProvided: "Not provided",
     },
     detail: {
@@ -2367,30 +2329,17 @@ const en = {
       submit: "Save Opening Balance",
       success: "Opening balance recorded.",
     },
-    kit: {
-      title: "Kit Components (BOM)",
-      component: "Component Product",
-      quantity: "Quantity",
-      addComponent: "Add Component",
-      removeComponent: "Remove",
-      componentsEmpty: "No components yet — add the products this Kit is built from.",
-      componentSaved: "Component saved.",
-      componentRemoved: "Component removed.",
-    },
     inventory: {
       stockSummary: "Stock Summary",
-      incoming: "Incoming",
-      outgoing: "Outgoing",
       status: "Inventory Status",
       inStock: "In Stock",
       outOfStock: "Out of Stock",
     },
     cost: {
-      currentCost: "Current Cost",
       lastCostUpdate: "Last Cost Update",
-      methodHint: "Architecture only — no automatic cost calculation yet.",
-      architectureHint:
-        "The Cost Engine records costs; it does not calculate them yet. Standard/Average/FIFO math and cost allocation come with a future Purchasing-driven pass.",
+      currentCostActual: "Current cost (actual)",
+      movingAverage:
+        "The actual cost is the moving average of real receipts, assemblies and adjustments.",
     },
     stockMovements: {
       reference: "Reference",
@@ -2398,9 +2347,231 @@ const en = {
       cost: "Cost",
       empty: "No stock movements recorded for this product yet.",
     },
-    typeChangeWarningTitle: "Change Product Operation Type?",
-    typeChangeWarningDescription:
-      "Switching type may hide some tabs and fields. Existing data is kept and reappears if you switch back.",
+    attr: {
+      itemType: {
+        label: "Item type",
+        PRODUCT: "Product",
+        SERVICE: "Service",
+        unset: "Not classified yet — choose Product or Service.",
+        hint: {
+          PRODUCT: "A good: bought, stocked, assembled or sold.",
+          SERVICE: "A service — never stocked, assembled or a kit.",
+        },
+      },
+      canSell: "Can be sold",
+      canPurchase: "Can be purchased",
+      trackStock: "Track stock",
+      trackStockHint: "Quantities are kept per warehouse from stock movements.",
+      trackStockReason: {
+        KIT: "A kit has no stock of its own — its components are stocked.",
+        ASSEMBLED: "An assembled item is always stock-tracked.",
+      },
+      serviceNoStock: "A service has no stock.",
+      supplyMethod: {
+        label: "Supply method",
+        PURCHASED: "Purchased",
+        ASSEMBLED: "Assembled",
+        KIT: "Kit",
+        help: "Assembled: built in-house from a recipe into a stocked item. Kit: sold as one line but fulfilled from its components — no stock of its own.",
+      },
+      investor: "Available for investment opportunities",
+    },
+    form: {
+      description: "Name, type, category and how it is traded — everything else is optional.",
+      sections: {
+        basics: "Basics",
+        trading: "How it is traded and stocked",
+        pricing: "Pricing & purchasing",
+        inventory: "Inventory",
+        accounting: "Accounting defaults",
+        investment: "Investment",
+        details: "More details",
+      },
+      fromCategory: "Unit and tax were filled from the category — change them if needed.",
+      taxFromCategory: "From the category.",
+      nameDefaultHint: "Defaults to the Arabic name when empty.",
+      barcodeDuplicate: "This barcode already belongs to {sku} — {name}.",
+      openOtherProduct: "Open that product",
+      commissionNotSaved:
+        "The product was saved, but its commission setting was not. Set it from the product page.",
+    },
+    similar: {
+      title: "Similar products already exist",
+      hint: "You can still create this product.",
+      match: {
+        EXACT: "Same name",
+        CONTAINS: "Contains",
+        SIMILAR: "Similar",
+      },
+    },
+    facets: {
+      itemType: "Item type",
+      itemTypeUnset: "Not classified",
+      traits: "Sold / purchased / tracked",
+    },
+    traits: {
+      sold: "Sold",
+      purchased: "Purchased",
+      tracked: "Tracked",
+    },
+    rules: {
+      PRODUCT_SERVICE_RULE: "A service is never stock-tracked, assembled or a kit.",
+      PRODUCT_KIT_NOT_STOCKED:
+        "A kit owns no stock balance — its components are the stocked items.",
+      PRODUCT_ASSEMBLED_NOT_STOCKED: "An assembled product must be stock-tracked.",
+      PRODUCT_SUPPLY_METHOD_LOCKED:
+        "The supply method cannot change to or from Kit while the product has stock or reservations.",
+      PRODUCT_OWNER_LOCKED:
+        "The owner cannot change once the product has stock movements, orders or recipes.",
+    },
+    investment: {
+      reasons: {
+        AGENT_OWNED: "Agent-owned goods cannot be offered to investors.",
+        SERVICE: "A service cannot be offered to investors.",
+        NOT_SELLABLE: "Turn on “Can be sold” to make it eligible.",
+        NOT_ACTIVE: "Only an active product can be offered to investors — activate it first.",
+      },
+      eligible: "Eligible for investment opportunities",
+      notEligible: "Not offered to investors",
+      opportunitiesHidden:
+        "Linked opportunities are visible to users who can view investment opportunities.",
+      noneLinked: "Not linked to any opportunity yet.",
+      units: "units",
+      rule: "Eligibility only lets the product appear in the opportunity product picker. It creates no funding, allocation or profit, and turning it off affects new assignments only.",
+      unavailable: "Investment details are not available.",
+    },
+    accounting: {
+      description: "Read-only — inherited, never entered per product.",
+      unavailable: "Could not load the inherited defaults.",
+      noTax: "No tax",
+      notConfigured: "Not configured",
+      hint: "Accounts come from the product category, else from Posting Settings. Change them there.",
+      openCategories: "Product categories",
+      source: {
+        PRODUCT: "this product",
+        CATEGORY: "from the category",
+        SETTINGS: "from Posting Settings",
+      },
+      accounts: {
+        inventory: "Inventory account",
+        cogs: "Cost of goods sold account",
+        revenue: "Sales revenue account",
+        purchase: "Purchases account",
+      },
+      commission: {
+        label: "Applied commission rate",
+        none: "No rate resolved yet",
+        source: {
+          ITEM_OVERRIDE: "item override",
+          AGREEMENT: "agent agreement",
+        },
+      },
+    },
+    recipe: {
+      title: "Recipe",
+      hintAssembled:
+        "Assembled item: an assembly order consumes these components and receives the finished item into stock.",
+      hintKit:
+        "Kit: sold as one line and fulfilled from these components. The kit itself has no stock.",
+      saveFirst: "Save the product first, then build its recipe.",
+      saveMethodFirst:
+        "Save the product with this supply method first — then its recipe can be built.",
+      versions: "Version",
+      versionLabel: "Version {version}",
+      status: {
+        DRAFT: "Draft",
+        ACTIVE: "Active",
+        RETIRED: "Retired",
+      },
+      noRecipe: "No recipe yet.",
+      noActive:
+        "There is no active recipe — activate a version before this item can be assembled or sold as a kit.",
+      newVersion: "New version",
+      createFirst: "Create recipe",
+      columns: {
+        component: "Component",
+        quantity: "Quantity",
+        unit: "Unit",
+      },
+      fields: {
+        outputQuantity: "Batch output (units made)",
+        directCostEstimate: "Direct cost estimate",
+        directCostHint:
+          "An estimate only (labour, overhead per batch). The actual cost is recorded on each assembly order.",
+        outputKitFixed: "A kit always yields 1.",
+      },
+      linesEmpty: "No components yet.",
+      addComponent: "Add component",
+      componentHint: "Only stock-tracked products can be components (no kits).",
+      removeLine: "Remove component",
+      separateSave: "Recipe changes are saved here, separately from the product.",
+      permissionNote: "You can view recipes; changing them needs the recipe-management permission.",
+      loadFailed: "Could not load the recipes.",
+      actions: {
+        save: "Save draft",
+        activate: "Activate",
+        retire: "Retire",
+        delete: "Delete draft",
+      },
+      confirm: {
+        activate: {
+          title: "Activate this version?",
+          description:
+            "It becomes the version used from now on and the current active version is retired. Assembly orders and kit sales already made keep the version they used.",
+        },
+        retire: {
+          title: "Retire this version?",
+          description:
+            "The product has no active recipe afterwards, so it cannot be assembled or sold as a kit until another version is activated.",
+        },
+        delete: {
+          title: "Delete this draft?",
+          description: "The draft is removed. Active and retired versions are never deleted.",
+        },
+      },
+      toasts: {
+        created: "Draft version created.",
+        saved: "Draft saved.",
+        activated: "Version {version} activated.",
+        retired: "Version {version} retired.",
+        deleted: "Draft deleted.",
+      },
+      issues: {
+        NO_LINES: "Add at least one component.",
+        LINE_INCOMPLETE: "Every component needs a product, a quantity above zero and a unit.",
+        DUPLICATE_COMPONENT: "A component appears twice — merge them into one line.",
+        OUTPUT_INVALID: "The batch output must be at least 1.",
+        DIRECT_COST_INVALID: "The direct cost estimate cannot be negative.",
+      },
+      errors: {
+        RECIPE_PRODUCT_NOT_ASSEMBLABLE:
+          "Only an Assembled item or a Kit can have an active recipe. Save the product with that supply method first.",
+        RECIPE_EMPTY: "A recipe needs at least one component.",
+        RECIPE_CYCLE: "These components would make the product part of itself (a loop).",
+        RECIPE_COMPONENT_NOT_STOCKED: "Every component must be a stock-tracked product.",
+        RECIPE_NESTED_KIT: "A kit cannot be a component of another recipe.",
+        RECIPE_OWNER_MIXED:
+          "The product and all its components must have the same owner — all company, or all the same agent.",
+        RECIPE_UNIT_CONVERSION_MISSING:
+          "No unit conversion is defined between a component's recipe unit and its stock unit. Add it in Unit conversions.",
+        RECIPE_KIT_FRACTIONAL: "A kit line must convert to a whole number of stock units.",
+        RECIPE_KIT_OUTPUT: "A kit's output is always 1.",
+      },
+      estimate: {
+        title: "Cost estimate",
+        badge: "Estimate",
+        components: "Components (current cost)",
+        direct: "Direct cost (estimate)",
+        total: "Estimated total",
+        perUnit: "Estimated per unit",
+        note: "An estimate from the components' current costs — not an actual cost. The actual cost is fixed when an assembly order is performed.",
+      },
+      availability: {
+        title: "Kit availability",
+        available: "Kits available now:",
+        limitedBy: "Limited by {name} — needs {perKit} per kit, {available} available.",
+      },
+    },
   },
   inventory: {
     movements: {
@@ -5532,6 +5703,10 @@ const en = {
       address: "Address",
       notes: "Notes",
       productType: "Product Type",
+      productItemType: "Item Type (Product / Service)",
+      productIsSellable: "Can Be Sold",
+      productIsPurchasable: "Can Be Purchased",
+      productIsInventoryItem: "Track Stock",
       categoryName: "Category",
       unitName: "Unit",
       barcode: "Barcode",
