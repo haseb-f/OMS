@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { Banknote, Package, Scale, Wrench } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   EnterpriseDataTable,
@@ -238,6 +239,8 @@ export function AgentCommissionReportView({
       {summary && cash ? (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
           <SummaryCard
+            tone="info"
+            icon={Package}
             title={t("agents.commission.report.productsTitle")}
             currency={currency}
             rows={[
@@ -255,6 +258,8 @@ export function AgentCommissionReportView({
             ]}
           />
           <SummaryCard
+            tone="info"
+            icon={Wrench}
             title={t("agents.commission.report.servicesTitle")}
             currency={currency}
             rows={[
@@ -272,6 +277,8 @@ export function AgentCommissionReportView({
             ]}
           />
           <SummaryCard
+            tone="profit"
+            icon={Scale}
             title={t("agents.commission.report.entitlementTitle")}
             currency={currency}
             rows={[
@@ -298,6 +305,8 @@ export function AgentCommissionReportView({
             ]}
           />
           <SummaryCard
+            tone="success"
+            icon={Banknote}
             title={t("agents.commission.report.cashTitle")}
             currency={currency}
             rows={[

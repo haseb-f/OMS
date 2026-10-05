@@ -2,6 +2,7 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Slot } from "radix-ui";
 
+import { useControlSurface, type ControlSurfaceName } from "@/components/ui/control-surface";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
@@ -67,6 +68,8 @@ const EnterpriseButton = React.forwardRef<
     VariantProps<typeof enterpriseButtonVariants> & {
       asChild?: boolean;
       isLoading?: boolean;
+      /** `variant="field"` only: `toolbar` / `form` appearance; omit to follow the container. */
+      surface?: ControlSurfaceName;
     }
 >(function EnterpriseButton(
   {
@@ -75,12 +78,14 @@ const EnterpriseButton = React.forwardRef<
     size = "default",
     asChild = false,
     isLoading = false,
+    surface,
     disabled,
     children,
     ...props
   },
   ref,
 ) {
+  const contextSurface = useControlSurface();
   const Comp = asChild ? Slot.Root : "button";
 
   return (
@@ -94,6 +99,9 @@ const EnterpriseButton = React.forwardRef<
       data-button=""
       data-variant={variant}
       data-size={size}
+      // Only a field trigger (combobox, picker) is a data-entry control; the
+      // labelled action `menu` stays on the toolbar appearance.
+      data-surface={variant === "field" ? (surface ?? contextSurface) : undefined}
       disabled={disabled || isLoading}
       aria-busy={isLoading || undefined}
       className={cn(enterpriseButtonVariants({ variant, size, className }))}

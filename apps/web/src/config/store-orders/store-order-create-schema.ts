@@ -23,6 +23,7 @@ export function buildStoreOrderCreateSchema(
       customerPhone: z.string().min(1, t("phone.errors.EMPTY")),
       customerEmail: z.string().email(t("auth.emailRequired")).optional().or(z.literal("")),
       countryId: z.string().optional().or(z.literal("")),
+      deliveryCountryId: z.string().optional().or(z.literal("")),
       city: z.string().optional().or(z.literal("")),
       address: z.string().optional().or(z.literal("")),
       orderDate: z.string().optional().or(z.literal("")),
@@ -51,7 +52,10 @@ export type StoreOrderCreateFormValues = {
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
+  /** The customer's country — proposes the calling code and the order currency. */
   countryId?: string;
+  /** Only when the order is delivered to another country than the customer's. */
+  deliveryCountryId?: string;
   city?: string;
   address?: string;
   orderDate?: string;
@@ -71,6 +75,7 @@ export function storeOrderCreateDefaultValues(): StoreOrderCreateFormValues {
     customerPhone: "",
     customerEmail: "",
     countryId: "",
+    deliveryCountryId: "",
     city: "",
     address: "",
     orderDate: toISODate(new Date()),

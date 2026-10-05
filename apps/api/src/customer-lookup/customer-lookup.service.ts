@@ -17,6 +17,7 @@ import {
   leadStatusBucket,
   maskName,
   maskPhone,
+  MAX_EXACT_RESULTS,
   MAX_RESULTS,
   orderStatusBucket,
   type LeadStatusBucket,
@@ -38,6 +39,17 @@ export interface AdvancedLookupMatch {
     number: string;
     status: OrderStatusBucket | LeadStatusBucket;
   } | null;
+  /**
+   * Earlier orders of this customer the caller can ALREADY open under their own
+   * scope (newest first, at most 5) - reference, day and coarse status only.
+   * Empty for somebody else's customer: discovery never lists their history.
+   */
+  previousOrders: {
+    id: string;
+    number: string;
+    orderDate: string;
+    status: OrderStatusBucket;
+  }[];
   /** AR "غير مسند إليك" — nothing of this customer is assigned to the caller. */
   notAssignedToYou: boolean;
   /**
@@ -105,7 +117,9 @@ export class CustomerLookupService {
         GlobalLookupAction.ADVANCED_CUSTOMER_LOOKUP,
         query.kind === 'PHONE'
           ? GlobalLookupMethod.PHONE
-          : GlobalLookupMethod.NAME,
+          : query.kind === 'ORDER_NUMBER'
+            ? GlobalLookupMethod.ORDER_NUMBER
+            : GlobalLookupMethod.NAME,
         queryValue,
       );
 
@@ -113,7 +127,9 @@ export class CustomerLookupService {
     const { matches, capped } =
       query.kind === 'PHONE'
         ? await this.searchByPhone(userId, scope, query.value)
-        : await this.searchByName(userId, scope, query.words);
+        : query.kind === 'ORDER_NUMBER'
+          ? await this.searchByDocumentNumber(userId, scope, query.value)
+          : await this.searchByName(userId, scope, query.words);
 
     await this.throttle.finalise(reservationId, {
       outcome: matches.length > 0 ? 'MATCH' : 'NO_MATCH',
@@ -176,10 +192,47 @@ export class CustomerLookupService {
         ...leads.flatMap((l) => (l.partnerId ? [l.partnerId] : [])),
       ]),
     ];
-    return this.buildMatches(userId, scope, {
-      partnerIds,
-      leadWhere: { mobileNumber: { in: e164s } },
-    });
+    return this.buildMatches(
+      userId,
+      scope,
+      { partnerIds, leadWhere: { mobileNumber: { in: e164s } } },
+      MAX_EXACT_RESULTS,
+    );
+  }
+
+  /**
+   * An exact OMS document number (order STO-… or lead LD-…): finds the customer
+   * that document belongs to and reports THAT document as the reference. Same
+   * minimal shape as every other lookup - never the document's content.
+   */
+  private async searchByDocumentNumber(
+    userId: string,
+    scope: SalesScope,
+    number: string,
+  ) {
+    const [order, lead] = await Promise.all([
+      this.prisma.storeOrder.findFirst({
+        where: { internalOrderId: number, agentId: null, deletedAt: null },
+        select: { partnerId: true },
+      }),
+      this.prisma.lead.findFirst({
+        where: { leadNumber: number, agentId: null, deletedAt: null },
+        select: { partnerId: true },
+      }),
+    ]);
+    const partnerIds = [order?.partnerId, lead?.partnerId].filter(
+      (id): id is string => Boolean(id),
+    );
+    return this.buildMatches(
+      userId,
+      scope,
+      {
+        partnerIds: [...new Set(partnerIds)],
+        leadWhere: { leadNumber: number },
+      },
+      MAX_EXACT_RESULTS,
+      number,
+    );
   }
 
   /**
@@ -206,14 +259,19 @@ export class CustomerLookupService {
       select: { id: true },
       take: CANDIDATE_LIMIT,
     });
-    const result = await this.buildMatches(userId, scope, {
-      partnerIds: partners.map((p) => p.id),
-      leadWhere: {
-        AND: words.map((w) => ({
-          customerName: { contains: w, mode: 'insensitive' as const },
-        })),
+    const result = await this.buildMatches(
+      userId,
+      scope,
+      {
+        partnerIds: partners.map((p) => p.id),
+        leadWhere: {
+          AND: words.map((w) => ({
+            customerName: { contains: w, mode: 'insensitive' as const },
+          })),
+        },
       },
-    });
+      MAX_RESULTS,
+    );
     if (result.matches.length > MAX_RESULTS || result.capped) {
       return { matches: [], capped: true };
     }
@@ -229,6 +287,9 @@ export class CustomerLookupService {
     userId: string,
     scope: SalesScope,
     input: { partnerIds: string[]; leadWhere: Prisma.LeadWhereInput },
+    limit: number,
+    /** An exact document number the user searched: it becomes the reference shown for its customer. */
+    focusNumber?: string,
   ): Promise<{ matches: AdvancedLookupMatch[]; capped: boolean }> {
     const { partnerIds } = input;
     const [
@@ -260,6 +321,7 @@ export class CustomerLookupService {
           id: true,
           partnerId: true,
           internalOrderId: true,
+          orderDate: true,
           employeeId: true,
           fulfillmentStatus: { select: { code: true } },
         },
@@ -327,6 +389,22 @@ export class CustomerLookupService {
       }),
     ]);
 
+    // One query decides which of these orders the caller may already open (their own scope).
+    const accessibleOrderIds = new Set(
+      orders.length === 0
+        ? []
+        : (
+            await this.prisma.storeOrder.findMany({
+              where: {
+                AND: [
+                  { id: { in: orders.map((o) => o.id) }, deletedAt: null },
+                  this.salesScope.storeOrderAccessWhere(scope),
+                ],
+              },
+              select: { id: true },
+            })
+          ).map((row) => row.id),
+    );
     const agentFootprint = new Set(
       [...agentOrders, ...agentLeads].map((row) => row.partnerId),
     );
@@ -341,21 +419,36 @@ export class CustomerLookupService {
       // A customer that belongs only to an agent is invisible here.
       if (!hasInternal && agentFootprint.has(partner.id)) continue;
 
-      const latestOrder = partnerOrders[0] ?? null;
-      const latestLead = leadsOfPartner[0] ?? null;
+      const latestOrder =
+        (focusNumber
+          ? partnerOrders.find((o) => o.internalOrderId === focusNumber)
+          : undefined) ??
+        partnerOrders[0] ??
+        null;
+      const latestLead =
+        (focusNumber
+          ? leadsOfPartner.find((l) => l.leadNumber === focusNumber)
+          : undefined) ??
+        leadsOfPartner[0] ??
+        null;
+      // A document number that names a lead is reported as the lead.
+      const referenceIsLead =
+        focusNumber !== undefined &&
+        latestLead?.leadNumber === focusNumber &&
+        latestOrder?.internalOrderId !== focusNumber;
       const assignedToYou =
         partnerOrders.some((o) => o.employeeId === userId) ||
         leadsOfPartner.some((l) => l.salesEmployeeId === userId);
 
       let reference: AdvancedLookupMatch['reference'] = null;
       let openable: AdvancedLookupMatch['openable'] = null;
-      if (latestOrder) {
+      if (latestOrder && !referenceIsLead) {
         reference = {
           type: 'ORDER',
           number: latestOrder.internalOrderId,
           status: orderStatusBucket(latestOrder.fulfillmentStatus?.code),
         };
-        if (await this.canOpenOrder(scope, latestOrder.id)) {
+        if (accessibleOrderIds.has(latestOrder.id)) {
           openable = { type: 'ORDER', id: latestOrder.id };
         }
       } else if (latestLead) {
@@ -373,6 +466,17 @@ export class CustomerLookupService {
         maskedPhone: maskPhone(partner.mobile ?? partner.phone),
         partialName: maskName(partner.name),
         reference,
+        previousOrders: partnerOrders
+          .filter((o) => accessibleOrderIds.has(o.id))
+          .slice(0, 5)
+          .map((o) => ({
+            id: o.id,
+            number: o.internalOrderId,
+            orderDate: o.orderDate.toLocaleDateString('en-CA', {
+              timeZone: 'Africa/Cairo',
+            }),
+            status: orderStatusBucket(o.fulfillmentStatus?.code),
+          })),
         notAssignedToYou: !assignedToYou,
         openable,
       });
@@ -395,6 +499,7 @@ export class CustomerLookupService {
           number: lead.leadNumber,
           status: leadStatusBucket(lead.status.code),
         },
+        previousOrders: [],
         notAssignedToYou: !sameNumber.some((l) => l.salesEmployeeId === userId),
         openable: this.salesScope.canAccessLead(scope, lead)
           ? { type: 'LEAD', id: lead.id }
@@ -403,8 +508,8 @@ export class CustomerLookupService {
     }
 
     return {
-      matches: matches.slice(0, MAX_RESULTS),
-      capped: matches.length > MAX_RESULTS,
+      matches: matches.slice(0, limit),
+      capped: matches.length > limit,
     };
   }
 

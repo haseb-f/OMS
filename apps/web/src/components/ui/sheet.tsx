@@ -5,6 +5,7 @@ import { Dialog as SheetPrimitive } from "radix-ui";
 
 import { cn } from "@/lib/utils";
 import { EnterpriseButton } from "@/components/ui/button";
+import { ControlSurface } from "@/components/ui/control-surface";
 import { XIcon } from "lucide-react";
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
@@ -80,7 +81,7 @@ function SheetContent({
         )}
         {...props}
       >
-        {children}
+        <ControlSurface surface="form">{children}</ControlSurface>
         {showCloseButton && (
           <SheetPrimitive.Close data-slot="sheet-close" asChild>
             <EnterpriseButton variant="ghost" className="absolute top-3 end-3" size="icon-sm">

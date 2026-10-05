@@ -37,6 +37,7 @@ export function ComboboxFormField<
   icon,
   subtitleDir,
   createAction,
+  onValueChange,
 }: {
   control: Control<TFieldValues>;
   name: TName;
@@ -58,6 +59,8 @@ export function ComboboxFormField<
   subtitleDir?: "ltr" | "rtl";
   /** Pinned "+ New …" row — pass only when the user may create the entity. */
   createAction?: EntityComboboxCreateAction;
+  /** Called after the USER picks (or clears) a value — never for programmatic `setValue`s, so a form can tell a manual choice from its own defaults. */
+  onValueChange?: (id: string) => void;
 }) {
   return (
     <FormField
@@ -74,7 +77,11 @@ export function ComboboxFormField<
             <BoundEntityCombobox
               items={items}
               value={selected}
-              onChange={(item) => field.onChange(item ? getId(item) : "")}
+              onChange={(item) => {
+                const id = item ? getId(item) : "";
+                field.onChange(id);
+                onValueChange?.(id);
+              }}
               getId={getId}
               getTitle={getTitle}
               getSubtitle={getSubtitle}

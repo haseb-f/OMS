@@ -5,6 +5,7 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 
 import { cn } from "@/lib/utils";
 import { EnterpriseButton } from "@/components/ui/button";
+import { ControlSurface } from "@/components/ui/control-surface";
 import { XIcon } from "lucide-react";
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
@@ -61,7 +62,7 @@ function DialogContent({
         )}
         {...props}
       >
-        {children}
+        <ControlSurface surface="form">{children}</ControlSurface>
         {showCloseButton && (
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <EnterpriseButton variant="ghost" className="absolute top-2 end-2" size="icon-sm">

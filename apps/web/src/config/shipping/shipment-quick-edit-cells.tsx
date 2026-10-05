@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { EnterpriseButton } from "@/components/ui/button";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { EntityCombobox } from "@/components/shared/entity-combobox";
+import { ControlSurface } from "@/components/ui/control-surface";
 import { useLocale } from "@/providers/locale-provider";
 import { storeOrdersService } from "@/services/store-orders-service";
 import {
@@ -212,16 +213,18 @@ export function ShippingCompanyQuickCell({
 
   return (
     <div className="flex max-w-48 items-center gap-1.5">
-      <EntityCombobox
-        items={ctx.companies}
-        value={selected}
-        onChange={(company) => void handleChange(company)}
-        getId={(company) => company.id}
-        getTitle={(company) => company.name}
-        placeholder={t("shipping.quickEdit.selectCompanyPlaceholder")}
-        searchPlaceholder={t("common.search")}
-        triggerProps={{ "aria-label": t("shipping.filters.company") }}
-      />
+      <ControlSurface surface="form">
+        <EntityCombobox
+          items={ctx.companies}
+          value={selected}
+          onChange={(company) => void handleChange(company)}
+          getId={(company) => company.id}
+          getTitle={(company) => company.name}
+          placeholder={t("shipping.quickEdit.selectCompanyPlaceholder")}
+          searchPlaceholder={t("common.search")}
+          triggerProps={{ "aria-label": t("shipping.filters.company") }}
+        />
+      </ControlSurface>
       <SavingIndicator state={state} />
     </div>
   );

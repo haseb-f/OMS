@@ -1,0 +1,1265 @@
+[
+  {
+    "route": "/modules/finance",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/modules/sales",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/crm/funnel",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["اختر نطاق التاريخ"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/crm/leads",
+    "total": 5,
+    "toolbar": 4,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/crm/sales-teams",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/dashboard",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/data-management/import-center",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/expenses/cost-components",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/expenses/cost-explorer",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["اختر منتجاً"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/expenses/product-cost",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["اختر منتجاً"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/accounting-settings",
+    "total": 47,
+    "toolbar": 0,
+    "form": 0,
+    "other": [
+      "SAR",
+      "Cash / Bank",
+      "Cash / Bank",
+      "فروقات التقريب",
+      "فروقات العملة المحققة",
+      "حساب وسيط",
+      "مصروفات عامة",
+      "مبيعات المنتجات",
+      "خصومات المبيعات",
+      "مردودات المبيعات",
+      "مصروفات عامة",
+      "خصومات المشتريات",
+      "مردودات المشتريات",
+      "تكلفة المبيعات",
+      "مخزون البضاعة",
+      "تكلفة المبيعات",
+      "مقاصة التكاليف اللوجستية",
+      "الشحن والتوصيل",
+      "مصروف شحن مستحق",
+      "عمولات بوابات الدفع",
+      "التجهيز والتعبئة",
+      "تكلفة تجهيز مستحقة",
+      "الأثاث والتجهيزات",
+      "مجمع الإهلاك",
+      "مصروف الإهلاك",
+      "مصروفات مدفوعة مقدماً",
+      "مصروفات مستحقة",
+      "إيرادات متنوعة",
+      "مصروفات متنوعة",
+      "فروقات العملة غير المحققة",
+      "ضريبة القيمة المضافة - مخرجات",
+      "ضريبة القيمة المضافة - مدخلات",
+      "الذمم المدينة التجارية",
+      "الذمم الدائنة التجارية",
+      "أرباح مبقاة",
+      "رواتب مستحقة",
+      "الرواتب",
+      "حوافز الأداء",
+      "العمولات",
+      "البدلات",
+      "استقطاعات الرواتب",
+      "ذمم أموال الوكلاء — DEMO-AGT-2",
+      "إيراد عمولة الوكلاء — DEMO-AGT",
+      "إيراد خدمات التنفيذ للوكلاء — ",
+      "تمويل المستثمرين",
+      "توزيع أرباح المستثمرين",
+      "أرباح مستثمرين مستحقة"
+    ],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/accrued-expenses",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/bank-transactions",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/carrier-reconciliation",
+    "total": 2,
+    "toolbar": 1,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/chart-of-accounts",
+    "total": 1,
+    "toolbar": 1,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/cost-allocation-rules",
+    "total": 2,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف", "اختر قاعدة"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/cost-centers",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/exchange-rates",
+    "total": 2,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["اختر العملة", "العملة"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/expenses",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/fiscal-periods",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/fixed-assets",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/fulfillment-cost-rules",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/journal-entries",
+    "total": 4,
+    "toolbar": 3,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/journal-entries/new",
+    "total": 2,
+    "toolbar": 0,
+    "form": 2,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/journals",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/opening-balances",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["اختر السنة المالية"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/payment-reconciliation",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/payment-review",
+    "total": 2,
+    "toolbar": 1,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/payment-sources",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/prepaid-expenses",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/projects",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/receiving-accounts",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/finance/year-closing",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["اختر السنة المالية"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/hr/commission-plans",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/hr/commission-plans/new",
+    "total": 2,
+    "toolbar": 0,
+    "form": 2,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/hr/commissions",
+    "total": 4,
+    "toolbar": 3,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/hr/employees",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/hr/employees/new",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/hr/kpi-evaluations",
+    "total": 4,
+    "toolbar": 3,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/hr/kpi-templates",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/hr/kpi-templates/new",
+    "total": 2,
+    "toolbar": 0,
+    "form": 2,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/hr/my-profile",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/hr/payroll",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/hr/payroll-components",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/hr/ranking",
+    "total": 3,
+    "toolbar": 2,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/hr/sales-targets",
+    "total": 4,
+    "toolbar": 3,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/inventory/movements",
+    "total": 5,
+    "toolbar": 4,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/inventory/physical-count",
+    "total": 2,
+    "toolbar": 1,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/inventory/stock",
+    "total": 2,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["طريقة تقييم المخزون", "عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/investors",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/investors/list",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/investors/opportunities",
+    "total": 2,
+    "toolbar": 1,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/investors/opportunities/new",
+    "total": 2,
+    "toolbar": 0,
+    "form": 2,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/investors/settings/investor-types",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/analytic-accounts",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/analytic-plans",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/brands",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/categories",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/cities",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/countries",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/currencies",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/customer-classifications",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/customer-groups",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/departments",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/job-titles",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/languages",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/lead-follow-up-types",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/no-purchase-reasons",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/payment-methods",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/payment-terms",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/shipping-companies",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/shipping-methods",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/shipping-statuses",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/supplier-groups",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/taxes",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/transaction-types",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/unit-conversions",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/units",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/warehouse-locations",
+    "total": 1,
+    "toolbar": 1,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/warehouses",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/workflow-statuses",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/master-data/workflow-transitions",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/products",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/profile/password",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/purchasing/landed-cost",
+    "total": 2,
+    "toolbar": 1,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/purchasing/landed-cost/new",
+    "total": 6,
+    "toolbar": 0,
+    "form": 6,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/purchasing/payments",
+    "total": 4,
+    "toolbar": 3,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/purchasing/payments/new",
+    "total": 4,
+    "toolbar": 0,
+    "form": 4,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/purchasing/purchase-invoices",
+    "total": 4,
+    "toolbar": 3,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/purchasing/purchase-invoices/new",
+    "total": 5,
+    "toolbar": 0,
+    "form": 5,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/purchasing/purchase-orders",
+    "total": 4,
+    "toolbar": 3,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/purchasing/purchase-orders/new",
+    "total": 4,
+    "toolbar": 0,
+    "form": 4,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/purchasing/purchase-quotations",
+    "total": 4,
+    "toolbar": 3,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/purchasing/purchase-quotations/new",
+    "total": 4,
+    "toolbar": 0,
+    "form": 4,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/purchasing/purchase-returns",
+    "total": 4,
+    "toolbar": 3,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/purchasing/suppliers",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/reports/analytics",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/reports/crm",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/reports/custom",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/reports/customers",
+    "total": 4,
+    "toolbar": 4,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/reports/executive",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/reports/expenses",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/reports/finance",
+    "total": 4,
+    "toolbar": 4,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/reports/inventory",
+    "total": 2,
+    "toolbar": 1,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/reports/purchasing",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/reports/sales",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/reports/shipping",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/reports/suppliers",
+    "total": 4,
+    "toolbar": 4,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/sales/customers",
+    "total": 2,
+    "toolbar": 1,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/sales/invoices",
+    "total": 4,
+    "toolbar": 3,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/sales/invoices/new",
+    "total": 5,
+    "toolbar": 0,
+    "form": 5,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/sales/orders",
+    "total": 4,
+    "toolbar": 3,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/sales/orders/new",
+    "total": 5,
+    "toolbar": 0,
+    "form": 5,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/sales/payments",
+    "total": 4,
+    "toolbar": 3,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/sales/payments/new",
+    "total": 4,
+    "toolbar": 0,
+    "form": 4,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/sales/quotations",
+    "total": 4,
+    "toolbar": 3,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/sales/quotations/new",
+    "total": 5,
+    "toolbar": 0,
+    "form": 5,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/sales/refunds",
+    "total": 4,
+    "toolbar": 3,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/sales/returns",
+    "total": 4,
+    "toolbar": 3,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/settings/backup",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/settings/document-numbering",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/settings/general",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/settings/integrations",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/settings/notifications",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/settings/print-settings",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/settings/security",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/settings/users",
+    "total": 2,
+    "toolbar": 1,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/shipping",
+    "total": 49,
+    "toolbar": 8,
+    "form": 40,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/shipping/import",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/store-orders",
+    "total": 8,
+    "toolbar": 7,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/store-orders/import",
+    "total": 1,
+    "toolbar": 0,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/store-orders/needs-review",
+    "total": 3,
+    "toolbar": 2,
+    "form": 0,
+    "other": ["عدد الصفوف"],
+    "lightToolbar": [],
+    "darkForm": []
+  },
+  {
+    "route": "/profile",
+    "total": 0,
+    "toolbar": 0,
+    "form": 0,
+    "other": [],
+    "lightToolbar": [],
+    "darkForm": []
+  }
+]

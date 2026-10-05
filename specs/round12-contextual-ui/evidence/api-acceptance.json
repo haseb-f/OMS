@@ -1,0 +1,130 @@
+{
+  "tag": "R12ACC861845",
+  "results": [
+    {
+      "name": "countries expose defaultCurrencyId (SA → SAR)",
+      "ok": true,
+      "detail": "SAR"
+    },
+    {
+      "name": "countries expose defaultCurrencyId (EG → EGP)",
+      "ok": true,
+      "detail": "EGP"
+    },
+    {
+      "name": "a country without a configured currency stays unset (asked, never guessed)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "unknown default currency refused (400)",
+      "ok": true,
+      "detail": "400"
+    },
+    {
+      "name": "default currency can be set on a country",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "…and cleared again",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "setup: tagged customer + order created for sales A",
+      "ok": true,
+      "detail": "201"
+    },
+    {
+      "name": "ordinary employee (sales B) finds sales A's customer — +966 E.164",
+      "ok": true,
+      "detail": "200 exists=true"
+    },
+    {
+      "name": "ordinary employee (sales B) finds sales A's customer — national 05…",
+      "ok": true,
+      "detail": "200 exists=true"
+    },
+    {
+      "name": "ordinary employee (sales B) finds sales A's customer — 00966 prefix",
+      "ok": true,
+      "detail": "200 exists=true"
+    },
+    {
+      "name": "ordinary employee (sales B) finds sales A's customer — spaced",
+      "ok": true,
+      "detail": "200 exists=true"
+    },
+    {
+      "name": "ordinary employee (sales B) finds sales A's customer — Arabic digits",
+      "ok": true,
+      "detail": "200 exists=true"
+    },
+    {
+      "name": "ordinary employee (sales B) finds sales A's customer — Arabic digits +966",
+      "ok": true,
+      "detail": "200 exists=true"
+    },
+    {
+      "name": "other employee: flagged not-assigned, masked, no link",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "other employee: no previous-order history, no ids leaked",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "minimal fields only",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "order number finds the same customer (read-only for others)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "owner: assigned to you, can open, sees previous orders",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "cross-owner discovery grants no access: by-id is denied for sales B",
+      "ok": true,
+      "detail": "404"
+    },
+    {
+      "name": "…and cannot edit",
+      "ok": true,
+      "detail": "404"
+    },
+    {
+      "name": "an agent user cannot use the company lookup (403)",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "name": "agent portal never exposes the company order",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "another agent sees nothing either",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "standard list search is scoped: sales B finds nothing of sales A",
+      "ok": true,
+      "detail": "200 total=0"
+    },
+    {
+      "name": "…sales A finds their own order (national format)",
+      "ok": true,
+      "detail": "total=1"
+    }
+  ]
+}

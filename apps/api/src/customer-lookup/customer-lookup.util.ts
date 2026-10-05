@@ -13,6 +13,8 @@ export const MIN_NAME_WORD_CHARS = 2;
 export const MIN_NAME_CHARS = 6;
 export const MAX_QUERY_CHARS = 60;
 export const MAX_RESULTS = 5;
+/** An exact identifier (a full phone number, a document number) is not sweepable: more rows may be listed. */
+export const MAX_EXACT_RESULTS = 20;
 
 /** Per-user anti-enumeration budget, enforced from the audit table. */
 export const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
@@ -22,10 +24,13 @@ export const RATE_LIMIT_MAX_PER_DAY = 100;
 
 export type LookupQuery =
   | { kind: 'PHONE'; value: string; digits: string }
+  | { kind: 'ORDER_NUMBER'; value: string }
   | { kind: 'NAME'; value: string; words: string[] }
   | { kind: 'INVALID'; reason: 'TOO_SHORT' | 'TOO_LONG' | 'EMPTY' };
 
 const PHONE_SHAPE = /^[+\d\s().-]+$/;
+/** An OMS document number such as STO-2026-027225 or LD-2026-018688. */
+const DOCUMENT_NUMBER = /^[A-Za-z]{2,5}-\d{4}-\d{3,}$/;
 
 /** Phone if it looks like one (digits and phone punctuation only), else name. */
 export function classifyQuery(raw: string | null | undefined): LookupQuery {
@@ -37,6 +42,9 @@ export function classifyQuery(raw: string | null | undefined): LookupQuery {
   if (!value) return { kind: 'INVALID', reason: 'EMPTY' };
   if (value.length > MAX_QUERY_CHARS) {
     return { kind: 'INVALID', reason: 'TOO_LONG' };
+  }
+  if (DOCUMENT_NUMBER.test(value)) {
+    return { kind: 'ORDER_NUMBER', value: value.toUpperCase() };
   }
   if (PHONE_SHAPE.test(value)) {
     const digits = value.replace(/\D/g, '');

@@ -50,7 +50,7 @@ export function SelectFormField<
           </FormLabel>
           <Select onValueChange={field.onChange} value={field.value} disabled={disabled}>
             <FormControl>
-              <SelectTrigger className="w-full">
+              <SelectTrigger surface="form" className="w-full">
                 <SelectValue placeholder={placeholder} />
               </SelectTrigger>
             </FormControl>

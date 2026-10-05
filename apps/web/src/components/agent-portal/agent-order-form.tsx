@@ -28,6 +28,7 @@ import { SegmentedRadioGroup } from "@/components/documents/segmented-radio-grou
 import { Field, FieldGrid, FormCardField } from "@/components/shared/form-card/form-card";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { OMSPhoneInput } from "@/components/shared/phone-input";
+import { DEFAULT_PHONE_COUNTRY } from "@/services/phone-service";
 import { MoneyInput } from "@/components/shared/money-input";
 import { MoneyValue } from "@/components/shared/money-value";
 import { IconActionButton } from "@/components/shared/icon-action-button";
@@ -149,14 +150,20 @@ export function AgentOrderForm({
   const [quote, setQuote] = useState<QuoteState>({ status: "idle" });
   const [showErrors, setShowErrors] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // R12: the destination country proposes the calling code; the calling code is a separate choice
+  // (a foreign number for a local customer) - once picked, or once a number is typed, it stays.
+  const [phoneCodeOverride, setPhoneCodeOverride] = useState<string | null>(null);
   // One idempotency key per form instance: a retried or double submit returns the first order.
   const [idempotencyKey] = useState(() => newIdempotencyKey());
   const requestSeq = useRef(0);
   // Round 5 Spec 1B — duplicate customer warning inside the caller's agent.
+  const phoneRegionCountryId = phoneCodeOverride
+    ? (countries.find((country) => country.code === phoneCodeOverride)?.id ?? null)
+    : null;
   const duplicates = useDuplicateCheck({
     phone: lead ? lead.mobileNumber : state.mobile,
     name: lead ? lead.customerName : state.customerName,
-    countryId: lead ? (lead.country?.id ?? null) : state.countryId,
+    countryId: lead ? (lead.country?.id ?? null) : (phoneRegionCountryId ?? state.countryId),
     enabled: true,
     check: orderDuplicatesService.checkAsAgent,
   });
@@ -236,6 +243,7 @@ export function AgentOrderForm({
   const money = (value: number) => formatMoney(value, currency?.code ?? null);
 
   const countryCode = countries.find((country) => country.id === state.countryId)?.code ?? null;
+  const phoneRegion = phoneCodeOverride ?? countryCode;
   const productOptions = useMemo(
     () =>
       (products ?? []).map((product) => ({
@@ -408,8 +416,8 @@ export function AgentOrderForm({
             </FormSection>
           ) : (
             <FormSection title={t("agentPortal.orderForm.sections.customer")}>
-              <FieldGrid className="grid grid-cols-1 items-start gap-x-3 gap-y-2 @md:grid-cols-6">
-                <div className="@md:col-span-3">
+              <FieldGrid className="grid grid-cols-1 items-start gap-x-3 gap-y-2 @md:grid-cols-2 @xl:grid-cols-[minmax(0,5fr)_minmax(0,4fr)_minmax(0,6fr)]">
+                <div>
                   <Field size="md" data-invalid={has("customerName") ? "true" : undefined}>
                     <Label htmlFor={`${fieldId}-name`}>
                       {t("agentPortal.orderForm.fields.customerName")}{" "}
@@ -426,34 +434,7 @@ export function AgentOrderForm({
                     </FieldMessage>
                   </Field>
                 </div>
-                <div className="@md:col-span-3">
-                  <Field size="md" data-invalid={has("mobile") ? "true" : undefined}>
-                    <Label htmlFor={`${fieldId}-mobile`}>
-                      {t("agentPortal.orderForm.fields.mobile")}{" "}
-                      <span className="text-destructive">*</span>
-                    </Label>
-                    <OMSPhoneInput
-                      id={`${fieldId}-mobile`}
-                      value={state.mobile}
-                      onChange={(mobile) => set({ mobile })}
-                      countryCode={countryCode}
-                      // The compact calling-code selector inside the field picks the order's country
-                      // (the agent tariff and the phone read the same country).
-                      countries={countries}
-                      availableCountryCodes={countries.map((country) => country.code)}
-                      onCountryChange={(iso2) => {
-                        const match = countries.find((country) => country.code === iso2);
-                        if (match) set({ countryId: match.id });
-                      }}
-                      forceValidation={showErrors}
-                      aria-invalid={has("mobile") || undefined}
-                    />
-                    <FieldMessage announce={false}>
-                      {has("mobile") ? t("agentPortal.orderForm.errors.mobile") : null}
-                    </FieldMessage>
-                  </Field>
-                </div>
-                <div className="@md:col-span-2">
+                <div>
                   <Field size="md" data-invalid={has("country") ? "true" : undefined}>
                     <Label htmlFor={`${fieldId}-country`}>
                       {t("agentPortal.orderForm.fields.country")}
@@ -464,7 +445,12 @@ export function AgentOrderForm({
                     <SearchableSelect
                       id={`${fieldId}-country`}
                       value={state.countryId}
-                      onValueChange={(countryId) => set({ countryId })}
+                      onValueChange={(countryId) => {
+                        // A number already typed keeps the calling code it was read with.
+                        if (!phoneCodeOverride && state.mobile.trim())
+                          setPhoneCodeOverride(countryCode ?? DEFAULT_PHONE_COUNTRY);
+                        set({ countryId });
+                      }}
                       placeholder={t("agentPortal.leads.choose")}
                       emptyText={t("agentPortal.leads.noCountries")}
                       error={has("country")}
@@ -485,29 +471,56 @@ export function AgentOrderForm({
                     </FieldMessage>
                   </Field>
                 </div>
-                <div className="@md:col-span-4">
-                  <Field size="md">
-                    <Label htmlFor={`${fieldId}-city`}>
-                      {t("agentPortal.orderForm.fields.city")}
+                <div className="@md:col-span-2 @xl:col-span-1">
+                  <Field size="md" data-invalid={has("mobile") ? "true" : undefined}>
+                    <Label htmlFor={`${fieldId}-mobile`}>
+                      {t("agentPortal.orderForm.fields.mobile")}{" "}
+                      <span className="text-destructive">*</span>
                     </Label>
-                    <Input
-                      id={`${fieldId}-city`}
-                      value={state.city}
-                      onChange={(event) => set({ city: event.target.value })}
+                    <OMSPhoneInput
+                      id={`${fieldId}-mobile`}
+                      value={state.mobile}
+                      onChange={(mobile) => set({ mobile })}
+                      countryCode={phoneRegion}
+                      // The calling-code selector inside the field only changes how the number is
+                      // read - the destination country (agent tariff) is chosen in its own field.
+                      countries={countries}
+                      availableCountryCodes={countries.map((country) => country.code)}
+                      onCountryChange={(iso2) => {
+                        const match = countries.find((country) => country.code === iso2);
+                        if (match) setPhoneCodeOverride(match.code);
+                      }}
+                      forceValidation={showErrors}
+                      aria-invalid={has("mobile") || undefined}
                     />
+                    <FieldMessage announce={false}>
+                      {has("mobile") ? t("agentPortal.orderForm.errors.mobile") : null}
+                    </FieldMessage>
                   </Field>
                 </div>
               </FieldGrid>
-              <FormCardField
-                label={t("agentPortal.orderForm.fields.address")}
-                htmlFor={`${fieldId}-address`}
-              >
-                <Input
-                  id={`${fieldId}-address`}
-                  value={state.address}
-                  onChange={(event) => set({ address: event.target.value })}
-                />
-              </FormCardField>
+              <FieldGrid className="grid grid-cols-1 items-start gap-x-3 gap-y-2 @md:grid-cols-[minmax(0,4fr)_minmax(0,11fr)]">
+                <Field size="md">
+                  <Label htmlFor={`${fieldId}-city`}>
+                    {t("agentPortal.orderForm.fields.city")}
+                  </Label>
+                  <Input
+                    id={`${fieldId}-city`}
+                    value={state.city}
+                    onChange={(event) => set({ city: event.target.value })}
+                  />
+                </Field>
+                <Field size="md">
+                  <Label htmlFor={`${fieldId}-address`}>
+                    {t("agentPortal.orderForm.fields.address")}
+                  </Label>
+                  <Input
+                    id={`${fieldId}-address`}
+                    value={state.address}
+                    onChange={(event) => set({ address: event.target.value })}
+                  />
+                </Field>
+              </FieldGrid>
               <DuplicateCustomerPanel
                 state={duplicates.state}
                 onChoose={duplicates.choose}

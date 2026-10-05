@@ -21,4 +21,13 @@ export class CreateCountryDto {
   @IsString()
   @IsOptional()
   iso3?: string;
+
+  /**
+   * The currency an order for this country proposes by default. Empty / null
+   * clears it (no default → the entry form asks for a currency instead of
+   * guessing).
+   */
+  @IsString()
+  @IsOptional()
+  defaultCurrencyId?: string | null;
 }

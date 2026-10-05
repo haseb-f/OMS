@@ -3,15 +3,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Info, Printer } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  HandCoins,
+  Info,
+  Landmark,
+  Percent,
+  Printer,
+  Scale,
+  ShoppingBag,
+  Wallet,
+} from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { HeaderActions } from "@/components/shared/header-actions";
-import {
-  DetailField,
-  DetailFieldGrid,
-  DetailSection,
-  DetailSummaryBar,
-} from "@/components/shared/detail-workspace";
 import {
   EnterpriseDataTable,
   exportColumnsFromKeys,
@@ -23,6 +28,8 @@ import {
 } from "@/components/shared/date-range-picker";
 import { MoneyValue } from "@/components/shared/money-value";
 import { ReportMoney } from "@/components/accounting/financial-report/report-money";
+import { InsightCard, InsightGroup } from "@/components/shared/insight-card";
+import { SummaryCard } from "@/components/agents/summary-card";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -290,121 +297,142 @@ export default function AgentStatementPage() {
 
       {statement && summary ? (
         <>
-          <DetailSummaryBar>
-            <DetailField
+          <InsightGroup className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            <InsightCard
+              icon={Landmark}
               label={t("agentPortal.statement.opening")}
               value={money(statement.openingBalance)}
+              amount={statement.openingBalance}
             />
-            <DetailField
+            <InsightCard
+              icon={Scale}
+              tone="info"
               label={t("agentPortal.statement.closing")}
               value={money(statement.closingBalance)}
+              amount={statement.closingBalance}
             />
-            <DetailField
+            <InsightCard
+              icon={Clock}
+              tone="warning"
               label={t("agentPortal.statement.summary.pending")}
               value={money(summary.position.pending)}
+              amount={summary.position.pending}
             />
-            <DetailField
+            <InsightCard
+              icon={CheckCircle2}
+              tone="success"
               label={t("agentPortal.statement.summary.available")}
               value={money(summary.position.available)}
+              amount={summary.position.available}
             />
-            <DetailField
+            <InsightCard
+              icon={HandCoins}
               label={t("agentPortal.statement.summary.paidOut")}
               value={money(summary.position.paidOut)}
+              amount={summary.position.paidOut}
             />
-            <DetailField
+            <InsightCard
+              icon={Wallet}
+              tone="info"
               label={t("agentPortal.statement.summary.balance")}
               value={money(summary.position.balance)}
+              amount={summary.position.balance}
             />
-          </DetailSummaryBar>
+          </InsightGroup>
 
           <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2">
-            <DetailSection title={t("agentPortal.statement.sections.sales")}>
-              <DetailFieldGrid>
-                <DetailField
-                  label={t("agentPortal.statement.summary.salesExShipping")}
-                  value={money(summary.orders.merchandiseSalesExShipping)}
-                />
-                <DetailField
-                  label={t("agentPortal.statement.summary.shippingCharges")}
-                  value={money(summary.orders.customerShippingCharges)}
-                />
-                <DetailField
-                  label={t("agentPortal.statement.summary.totalOrderValue")}
-                  value={money(summary.orders.totalOrderValue)}
-                />
-                <DetailField
-                  label={t("agentPortal.statement.summary.discounts")}
-                  value={money(summary.orders.discounts)}
-                />
-                <DetailField
-                  label={t("agentPortal.statement.summary.tax")}
-                  value={money(summary.orders.tax)}
-                />
-                <DetailField
-                  label={t("agentPortal.statement.summary.returns")}
-                  value={money(summary.returns.merchandiseReturned)}
-                />
-                <DetailField
-                  label={t("agentPortal.statement.summary.refundsCompany")}
-                  value={money(summary.refunds.paidByCompany)}
-                />
-                <DetailField
-                  label={t("agentPortal.statement.summary.refundsAgent")}
-                  value={money(summary.refunds.paidByAgent)}
-                />
-              </DetailFieldGrid>
-            </DetailSection>
+            <SummaryCard
+              tone="revenue"
+              icon={ShoppingBag}
+              title={t("agentPortal.statement.sections.sales")}
+              currency={currency?.code ?? ""}
+              rows={[
+                {
+                  label: t("agentPortal.statement.summary.salesExShipping"),
+                  value: summary.orders.merchandiseSalesExShipping,
+                },
+                {
+                  label: t("agentPortal.statement.summary.shippingCharges"),
+                  value: summary.orders.customerShippingCharges,
+                },
+                {
+                  label: t("agentPortal.statement.summary.discounts"),
+                  value: summary.orders.discounts,
+                },
+                { label: t("agentPortal.statement.summary.tax"), value: summary.orders.tax },
+                {
+                  label: t("agentPortal.statement.summary.returns"),
+                  value: summary.returns.merchandiseReturned,
+                },
+                {
+                  label: t("agentPortal.statement.summary.refundsCompany"),
+                  value: summary.refunds.paidByCompany,
+                },
+                {
+                  label: t("agentPortal.statement.summary.refundsAgent"),
+                  value: summary.refunds.paidByAgent,
+                },
+                {
+                  label: t("agentPortal.statement.summary.totalOrderValue"),
+                  value: summary.orders.totalOrderValue,
+                  emphasis: true,
+                },
+              ]}
+            />
 
-            <DetailSection title={t("agentPortal.statement.sections.commission")}>
-              <DetailFieldGrid>
-                <DetailField
-                  label={t("agentPortal.statement.summary.commissionBase")}
-                  value={money(summary.commission.base)}
-                />
-                <DetailField
-                  label={t("agentPortal.statement.summary.productCommission")}
-                  value={money(summary.commission.byClass.PRODUCT.commission)}
-                />
-                <DetailField
-                  label={t("agentPortal.statement.summary.serviceCommission")}
-                  value={money(summary.commission.byClass.SERVICE.commission)}
-                />
-                <DetailField
-                  label={t("agentPortal.statement.summary.commission")}
-                  value={money(summary.commission.net)}
-                />
-                <DetailField
-                  label={t("agentPortal.statement.summary.adjustments")}
-                  value={money(
+            <SummaryCard
+              tone="profit"
+              icon={Percent}
+              title={t("agentPortal.statement.sections.commission")}
+              currency={currency?.code ?? ""}
+              rows={[
+                {
+                  label: t("agentPortal.statement.summary.commissionBase"),
+                  value: summary.commission.base,
+                },
+                {
+                  label: t("agentPortal.statement.summary.productCommission"),
+                  value: summary.commission.byClass.PRODUCT.commission,
+                },
+                {
+                  label: t("agentPortal.statement.summary.serviceCommission"),
+                  value: summary.commission.byClass.SERVICE.commission,
+                },
+                {
+                  label: t("agentPortal.statement.summary.adjustments"),
+                  value:
                     Math.round((summary.adjustments.credit - summary.adjustments.debit) * 100) /
-                      100,
-                  )}
-                />
-                <DetailField
-                  label={t("agentPortal.statement.summary.byCompany")}
-                  value={money(summary.collections.byCompany)}
-                />
-                <DetailField
-                  label={t("agentPortal.statement.summary.byAgent")}
-                  value={money(summary.collections.byAgent)}
-                />
-              </DetailFieldGrid>
-            </DetailSection>
+                    100,
+                },
+                {
+                  label: t("agentPortal.statement.summary.byCompany"),
+                  value: summary.collections.byCompany,
+                },
+                {
+                  label: t("agentPortal.statement.summary.byAgent"),
+                  value: summary.collections.byAgent,
+                },
+                {
+                  label: t("agentPortal.statement.summary.commission"),
+                  value: summary.commission.net,
+                  emphasis: true,
+                },
+              ]}
+            />
 
-            <DetailSection
-              title={t("agentPortal.statement.sections.deductions")}
-              className="lg:col-span-2"
-            >
-              <DetailFieldGrid columns={4}>
-                {DEDUCTION_KEYS.map((key) => (
-                  <DetailField
-                    key={key}
-                    label={t(`agentPortal.statement.deductions.${key}`)}
-                    value={money(summary.deductions[key])}
-                  />
-                ))}
-              </DetailFieldGrid>
-            </DetailSection>
+            <div className="lg:col-span-2">
+              <SummaryCard
+                tone="warning"
+                icon={Scale}
+                title={t("agentPortal.statement.sections.deductions")}
+                currency={currency?.code ?? ""}
+                columns={2}
+                rows={DEDUCTION_KEYS.map((key) => ({
+                  label: t(`agentPortal.statement.deductions.${key}`),
+                  value: summary.deductions[key],
+                }))}
+              />
+            </div>
           </div>
         </>
       ) : null}

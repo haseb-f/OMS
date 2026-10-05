@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RowSelectionState } from "@tanstack/react-table";
-import { Plus, UserSearch } from "lucide-react";
+import { Plus } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { HeaderActions } from "@/components/shared/header-actions";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -32,11 +32,7 @@ import {
 } from "@/components/master-data/enterprise-data-table";
 import { StoreOrdersBulkActions } from "@/components/store-orders/store-orders-bulk-actions";
 import { BulkShippingStatusDialog } from "@/components/store-orders/bulk-shipping-status-dialog";
-import {
-  StoreOrderCreateDialog,
-  type StoreOrderCreatePrefillCustomer,
-} from "@/components/store-orders/store-order-create-dialog";
-import { GlobalLookupDialog } from "@/components/store-orders/global-lookup-dialog";
+import { StoreOrderCreateDialog } from "@/components/store-orders/store-order-create-dialog";
 // R7 hook (workstream B): self-contained, permission-gated button — the only line this page needs.
 import {
   AdvancedCustomerLookupButton,
@@ -93,8 +89,6 @@ function StoreOrdersPageContent() {
   const { runPrint } = usePrintEngine();
   const canCreate = hasPermission("store-orders.create");
   const canBulkShipping = hasPermission("shipping.manage");
-  const canGlobalLookup =
-    hasPermission("customers.lookup_global") || hasPermission("orders.lookup_global");
   const canViewProfitability = hasPermission("orders.profitability.view");
   const canReviewDuplicates = hasPermission("store-orders.duplicate_review");
   const [legacyDuplicatesOpen, setLegacyDuplicatesOpen] = useState(false);
@@ -143,9 +137,6 @@ function StoreOrdersPageContent() {
   const [isBulkUpdatingShipping, setIsBulkUpdatingShipping] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createDialogSession, setCreateDialogSession] = useState(0);
-  const [createPrefillCustomer, setCreatePrefillCustomer] =
-    useState<StoreOrderCreatePrefillCustomer | null>(null);
-  const [globalLookupOpen, setGlobalLookupOpen] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<StoreOrderRow | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
   // Cross-page selection cache (mirrors sales/orders/page.tsx) — `items`
@@ -448,7 +439,6 @@ function StoreOrdersPageContent() {
             icon: Plus,
             hidden: !canCreate,
             onSelect: () => {
-              setCreatePrefillCustomer(null);
               setCreateDialogSession((session) => session + 1);
               setCreateDialogOpen(true);
             },
@@ -661,25 +651,6 @@ function StoreOrdersPageContent() {
                 {t("table.clearFilters")}
               </EnterpriseButton>
             )}
-            {canGlobalLookup && (
-              // Lives beside the real inline search (never in the primary
-              // header actions next to New Order) and stays visually
-              // secondary — a ghost button, not an outlined one — so it
-              // reads as a distinct, occasional tool, not "the" search box.
-              // A different icon (UserSearch, not the plain magnifying
-              // glass the real search already uses) reinforces that this
-              // opens an audited cross-owner lookup dialog, not a filter.
-              <EnterpriseButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="gap-1.5 text-muted-foreground"
-                onClick={() => setGlobalLookupOpen(true)}
-              >
-                <UserSearch className="size-4" />
-                {t("storeOrders.globalLookup.trigger")}
-              </EnterpriseButton>
-            )}
             <AdvancedCustomerLookupButton />
           </>
         }
@@ -738,24 +709,7 @@ function StoreOrdersPageContent() {
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         onCreated={() => void load()}
-        prefillCustomer={createPrefillCustomer}
       />
-
-      {canGlobalLookup && (
-        <GlobalLookupDialog
-          open={globalLookupOpen}
-          onOpenChange={setGlobalLookupOpen}
-          onAddNewOrder={
-            canCreate
-              ? (customer) => {
-                  setCreatePrefillCustomer(customer);
-                  setCreateDialogSession((session) => session + 1);
-                  setCreateDialogOpen(true);
-                }
-              : null
-          }
-        />
-      )}
 
       <ConfirmationDialog
         open={!!archiveTarget}

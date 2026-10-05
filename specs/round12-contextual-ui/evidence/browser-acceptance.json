@@ -1,0 +1,190 @@
+{
+  "tag": "R12UI248784",
+  "results": [
+    {
+      "name": "setup: tagged existing customer + prior order",
+      "ok": true,
+      "detail": "201"
+    },
+    {
+      "name": "1. Name → Country → Phone share one row on desktop",
+      "ok": true,
+      "detail": "[209,209,209]"
+    },
+    {
+      "name": "1. order of the row: name, country, phone (reading order)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "1. no second large country selector (delivery country stays hidden)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "1. initial: Saudi Arabia → +966 and SAR",
+      "ok": true,
+      "detail": "+966 / SAR"
+    },
+    {
+      "name": "2. choosing Egypt proposes +20 and EGP",
+      "ok": true,
+      "detail": "+20 / EGP"
+    },
+    {
+      "name": "3. a manually chosen calling code (+971) is NOT overwritten by a country change",
+      "ok": true,
+      "detail": "+971"
+    },
+    {
+      "name": "3. …while the untouched currency follows the country (SAR)",
+      "ok": true,
+      "detail": "SAR"
+    },
+    {
+      "name": "3. a manually chosen currency (USD) is NOT overwritten by a country change",
+      "ok": true,
+      "detail": "USD"
+    },
+    {
+      "name": "4. a country without a configured currency leaves currency empty and says so",
+      "ok": true,
+      "detail": "اختر…"
+    },
+    {
+      "name": "4. the calling code still follows (+965)",
+      "ok": true,
+      "detail": "+965"
+    },
+    {
+      "name": "5. an already-typed number keeps its calling code (+966) when the country changes",
+      "ok": true,
+      "detail": "+966"
+    },
+    {
+      "name": "6. 'different delivery country' opens its own selector, phone code untouched",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "7. form dropdown inside the dialog uses the light form surface",
+      "ok": true,
+      "detail": "{\"bg\":\"oklab(0.970398 -0.00211279 -0.0102112)\",\"color\":\"rgb(23, 23, 23)\",\"surface\":\"form\",\"tone\":null}"
+    },
+    {
+      "name": "8. existing customer: identity shown as a summary, nothing re-entered",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "8. saved country (Saudi) proposes +966 / SAR for the order",
+      "ok": true,
+      "detail": "SAR"
+    },
+    {
+      "name": "9. /store-orders: exactly one advanced-lookup entry point, no redundant phone/order-number button",
+      "ok": true,
+      "detail": "entries=1 legacy=0"
+    },
+    {
+      "name": "9. /crm/leads: exactly one advanced-lookup entry point, no redundant phone/order-number button",
+      "ok": true,
+      "detail": "entries=1 legacy=0"
+    },
+    {
+      "name": "9. /sales/customers: exactly one advanced-lookup entry point",
+      "ok": true,
+      "detail": "entries=1"
+    },
+    {
+      "name": "10. Arabic-digit phone finds the customer owned by another employee (compact table)",
+      "ok": true,
+      "detail": "1 row(s)"
+    },
+    {
+      "name": "10. flagged 'not assigned to you', masked identity, read-only (no open link)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "11. an order number is searched in the SAME dialog",
+      "ok": true,
+      "detail": "STO-2026-027273"
+    },
+    {
+      "name": "11. too-short input shows a validation hint, no request result",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "12. [ar/light] toolbar dropdown keeps the strong blue (white text)",
+      "ok": true,
+      "detail": "{\"bg\":\"oklab(0.361617 -0.0239064 -0.0909826)\",\"color\":\"rgb(255, 255, 255)\",\"surface\":\"toolbar\",\"tone\":\"1\"}"
+    },
+    {
+      "name": "13. [ar/light] every dropdown in the order dialog is the form variant (5)",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "13. [ar/light] readable: dark text on a very light blue",
+      "ok": true,
+      "detail": "{\"surface\":\"form\",\"bg\":\"oklab(0.970398 -0.00211279 -0.0102112)\",\"color\":\"rgb(23, 23, 23)\"}"
+    },
+    {
+      "name": "14. [ar] dir=rtl",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "12. [en/dark] toolbar dropdown keeps the strong blue (white text)",
+      "ok": true,
+      "detail": "{\"bg\":\"rgb(14, 42, 75)\",\"color\":\"rgb(255, 255, 255)\",\"surface\":\"toolbar\",\"tone\":\"1\"}"
+    },
+    {
+      "name": "13. [en/dark] every dropdown in the order dialog is the form variant (5)",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "13. [en/dark] readable: light text on a dark-blue tint",
+      "ok": true,
+      "detail": "{\"surface\":\"form\",\"bg\":\"oklab(0.22958 -0.00399541 -0.0189952)\",\"color\":\"rgb(237, 237, 237)\"}"
+    },
+    {
+      "name": "14. [en] dir=ltr",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "15. mobile 390: no horizontal page scroll, create action reachable, touch-sized",
+      "ok": true,
+      "detail": "{\"dlgW\":374,\"scrollW\":390,\"vw\":390,\"submitVisible\":true,\"submitH\":36}"
+    },
+    {
+      "name": "18. mobile 390: lookup result rows stack as cards, no sideways scroll",
+      "ok": true,
+      "detail": "{\"rowDisplay\":\"flex\",\"scrollW\":390,\"vw\":390,\"dlgRight\":390}"
+    },
+    {
+      "name": "16. internal agent overview uses the dashboard card language (InsightCards)",
+      "ok": true,
+      "detail": "6"
+    },
+    {
+      "name": "16. no legacy KPI tiles remain on the agent overview",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "17. agent portal statement uses InsightCards + summary cards",
+      "ok": true,
+      "detail": "9"
+    },
+    {
+      "name": "17. agent-visible metrics only: no company margin / cost on the agent statement",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

@@ -86,6 +86,7 @@ export default function NewKpiTemplatePage() {
 
   return (
     <PageWorkspace
+      controlSurface="form"
       title={t("hr.kpiTemplates.addNew")}
       description={t("hr.kpiTemplates.description")}
     >

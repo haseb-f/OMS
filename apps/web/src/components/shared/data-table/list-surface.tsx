@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
+import { ControlSurface } from "@/components/ui/control-surface";
 import { cn } from "@/lib/utils";
 import { useToolbarTones } from "./toolbar-tones";
 
@@ -94,7 +95,7 @@ export function ListToolbar({ children, className }: { children: ReactNode; clas
         className,
       )}
     >
-      {children}
+      <ControlSurface surface="toolbar">{children}</ControlSurface>
     </div>
   );
 }

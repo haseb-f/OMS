@@ -1605,6 +1605,9 @@ const ar = {
       codeHint:
         "رمز ISO 3166-1 من حرفين (مثل SA). إذا لم تجد دولة فاعرض المؤرشف واستعدها بدلًا من إنشاء نسخة مكررة.",
       codeInvalid: "الرمز يجب أن يكون حرفين لاتينيين فقط (A–Z)، مثل SA.",
+      defaultCurrency: "العملة الافتراضية للطلبات",
+      defaultCurrencyHint:
+        "تُقترح تلقائيًا عند اختيار هذه الدولة في الطلب (ويمكن تغييرها). إن تُركت فارغة طُلب من الموظف اختيار العملة.",
     },
     cities: {
       title: "المدن",
@@ -3706,7 +3709,8 @@ const ar = {
         deliveryTitle: "التوصيل",
         deliverTo: "يُسلَّم إلى",
         differentCountry: "دولة توصيل مختلفة",
-        sameCountry: "دولة التوصيل تتبع الهاتف",
+        sameCountry: "التوصيل إلى دولة العميل",
+        noCurrencyDefault: "لا توجد عملة افتراضية لهذه الدولة — اختر العملة.",
         differentAddress: "التوصيل إلى عنوان مختلف",
         customerAddress: "استخدام عنوان العميل",
         missingAddress: "لا يوجد عنوان محفوظ لهذا العميل — أدخل مكان توصيل هذا الطلب.",
@@ -3735,6 +3739,7 @@ const ar = {
         customerName: "اسم العميل",
         customerEmail: "البريد الإلكتروني",
         country: "الدولة",
+        deliveryCountry: "دولة التوصيل",
         city: "المدينة",
         address: "العنوان",
         currency: "العملة",

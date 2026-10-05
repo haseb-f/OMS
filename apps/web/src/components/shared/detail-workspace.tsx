@@ -1,5 +1,6 @@
 "use client";
 
+import { ControlSurface } from "@/components/ui/control-surface";
 import type { ReactNode } from "react";
 import {
   EnterpriseCard,
@@ -110,8 +111,13 @@ export function EditorWorkspace({
   children: ReactNode;
   className?: string;
 }) {
+  // An editor page is a data-entry surface: its selectors use the light form appearance.
   return (
-    <div className={cn("mx-auto flex w-full max-w-6xl flex-col gap-2", className)}>{children}</div>
+    <ControlSurface surface="form">
+      <div className={cn("mx-auto flex w-full max-w-6xl flex-col gap-2", className)}>
+        {children}
+      </div>
+    </ControlSurface>
   );
 }
 

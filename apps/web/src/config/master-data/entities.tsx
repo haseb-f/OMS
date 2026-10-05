@@ -276,6 +276,8 @@ export interface CountryRow {
   nameEn?: string | null;
   iso3?: string | null;
   callingCode?: string | null;
+  /** The currency an order for this country proposes (R12) — unset: the entry form asks, never guesses. */
+  defaultCurrencyId?: string | null;
   deletedAt: string | null;
 }
 
@@ -1830,9 +1832,10 @@ export const buildCountriesSchema = (t: (key: MessageKey) => string) =>
       .pipe(z.string().regex(/^[A-Z]{2}$/, t("masterData.countries.codeInvalid"))),
     name: z.string().trim().min(1),
     nameEn: z.string().trim().optional(),
+    defaultCurrencyId: z.string().optional().or(z.literal("")),
   });
 
-export const countriesDefaultValues = { code: "", name: "", nameEn: "" };
+export const countriesDefaultValues = { code: "", name: "", nameEn: "", defaultCurrencyId: "" };
 export const countriesExportColumns = ["code", "name", "nameEn"];
 export const countryRowLabel = (row: CountryRow) => `${row.code} — ${row.name}`;
 

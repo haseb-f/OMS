@@ -43,6 +43,9 @@ import { DeliveryFields } from "@/components/shared/delivery-fields";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { EnterpriseButton } from "@/components/ui/button";
 import { defaultPhoneCountry, parsePhone } from "@/services/phone-service";
+import { proposeForCountry } from "@/config/orders/country-entry-defaults";
+import { localizedName } from "@/lib/localized-name";
+import { Globe } from "lucide-react";
 import { storeOrdersService, type StoreOrderRow } from "@/services/store-orders-service";
 import {
   PaymentDeclarationFields,
@@ -79,6 +82,7 @@ const FIELD_LABEL_KEY: Record<string, MessageKey> = {
   customerName: "storeOrders.createDialog.fields.customerName",
   customerPhone: "storeOrders.fields.phone",
   countryId: "storeOrders.createDialog.fields.country",
+  deliveryCountryId: "storeOrders.createDialog.fields.deliveryCountry",
   city: "storeOrders.createDialog.fields.city",
   fulfillmentMethod: "storeOrders.createDialog.entry.method",
   customerEmail: "storeOrders.createDialog.fields.customerEmail",
@@ -113,7 +117,7 @@ export function StoreOrderCreateDialog({
   /** Set when opened from the Global Lookup dialog's "Add New Order" action — reuses this Customer instead of prompting for one. */
   prefillCustomer?: StoreOrderCreatePrefillCustomer | null;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { hasPermission } = useUserContext();
   // Same any-of rule the API applies to payment declarations.
   const canDeclarePayment =
@@ -154,6 +158,9 @@ export function StoreOrderCreateDialog({
   // Existing customer only: deliver this order somewhere other than the customer's address.
   const [differentAddress, setDifferentAddress] = useState(false);
   const phoneCountryCodeRef = useRef<string | null>(null);
+  // R12: the country proposes the calling code and the currency; a manual choice of either
+  // (the user picked it, or an existing record supplied it) is never overwritten afterwards.
+  const currencyTouchedRef = useRef(false);
   const schema = useMemo(
     () => buildStoreOrderCreateSchema(t, () => phoneCountryCodeRef.current),
     [t],
@@ -169,6 +176,7 @@ export function StoreOrderCreateDialog({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPendingFiles([]);
     setCreationKey(newIdempotencyKey());
+    currencyTouchedRef.current = false;
     setPhoneCountryOverride(
       prefillCustomer
         ? phoneCountryOverrideFor(prefillCustomer.phone, prefillCustomer.countryId)
@@ -223,19 +231,25 @@ export function StoreOrderCreateDialog({
     const code = defaultPhoneCountry(countries.map((country) => country.code));
     return code ? (countries.find((country) => country.code === code)?.id ?? "") : "";
   }, [countries]);
-  const phoneCountryId = phoneCountryOverride ?? defaultPhoneCountryId;
+  // The customer's country: Saudi Arabia (O2 default) until chosen. It proposes the calling code
+  // and the order currency; it never marks the form dirty. Existing customers keep their own
+  // saved country (possibly none) - nothing is invented for them.
+  useEffect(() => {
+    if (customerMode !== "new" || countryId || !defaultPhoneCountryId) return;
+    form.setValue("countryId", defaultPhoneCountryId, { shouldDirty: false });
+  }, [customerMode, countryId, defaultPhoneCountryId, form]);
+  const proposal = useMemo(
+    () => proposeForCountry(countryId, countries, currencies),
+    [countryId, countries, currencies],
+  );
+  // The calling code follows the country until the user picks one (or a number is already typed).
+  const phoneCountryId = phoneCountryOverride ?? proposal.phoneCountryId ?? defaultPhoneCountryId;
   const phoneCountryCode = countries.find((country) => country.id === phoneCountryId)?.code ?? null;
   useEffect(() => {
     phoneCountryCodeRef.current = phoneCountryCode;
   }, [phoneCountryCode]);
-  // Delivery country = phone country until "Different delivery country" is opened.
-  useEffect(() => {
-    if (!differentCountry && phoneCountryId && form.getValues("countryId") !== phoneCountryId) {
-      form.setValue("countryId", phoneCountryId, { shouldDirty: false });
-    }
-  }, [differentCountry, phoneCountryId, form]);
 
-  /** The phone's own country (from a stored E.164) when it differs from the customer's shipping country — otherwise follow the shipping country. */
+  /** The phone's own country (from a stored E.164) when it differs from the customer's country - otherwise the calling code simply follows the country. */
   function phoneCountryOverrideFor(
     phone: string | null | undefined,
     shippingCountryId?: string | null,
@@ -248,17 +262,27 @@ export function StoreOrderCreateDialog({
   const selectPhoneCountry = (id: string) => {
     setPhoneCountryOverride(id || null);
   };
-  const defaultCurrencyId =
-    currencies.find((currency) => currency.code === "SAR")?.id ?? currencies[0]?.id ?? "";
-
-  useEffect(() => {
-    if (defaultCurrencyId && !selectedCurrencyId) {
-      form.setValue("currencyId", defaultCurrencyId, { shouldDirty: false });
+  /** The user chose a country: a number already typed keeps the calling code it was read with. */
+  const onCountryChosen = () => {
+    if (phoneCountryOverride === null && form.getValues("customerPhone")?.trim()) {
+      setPhoneCountryOverride(phoneCountryId || null);
     }
-  }, [defaultCurrencyId, selectedCurrencyId, form]);
+  };
+  // The currency follows the country's configured default until the user chooses one. A country
+  // without a configured default leaves it empty (asked, never guessed); with no country at all
+  // the company currency (SAR) applies as before.
+  const fallbackCurrencyId =
+    currencies.find((currency) => currency.code === "SAR")?.id ?? currencies[0]?.id ?? "";
+  useEffect(() => {
+    if (currencyTouchedRef.current || currencies.length === 0) return;
+    const next = proposal.currencyId ?? (countryId ? "" : fallbackCurrencyId);
+    if (form.getValues("currencyId") !== next) {
+      form.setValue("currencyId", next, { shouldDirty: false });
+    }
+  }, [proposal.currencyId, countryId, fallbackCurrencyId, currencies.length, form]);
+  const noCurrencyDefault = !selectedCurrencyId && !!countryId && currencies.length > 0;
   const currencyCode =
-    currencies.find((currency) => currency.id === (selectedCurrencyId || defaultCurrencyId))
-      ?.code ?? "";
+    currencies.find((currency) => currency.id === selectedCurrencyId)?.code ?? "";
 
   const itemsTotal = lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
   const declares =
@@ -278,7 +302,11 @@ export function StoreOrderCreateDialog({
     !!existingCustomer && !existingCustomer.city?.trim() && !existingCustomer.address?.trim();
   const showDeliveryFields =
     needsDelivery && (customerMode === "new" || differentAddress || existingMissingAddress);
-  const effectiveCountryId = differentCountry ? countryId || "" : phoneCountryId;
+  // Delivery goes to the customer's country unless "Different delivery country" names another.
+  const deliveryCountryFieldValue = useWatch({ control: form.control, name: "deliveryCountryId" });
+  const effectiveDeliveryCountryId = differentCountry
+    ? deliveryCountryFieldValue || countryId || ""
+    : countryId || "";
   const existingNeedsPhone =
     !!existingCustomer && !(existingCustomer.phone || existingCustomer.mobile);
   const summaryProduct =
@@ -294,13 +322,15 @@ export function StoreOrderCreateDialog({
     });
     form.setValue("customerEmail", customer.email || "", { shouldDirty: true });
     form.setValue("countryId", customer.countryId || "", { shouldDirty: true });
+    form.setValue("deliveryCountryId", "", { shouldDirty: false });
     form.setValue("city", customer.city || "", { shouldDirty: true });
     form.setValue("address", customer.address || "", { shouldDirty: true });
-    const override = phoneCountryOverrideFor(customer.phone || customer.mobile, customer.countryId);
-    setPhoneCountryOverride(override);
-    // The customer's own address is the default destination; a country that differs
-    // from the phone's is kept (international phone, local delivery).
-    setDifferentCountry(Boolean(customer.countryId && override));
+    // A phone read with another calling code than the customer's country (international phone,
+    // local delivery) keeps its own code; the customer's address is the default destination.
+    setPhoneCountryOverride(
+      phoneCountryOverrideFor(customer.phone || customer.mobile, customer.countryId),
+    );
+    setDifferentCountry(false);
     setDifferentAddress(false);
   };
 
@@ -350,6 +380,8 @@ export function StoreOrderCreateDialog({
       "customerName",
       "customerPhone",
       "customerEmail",
+      "countryId",
+      "deliveryCountryId",
       "city",
       "address",
     ] as const) {
@@ -378,7 +410,8 @@ export function StoreOrderCreateDialog({
     if (!on && selectedCustomer) {
       form.setValue("city", selectedCustomer.city || "", { shouldDirty: true });
       form.setValue("address", selectedCustomer.address || "", { shouldDirty: true });
-      form.setValue("countryId", selectedCustomer.countryId || "", { shouldDirty: true });
+      form.setValue("deliveryCountryId", "", { shouldDirty: false });
+      setDifferentCountry(false);
     }
   };
 
@@ -463,16 +496,18 @@ export function StoreOrderCreateDialog({
               name: values.customerName,
               phone: values.customerPhone || undefined,
               email: values.customerEmail || undefined,
-              countryId: effectiveCountryId || undefined,
-              city: needsDelivery ? values.city || undefined : undefined,
-              address: needsDelivery ? values.address || undefined : undefined,
+              countryId: values.countryId || undefined,
+              // The delivery address belongs to the customer only while it is in the customer's own
+              // country; a different delivery country is this order's destination alone.
+              city: needsDelivery && !differentCountry ? values.city || undefined : undefined,
+              address: needsDelivery && !differentCountry ? values.address || undefined : undefined,
             },
         fulfillmentMethod: values.fulfillmentMethod,
         // This order's own destination (stored on the order only — never on the customer master).
-        ...(needsDelivery && (values.city || values.address || effectiveCountryId)
+        ...(needsDelivery && (values.city || values.address || effectiveDeliveryCountryId)
           ? {
               delivery: {
-                countryId: effectiveCountryId || undefined,
+                countryId: effectiveDeliveryCountryId || undefined,
                 city: values.city || undefined,
                 address: values.address || undefined,
               },
@@ -619,28 +654,54 @@ export function StoreOrderCreateDialog({
               ) : null}
 
               {customerMode === "new" || existingNeedsPhone ? (
-                <div className="grid grid-cols-1 items-start gap-x-3 gap-y-2 @md:grid-cols-2">
+                <div
+                  className={
+                    customerMode === "new"
+                      ? "grid grid-cols-1 items-start gap-x-3 gap-y-2 @md:grid-cols-2 @xl:grid-cols-[minmax(0,5fr)_minmax(0,4fr)_minmax(0,6fr)]"
+                      : "max-w-md"
+                  }
+                >
                   {customerMode === "new" ? (
-                    <TextFormField
-                      control={form.control}
-                      name="customerName"
-                      label={t("storeOrders.createDialog.fields.customerName")}
-                      required
-                    />
+                    <>
+                      <TextFormField
+                        control={form.control}
+                        name="customerName"
+                        label={t("storeOrders.createDialog.fields.customerName")}
+                        required
+                      />
+                      <ComboboxFormField
+                        control={form.control}
+                        name="countryId"
+                        label={t("storeOrders.createDialog.fields.country")}
+                        required
+                        items={countries}
+                        getId={(country) => country.id}
+                        getTitle={(country) => localizedName(country, locale)}
+                        getSearchText={(country) =>
+                          [country.name, country.nameEn, country.code, country.iso3]
+                            .filter(Boolean)
+                            .join(" ")
+                        }
+                        icon={<Globe className="size-3.5 shrink-0 text-muted-foreground" />}
+                        onValueChange={onCountryChosen}
+                      />
+                    </>
                   ) : null}
-                  <PhoneFormField
-                    control={form.control}
-                    name="customerPhone"
-                    label={t("storeOrders.fields.phone")}
-                    required
-                    countryCode={phoneCountryCode}
-                    availableCountryCodes={countries.map((country) => country.code)}
-                    countries={countries}
-                    onCountryChange={(iso2) => {
-                      const match = countries.find((country) => country.code === iso2);
-                      if (match) selectPhoneCountry(match.id);
-                    }}
-                  />
+                  <div className={customerMode === "new" ? "@md:col-span-2 @xl:col-span-1" : ""}>
+                    <PhoneFormField
+                      control={form.control}
+                      name="customerPhone"
+                      label={t("storeOrders.fields.phone")}
+                      required
+                      countryCode={phoneCountryCode}
+                      availableCountryCodes={countries.map((country) => country.code)}
+                      countries={countries}
+                      onCountryChange={(iso2) => {
+                        const match = countries.find((country) => country.code === iso2);
+                        if (match) selectPhoneCountry(match.id);
+                      }}
+                    />
+                  </div>
                 </div>
               ) : null}
 
@@ -679,9 +740,9 @@ export function StoreOrderCreateDialog({
                   </p>
                   <DeliveryFields
                     control={form.control}
-                    names={{ countryId: "countryId", city: "city", address: "address" }}
+                    names={{ countryId: "deliveryCountryId", city: "city", address: "address" }}
                     labels={{
-                      country: t("storeOrders.createDialog.fields.country"),
+                      country: t("storeOrders.createDialog.fields.deliveryCountry"),
                       city: t("storeOrders.createDialog.fields.city"),
                       address: t("storeOrders.createDialog.fields.address"),
                     }}
@@ -724,53 +785,74 @@ export function StoreOrderCreateDialog({
           </FormSection>
 
           <FormSection title={t("storeOrders.createDialog.sections.orderInfo")}>
-            <div className="grid grid-cols-1 items-start gap-x-3 gap-y-2 @md:grid-cols-2 @2xl:grid-cols-3">
-              <TextFormField
-                control={form.control}
-                name="externalOrderId"
-                label={t("storeOrders.fields.externalOrderId")}
-                optional
-                dir="ltr"
-              />
-              <DateFormField
-                control={form.control}
-                name="orderDate"
-                label={t("storeOrders.fields.orderDate")}
-              />
-              <ComboboxFormField
-                control={form.control}
-                name="currencyId"
-                label={t("storeOrders.createDialog.fields.currency")}
-                required
-                items={currencies}
-                getId={(currency) => currency.id}
-                getTitle={(currency) => currency.code}
-                getSubtitle={(currency) => currency.name}
-                getSearchText={(currency) => `${currency.code} ${currency.name}`}
-                subtitleDir="ltr"
-                icon={<Banknote className="size-3.5 shrink-0 text-muted-foreground" />}
-              />
-              <SelectFormField
-                control={form.control}
-                name="paymentType"
-                label={t("storeOrders.fields.paymentType")}
-                options={[
-                  { value: "PREPAID", label: t("storeOrders.paymentType.PREPAID") },
-                  {
-                    value: "CASH_ON_DELIVERY",
-                    label: t("storeOrders.paymentType.CASH_ON_DELIVERY"),
-                  },
-                ]}
-              />
-              <SelectFormField
-                control={form.control}
-                name="fulfillmentMethod"
-                label={t("storeOrders.createDialog.entry.method")}
-                options={[
-                  { value: "SHIPPING", label: t("storeOrders.createDialog.entry.methodShipping") },
-                  { value: "PICKUP", label: t("storeOrders.createDialog.entry.methodPickup") },
-                ]}
-              />
+            <div className="grid grid-cols-1 items-start gap-x-3 gap-y-2 @md:grid-cols-2 @xl:grid-cols-6">
+              <div className="@xl:col-span-2">
+                <TextFormField
+                  control={form.control}
+                  name="externalOrderId"
+                  label={t("storeOrders.fields.externalOrderId")}
+                  optional
+                  dir="ltr"
+                />
+              </div>
+              <div className="@xl:col-span-2">
+                <DateFormField
+                  control={form.control}
+                  name="orderDate"
+                  label={t("storeOrders.fields.orderDate")}
+                />
+              </div>
+              <div className="@xl:col-span-2">
+                <ComboboxFormField
+                  control={form.control}
+                  name="currencyId"
+                  label={t("storeOrders.createDialog.fields.currency")}
+                  description={
+                    noCurrencyDefault
+                      ? t("storeOrders.createDialog.entry.noCurrencyDefault")
+                      : undefined
+                  }
+                  onValueChange={() => {
+                    currencyTouchedRef.current = true;
+                  }}
+                  required
+                  items={currencies}
+                  getId={(currency) => currency.id}
+                  getTitle={(currency) => currency.code}
+                  getSubtitle={(currency) => currency.name}
+                  getSearchText={(currency) => `${currency.code} ${currency.name}`}
+                  subtitleDir="ltr"
+                  icon={<Banknote className="size-3.5 shrink-0 text-muted-foreground" />}
+                />
+              </div>
+              <div className="@xl:col-span-3">
+                <SelectFormField
+                  control={form.control}
+                  name="paymentType"
+                  label={t("storeOrders.fields.paymentType")}
+                  options={[
+                    { value: "PREPAID", label: t("storeOrders.paymentType.PREPAID") },
+                    {
+                      value: "CASH_ON_DELIVERY",
+                      label: t("storeOrders.paymentType.CASH_ON_DELIVERY"),
+                    },
+                  ]}
+                />
+              </div>
+              <div className="@xl:col-span-3">
+                <SelectFormField
+                  control={form.control}
+                  name="fulfillmentMethod"
+                  label={t("storeOrders.createDialog.entry.method")}
+                  options={[
+                    {
+                      value: "SHIPPING",
+                      label: t("storeOrders.createDialog.entry.methodShipping"),
+                    },
+                    { value: "PICKUP", label: t("storeOrders.createDialog.entry.methodPickup") },
+                  ]}
+                />
+              </div>
             </div>
           </FormSection>
 

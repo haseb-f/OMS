@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Select as SelectPrimitive } from "radix-ui";
 
+import { useControlSurface, type ControlSurfaceName } from "@/components/ui/control-surface";
 import { TriggerChevron } from "@/components/ui/trigger-chevron";
 import { cn } from "@/lib/utils";
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react";
@@ -29,10 +30,17 @@ function SelectTrigger({
   className,
   size = "default",
   variant = "default",
+  surface,
   children,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
   size?: "sm" | "default";
+  /**
+   * `"toolbar"` (strong blue) or `"form"` (very light blue). Omit it: the
+   * nearest container decides (`ControlSurface`: dialogs, sheets and forms are
+   * `form`; list toolbars and selector rows are `toolbar`).
+   */
+  surface?: ControlSurfaceName;
   /**
    * `"ghost"` is ONLY for a cell whose trigger shows a semantic status badge
    * (the colour there is the operational status, so the trigger stays neutral).
@@ -40,6 +48,7 @@ function SelectTrigger({
    */
   variant?: "default" | "ghost";
 }) {
+  const contextSurface = useControlSurface();
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
@@ -47,6 +56,7 @@ function SelectTrigger({
       data-select-trigger=""
       data-size={size}
       data-variant={variant}
+      data-surface={variant === "ghost" ? undefined : (surface ?? contextSurface)}
       className={cn(
         // `min-w` (not `w`) guarantees the icon and label can never overlap
         // even when a caller sets a small custom `w-*`/className — `min-width`

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ComponentProps } from "react";
+import { ControlSurface } from "@/components/ui/control-surface";
 import { useToolbarTones } from "./data-table/toolbar-tones";
 
 /**
@@ -19,7 +20,7 @@ export function SelectorRow({ children, ...props }: ComponentProps<"div">) {
   const ref = useToolbarTones<HTMLDivElement>();
   return (
     <div ref={ref} data-slot="selector-row" {...props}>
-      {children}
+      <ControlSurface surface="toolbar">{children}</ControlSurface>
     </div>
   );
 }

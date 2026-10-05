@@ -1,3 +1,4 @@
+import { ControlSurface } from "@/components/ui/control-surface";
 import type { ReactNode } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { ViewportFillProvider } from "@/components/shared/data-table/list-surface";
@@ -31,6 +32,7 @@ export function PageWorkspace({
   className,
   dense,
   fill,
+  controlSurface,
 }: {
   title: string;
   description?: string;
@@ -52,6 +54,8 @@ export function PageWorkspace({
   dense?: boolean;
   /** Overrides viewport fill (defaults to `dense && !secondary`). */
   fill?: boolean;
+  /** `"form"` for a page that is a data-entry / settings form: its selectors use the light form appearance. */
+  controlSurface?: "toolbar" | "form";
 }) {
   const viewportFill = fill ?? (Boolean(dense) && !secondary);
   return (
@@ -79,7 +83,11 @@ export function PageWorkspace({
               viewportFill && "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-y-auto",
             )}
           >
-            {children}
+            {controlSurface ? (
+              <ControlSurface surface={controlSurface}>{children}</ControlSurface>
+            ) : (
+              children
+            )}
           </div>
         ) : null}
         {secondary ? <aside className="min-w-0">{secondary}</aside> : null}

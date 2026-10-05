@@ -1612,6 +1612,9 @@ const en = {
       codeHint:
         'ISO 3166-1 two-letter code (e.g. SA). If a country is missing, check "Show archived" and restore it instead of creating a duplicate.',
       codeInvalid: "Code must be exactly two Latin letters A–Z (e.g. SA).",
+      defaultCurrency: "Default order currency",
+      defaultCurrencyHint:
+        "Proposed when this country is chosen on an order (still editable). When empty, the employee is asked to choose a currency.",
     },
     cities: {
       title: "Cities",
@@ -3734,7 +3737,8 @@ const en = {
         deliveryTitle: "Delivery",
         deliverTo: "Delivered to",
         differentCountry: "Different delivery country",
-        sameCountry: "Delivery country follows the phone",
+        sameCountry: "Deliver to the customer's country",
+        noCurrencyDefault: "No default currency for this country — choose one.",
         differentAddress: "Deliver to a different address",
         customerAddress: "Use the customer's address",
         missingAddress: "This customer has no saved address — enter where this order is delivered.",
@@ -3763,6 +3767,7 @@ const en = {
         customerName: "Customer Name",
         customerEmail: "Email",
         country: "Country",
+        deliveryCountry: "Delivery country",
         city: "City",
         address: "Address",
         currency: "Currency",

@@ -17,6 +17,20 @@ describe('customer lookup helpers', () => {
       expect(classifyQuery('(050) 123-4567')).toMatchObject({ kind: 'PHONE' });
     });
 
+    it('recognises an OMS document number (order or lead) as its own query kind', () => {
+      expect(classifyQuery('sto-2026-027225')).toEqual({
+        kind: 'ORDER_NUMBER',
+        value: 'STO-2026-027225',
+      });
+      expect(classifyQuery('LD-2026-018688')).toMatchObject({
+        kind: 'ORDER_NUMBER',
+      });
+      // A bare year-like number is still a phone / too short, never a document.
+      expect(classifyQuery('2026-027225')).not.toMatchObject({
+        kind: 'ORDER_NUMBER',
+      });
+    });
+
     it('rejects a phone with fewer than 7 digits', () => {
       expect(classifyQuery('123456')).toEqual({
         kind: 'INVALID',

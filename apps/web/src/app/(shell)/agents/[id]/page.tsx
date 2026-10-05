@@ -2,7 +2,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Archive, Pencil, Power, PowerOff } from "lucide-react";
+import {
+  Archive,
+  CheckCircle2,
+  Clock,
+  HandCoins,
+  Pencil,
+  Power,
+  PowerOff,
+  ShieldCheck,
+  ShoppingBag,
+  Wallet,
+} from "lucide-react";
 import {
   DetailField,
   DetailFieldGrid,
@@ -13,7 +24,7 @@ import { HeaderActions } from "@/components/shared/header-actions";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { ErrorState } from "@/components/shared/error-state";
 import { PermissionGate } from "@/components/shared/permission-gate";
-import { KpiCard } from "@/components/shared/kpi-card";
+import { InsightCard, InsightCardSkeleton, InsightGroup } from "@/components/shared/insight-card";
 import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { EntityTabs, type EntityTab } from "@/components/business/entity-tabs";
@@ -147,67 +158,60 @@ function AgentWorkspace() {
   const overview = (
     <div className="flex flex-col gap-3">
       {canViewFinance ? (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-          <KpiCard
-            size="compact"
-            label={t("agents.overview.balance")}
-            isLoading={!dashboard}
-            value={
-              position ? <MoneyValue value={position.balance} currency={currency} /> : undefined
-            }
-          />
-          <KpiCard
-            size="compact"
-            label={t("agents.overview.available")}
-            isLoading={!dashboard}
-            value={
-              position ? <MoneyValue value={position.available} currency={currency} /> : undefined
-            }
-          />
-          <KpiCard
-            size="compact"
-            label={t("agents.overview.pending")}
-            isLoading={!dashboard}
-            value={
-              position ? <MoneyValue value={position.pending} currency={currency} /> : undefined
-            }
-          />
-          <KpiCard
-            size="compact"
-            label={t("agents.overview.paidOut")}
-            isLoading={!dashboard}
-            value={
-              position ? <MoneyValue value={position.paidOut} currency={currency} /> : undefined
-            }
-          />
-          <KpiCard
-            size="compact"
-            label={t("agents.overview.awaitingVerification")}
-            isLoading={!dashboard}
-            value={
-              dashboard ? (
+        <InsightGroup className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {(
+            [
+              ["balance", Wallet, "info", position?.balance],
+              ["available", CheckCircle2, "success", position?.available],
+              ["pending", Clock, "warning", position?.pending],
+              ["paidOut", HandCoins, "neutral", position?.paidOut],
+            ] as const
+          ).map(([key, icon, tone, amount]) =>
+            position ? (
+              <InsightCard
+                key={key}
+                icon={icon}
+                tone={tone}
+                label={t(`agents.overview.${key}`)}
+                value={<MoneyValue value={amount ?? 0} currency={currency} />}
+                amount={amount}
+              />
+            ) : (
+              <InsightCardSkeleton key={key} />
+            ),
+          )}
+          {dashboard ? (
+            <InsightCard
+              icon={ShieldCheck}
+              tone="warning"
+              label={t("agents.overview.awaitingVerification")}
+              value={
                 <SemanticValue kind="number">
                   {dashboard.collections.awaitingVerificationCount}
                 </SemanticValue>
-              ) : undefined
-            }
-            href={
-              hasPermission("agents.finance.view")
-                ? `/agents/collections?agentId=${agent.id}`
-                : undefined
-            }
-          />
-          <KpiCard
-            size="compact"
-            label={t("agents.overview.totalOrderValue")}
-            isLoading={!dashboard}
-            value={
-              dashboard ? (
-                <MoneyValue value={dashboard.sales.totalOrderValue} currency={currency} />
-              ) : undefined
-            }
-          />
-        </div>
+              }
+              amount={dashboard.collections.awaitingVerificationCount}
+              href={
+                hasPermission("agents.finance.view")
+                  ? `/agents/collections?agentId=${agent.id}`
+                  : undefined
+              }
+            />
+          ) : (
+            <InsightCardSkeleton />
+          )}
+          {dashboard ? (
+            <InsightCard
+              icon={ShoppingBag}
+              tone="revenue"
+              label={t("agents.overview.totalOrderValue")}
+              value={<MoneyValue value={dashboard.sales.totalOrderValue} currency={currency} />}
+              amount={dashboard.sales.totalOrderValue}
+            />
+          ) : (
+            <InsightCardSkeleton />
+          )}
+        </InsightGroup>
       ) : (
         <p className="text-caption text-muted-foreground">{t("agents.overview.financeHidden")}</p>
       )}

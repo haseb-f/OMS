@@ -13,6 +13,13 @@ export interface AdvancedLookupMatch {
     number: string;
     status: LookupOrderStatus | LookupLeadStatus;
   } | null;
+  /** Earlier orders the caller can already open (own scope only); empty for somebody else's customer. */
+  previousOrders: {
+    id: string;
+    number: string;
+    orderDate: string;
+    status: LookupOrderStatus;
+  }[];
   notAssignedToYou: boolean;
   /** Present only when the caller already has scope over that exact record. */
   openable: { type: "ORDER" | "LEAD"; id: string } | null;

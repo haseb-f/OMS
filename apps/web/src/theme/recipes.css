@@ -1253,6 +1253,56 @@ html
     var(--control-inset-solid);
 }
 
+/* ── Form surface for selector triggers (R12, design-system §12.23) ───────
+   The same select / combobox / picker trigger has two appearances chosen by
+   its container (`ControlSurface` → `data-surface`): the stronger toolbar
+   blues above, and — in create / edit forms, dialogs and sheets — a very
+   light blue surface with dark text, a subtle blue border and a muted chip.
+   Only the `--selector*` tokens change, so the §12.14 recipe's hover, open,
+   pressed, invalid, disabled and keyboard-focus states apply unchanged (the
+   focus ring is the same blue as every input). A control that carries a
+   toolbar tone keeps it. Calmer than a toolbar control by design: it is
+   interaction chrome inside a field, never status or emphasis. */
+html
+  :is([data-select-trigger], [data-button][data-variant="field"])[data-surface="form"]:not(
+    [data-toolbar-tone]
+  ) {
+  --selector: color-mix(in oklab, var(--ramp-blue) 7%, white);
+  --selector-hover: color-mix(in oklab, var(--ramp-blue) 13%, white);
+  --selector-active: color-mix(in oklab, var(--ramp-blue) 18%, white);
+  --selector-foreground: var(--foreground);
+  --selector-muted: var(--muted-foreground);
+  --selector-border: color-mix(in oklab, var(--ramp-blue) 42%, white);
+  --selector-chip: color-mix(in oklab, var(--ramp-blue) 16%, white);
+  --selector-open-edge: var(--focus-ring);
+  --selector-ring: var(--focus-ring);
+  --selector-applied: var(--selector);
+  --control-inset-solid: inset 0 1px 2px rgb(0 0 0 / 0.06);
+}
+.dark
+  :is([data-select-trigger], [data-button][data-variant="field"])[data-surface="form"]:not(
+    [data-toolbar-tone]
+  ) {
+  --selector: color-mix(in oklab, var(--ramp-blue) 13%, var(--card));
+  --selector-hover: color-mix(in oklab, var(--ramp-blue) 21%, var(--card));
+  --selector-active: color-mix(in oklab, var(--ramp-blue) 27%, var(--card));
+  --selector-border: color-mix(in oklab, var(--ramp-blue) 52%, var(--card));
+  --selector-chip: color-mix(in oklab, var(--ramp-blue) 26%, var(--card));
+  --control-inset-solid: inset 0 1px 2px rgb(0 0 0 / 0.3);
+}
+/* The form trigger's boundary is the blue hairline; the toolbar's heavy
+   top highlight / shadow stack would only add weight. */
+html
+  :is([data-select-trigger], [data-button][data-variant="field"])[data-surface="form"]:not(
+    [data-toolbar-tone],
+    :disabled,
+    [aria-invalid="true"],
+    [aria-expanded="true"],
+    [data-state="open"]
+  ) {
+  box-shadow: inset 0 0 0 1px var(--selector-border);
+}
+
 /* ── Record card (Table/Grid view, design-system §12.19, revised R9) ───────
    FLAT, soft, status-tinted surface — no gradients. The glass feel is restraint:
    a translucent tint of the card's workflow colour over the list's canvas, a clean

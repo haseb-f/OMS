@@ -12,7 +12,7 @@ import {
   countryRowLabel,
   type CountryRow,
 } from "@/config/master-data/entities";
-import { useCountries } from "@/hooks/use-reference-data";
+import { useCountries, useCurrencies } from "@/hooks/use-reference-data";
 import { useLocale } from "@/providers/locale-provider";
 
 const service = createMasterDataService<CountryRow>("/countries");
@@ -20,14 +20,23 @@ const service = createMasterDataService<CountryRow>("/countries");
 export default function CountriesPage() {
   const { t } = useLocale();
   const schema = useMemo(() => buildCountriesSchema(t), [t]);
+  const currencies = useCurrencies();
   const formFields = useMemo(
-    () =>
-      countriesFormFields.map((field) =>
+    () => [
+      ...countriesFormFields.map((field) =>
         field.name === "code"
           ? { ...field, description: t("masterData.countries.codeHint") }
           : field,
       ),
-    [t],
+      {
+        name: "defaultCurrencyId",
+        label: "masterData.countries.defaultCurrency" as const,
+        type: "select" as const,
+        description: t("masterData.countries.defaultCurrencyHint"),
+        options: currencies.map((c) => ({ value: c.id, label: `${c.code} — ${c.name}` })),
+      },
+    ],
+    [t, currencies],
   );
 
   return (

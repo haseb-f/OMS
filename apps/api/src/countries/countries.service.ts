@@ -59,6 +59,7 @@ export class CountriesService extends MasterDataCrudService<Country> {
   async create(dto: CreateCountryDto, userId?: string): Promise<Country> {
     const data = this.normalizeInput(dto);
     await this.assertNoDuplicate(data);
+    await this.assertCurrencyExists(data.defaultCurrencyId);
     return super.create(data, userId);
   }
 
@@ -69,6 +70,15 @@ export class CountriesService extends MasterDataCrudService<Country> {
   ): Promise<Country> {
     const data = this.normalizeInput(dto);
     await this.assertNoDuplicate(data, id);
+    if (data.defaultCurrencyId !== undefined) {
+      const stored = await this.prisma.country.findUnique({
+        where: { id },
+        select: { defaultCurrencyId: true },
+      });
+      if (data.defaultCurrencyId !== (stored?.defaultCurrencyId ?? null)) {
+        await this.assertCurrencyExists(data.defaultCurrencyId);
+      }
+    }
     return super.update(id, data, userId);
   }
 
@@ -133,6 +143,9 @@ export class CountriesService extends MasterDataCrudService<Country> {
       }
       data.iso3 = iso3 || undefined;
     }
+    if (dto.defaultCurrencyId !== undefined) {
+      data.defaultCurrencyId = dto.defaultCurrencyId?.trim() || null;
+    }
     if (dto.name !== undefined) data.name = dto.name.trim();
     if (dto.nameEn !== undefined) data.nameEn = dto.nameEn?.trim() || undefined;
     return data;
@@ -179,6 +192,23 @@ export class CountriesService extends MasterDataCrudService<Country> {
       fields: [{ field, constraints: ['unique'] }],
       details: { existingId: existing.id, archived: !!existing.deletedAt },
     });
+  }
+
+  /** The proposed order currency must be a real, active currency (a stale id would fail every order form). */
+  private async assertCurrencyExists(
+    currencyId?: string | null,
+  ): Promise<void> {
+    if (!currencyId) return;
+    const currency = await this.prisma.currency.findFirst({
+      where: { id: currencyId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!currency) {
+      throw this.invalidField(
+        'defaultCurrencyId',
+        'العملة الافتراضية غير موجودة.',
+      );
+    }
   }
 
   private invalidField(field: string, message: string) {

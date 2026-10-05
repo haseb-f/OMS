@@ -201,6 +201,8 @@ describe('Advanced customer lookup (HTTP)', () => {
     // user without the permission, and a user with finance/manage rights but
     // still no lookup permission (nothing implies it).
     await makeUser('searcher', ['customers.lookup_advanced']);
+    // R12 tests draw on their own budget so they never shift the other tests' counts.
+    await makeUser('unified', ['customers.lookup_advanced']);
     await makeUser('owner', [
       'customers.lookup_advanced',
       'customers.lookup_global',
@@ -371,6 +373,7 @@ describe('Advanced customer lookup (HTTP)', () => {
         'notAssignedToYou',
         'openable',
         'partialName',
+        'previousOrders',
         'reference',
       ]);
       expect(match.kind).toBe('CUSTOMER');
@@ -431,6 +434,58 @@ describe('Advanced customer lookup (HTTP)', () => {
       const body = res.body as { matches: Record<string, unknown>[] };
       expect(body.matches.length).toBeGreaterThanOrEqual(1);
       expect(JSON.stringify(res.body)).not.toContain(customer.internal);
+    });
+  });
+
+  describe('R12 unified lookup: previous orders and document numbers', () => {
+    it('lists previous orders only for records the caller can already open', async () => {
+      const mine = await lookup('owner', phones.internal.e164);
+      const ownMatch = (
+        mine.body as {
+          matches: { previousOrders: { id: string; number: string }[] }[];
+        }
+      ).matches[0];
+      expect(ownMatch.previousOrders.map((o) => o.id)).toContain(
+        order.internal,
+      );
+      expect(ownMatch.previousOrders[0].number).toBe(orderNumber.internal);
+
+      const other = await lookup('unified', phones.internal.e164);
+      const otherMatch = (
+        other.body as { matches: { previousOrders: unknown[] }[] }
+      ).matches[0];
+      expect(otherMatch.previousOrders).toEqual([]);
+      expect(JSON.stringify(other.body)).not.toContain(order.internal);
+    });
+
+    it('finds the customer of an order number, shows that order, and never opens it for another owner', async () => {
+      const res = await lookup('unified', orderNumber.internal);
+      expect(res.status).toBe(200);
+      const body = res.body as {
+        matches: {
+          reference: { number: string } | null;
+          openable: unknown;
+          notAssignedToYou: boolean;
+          partialName: string;
+        }[];
+      };
+      expect(body.matches).toHaveLength(1);
+      expect(body.matches[0].reference?.number).toBe(orderNumber.internal);
+      expect(body.matches[0].openable).toBeNull();
+      expect(body.matches[0].notAssignedToYou).toBe(true);
+      expect(JSON.stringify(res.body)).not.toContain(customer.internal);
+
+      const owner = await lookup('owner', orderNumber.internal);
+      expect(
+        (owner.body as { matches: { openable: unknown }[] }).matches[0]
+          .openable,
+      ).toEqual({ type: 'ORDER', id: order.internal });
+    });
+
+    it('an agent order number is not discoverable', async () => {
+      const res = await lookup('unified', orderNumber.agentOnly);
+      expect(res.status).toBe(200);
+      expect((res.body as { matches: unknown[] }).matches).toHaveLength(0);
     });
   });
 

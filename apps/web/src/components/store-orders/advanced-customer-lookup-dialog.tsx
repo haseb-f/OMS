@@ -6,6 +6,7 @@ import { ShieldCheck } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { SearchInput } from "@/components/shared/search-input";
+import { ListPager } from "@/components/shared/list-pager";
 import { FieldLabel } from "@/components/ui/form";
 import { StatusBadge } from "@/components/business/status-badge";
 import type { StatusTone } from "@/components/business/status-tone";
@@ -27,6 +28,12 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { toast } from "@/lib/toast";
+import { formatDate } from "@/lib/date";
+
+/** Matches shown per page of the result table. */
+const RESULT_PAGE_SIZE = 5;
+/** Previous orders listed under a customer before "+N more". */
+const PREVIOUS_ORDERS_SHOWN = 3;
 
 type LookupState = "idle" | "loading" | "done" | "rate-limited" | "forbidden" | "error";
 
@@ -38,6 +45,8 @@ export function isMeaningfulLookupQuery(raw: string): boolean {
   // Arabic-Indic digits are digits (a phone typed on an Arabic keyboard).
   const value = normalizePhoneDigits(raw).trim();
   if (!value) return false;
+  // An OMS document number (order STO-2026-000123, lead LD-2026-000123).
+  if (/^[A-Za-z]{2,5}-\d{4}-\d{3,}$/.test(value)) return true;
   if (/^[+\d\s().-]+$/.test(value)) return value.replace(/\D/g, "").length >= MIN_PHONE_DIGITS;
   return [...value.replace(/\s/g, "")].length >= MIN_NAME_CHARS;
 }
@@ -74,11 +83,13 @@ export function AdvancedCustomerLookupDialog({
   const [query, setQuery] = useState(initialQuery ?? "");
   const [state, setState] = useState<LookupState>("idle");
   const [result, setResult] = useState<AdvancedLookupResult | null>(null);
+  const [page, setPage] = useState(0);
 
   const reset = () => {
     setQuery("");
     setState("idle");
     setResult(null);
+    setPage(0);
   };
 
   const meaningful = isMeaningfulLookupQuery(query);
@@ -92,6 +103,7 @@ export function AdvancedCustomerLookupDialog({
     try {
       const next = await customerLookupService.advanced(normalizePhoneDigits(text).trim());
       setResult(next);
+      setPage(0);
       setState("done");
     } catch (error) {
       setResult(null);
@@ -208,26 +220,54 @@ export function AdvancedCustomerLookupDialog({
               {" · "}
               {t("customerLookup.remaining", { count: result.remainingInWindow })}
             </p>
-            <div className="overflow-x-auto rounded-sm border border-border">
-              <Table>
-                <TableHeader>
+            {/* One DOM for every width: a table on sm+, each row a stacked card on phones. */}
+            <div className="rounded-sm sm:border sm:border-border">
+              <Table
+                data-testid="advanced-lookup-table"
+                className="max-sm:block"
+                containerClassName="max-sm:overflow-visible"
+              >
+                <TableHeader className="max-sm:hidden">
                   <TableRow>
                     <TableHead>{t("customerLookup.columns.customer")}</TableHead>
                     <TableHead>{t("customerLookup.columns.reference")}</TableHead>
-                    <TableHead>{t("customerLookup.columns.status")}</TableHead>
                     <TableHead>{t("customerLookup.columns.assignment")}</TableHead>
                     <TableHead>
                       <span className="sr-only">{t("customerLookup.open")}</span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  {result.matches.map((match, index) => (
-                    <MatchRow key={`${match.reference?.number ?? "none"}-${index}`} match={match} />
-                  ))}
+                <TableBody className="max-sm:flex max-sm:flex-col max-sm:gap-2">
+                  {result.matches
+                    .slice(page * RESULT_PAGE_SIZE, (page + 1) * RESULT_PAGE_SIZE)
+                    .map((match, index) => (
+                      <TableRow
+                        key={`${match.reference?.number ?? "none"}-${index}`}
+                        className="max-sm:flex max-sm:flex-col max-sm:gap-2 max-sm:rounded-sm max-sm:border max-sm:border-border max-sm:p-3"
+                      >
+                        <TableCell className="align-top max-sm:p-0">
+                          <MatchCustomer match={match} />
+                        </TableCell>
+                        <TableCell className="align-top max-sm:p-0">
+                          <MatchRecords match={match} />
+                        </TableCell>
+                        <TableCell className="align-top max-sm:p-0">
+                          <MatchAssignment match={match} />
+                        </TableCell>
+                        <TableCell className="text-end align-top max-sm:p-0 max-sm:text-start">
+                          <MatchAction match={match} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
                 </TableBody>
               </Table>
             </div>
+            <ListPager
+              page={page}
+              pageSize={RESULT_PAGE_SIZE}
+              total={result.matches.length}
+              onPageChange={setPage}
+            />
             {result.capped ? (
               <p className="text-caption text-muted-foreground">{t("customerLookup.capped")}</p>
             ) : null}
@@ -238,72 +278,107 @@ export function AdvancedCustomerLookupDialog({
   );
 }
 
-function MatchRow({ match }: { match: AdvancedLookupMatch }) {
+/** Masked identity only: two letters per name word, masked phone, kind. */
+function MatchCustomer({ match }: { match: AdvancedLookupMatch }) {
+  const { t } = useLocale();
+  return (
+    <div className="flex min-w-0 flex-col">
+      <span className="font-medium" dir="auto">
+        {match.partialName}
+      </span>
+      <span dir="ltr" className="text-caption text-muted-foreground">
+        {match.maskedPhone ?? "—"}
+      </span>
+      <span className="text-caption text-muted-foreground">
+        {t(`customerLookup.kind.${match.kind}`)}
+      </span>
+    </div>
+  );
+}
+
+/** The record the search matched, then (own customers only) earlier orders the caller may open. */
+function MatchRecords({ match }: { match: AdvancedLookupMatch }) {
+  const { t } = useLocale();
+  const earlier = (match.previousOrders ?? []).filter(
+    (order) => order.number !== match.reference?.number,
+  );
+  const shown = earlier.slice(0, PREVIOUS_ORDERS_SHOWN);
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      {match.reference ? (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span dir="ltr" className="font-medium">
+            {match.reference.number}
+          </span>
+          <StatusBadge
+            tone={STATUS_TONE[match.reference.status] ?? "neutral"}
+            label={t(`customerLookup.status.${match.reference.status}`)}
+          />
+          <span className="text-caption text-muted-foreground">
+            {t(`customerLookup.referenceType.${match.reference.type}`)}
+          </span>
+        </div>
+      ) : (
+        <span className="text-muted-foreground">{t("customerLookup.noReference")}</span>
+      )}
+      {shown.length > 0 ? (
+        <ul
+          className="flex flex-col gap-0.5 border-s-2 border-border ps-2"
+          aria-label={t("customerLookup.previousOrders")}
+          data-testid="advanced-lookup-previous"
+        >
+          {shown.map((order) => (
+            <li key={order.id} className="flex flex-wrap items-center gap-x-2 text-caption">
+              <EnterpriseButton asChild variant="link" size="inline">
+                <Link href={`/store-orders/${order.id}`} dir="ltr">
+                  {order.number}
+                </Link>
+              </EnterpriseButton>
+              <span className="text-muted-foreground">{formatDate(order.orderDate)}</span>
+              <span className="text-muted-foreground">
+                {t(`customerLookup.status.${order.status}`)}
+              </span>
+            </li>
+          ))}
+          {earlier.length > shown.length ? (
+            <li className="text-caption text-muted-foreground">
+              {t("customerLookup.moreOrders", { count: earlier.length - shown.length })}
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function MatchAssignment({ match }: { match: AdvancedLookupMatch }) {
+  const { t } = useLocale();
+  return (
+    <StatusBadge
+      tone={match.notAssignedToYou ? "warning" : "success"}
+      label={
+        match.notAssignedToYou
+          ? t("customerLookup.notAssignedToYou")
+          : t("customerLookup.assignedToYou")
+      }
+    />
+  );
+}
+
+/** A link only where the caller already has scope over the record; otherwise read-only. */
+function MatchAction({ match }: { match: AdvancedLookupMatch }) {
   const { t } = useLocale();
   const href = match.openable
     ? match.openable.type === "ORDER"
       ? `/store-orders/${match.openable.id}`
       : `/crm/leads/${match.openable.id}`
     : null;
-  return (
-    <TableRow>
-      <TableCell>
-        <div className="flex flex-col">
-          <span className="font-medium" dir="auto">
-            {match.partialName}
-          </span>
-          <span dir="ltr" className="text-caption text-muted-foreground">
-            {match.maskedPhone ?? "—"}
-          </span>
-          <span className="text-caption text-muted-foreground">
-            {t(`customerLookup.kind.${match.kind}`)}
-          </span>
-        </div>
-      </TableCell>
-      <TableCell>
-        {match.reference ? (
-          <div className="flex flex-col">
-            <span dir="ltr" className="font-medium">
-              {match.reference.number}
-            </span>
-            <span className="text-caption text-muted-foreground">
-              {t(`customerLookup.referenceType.${match.reference.type}`)}
-            </span>
-          </div>
-        ) : (
-          <span className="text-muted-foreground">{t("customerLookup.noReference")}</span>
-        )}
-      </TableCell>
-      <TableCell>
-        {match.reference ? (
-          <StatusBadge
-            tone={STATUS_TONE[match.reference.status] ?? "neutral"}
-            label={t(`customerLookup.status.${match.reference.status}`)}
-          />
-        ) : (
-          "—"
-        )}
-      </TableCell>
-      <TableCell>
-        <StatusBadge
-          tone={match.notAssignedToYou ? "warning" : "success"}
-          label={
-            match.notAssignedToYou
-              ? t("customerLookup.notAssignedToYou")
-              : t("customerLookup.assignedToYou")
-          }
-        />
-      </TableCell>
-      <TableCell className="text-end">
-        {href ? (
-          <EnterpriseButton asChild variant="link" size="inline">
-            <Link href={href}>{t("customerLookup.open")}</Link>
-          </EnterpriseButton>
-        ) : (
-          <span className="text-caption text-muted-foreground">{t("customerLookup.noAccess")}</span>
-        )}
-      </TableCell>
-    </TableRow>
+  return href ? (
+    <EnterpriseButton asChild variant="link" size="inline">
+      <Link href={href}>{t("customerLookup.open")}</Link>
+    </EnterpriseButton>
+  ) : (
+    <span className="text-caption text-muted-foreground">{t("customerLookup.noAccess")}</span>
   );
 }
 
@@ -357,7 +432,7 @@ export function AdvancedLookupFallback({ term }: { term: string }) {
         data-testid="advanced-lookup-fallback"
       >
         <ShieldCheck className="size-4" />
-        {t("customerLookup.searchAll")}
+        {t("customerLookup.trigger")}
       </EnterpriseButton>
       <AdvancedCustomerLookupDialog open={open} onOpenChange={setOpen} initialQuery={term} />
     </>

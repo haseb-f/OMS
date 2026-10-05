@@ -50,6 +50,9 @@ describe("isMeaningfulLookupQuery", () => {
     expect(isMeaningfulLookupQuery("Ali")).toBe(true);
     expect(isMeaningfulLookupQuery("Al")).toBe(false);
     expect(isMeaningfulLookupQuery("  ")).toBe(false);
+    // Arabic digits and an OMS order number are accepted too.
+    expect(isMeaningfulLookupQuery("٠٥٠١٢٣٤٥٦٧")).toBe(true);
+    expect(isMeaningfulLookupQuery("STO-2026-027225")).toBe(true);
   });
 });
 
@@ -91,6 +94,7 @@ describe("AdvancedCustomerLookupDialog", () => {
           maskedPhone: "+966••••••567",
           partialName: "Ah••• Sa•••",
           reference: { type: "ORDER", number: "SO-1", status: "IN_PROGRESS" },
+          previousOrders: [],
           notAssignedToYou: true,
           openable: null,
         },
@@ -99,6 +103,10 @@ describe("AdvancedCustomerLookupDialog", () => {
           maskedPhone: "+966••••••999",
           partialName: "Mo•••",
           reference: { type: "ORDER", number: "SO-2", status: "COMPLETED" },
+          previousOrders: [
+            { id: "abc", number: "SO-2", orderDate: "2026-10-01", status: "COMPLETED" },
+            { id: "old", number: "SO-0", orderDate: "2026-09-01", status: "COMPLETED" },
+          ],
           notAssignedToYou: false,
           openable: { type: "ORDER", id: "abc" },
         },
@@ -112,10 +120,11 @@ describe("AdvancedCustomerLookupDialog", () => {
     expect(screen.getByText("+966••••••567")).toBeTruthy();
     expect(screen.getByText("customerLookup.notAssignedToYou")).toBeTruthy();
     expect(screen.getByText("customerLookup.assignedToYou")).toBeTruthy();
-    // Exactly one record link: the one the caller already has scope over.
-    const links = screen.getAllByRole("link");
-    expect(links).toHaveLength(1);
-    expect(links[0].getAttribute("href")).toBe("/store-orders/abc");
+    // Links only where the caller already has scope: the open link and their own earlier order.
+    const links = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+    expect(links.sort()).toEqual(["/store-orders/abc", "/store-orders/old"]);
+    // Somebody else's customer lists no history.
+    expect(screen.queryByText("SO-1", { selector: "a" })).toBeNull();
     expect(screen.getByText("customerLookup.noAccess")).toBeTruthy();
   });
 

@@ -5,6 +5,7 @@ import { Slot } from "radix-ui";
 import {
   Controller,
   FormProvider,
+  type FormProviderProps,
   useFormContext,
   useFormState,
   type ControllerProps,
@@ -14,10 +15,26 @@ import {
 
 import { CircleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ControlSurface } from "@/components/ui/control-surface";
 import { Label } from "@/components/ui/label";
 import { useLocale } from "@/providers/locale-provider";
 
-const Form = FormProvider;
+/**
+ * The react-hook-form provider of every OMS form. It also marks its subtree as
+ * a data-entry surface (`ControlSurface`), so selectors inside render the very
+ * light blue form appearance without any per-page wiring.
+ */
+function Form<
+  TFieldValues extends FieldValues = FieldValues,
+  TContext = unknown,
+  TTransformedValues = TFieldValues,
+>({ children, ...props }: FormProviderProps<TFieldValues, TContext, TTransformedValues>) {
+  return (
+    <FormProvider {...props}>
+      <ControlSurface surface="form">{children}</ControlSurface>
+    </FormProvider>
+  );
+}
 
 type FormFieldContextValue<
   TFieldValues extends FieldValues = FieldValues,

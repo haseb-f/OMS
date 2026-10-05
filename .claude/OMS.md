@@ -66,6 +66,13 @@ Icons · Motion · next-themes.
   (`config/<domain>/*-grid-card.tsx`, contract `specs/round9-brand-grid/card-templates.md`). Hierarchical /
   financial lists get grouped cards, never the generic card. Both views share one query — a grid never
   fetches more than the table's page.
+- Selector triggers have two appearances chosen by their container (R12, §12.23): `toolbar` (the strong blue
+  progression: list toolbars, selector rows, filters, report headers) and `form` (a very light blue surface with dark
+  text: create / edit forms, dialogs, sheets, editor pages, settings forms, inline cell editors). Provided through
+  `ControlSurface` (dialogs, sheets, `Form`, `EditorWorkspace`, `PageWorkspace controlSurface="form"`); never colour a
+  trigger or key CSS on a route (guarded by `control-surface.spec.tsx`, `selector-triggers.spec.tsx`).
+- Agent / agent-admin summary figures use the dashboard card language (`InsightCard`, `SummaryCard` on
+  `InsightSurface`); sharing the look never widens visibility.
 - No fabricated identity, notification, or business data in placeholder UI —
   placeholders must read unambiguously as placeholders (e.g. "Guest User," empty
   states) until the real backend feature exists.
@@ -161,6 +168,12 @@ Icons · Motion · next-themes.
   open; name search needs first + last name and a query matching more than 5 customers
   returns nothing; one shared, atomic, audited per-user budget (15 / 10 min, 100 / day). The
   discovery permissions are granted to nobody by migration; Super Admin bypasses.
+- There is exactly one customer-discovery entry point: "Advanced customer lookup" (`customers.lookup_advanced`) —
+  phone (any format, Arabic digits), first + last name or an order number; exact identifiers may list up to 20 rows
+  (paged in the dialog), names stay capped at 5. Previous orders appear only for records the caller can already open.
+- Order entry (R12): the customer's country proposes the calling code and the order currency
+  (`Country.defaultCurrencyId`); a manual choice is never overwritten, a typed number is never re-read under another
+  code, no configured currency means the user is asked. Delivery country is separate from the phone / customer country.
 - Lead distribution eligibility is one shared rule: INTERNAL, active, not locked, employment
   ACTIVE, holds `crm.leads.edit` AND is explicitly designated (`User.salesDistributionEligible`,
   Users form). Excluded users are listed with the reason, never silently dropped.

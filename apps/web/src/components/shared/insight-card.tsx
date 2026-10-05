@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { EnterpriseBadge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 export type InsightTone =
@@ -46,6 +47,33 @@ export function resolveInsightTone(
     }
   } else if (value === null || value === undefined || value === "") numeric = 0;
   return numeric === 0 ? "neutral" : tone;
+}
+
+/**
+ * The card surface of the dashboard language (design-system §12.8 / §12.17):
+ * the tone-tinted, moderately rounded, hairline-bordered box that every
+ * summary tile and summary card shares. `InsightCard` is a figure inside it;
+ * `SummaryCard` (agent statements, commission report) is a titled list of
+ * figures inside it. One surface, so a token change moves them together.
+ */
+export function InsightSurface({
+  tone = "neutral",
+  emphasis = false,
+  className,
+  children,
+  ...props
+}: ComponentProps<"div"> & { tone?: InsightTone; emphasis?: boolean }) {
+  return (
+    <div
+      data-slot="insight-card"
+      data-tone={tone}
+      data-emphasis={emphasis || undefined}
+      className={cn("relative flex min-w-0 flex-col rounded-md border px-3 py-2.5", className)}
+      {...props}
+    >
+      {children}
+    </div>
+  );
 }
 
 /**
@@ -180,14 +208,19 @@ export function InsightCard({
     );
   }
   return (
-    <div
-      data-slot="insight-card"
-      data-tone={resolvedTone}
-      data-emphasis={emphasis || undefined}
-      className={shared}
-    >
+    <InsightSurface tone={resolvedTone} emphasis={emphasis} className={className}>
       {body}
-    </div>
+    </InsightSurface>
+  );
+}
+
+/** Loading placeholder with the geometry of an `InsightCard` (no figure is ever faked). */
+export function InsightCardSkeleton({ className }: { className?: string }) {
+  return (
+    <InsightSurface aria-hidden className={cn("gap-2", className)}>
+      <Skeleton className="h-4 w-24" />
+      <Skeleton className="h-6 w-14" />
+    </InsightSurface>
   );
 }
 

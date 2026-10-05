@@ -4,14 +4,15 @@ const customerLookupEn = {
   title: "Advanced customer lookup",
   description:
     "Check whether a customer already exists and who it belongs to. Results are limited, masked and logged — this does not give you access to the customer's records.",
-  queryLabel: "Phone number or customer name",
-  placeholder: "Phone (7+ digits) or first and last name",
+  queryLabel: "Phone number, customer name or order number",
+  placeholder: "Phone (any format), first and last name, or STO-2026-000123",
   search: "Search",
-  hintMinimum: "Enter a phone number of at least 7 digits, or the customer's first and last name.",
+  hintMinimum:
+    "Enter a phone number of at least 7 digits, the customer's first and last name, or an order number.",
   notice:
     "Every search is recorded. Repeated searches are rate-limited. Details are masked on purpose.",
   loading: "Searching…",
-  idle: "Search by phone number or name to see whether the customer exists.",
+  idle: "Search by phone number, name or order number to see whether the customer exists.",
   empty: "No matching customer was found.",
   error: "The lookup failed. Please try again.",
   forbidden:
@@ -51,6 +52,8 @@ const customerLookupEn = {
   },
   notAssignedToYou: "Not assigned to you",
   assignedToYou: "Assigned to you",
+  previousOrders: "Previous orders",
+  moreOrders: "+{count} more",
   open: "Open",
   noAccess: "Not available to you",
 } as const;

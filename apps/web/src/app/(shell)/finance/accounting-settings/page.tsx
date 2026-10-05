@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
+import { ControlSurface } from "@/components/ui/control-surface";
 import { HeaderActions } from "@/components/shared/header-actions";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
@@ -417,142 +418,148 @@ export default function AccountingSettingsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <PageWorkspace
-        title={t("accounting.settings.title")}
-        description={t("accounting.settings.description")}
-        actions={
-          canManage ? (
-            <HeaderActions
-              primary={{
-                key: "save",
-                label: t("common.save"),
-                disabled: isSaving,
-                onSelect: handleSave,
-              }}
-            />
-          ) : undefined
-        }
-      />
+    <ControlSurface surface="form">
+      <div className="flex flex-col gap-5">
+        <PageWorkspace
+          title={t("accounting.settings.title")}
+          description={t("accounting.settings.description")}
+          actions={
+            canManage ? (
+              <HeaderActions
+                primary={{
+                  key: "save",
+                  label: t("common.save"),
+                  disabled: isSaving,
+                  onSelect: handleSave,
+                }}
+              />
+            ) : undefined
+          }
+        />
 
-      {showErrors && missingRequired.length > 0 && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-caption text-destructive">
-          {t("accounting.settings.validation.missingRequired", { count: missingRequired.length })}
-        </p>
-      )}
+        {showErrors && missingRequired.length > 0 && (
+          <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-caption text-destructive">
+            {t("accounting.settings.validation.missingRequired", { count: missingRequired.length })}
+          </p>
+        )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {SECTIONS.map((section) => (
-          <EnterpriseCard key={section.titleKey} className="gap-0 py-3">
-            <EnterpriseCardHeader className="px-4 pb-2">
-              <EnterpriseCardTitle className="text-body">{t(section.titleKey)}</EnterpriseCardTitle>
-            </EnterpriseCardHeader>
-            <EnterpriseCardContent className="flex flex-col gap-2.5 px-4">
-              {section.hintKey ? (
-                <p className="text-caption text-muted-foreground">{t(section.hintKey)}</p>
-              ) : null}
-              {section.titleKey === "accounting.settings.sections.general" && (
-                <div className="flex flex-col gap-1">
-                  <label
-                    htmlFor={functionalCurrencyFieldId}
-                    className="text-caption text-muted-foreground"
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {SECTIONS.map((section) => (
+            <EnterpriseCard key={section.titleKey} className="gap-0 py-3">
+              <EnterpriseCardHeader className="px-4 pb-2">
+                <EnterpriseCardTitle className="text-body">
+                  {t(section.titleKey)}
+                </EnterpriseCardTitle>
+              </EnterpriseCardHeader>
+              <EnterpriseCardContent className="flex flex-col gap-2.5 px-4">
+                {section.hintKey ? (
+                  <p className="text-caption text-muted-foreground">{t(section.hintKey)}</p>
+                ) : null}
+                {section.titleKey === "accounting.settings.sections.general" && (
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor={functionalCurrencyFieldId}
+                      className="text-caption text-muted-foreground"
+                    >
+                      {t("accounting.settings.fields.functionalCurrency")}
+                    </label>
+                    {/* No clear: once set, the functional currency can only be changed, never emptied (unchanged behavior). */}
+                    <CurrencyPicker
+                      id={functionalCurrencyFieldId}
+                      disabled={!canManage}
+                      valueKey="id"
+                      value={functionalCurrency?.id ?? null}
+                      onValueChange={(nextId) => {
+                        const next = currencies.find((currency) => currency.id === nextId);
+                        if (next) setFunctionalCurrency(next);
+                      }}
+                    />
+                    <p
+                      className={
+                        functionalCurrency
+                          ? "text-caption text-muted-foreground"
+                          : "text-caption text-warning-foreground"
+                      }
+                    >
+                      {t(
+                        functionalCurrency
+                          ? "accounting.settings.fields.functionalCurrencyHint"
+                          : "accounting.settings.fields.functionalCurrencyMissing",
+                      )}
+                    </p>
+                  </div>
+                )}
+                {section.fields.map((field) => {
+                  const isMissing = showErrors && field.required && !values[field.key];
+                  return (
+                    <div key={field.key} className="flex flex-col gap-1">
+                      <label className="text-caption text-muted-foreground">
+                        {t(field.labelKey)}
+                        {field.required && <span className="text-destructive"> *</span>}
+                      </label>
+                      <AccountPicker
+                        value={values[field.key]}
+                        accountType={field.accountType}
+                        disabled={!canManage}
+                        onChange={(account) =>
+                          setValues((prev) => ({ ...prev, [field.key]: account }))
+                        }
+                      />
+                      {isMissing && (
+                        <p className="text-xs text-destructive">
+                          {t("accounting.settings.validation.required")}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </EnterpriseCardContent>
+            </EnterpriseCard>
+          ))}
+        </div>
+
+        {canViewInvestorSettings && (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <EnterpriseCard className="gap-0 py-3">
+              <EnterpriseCardHeader className="flex flex-row items-center justify-between px-4 pb-2">
+                <EnterpriseCardTitle className="text-body">
+                  {t("accounting.settings.sections.investors")}
+                </EnterpriseCardTitle>
+                {canConfigureInvestorSettings && (
+                  <EnterpriseButton
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={isInvestorSaving}
+                    onClick={handleSaveInvestor}
                   >
-                    {t("accounting.settings.fields.functionalCurrency")}
-                  </label>
-                  {/* No clear: once set, the functional currency can only be changed, never emptied (unchanged behavior). */}
-                  <CurrencyPicker
-                    id={functionalCurrencyFieldId}
-                    disabled={!canManage}
-                    valueKey="id"
-                    value={functionalCurrency?.id ?? null}
-                    onValueChange={(nextId) => {
-                      const next = currencies.find((currency) => currency.id === nextId);
-                      if (next) setFunctionalCurrency(next);
-                    }}
-                  />
-                  <p
-                    className={
-                      functionalCurrency
-                        ? "text-caption text-muted-foreground"
-                        : "text-caption text-warning-foreground"
-                    }
-                  >
-                    {t(
-                      functionalCurrency
-                        ? "accounting.settings.fields.functionalCurrencyHint"
-                        : "accounting.settings.fields.functionalCurrencyMissing",
-                    )}
-                  </p>
-                </div>
-              )}
-              {section.fields.map((field) => {
-                const isMissing = showErrors && field.required && !values[field.key];
-                return (
+                    {t("common.save")}
+                  </EnterpriseButton>
+                )}
+              </EnterpriseCardHeader>
+              <EnterpriseCardContent className="flex flex-col gap-2.5 px-4">
+                {INVESTOR_FIELDS.map((field) => (
                   <div key={field.key} className="flex flex-col gap-1">
                     <label className="text-caption text-muted-foreground">
                       {t(field.labelKey)}
-                      {field.required && <span className="text-destructive"> *</span>}
                     </label>
                     <AccountPicker
-                      value={values[field.key]}
-                      accountType={field.accountType}
-                      disabled={!canManage}
+                      value={investorValues[field.key]}
+                      disabled={!canConfigureInvestorSettings}
                       onChange={(account) =>
-                        setValues((prev) => ({ ...prev, [field.key]: account }))
+                        setInvestorValues((prev) => ({ ...prev, [field.key]: account }))
                       }
                     />
-                    {isMissing && (
-                      <p className="text-xs text-destructive">
-                        {t("accounting.settings.validation.required")}
-                      </p>
-                    )}
                   </div>
-                );
-              })}
-            </EnterpriseCardContent>
-          </EnterpriseCard>
-        ))}
+                ))}
+                <p className="text-caption text-muted-foreground">
+                  {t("accounting.settings.fields.capitalReturnNote")}
+                </p>
+              </EnterpriseCardContent>
+            </EnterpriseCard>
+          </div>
+        )}
       </div>
-
-      {canViewInvestorSettings && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <EnterpriseCard className="gap-0 py-3">
-            <EnterpriseCardHeader className="flex flex-row items-center justify-between px-4 pb-2">
-              <EnterpriseCardTitle className="text-body">
-                {t("accounting.settings.sections.investors")}
-              </EnterpriseCardTitle>
-              {canConfigureInvestorSettings && (
-                <EnterpriseButton
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  disabled={isInvestorSaving}
-                  onClick={handleSaveInvestor}
-                >
-                  {t("common.save")}
-                </EnterpriseButton>
-              )}
-            </EnterpriseCardHeader>
-            <EnterpriseCardContent className="flex flex-col gap-2.5 px-4">
-              {INVESTOR_FIELDS.map((field) => (
-                <div key={field.key} className="flex flex-col gap-1">
-                  <label className="text-caption text-muted-foreground">{t(field.labelKey)}</label>
-                  <AccountPicker
-                    value={investorValues[field.key]}
-                    disabled={!canConfigureInvestorSettings}
-                    onChange={(account) =>
-                      setInvestorValues((prev) => ({ ...prev, [field.key]: account }))
-                    }
-                  />
-                </div>
-              ))}
-              <p className="text-caption text-muted-foreground">
-                {t("accounting.settings.fields.capitalReturnNote")}
-              </p>
-            </EnterpriseCardContent>
-          </EnterpriseCard>
-        </div>
-      )}
-    </div>
+    </ControlSurface>
   );
 }

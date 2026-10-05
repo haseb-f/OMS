@@ -984,3 +984,27 @@ execution rules are unchanged. Contrast of every label on rest and hover is in `
   Quantity = 1 and calculated totals are unchanged. Use `MoneyInput` — never a bare number input for money.
 - **Caret**: the native text caret takes `--caret-color` (the focus-ring blue) on every input / textarea; never a
   simulated cursor.
+
+### 12.23 Contextual selectors, country defaults, one lookup, agent cards (Round 12, 2026-10-05)
+
+- **Two selector appearances, chosen by the container** (`ControlSurface` → `data-surface`, `theme/recipes.css`):
+  `toolbar` is the stronger blue progression of §12.14 / §12.15 (list toolbars, selector rows, filters, report headers —
+  the default); `form` is a very light blue surface (`color-mix` of `--ramp-blue` into white / card), ordinary
+  foreground text, a subtle blue hairline and a muted chip — for create / edit forms, dialogs, sheets, editor pages,
+  settings forms and inline cell editors. Only the `--selector*` tokens change, so hover / open / invalid / disabled /
+  keyboard focus are the same recipe in both, light and dark. `DialogContent`, `SheetContent`, `Form`,
+  `EditorWorkspace` and `PageWorkspace controlSurface="form"` provide `form`; `ListToolbar` and `SelectorRow`
+  restore `toolbar` inside a dialog. A control may pass `surface` explicitly; a status (`ghost`) trigger and the
+  labelled action `menu` never take a surface. Never colour a trigger locally; never key CSS on a route.
+- **Country → calling code + currency** (`config/orders/country-entry-defaults.ts`): the customer's country proposes
+  the phone's calling code (library metadata) and the order currency (`Country.defaultCurrencyId`, maintained in
+  Master data → Countries). Both stay editable; a manual choice is never overwritten; a typed number is never re-read
+  under another code; a country without a configured currency leaves the field empty with a hint (asked, never
+  guessed). Saved records keep their saved values. Phone country and delivery country are separate (delivery follows the
+  customer's country until "Different delivery country").
+- **One advanced lookup** ("بحث متقدم عن عميل"): phone in any format / Arabic digits, first + last name, or an OMS order
+  number, in one dialog with a compact paginated table (cards on phones). Previous orders are listed only for records
+  the caller can already open; everything else is masked and read-only. No second "search by phone / order number" button.
+- **Agent screens use the dashboard card language**: `InsightCard` / `InsightGroup` for headline figures and
+  `SummaryCard` (on the shared `InsightSurface`) for titled figure lists — tone follows meaning, static cards stay flat,
+  only drill-downs get hover / focus. Visibility of figures is unchanged (agent-visible vs company-only).

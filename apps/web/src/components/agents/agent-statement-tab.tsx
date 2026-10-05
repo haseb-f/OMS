@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Printer, Scale } from "lucide-react";
+import { Banknote, Percent, Printer, Scale, ShoppingBag, Wallet } from "lucide-react";
 import {
   EnterpriseDataTable,
   exportColumnsFromKeys,
@@ -347,6 +347,8 @@ export function AgentStatementTab({ agentId }: { agentId: string }) {
         <>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             <SummaryCard
+              tone="revenue"
+              icon={ShoppingBag}
               title={t("agents.statement.salesTitle")}
               currency={currency}
               rows={[
@@ -381,6 +383,8 @@ export function AgentStatementTab({ agentId }: { agentId: string }) {
               ]}
             />
             <SummaryCard
+              tone="warning"
+              icon={Percent}
               title={t("agents.statement.deductionsTitle")}
               currency={currency}
               rows={[
@@ -415,6 +419,8 @@ export function AgentStatementTab({ agentId }: { agentId: string }) {
               ]}
             />
             <SummaryCard
+              tone="success"
+              icon={Banknote}
               title={t("agents.statement.collectionsTitle")}
               currency={currency}
               rows={[
@@ -439,6 +445,8 @@ export function AgentStatementTab({ agentId }: { agentId: string }) {
               ]}
             />
             <SummaryCard
+              tone="info"
+              icon={Wallet}
               title={t("agents.statement.positionTitle")}
               currency={currency}
               rows={[
