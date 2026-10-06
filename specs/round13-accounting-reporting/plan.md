@@ -32,7 +32,7 @@ Databases: each agent tests against its own clone (`oms_a`, `oms_b`, …) via `D
 - [ ] B implemented + verified
 - [ ] C implemented + verified
 - [ ] D implemented + verified
-- [ ] E implemented + verified
+- [x] E implemented + verified (API metrics 10 + integration 8; web 87)
 - [ ] Integration: migrate, typecheck, lint, build, vitest, jest
 - [ ] Independent review (accounting, permissions, integration) + fixes
 - [ ] Browser journeys (one pass) + evidence
