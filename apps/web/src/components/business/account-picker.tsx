@@ -46,7 +46,9 @@ export function AccountPicker({
   id?: string;
   "aria-label"?: string;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
+  const accountName = (account: ChartOfAccountRow) =>
+    (locale === "en" && account.nameEn) || account.name;
   const excluded = new Set(excludeIds ?? []);
 
   return (
@@ -74,8 +76,10 @@ export function AccountPicker({
             }
       }
       getId={(account) => account.id}
-      getTitle={(account) => account.name}
-      getSearchText={(account) => `${account.code} ${account.parentAccount?.name ?? ""}`}
+      getTitle={accountName}
+      getSearchText={(account) =>
+        `${account.code} ${account.name} ${account.nameEn ?? ""} ${account.parentAccount?.name ?? ""}`
+      }
       getSubtitle={(account) =>
         account.parentAccount
           ? account.parentAccount.name

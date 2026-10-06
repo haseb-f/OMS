@@ -608,12 +608,11 @@ export class StoreOrdersService {
           'Invalid product, employee, or currency reference.',
         );
       }
-      // A concurrent submit with the same key won the unique column.
-      if (
-        creationKey &&
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
+      // A concurrent submit with the same key won: it may surface here as the
+      // key's unique violation, or earlier as any conflict its committed
+      // customer / phone key caused. Whenever an order now exists for this
+      // key, the same key replays it (a different payload is still a 409).
+      if (creationKey) {
         const concurrent = await this.findCreationReplay(
           creationKey,
           agentOrder ? undefined : userId,

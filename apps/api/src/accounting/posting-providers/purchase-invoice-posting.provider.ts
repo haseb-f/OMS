@@ -69,7 +69,7 @@ export class PurchaseInvoicePostingProvider
         items: {
           include: {
             product: { select: { isInventoryItem: true, categoryId: true } },
-            tax: { select: { id: true, isRecoverable: true } },
+            tax: { select: { id: true } },
           },
         },
       },

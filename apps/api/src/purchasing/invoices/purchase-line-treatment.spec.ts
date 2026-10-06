@@ -5,6 +5,7 @@ import {
   lineTaxIsCapitalized,
   lineTreatmentData,
   recognizedLineAmount,
+  shouldCapitalizeTax,
 } from './purchase-line-treatment';
 
 describe('capitalized line amount (R13b, O-2 / IAS 16)', () => {
@@ -14,7 +15,7 @@ describe('capitalized line amount (R13b, O-2 / IAS 16)', () => {
     const item = {
       ...base,
       treatment: PurchaseLineTreatment.FIXED_ASSET,
-      tax: { isRecoverable: false },
+      taxCapitalized: true,
     };
     expect(lineTaxIsCapitalized(item)).toBe(true);
     expect(recognizedLineAmount(item)).toBe(11400);
@@ -24,7 +25,7 @@ describe('capitalized line amount (R13b, O-2 / IAS 16)', () => {
     const item = {
       ...base,
       treatment: PurchaseLineTreatment.FIXED_ASSET,
-      tax: { isRecoverable: true },
+      taxCapitalized: false,
     };
     expect(lineTaxIsCapitalized(item)).toBe(false);
     expect(recognizedLineAmount(item)).toBe(10000);
@@ -35,10 +36,29 @@ describe('capitalized line amount (R13b, O-2 / IAS 16)', () => {
       PurchaseLineTreatment.PREPAID_EXPENSE,
       PurchaseLineTreatment.STANDARD,
     ]) {
-      const item = { ...base, treatment, tax: { isRecoverable: false } };
+      const item = { ...base, treatment, taxCapitalized: true };
       expect(lineTaxIsCapitalized(item)).toBe(false);
       expect(recognizedLineAmount(item)).toBe(10000);
     }
+  });
+});
+
+describe('confirm-time tax capitalization decision (R13b, O-2)', () => {
+  it('capitalizes only non-recoverable tax on a fixed asset line', () => {
+    const fa = PurchaseLineTreatment.FIXED_ASSET;
+    expect(
+      shouldCapitalizeTax({ treatment: fa, tax: { isRecoverable: false } }),
+    ).toBe(true);
+    expect(
+      shouldCapitalizeTax({ treatment: fa, tax: { isRecoverable: true } }),
+    ).toBe(false);
+    expect(shouldCapitalizeTax({ treatment: fa, tax: null })).toBe(false);
+    expect(
+      shouldCapitalizeTax({
+        treatment: PurchaseLineTreatment.PREPAID_EXPENSE,
+        tax: { isRecoverable: false },
+      }),
+    ).toBe(false);
   });
 });
 

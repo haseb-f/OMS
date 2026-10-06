@@ -41,6 +41,8 @@ BEGIN
   JOIN "chart_of_accounts" a ON a."id" = ps."default_expense_account_id"
   WHERE a."account_type" = 'EXPENSE'
     AND a."allows_posting" = true
+    -- Active = not archived: `chart_of_accounts` has no is_active / status column — archiving sets deleted_at
+    -- (the same test the expense voucher's own account check applies).
     AND a."deleted_at" IS NULL
   LIMIT 1;
 

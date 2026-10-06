@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   Param,
@@ -23,12 +24,15 @@ import {
   CurrentCompanyContext,
   type CompanyContext,
 } from '../../common/decorators/current-company-context.decorator';
+import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { FinancialTransactionsService } from '../financial-transactions.service';
 import { CreateExpensePaymentDto } from './dto/create-expense-payment.dto';
 import { UpdateExpensePaymentDto } from './dto/update-expense-payment.dto';
 import { FindExpensePaymentsQueryDto } from './dto/find-expense-payments-query.dto';
 
 const TYPE = FinancialTransactionType.EXPENSE_PAYMENT;
+/** Open purchase invoices are supplier-payment data — reading them also needs the Supplier Payments view right. */
+const SUPPLIER_PAYMENTS_VIEW = 'purchasing.payments.view';
 
 /**
  * Expense vouchers — the Expenses screen (R13 owner decision 2; the legacy
@@ -42,7 +46,10 @@ const TYPE = FinancialTransactionType.EXPENSE_PAYMENT;
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @PermissionModule('expense-payments')
 export class ExpensePaymentsController {
-  constructor(private readonly transactions: FinancialTransactionsService) {}
+  constructor(
+    private readonly transactions: FinancialTransactionsService,
+    private readonly permissions: PermissionsResolverService,
+  ) {}
 
   @Post()
   create(
@@ -78,13 +85,23 @@ export class ExpensePaymentsController {
   /**
    * Open (unpaid / partially paid) confirmed purchase invoices of the
    * chosen counterparty — so the user pays the invoice with a Supplier
-   * Payment instead of expensing an invoiced cost a second time.
+   * Payment instead of expensing an invoiced cost a second time. Requires
+   * `purchasing.payments.view` on top of the expense-voucher view right
+   * (403 otherwise — the web then hides the "Pay invoice instead" panel).
    */
   @Get('open-invoices')
-  openInvoices(
+  async openInvoices(
+    @CurrentUser() user: JwtPayload,
     @Query('partnerId', new ParseUUIDPipe({ optional: true }))
     partnerId?: string,
   ) {
+    if (
+      !(await this.permissions.hasPermission(user.sub, SUPPLIER_PAYMENTS_VIEW))
+    ) {
+      throw new ForbiddenException(
+        `Missing permission "${SUPPLIER_PAYMENTS_VIEW}".`,
+      );
+    }
     if (!partnerId) {
       throw new BadRequestException('partnerId is required.');
     }

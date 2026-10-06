@@ -82,7 +82,6 @@ export class PurchaseLineRecognitionService {
           },
           include: {
             product: { select: { name: true, displayName: true } },
-            tax: { select: { isRecoverable: true } },
             fixedAsset: true,
             prepaidExpense: { select: { id: true } },
           },

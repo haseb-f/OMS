@@ -563,8 +563,9 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
         fieldErrors={
           validationMode ? translateFieldErrors(errorKeys(validationMode === "post"), t) : undefined
         }
-        renderPartyPicker={({ disabled }) => (
+        renderPartyPicker={({ disabled, id }) => (
           <PartnerPicker
+            id={id}
             role="SUPPLIER"
             value={supplier}
             onChange={setSupplier}

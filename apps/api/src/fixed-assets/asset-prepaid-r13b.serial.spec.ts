@@ -30,7 +30,10 @@ import { PurchaseReturnsModule } from '../purchasing/returns/purchase-returns.mo
 import { PurchaseReturnsService } from '../purchasing/returns/purchase-returns.service';
 import type { PurchaseLineItemInputDto } from '../purchasing/shared/purchase-line-item-input.dto';
 import { FixedAssetsService } from './fixed-assets.service';
-import { PrepaidExpensesService } from '../prepaid-expenses/prepaid-expenses.service';
+import {
+  PrepaidExpensesService,
+  prepaidPeriods,
+} from '../prepaid-expenses/prepaid-expenses.service';
 
 /**
  * Round 13b (owner decisions O-1, O-2, O-3, O-8) on the real local Postgres
@@ -214,6 +217,8 @@ describe('R13b — asset / prepaid returns, closing, cost additions', () => {
         ),
       );
   }
+
+  const dateOnlyIso = (date: Date) => date.toISOString().slice(0, 10);
 
   function expectBalanced(lines: { debit: unknown; credit: unknown }[]) {
     const debit = lines.reduce((sum, l) => sum + Number(l.debit), 0);
@@ -694,6 +699,112 @@ describe('R13b — asset / prepaid returns, closing, cost additions', () => {
     );
   });
 
+  it('freezes tax capitalization at confirm: flipping the tax to recoverable later never changes the return (still Cr Fixed Assets, no VAT Input)', async () => {
+    const flipTax = await prisma.tax.create({
+      data: {
+        code: `R13B-FLIP-${tag}`,
+        name: `R13B flip 14% ${tag}`,
+        rate: 14,
+        isRecoverable: false,
+        inputAccountId: recoverableTax.inputAccountId,
+      },
+    });
+    const invoice = await confirmedInvoice('FA-FLIP', [
+      line({
+        description: `R13B Machine flip ${tag}`,
+        unitPrice: 10000,
+        taxId: flipTax.id,
+      }),
+    ]);
+    const item = invoice.items[0];
+    expect(
+      (
+        await prisma.purchaseInvoiceItem.findUniqueOrThrow({
+          where: { id: item.id },
+        })
+      ).taxCapitalized,
+    ).toBe(true);
+    const asset = await prisma.fixedAsset.findFirstOrThrow({
+      where: { purchaseInvoiceItemId: item.id },
+    });
+    expect(Number(asset.cost)).toBe(11400);
+
+    await prisma.tax.update({
+      where: { id: flipTax.id },
+      data: { isRecoverable: true },
+    });
+    const ret = await createReturn('FA-FLIP', invoice.id, [returnLine(item)]);
+    await confirmReturn(ret.id);
+    const [returnEntry] = await postedEntries('PURCHASE_RETURN', [ret.id]);
+    expectBalanced(returnEntry.lines);
+    expect(shape(returnEntry.lines)).toEqual(
+      shape([
+        {
+          accountId: apAccountId,
+          debit: 11400,
+          credit: 0,
+          partnerId: supplierId,
+        },
+        {
+          accountId: fixedAssetsAccountId,
+          debit: 0,
+          credit: 11400,
+          partnerId: null,
+        },
+      ]),
+    );
+    // Re-building the invoice entry from the frozen line gives the same posting.
+    const [invoiceEntry] = await postedEntries('PURCHASE_INVOICE', [
+      invoice.id,
+    ]);
+    expect(
+      invoiceEntry.lines.some(
+        (l) => l.accountId === recoverableTax.inputAccountId,
+      ),
+    ).toBe(false);
+  });
+
+  it('refuses a disposal credit or a prepaid refund to a partner without the SUPPLIER role', async () => {
+    const customer = await prisma.partner.create({
+      data: {
+        partnerNumber: `R13B-SUP-CUST-${tag}`,
+        name: `R13B Customer only ${tag}`,
+        roles: { create: { role: PartnerRoleType.CUSTOMER } },
+      },
+    });
+    const invoice = await confirmedInvoice('FA-ROLE', [
+      line({ description: `R13B Desk ${tag}`, unitPrice: 900 }),
+    ]);
+    const asset = await prisma.fixedAsset.findFirstOrThrow({
+      where: { purchaseInvoiceItemId: invoice.items[0].id },
+    });
+    await expect(
+      assets.dispose(asset.id, {
+        disposalAmount: 500,
+        counterpartyPartnerId: customer.id,
+      }),
+    ).rejects.toThrow(/SUPPLIER role/);
+    expect(
+      (await prisma.fixedAsset.findUniqueOrThrow({ where: { id: asset.id } }))
+        .status,
+    ).toBe(FixedAssetStatus.CAPITALIZED);
+
+    const prepaid = await activePrepaid('Role', 300, 3);
+    await expect(
+      prepaids.cancelWithRefund(prepaid.id, {
+        date: '1995-01-15',
+        partnerId: customer.id,
+      }),
+    ).rejects.toThrow(/SUPPLIER role/);
+    expect(
+      (
+        await prisma.prepaidExpense.findUniqueOrThrow({
+          where: { id: prepaid.id },
+        })
+      ).status,
+    ).toBe(PrepaidExpenseStatus.ACTIVE);
+  });
+
   it('adds a later cost to a capitalized asset: Dr Fixed Assets, cost grows, remaining periods re-spread prospectively, never a second asset', async () => {
     const invoice = await confirmedInvoice('FA-BASE', [
       line({
@@ -1125,7 +1236,7 @@ describe('R13b — asset / prepaid returns, closing, cost additions', () => {
           .trim(),
       )
       .filter(Boolean);
-    expect(statements).toHaveLength(7);
+    expect(statements).toHaveLength(8);
 
     const period = (
       start: string,
@@ -1149,7 +1260,8 @@ describe('R13b — asset / prepaid returns, closing, cost additions', () => {
             period('1994-02-01', '1994-02-28', 'PENDING'),
           ],
         },
-        accumulatedDepreciation: 100,
+        // The stored figure its disposal entry derecognized — never reset.
+        accumulatedDepreciation: 150,
       },
     });
     const archived = await prisma.fixedAsset.create({
@@ -1210,6 +1322,37 @@ describe('R13b — asset / prepaid returns, closing, cost additions', () => {
       },
     });
 
+    // App rollover (addUtcMonths): 31 Jan + 1 month = 3 Mar → end 2 Mar, never Postgres' clamped 27 Feb.
+    const appEnd = dateOnlyIso(prepaidPeriods(100, 1, '2026-01-31').endDate);
+    expect(appEnd).toBe('2026-03-02');
+    const rollover = await prisma.prepaidExpense.create({
+      data: {
+        prepaidNumber: `R13B-FIX-R-${tag}`,
+        name: `R13B Fix rollover ${tag}`,
+        amount: 100,
+        startDate: new Date('2026-01-31'),
+        endDate: new Date(appEnd),
+        totalPeriods: 1,
+        status: PrepaidExpenseStatus.DRAFT,
+        expenseAccountId,
+      },
+    });
+    const scheduled = await prisma.prepaidExpense.create({
+      data: {
+        prepaidNumber: `R13B-FIX-S-${tag}`,
+        name: `R13B Fix scheduled ${tag}`,
+        amount: 100,
+        startDate: new Date('1994-01-31'),
+        endDate: new Date('1994-02-27'),
+        totalPeriods: 1,
+        status: PrepaidExpenseStatus.ACTIVE,
+        expenseAccountId,
+        recognitions: {
+          create: [period('1994-01-31', '1994-03-02', 'PENDING')],
+        },
+      },
+    });
+
     const run = async () => {
       for (const statement of statements) {
         await prisma.$executeRawUnsafe(statement);
@@ -1237,6 +1380,22 @@ describe('R13b — asset / prepaid returns, closing, cost additions', () => {
         ).accumulatedDepreciation,
       ),
     ).toBe(0);
+    expect(
+      Number(
+        (
+          await prisma.fixedAsset.findUniqueOrThrow({
+            where: { id: disposed.id },
+          })
+        ).accumulatedDepreciation,
+      ),
+    ).toBe(150);
+    const endOf = async (id: string) =>
+      dateOnlyIso(
+        (await prisma.prepaidExpense.findUniqueOrThrow({ where: { id } }))
+          .endDate,
+      );
+    expect(await endOf(rollover.id)).toBe(appEnd);
+    expect(await endOf(scheduled.id)).toBe('1994-03-02');
     const fixedCompleted = await prisma.prepaidExpense.findUniqueOrThrow({
       where: { id: completed.id },
       include: { recognitions: true },

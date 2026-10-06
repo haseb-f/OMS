@@ -63,8 +63,12 @@ export class PurchaseReturnPostingProvider
         items: {
           include: {
             product: { select: { isInventoryItem: true, categoryId: true } },
-            tax: { select: { id: true, isRecoverable: true } },
-            purchaseInvoiceItem: { select: { treatment: true } },
+            tax: { select: { id: true } },
+            // Frozen at the invoice's Confirm — the return mirrors exactly
+            // what the invoice capitalized, never the tax's live flag.
+            purchaseInvoiceItem: {
+              select: { treatment: true, taxCapitalized: true },
+            },
           },
         },
       },
@@ -104,7 +108,11 @@ export class PurchaseReturnPostingProvider
       if (treatment !== PurchaseLineTreatment.STANDARD) {
         // One credit line per returned asset / prepayment line (never merged),
         // the exact mirror of the invoice's debit for it.
-        const amount = recognizedLineAmount({ ...item, treatment });
+        const amount = recognizedLineAmount({
+          ...item,
+          treatment,
+          taxCapitalized: item.purchaseInvoiceItem?.taxCapitalized ?? false,
+        });
         if (amount === 0) continue;
         lines.push({
           accountId:
@@ -151,7 +159,13 @@ export class PurchaseReturnPostingProvider
     );
     for (const item of purchaseReturn.items) {
       if (!item.tax || Number(item.taxAmount) === 0) continue;
-      if (lineTaxIsCapitalized({ ...item, treatment: treatmentOf(item) })) {
+      if (
+        lineTaxIsCapitalized({
+          ...item,
+          treatment: treatmentOf(item),
+          taxCapitalized: item.purchaseInvoiceItem?.taxCapitalized ?? false,
+        })
+      ) {
         continue;
       }
       taxAmounts.set(

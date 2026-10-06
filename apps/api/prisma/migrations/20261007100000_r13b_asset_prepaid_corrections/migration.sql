@@ -4,6 +4,8 @@
 --   * taxes.is_recoverable                     — non-recoverable input tax is capitalized on FIXED_ASSET lines (O-2, IAS 16)
 --   * purchase_invoice_items.linked_fixed_asset_id + fixed_asset_cost_additions
 --                                              — a later invoice line adds a directly attributable cost to an existing asset (O-2)
+--   * purchase_invoice_items.tax_capitalized   — the capitalization decision frozen at Confirm; invoice and return
+--                                                postings read it, never the tax's live is_recoverable (O-2)
 --   * fixed_assets.disposal_partner_id         — disposal proceeds settled as a supplier credit (O-1)
 --   * fixed_assets.purchase_return_id          — asset derecognized by a purchase return of its invoice line (O-1)
 --   * prepaid_expenses closure columns          — Cancel with refund / Recognize remaining now / purchase return (O-3)
@@ -31,7 +33,8 @@ ADD COLUMN     "refund_partner_id" UUID,
 ADD COLUMN     "refund_receiving_account_id" UUID;
 
 -- AlterTable
-ALTER TABLE "purchase_invoice_items" ADD COLUMN     "linked_fixed_asset_id" UUID;
+ALTER TABLE "purchase_invoice_items" ADD COLUMN     "linked_fixed_asset_id" UUID,
+ADD COLUMN     "tax_capitalized" BOOLEAN NOT NULL DEFAULT false;
 
 -- AlterTable
 ALTER TABLE "taxes" ADD COLUMN     "is_recoverable" BOOLEAN NOT NULL DEFAULT true;
@@ -109,10 +112,23 @@ WHERE e."id" = r."prepaid_expense_id"
   AND r."status" = 'PENDING'
   AND e."status" IN ('CANCELLED', 'COMPLETED');
 
--- (4) Prepaid end date is derived: start + total periods months − 1 day.
-UPDATE "prepaid_expenses"
-SET "end_date" = ("start_date" + make_interval(months => "total_periods") - INTERVAL '1 day')::date
-WHERE "end_date" <> ("start_date" + make_interval(months => "total_periods") - INTERVAL '1 day')::date;
+-- (4) Prepaid end date is derived exactly as the app derives it: the last day of the prepayment's own recognition
+--     schedule (max period_end) when it has one; otherwise start + total periods months − 1 day with the app's
+--     month ROLLOVER (`addUtcMonths`: Jan 31 + 1 month = Mar 3, never Postgres' clamped Feb 28) — first of the start
+--     month + N months + (day − 1) days.
+UPDATE "prepaid_expenses" e
+SET "end_date" = d."derived"
+FROM (
+  SELECT e2."id",
+         COALESCE(
+           (SELECT MAX(r."period_end") FROM "prepaid_recognitions" r WHERE r."prepaid_expense_id" = e2."id"),
+           (date_trunc('month', e2."start_date"::timestamp)
+              + make_interval(months => e2."total_periods", days => EXTRACT(DAY FROM e2."start_date")::int - 1)
+              - INTERVAL '1 day')::date
+         ) AS "derived"
+  FROM "prepaid_expenses" e2
+) d
+WHERE d."id" = e."id" AND e."end_date" <> d."derived";
 
 -- (5) An ACTIVE prepayment whose every recognition is POSTED is complete.
 UPDATE "prepaid_expenses" e
@@ -124,7 +140,9 @@ WHERE e."status" = 'ACTIVE'
     WHERE r."prepaid_expense_id" = e."id" AND r."status" <> 'POSTED'
   );
 
--- (6) Running totals equal the POSTED rows (each POSTED row has its own Posting Engine entry).
+-- (6) Running totals equal the POSTED rows (each POSTED row has its own Posting Engine entry). A DISPOSED asset keeps
+--     its stored figure: its disposal journal entry derecognized exactly that accumulated depreciation, so the record
+--     and the entry stay consistent.
 UPDATE "fixed_assets" a
 SET "accumulated_depreciation" = s.total
 FROM (
@@ -133,7 +151,7 @@ FROM (
   LEFT JOIN "fixed_asset_depreciation_periods" p ON p."fixed_asset_id" = a2."id"
   GROUP BY a2."id"
 ) s
-WHERE s."id" = a."id" AND a."accumulated_depreciation" <> s.total;
+WHERE s."id" = a."id" AND a."status" <> 'DISPOSED' AND a."accumulated_depreciation" <> s.total;
 
 UPDATE "prepaid_expenses" e
 SET "recognized_amount" = s.total + COALESCE(e."accelerated_amount", 0)
@@ -144,4 +162,15 @@ FROM (
   GROUP BY e2."id"
 ) s
 WHERE s."id" = e."id" AND e."recognized_amount" <> s.total + COALESCE(e."accelerated_amount", 0);
+-- (7) Freeze the tax-capitalization decision of already-confirmed FIXED_ASSET lines from the tax's current flag
+--     (the value their invoice posting used).
+UPDATE "purchase_invoice_items" i
+SET "tax_capitalized" = true
+FROM "purchase_invoices" pi, "taxes" t
+WHERE pi."id" = i."purchase_invoice_id"
+  AND t."id" = i."tax_id"
+  AND pi."status" IN ('CONFIRMED', 'CLOSED')
+  AND i."treatment" = 'FIXED_ASSET'
+  AND t."is_recoverable" = false
+  AND i."tax_capitalized" = false;
 -- R13b-DATA-FIX:END

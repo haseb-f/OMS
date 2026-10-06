@@ -1140,7 +1140,13 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
         post(users.empA, '/store-orders', body),
         post(users.empA, '/store-orders', body),
       ]);
-      for (const res of [a, b]) expect([200, 201]).toContain(res.status);
+      for (const res of [a, b]) {
+        if (![200, 201].includes(res.status)) {
+          throw new Error(
+            `double submit refused: ${res.status} ${JSON.stringify(res.body)}`,
+          );
+        }
+      }
       expect(a.body.id).toBe(b.body.id);
       expect(
         await prisma.storeOrder.count({

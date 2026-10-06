@@ -6494,6 +6494,10 @@ model PurchaseInvoiceItem {
   /// this existing asset instead of creating a new one.
   linkedFixedAssetId      String?               @map("linked_fixed_asset_id") @db.Uuid
   linkedFixedAsset        FixedAsset?           @relation("PurchaseLineCostAddition", fields: [linkedFixedAssetId], references: [id])
+  /// R13b (O-2, IAS 16) — frozen at Confirm: true when this FIXED_ASSET line's
+  /// tax was non-recoverable and was capitalized into the asset. The invoice
+  /// and return postings read this, never the tax's live `isRecoverable`.
+  taxCapitalized          Boolean               @default(false) @map("tax_capitalized")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")

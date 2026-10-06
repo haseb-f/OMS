@@ -1,0 +1,242 @@
+{
+  "tag": "R13B889447",
+  "base": "http://localhost:3001",
+  "ranAt": "2026-10-06T14:30:18.021Z",
+  "passed": 44,
+  "failed": 0,
+  "notCovered": [],
+  "screenshots": [
+    "r13b-expense-draft.png",
+    "r13b-expense-posted.png",
+    "r13b-expense-reversed.png",
+    "r13b-expense-pay-invoice.png",
+    "r13b-expense-ar-rtl.png",
+    "r13b-expense-mobile-390.png",
+    "r13b-fixed-asset-dispose-supplier-credit.png",
+    "r13b-prepaid-recognize-remaining.png",
+    "r13b-purchase-return-blocked.png",
+    "r13b-tax-recoverable.png"
+  ],
+  "results": [
+    {
+      "name": "setup: confirmed purchase invoice with a FIXED_ASSET line → capitalized asset with posted depreciation",
+      "ok": true,
+      "detail": "PI-2026-000001 FA-2026-000002 CAPITALIZED run posted=1 failed=0 postedPeriods=1"
+    },
+    {
+      "name": "setup: tagged ACTIVE prepaid expense",
+      "ok": true,
+      "detail": "PE-2026-000002 ACTIVE"
+    },
+    {
+      "name": "setup: tagged expense account, bank, cost centre, supplier",
+      "ok": true,
+      "detail": "R13B889447"
+    },
+    {
+      "name": "E1. /finance/expenses list loads",
+      "ok": true,
+      "detail": "Home Finance Expenses Search… ⌘K Command Palette Search modules and pages SA Expenses Record what the company spent. Sav"
+    },
+    {
+      "name": "E1. form: expense account, paid from and cost centre chosen on the form",
+      "ok": true,
+      "detail": "Home Finance Expenses New expense Search… ⌘K Command Palette Search modules and pages SA ExpenseEP-… 03 Oct 2026 · 123.45 Draft Save Confirm & post Transaction Type Operating expense Expense account R"
+    },
+    {
+      "name": "E1. Save draft → editor of the saved voucher",
+      "ok": true,
+      "detail": "http://localhost:3001/finance/expenses/37f10b7e-d757-4388-8f2a-57b46d2f1d96"
+    },
+    {
+      "name": "E1. API: draft saved with the chosen account / bank / cost centre / date and NO journal entry",
+      "ok": true,
+      "detail": "EP-2026-000400 DRAFT date=2026-10-03 amount=123.45 JEs=0"
+    },
+    {
+      "name": "E1. UI: posting state 'Not posted (draft)'",
+      "ok": true,
+      "detail": "Posting Not posted (draft) Notes More Details"
+    },
+    {
+      "name": "E1. Confirm & post asks for confirmation (Dr expense / Cr paid-from explained)",
+      "ok": true,
+      "detail": "Confirm & post this expense? A journal entry is posted now (Dr the expense account, Cr the paid-from account) and the expense can no longer be edited. Close Con"
+    },
+    {
+      "name": "E1. API: status posted (CONFIRMED)",
+      "ok": true,
+      "detail": "CONFIRMED"
+    },
+    {
+      "name": "E1. double-click Confirm → exactly one journal entry",
+      "ok": true,
+      "detail": "JV-2026-002066"
+    },
+    {
+      "name": "E1. API: entry balanced Dr expense account / Cr bank's ledger account, 123.45",
+      "ok": true,
+      "detail": "JV-2026-002066 Dr 512 123.45 / Cr FXTEST-BANK-4BE82D 123.45"
+    },
+    {
+      "name": "E1. API: entry dated on the expense date (back-dated, not the confirm date)",
+      "ok": true,
+      "detail": "entry 2026-10-03 expense 2026-10-03 confirmed 2026-10-06"
+    },
+    {
+      "name": "E1. API: cost centre carried to the journal entry (header; reports filter by it)",
+      "ok": true,
+      "detail": "line=null header=d8b1a586-7d4c-4e25-8a34-c137852f6863"
+    },
+    {
+      "name": "E1. UI: success toast + 'Posted' + journal entry number linked",
+      "ok": true,
+      "detail": "{\"toast\":true,\"badge\":true,\"number\":true,\"link\":true} toast=\"Expense EP-2026-000400 posted — journal entry created.\" JE=JV-2026-002066 Posting Posted JV-2026-002066 Notes More Details"
+    },
+    {
+      "name": "E1. journal entry link opens the entry preview",
+      "ok": true,
+      "detail": "Journal entry JV-2026-002066 Status Posted Date 03 Oct 2026 Reference EP-2026-000400 Description Expense Payment Voucher EP-2026-000400 Account Debit Credit 512"
+    },
+    {
+      "name": "E1. Reverse asks for confirmation (reversal entry explained)",
+      "ok": true,
+      "detail": "menu: Reverse this expense? A reversal journal entry is posted with today's date and the expense becomes Cancelled. Refused while today's accounti"
+    },
+    {
+      "name": "E1. API: Reverse → CANCELLED + balanced reversal entry mirroring the original",
+      "ok": true,
+      "detail": "CANCELLED original=JV-2026-002066(REVERSED) reversal=JV-2026-002067 reversalOf=true"
+    },
+    {
+      "name": "E1. UI: 'Reversed' + reversal entry linked on the voucher",
+      "ok": true,
+      "detail": "reversal=JV-2026-002067 shownOriginal=true"
+    },
+    {
+      "name": "E1b. new form, Confirm & post double-clicked → one voucher, posted once",
+      "ok": true,
+      "detail": "EP-2026-000401:CONFIRMED JEs=1 url=/finance/expenses/cc03931d-863f-479f-b0f7-d8f6484ba868"
+    },
+    {
+      "name": "E2. open purchase invoice warning shown for the supplier",
+      "ok": true,
+      "detail": "R13B889447 Supplier has 1 open purchase invoice(s) — 2,400.00 unpaid"
+    },
+    {
+      "name": "E2. 'Pay invoice instead' links to the supplier payment editor for that invoice",
+      "ok": true,
+      "detail": "/purchasing/payments/new?partnerId=032b6511-ed90-4b4e-8c72-1bd3305337cc&invoiceId=b1a675bf-b70f-484a-aa25-7fac55a1b0d5"
+    },
+    {
+      "name": "E2. clicking it opens the supplier payment editor",
+      "ok": true,
+      "detail": "/purchasing/payments/new Home Finance Supplier Payments New Payment Voucher Search… ⌘K Command Palette Search modules and pag"
+    },
+    {
+      "name": "E3. [ar] /finance/expenses renders RTL with Arabic labels",
+      "ok": true,
+      "detail": "rtl الرئيسية المالية المصروفات بحث… ⌘K لوحة الأوامر البحث في الوحدات والصفحات SA المصروفات سجّل ما أنفقت"
+    },
+    {
+      "name": "E3. [ar] /finance/expenses/new renders RTL with Arabic labels",
+      "ok": true,
+      "detail": "rtl الرئيسية المالية المصروفات مصروف جديد بحث… ⌘K لوحة الأوامر البحث في الوحدات والصفحات SA مصروفEP-… 06"
+    },
+    {
+      "name": "E3. [ar] reversed voucher shows 'معكوس' and the action bar in Arabic",
+      "ok": true,
+      "detail": "الرئيسية المالية المصروفات EP-2026-000400 بحث… ⌘K لوحة الأوامر البحث في الوحدات والصفحات SA السجلات المرتبطة القيود قيد يومية JV-2026-002066 معكوس قيد يومية JV-"
+    },
+    {
+      "name": "E3. [en] /finance/expenses renders LTR",
+      "ok": true,
+      "detail": "ltr"
+    },
+    {
+      "name": "E4. 390 px: /finance/expenses — no horizontal scroll",
+      "ok": true,
+      "detail": "{\"scrollW\":390,\"vw\":390,\"ok\":true}"
+    },
+    {
+      "name": "E4. 390 px: /finance/expenses/new — no horizontal scroll",
+      "ok": true,
+      "detail": "{\"scrollW\":390,\"vw\":390,\"ok\":true}"
+    },
+    {
+      "name": "E4. 390 px: /finance/expenses/:id — no horizontal scroll",
+      "ok": true,
+      "detail": "{\"scrollW\":390,\"vw\":390,\"ok\":true}"
+    },
+    {
+      "name": "F. dispose dialog offers 'Supplier credit' once proceeds > 0",
+      "ok": true,
+      "detail": "menu: Dispose / Write-off Depreciation through the disposal date is posted first; the remaining periods are cancelled, then the asset is derecognized. Disposal date Disposal Proceeds Proceeds settled as Cas"
+    },
+    {
+      "name": "F. supplier credit shows 'Supplier to credit' + the Accounts Payable hint",
+      "ok": true,
+      "detail": "Dispose / Write-off Depreciation through the disposal date is posted first; the remaining periods are cancelled, then the asset is derecognized. Disposal date Disposal Proceeds Proceeds settled as Cash received Supplier credit Supplier to credit Select Supplie"
+    },
+    {
+      "name": "P. 'Cancel with refund' dialog: balance reclaimed from the supplier + Refund to (supplier credit / cash)",
+      "ok": true,
+      "detail": "menu: Cancel with refund Recognitions due by the date are posted first. The unrecognized balance (1,200.00) is reclaimed from the supplier and the remaining periods are cancelled. Date Refund to Supplier credit Cash received Payment Source R13B889447 Bank Cancel Can"
+    },
+    {
+      "name": "P. 'Recognize remaining now' dialog: balance expensed on the date (not reclaimed)",
+      "ok": true,
+      "detail": "inline: Recognize remaining now Recognitions due by the date are posted first. The unrecognized balance (1,200.00) is expensed on that date and the remaining periods are cancelled. Date Cancel Recognize remaining now"
+    },
+    {
+      "name": "P. API: recognize remaining → COMPLETED (closure RECOGNIZED)",
+      "ok": true,
+      "detail": "COMPLETED closure=RECOGNIZED toast=\"Remaining balance recognized.\""
+    },
+    {
+      "name": "P. API: one balanced PREPAID_ACCELERATION entry Dr expense for the unrecognized balance",
+      "ok": true,
+      "detail": "JV-2026-002069 total=1200 remaining=1200"
+    },
+    {
+      "name": "P. UI: closed notice shown, early-closing actions gone",
+      "ok": true,
+      "detail": "Home Finance Prepaid Expenses PE-2026-000002 Search… ⌘K Command Palette Search modules and pages SA R13B889447 Annual licence PE-2026-000002 06 Oct 2026 → 05 Oct 2027 Completed Deferral entry: JV-2026"
+    },
+    {
+      "name": "R. API: returnable summary refuses the asset line (posted depreciation)",
+      "ok": true,
+      "detail": "Fixed asset FA-2026-000002 already has 1 posted depreciation period(s), so its invoice line cannot be returned. Dispose the asset to the supplier instead (Fixed asset → Dispose → supplier credit)."
+    },
+    {
+      "name": "R. return dialog shows 'Cannot be returned' with the reason (dispose to supplier instead)",
+      "ok": true,
+      "detail": "menu: Create Purchase Return Select which received lines are going back to the supplier. Product Quantity R13B889447 Office printer Cannot be returned Cannot be returned R13B889447 Office printer — Fixed asset FA-2026-000002 already has 1 posted depreciation period(s), so its invoice line cannot be return"
+    },
+    {
+      "name": "R. the blocked line cannot be selected",
+      "ok": true,
+      "detail": "checkboxes=1"
+    },
+    {
+      "name": "T. tax form shows 'Recoverable input tax' (default on)",
+      "ok": true,
+      "detail": "control=1 checked=true"
+    },
+    {
+      "name": "S. payment methods: tabs Methods / Channels / Receiving accounts",
+      "ok": true,
+      "detail": "Methods | Channels | Receiving accounts"
+    },
+    {
+      "name": "S. payment methods: Channels tab renders",
+      "ok": true,
+      "detail": "Payment channels The internal channel list (card, wallet, transfer…) with an optional fee estimate. "
+    },
+    {
+      "name": "S. sales reports Live loads (5 period cards, no error)",
+      "ok": true,
+      "detail": "5 cards"
+    }
+  ]
+}

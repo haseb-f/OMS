@@ -16,6 +16,7 @@ import { assertApprovalAuthority } from '../../common/workflow/approval-authorit
 import {
   assertLineTreatments,
   lineTreatmentData,
+  shouldCapitalizeTax,
 } from './purchase-line-treatment';
 import { PurchaseLineRecognitionService } from './purchase-line-recognition.service';
 import {
@@ -493,6 +494,28 @@ export class PurchaseInvoicesService {
         throw new BadRequestException(
           `Purchase Invoice ${invoice.invoiceNumber} was changed by someone else — reload and try again.`,
         );
+      }
+      // R13b (O-2) — freeze the tax-capitalization decision of every
+      // FIXED_ASSET line now: the posting below, the asset's cost and any
+      // later return all read this flag, never the tax's live recoverability.
+      const lines = await tx.purchaseInvoiceItem.findMany({
+        where: { purchaseInvoiceId: id, deletedAt: null },
+        select: {
+          id: true,
+          treatment: true,
+          tax: { select: { isRecoverable: true } },
+        },
+      });
+      for (const taxCapitalized of [true, false]) {
+        const ids = lines
+          .filter((line) => shouldCapitalizeTax(line) === taxCapitalized)
+          .map((line) => line.id);
+        if (ids.length > 0) {
+          await tx.purchaseInvoiceItem.updateMany({
+            where: { id: { in: ids } },
+            data: { taxCapitalized },
+          });
+        }
       }
       if (implicitApproval) {
         await this.activityService.log(

@@ -18,8 +18,14 @@ JOIN prepaid_expenses e ON e.id = r.prepaid_expense_id
 WHERE r.status = 'PENDING' AND e.status IN ('CANCELLED', 'COMPLETED')
 UNION ALL
 SELECT 'prepaid_end_date_not_derived', COUNT(*)
-FROM prepaid_expenses
-WHERE end_date <> (start_date + make_interval(months => total_periods) - INTERVAL '1 day')::date
+FROM prepaid_expenses e
+-- Same rule as the app and the migration: last period_end of the prepayment's own schedule; otherwise start + N months
+-- − 1 day with the app's month rollover (Jan 31 + 1 month = Mar 3, not Postgres' clamped Feb 28).
+WHERE e.end_date <> COALESCE(
+  (SELECT MAX(r.period_end) FROM prepaid_recognitions r WHERE r.prepaid_expense_id = e.id),
+  (date_trunc('month', e.start_date::timestamp)
+     + make_interval(months => e.total_periods, days => EXTRACT(DAY FROM e.start_date)::int - 1)
+     - INTERVAL '1 day')::date)
 UNION ALL
 SELECT 'prepaid_active_all_rows_posted', COUNT(*)
 FROM prepaid_expenses e
@@ -29,7 +35,8 @@ WHERE e.status = 'ACTIVE'
 UNION ALL
 SELECT 'asset_accumulated_not_sum_of_posted', COUNT(*)
 FROM fixed_assets a
-WHERE a.accumulated_depreciation <> COALESCE(
+-- A DISPOSED asset keeps the figure its disposal entry derecognized (not reset by the migration).
+WHERE a.status <> 'DISPOSED' AND a.accumulated_depreciation <> COALESCE(
   (SELECT SUM(p.amount) FROM fixed_asset_depreciation_periods p WHERE p.fixed_asset_id = a.id AND p.status = 'POSTED'), 0)
 UNION ALL
 SELECT 'prepaid_recognized_not_sum_of_posted', COUNT(*)

@@ -95,16 +95,33 @@ export class StoreOrdersController {
       res.status(200);
       return replay;
     }
-    const duplicate = await this.duplicates.enforce(
-      {
-        // Every supplied number — the Partner dedup matches phone AND mobile.
-        phones: [dto.partner.phone, dto.partner.mobile],
-        name: dto.partner.name,
-        countryId: dto.partner.countryId,
-      },
-      { kind: 'COMPANY', userId: user.sub },
-      dto.duplicateResolution,
-    );
+    let duplicate: Awaited<ReturnType<StoreOrderDuplicatesService['enforce']>>;
+    try {
+      duplicate = await this.duplicates.enforce(
+        {
+          // Every supplied number — the Partner dedup matches phone AND mobile.
+          phones: [dto.partner.phone, dto.partner.mobile],
+          name: dto.partner.name,
+          countryId: dto.partner.countryId,
+        },
+        { kind: 'COMPANY', userId: user.sub },
+        dto.duplicateResolution,
+      );
+    } catch (error) {
+      // A concurrent double submit: the first request committed its order
+      // (and customer) after this request's replay check, so the duplicate
+      // guard now sees that customer. The same key must replay, never refuse.
+      const lateReplay = await this.storeOrdersService.findCreationReplay(
+        creationIdempotencyKey,
+        user.sub,
+        creationPayloadHash,
+      );
+      if (lateReplay) {
+        res.status(200);
+        return lateReplay;
+      }
+      throw error;
+    }
     const options = { creationIdempotencyKey, creationPayloadHash, duplicate };
     // An optional declaration on create needs the same any-of permission as
     // the standalone declaration endpoint.

@@ -4,7 +4,6 @@ import { DisclosureTrigger } from "@/components/shared/disclosure-trigger";
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { EnterpriseCard, EnterpriseCardContent } from "@/components/ui/card";
-import { EnterpriseButton } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/shared/searchable-select";
@@ -102,7 +101,7 @@ export function FinancialTransactionEditor({
   isLoading?: boolean;
   disabled?: boolean;
   isBusy?: boolean;
-  renderPartyPicker: (props: { disabled: boolean }) => ReactNode;
+  renderPartyPicker: (props: { disabled: boolean; id: string }) => ReactNode;
   /** The Open Invoices + "Pay All Remaining" section — supplied by the page, since it depends on which invoice table (Sales vs Purchase) to query. */
   allocationSection?: ReactNode;
   /** Inline validation messages, shown under their fields (entered data is never cleared). */
@@ -315,16 +314,19 @@ export function FinancialTransactionEditor({
             data-invalid={fieldErrors?.party ? "true" : undefined}
             className="flex min-w-0 flex-col gap-1 lg:col-span-2"
           >
-            <label className="text-caption text-muted-foreground">{config.partyLabel}</label>
-            {renderPartyPicker({ disabled: !canEdit })}
+            <label htmlFor={`${fieldId}-party`} className="text-caption text-muted-foreground">
+              {config.partyLabel}
+            </label>
+            {renderPartyPicker({ disabled: !canEdit, id: `${fieldId}-party` })}
             <FieldMessage>{fieldErrors?.party}</FieldMessage>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-caption text-muted-foreground">
+            <label htmlFor={`${fieldId}-date`} className="text-caption text-muted-foreground">
               {config.fieldLabels?.transactionDate ??
                 t("financialTransactions.fields.transactionDate")}
             </label>
             <EnterpriseDatePicker
+              id={`${fieldId}-date`}
               value={state.transactionDate}
               onChange={handlers.onTransactionDateChange}
               disabled={!canEdit}

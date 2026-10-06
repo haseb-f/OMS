@@ -118,20 +118,34 @@ export interface CapitalizableLine {
   treatment: PurchaseLineTreatment;
   lineTotal: Prisma.Decimal | number;
   taxAmount: Prisma.Decimal | number;
-  tax?: { isRecoverable: boolean } | null;
+  /** Frozen on the invoice line at Confirm (`purchase_invoice_items.tax_capitalized`). */
+  taxCapitalized: boolean;
 }
 
 /**
  * R13b (O-2, IAS 16) — tax on a FIXED_ASSET line that cannot be reclaimed is
  * part of the asset's cost: it is debited to Fixed Assets with the net
- * amount and never to VAT Input. Recoverable tax stays VAT Input.
+ * amount and never to VAT Input. Recoverable tax stays VAT Input. The
+ * decision is frozen on the invoice line at Confirm — a later change of the
+ * tax's `isRecoverable` flag never re-reads history (invoice or return).
  */
 export function lineTaxIsCapitalized(item: CapitalizableLine): boolean {
   return (
     item.treatment === PurchaseLineTreatment.FIXED_ASSET &&
-    item.tax != null &&
-    !item.tax.isRecoverable &&
+    item.taxCapitalized &&
     Number(item.taxAmount) !== 0
+  );
+}
+
+/** The Confirm-time capitalization decision for an invoice line (frozen into `taxCapitalized`). */
+export function shouldCapitalizeTax(item: {
+  treatment: PurchaseLineTreatment;
+  tax?: { isRecoverable: boolean } | null;
+}): boolean {
+  return (
+    item.treatment === PurchaseLineTreatment.FIXED_ASSET &&
+    item.tax != null &&
+    !item.tax.isRecoverable
   );
 }
 

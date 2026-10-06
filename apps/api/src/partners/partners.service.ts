@@ -713,7 +713,19 @@ export class PartnersService extends MasterDataCrudService<
       return { partner, created: true };
     } catch (error) {
       // O3 race: a concurrent create claimed the same number first — reuse it.
-      const winnerId = phoneInUsePartnerId(error);
+      // It surfaces either as the phone-key claim or, when the winner had
+      // already committed, as create()'s duplicate check; a partner found now
+      // (none existed a moment ago) is that winner.
+      const winnerId =
+        phoneInUsePartnerId(error) ??
+        (
+          await this.findDuplicate(
+            [phone, mobile],
+            dto.email ?? undefined,
+            dto.taxNumber,
+            dto.commercialRegistration,
+          )
+        )?.id;
       if (!winnerId) throw error;
       const partner = await this.useExistingWithRole(
         winnerId,

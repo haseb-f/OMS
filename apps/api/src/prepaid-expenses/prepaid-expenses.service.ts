@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   AccountingScheduleStatus,
+  PartnerRoleType,
   PrepaidClosureType,
   PrepaidExpenseStatus,
   PrepaidRecognition,
@@ -27,6 +28,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
 import { ExchangeRatesService } from '../accounting/fx/exchange-rates.service';
+import { PartnersService } from '../partners/partners.service';
 import { todayBusinessDate } from '../common/time/business-date';
 import {
   CancelPrepaidDto,
@@ -111,6 +113,7 @@ export class PrepaidExpensesService {
     private readonly postingEngine: PostingEngineService,
     private readonly exchangeRates: ExchangeRatesService,
     private readonly activityLog: MasterDataActivityLogService,
+    private readonly partnersService: PartnersService,
   ) {}
 
   async create(dto: CreatePrepaidExpenseDto, userId?: string) {
@@ -687,13 +690,12 @@ export class PrepaidExpensesService {
       );
     }
     if (request.partnerId) {
-      const partner = await tx.partner.findFirst({
-        where: { id: request.partnerId, deletedAt: null },
-        select: { id: true },
-      });
-      if (!partner) {
-        throw new BadRequestException('The supplier to credit was not found.');
-      }
+      // An active partner holding the SUPPLIER role — the same rule as the
+      // expense voucher's counterparty (the refund credits its payable).
+      await this.partnersService.assertActiveForRole(
+        request.partnerId,
+        PartnerRoleType.SUPPLIER,
+      );
     }
     if (request.receivingAccountId) {
       const account = await tx.receivingAccount.findFirst({

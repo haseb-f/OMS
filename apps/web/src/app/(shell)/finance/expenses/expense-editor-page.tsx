@@ -169,9 +169,11 @@ export function ExpenseEditorPage({ id }: { id: string | null }) {
   const status = voucher?.status ?? "DRAFT";
   const isDraft = status === "DRAFT";
 
-  // Open purchase invoices of the counterparty — only while the expense can still change.
+  // Open purchase invoices of the counterparty — only while the expense can still change, and only for a
+  // user who may see supplier payments (the API answers 403 otherwise; the panel then simply stays hidden).
+  const canViewOpenInvoices = hasPermission("purchasing.payments.view");
   useEffect(() => {
-    if (!counterparty || !isDraft) {
+    if (!counterparty || !isDraft || !canViewOpenInvoices) {
       setOpenInvoices([]);
       return;
     }
@@ -187,7 +189,7 @@ export function ExpenseEditorPage({ id }: { id: string | null }) {
     return () => {
       cancelled = true;
     };
-  }, [counterparty, isDraft]);
+  }, [counterparty, isDraft, canViewOpenInvoices]);
 
   // Exchange rate for a foreign currency: the rate on the expense date (a
   // posted voucher shows its frozen rate; the check supplies the base code).
@@ -638,9 +640,9 @@ export function ExpenseEditorPage({ id }: { id: string | null }) {
         extraFields={extraFields}
         afterMainForm={afterMainForm}
         fieldErrors={errorKeys ? translateFieldErrors(errorKeys, t) : undefined}
-        renderPartyPicker={({ disabled }) => (
+        renderPartyPicker={({ disabled, id }) => (
           <AccountPicker
-            id={`${fieldId}-expenseAccount`}
+            id={id}
             accountType="EXPENSE"
             postingOnly
             value={expenseAccount}

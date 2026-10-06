@@ -9,6 +9,7 @@ import {
   FixedAsset,
   FixedAssetDepreciationPeriod,
   FixedAssetStatus,
+  PartnerRoleType,
   Prisma,
   PurchaseDocumentStatus,
   PurchaseLineTreatment,
@@ -33,6 +34,7 @@ import {
 } from './dto/lifecycle.dto';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
+import { PartnersService } from '../partners/partners.service';
 import {
   buildDepreciationSchedule,
   withRunningTotals,
@@ -98,6 +100,7 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
     activityLog: MasterDataActivityLogService,
     private readonly numberingEngine: NumberingEngineService,
     private readonly postingEngine: PostingEngineService,
+    private readonly partnersService: PartnersService,
   ) {
     super(prisma, activityLog);
   }
@@ -609,13 +612,12 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
           'Enter the amount the supplier credits for the asset.',
         );
       }
-      const partner = await this.prisma.partner.findFirst({
-        where: { id: dto.counterpartyPartnerId, deletedAt: null },
-        select: { id: true },
-      });
-      if (!partner) {
-        throw new BadRequestException('The supplier to credit was not found.');
-      }
+      // An active partner holding the SUPPLIER role — the same rule as the
+      // expense voucher's counterparty (the credit goes to its payable).
+      await this.partnersService.assertActiveForRole(
+        dto.counterpartyPartnerId,
+        PartnerRoleType.SUPPLIER,
+      );
     }
     const today = todayBusinessDate();
     const disposalDate = dto.disposalDate

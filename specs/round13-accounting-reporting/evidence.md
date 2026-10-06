@@ -30,3 +30,16 @@ Local stack: web :3001 (`next start`, production build), API :3005 (`node dist/s
 ## Review
 
 `review.md` — independent review: 0 blockers; 5 should-fix + minors fixed in `0212f2b`; 2 lock races documented.
+
+## R13b release candidate (owner decisions, combined with the inventory R13 already on `main`)
+
+| Gate                                                                    | Result                                                                                                                                              |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local DB rebuilt from the full migration chain + seed + go-live fixture | pass (same chain Production runs: 6 pending migrations after `20261006090000`)                                                                      |
+| Typecheck / ESLint / build                                              | pass / 0 errors / pass                                                                                                                              |
+| Vitest                                                                  | 141 files / 1006 tests                                                                                                                              |
+| Jest                                                                    | 193 suites / 2347 tests — 5 consecutive full runs clean after fixing the concurrent double-submit race (partner find-or-create + late order replay) |
+| Jest serial (incl. inventory integrity on `oms_r13`)                    | 163 / 163                                                                                                                                           |
+| Browser                                                                 | R13 74/74 + R13b 44/44 (`evidence/r13b-browser.md`)                                                                                                 |
+| Independent review                                                      | 0 blockers; 2 should-fix (prepaid end-date SQL vs app rollover; tax recoverability frozen on the line) + minors — all fixed                         |
+| Payment-match preflight (local)                                         | 0 duplicate groups; migration consolidates and always creates the index (tested with synthetic duplicates)                                          |
