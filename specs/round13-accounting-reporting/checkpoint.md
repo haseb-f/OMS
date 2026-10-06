@@ -1,6 +1,6 @@
 # Round 13 — recovery checkpoint
 
-**Last update:** 2026-10-06 — specs committed (f3e1c52); six implementation agents running (A-ui, A-order, B, C, D, E). Per-agent DBs oms_a…oms_e cloned from `oms` after the fixture.
+**Last update:** 2026-10-06 — all six scopes implemented and integrated in `5a2b911` (gates green). Independent review + browser acceptance running.
 
 ## Environment (recreate after a container restart)
 
@@ -17,6 +17,9 @@
 
 See `plan.md` checklist. Agents are not durable across a restart: after interruption, run `git status`, compare against the ownership table, and re-dispatch only unfinished scopes.
 
-## Next action
+## Local preview
+- API: `cd apps/api && set -a && . ./.env && set +a && node dist/src/main` (nest build emits `dist/src/main.js`; `start:prod` path is pre-existing and stale) → :3005.
+- Web: `cd apps/web && npx next start -p 3001` after `pnpm build`.
 
-Wait for agent reports; review each diff centrally (ownership table in plan.md); then integration gates on DB `oms`. If agents were lost to a restart: `git status` shows their partial work — re-dispatch only the unfinished scope with the same prompt section from plan.md.
+## Next action
+Apply reviewer findings (blockers/should-fix), re-run gates, finalize `evidence.md` from agent evidence + browser run, Arabic handoff.
