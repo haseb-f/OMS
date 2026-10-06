@@ -19,6 +19,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import {
   PhoneNumberService,
+  ambiguousPhoneMessage,
   phoneErrorMessage,
 } from '../common/phone/phone-number.service';
 import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
@@ -185,9 +186,16 @@ export class PartnersService extends MasterDataCrudService<
       }
       return result.e164;
     }
-    const [e164] = this.phoneNumberService.lookupCandidates(value, null, true);
+    const { e164, ambiguous } =
+      this.phoneNumberService.resolveWithoutCountry(value);
     if (e164) return e164;
     if (keepAsIs.includes(value)) return value;
+    if (ambiguous.length > 0) {
+      throw new BadRequestException({
+        code: 'PHONE_AMBIGUOUS',
+        message: ambiguousPhoneMessage(ambiguous),
+      });
+    }
     throw new BadRequestException(
       result.errorReason === 'NOT_A_NUMBER'
         ? phoneErrorMessage('NOT_A_NUMBER')

@@ -78,7 +78,9 @@ export class ReceivingAccountsController {
     return this.receivingAccountsService.archive(id, user.sub);
   }
 
+  /** Same authority as Archive — un-archiving is the other half of the soft-delete. */
   @Post(':id/restore')
+  @PermissionAction('delete')
   restore(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.receivingAccountsService.restore(id, user.sub);
   }

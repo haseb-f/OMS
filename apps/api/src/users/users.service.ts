@@ -10,6 +10,7 @@ import { uniqueFieldFromPrismaError } from '../common/errors/prisma-unique-field
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
 import {
   PhoneNumberService,
+  ambiguousPhoneMessage,
   phoneErrorMessage,
 } from '../common/phone/phone-number.service';
 import {
@@ -138,7 +139,15 @@ export class UsersService {
     value: string | undefined | null,
   ): string | undefined {
     if (!value?.trim()) return undefined;
-    const [e164] = this.phoneNumberService.lookupCandidates(value, null, true);
+    const { e164, ambiguous } =
+      this.phoneNumberService.resolveWithoutCountry(value);
+    if (ambiguous.length > 0) {
+      throw new BadRequestException({
+        code: 'PHONE_AMBIGUOUS',
+        message: ambiguousPhoneMessage(ambiguous),
+        fields: [{ field: 'mobile', constraints: ['ambiguous_country'] }],
+      });
+    }
     if (!e164) {
       throw new BadRequestException(
         phoneErrorMessage(this.phoneNumberService.parse(value).errorReason),

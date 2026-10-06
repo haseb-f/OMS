@@ -249,9 +249,18 @@ export class PurchaseLineRecognitionService {
         `${asset.code}: salvage value ${salvage} exceeds the invoice line amount ${line.baseAmount}.`,
       );
     }
-    const months = asset.usefulLifeMonths ?? line.months ?? 0;
-    const method = asset.depreciationMethod ?? line.method ?? 'STRAIGHT_LINE';
-    const start = asset.depreciationStartDate ?? line.start ?? line.postedOn;
+    // The invoice line is authoritative for what it specifies (the draft's method always
+    // carries a DB default, so "set on the draft" cannot be told apart from "defaulted");
+    // the draft asset fills only what the line leaves empty.
+    const months = line.months ?? asset.usefulLifeMonths ?? 0;
+    const method = line.method ?? asset.depreciationMethod ?? 'STRAIGHT_LINE';
+    const requestedStart =
+      line.start ?? asset.depreciationStartDate ?? line.postedOn;
+    // Depreciation never starts before the acquisition (= the confirmation date set below).
+    const start =
+      requestedStart.getTime() < line.postedOn.getTime()
+        ? line.postedOn
+        : requestedStart;
     await tx.fixedAssetDepreciationPeriod.deleteMany({
       where: { fixedAssetId: asset.id },
     });

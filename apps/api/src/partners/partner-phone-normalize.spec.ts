@@ -42,9 +42,27 @@ describe('PartnersService.normalizePartnerPhone', () => {
     await expect(
       service.normalizePartnerPhone('00966501234567', null),
     ).resolves.toBe('+966501234567');
-    // A bare national number: the first valid primary-market reading (SA first).
+    // A bare national number with exactly one valid primary-market reading.
     await expect(
-      service.normalizePartnerPhone('0501234567', undefined),
+      service.normalizePartnerPhone('01001234567', undefined),
+    ).resolves.toBe('+201001234567');
+  });
+
+  it('refuses to guess a bare number that is valid in several markets — the user chooses the calling code', async () => {
+    const error = await service
+      .normalizePartnerPhone('0501234567', undefined)
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(BadRequestException);
+    const body = (error as BadRequestException).getResponse() as {
+      code: string;
+      message: string;
+    };
+    expect(body.code).toBe('PHONE_AMBIGUOUS');
+    expect(body.message).toContain('+966501234567');
+    expect(body.message).toContain('+971501234567');
+    // With the calling code chosen, the same digits are accepted.
+    await expect(
+      service.normalizePartnerPhone('0501234567', 'sa'),
     ).resolves.toBe('+966501234567');
   });
 

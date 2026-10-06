@@ -157,6 +157,15 @@ export function phoneErrorMessage(reason: PhoneErrorReason | null): string {
 }
 
 /**
+ * A bare national number typed without a calling code that is valid in more
+ * than one fallback market (e.g. 05… is a mobile in both SA and AE): saving it
+ * must never guess — the user chooses the calling code.
+ */
+export function ambiguousPhoneMessage(readings: readonly string[]): string {
+  return `This number is valid in more than one country (${readings.join(', ')}) — choose its calling code or enter it with the country code (+…).`;
+}
+
+/**
  * The ONE place in the API that understands phone numbers — every module
  * with a phone/mobile field (Leads, Customers, Suppliers, Users, Sales
  * Orders' snapshot, Import Center) goes through this instead of hand-rolling
@@ -383,6 +392,21 @@ export class PhoneNumberService {
       if (narrow && out.size > 0) break;
     }
     return [...out];
+  }
+
+  /**
+   * Saving a phone with no chosen country: the one valid reading (`e164`),
+   * or — when the number reads validly in more than one fallback market —
+   * `e164: null` and every distinct reading in `ambiguous`, so the caller
+   * asks for the calling code instead of silently picking the first market.
+   */
+  resolveWithoutCountry(rawInput: string | null | undefined): {
+    e164: string | null;
+    ambiguous: string[];
+  } {
+    const readings = this.lookupCandidates(rawInput, null);
+    if (readings.length > 1) return { e164: null, ambiguous: readings };
+    return { e164: readings[0] ?? null, ambiguous: [] };
   }
 
   /** Convenience — E.164 string when valid, `null` otherwise. Never throws. */

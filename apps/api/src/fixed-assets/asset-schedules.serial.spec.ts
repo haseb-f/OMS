@@ -1,4 +1,5 @@
 import { Test, type TestingModule } from '@nestjs/testing';
+import { ConflictException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import {
   AccountingScheduleStatus,
@@ -483,6 +484,73 @@ describe('Fixed asset / prepaid schedules — lifecycle', () => {
     expect(detail.journalEntries.disposal?.id).toBe(disposal.id);
   });
 
+  it('a racing second disposal / capitalization is refused with 409 and changes nothing', async () => {
+    const assetD = await capitalizedAsset('Asset D', 300, 3, '1995-01-01');
+    // The racing request read the asset while it was still CAPITALIZED (stale snapshot).
+    const stale = await assets.findOne(assetD.id);
+    await assets.dispose(assetD.id, {
+      disposalDate: '1995-02-15',
+      disposalAmount: 50,
+      disposalNotes: 'first',
+      receivingAccountId,
+    });
+    const first = await prisma.fixedAsset.findUniqueOrThrow({
+      where: { id: assetD.id },
+    });
+    const spy = jest.spyOn(assets, 'findOne').mockResolvedValueOnce(stale);
+    await expect(
+      assets.dispose(assetD.id, {
+        disposalDate: '1995-02-20',
+        disposalAmount: 999,
+        disposalNotes: 'second',
+        receivingAccountId,
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    spy.mockRestore();
+    const after = await prisma.fixedAsset.findUniqueOrThrow({
+      where: { id: assetD.id },
+    });
+    expect(after.status).toBe(FixedAssetStatus.DISPOSED);
+    expect(after.disposedAt).toEqual(first.disposedAt);
+    expect(Number(after.disposalAmount)).toBe(50);
+    expect(after.disposalNotes).toBe('first');
+    expect(
+      await postedEntries('FIXED_ASSET_DISPOSAL', [assetD.id]),
+    ).toHaveLength(1);
+
+    // Capitalize: a stale DRAFT snapshot of an already-capitalized asset → 409, schedule kept.
+    const draft = await assets.create({
+      name: `C13 Asset E ${tag}`,
+      acquisitionDate: '1995-01-01',
+      cost: 120,
+      depreciationStartDate: '1995-01-01',
+    });
+    const staleDraft = await assets.findOne(draft.id);
+    await assets.capitalize(draft.id, {
+      usefulLifeMonths: 2,
+      partnerId: supplierId,
+    });
+    const capSpy = jest
+      .spyOn(assets, 'findOne')
+      .mockResolvedValueOnce(staleDraft);
+    await expect(
+      assets.capitalize(draft.id, {
+        usefulLifeMonths: 12,
+        partnerId: supplierId,
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    capSpy.mockRestore();
+    const capitalized = await prisma.fixedAsset.findUniqueOrThrow({
+      where: { id: draft.id },
+      include: { depreciationPeriods: true },
+    });
+    expect(capitalized.usefulLifeMonths).toBe(2);
+    expect(capitalized.depreciationPeriods).toHaveLength(2);
+    expect(
+      await postedEntries('FIXED_ASSET_CAPITALIZATION', [draft.id]),
+    ).toHaveLength(1);
+  });
+
   it('refuses a disposal whose catch-up falls in a locked period — nothing changes', async () => {
     const assetB = await capitalizedAsset('Asset B', 600, 6, '1995-09-01');
     const octId = await lockMonth('10');
@@ -712,5 +780,48 @@ describe('Fixed asset / prepaid schedules — lifecycle', () => {
     );
     expect(faLines).toHaveLength(1);
     expect(Number(faLines[0].debit)).toBe(net);
+  });
+
+  it('an adopted DRAFT asset takes the invoice line life / method / start; the start never precedes acquisition', async () => {
+    const draft = await assets.create({
+      name: `C13 Adopted params ${tag}`,
+      acquisitionDate: '2020-01-01',
+      cost: 1,
+      usefulLifeMonths: 6,
+      depreciationStartDate: '2020-01-01',
+    });
+    const invoice = await invoices.create({
+      partnerId: supplierId,
+      referenceNumber: `C13-ADOPT-${tag}`,
+      items: [
+        {
+          productId: product.id,
+          unitId: product.unitId,
+          warehouseId,
+          quantity: 1,
+          unitPrice: 2400,
+          treatment: PurchaseLineTreatment.FIXED_ASSET,
+          assetUsefulLifeMonths: 24,
+          assetDepreciationMethod: 'DECLINING_BALANCE',
+          scheduleStartDate: '2020-02-01',
+        },
+      ],
+    });
+    await assets.linkInvoiceLine(draft.id, {
+      purchaseInvoiceItemId: invoice.items[0].id,
+    });
+    await confirmInvoice(invoice.id);
+    const adopted = await prisma.fixedAsset.findUniqueOrThrow({
+      where: { id: draft.id },
+      include: { depreciationPeriods: true },
+    });
+    expect(adopted.status).toBe(FixedAssetStatus.CAPITALIZED);
+    expect(adopted.usefulLifeMonths).toBe(24);
+    expect(adopted.depreciationMethod).toBe('DECLINING_BALANCE');
+    expect(adopted.depreciationPeriods).toHaveLength(24);
+    // The line asked for 2020-02-01, before the confirmation date → clamped to acquisition.
+    expect(adopted.depreciationStartDate?.getTime()).toBe(
+      adopted.acquisitionDate.getTime(),
+    );
   });
 });

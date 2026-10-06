@@ -209,6 +209,42 @@ describeDb('R13 B1 — chart of accounts invariants (local DB)', () => {
     expect(withChildren.code).toBe('ACCOUNT_KIND_FROZEN');
   });
 
+  it('inv 2 — Posting → Group is refused while a posting destination still references the account', async () => {
+    const target = await account('POSTING');
+    const method = await prisma.paymentMethod.create({
+      data: { name: `${tag} method`, accountId: target.id },
+    });
+    const receiving = await prisma.receivingAccount.create({
+      data: {
+        name: `${tag} bank`,
+        code: `${tag}-RA`,
+        chartOfAccountId: target.id,
+      },
+    });
+    try {
+      const refused = await errorOf(
+        coa.update(target.id, { accountKind: 'GROUP' }, userId),
+      );
+      expect(refused.code).toBe('ACCOUNT_KIND_FROZEN');
+      expect(refused.message).toContain('طريقة دفع (1)');
+      expect(refused.message).toContain('حساب استلام (1)');
+      const unchanged = await prisma.chartOfAccount.findUniqueOrThrow({
+        where: { id: target.id },
+      });
+      expect(unchanged.allowsPosting).toBe(true);
+    } finally {
+      await prisma.paymentMethod.delete({ where: { id: method.id } });
+      await prisma.receivingAccount.delete({ where: { id: receiving.id } });
+    }
+    // Once nothing points at it, the conversion goes through.
+    const converted = await coa.update(
+      target.id,
+      { accountKind: 'GROUP' },
+      userId,
+    );
+    expect(converted.allowsPosting).toBe(false);
+  });
+
   it('inv 2 — archiving the last child leaves the parent a Group', async () => {
     const parent = await account('GROUP');
     const child = await account('POSTING', parent.id);

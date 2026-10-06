@@ -34,6 +34,7 @@ import {
 } from './payment-statements.service';
 import { PaymentMatchingService } from './payment-matching.service';
 import { PaymentReconciliationService } from './payment-reconciliation.service';
+import { PaymentReviewService } from '../payments/payment-review.service';
 import type { StatementMappingConfig } from './statement-row.util';
 
 /**
@@ -296,11 +297,34 @@ describeDb('R13 payment methods + statements (local DB)', () => {
         const other = await tx.paymentMethod.create({
           data: { name: `Unmatched ${tag}` },
         });
-        for (const sql of scopedBackfillStatements([byName.id, other.id])) {
+        // Two active sources reading the same name (case / spacing): the default one wins,
+        // then sort order — never an arbitrary row.
+        await tx.paymentSource.create({
+          data: { name: `twin ${tag}`, isActive: true, sortOrder: -5 },
+        });
+        const twinDefault = await tx.paymentSource.create({
+          data: {
+            name: ` TWIN ${tag} `,
+            isActive: true,
+            isDefault: true,
+            sortOrder: 50,
+          },
+        });
+        await tx.paymentSource.create({
+          data: { name: `Twin ${tag}`, isActive: true, sortOrder: -10 },
+        });
+        const twin = await tx.paymentMethod.create({
+          data: { name: `Twin ${tag}` },
+        });
+        for (const sql of scopedBackfillStatements([
+          byName.id,
+          other.id,
+          twin.id,
+        ])) {
           await tx.$executeRawUnsafe(sql);
         }
         const rows = await tx.paymentMethod.findMany({
-          where: { id: { in: [byName.id, other.id] } },
+          where: { id: { in: [byName.id, other.id, twin.id] } },
           select: { id: true, paymentSourceId: true },
         });
         const get = (id: string) =>
@@ -310,6 +334,8 @@ describeDb('R13 payment methods + statements (local DB)', () => {
           expectedByName: named.id,
           other: get(other.id),
           expectedOther: fallback.id,
+          twin: get(twin.id),
+          expectedTwin: twinDefault.id,
         };
         throw rolledBack;
       })
@@ -318,6 +344,7 @@ describeDb('R13 payment methods + statements (local DB)', () => {
       });
     expect(outcome.byName).toBe(outcome.expectedByName);
     expect(outcome.other).toBe(outcome.expectedOther);
+    expect(outcome.twin).toBe(outcome.expectedTwin);
   });
 
   it('D1 declaration derives the source from the method channel, then the default; explicit input wins', async () => {
@@ -498,6 +525,37 @@ describeDb('R13 payment methods + statements (local DB)', () => {
     expect(summary.unmatchedByCurrency[currencyCode].count).toBe(2);
     const listed = await overview.listLines(methodId, { kind: 'REFUND' });
     expect(listed.items.map((l) => l.id)).toEqual([refund.id]);
+
+    // Payments review: refund / chargeback rows are not "unmatched lines" either.
+    const review = moduleRef.get(PaymentReviewService, { strict: false });
+    const canRead = jest
+      .spyOn(
+        review as unknown as { canReadStatements: () => Promise<boolean> },
+        'canReadStatements',
+      )
+      .mockResolvedValue(true);
+    const reviewSummary = await review.summary(userId);
+    canRead.mockRestore();
+    const unmatchedPayments = await prisma.paymentStatementLine.count({
+      where: {
+        paymentMethodId: methodId,
+        kind: 'PAYMENT',
+        status: 'UNMATCHED',
+      },
+    });
+    expect(
+      await prisma.paymentStatementLine.count({
+        where: {
+          paymentMethodId: methodId,
+          kind: { not: 'PAYMENT' },
+          status: 'UNMATCHED',
+        },
+      }),
+    ).toBeGreaterThan(0);
+    expect(
+      reviewSummary.unmatchedLines?.methods.find((m) => m.id === methodId)
+        ?.count,
+    ).toBe(unmatchedPayments);
   });
 
   it('D2 refund / chargeback lines take no suggestions and are refused by matching', async () => {
@@ -583,6 +641,70 @@ describeDb('R13 payment methods + statements (local DB)', () => {
         status: PaymentMatchStatus.REVERSED,
       })),
     });
+  });
+
+  it('D2 migration: the ACTIVE index is skipped (WARNING) when duplicates exist, created otherwise; top-up picks the oldest', async () => {
+    const doBlock = /DO \$\$[\s\S]*?END \$\$;/.exec(MIGRATION_SQL)?.[0];
+    expect(doBlock).toBeDefined();
+    const { payment } = await makeClaim(40);
+    const line = await lineByKey(`ref:F1-${tag}`);
+    const rolledBack = new Error('rollback');
+    const outcome: Record<string, unknown> = {};
+    const indexCount = async (tx: Prisma.TransactionClient) =>
+      Number(
+        (
+          await tx.$queryRaw<
+            { n: bigint }[]
+          >`SELECT count(*) AS n FROM pg_indexes WHERE indexname = 'payment_matches_active_line_payment_key'`
+        )[0].n,
+      );
+    await prisma
+      .$transaction(async (tx) => {
+        // No duplicates → the block (re)creates the index.
+        await tx.$executeRawUnsafe(
+          'DROP INDEX "payment_matches_active_line_payment_key"',
+        );
+        await tx.$executeRawUnsafe(doBlock!);
+        outcome.createdWhenClean = await indexCount(tx);
+        // Pre-R13 shape: two ACTIVE rows for one (line, claim) → the block skips the index.
+        await tx.$executeRawUnsafe(
+          'DROP INDEX "payment_matches_active_line_payment_key"',
+        );
+        const older = await tx.paymentMatch.create({
+          data: {
+            statementLineId: line.id,
+            paymentId: payment.id,
+            amount: 5,
+            confirmedAt: new Date(Date.now() - 60_000),
+          },
+        });
+        await tx.paymentMatch.create({
+          data: { statementLineId: line.id, paymentId: payment.id, amount: 6 },
+        });
+        await tx.$executeRawUnsafe(doBlock!);
+        outcome.createdWithDuplicates = await indexCount(tx);
+        // The top-up lookup (same where / orderBy as confirm) is deterministic: the oldest row.
+        const topUp = await tx.paymentMatch.findFirst({
+          where: {
+            statementLineId: line.id,
+            paymentId: payment.id,
+            status: PaymentMatchStatus.ACTIVE,
+          },
+          orderBy: [{ confirmedAt: 'asc' }, { id: 'asc' }],
+          select: { id: true },
+        });
+        outcome.topUpIsOldest = topUp?.id === older.id;
+        throw rolledBack;
+      })
+      .catch((error: unknown) => {
+        if (error !== rolledBack) throw error;
+      });
+    expect(outcome).toEqual({
+      createdWhenClean: 1,
+      createdWithDuplicates: 0,
+      topUpIsOldest: true,
+    });
+    expect(await indexCount(prisma)).toBe(1);
   });
 
   it('D2 cross-engine: a provider-matched claim is refused by bank reconciliation (adopt + confirm)', async () => {

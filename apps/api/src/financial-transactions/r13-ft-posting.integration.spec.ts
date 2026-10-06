@@ -5,6 +5,7 @@ import {
   AccountType,
   PartnerControlAccountType,
   PartnerRoleType,
+  Prisma,
   PurchaseDocumentStatus,
 } from '@prisma/client';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -227,7 +228,25 @@ describeDb('R13 B2 — financial operations posting (local DB)', () => {
       expenseDto(20, leaf.id),
       userId,
     );
-    await coa.update(leaf.id, { accountKind: 'GROUP' }, userId);
+    // The conversion itself is refused while a draft still points at the account …
+    const refused = await coa
+      .update(leaf.id, { accountKind: 'GROUP' }, userId)
+      .catch((e: unknown) => e);
+    expect(refused).toBeInstanceOf(BadRequestException);
+    expect(
+      (refused as BadRequestException).getResponse() as {
+        code: string;
+        fields: { constraints: string[] }[];
+      },
+    ).toMatchObject({
+      code: 'ACCOUNT_KIND_FROZEN',
+      fields: [{ constraints: ['has_references'] }],
+    });
+    // … and the Posting Engine still re-checks at confirm (e.g. legacy data).
+    await prisma.chartOfAccount.update({
+      where: { id: leaf.id },
+      data: { allowsPosting: false },
+    });
     const error = await transactions
       .confirm(draft.id, userId)
       .catch((e: unknown) => e);
@@ -368,5 +387,142 @@ describeDb('R13 B2 — financial operations posting (local DB)', () => {
         userId,
       ),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('Create + Confirm replaying a key whose document is still a DRAFT is a 409, never the draft', async () => {
+    const key = randomUUID();
+    const draft = await transactions.create(
+      'EXPENSE_PAYMENT',
+      { ...expenseDto(25), idempotencyKey: key },
+      userId,
+    );
+    await expect(
+      transactions.createConfirmed(
+        'EXPENSE_PAYMENT',
+        { ...expenseDto(25), idempotencyKey: key },
+        userId,
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'IDEMPOTENCY_KEY_DRAFT' },
+    });
+    const stored = await prisma.financialTransaction.findUniqueOrThrow({
+      where: { id: draft.id },
+    });
+    expect(stored.status).toBe('DRAFT');
+    expect((await journalLines(draft.id)).entries).toHaveLength(0);
+  });
+
+  it('the replay compares the date and the allocations; a deleted original has its own 409', async () => {
+    const invoice = await confirmedInvoice(supplierA, 90);
+    const key = randomUUID();
+    const dto = {
+      partnerId: supplierA,
+      receivingAccountId,
+      amount: 90,
+      transactionDate: '2026-01-10',
+      allocations: [{ invoiceId: invoice.id, allocatedAmount: 90 }],
+      idempotencyKey: key,
+    };
+    const first = await transactions.createConfirmed(
+      'SUPPLIER_PAYMENT',
+      dto,
+      userId,
+    );
+    // Exact retry → the same document.
+    expect(
+      (await transactions.createConfirmed('SUPPLIER_PAYMENT', dto, userId)).id,
+    ).toBe(first.id);
+    const reused = { response: { code: 'IDEMPOTENCY_KEY_REUSED' } };
+    await expect(
+      transactions.createConfirmed(
+        'SUPPLIER_PAYMENT',
+        { ...dto, transactionDate: '2026-01-11' },
+        userId,
+      ),
+    ).rejects.toMatchObject(reused);
+    await expect(
+      transactions.createConfirmed(
+        'SUPPLIER_PAYMENT',
+        {
+          ...dto,
+          allocations: [{ invoiceId: invoice.id, allocatedAmount: 80 }],
+        },
+        userId,
+      ),
+    ).rejects.toMatchObject(reused);
+    await expect(
+      transactions.createConfirmed(
+        'SUPPLIER_PAYMENT',
+        { ...dto, allocations: [] },
+        userId,
+      ),
+    ).rejects.toMatchObject(reused);
+
+    const deletedKey = randomUUID();
+    const gone = await transactions.create(
+      'EXPENSE_PAYMENT',
+      { ...expenseDto(15), idempotencyKey: deletedKey },
+      userId,
+    );
+    await prisma.financialTransaction.update({
+      where: { id: gone.id },
+      data: { deletedAt: new Date() },
+    });
+    await expect(
+      transactions.create(
+        'EXPENSE_PAYMENT',
+        { ...expenseDto(15), idempotencyKey: deletedKey },
+        userId,
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'IDEMPOTENCY_KEY_DELETED' },
+    });
+  });
+
+  it('the replay compares the settlement fee', async () => {
+    const stored = {
+      id: 'ft-1',
+      transactionNumber: 'CR-1',
+      type: 'CUSTOMER_RECEIPT',
+      status: 'CONFIRMED',
+      deletedAt: null,
+      amount: new Prisma.Decimal(100),
+      feeAmount: new Prisma.Decimal(3),
+      transactionDate: new Date('2026-01-10'),
+      partnerId: 'p-1',
+      expenseAccountId: null,
+      currencyId: null,
+      receivingAccountId,
+      paymentSourceId: null,
+      allocations: [],
+    };
+    const client = {
+      financialTransaction: { findUnique: () => Promise.resolve(stored) },
+    };
+    const replay = (feeAmount?: number) =>
+      (
+        transactions as unknown as {
+          findIdempotentReplay: (
+            type: string,
+            dto: object,
+            client: object,
+          ) => Promise<{ id: string } | null>;
+        }
+      ).findIdempotentReplay(
+        'CUSTOMER_RECEIPT',
+        {
+          partnerId: 'p-1',
+          receivingAccountId,
+          amount: 100,
+          feeAmount,
+          idempotencyKey: 'k',
+        },
+        client,
+      );
+    await expect(replay(3)).resolves.toMatchObject({ id: 'ft-1' });
+    await expect(replay(4)).rejects.toMatchObject({
+      response: { code: 'IDEMPOTENCY_KEY_REUSED' },
+    });
+    await expect(replay(undefined)).rejects.toBeInstanceOf(ConflictException);
   });
 });

@@ -150,8 +150,15 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
       where: { isActive: true },
     });
     paymentSourceId = paymentSource.id;
+    // A postable destination only — other suites' fixtures may leave receiving accounts
+    // bound to a Group account, which the Posting Engine rightly refuses.
     const receivingAccount = await prisma.receivingAccount.findFirstOrThrow({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        deletedAt: null,
+        chartOfAccount: { allowsPosting: true, deletedAt: null },
+      },
+      orderBy: { createdAt: 'asc' },
     });
     receivingAccountId = receivingAccount.id;
   });

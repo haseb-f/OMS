@@ -1,7 +1,7 @@
 {
-  "tag": "R13UI426625",
+  "tag": "R13UI015903",
   "base": "http://localhost:3001",
-  "ranAt": "2026-10-06T09:40:08.555Z",
+  "ranAt": "2026-10-06T10:06:36.794Z",
   "passed": 74,
   "failed": 0,
   "screenshots": [
@@ -29,12 +29,12 @@
     {
       "name": "setup: tagged fixed asset created via API",
       "ok": true,
-      "detail": "201 FA-2026-000022"
+      "detail": "201 FA-2026-000032"
     },
     {
       "name": "setup: tagged prepaid expense created via API",
       "ok": true,
-      "detail": "201 {\"id\":\"98523964-ea1b-4d82-a92b-7195299775f9\",\"prepaidNumber\":\"PE-2026-000007\",\"name\":\"R13UI426625 Annual licence\",\"amount\":\"1200\",\"startDate\":\"2026-10-06T00:00:00.000Z\",\"endDate\":\"2027-10-05T00:00:00."
+      "detail": "201 {\"id\":\"106470e8-4019-4780-93cc-764a910e0733\",\"prepaidNumber\":\"PE-2026-000009\",\"name\":\"R13UI015903 Annual licence\",\"amount\":\"1200\",\"startDate\":\"2026-10-06T00:00:00.000Z\",\"endDate\":\"2027-10-05T00:00:00."
     },
     {
       "name": "1. customer: address country Egypt proposes +20 to the empty phone",
@@ -49,12 +49,12 @@
     {
       "name": "1. customer: saved with Egypt address and a +966 mobile",
       "ok": true,
-      "detail": "+966554386650 country=EG"
+      "detail": "+966553746936 country=EG"
     },
     {
       "name": "1. customer: reopened edit shows +966 and the same number",
       "ok": true,
-      "detail": "+966 55 438 6650"
+      "detail": "+966 55 374 6936"
     },
     {
       "name": "1. customer: changing the address country afterwards (→ Kuwait) leaves +966 unchanged",
@@ -74,12 +74,12 @@
     {
       "name": "1. supplier: saved with Egypt address and a +966 mobile",
       "ok": true,
-      "detail": "+966558772126 country=EG"
+      "detail": "+966551425388 country=EG"
     },
     {
       "name": "1. supplier: reopened edit shows +966 and the same number",
       "ok": true,
-      "detail": "+966 55 877 2126"
+      "detail": "+966 55 142 5388"
     },
     {
       "name": "1. supplier: changing the address country afterwards (→ Kuwait) leaves +966 unchanged",
@@ -144,7 +144,7 @@
     {
       "name": "3. touch swipe over the open dropdown scrolls the list (dialog/page stay put)",
       "ok": true,
-      "detail": "list 400→573 dialog →"
+      "detail": "list 400→572 dialog →"
     },
     {
       "name": "3. Escape closes only the dropdown, the order dialog stays open",
@@ -174,12 +174,12 @@
     {
       "name": "3. Review shows the totals (2 × 150 = 300) with the order currency",
       "ok": true,
-      "detail": "Check the order before creating it. Use Back or a completed step to change anything. Customer Customer Name R13UI426625 Mobile Customer Phone +966551168487 Country Saudi Arabia Line Items 1. Test Product A 2 × 150.00 SAR = 300.00 SAR Delivery & payment Deliver"
+      "detail": "Check the order before creating it. Use Back or a completed step to change anything. Customer Customer Name R13UI015903 Mobile Customer Phone +966554978038 Country Saudi Arabia Line Items 1. Test Product A 2 × 150.00 SAR = 300.00 SAR Delivery & payment Deliver"
     },
     {
       "name": "3. double-click Create → exactly one order created",
       "ok": true,
-      "detail": "1 order(s) STO-2026-000715"
+      "detail": "1 order(s) STO-2026-001505"
     },
     {
       "name": "3. success feedback toast after Create",
@@ -229,7 +229,7 @@
     {
       "name": "6. automation state shown as text + icon",
       "ok": true,
-      "detail": "Automatic updates Last update failed The newest import attempt fetched nothing. Error: CBE blocked the request (HTTP 403). The site's bot protection rejected th"
+      "detail": "Automatic updates Last update failed The newest import attempt fetched nothing. Error: Spec cleanup Last successful update: 06 Oct 2026 — 13:01 Latest stored ra"
     },
     {
       "name": "6. 'Enable automatic updates' switch and a separate 'Refresh now' button",
@@ -239,12 +239,12 @@
     {
       "name": "6. last successful update and next run are shown",
       "ok": true,
-      "detail": "Last successful update: 06 Oct 2026 — 12:16 | Next scheduled run 06 Oct 2026 — 17:00 (Cairo) · 14:00 UTC Daily import"
+      "detail": "Last successful update: 06 Oct 2026 — 13:01 | Next scheduled run 06 Oct 2026 — 17:00 (Cairo) · 14:00 UTC Daily import"
     },
     {
       "name": "7. fixed asset detail loads (name + code)",
       "ok": true,
-      "detail": "FA-2026-000022"
+      "detail": "FA-2026-000032"
     },
     {
       "name": "7. depreciation schedule section visible",
@@ -289,7 +289,7 @@
     {
       "name": "9. [ar/light] Live: 5 period cards with currency-labelled amounts",
       "ok": true,
-      "detail": "5 cards; 375.50 A0C9741320.00 A34B227375.50 A74EA | لا مبيعات | 375.50 A0C9741320.00 A34B227375.50 A74EA | 375.50 A0C9741320.00 A34B227375.50 A74EA | لا مبيعات"
+      "detail": "5 cards; 375.50 A0C9741320.00 A143F3B320.00 A34B2 | لا مبيعات | 375.50 A0C9741320.00 A143F3B320.00 A34B2 | 375.50 A0C9741320.00 A143F3B320.00 A34B2 | لا مبيعات"
     },
     {
       "name": "9. [ar/light] Live: last refresh time shown",
@@ -299,12 +299,12 @@
     {
       "name": "9. [ar/light] الموظفون tab renders",
       "ok": true,
-      "detail": "01 Oct 2026 – 06 Oct 2026 الطلبات الصالحة جميع الموظفين · آخر تحديث 06 Oct 2026 — 12:39 تحديث غير مسندة #1 224 طلب صالح 1,254.00 B3EA14E 1,2"
+      "detail": "01 Oct 2026 – 06 Oct 2026 الطلبات الصالحة جميع الموظفين · آخر تحديث 06 Oct 2026 — 13:05 تحديث غير مسندة #1 419 طلب صالح 1,254.00 B0053B4 1,2"
     },
     {
       "name": "9. [ar/light] المقارنة tab renders",
       "ok": true,
-      "detail": "01 Oct 2026 – 06 Oct 2026 الطلبات الصالحة جميع الموظفين · آخر تحديث 06 Oct 2026 — 12:39 تحديث الطلبات الصالحة الترتيب — الطلبات الصالحة #1 غ"
+      "detail": "01 Oct 2026 – 06 Oct 2026 الطلبات الصالحة جميع الموظفين · آخر تحديث 06 Oct 2026 — 13:05 تحديث الطلبات الصالحة الترتيب — الطلبات الصالحة #1 غ"
     },
     {
       "name": "9. [ar/dark] direction and theme applied",
@@ -314,7 +314,7 @@
     {
       "name": "9. [ar/dark] Live: 5 period cards with currency-labelled amounts",
       "ok": true,
-      "detail": "5 cards; 375.50 A0C9741320.00 A34B227375.50 A74EA | لا مبيعات | 375.50 A0C9741320.00 A34B227375.50 A74EA | 375.50 A0C9741320.00 A34B227375.50 A74EA | لا مبيعات"
+      "detail": "5 cards; 375.50 A0C9741320.00 A143F3B320.00 A34B2 | لا مبيعات | 375.50 A0C9741320.00 A143F3B320.00 A34B2 | 375.50 A0C9741320.00 A143F3B320.00 A34B2 | لا مبيعات"
     },
     {
       "name": "9. [ar/dark] Live: last refresh time shown",
@@ -324,12 +324,12 @@
     {
       "name": "9. [ar/dark] الموظفون tab renders",
       "ok": true,
-      "detail": "01 Oct 2026 – 06 Oct 2026 الطلبات الصالحة جميع الموظفين · آخر تحديث 06 Oct 2026 — 12:39 تحديث غير مسندة #1 224 طلب صالح 1,254.00 B3EA14E 1,2"
+      "detail": "01 Oct 2026 – 06 Oct 2026 الطلبات الصالحة جميع الموظفين · آخر تحديث 06 Oct 2026 — 13:06 تحديث غير مسندة #1 419 طلب صالح 1,254.00 B0053B4 1,2"
     },
     {
       "name": "9. [ar/dark] المقارنة tab renders",
       "ok": true,
-      "detail": "01 Oct 2026 – 06 Oct 2026 الطلبات الصالحة جميع الموظفين · آخر تحديث 06 Oct 2026 — 12:39 تحديث الطلبات الصالحة الترتيب — الطلبات الصالحة #1 غ"
+      "detail": "01 Oct 2026 – 06 Oct 2026 الطلبات الصالحة جميع الموظفين · آخر تحديث 06 Oct 2026 — 13:06 تحديث الطلبات الصالحة الترتيب — الطلبات الصالحة #1 غ"
     },
     {
       "name": "9. [en/light] direction and theme applied",
@@ -339,7 +339,7 @@
     {
       "name": "9. [en/light] Live: 5 period cards with currency-labelled amounts",
       "ok": true,
-      "detail": "5 cards; 375.50 A0C9741320.00 A34B227375.50 A74EA | No sales | 375.50 A0C9741320.00 A34B227375.50 A74EA | 375.50 A0C9741320.00 A34B227375.50 A74EA | No sales"
+      "detail": "5 cards; 375.50 A0C9741320.00 A143F3B320.00 A34B2 | No sales | 375.50 A0C9741320.00 A143F3B320.00 A34B2 | 375.50 A0C9741320.00 A143F3B320.00 A34B2 | No sales"
     },
     {
       "name": "9. [en/light] Live: last refresh time shown",
@@ -349,12 +349,12 @@
     {
       "name": "9. [en/light] Employees tab renders",
       "ok": true,
-      "detail": "01 Oct 2026 – 06 Oct 2026 Valid orders All employees · Updated 06 Oct 2026 — 12:39 Refresh Unassigned #1 224 valid orders 1,254.00 B3EA14E 1"
+      "detail": "01 Oct 2026 – 06 Oct 2026 Valid orders All employees · Updated 06 Oct 2026 — 13:06 Refresh Unassigned #1 419 valid orders 1,254.00 B0053B4 1"
     },
     {
       "name": "9. [en/light] Comparison tab renders",
       "ok": true,
-      "detail": "01 Oct 2026 – 06 Oct 2026 Valid orders All employees · Updated 06 Oct 2026 — 12:39 Refresh Valid orders Ranking — Valid orders #1 Unassigned"
+      "detail": "01 Oct 2026 – 06 Oct 2026 Valid orders All employees · Updated 06 Oct 2026 — 13:06 Refresh Valid orders Ranking — Valid orders #1 Unassigned"
     },
     {
       "name": "9. [en/dark] direction and theme applied",
@@ -364,7 +364,7 @@
     {
       "name": "9. [en/dark] Live: 5 period cards with currency-labelled amounts",
       "ok": true,
-      "detail": "5 cards; 375.50 A0C9741320.00 A34B227375.50 A74EA | No sales | 375.50 A0C9741320.00 A34B227375.50 A74EA | 375.50 A0C9741320.00 A34B227375.50 A74EA | No sales"
+      "detail": "5 cards; 375.50 A0C9741320.00 A143F3B320.00 A34B2 | No sales | 375.50 A0C9741320.00 A143F3B320.00 A34B2 | 375.50 A0C9741320.00 A143F3B320.00 A34B2 | No sales"
     },
     {
       "name": "9. [en/dark] Live: last refresh time shown",
@@ -374,12 +374,12 @@
     {
       "name": "9. [en/dark] Employees tab renders",
       "ok": true,
-      "detail": "01 Oct 2026 – 06 Oct 2026 Valid orders All employees · Updated 06 Oct 2026 — 12:39 Refresh Unassigned #1 224 valid orders 1,254.00 B3EA14E 1"
+      "detail": "01 Oct 2026 – 06 Oct 2026 Valid orders All employees · Updated 06 Oct 2026 — 13:06 Refresh Unassigned #1 419 valid orders 1,254.00 B0053B4 1"
     },
     {
       "name": "9. [en/dark] Comparison tab renders",
       "ok": true,
-      "detail": "01 Oct 2026 – 06 Oct 2026 Valid orders All employees · Updated 06 Oct 2026 — 12:39 Refresh Valid orders Ranking — Valid orders #1 Unassigned"
+      "detail": "01 Oct 2026 – 06 Oct 2026 Valid orders All employees · Updated 06 Oct 2026 — 13:06 Refresh Valid orders Ranking — Valid orders #1 Unassigned"
     },
     {
       "name": "9. 390 px: sales reports Live — no horizontal page scroll",

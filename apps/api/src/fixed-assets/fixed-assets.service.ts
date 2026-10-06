@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -314,6 +315,11 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
     return super.update(id, data, userId);
   }
 
+  /** Row lock serializing lifecycle transitions (capitalize / dispose) of one asset. */
+  private async lockAsset(tx: Prisma.TransactionClient, id: string) {
+    await tx.$queryRaw`SELECT id FROM fixed_assets WHERE id = ${id}::uuid FOR UPDATE`;
+  }
+
   async capitalize(id: string, dto: CapitalizeFixedAssetDto, userId?: string) {
     const asset = await this.findOne(id);
     if (asset.status !== FixedAssetStatus.DRAFT) {
@@ -354,11 +360,16 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
     );
 
     return this.prisma.$transaction(async (tx) => {
-      await tx.fixedAssetDepreciationPeriod.deleteMany({
-        where: { fixedAssetId: id },
-      });
-      await tx.fixedAsset.update({
-        where: { id },
+      // Re-checked under the row lock: a concurrent capitalization (or a link to an invoice
+      // line) that committed after the read above must not be overwritten.
+      await this.lockAsset(tx, id);
+      const claimed = await tx.fixedAsset.updateMany({
+        where: {
+          id,
+          status: FixedAssetStatus.DRAFT,
+          deletedAt: null,
+          purchaseInvoiceItemId: null,
+        },
         data: {
           status: FixedAssetStatus.CAPITALIZED,
           usefulLifeMonths: dto.usefulLifeMonths,
@@ -371,6 +382,14 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
           capitalizedBy: userId ?? null,
           updatedBy: userId ?? null,
         },
+      });
+      if (claimed.count === 0) {
+        throw new ConflictException(
+          `${asset.code} was changed by another request (already capitalized, linked or archived). Reload it and try again.`,
+        );
+      }
+      await tx.fixedAssetDepreciationPeriod.deleteMany({
+        where: { fixedAssetId: id },
       });
       if (periods.length > 0) {
         await tx.fixedAssetDepreciationPeriod.createMany({
@@ -536,6 +555,22 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      // A concurrent disposal blocks here, then sees DISPOSED and is refused — it never
+      // re-runs the catch-up nor overwrites the first disposal's fields.
+      await this.lockAsset(tx, id);
+      const current = await tx.fixedAsset.findUnique({
+        where: { id },
+        select: { status: true, deletedAt: true },
+      });
+      if (
+        !current ||
+        current.deletedAt ||
+        current.status !== FixedAssetStatus.CAPITALIZED
+      ) {
+        throw new ConflictException(
+          `${asset.code} is no longer capitalized (now ${current?.deletedAt ? 'archived' : (current?.status ?? 'missing')}) — another request changed it. Reload it.`,
+        );
+      }
       const catchUp = await tx.fixedAssetDepreciationPeriod.findMany({
         where: {
           fixedAssetId: id,
@@ -562,8 +597,8 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
           lastAttemptAt: new Date(),
         },
       });
-      await tx.fixedAsset.update({
-        where: { id },
+      const disposed = await tx.fixedAsset.updateMany({
+        where: { id, status: FixedAssetStatus.CAPITALIZED, deletedAt: null },
         data: {
           status: FixedAssetStatus.DISPOSED,
           disposedAt: dateOnly(disposalDate),
@@ -575,6 +610,11 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
           updatedBy: userId ?? null,
         },
       });
+      if (disposed.count === 0) {
+        throw new ConflictException(
+          `${asset.code} was disposed by another request. Reload it.`,
+        );
+      }
       await this.postingEngine.post('FIXED_ASSET_DISPOSAL', id, userId, tx);
       await this.activityLog.log(
         this.entityType,

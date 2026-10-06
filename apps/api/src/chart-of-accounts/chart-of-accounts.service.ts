@@ -387,6 +387,23 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
           ],
         });
       }
+      if (!requestedAllowsPosting) {
+        // A Group account can never be posted to: every default / mapping that a later
+        // posting would resolve to this account must be moved first (same usage list as
+        // archive; journal lines are handled above, a posting account has no children).
+        const references = (await this.countUsageReferences(id)).filter(
+          (usage) =>
+            usage.key !== 'journalEntryLines' && usage.key !== 'childAccounts',
+        );
+        if (references.length > 0) {
+          throw new BadRequestException({
+            code: 'ACCOUNT_KIND_FROZEN',
+            message: `Account ${current.code} is still used as a posting destination and cannot become a Group account — point these at another account first: ${references.map((u) => `${u.label} (${u.count})`).join('، ')}.`,
+            references,
+            fields: [{ field: 'accountKind', constraints: ['has_references'] }],
+          });
+        }
+      }
       if (requestedAllowsPosting && activeChildCount > 0) {
         throw new BadRequestException({
           code: 'ACCOUNT_KIND_FROZEN',
@@ -678,6 +695,45 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
             supplierGroupsPurchase: true,
             journalsDefaultDebit: true,
             journalsDefaultCredit: true,
+            costComponentsDefault: true,
+            capitalContributions: true,
+            distributionPayments: true,
+            capitalReturns: true,
+            financialTransactionsFee: true,
+            financialTransactionDebits: true,
+            transactionTypesDefault: true,
+            purchaseLinesPrepaidExpense: true,
+            prepaidExpenseAccounts: true,
+            accruedExpenseAccounts: true,
+            payrollComponentsAccountMapping: true,
+            costAllocationRuns: true,
+            postingSettingsAgentFundsPayable: true,
+            postingSettingsAgentCommissionRev: true,
+            postingSettingsAgentServiceRev: true,
+            postingSettingsLandedCostClearing: true,
+            postingSettingsShippingExpense: true,
+            postingSettingsAccruedShipping: true,
+            postingSettingsPaymentGatewayFee: true,
+            postingSettingsFulfillmentExpense: true,
+            postingSettingsAccruedFulfillment: true,
+            postingSettingsFixedAssets: true,
+            postingSettingsAccumDepreciation: true,
+            postingSettingsDepreciationExpense: true,
+            postingSettingsPrepayments: true,
+            postingSettingsAccruedExpenses: true,
+            postingSettingsUnrealizedFx: true,
+            postingSettingsOtherIncome: true,
+            postingSettingsOtherExpense: true,
+            postingSettingsPayrollPayable: true,
+            postingSettingsSalaryExpense: true,
+            postingSettingsKpiExpense: true,
+            postingSettingsCommissionExpense: true,
+            postingSettingsDefaultAllowanceExpense: true,
+            postingSettingsDefaultDeduction: true,
+            postingSettingsInvestorFunding: true,
+            postingSettingsInvestorProfitDist: true,
+            postingSettingsInvestorPayable: true,
+            postingSettingsCapitalReturn: true,
           },
         },
       },
@@ -726,6 +782,49 @@ export class ChartOfAccountsService extends MasterDataCrudService<ChartOfAccount
       supplierGroupsPurchase: 'مجموعة موردين (حساب مشتريات افتراضي)',
       journalsDefaultDebit: 'دفتر يومية (حساب مدين افتراضي)',
       journalsDefaultCredit: 'دفتر يومية (حساب دائن افتراضي)',
+      costComponentsDefault: 'مكوّن تكلفة (حساب افتراضي)',
+      capitalContributions: 'مساهمة رأس مال',
+      distributionPayments: 'دفعة توزيع أرباح',
+      capitalReturns: 'رد رأس مال',
+      financialTransactionsFee: 'معاملة مالية (حساب الرسوم)',
+      financialTransactionDebits: 'معاملة مالية (حساب مدين)',
+      transactionTypesDefault: 'نوع معاملة (حساب افتراضي)',
+      purchaseLinesPrepaidExpense: 'سطر فاتورة شراء (مصروف مدفوع مقدماً)',
+      prepaidExpenseAccounts: 'مصروف مدفوع مقدماً',
+      accruedExpenseAccounts: 'مصروف مستحق',
+      payrollComponentsAccountMapping: 'مكوّن رواتب (ربط حساب)',
+      costAllocationRuns: 'تشغيل توزيع تكلفة',
+      postingSettingsAgentFundsPayable:
+        'إعدادات الترحيل (أموال الوكلاء المستحقة)',
+      postingSettingsAgentCommissionRev:
+        'إعدادات الترحيل (إيراد عمولة الوكلاء)',
+      postingSettingsAgentServiceRev: 'إعدادات الترحيل (إيراد خدمات الوكلاء)',
+      postingSettingsLandedCostClearing:
+        'إعدادات الترحيل (تسوية تكاليف الشحن الواردة)',
+      postingSettingsShippingExpense: 'إعدادات الترحيل (مصروف الشحن)',
+      postingSettingsAccruedShipping: 'إعدادات الترحيل (شحن مستحق)',
+      postingSettingsPaymentGatewayFee: 'إعدادات الترحيل (رسوم بوابة الدفع)',
+      postingSettingsFulfillmentExpense: 'إعدادات الترحيل (مصروف التجهيز)',
+      postingSettingsAccruedFulfillment: 'إعدادات الترحيل (تجهيز مستحق)',
+      postingSettingsFixedAssets: 'إعدادات الترحيل (الأصول الثابتة)',
+      postingSettingsAccumDepreciation: 'إعدادات الترحيل (مجمع الإهلاك)',
+      postingSettingsDepreciationExpense: 'إعدادات الترحيل (مصروف الإهلاك)',
+      postingSettingsPrepayments: 'إعدادات الترحيل (مدفوعات مقدمة)',
+      postingSettingsAccruedExpenses: 'إعدادات الترحيل (مصروفات مستحقة)',
+      postingSettingsUnrealizedFx: 'إعدادات الترحيل (فروق صرف غير محققة)',
+      postingSettingsOtherIncome: 'إعدادات الترحيل (إيرادات أخرى)',
+      postingSettingsOtherExpense: 'إعدادات الترحيل (مصروفات أخرى)',
+      postingSettingsPayrollPayable: 'إعدادات الترحيل (رواتب مستحقة)',
+      postingSettingsSalaryExpense: 'إعدادات الترحيل (مصروف الرواتب)',
+      postingSettingsKpiExpense: 'إعدادات الترحيل (مصروف الحوافز)',
+      postingSettingsCommissionExpense: 'إعدادات الترحيل (مصروف العمولات)',
+      postingSettingsDefaultAllowanceExpense: 'إعدادات الترحيل (مصروف البدلات)',
+      postingSettingsDefaultDeduction: 'إعدادات الترحيل (الاستقطاعات)',
+      postingSettingsInvestorFunding: 'إعدادات الترحيل (تمويل المستثمرين)',
+      postingSettingsInvestorProfitDist:
+        'إعدادات الترحيل (توزيع أرباح المستثمرين)',
+      postingSettingsInvestorPayable: 'إعدادات الترحيل (أرباح مستثمرين مستحقة)',
+      postingSettingsCapitalReturn: 'إعدادات الترحيل (رد رأس المال)',
     };
     return Object.entries(counted._count)
       .filter(([, count]) => count > 0)

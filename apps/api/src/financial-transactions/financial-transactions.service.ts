@@ -272,7 +272,9 @@ export class FinancialTransactionsService {
     userId?: string,
     context: CompanyContext = { companyId: null, branchId: null },
   ) {
-    const replay = await this.findIdempotentReplay(type, dto);
+    const replay = await this.findIdempotentReplay(type, dto, this.prisma, {
+      requireConfirmed: true,
+    });
     if (replay) return replay;
     try {
       return await this.prisma.$transaction(
@@ -284,7 +286,9 @@ export class FinancialTransactionsService {
       );
     } catch (error) {
       if (this.isIdempotencyKeyClash(error)) {
-        const winner = await this.findIdempotentReplay(type, dto);
+        const winner = await this.findIdempotentReplay(type, dto, this.prisma, {
+          requireConfirmed: true,
+        });
         if (winner) return winner;
       }
       throw error;
@@ -295,12 +299,16 @@ export class FinancialTransactionsService {
    * R13 B2 — the document an earlier request with the same idempotency key
    * created, or null. The key is only a retry token: reusing it for a
    * different document (type, party, account, amount, currency, money
-   * route) is a 409, never a silent return of an unrelated document.
+   * route, date, fee, allocations) is a 409, never a silent return of an
+   * unrelated document. A deleted original, or (for Create + Confirm) an
+   * original that is still a DRAFT, is a distinct 409 — never returned as
+   * if it were the confirmed answer.
    */
   private async findIdempotentReplay(
     type: FinancialTransactionType,
     dto: FinancialTransactionCreateInput,
     client: DbClient = this.prisma,
+    options: { requireConfirmed?: boolean } = {},
   ) {
     if (!dto.idempotencyKey) return null;
     const existing = await client.financialTransaction.findUnique({
@@ -308,12 +316,38 @@ export class FinancialTransactionsService {
       include: TRANSACTION_INCLUDE,
     });
     if (!existing) return null;
+    if (existing.deletedAt !== null) {
+      throw new ConflictException({
+        code: 'IDEMPOTENCY_KEY_DELETED',
+        message: `This form was already submitted as ${existing.transactionNumber}, which has since been deleted — reopen the form to record a new document.`,
+      });
+    }
     const same = (requested: string | undefined, stored: string | null) =>
       requested === undefined || requested === (stored ?? undefined);
+    const allocationKey = (invoiceId: string | null, amount: number) =>
+      `${invoiceId ?? ''}:${this.round2(amount).toFixed(2)}`;
+    const requestedAllocations = (dto.allocations ?? [])
+      .map((a) => allocationKey(a.invoiceId, a.allocatedAmount))
+      .sort();
+    const storedAllocations = existing.allocations
+      .map((a) =>
+        allocationKey(
+          a.salesInvoiceId ?? a.purchaseInvoiceId ?? a.salesReturnId,
+          Number(a.allocatedAmount),
+        ),
+      )
+      .sort();
+    const sameDate =
+      dto.transactionDate === undefined ||
+      new Date(dto.transactionDate).getTime() ===
+        existing.transactionDate.getTime();
     const matches =
       existing.type === type &&
-      existing.deletedAt === null &&
       this.round2(Number(existing.amount)) === this.round2(dto.amount) &&
+      this.round2(Number(existing.feeAmount ?? 0)) ===
+        this.round2(dto.feeAmount ?? 0) &&
+      sameDate &&
+      requestedAllocations.join('|') === storedAllocations.join('|') &&
       same(
         type === 'EXPENSE_PAYMENT' ? undefined : dto.partnerId,
         existing.partnerId,
@@ -329,6 +363,15 @@ export class FinancialTransactionsService {
       throw new ConflictException({
         code: 'IDEMPOTENCY_KEY_REUSED',
         message: `This form was already submitted as ${existing.transactionNumber} with different details — reopen the form to record a new document.`,
+      });
+    }
+    if (
+      options.requireConfirmed &&
+      existing.status === FinancialTransactionStatus.DRAFT
+    ) {
+      throw new ConflictException({
+        code: 'IDEMPOTENCY_KEY_DRAFT',
+        message: `The earlier request saved ${existing.transactionNumber} as a draft — open it and confirm it explicitly.`,
       });
     }
     return existing;

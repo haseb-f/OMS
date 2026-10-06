@@ -854,6 +854,8 @@ export class PaymentMatchingService {
 
         // 3. Allocations — one ACTIVE allocation per (line, claim) (partial unique index): a
         // further allocation of the same line to the same claim tops the existing one up.
+        // Pre-R13 data may still hold several ACTIVE rows for one pair (the migration then skips
+        // the index): the oldest one is topped up deterministically, the others stay untouched.
         const matches: ConfirmMatchResult['matches'] = [];
         for (const plan of plans) {
           const existing = await tx.paymentMatch.findFirst({
@@ -862,6 +864,7 @@ export class PaymentMatchingService {
               paymentId: plan.claim.id,
               status: PaymentMatchStatus.ACTIVE,
             },
+            orderBy: [{ confirmedAt: 'asc' }, { id: 'asc' }],
             select: { id: true },
           });
           const amount = new Prisma.Decimal(plan.allocation.amount.toFixed(2));
