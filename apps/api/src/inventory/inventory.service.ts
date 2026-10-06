@@ -744,7 +744,11 @@ export class InventoryService {
    */
   /** Accepts an optional caller-supplied `tx` (TASK-057), same atomicity reasoning as `postPurchaseReceipt`. */
   async postPurchaseReturn(
-    dto: PostPurchaseReturnDto & MovementTrace,
+    dto: PostPurchaseReturnDto &
+      MovementTrace & {
+        /** O9 — the moving average the units leave at (4 dp), recorded on the movement; server-side callers only. */
+        unitCost?: Prisma.Decimal | string | number;
+      },
     userId?: string,
     tx?: Prisma.TransactionClient,
   ) {
@@ -783,6 +787,7 @@ export class InventoryService {
         quantity: -dto.quantity,
         quantityBefore,
         quantityAfter,
+        unitCost: dto.unitCost,
         referenceType: dto.referenceType,
         referenceId: dto.referenceId,
         notes: dto.notes,

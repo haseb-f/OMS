@@ -498,6 +498,36 @@ export class InventoryValuationService {
     );
   }
 
+  /**
+   * Purchase return relief cost (owner decision O9, 2026-10-06): returned
+   * units leave the pool at the CURRENT moving average (4 dp), so the average
+   * of what remains is unchanged. Fails closed (422
+   * `PURCHASE_RETURN_COST_MISSING`) for a product with no recorded cost —
+   * inventory is never relieved at an unknown (silently zero) cost. Call under
+   * the caller's product lock, before the return's movements are written.
+   */
+  async getPurchaseReturnReliefCosts(
+    tx: Prisma.TransactionClient,
+    products: { id: string; sku: string }[],
+  ): Promise<Map<string, Prisma.Decimal>> {
+    const recorded = await this.getRecordedUnitCosts(
+      tx,
+      products.map((product) => product.id),
+    );
+    const costs = new Map<string, Prisma.Decimal>();
+    for (const product of products) {
+      const cost = recorded.get(product.id);
+      if (cost == null) {
+        throw new UnprocessableEntityException({
+          code: 'PURCHASE_RETURN_COST_MISSING',
+          message: `Product ${product.sku} has no recorded cost, so the returned units cannot be removed from inventory at their moving-average cost. Record a product cost or opening balance first.`,
+        });
+      }
+      costs.set(product.id, round4(cost));
+    }
+    return costs;
+  }
+
   private async getStoredCost(
     tx: Prisma.TransactionClient,
     productId: string,

@@ -20,6 +20,7 @@ import {
 import { movementIdempotencyKey } from '../../inventory/dto/movement-trace';
 import { assertNoKitProducts } from '../shared/purchase-kit-guard';
 import { PostingEngineService } from '../../accounting/posting-engine/posting-engine.service';
+import { InventoryValuationService } from '../../accounting/inventory-valuation/inventory-valuation.service';
 import { resolveLineTaxes } from '../../taxes/document-tax';
 import {
   PurchaseReturnActivityService,
@@ -55,6 +56,7 @@ export class PurchaseReturnsService {
     private readonly activityService: PurchaseReturnActivityService,
     private readonly numberingEngine: NumberingEngineService,
     private readonly postingEngine: PostingEngineService,
+    private readonly inventoryValuation: InventoryValuationService,
   ) {}
 
   async create(dto: CreatePurchaseReturnDto) {
@@ -381,12 +383,21 @@ export class PurchaseReturnsService {
         tx,
         stocked.map((item) => item.productId),
       );
+      // O9 (owner decision 2026-10-06) — the units leave at the moving
+      // average read under the lock (no recorded cost → 422); the movement
+      // records it, and the posting relieves Inventory at exactly that cost.
+      const reliefCosts =
+        await this.inventoryValuation.getPurchaseReturnReliefCosts(
+          tx,
+          stocked.map((item) => item.product),
+        );
       for (const item of stocked) {
         await this.inventoryService.postPurchaseReturn(
           {
             productId: item.productId,
             warehouseId: item.warehouseId,
             quantity: item.quantity,
+            unitCost: reliefCosts.get(item.productId),
             referenceType: REFERENCE_TYPE,
             referenceId: purchaseReturn.id,
             idempotencyKey: movementIdempotencyKey(

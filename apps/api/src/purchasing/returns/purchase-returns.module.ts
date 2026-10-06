@@ -9,6 +9,7 @@ import { WarehousesModule } from '../../warehouses/warehouses.module';
 import { InventoryModule } from '../../inventory/inventory.module';
 import { NumberingModule } from '../../numbering/numbering.module';
 import { PostingEngineModule } from '../../accounting/posting-engine/posting-engine.module';
+import { InventoryValuationModule } from '../../accounting/inventory-valuation/inventory-valuation.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { PostingEngineModule } from '../../accounting/posting-engine/posting-eng
     InventoryModule,
     NumberingModule,
     PostingEngineModule,
+    InventoryValuationModule,
   ],
   controllers: [PurchaseReturnsController, PurchaseReturnActivitiesController],
   providers: [PurchaseReturnsService, PurchaseReturnActivityService],
