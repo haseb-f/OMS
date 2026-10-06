@@ -18,6 +18,7 @@ import { ReserveDto } from './dto/reserve.dto';
 import { ReleaseDto } from './dto/release.dto';
 import { FindMovementsQueryDto } from './dto/find-movements-query.dto';
 import { GetStockQueryDto } from './dto/get-stock-query.dto';
+import { OwnerFilterQueryDto } from './dto/owner-filter';
 import { UpdateValuationMethodDto } from './dto/update-valuation-method.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -102,7 +103,11 @@ export class InventoryController {
   /** Derived current stock (on-hand / reserved / available) — never stored directly. */
   @Get('stock')
   getStock(@Query() query: GetStockQueryDto) {
-    return this.inventoryService.getStock(query.productId, query.warehouseId);
+    return this.inventoryService.getStock(
+      query.productId,
+      query.warehouseId,
+      query.owner,
+    );
   }
 
   @Get('movements')
@@ -130,8 +135,11 @@ export class InventoryController {
 
   /** Product Stock Card — every inventory product's on-hand/reserved/available/cost/last movement, in one call. */
   @Get('stock-cards')
-  async getStockCards(@CurrentUser() user: JwtPayload) {
-    const cards = await this.inventoryService.getStockCards();
+  async getStockCards(
+    @Query() query: OwnerFilterQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const cards = await this.inventoryService.getStockCards(query.owner);
     return (await this.canViewCost(user))
       ? cards
       : cards.map(redactStockCardCost);
@@ -148,8 +156,8 @@ export class InventoryController {
 
   /** Warehouse Balance report (TASK-029) — on-hand quantity per product, per warehouse. */
   @Get('warehouse-balances')
-  getWarehouseBalances() {
-    return this.inventoryService.getWarehouseBalances();
+  getWarehouseBalances(@Query() query: OwnerFilterQueryDto) {
+    return this.inventoryService.getWarehouseBalances(query.owner);
   }
 
   @Get('valuation-method')

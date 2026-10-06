@@ -3,6 +3,8 @@ import { NumberingModule } from '../../numbering/numbering.module';
 import { PostingEngineModule } from '../../accounting/posting-engine/posting-engine.module';
 import { AccountMappingModule } from '../../accounting/account-mapping/account-mapping.module';
 import { InventoryModule } from '../../inventory/inventory.module';
+import { StockLinesModule } from '../../inventory/stock-lines/stock-lines.module';
+import { RecipesModule } from '../../recipes/recipes.module';
 import { AgentLedgerService } from './agent-ledger.service';
 import { AgentFulfillmentService } from './agent-fulfillment.service';
 import { AgentCollectionHooksService } from './agent-collection-hooks.service';
@@ -21,6 +23,8 @@ import { AgentShippingPricingService } from '../pricing/agent-shipping-pricing.s
     PostingEngineModule,
     AccountMappingModule,
     InventoryModule,
+    StockLinesModule,
+    RecipesModule,
   ],
   providers: [
     AgentLedgerService,

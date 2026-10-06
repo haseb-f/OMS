@@ -656,6 +656,27 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     ],
   },
   {
+    // R13 — immediate assembly of ASSEMBLED products from their active recipe. `view` is the plain inventory boundary;
+    // `direct_cost` is the separate right to enter an approved direct assembly cost (labour/overhead) on an order.
+    key: 'assembly',
+    labelKey: 'permissions.modules.assembly',
+    actions: [
+      { action: 'view', name: 'inventory.view' },
+      { action: 'create', name: 'inventory.assembly.create' },
+      { action: 'reverse', name: 'inventory.assembly.reverse' },
+      { action: 'direct_cost', name: 'inventory.assembly.direct_cost' },
+    ],
+  },
+  {
+    // R13 — versioned recipes (bill of materials) for ASSEMBLED / KIT products: draft, edit, activate, retire.
+    key: 'product-recipes',
+    labelKey: 'permissions.modules.productRecipes',
+    actions: [
+      { action: 'view', name: 'products.view' },
+      { action: 'manage', name: 'products.recipes.manage' },
+    ],
+  },
+  {
     key: 'opening-inventory',
     labelKey: 'permissions.modules.openingInventory',
     actions: [
@@ -1556,6 +1577,8 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   inventory: 'inventory.view',
   'inventory.opening-stock': 'inventory.view',
   'inventory.physical-count': 'inventory.view',
+  'inventory.assembly': 'inventory.view',
+  'products.recipes': 'products.view',
   'accounting.journal-entries': 'finance.view',
   'accounting.chart-of-accounts': 'finance.view',
   'accounting.bank-transactions': 'finance.view',

@@ -1,0 +1,826 @@
+{
+  "generatedAt": "2026-10-06T06:58:26.004Z",
+  "run": "WBSF76",
+  "api": "http://localhost:4805",
+  "db": "oms_r13_demo",
+  "total": 111,
+  "passed": 111,
+  "failed": 0,
+  "byJourney": {
+    "SETUP": {
+      "pass": 4,
+      "fail": 0
+    },
+    "A": {
+      "pass": 27,
+      "fail": 0
+    },
+    "B": {
+      "pass": 21,
+      "fail": 0
+    },
+    "C": {
+      "pass": 15,
+      "fail": 0
+    },
+    "D": {
+      "pass": 5,
+      "fail": 0
+    },
+    "E": {
+      "pass": 18,
+      "fail": 0
+    },
+    "F": {
+      "pass": 8,
+      "fail": 0
+    },
+    "X": {
+      "pass": 5,
+      "fail": 0
+    },
+    "INTEGRITY": {
+      "pass": 8,
+      "fail": 0
+    }
+  },
+  "results": [
+    {
+      "journey": "SETUP",
+      "name": "functional currency configured",
+      "ok": true,
+      "expected": "set",
+      "observed": "a02266c9-3c6b-4da0-a759-b66221d88c1e"
+    },
+    {
+      "journey": "SETUP",
+      "name": "PostingSettings.assemblyCostAccountId set",
+      "ok": true,
+      "expected": "set",
+      "observed": "d7624474-c738-4c17-bcd2-c8a968f0eba7"
+    },
+    {
+      "journey": "SETUP",
+      "name": "posting window: fiscal year for today is open (or none)",
+      "ok": true,
+      "expected": "OPEN",
+      "observed": "FY2026-Import-Test OPEN"
+    },
+    {
+      "journey": "SETUP",
+      "name": "setup: warehouse, unit, category, supplier, customer",
+      "ok": true,
+      "expected": "all ids",
+      "observed": "WH=bce10b3e"
+    },
+    {
+      "journey": "A",
+      "name": "one product is both purchasable and sellable, tracked",
+      "ok": true,
+      "expected": "buy+sell+tracked, PURCHASED",
+      "observed": "true/true/true/PURCHASED"
+    },
+    {
+      "journey": "A",
+      "name": "PO converts to a draft purchase invoice",
+      "ok": true,
+      "expected": "DRAFT linked to PO",
+      "observed": "DRAFT PI-2026-000037"
+    },
+    {
+      "journey": "A",
+      "name": "purchase invoice confirmed, PO closed",
+      "ok": true,
+      "expected": "CONFIRMED / CLOSED",
+      "observed": "CONFIRMED / CLOSED"
+    },
+    {
+      "journey": "A",
+      "name": "receipt: on-hand 10",
+      "ok": true,
+      "expected": "10",
+      "observed": "10"
+    },
+    {
+      "journey": "A",
+      "name": "receipt: moving average 10",
+      "ok": true,
+      "expected": "10",
+      "observed": "10"
+    },
+    {
+      "journey": "A",
+      "name": "receipt movement PURCHASE_RECEIPT +10",
+      "ok": true,
+      "expected": "1 × +10",
+      "observed": "PURCHASE_RECEIPT10"
+    },
+    {
+      "journey": "A",
+      "name": "purchase journal Dr Inventory 100 / Cr AP 100, balanced",
+      "ok": true,
+      "expected": "Dr INV 100 · Cr AP 100",
+      "observed": "INV 100 AP -100"
+    },
+    {
+      "journey": "A",
+      "name": "order confirm reserves 4 (available 6)",
+      "ok": true,
+      "expected": "10/4/6",
+      "observed": "10/4/6"
+    },
+    {
+      "journey": "A",
+      "name": "invoice delivers: on-hand 6, reservation released, available 6",
+      "ok": true,
+      "expected": "6/0/6",
+      "observed": "6/0/6"
+    },
+    {
+      "journey": "A",
+      "name": "one SALES_DELIVERY −4 for the invoice",
+      "ok": true,
+      "expected": "1 × −4",
+      "observed": "SALES_DELIVERY-4"
+    },
+    {
+      "journey": "A",
+      "name": "invoice line unit cost = average 10",
+      "ok": true,
+      "expected": "10",
+      "observed": "10"
+    },
+    {
+      "journey": "A",
+      "name": "COGS = 4 × 10 = 40, Cr Inventory 40, journal balanced",
+      "ok": true,
+      "expected": "COGS 40",
+      "observed": "COGS 40 INV -40"
+    },
+    {
+      "journey": "A",
+      "name": "revenue 100 posted",
+      "ok": true,
+      "expected": "100",
+      "observed": "100"
+    },
+    {
+      "journey": "A",
+      "name": "landed cost split: capitalized = 30 × min(10,6)/10 = 18",
+      "ok": true,
+      "expected": "18",
+      "observed": "18"
+    },
+    {
+      "journey": "A",
+      "name": "landed cost split: COGS variance = 12",
+      "ok": true,
+      "expected": "12",
+      "observed": "12"
+    },
+    {
+      "journey": "A",
+      "name": "landed cost document has a frozen exchange rate",
+      "ok": true,
+      "expected": "not null",
+      "observed": "1"
+    },
+    {
+      "journey": "A",
+      "name": "landed cost journal Dr Inventory 18 / Dr COGS 12 / Cr 30, balanced",
+      "ok": true,
+      "expected": "18 / 12",
+      "observed": "INV 18 COGS 12"
+    },
+    {
+      "journey": "A",
+      "name": "average moves only by the capitalized part: (6×10+18)/6 = 13",
+      "ok": true,
+      "expected": "13",
+      "observed": "13"
+    },
+    {
+      "journey": "A",
+      "name": "return: on-hand 7",
+      "ok": true,
+      "expected": "7",
+      "observed": "7"
+    },
+    {
+      "journey": "A",
+      "name": "return restores at snapshot cost 10 (not current 13): Dr INV 10 / Cr COGS 10",
+      "ok": true,
+      "expected": "10 / −10",
+      "observed": "INV 10 COGS -10"
+    },
+    {
+      "journey": "A",
+      "name": "average after return blends the snapshot: (78+10)/7 = 12.5714",
+      "ok": true,
+      "expected": "12.5714",
+      "observed": "12.5714"
+    },
+    {
+      "journey": "A",
+      "name": "concurrent confirm: at least one succeeds, the other is refused or a no-op",
+      "ok": true,
+      "expected": "≥1 OK",
+      "observed": "200 / 400"
+    },
+    {
+      "journey": "A",
+      "name": "concurrent confirm delivers once (1 movement, −1)",
+      "ok": true,
+      "expected": "1 × −1",
+      "observed": "-1"
+    },
+    {
+      "journey": "A",
+      "name": "concurrent confirm posts one journal",
+      "ok": true,
+      "expected": "1",
+      "observed": "1"
+    },
+    {
+      "journey": "A",
+      "name": "on-hand after concurrent confirm = 6",
+      "ok": true,
+      "expected": "6",
+      "observed": "6"
+    },
+    {
+      "journey": "A",
+      "name": "no second product record: purchase, sale and return reference the same product",
+      "ok": true,
+      "expected": "1 product",
+      "observed": "named=1 referenced=1"
+    },
+    {
+      "journey": "A",
+      "name": "integrity I1–I3 PASS for the product",
+      "ok": true,
+      "expected": "PASS",
+      "observed": "I1=PASS I2=PASS I3=PASS"
+    },
+    {
+      "journey": "B",
+      "name": "ASSEMBLED product is stock-tracked",
+      "ok": true,
+      "expected": "tracked ASSEMBLED",
+      "observed": "true ASSEMBLED"
+    },
+    {
+      "journey": "B",
+      "name": "recipe created as DRAFT v1",
+      "ok": true,
+      "expected": "DRAFT v1",
+      "observed": "DRAFT v1"
+    },
+    {
+      "journey": "B",
+      "name": "recipe activated",
+      "ok": true,
+      "expected": "ACTIVE",
+      "observed": "ACTIVE"
+    },
+    {
+      "journey": "B",
+      "name": "components received at A=10, B=15",
+      "ok": true,
+      "expected": "10 / 15",
+      "observed": "10 / 15"
+    },
+    {
+      "journey": "B",
+      "name": "recipe cost estimate = 2×10 + 1×15 + 5 = 40 (labelled estimate)",
+      "ok": true,
+      "expected": "40",
+      "observed": "40 isEstimate=true"
+    },
+    {
+      "journey": "B",
+      "name": "preview: can assemble, max 2",
+      "ok": true,
+      "expected": "true / 2",
+      "observed": "true / 2"
+    },
+    {
+      "journey": "B",
+      "name": "assembly created (201)",
+      "ok": true,
+      "expected": "201",
+      "observed": "201 "
+    },
+    {
+      "journey": "B",
+      "name": "idempotent retry returns the same order (200)",
+      "ok": true,
+      "expected": "200 ASM-2026-000005",
+      "observed": "200 ASM-2026-000005"
+    },
+    {
+      "journey": "B",
+      "name": "FG unit cost 40 (component 35 + direct 5)",
+      "ok": true,
+      "expected": "40",
+      "observed": "unit 40 comp 35 total 40"
+    },
+    {
+      "journey": "B",
+      "name": "stock after assembly: A 2 (−2), B 1 (−1), FG 1 (+1) — retry did not double",
+      "ok": true,
+      "expected": "2/1/1",
+      "observed": "2/1/1"
+    },
+    {
+      "journey": "B",
+      "name": "FG moving average 40",
+      "ok": true,
+      "expected": "40",
+      "observed": "40"
+    },
+    {
+      "journey": "B",
+      "name": "consumption + output movements (PRODUCTION_CONSUMPTION ×2, PRODUCTION_OUTPUT ×1)",
+      "ok": true,
+      "expected": "2 + 1",
+      "observed": "PRODUCTION_OUTPUT1,PRODUCTION_CONSUMPTION-1,PRODUCTION_CONSUMPTION-2"
+    },
+    {
+      "journey": "B",
+      "name": "consumption movements trace the recipe (recipeId / parentProductId)",
+      "ok": true,
+      "expected": "stamped",
+      "observed": "4ff5412b/-,4ff5412b/11360adf,4ff5412b/11360adf"
+    },
+    {
+      "journey": "B",
+      "name": "journal Dr FG 40 / Cr A 20 / Cr B 15 / Cr assembly cost 5, balanced",
+      "ok": true,
+      "expected": "40 / 20 / 15 / 5",
+      "observed": "Dr INV 40 Cr INV 15,20 Cr ASM 5"
+    },
+    {
+      "journey": "B",
+      "name": "second assembly reversed",
+      "ok": true,
+      "expected": "REVERSED",
+      "observed": "REVERSED"
+    },
+    {
+      "journey": "B",
+      "name": "reversal restores stock: A 2, B 1, FG 1",
+      "ok": true,
+      "expected": "2/1/1",
+      "observed": "2/1/1"
+    },
+    {
+      "journey": "B",
+      "name": "reversed assembly journal nets to zero (original + engine reversal)",
+      "ok": true,
+      "expected": "2 entries, net 0",
+      "observed": "2 entries, INV+ASM net 0"
+    },
+    {
+      "journey": "B",
+      "name": "insufficient stock refused, message names the component",
+      "ok": true,
+      "expected": "422 ASSEMBLY_INSUFFICIENT_STOCK naming PRD-2026-001848",
+      "observed": "422 ASSEMBLY_INSUFFICIENT_STOCK Not enough stock in WH-MAIN to assemble 5 × PRD-2026-001850 [R13-DEMO] Assembled FG WBSF76: PRD-2026-001848 [R13-DEMO] Component A WBSF76 ne"
+    },
+    {
+      "journey": "B",
+      "name": "FG sale COGS = 40",
+      "ok": true,
+      "expected": "40",
+      "observed": "40 / 40"
+    },
+    {
+      "journey": "B",
+      "name": "components NOT costed/moved again on the FG sale",
+      "ok": true,
+      "expected": "only FG −1",
+      "observed": "PRD-2026-001850-1"
+    },
+    {
+      "journey": "B",
+      "name": "integrity I4 PASS (assembly cost, consumption, journal)",
+      "ok": true,
+      "expected": "PASS",
+      "observed": "PASS checked=2 "
+    },
+    {
+      "journey": "C",
+      "name": "KIT holds no stock (isInventoryItem=false)",
+      "ok": true,
+      "expected": "false / KIT",
+      "observed": "false / KIT"
+    },
+    {
+      "journey": "C",
+      "name": "KIT with track stock refused (PRODUCT_KIT_NOT_STOCKED)",
+      "ok": true,
+      "expected": "422",
+      "observed": "422 PRODUCT_KIT_NOT_STOCKED"
+    },
+    {
+      "journey": "C",
+      "name": "kit availability = min(5/1, 6/2) = 3, limited by part 2",
+      "ok": true,
+      "expected": "3 (part 2)",
+      "observed": "3 ([R13-DEMO] Kit Part 2 WBSF76)"
+    },
+    {
+      "journey": "C",
+      "name": "order confirm reserves components: part1 2, part2 4",
+      "ok": true,
+      "expected": "2 / 4",
+      "observed": "2 / 4"
+    },
+    {
+      "journey": "C",
+      "name": "reservations traced to the kit (parentProductId + recipeId)",
+      "ok": true,
+      "expected": "2 stamped",
+      "observed": "PRD-2026-001852:4,PRD-2026-001851:2"
+    },
+    {
+      "journey": "C",
+      "name": "kit availability after reservation = 1",
+      "ok": true,
+      "expected": "1",
+      "observed": "1"
+    },
+    {
+      "journey": "C",
+      "name": "invoice delivers components only: part1 −2, part2 −4",
+      "ok": true,
+      "expected": "−2 / −4",
+      "observed": "PRD-2026-001852-4,PRD-2026-001851-2"
+    },
+    {
+      "journey": "C",
+      "name": "deliveries stamped parentProductId=kit and recipeId",
+      "ok": true,
+      "expected": "stamped",
+      "observed": ""
+    },
+    {
+      "journey": "C",
+      "name": "no movement and no stock for the kit itself",
+      "ok": true,
+      "expected": "0 / 0",
+      "observed": "0 / 0"
+    },
+    {
+      "journey": "C",
+      "name": "components after delivery: part1 3 (0 reserved), part2 2 (0 reserved)",
+      "ok": true,
+      "expected": "3/0 · 2/0",
+      "observed": "3/0 · 2/0"
+    },
+    {
+      "journey": "C",
+      "name": "kit line unit cost = Σ components = 1×8 + 2×3 = 14, snapshot stored",
+      "ok": true,
+      "expected": "14 + snapshot",
+      "observed": "14 snapshot=true"
+    },
+    {
+      "journey": "C",
+      "name": "COGS once = 2 × 14 = 28, Cr Inventory 28, balanced",
+      "ok": true,
+      "expected": "28",
+      "observed": "COGS 28 INV -28"
+    },
+    {
+      "journey": "C",
+      "name": "kit return returns components: part1 +1, part2 +2",
+      "ok": true,
+      "expected": "+1 / +2",
+      "observed": "PRD-2026-001852+2,PRD-2026-001851+1"
+    },
+    {
+      "journey": "C",
+      "name": "kit return at snapshot cost 14: Dr INV 14 / Cr COGS 14",
+      "ok": true,
+      "expected": "14",
+      "observed": "INV 14 COGS -14"
+    },
+    {
+      "journey": "C",
+      "name": "integrity I5 PASS (kit deliveries + COGS once)",
+      "ok": true,
+      "expected": "PASS",
+      "observed": "PASS checked=1 "
+    },
+    {
+      "journey": "D",
+      "name": "SERVICE: not tracked, sell-only, PURCHASED",
+      "ok": true,
+      "expected": "false/true/false",
+      "observed": "false/true/false/PURCHASED"
+    },
+    {
+      "journey": "D",
+      "name": "tracking a SERVICE refused (PRODUCT_SERVICE_RULE)",
+      "ok": true,
+      "expected": "422",
+      "observed": "422 PRODUCT_SERVICE_RULE"
+    },
+    {
+      "journey": "D",
+      "name": "zero inventory movements",
+      "ok": true,
+      "expected": "0",
+      "observed": "0"
+    },
+    {
+      "journey": "D",
+      "name": "zero COGS / inventory lines",
+      "ok": true,
+      "expected": "0",
+      "observed": "COGS 0"
+    },
+    {
+      "journey": "D",
+      "name": "revenue 500 posted (Dr AR 500 / Cr revenue 500), balanced",
+      "ok": true,
+      "expected": "500",
+      "observed": "REV 500 AR 500"
+    },
+    {
+      "journey": "E",
+      "name": "demo agent A has an active agreement with a shipping rate",
+      "ok": true,
+      "expected": "agreement + rate",
+      "observed": "AGR-2026-0086 EG 100"
+    },
+    {
+      "journey": "E",
+      "name": "product created owned by the agent",
+      "ok": true,
+      "expected": "a87c4fb4-3f3d-475f-ad3e-4b7cc961862d",
+      "observed": "a87c4fb4-3f3d-475f-ad3e-4b7cc961862d"
+    },
+    {
+      "journey": "E",
+      "name": "agent stock received (movement owner = agent)",
+      "ok": true,
+      "expected": "owner agent, +5",
+      "observed": "a87c4fb4 +5"
+    },
+    {
+      "journey": "E",
+      "name": "no company journal for the agent stock receipt",
+      "ok": true,
+      "expected": "0",
+      "observed": "0"
+    },
+    {
+      "journey": "E",
+      "name": "company valuation (owner=COMPANY) excludes the agent item; owner=AGENT shows it",
+      "ok": true,
+      "expected": "excluded / included",
+      "observed": "false / true"
+    },
+    {
+      "journey": "E",
+      "name": "agent portal product list shows the item without any cost field",
+      "ok": true,
+      "expected": "listed, no cost",
+      "observed": "listed=true"
+    },
+    {
+      "journey": "E",
+      "name": "agent order created through the agent API",
+      "ok": true,
+      "expected": "created",
+      "observed": "STO-2026-027280"
+    },
+    {
+      "journey": "E",
+      "name": "agent order response exposes no cost",
+      "ok": true,
+      "expected": "no cost",
+      "observed": ""
+    },
+    {
+      "journey": "E",
+      "name": "internal fulfillment dispatches the agent order (ship)",
+      "ok": true,
+      "expected": "200",
+      "observed": "200 "
+    },
+    {
+      "journey": "E",
+      "name": "agent order delivered",
+      "ok": true,
+      "expected": "200",
+      "observed": "200/200 "
+    },
+    {
+      "journey": "E",
+      "name": "agent stock issued on dispatch: 5 → 4",
+      "ok": true,
+      "expected": "4",
+      "observed": "4"
+    },
+    {
+      "journey": "E",
+      "name": "delivery movement carries the agent as owner",
+      "ok": true,
+      "expected": "1, owner agent",
+      "observed": "-1:a87c4fb4"
+    },
+    {
+      "journey": "E",
+      "name": "commission line per policy (12% of 200)",
+      "ok": true,
+      "expected": "24",
+      "observed": "24 [CUSTOMER_SHIPPING_RETAINED,COMMISSION,SHIPPING_FEE]"
+    },
+    {
+      "journey": "E",
+      "name": "shipping fee line per policy (flat fee per shipment)",
+      "ok": true,
+      "expected": "SHIPPING_FEE",
+      "observed": "CUSTOMER_SHIPPING_RETAINED,COMMISSION,SHIPPING_FEE"
+    },
+    {
+      "journey": "E",
+      "name": "agent statement (portal) shows the order's lines",
+      "ok": true,
+      "expected": "≥1",
+      "observed": "3 lines: SHIPPING_FEE,COMMISSION,CUSTOMER_SHIPPING_RETAINED"
+    },
+    {
+      "journey": "E",
+      "name": "agent statement never exposes cost",
+      "ok": true,
+      "expected": "no cost",
+      "observed": ""
+    },
+    {
+      "journey": "E",
+      "name": "NO company GL inventory/COGS posting and no company invoice for the agent goods",
+      "ok": true,
+      "expected": "0 / 0",
+      "observed": "0 / 0"
+    },
+    {
+      "journey": "E",
+      "name": "integrity I7 PASS (agent stock outside company books)",
+      "ok": true,
+      "expected": "PASS",
+      "observed": "PASS "
+    },
+    {
+      "journey": "F",
+      "name": "company PRODUCT, sellable, ACTIVE → eligibility enabled",
+      "ok": true,
+      "expected": "200 true",
+      "observed": "200 true"
+    },
+    {
+      "journey": "F",
+      "name": "agent-owned product refused: 422 PRODUCT_INVESTMENT_NOT_ALLOWED reason AGENT_OWNED",
+      "ok": true,
+      "expected": "422 AGENT_OWNED",
+      "observed": "422 PRODUCT_INVESTMENT_NOT_ALLOWED AGENT_OWNED"
+    },
+    {
+      "journey": "F",
+      "name": "service product refused: reason SERVICE",
+      "ok": true,
+      "expected": "422 SERVICE",
+      "observed": "422 PRODUCT_INVESTMENT_NOT_ALLOWED SERVICE"
+    },
+    {
+      "journey": "F",
+      "name": "opportunity created with the eligible product",
+      "ok": true,
+      "expected": "created",
+      "observed": "IOP-2026-000573"
+    },
+    {
+      "journey": "F",
+      "name": "product investment-links shows the opportunity",
+      "ok": true,
+      "expected": "eligible + linked",
+      "observed": "true IOP-2026-000573"
+    },
+    {
+      "journey": "F",
+      "name": "lifecycle open → fund → activate → delivered sale → allocation",
+      "ok": true,
+      "expected": "all steps, 1 unit allocated",
+      "observed": "open✓ subscribe✓ contribute✓ confirm-funding✓ activate✓ store-order✓ payment✓ payment-confirm✓ generate-invoice✓ ship✓ out-for-delivery✓ deliver✓ allocate✓ units=1"
+    },
+    {
+      "journey": "F",
+      "name": "disabling eligibility: allowed, product no longer eligible, link kept",
+      "ok": true,
+      "expected": "200, eligible=false, linked",
+      "observed": "200 eligible=false"
+    },
+    {
+      "journey": "F",
+      "name": "enabling/disabling eligibility creates or rewrites no allocation",
+      "ok": true,
+      "expected": "identical",
+      "observed": "1 row(s); global 3/3 → 3/3"
+    },
+    {
+      "journey": "X",
+      "name": "similar-name warning lists the near-duplicate",
+      "ok": true,
+      "expected": "listed",
+      "observed": "PRD-2026-001857 SIMILAR"
+    },
+    {
+      "journey": "X",
+      "name": "near-duplicate name is non-blocking (created)",
+      "ok": true,
+      "expected": "201",
+      "observed": "201"
+    },
+    {
+      "journey": "X",
+      "name": "barcode duplicate (case/space-insensitive) → 409 naming the other product",
+      "ok": true,
+      "expected": "409 → PRD-2026-001857",
+      "observed": "409 PRODUCT_BARCODE_DUPLICATE PRD-2026-001857"
+    },
+    {
+      "journey": "X",
+      "name": "recipe cycle refused (RECIPE_CYCLE, names the path)",
+      "ok": true,
+      "expected": "422 RECIPE_CYCLE",
+      "observed": "422 RECIPE_CYCLE This recipe would make a product part of itself: PRD-2026-001860 [R13-DEMO] Cycle Y WBSF76 → PRD-2026-001859 [R13-DEMO] "
+    },
+    {
+      "journey": "X",
+      "name": "mixed-owner recipe refused (RECIPE_OWNER_MIXED)",
+      "ok": true,
+      "expected": "422 RECIPE_OWNER_MIXED",
+      "observed": "422 RECIPE_OWNER_MIXED"
+    },
+    {
+      "journey": "INTEGRITY",
+      "name": "GET /inventory/integrity (whole DB): I1 Movement chain per product and warehouse PASS",
+      "ok": true,
+      "expected": "PASS",
+      "observed": "PASS checked=722 violations=0"
+    },
+    {
+      "journey": "INTEGRITY",
+      "name": "GET /inventory/integrity (whole DB): I2 No negative stock; reserved within on-hand PASS",
+      "ok": true,
+      "expected": "PASS",
+      "observed": "PASS checked=204 violations=0"
+    },
+    {
+      "journey": "INTEGRITY",
+      "name": "GET /inventory/integrity (whole DB): I3 No duplicate document-line movements PASS",
+      "ok": true,
+      "expected": "PASS",
+      "observed": "PASS checked=507 violations=0"
+    },
+    {
+      "journey": "INTEGRITY",
+      "name": "GET /inventory/integrity (whole DB): I4 Assembly orders: cost, consumption and journal PASS",
+      "ok": true,
+      "expected": "PASS",
+      "observed": "PASS checked=6 violations=0"
+    },
+    {
+      "journey": "INTEGRITY",
+      "name": "GET /inventory/integrity (whole DB): I5 Kit sales: component deliveries and COGS once PASS",
+      "ok": true,
+      "expected": "PASS",
+      "observed": "PASS checked=3 violations=0"
+    },
+    {
+      "journey": "INTEGRITY",
+      "name": "GET /inventory/integrity (whole DB): I7 Agent-owned stock stays outside company books PASS",
+      "ok": true,
+      "expected": "PASS",
+      "observed": "PASS checked=722 violations=0"
+    },
+    {
+      "journey": "INTEGRITY",
+      "name": "GET /inventory/integrity (whole DB): I6 valuation vs GL is WARN only (pre-existing difference)",
+      "ok": true,
+      "expected": "WARN",
+      "observed": "WARN {\"subledgerValue\":\"397523.85\",\"glBalance\":\"375612.65\",\"difference\":\"21911.20\",\"roundingBound\":\"0.64\",\"inventoryAccounts\":1,\"openingBalanceMovements\":54,\"openingBalanceMovementValue\":\"20231.00\",\"openingBalanceGlOnInventoryAccounts\":\"0.00\",\"transferMovementsGlNeutral\":0,\"unpostedAdjustmentMovements\":1"
+    },
+    {
+      "journey": "INTEGRITY",
+      "name": "CLI r13-integrity.ts (whole DB): I1–I5, I7 PASS, I6 WARN, exit 0",
+      "ok": true,
+      "expected": "PASS×6 + WARN",
+      "observed": "exit 0 I1=PASS I2=PASS I3=PASS I4=PASS I5=PASS I6=WARN I7=PASS"
+    }
+  ]
+}

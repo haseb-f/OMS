@@ -615,7 +615,7 @@ export class AgentStatementService {
             unitPrice: true,
             agreedAmount: true,
             productId: true,
-            product: { select: { isInventoryItem: true } },
+            product: { select: { isInventoryItem: true, supplyMethod: true } },
           },
         },
         _count: { select: { agentReturns: true } },

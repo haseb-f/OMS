@@ -52,6 +52,7 @@ const INCLUDE = {
   unrealizedFxAccount: true,
   otherIncomeAccount: true,
   otherExpenseAccount: true,
+  assemblyCostAccount: true,
   agentFundsPayableAccount: true,
   agentCommissionRevenueAccount: true,
   agentServiceRevenueAccount: true,
@@ -84,6 +85,7 @@ export class PostingSettingsService {
       dto.functionalCurrencyId,
     );
     await this.assertAgentAccounts(dto, existing);
+    await this.assertAssemblyCostAccount(dto, existing);
     return this.prisma.postingSettings.update({
       where: { id: existing.id },
       data: { ...dto, updatedBy: userId ?? null },
@@ -190,6 +192,47 @@ export class PostingSettingsService {
           })),
         });
       }
+    }
+  }
+
+  /**
+   * R13 — the assembly cost account receives the credit of approved direct
+   * assembly costs (functional amounts, Posting Engine). It must exist, be a
+   * postable (leaf) account and not be locked to a currency other than the
+   * functional one — never a header account the engine would reject at
+   * posting time.
+   */
+  private async assertAssemblyCostAccount(
+    dto: UpdatePostingSettingsDto,
+    existing: { functionalCurrencyId: string | null },
+  ) {
+    if (!dto.assemblyCostAccountId) return;
+    const account = await this.prisma.chartOfAccount.findFirst({
+      where: { id: dto.assemblyCostAccountId, deletedAt: null },
+      select: { code: true, name: true, allowsPosting: true, currencyId: true },
+    });
+    if (!account) {
+      throw new BadRequestException({
+        code: 'ASSEMBLY_COST_ACCOUNT_INVALID',
+        message: 'Assembly cost account: account not found.',
+      });
+    }
+    if (!account.allowsPosting) {
+      throw new BadRequestException({
+        code: 'ASSEMBLY_COST_ACCOUNT_INVALID',
+        message: `Assembly cost account must be a postable account — ${account.code} ${account.name} is a header account.`,
+      });
+    }
+    const functionalCurrencyId =
+      dto.functionalCurrencyId ?? existing.functionalCurrencyId;
+    if (
+      account.currencyId &&
+      (!functionalCurrencyId || account.currencyId !== functionalCurrencyId)
+    ) {
+      throw new BadRequestException({
+        code: 'ASSEMBLY_COST_ACCOUNT_INVALID',
+        message: `Assembly cost account: ${account.code} ${account.name} is locked to a currency other than the functional currency — choose an account without a currency lock or in the functional currency.`,
+      });
     }
   }
 

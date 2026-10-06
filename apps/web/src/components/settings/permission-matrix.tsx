@@ -37,6 +37,7 @@ const ACTION_LABEL_KEY: Record<string, MessageKey> = {
   lookup_advanced: "permissions.actions.lookupAdvanced",
   view_all: "permissions.actions.viewAll",
   amend: "permissions.actions.amend",
+  direct_cost: "permissions.actions.directCost",
 };
 
 /**

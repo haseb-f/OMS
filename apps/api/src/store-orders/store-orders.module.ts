@@ -8,6 +8,7 @@ import { WorkflowModule } from '../workflow/workflow.module';
 import { SalesScopeModule } from '../sales-scope/sales-scope.module';
 import { ProductsModule } from '../products/products.module';
 import { InventoryModule } from '../inventory/inventory.module';
+import { StockLinesModule } from '../inventory/stock-lines/stock-lines.module';
 import { StoreOrdersController } from './store-orders.controller';
 import { StoreOrdersService } from './store-orders.service';
 import { StoreOrderActivityService } from './activities/store-order-activity.service';
@@ -37,6 +38,7 @@ import { StoreOrderDuplicatesModule } from './duplicates/store-order-duplicates.
     SalesScopeModule,
     ProductsModule,
     InventoryModule,
+    StockLinesModule,
     FulfillmentCostRulesModule,
     StoreOrderCollectionModule,
     AccountMappingModule,

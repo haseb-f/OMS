@@ -1,0 +1,719 @@
+{
+  "generatedAt": "2026-10-06T09:33:13.179Z",
+  "base": "http://localhost:4801",
+  "run": "HAYZW",
+  "total": 84,
+  "passed": 84,
+  "failed": 0,
+  "fatal": null,
+  "screenshots": 40,
+  "names": {
+    "compX": "[R13-UI] Component X HAYZW",
+    "compY": "[R13-UI] Component Y HAYZW",
+    "similar": "[R13-UI] Componet X HAYZW",
+    "service": "[R13-UI] Service HAYZW",
+    "kit": "[R13-UI] Kit HAYZW",
+    "assembled": "[R13-UI] Assembled HAYZW",
+    "mobile": "[R13-UI] Mobile Part HAYZW"
+  },
+  "ids": {
+    "compX": "de1397b4-89c8-448f-aa3c-2ca1c0802a78",
+    "compY": "447d2d93-b93e-40a7-ab0c-3168f567277a",
+    "service": "70b296fd-4667-4f42-93c8-baceab53f31f",
+    "kit": "da35cadf-b837-4d44-b749-46944ac6c290",
+    "assembled": "6ad0c3a7-5a71-495c-8adf-e96169bf0cd8",
+    "similar": "2fce2cf2-34f3-48a9-8468-536bfb414b78",
+    "assembly1": "a2c72490-6a0f-454c-a96b-17f870545ccd",
+    "assembly2": "9d1a3058-be04-40b9-8561-9ead97259bea",
+    "mobile": "96774836-e359-4e63-9e64-4c4156204238"
+  },
+  "perStep": [
+    {
+      "step": "0",
+      "total": 3,
+      "failed": 0
+    },
+    {
+      "step": "1",
+      "total": 33,
+      "failed": 0
+    },
+    {
+      "step": "2",
+      "total": 7,
+      "failed": 0
+    },
+    {
+      "step": "3",
+      "total": 5,
+      "failed": 0
+    },
+    {
+      "step": "4",
+      "total": 5,
+      "failed": 0
+    },
+    {
+      "step": "5",
+      "total": 15,
+      "failed": 0
+    },
+    {
+      "step": "6",
+      "total": 3,
+      "failed": 0
+    },
+    {
+      "step": "7",
+      "total": 2,
+      "failed": 0
+    },
+    {
+      "step": "8",
+      "total": 2,
+      "failed": 0
+    },
+    {
+      "step": "9",
+      "total": 6,
+      "failed": 0
+    },
+    {
+      "step": "10",
+      "total": 3,
+      "failed": 0
+    }
+  ],
+  "results": [
+    {
+      "step": "0",
+      "scope": "desktop/ar",
+      "name": "existing category with a default unit is selectable in the product form (D1)",
+      "ok": true,
+      "detail": "[R13-DEMO] Category WBSF76"
+    },
+    {
+      "step": "0",
+      "scope": "desktop/ar",
+      "name": "category with a default unit created through Master data → Categories",
+      "ok": true,
+      "detail": "201 unit=Arabic Search Unit 656fb47b"
+    },
+    {
+      "step": "0",
+      "scope": "desktop/ar",
+      "name": "no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "compX: unit prefilled from the category + hint",
+      "ok": true,
+      "detail": "unit=\"Arabic Search Unit 656fb47b\" expected=\"Arabic Search Unit 656fb47b\" hint=true"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "compX: track stock ON and editable",
+      "ok": true,
+      "detail": "checked=true"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "compX: saved (POST /products 201)",
+      "ok": true,
+      "detail": "PRD-2026-001876"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "compX: success toast",
+      "ok": true,
+      "detail": "تم إنشاء المنتج بنجاح."
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "compY: unit prefilled from the category + hint",
+      "ok": true,
+      "detail": "unit=\"Arabic Search Unit 656fb47b\" expected=\"Arabic Search Unit 656fb47b\" hint=true"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "compY: track stock ON and editable",
+      "ok": true,
+      "detail": "checked=true"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "compY: saved (POST /products 201)",
+      "ok": true,
+      "detail": "PRD-2026-001877"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "compY: success toast",
+      "ok": true,
+      "detail": "تم إنشاء المنتج بنجاح."
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "service: unit prefilled from the category + hint",
+      "ok": true,
+      "detail": "unit=\"Arabic Search Unit 656fb47b\" expected=\"Arabic Search Unit 656fb47b\" hint=true"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "service: stock fields hidden for a service",
+      "ok": true,
+      "detail": "switch=false note=true"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "service: saved (POST /products 201)",
+      "ok": true,
+      "detail": "PRD-2026-001878"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "service: success toast",
+      "ok": true,
+      "detail": "تم إنشاء المنتج بنجاح."
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "kit: unit prefilled from the category + hint",
+      "ok": true,
+      "detail": "unit=\"Arabic Search Unit 656fb47b\" expected=\"Arabic Search Unit 656fb47b\" hint=true"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "kit: track stock forced OFF with the reason",
+      "ok": true,
+      "detail": "checked=false locked=true reason=true"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "kit: saved (POST /products 201)",
+      "ok": true,
+      "detail": "PRD-2026-001879"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "kit: success toast",
+      "ok": true,
+      "detail": "تم إنشاء المنتج بنجاح."
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "assembled: unit prefilled from the category + hint",
+      "ok": true,
+      "detail": "unit=\"Arabic Search Unit 656fb47b\" expected=\"Arabic Search Unit 656fb47b\" hint=true"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "assembled: track stock forced ON with the reason",
+      "ok": true,
+      "detail": "checked=true locked=true"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "assembled: saved (POST /products 201)",
+      "ok": true,
+      "detail": "PRD-2026-001880"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "assembled: success toast",
+      "ok": true,
+      "detail": "تم إنشاء المنتج بنجاح."
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "compX: stored attributes",
+      "ok": true,
+      "detail": "PRD-2026-001876 PRODUCT/PURCHASED tracked=true ACTIVE"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "compY: stored attributes",
+      "ok": true,
+      "detail": "PRD-2026-001877 PRODUCT/PURCHASED tracked=true ACTIVE"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "service: stored attributes",
+      "ok": true,
+      "detail": "PRD-2026-001878 SERVICE/PURCHASED tracked=false ACTIVE"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "kit: stored attributes",
+      "ok": true,
+      "detail": "PRD-2026-001879 PRODUCT/KIT tracked=false ACTIVE"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "assembled: stored attributes",
+      "ok": true,
+      "detail": "PRD-2026-001880 PRODUCT/ASSEMBLED tracked=true ACTIVE"
+    },
+    {
+      "step": "1",
+      "scope": "desktop/ar",
+      "name": "no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "2",
+      "scope": "desktop/ar",
+      "name": "similar-name warning visible and names the existing product",
+      "ok": true,
+      "detail": "shown"
+    },
+    {
+      "step": "2",
+      "scope": "desktop/ar",
+      "name": "save stays enabled (non-blocking)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "2",
+      "scope": "desktop/ar",
+      "name": "similar: unit prefilled from the category + hint",
+      "ok": true,
+      "detail": "unit=\"Arabic Search Unit 656fb47b\" expected=\"Arabic Search Unit 656fb47b\" hint=true"
+    },
+    {
+      "step": "2",
+      "scope": "desktop/ar",
+      "name": "similar: track stock ON and editable",
+      "ok": true,
+      "detail": "checked=true"
+    },
+    {
+      "step": "2",
+      "scope": "desktop/ar",
+      "name": "similar: saved (POST /products 201)",
+      "ok": true,
+      "detail": "PRD-2026-001881"
+    },
+    {
+      "step": "2",
+      "scope": "desktop/ar",
+      "name": "similar: success toast",
+      "ok": true,
+      "detail": "تم إنشاء المنتج بنجاح."
+    },
+    {
+      "step": "2",
+      "scope": "desktop/ar",
+      "name": "no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "3",
+      "scope": "desktop/ar",
+      "name": "assembled: recipe ACTIVE with the chosen components",
+      "ok": true,
+      "detail": "toast=true status=ACTIVE lines=PRD-2026-001876×2, PRD-2026-001877×1"
+    },
+    {
+      "step": "3",
+      "scope": "desktop/ar",
+      "name": "assembled: panel shows status ACTIVE",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "3",
+      "scope": "desktop/ar",
+      "name": "kit: recipe ACTIVE with the chosen components",
+      "ok": true,
+      "detail": "toast=true status=ACTIVE lines=PRD-2026-001877×1"
+    },
+    {
+      "step": "3",
+      "scope": "desktop/ar",
+      "name": "kit: panel shows status ACTIVE",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "3",
+      "scope": "desktop/ar",
+      "name": "no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "4",
+      "scope": "desktop/ar",
+      "name": "compX: opening inventory 10 @ 10 saved + toast",
+      "ok": true,
+      "detail": "201"
+    },
+    {
+      "step": "4",
+      "scope": "desktop/ar",
+      "name": "compY: opening inventory 5 @ 15 saved + toast",
+      "ok": true,
+      "detail": "201"
+    },
+    {
+      "step": "4",
+      "scope": "desktop/ar",
+      "name": "stock page shows X = 10 and Y = 5",
+      "ok": true,
+      "detail": "X[ [R13-UI] Component X HAYZW PRD-2026-001876 الشركة 10 10 / 0 100.00] Y[ [R13-UI] Component Y HAYZW PRD-2026-001877 الشركة 5 5 / 0 75.00]"
+    },
+    {
+      "step": "4",
+      "scope": "desktop/ar",
+      "name": "API stock cards agree (read-only)",
+      "ok": true,
+      "detail": "10/5"
+    },
+    {
+      "step": "4",
+      "scope": "desktop/ar",
+      "name": "no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "5",
+      "scope": "desktop/ar",
+      "name": "preview lists both components, needed/available and the estimated unit cost",
+      "ok": true,
+      "detail": "ready=true components=true/true estimate 2×10+1×15=35.0000:true"
+    },
+    {
+      "step": "5",
+      "scope": "desktop/ar",
+      "name": "assembly posted: success toast with an ASM- number",
+      "ok": true,
+      "detail": "201 toast=ASM-2026-000013 api=ASM-2026-000013"
+    },
+    {
+      "step": "5",
+      "scope": "desktop/ar",
+      "name": "detail page shows the number and POSTED",
+      "ok": true,
+      "detail": "ASM-2026-000013"
+    },
+    {
+      "step": "5",
+      "scope": "desktop/ar",
+      "name": "reversed: toast, badge REVERSED, API status REVERSED with the reason",
+      "ok": true,
+      "detail": "api=REVERSED"
+    },
+    {
+      "step": "5",
+      "scope": "desktop/ar",
+      "name": "preview lists both components, needed/available and the estimated unit cost",
+      "ok": true,
+      "detail": "ready=true components=true/true estimate 2×10+1×15=35.0000:true"
+    },
+    {
+      "step": "5",
+      "scope": "desktop/ar",
+      "name": "assembly posted: success toast with an ASM- number",
+      "ok": true,
+      "detail": "201 toast=ASM-2026-000014 api=ASM-2026-000014"
+    },
+    {
+      "step": "5",
+      "scope": "desktop/ar",
+      "name": "second assembly stays POSTED",
+      "ok": true,
+      "detail": "ASM-2026-000014"
+    },
+    {
+      "step": "5",
+      "scope": "desktop/ar",
+      "name": "component stock after assemble/reverse/assemble: X = 8, Y = 4",
+      "ok": true,
+      "detail": "8/4"
+    },
+    {
+      "step": "5",
+      "scope": "desktop/ar",
+      "name": "no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "6",
+      "scope": "desktop/ar",
+      "name": "save refused with the Arabic PRODUCT_TRACKING_LOCKED message in the form",
+      "ok": true,
+      "detail": "switchOff=true http=409 msg=true"
+    },
+    {
+      "step": "6",
+      "scope": "desktop/ar",
+      "name": "product is still stock-tracked (read-only GET)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "6",
+      "scope": "desktop/ar",
+      "name": "no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "7",
+      "scope": "desktop/ar",
+      "name": "kit availability shown and equals the API (min of component availability)",
+      "ok": true,
+      "detail": "ui=4 api=4"
+    },
+    {
+      "step": "7",
+      "scope": "desktop/ar",
+      "name": "no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "8",
+      "scope": "desktop/ar",
+      "name": "integrity report rendered (I1–I7) with no FAIL card",
+      "ok": true,
+      "detail": "I1:PASS I2:PASS I3:PASS I4:PASS I5:PASS I6:WARN I7:PASS failCard=0"
+    },
+    {
+      "step": "8",
+      "scope": "desktop/ar",
+      "name": "no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "1",
+      "scope": "mobile/ar",
+      "name": "product form dialog: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390"
+    },
+    {
+      "step": "1",
+      "scope": "mobile/ar",
+      "name": "mobile: unit prefilled from the category + hint",
+      "ok": true,
+      "detail": "unit=\"Arabic Search Unit 656fb47b\" expected=\"Arabic Search Unit 656fb47b\" hint=true"
+    },
+    {
+      "step": "1",
+      "scope": "mobile/ar",
+      "name": "mobile: track stock ON and editable",
+      "ok": true,
+      "detail": "checked=true"
+    },
+    {
+      "step": "1",
+      "scope": "mobile/ar",
+      "name": "mobile: saved (POST /products 201)",
+      "ok": true,
+      "detail": "PRD-2026-001882"
+    },
+    {
+      "step": "1",
+      "scope": "mobile/ar",
+      "name": "mobile: success toast",
+      "ok": true,
+      "detail": "تم إنشاء المنتج بنجاح."
+    },
+    {
+      "step": "1",
+      "scope": "mobile/ar",
+      "name": "product list after create: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390"
+    },
+    {
+      "step": "1",
+      "scope": "mobile/ar",
+      "name": "no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "5",
+      "scope": "mobile/ar",
+      "name": "preview lists both components, needed/available and the estimated unit cost",
+      "ok": true,
+      "detail": "ready=true components=true/true estimate 2×10+1×15=35.0000:true"
+    },
+    {
+      "step": "5",
+      "scope": "mobile/ar",
+      "name": "new-assembly dialog: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390"
+    },
+    {
+      "step": "5",
+      "scope": "mobile/ar",
+      "name": "assembly posted: success toast with an ASM- number",
+      "ok": true,
+      "detail": "201 toast=ASM-2026-000015 api=ASM-2026-000015"
+    },
+    {
+      "step": "5",
+      "scope": "mobile/ar",
+      "name": "assembly detail: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390"
+    },
+    {
+      "step": "5",
+      "scope": "mobile/ar",
+      "name": "component stock after the mobile assembly: X = 6, Y = 3",
+      "ok": true,
+      "detail": "6/3"
+    },
+    {
+      "step": "5",
+      "scope": "mobile/ar",
+      "name": "no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "9",
+      "scope": "agent /agent/stock",
+      "name": "/agent/stock renders",
+      "ok": true,
+      "detail": "/agent/stock"
+    },
+    {
+      "step": "9",
+      "scope": "agent /agent/stock",
+      "name": "/agent/stock: no cost columns",
+      "ok": true,
+      "detail": " | المنتج | المستودع | الرصيد الفعلي | المحجوز | المتاح | المشحون | المرتجع"
+    },
+    {
+      "step": "9",
+      "scope": "agent /agent/stock",
+      "name": "no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "9",
+      "scope": "agent /agent/orders",
+      "name": "/agent/orders renders",
+      "ok": true,
+      "detail": "/agent/orders"
+    },
+    {
+      "step": "9",
+      "scope": "agent /agent/orders",
+      "name": "/agent/orders: no cost columns",
+      "ok": true,
+      "detail": " | رقم الطلب | التاريخ | العميل | المنتجات | الإجمالي المستحق | الحالة المُبلَّغة | حالة المالية | التنفيذ"
+    },
+    {
+      "step": "9",
+      "scope": "agent /agent/orders",
+      "name": "no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "10",
+      "scope": "desktop/en",
+      "name": "product list in English: dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr"
+    },
+    {
+      "step": "10",
+      "scope": "desktop/en",
+      "name": "assembly list in English: dir=ltr, English title",
+      "ok": true,
+      "detail": "dir=ltr"
+    },
+    {
+      "step": "10",
+      "scope": "desktop/en",
+      "name": "no console errors",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "shots": [
+    "00a-category-selector-cap.png",
+    "00b-category-create.png",
+    "01a-product-component-x.png",
+    "01a-product-component-x-success.png",
+    "01b-product-component-y.png",
+    "01b-product-component-y-success.png",
+    "01c-product-service.png",
+    "01c-product-service-success.png",
+    "01d-product-kit.png",
+    "01d-product-kit-success.png",
+    "01e-product-assembled.png",
+    "01e-product-assembled-success.png",
+    "02-product-similar-name-warning.png",
+    "02-product-similar-name-warning-success.png",
+    "03a-recipe-assembled-draft.png",
+    "03a-recipe-assembled.png",
+    "03b-recipe-kit-draft.png",
+    "03b-recipe-kit.png",
+    "04a-opening-inventory-x.png",
+    "04b-opening-inventory-y.png",
+    "04c-stock-page.png",
+    "05a-assembly-1-preview.png",
+    "05a-assembly-1-posted.png",
+    "05b-assembly-detail-posted.png",
+    "05c-assembly-reverse-dialog.png",
+    "05d-assembly-detail-reversed.png",
+    "05e-assembly-2-preview.png",
+    "05e-assembly-2-posted.png",
+    "06-tracking-locked.png",
+    "07-kit-availability.png",
+    "08-integrity.png",
+    "01m-product-mobile.png",
+    "01m-product-mobile-success.png",
+    "05m-assembly-mobile-preview.png",
+    "05m-assembly-mobile-posted.png",
+    "05m-assembly-mobile-detail.png",
+    "09a-agent-stock.png",
+    "09b-agent-orders.png",
+    "10a-en-products.png",
+    "10b-en-assembly-list.png"
+  ]
+}

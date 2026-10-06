@@ -30,6 +30,8 @@ export function ModalSection({
   optional = false,
   collapsible = false,
   defaultOpen = true,
+  open,
+  onOpenChange,
   children,
   className,
   variant = "section",
@@ -40,6 +42,9 @@ export function ModalSection({
   optional?: boolean;
   collapsible?: boolean;
   defaultOpen?: boolean;
+  /** Controlled open state (a form that must open a section holding an error); omit for the uncontrolled `defaultOpen`. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   children: ReactNode;
   className?: string;
   variant?: "section" | "card";
@@ -96,7 +101,10 @@ export function ModalSection({
   }
 
   return (
-    <Collapsible defaultOpen={defaultOpen} className="group/section">
+    <Collapsible
+      {...(open === undefined ? { defaultOpen } : { open, onOpenChange })}
+      className="group/section"
+    >
       <section className={shell}>
         <CollapsibleTrigger className="w-full cursor-pointer text-start outline-none">
           {heading}

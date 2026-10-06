@@ -8,7 +8,9 @@ import {
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { ProductCostRedactionInterceptor } from '../../inventory/product-cost-redaction.interceptor';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { PermissionModule } from '../../auth/decorators/permission-module.decorator';
@@ -23,6 +25,7 @@ import { FindSalesReturnsQueryDto } from './dto/find-sales-returns-query.dto';
 /** Business operations only: Create, Update, Submit, Approve, Confirm (Increase Inventory), Cancel, Archive, Search, Details. */
 @Controller('sales/returns')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseInterceptors(ProductCostRedactionInterceptor)
 @PermissionModule('sales-returns')
 export class SalesReturnsController {
   constructor(private readonly returnsService: SalesReturnsService) {}

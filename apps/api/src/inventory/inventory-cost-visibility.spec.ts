@@ -1,9 +1,14 @@
 import { InventoryController } from './inventory.controller';
+import { lastValueFrom, of } from 'rxjs';
+import { Prisma } from '@prisma/client';
+import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import {
   INVENTORY_COST_PERMISSIONS,
   redactMovementCost,
+  redactProductCostDeep,
   redactStockCardCost,
 } from './inventory-cost-visibility';
+import { ProductCostRedactionInterceptor } from './product-cost-redaction.interceptor';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 
 const user = { sub: 'u-1' } as JwtPayload;
@@ -104,7 +109,7 @@ describe('inventory cost visibility', () => {
     });
     it(`stock cards ${sees ? 'include' : 'withhold'} valuation`, async () => {
       const { controller } = build(granted, superAdmin);
-      const cards = (await controller.getStockCards(user)) as Array<{
+      const cards = (await controller.getStockCards({}, user)) as Array<{
         stockValue: number | null;
         onHand: number;
       }>;
@@ -114,6 +119,69 @@ describe('inventory cost visibility', () => {
         averageCost: number | null;
       };
       expect(one.averageCost).toBe(sees ? 3 : null);
+    });
+  });
+
+  // R13 S3 — products / sales documents embedding `product: true`.
+  describe('product actual cost (S3)', () => {
+    const lastCostUpdate = new Date('2026-10-01T00:00:00Z');
+    const product = {
+      id: 'p-1',
+      name: 'Widget',
+      purchasePrice: new Prisma.Decimal('9.5'),
+      currentCost: new Prisma.Decimal('7.1234'),
+      lastCostUpdate,
+      category: { id: 'c-1', name: 'Cat' },
+    };
+    const order = {
+      id: 'so-1',
+      grandTotal: new Prisma.Decimal('100'),
+      items: [{ id: 'i-1', quantity: 2, product }],
+    };
+
+    it('deep redaction nulls currentCost / lastCostUpdate anywhere, keeps the expected purchase price, never mutates', () => {
+      const page = { items: [product], total: 1 };
+      const out = redactProductCostDeep({ page, order });
+      expect(out.page.items[0]).toMatchObject({
+        currentCost: null,
+        lastCostUpdate: null,
+        name: 'Widget',
+        category: { id: 'c-1', name: 'Cat' },
+      });
+      expect(out.page.items[0].purchasePrice).toBe(product.purchasePrice);
+      expect(out.order.items[0].product.currentCost).toBeNull();
+      expect(out.order.grandTotal).toBe(order.grandTotal);
+      expect(product.currentCost.toString()).toBe('7.1234');
+      expect(product.lastCostUpdate).toBe(lastCostUpdate);
+    });
+
+    describe.each([
+      ['products.view only', [] as string[], false, false],
+      ['expenses.view holder', ['expenses.view'], false, true],
+      ['cost-explorer.view holder', ['cost-explorer.view'], false, true],
+      ['super admin', [] as string[], true, true],
+    ])('%s', (_label, granted, superAdmin, sees) => {
+      it(`the interceptor ${sees ? 'keeps' : 'withholds'} the actual cost`, async () => {
+        const permissions = {
+          hasPermission: jest.fn((_id: string, name: string) =>
+            Promise.resolve(superAdmin || granted.includes(name)),
+          ),
+        };
+        const interceptor = new ProductCostRedactionInterceptor(
+          permissions as never,
+        );
+        const context = {
+          switchToHttp: () => ({ getRequest: () => ({ user }) }),
+        } as unknown as ExecutionContext;
+        const next: CallHandler = { handle: () => of(order) };
+        const result = (await lastValueFrom(
+          await interceptor.intercept(context, next),
+        )) as typeof order;
+        const line = result.items[0].product;
+        expect(line.currentCost).toEqual(sees ? product.currentCost : null);
+        expect(line.lastCostUpdate).toEqual(sees ? lastCostUpdate : null);
+        expect(line.purchasePrice).toBe(product.purchasePrice);
+      });
     });
   });
 });

@@ -7,6 +7,7 @@ import { PartnersModule } from '../../partners/partners.module';
 import { ProductsModule } from '../../products/products.module';
 import { WarehousesModule } from '../../warehouses/warehouses.module';
 import { InventoryModule } from '../../inventory/inventory.module';
+import { StockLinesModule } from '../../inventory/stock-lines/stock-lines.module';
 import { NumberingModule } from '../../numbering/numbering.module';
 import { PostingEngineModule } from '../../accounting/posting-engine/posting-engine.module';
 import { AccountMappingModule } from '../../accounting/account-mapping/account-mapping.module';
@@ -24,6 +25,7 @@ import { AccountMappingModule } from '../../accounting/account-mapping/account-m
     ProductsModule,
     WarehousesModule,
     InventoryModule,
+    StockLinesModule,
     NumberingModule,
     PostingEngineModule,
     AccountMappingModule,

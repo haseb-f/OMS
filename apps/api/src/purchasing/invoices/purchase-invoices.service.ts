@@ -28,7 +28,15 @@ import { NumberingEngineService } from '../../numbering/numbering-engine.service
 import { ProductsService } from '../../products/products.service';
 import { WarehousesService } from '../../warehouses/warehouses.service';
 import { PartnersService } from '../../partners/partners.service';
-import { InventoryService } from '../../inventory/inventory.service';
+import {
+  InventoryService,
+  lockProductsForUpdate,
+} from '../../inventory/inventory.service';
+import { movementIdempotencyKey } from '../../inventory/dto/movement-trace';
+import {
+  assertNoKitProducts,
+  assertNotKit,
+} from '../shared/purchase-kit-guard';
 import { PostingEngineService } from '../../accounting/posting-engine/posting-engine.service';
 import { resolveLineTaxes } from '../../taxes/document-tax';
 import {
@@ -470,6 +478,7 @@ export class PurchaseInvoicesService {
         `Purchase Invoice ${invoice.invoiceNumber}`,
       );
     }
+    for (const item of invoice.items) assertNotKit(item.product);
 
     return this.prisma.$transaction(async (tx) => {
       const claimed = await tx.purchaseInvoice.updateMany({
@@ -490,10 +499,18 @@ export class PurchaseInvoicesService {
           tx,
         );
       }
-      for (const item of invoice.items) {
-        // Non-stock lines (services, assets, prepayments) have no goods to
-        // receive — posting them to inventory would be rejected outright.
-        if (!item.product.isInventoryItem) continue;
+      // Non-stock lines (services, assets, prepayments) have no goods to
+      // receive — posting them to inventory would be rejected outright.
+      const received = invoice.items.filter(
+        (item) => item.product.isInventoryItem,
+      );
+      // R13 — every product row locked once (sorted) before any receipt;
+      // each receipt keyed per invoice line so it can never post twice.
+      await lockProductsForUpdate(
+        tx,
+        received.map((item) => item.productId),
+      );
+      for (const item of received) {
         await this.inventoryService.postPurchaseReceipt(
           {
             productId: item.productId,
@@ -502,6 +519,12 @@ export class PurchaseInvoicesService {
             unitCost: Number(item.unitPrice),
             referenceType: INVOICE_REFERENCE_TYPE,
             referenceId: invoice.id,
+            idempotencyKey: movementIdempotencyKey(
+              INVOICE_REFERENCE_TYPE,
+              invoice.id,
+              item.id,
+              'PURCHASE_RECEIPT',
+            ),
           },
           userId,
           tx,
@@ -794,6 +817,10 @@ export class PurchaseInvoicesService {
   private async computeLines(
     items: PurchaseLineItemInputDto[],
   ): Promise<ComputedInvoiceLines> {
+    await assertNoKitProducts(
+      this.prisma,
+      items.map((item) => item.productId),
+    );
     if (items.some((item) => item.treatment && item.treatment !== 'STANDARD')) {
       const stocked = new Set(
         (

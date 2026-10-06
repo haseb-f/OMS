@@ -1,6 +1,7 @@
 "use client";
 
 import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
+import { LandedCostPostedAllocation } from "@/components/purchasing/landed-cost-posted-allocation";
 import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Ban, CheckCircle2, PackageCheck, Plus, Save, Trash2 } from "lucide-react";
@@ -686,6 +687,9 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
           )}
         </DetailSection>
       )}
+
+      {/* R13 — the frozen rate and the capitalized vs already-sold split of the posting. */}
+      {record ? <LandedCostPostedAllocation document={record} currencyCode={currencyCode} /> : null}
 
       {record?.activities && record.activities.length > 0 && (
         <DetailSection title={t("masterData.actions.viewActivity")}>

@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  CostAccountingClass,
   CostAllocationMethod,
   LandedCostStatus,
   PurchaseDocumentStatus,
@@ -15,10 +16,38 @@ import { CostComponentsService } from '../cost-components/cost-components.servic
 import { computeSalesLine, round2 } from '../sales/shared/sales-totals.util';
 import { resolveTaxesById } from '../taxes/document-tax';
 import { allocateProportionally } from './landed-cost-allocation.util';
+import { unprocessable } from '../common/errors/business-errors';
+import { lockProductsForUpdate } from '../inventory/inventory.service';
 import { CreateLandedCostDocumentDto } from './dto/create-landed-cost-document.dto';
 import { UpdateLandedCostDocumentDto } from './dto/update-landed-cost-document.dto';
 
 const DOCUMENT_TYPE = 'LANDED_COST';
+
+/**
+ * R13 (spec §4) — outbound delivery and payment-fee costs are never
+ * capitalized into inventory: enforced by the component's accounting class,
+ * not only by its `capitalizable` flag.
+ */
+const NON_CAPITALIZABLE_CLASSES: CostAccountingClass[] = [
+  CostAccountingClass.FULFILLMENT,
+  CostAccountingClass.TRANSACTION,
+];
+
+function assertCapitalizableClass(component: {
+  id: string;
+  name: string;
+  accountingClass: CostAccountingClass;
+}) {
+  if (!NON_CAPITALIZABLE_CLASSES.includes(component.accountingClass)) return;
+  throw unprocessable(
+    'LANDED_COST_CLASS_NOT_CAPITALIZABLE',
+    `Cost Category "${component.name}" is a ${component.accountingClass} cost — outbound delivery and payment fees are expensed, never capitalized into inventory.`,
+    {
+      costComponentId: component.id,
+      accountingClass: component.accountingClass,
+    },
+  );
+}
 
 const DOCUMENT_INCLUDE = {
   lines: { include: { costComponent: true, tax: true } },
@@ -84,7 +113,7 @@ export class LandedCostDocumentsService {
     );
     const lineInputs = await Promise.all(
       dto.lines.map(async (line) => {
-        await this.costComponents.assertCapitalizable(line.costComponentId);
+        await this.assertLandedCostComponent(line.costComponentId);
         const tax = line.taxId ? taxById.get(line.taxId) : undefined;
         const computed = computeSalesLine({
           quantity: 1,
@@ -181,7 +210,7 @@ export class LandedCostDocumentsService {
     const lineInputs = dto.lines
       ? await Promise.all(
           dto.lines.map(async (line) => {
-            await this.costComponents.assertCapitalizable(line.costComponentId);
+            await this.assertLandedCostComponent(line.costComponentId);
             const tax = line.taxId ? taxById?.get(line.taxId) : undefined;
             const computed = computeSalesLine({
               quantity: 1,
@@ -302,6 +331,10 @@ export class LandedCostDocumentsService {
         `Landed Cost ${document.documentNumber} is ${document.status}, not DRAFT.`,
       );
     }
+    // A component reclassified since the line was entered is caught here,
+    // before the allocation is locked in.
+    for (const line of document.lines)
+      assertCapitalizableClass(line.costComponent);
     const preview = await this.previewAllocation(id);
     if (preview.difference !== 0) {
       // The allocation utility guarantees this never happens — this is a
@@ -359,26 +392,66 @@ export class LandedCostDocumentsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.landedCostDocument.update({
-        where: { id },
+      const claimed = await tx.landedCostDocument.updateMany({
+        where: { id, status: LandedCostStatus.APPROVED },
         data: {
           status: LandedCostStatus.POSTED,
           postedAt: new Date(),
           postedBy: userId,
         },
+      });
+      if (claimed.count === 0) {
+        throw new BadRequestException(
+          `Landed Cost ${document.documentNumber} was changed by someone else — reload and try again.`,
+        );
+      }
+      // The posting reads each allocated product's on-hand and moves its
+      // moving average: lock those product rows first (sorted, the same lock
+      // every stock writer takes) so a concurrent receipt / sale can never
+      // commit between that read and the average update (lost update).
+      const allocated = await tx.landedCostAllocation.findMany({
+        where: { landedCostDocumentId: id },
+        select: { purchaseInvoiceItem: { select: { productId: true } } },
+      });
+      await lockProductsForUpdate(
+        tx,
+        allocated.map((allocation) => allocation.purchaseInvoiceItem.productId),
+      );
+      await this.postingEngine.post('LANDED_COST', id, userId, tx);
+      // Re-read after posting: the frozen rate and each allocation's
+      // capitalized / variance split are written by the posting itself.
+      const updated = await tx.landedCostDocument.findUniqueOrThrow({
+        where: { id },
         include: DOCUMENT_INCLUDE,
       });
-      await this.postingEngine.post('LANDED_COST', id, userId, tx);
+      const capitalized = updated.allocations.reduce(
+        (sum, allocation) => sum + Number(allocation.capitalizedAmount ?? 0),
+        0,
+      );
+      const variance = updated.allocations.reduce(
+        (sum, allocation) => sum + Number(allocation.cogsVarianceAmount ?? 0),
+        0,
+      );
       await tx.landedCostActivity.create({
         data: {
           landedCostDocumentId: id,
           type: 'LANDED_COST_POSTED',
-          description: `Landed Cost ${updated.documentNumber} posted — ${Number(updated.netTotal)} capitalized into inventory`,
+          description: `Landed Cost ${updated.documentNumber} posted — ${round2(capitalized)} capitalized into inventory, ${round2(variance)} to cost of goods sold (units already sold)`,
           createdBy: userId,
         },
       });
       return updated;
     });
+  }
+
+  /** The R13 class rule (checked first, so a delivery / payment-fee cost always gets its own 422), then the existing capitalizable rule (active, flagged capitalizable). */
+  private async assertLandedCostComponent(costComponentId: string) {
+    const classified = await this.prisma.costComponent.findFirst({
+      where: { id: costComponentId, deletedAt: null },
+      select: { id: true, name: true, accountingClass: true },
+    });
+    if (classified) assertCapitalizableClass(classified);
+    return this.costComponents.assertCapitalizable(costComponentId);
   }
 
   async cancel(id: string, userId?: string) {

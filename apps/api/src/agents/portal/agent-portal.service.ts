@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { HttpException, Injectable } from '@nestjs/common';
+import { Prisma, ProductSupplyMethod } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { isAgentPortalPermission } from '../../permissions/permission-catalog';
@@ -11,6 +11,8 @@ import {
 } from '../../store-orders/store-order-line-amount';
 import { ProductsService } from '../../products/products.service';
 import { InventoryService } from '../../inventory/inventory.service';
+import { isStockAffecting } from '../../inventory/stock-lines/stock-line-resolver';
+import { RecipeInsightsService } from '../../recipes/recipe-insights.service';
 import {
   agentNotFound,
   agentStoreOrderWhere,
@@ -96,6 +98,7 @@ export class AgentPortalService {
     private readonly payoutsService: AgentPayoutsService,
     private readonly storage: ObjectStorageService,
     private readonly commissionReport: AgentCommissionReportService,
+    private readonly recipeInsights: RecipeInsightsService,
   ) {}
 
   private async permissions(agent: AgentRequestContext) {
@@ -231,7 +234,7 @@ export class AgentPortalService {
             unitPrice: true,
             agreedAmount: true,
             productId: true,
-            product: { select: { isInventoryItem: true } },
+            product: { select: { isInventoryItem: true, supplyMethod: true } },
           },
         },
         _count: { select: { agentReturns: true } },
@@ -295,6 +298,13 @@ export class AgentPortalService {
           (available.get(row.productId) ?? 0) + row.available,
         );
       }
+      // R13 — a kit owns no stock: what its components allow (min over
+      // components of ⌊available ÷ per kit⌋), from the one shared rule.
+      for (const p of catalog.items) {
+        if (p.supplyMethod === ProductSupplyMethod.KIT) {
+          available.set(p.id, await this.kitAvailable(p.id));
+        }
+      }
     }
     return {
       items: catalog.items
@@ -312,13 +322,25 @@ export class AgentPortalService {
           unit: p.unit,
           category: p.category,
           available:
-            available && p.isInventoryItem ? (available.get(p.id) ?? 0) : null,
+            available && isStockAffecting(p)
+              ? (available.get(p.id) ?? 0)
+              : null,
         })),
       total: catalog.total,
       page: catalog.page,
       pageSize: catalog.pageSize,
       stockVisible: canSeeStock,
     };
+  }
+
+  /** Kits the component stock allows now; a kit without a usable active recipe offers none. */
+  private async kitAvailable(productId: string): Promise<number> {
+    try {
+      return (await this.recipeInsights.availability(productId)).available;
+    } catch (error) {
+      if (error instanceof HttpException) return 0;
+      throw error;
+    }
   }
 
   async stock(agent: AgentRequestContext, query: AgentPortalStockQueryDto) {

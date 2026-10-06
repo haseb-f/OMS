@@ -9,7 +9,7 @@ import type { ProductRow } from "@/services/products-service";
 /**
  * TASK-028 Part 5 — "After successfully creating a product, display a
  * success dialog with four actions... Do NOT silently redirect." Shown
- * once, right after `ProductCreateDialog` succeeds; never reused as a
+ * once, right after the product form creates a product; never reused as a
  * generic "saved" toast substitute — the toast still fires too (Global
  * Feedback System), this dialog is specifically the four-way fork.
  */

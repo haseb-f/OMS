@@ -133,6 +133,10 @@ export class UpdatePostingSettingsDto {
   @IsOptionalUuid()
   otherExpenseAccountId?: string;
 
+  /** R13 — credit side of approved direct assembly costs (labour / overhead absorbed into finished-item cost). */
+  @IsOptionalUuid()
+  assemblyCostAccountId?: string;
+
   /** Agents milestone (D1) — liability holding what we owe agents (partner subledger). */
   @IsOptionalUuid()
   agentFundsPayableAccountId?: string;

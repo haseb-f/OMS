@@ -1,4 +1,5 @@
-import type { AgentAgreement } from '@prisma/client';
+import type { AgentAgreement, ProductSupplyMethod } from '@prisma/client';
+import { isStockAffecting } from '../../inventory/stock-lines/stock-line-resolver';
 import type { AgentLineCommissionRate } from '../commission/agent-commission';
 
 /**
@@ -42,8 +43,9 @@ export interface AgentCustomerSnapshot {
 
 /**
  * Per-line fulfillment facts frozen at submission (F-L7): whether the line
- * moves stock. Dispatch / digital-only decisions read this, not the live
- * product flag (which may change after the order).
+ * moves stock (a tracked item, or — R13 — a KIT fulfilled from its components).
+ * Dispatch / digital-only decisions read this, not the live product flags
+ * (which may change after the order).
  */
 export interface AgentLineSnapshot {
   productId: string;
@@ -170,15 +172,22 @@ export function readAgentCustomerSnapshot(
   return customer && typeof customer.name === 'string' ? customer : null;
 }
 
+/** The live product facts an agent order line falls back to (no frozen line). */
+export interface AgentLineProductFacts {
+  isInventoryItem: boolean;
+  supplyMethod: ProductSupplyMethod;
+}
+
 /**
  * Whether an agent order has no inventory line (digital/service only — no
  * shipment, no dispatch). Reads the per-line stock flag frozen in the order
- * snapshot (F-L7), falling back to the live product flag for lines the
- * snapshot does not cover (orders created before it carried lines).
+ * snapshot (F-L7), falling back to the live product (stock-affecting: tracked
+ * or KIT) for lines the snapshot does not cover (orders created before it
+ * carried lines).
  */
 export function isAgentOrderDigitalOnly(order: {
   agentTermsSnapshot: unknown;
-  items: { productId: string; product: { isInventoryItem: boolean } }[];
+  items: { productId: string; product: AgentLineProductFacts }[];
 }): boolean {
   const snapshot = order.agentTermsSnapshot;
   const lines =
@@ -187,7 +196,7 @@ export function isAgentOrderDigitalOnly(order: {
       : undefined;
   return !order.items.some((item) => {
     const frozen = lines?.find((line) => line.productId === item.productId);
-    return frozen ? frozen.inventoryLine : item.product.isInventoryItem;
+    return frozen ? frozen.inventoryLine : isStockAffecting(item.product);
   });
 }
 
@@ -232,7 +241,7 @@ export function agentFulfillmentFacts(order: {
   agentEarnedAt: Date | null;
   agentTermsSnapshot: unknown;
   fulfillmentStatus: { code: string } | null;
-  items: { productId: string; product: { isInventoryItem: boolean } }[];
+  items: { productId: string; product: AgentLineProductFacts }[];
   _count: { agentReturns: number };
 }): AgentFulfillmentOrderFacts {
   return {

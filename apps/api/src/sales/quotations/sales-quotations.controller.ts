@@ -8,7 +8,9 @@ import {
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { ProductCostRedactionInterceptor } from '../../inventory/product-cost-redaction.interceptor';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { PermissionModule } from '../../auth/decorators/permission-module.decorator';
@@ -29,6 +31,7 @@ import { ConvertQuotationToOrderDto } from '../orders/dto/convert-quotation-to-o
 /** Business operations only: Create, Update, Submit, Approve, Cancel, Archive, Convert-to-Order, Search, Details. */
 @Controller('sales/quotations')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseInterceptors(ProductCostRedactionInterceptor)
 @PermissionModule('sales-quotations')
 export class SalesQuotationsController {
   constructor(

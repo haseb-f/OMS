@@ -222,6 +222,8 @@ export class ApiError extends Error {
     public readonly fields?: ErrorFieldDetail[],
     /** Machine-readable context for recoverable codes (see MISSING_EXCHANGE_RATE). */
     public readonly details?: Record<string, unknown>,
+    /** The whole error body — business codes (e.g. PRODUCT_BARCODE_DUPLICATE) carry their own extra fields (`sku`, `reason`…). */
+    public readonly body?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "ApiError";
@@ -282,7 +284,14 @@ async function requestRaw(path: string, init?: RequestInit): Promise<Response> {
     const log = response.status === 404 ? console.warn : console.error;
     log(`[api-client] ${response.status} ${code} on ${path}:`, body?.message, body?.fields);
     const message = friendlyMessage(code, body?.message, body?.fields, locale, response.status);
-    throw new ApiError(response.status, message, code, body?.fields, body?.details);
+    throw new ApiError(
+      response.status,
+      message,
+      code,
+      body?.fields,
+      body?.details,
+      body as Record<string, unknown> | undefined,
+    );
   }
 
   return response;
@@ -306,8 +315,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const apiClient = {
   get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
+  /** `headers` — per-request extras (e.g. an `Idempotency-Key` that makes a retried create safe). */
+  post: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
+    request<T>(path, {
+      method: "POST",
+      body: body ? JSON.stringify(body) : undefined,
+      ...(headers ? { headers } : {}),
+    }),
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
   put: <T>(path: string, body?: unknown) =>

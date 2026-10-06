@@ -44,6 +44,7 @@ import { useExchangeRateRecovery } from "@/hooks/use-exchange-rate-recovery";
 import { lifecycleActions } from "@/config/documents/lifecycle-actions";
 import { ApiError } from "@/services/api-client";
 import { CreateReturnDialog } from "./create-return-dialog";
+import { KitComponentsSection } from "@/components/sales/kit-components-section";
 import {
   InvoicePaymentBadge,
   InvoicePaymentSummary,
@@ -65,8 +66,10 @@ function itemToLine(item: SalesInvoiceItemRow): ProductLineItemsGridLine {
   };
 }
 
-function lineToPayload(line: ProductLineItemsGridLine) {
+/** `savedIds`: the invoice's persisted line ids — a saved line names itself so it keeps its Sales Order link. */
+function lineToPayload(line: ProductLineItemsGridLine, savedIds: ReadonlySet<string>) {
   return {
+    salesInvoiceItemId: savedIds.has(line.id) ? line.id : undefined,
     productId: line.product!.id,
     description: line.description || undefined,
     warehouseId: line.warehouse?.id,
@@ -158,14 +161,17 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
     return null;
   };
 
-  const buildPayload = () => ({
-    partnerId: customer!.id,
-    currencyId: currency?.id,
-    referenceNumber: referenceNumber || undefined,
-    internalNotes: notes || undefined,
-    customerNotes: terms || undefined,
-    items: realLines.map(lineToPayload),
-  });
+  const buildPayload = () => {
+    const savedIds = new Set(invoice?.items.map((item) => item.id) ?? []);
+    return {
+      partnerId: customer!.id,
+      currencyId: currency?.id,
+      referenceNumber: referenceNumber || undefined,
+      internalNotes: notes || undefined,
+      customerNotes: terms || undefined,
+      items: realLines.map((line) => lineToPayload(line, savedIds)),
+    };
+  };
 
   const handleSave = async () => {
     if (validate()) {
@@ -481,6 +487,9 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
           )
         }
       />
+
+      {/* R13 — what each kit line delivered (components are the stock that moved). */}
+      {invoice ? <KitComponentsSection items={invoice.items} /> : null}
 
       {invoice && (
         <CreateReturnDialog

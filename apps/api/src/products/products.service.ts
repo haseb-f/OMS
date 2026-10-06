@@ -5,7 +5,14 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Prisma, ProductStatus, ProductType } from '@prisma/client';
+import {
+  InventoryMovementType,
+  ItemType,
+  Prisma,
+  ProductStatus,
+  ProductSupplyMethod,
+  ProductType,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import {
@@ -19,56 +26,29 @@ import { FindProductsQueryDto } from './dto/find-products-query.dto';
 import { CreateProductAttachmentDto } from './dto/create-product-attachment.dto';
 import { prismaEnumFilter } from '../common/query/enum-list';
 import { findArabicNormalizedIds } from '../common/text/arabic-search.query';
-
-/**
- * Product Business Behavior defaults (TASK-028) — each behavior has
- * sensible isPurchasable/isSellable/isInventoryItem defaults, always
- * overridable per product:
- * - PURCHASE_ONLY: enters inventory, never sold.
- * - SALES_ONLY: sold, not purchased through this system, still
- *   inventory-tracked (distinct from SERVICE, which has no physical form).
- * - PURCHASE_AND_SALE: normal inventory item.
- * - MANUFACTURED (renamed from KIT): sold as one item, built from
- *   component products — its BOM (ProductComponent rows) is what actually
- *   carries the component-level inventory; the manufactured item itself is
- *   still purchasable/stockable (e.g. produced in bulk, purchased pending
- *   production) and sellable.
- * - SERVICE: no inventory.
- * - EXPENSE_ITEM: future ready — bought and expensed, never stocked or sold.
- */
-const DEFAULT_FLAGS_BY_TYPE: Record<
-  ProductType,
-  { isPurchasable: boolean; isSellable: boolean; isInventoryItem: boolean }
-> = {
-  PURCHASE_ONLY: {
-    isPurchasable: true,
-    isSellable: false,
-    isInventoryItem: true,
-  },
-  SALES_ONLY: {
-    isPurchasable: false,
-    isSellable: true,
-    isInventoryItem: true,
-  },
-  PURCHASE_AND_SALE: {
-    isPurchasable: true,
-    isSellable: true,
-    isInventoryItem: true,
-  },
-  MANUFACTURED: {
-    isPurchasable: true,
-    isSellable: true,
-    isInventoryItem: true,
-  },
-  SERVICE: { isPurchasable: false, isSellable: true, isInventoryItem: false },
-  EXPENSE_ITEM: {
-    isPurchasable: true,
-    isSellable: false,
-    isInventoryItem: false,
-  },
-};
+import {
+  investmentBlockedReason,
+  investmentNotAllowedBody,
+  type InvestmentStructuralCandidate,
+} from '../investment-opportunities/shared/investment-eligibility.util';
+import {
+  deriveLegacyProductType,
+  findProductRuleViolation,
+  resolveProductAttributes,
+  type ProductAttributes,
+} from './product-attributes';
 
 const DOCUMENT_TYPE = 'PRODUCT';
+
+/** The reserved ledger (RESERVATION / RESERVATION_RELEASE) — never part of on-hand (ADR-0013). */
+const RESERVATION_TYPES: InventoryMovementType[] = [
+  InventoryMovementType.RESERVATION,
+  InventoryMovementType.RESERVATION_RELEASE,
+];
+
+/** Stored barcodes are trimmed and an empty one is null — what the DB's partial unique index (lower(btrim(barcode))) compares. */
+const normalizeBarcode = (barcode: string | null | undefined) =>
+  barcode?.trim() || null;
 
 /** Agents milestone — owner agent summary on product detail/list rows. */
 const OWNER_AGENT_SELECT = {
@@ -106,13 +86,20 @@ export class ProductsService {
   ) {}
 
   /**
-   * TASK-028: the create screen only asks for name/type/category/unit/
-   * prices/tax/analytic account — no weight/dimensions, no Internal Name,
-   * no Display Name. Dimensions are never required here (deferred entirely
-   * to post-save editing, superseding ADR-0012's "mandatory when
-   * isInventoryItem" rule for the creation flow specifically);
-   * internalName/displayName default to the Arabic `name` when omitted,
-   * remaining editable later for a business that wants them to diverge.
+   * TASK-028: the create screen only asks for name/category/unit/prices/tax/
+   * analytic account — no weight/dimensions, no Internal Name, no Display Name.
+   * Dimensions are never required here (deferred entirely to post-save
+   * editing, superseding ADR-0012's "mandatory when isInventoryItem" rule for
+   * the creation flow specifically); internalName/displayName default to the
+   * Arabic `name` when omitted, remaining editable later for a business that
+   * wants them to diverge.
+   *
+   * R13 — the attributes are independent: itemType / sell / buy / track stock
+   * / supply method default from the item type (explicit values win), the hard
+   * rules between them are enforced here, and the stored legacy `type` is
+   * derived — never trusted from the client (a lone legacy `type` is only a
+   * hint mapped onto the attributes). Unit and tax fall back to the category's
+   * defaults when omitted.
    *
    * Defaults to DRAFT (not ACTIVE) when `status` is omitted — this is the
    * Draft-first principle: a product created with only the lean create
@@ -122,31 +109,55 @@ export class ProductsService {
    * check as `update()`.
    */
   async create(dto: CreateProductDto, userId?: string) {
-    // Product Creation Wizard — Product Type is never an extra required
-    // step; PURCHASE_AND_SALE is the safest default (sellable AND
-    // purchasable) when the wizard's caller omits it entirely.
-    const type = dto.type ?? ProductType.PURCHASE_AND_SALE;
-    const defaults = DEFAULT_FLAGS_BY_TYPE[type];
-    const isPurchasable = dto.isPurchasable ?? defaults.isPurchasable;
-    const isSellable = dto.isSellable ?? defaults.isSellable;
-    const isInventoryItem = dto.isInventoryItem ?? defaults.isInventoryItem;
-    // commission-policy.md A2 — only reliable defaults; otherwise unclassified.
-    const itemType =
-      dto.itemType ??
-      (type === ProductType.SERVICE
-        ? 'SERVICE'
-        : isInventoryItem
-          ? 'PRODUCT'
-          : null);
+    const attributes = resolveProductAttributes(dto);
+    this.assertAttributeRules(attributes);
+    const type = deriveLegacyProductType(
+      attributes.itemType,
+      attributes,
+      attributes.supplyMethod,
+    );
     const status = dto.status ?? ProductStatus.DRAFT;
+
+    const category = await this.prisma.productCategory.findUnique({
+      where: { id: dto.categoryId },
+      select: { defaultUnitId: true, defaultTaxId: true },
+    });
+    const unitId = dto.unitId ?? category?.defaultUnitId;
+    if (!unitId) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message:
+          'Unit is required — choose one, or set a default unit on the category.',
+        fields: [{ field: 'unitId', constraints: ['required'] }],
+      });
+    }
+    // An explicit null means "no tax" (tax is optional); only an omitted value inherits.
+    const taxId =
+      dto.taxId !== undefined ? dto.taxId : (category?.defaultTaxId ?? null);
 
     if (status === ProductStatus.ACTIVE) {
       this.assertActivationReady({
         name: dto.name,
         categoryId: dto.categoryId,
-        unitId: dto.unitId,
+        unitId,
       });
     }
+    if (dto.availableForInvestmentOpportunities) {
+      this.assertInvestmentAllowed(
+        {
+          status,
+          deletedAt: null,
+          ownerAgentId: dto.ownerAgentId ?? null,
+          itemType: attributes.itemType,
+          type,
+          isSellable: attributes.isSellable,
+        },
+        dto.displayName || dto.name,
+      );
+    }
+
+    const barcode = normalizeBarcode(dto.barcode);
+    if (barcode) await this.assertBarcodeAvailable(barcode);
 
     // Minted before the transaction — same trade-off as every other
     // caller of the Numbering Engine (Suppliers/Leads/SalesOrders/...):
@@ -161,18 +172,19 @@ export class ProductsService {
         const product = await tx.product.create({
           data: {
             ...dto,
+            ...attributes,
             type,
             status,
             sku,
+            unitId,
+            taxId,
+            barcode,
             internalName: dto.internalName || dto.name,
             displayName: dto.displayName || dto.name,
-            isPurchasable,
-            isSellable,
-            isInventoryItem,
-            itemType,
             createdBy: userId ?? null,
             updatedBy: userId ?? null,
           },
+          include: { ownerAgent: OWNER_AGENT_SELECT },
         });
         await this.activityService.log(
           product.id,
@@ -184,7 +196,7 @@ export class ProductsService {
         return product;
       });
     } catch (error) {
-      throw this.mapError(error);
+      throw await this.mapWriteError(error, barcode);
     }
   }
 
@@ -226,6 +238,7 @@ export class ProductsService {
   async findAll(query: FindProductsQueryDto) {
     const where: Prisma.ProductWhereInput = {
       deletedAt: query.includeArchived ? undefined : null,
+      id: query.ids?.length ? { in: query.ids } : undefined,
       categoryId: prismaEnumFilter(query.categoryId),
       brandId: prismaEnumFilter(query.brandId),
       taxId: query.taxId,
@@ -236,6 +249,7 @@ export class ProductsService {
       isInventoryItem: query.isInventoryItem,
       isSellable: query.isSellable,
       isPurchasable: query.isPurchasable,
+      supplyMethod: query.supplyMethod,
       ownerAgentId: query.agentId
         ? query.agentId
         : query.ownership === 'COMPANY'
@@ -294,6 +308,10 @@ export class ProductsService {
       categoryId: prismaEnumFilter(query.categoryId),
       brandId: prismaEnumFilter(query.brandId),
       type: prismaEnumFilter(query.type),
+      itemType:
+        query.itemType === 'UNSET' ? null : (query.itemType ?? undefined),
+      // R13 — assembly / kit pickers (e.g. only ASSEMBLED products to assemble).
+      supplyMethod: query.supplyMethod,
       isInventoryItem: query.isInventoryItem,
       isSellable: query.isSellable,
       isPurchasable: query.isPurchasable,
@@ -306,6 +324,16 @@ export class ProductsService {
       // portal passes its server-derived agent).
       ownerAgentId: query.agentId ?? null,
     };
+
+    if (query.investmentEligible) {
+      // R13 — the structural half of the eligibility rule (see
+      // `investmentBlockedReason`): company-owned, sellable, non-service goods only.
+      where.ownerAgentId = null;
+      where.AND = [
+        { isSellable: true },
+        { type: { not: ProductType.SERVICE } },
+      ];
+    }
 
     if (query.search) where.OR = await this.buildSearchOr(query.search);
 
@@ -335,6 +363,8 @@ export class ProductsService {
           barcode: true,
           status: true,
           type: true,
+          itemType: true,
+          supplyMethod: true,
           isSellable: true,
           isPurchasable: true,
           isInventoryItem: true,
@@ -396,6 +426,15 @@ export class ProductsService {
     return new Map(products.map((p) => [p.id, p]));
   }
 
+  /**
+   * R13 — when any attribute (item type, sell / buy / track stock, supply
+   * method, or a legacy `type` that actually changes) is touched, the whole
+   * set is re-resolved against the stored one, re-validated against the hard
+   * rules, and the legacy `type` re-derived. A change of item type applies the
+   * new type's defaults to what the caller did not state. Untouched attributes
+   * are never re-checked, so unrelated edits of older products never fail on
+   * historical data.
+   */
   async update(id: string, dto: UpdateProductDto, userId?: string) {
     const existing = await this.findOne(id);
 
@@ -411,6 +450,62 @@ export class ProductsService {
       });
     }
 
+    const current: ProductAttributes = {
+      itemType:
+        existing.itemType ??
+        (existing.type === ProductType.SERVICE
+          ? ItemType.SERVICE
+          : ItemType.PRODUCT),
+      isSellable: existing.isSellable,
+      isPurchasable: existing.isPurchasable,
+      isInventoryItem: existing.isInventoryItem,
+      supplyMethod: existing.supplyMethod,
+    };
+    // A legacy `type` echoed back unchanged (an old form re-sending the row) is no hint.
+    const typeHint =
+      dto.type !== undefined && dto.type !== existing.type
+        ? dto.type
+        : undefined;
+    const attributesTouched =
+      typeHint !== undefined ||
+      [
+        dto.itemType,
+        dto.isSellable,
+        dto.isPurchasable,
+        dto.isInventoryItem,
+        dto.supplyMethod,
+      ].some((value) => value !== undefined);
+    let attributeData: (ProductAttributes & { type: ProductType }) | undefined;
+    if (attributesTouched) {
+      const next = resolveProductAttributes(
+        {
+          type: typeHint,
+          itemType: dto.itemType,
+          isSellable: dto.isSellable,
+          isPurchasable: dto.isPurchasable,
+          isInventoryItem: dto.isInventoryItem,
+          supplyMethod: dto.supplyMethod,
+        },
+        current,
+      );
+      this.assertAttributeRules(next);
+      attributeData = {
+        ...next,
+        type: deriveLegacyProductType(next.itemType, next, next.supplyMethod),
+      };
+    }
+    const supplyMethodLocking =
+      attributeData !== undefined &&
+      attributeData.supplyMethod !== existing.supplyMethod &&
+      (attributeData.supplyMethod === ProductSupplyMethod.KIT ||
+        existing.supplyMethod === ProductSupplyMethod.KIT);
+    // Turning stock tracking off (directly, or by becoming a SERVICE) would strand the remaining stock and reservations:
+    // later sales would move nothing and post no COGS. Same lock as the KIT switch.
+    const trackingLocking =
+      attributeData !== undefined &&
+      existing.isInventoryItem &&
+      !attributeData.isInventoryItem;
+
     const ownerChanging =
       dto.ownerAgentId !== undefined &&
       (dto.ownerAgentId ?? null) !== existing.ownerAgentId;
@@ -418,12 +513,53 @@ export class ProductsService {
       await this.assertOwnerAgentAssignable(dto.ownerAgentId);
     }
 
+    // Only NEW flag-enabling is checked; a grandfathered product stays as is,
+    // and turning the flag off is always allowed.
+    if (
+      dto.availableForInvestmentOpportunities === true &&
+      !existing.availableForInvestmentOpportunities
+    ) {
+      this.assertInvestmentAllowed(
+        {
+          status: nextStatus,
+          deletedAt: existing.deletedAt,
+          ownerAgentId:
+            dto.ownerAgentId !== undefined
+              ? (dto.ownerAgentId ?? null)
+              : existing.ownerAgentId,
+          itemType: attributeData?.itemType ?? current.itemType,
+          type: attributeData?.type ?? existing.type,
+          isSellable: attributeData?.isSellable ?? existing.isSellable,
+        },
+        dto.displayName ?? existing.displayName,
+      );
+    }
+
+    const barcode = normalizeBarcode(dto.barcode);
+    if (
+      dto.barcode !== undefined &&
+      barcode &&
+      barcode !== normalizeBarcode(existing.barcode)
+    ) {
+      await this.assertBarcodeAvailable(barcode, id);
+    }
+
     try {
       return await this.prisma.$transaction(async (tx) => {
         if (ownerChanging) await this.assertOwnerUnlocked(tx, id);
+        if (supplyMethodLocking)
+          await this.assertStockModelUnlocked(tx, id, 'SUPPLY_METHOD');
+        else if (trackingLocking)
+          await this.assertStockModelUnlocked(tx, id, 'TRACKING');
         const product = await tx.product.update({
           where: { id },
-          data: { ...dto, updatedBy: userId ?? null },
+          data: {
+            ...dto,
+            ...attributeData,
+            ...(dto.barcode !== undefined ? { barcode } : {}),
+            updatedBy: userId ?? null,
+          },
+          include: { ownerAgent: OWNER_AGENT_SELECT },
         });
         await this.activityService.log(
           id,
@@ -437,7 +573,7 @@ export class ProductsService {
         return product;
       });
     } catch (error) {
-      throw this.mapError(error);
+      throw await this.mapWriteError(error, barcode, id);
     }
   }
 
@@ -512,20 +648,27 @@ export class ProductsService {
     if (!product) {
       throw new NotFoundException(`Archived product ${id} not found`);
     }
-    return this.prisma.$transaction(async (tx) => {
-      const restored = await tx.product.update({
-        where: { id },
-        data: { deletedAt: null, updatedBy: userId ?? null },
+    // The barcode may have been taken by another product while this one was archived.
+    const barcode = normalizeBarcode(product.barcode);
+    if (barcode) await this.assertBarcodeAvailable(barcode, id);
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const restored = await tx.product.update({
+          where: { id },
+          data: { deletedAt: null, updatedBy: userId ?? null },
+        });
+        await this.activityService.log(
+          id,
+          ProductActivityType.PRODUCT_RESTORED,
+          `Product ${restored.sku} restored`,
+          undefined,
+          tx,
+        );
+        return restored;
       });
-      await this.activityService.log(
-        id,
-        ProductActivityType.PRODUCT_RESTORED,
-        `Product ${restored.sku} restored`,
-        undefined,
-        tx,
-      );
-      return restored;
-    });
+    } catch (error) {
+      throw await this.mapWriteError(error, barcode, id);
+    }
   }
 
   async attach(id: string, dto: CreateProductAttachmentDto, userId: string) {
@@ -611,6 +754,7 @@ export class ProductsService {
           analyticAccount: true,
           preferredPartner: true,
           preferredWarehouse: true,
+          ownerAgent: OWNER_AGENT_SELECT,
         },
       });
       await this.activityService.log(
@@ -667,19 +811,129 @@ export class ProductsService {
       await tx.purchaseInvoiceItem.count({ where }),
       await tx.purchaseReturnItem.count({ where }),
       await tx.opportunityProduct.count({ where }),
+      // R13 — a recipe fixes one owner across the finished product and every
+      // component, so being either side of a recipe locks the owner too.
+      await tx.productRecipe.count({ where }),
+      await tx.productRecipeLine.count({
+        where: { componentProductId: productId },
+      }),
     ];
     if (counts.some((count) => count > 0)) {
       throw new ConflictException({
         code: 'PRODUCT_OWNER_LOCKED',
         message:
-          'لا يمكن تغيير مالك المنتج بعد وجود حركات مخزون أو بنود طلبات عليه — The product owner cannot change once the product has stock movements, leads, order or document lines.',
+          'لا يمكن تغيير مالك المنتج بعد وجود حركات مخزون أو بنود طلبات أو وصفات تركيب عليه — The product owner cannot change once the product has stock movements, leads, order or document lines, or recipes.',
       });
     }
   }
 
-  private mapError(error: unknown): Error {
+  /**
+   * KIT is a different stock model (no balance of its own), and an untracked item moves no stock: switching to or from
+   * KIT, or turning stock tracking off, is refused while the product still has on-hand stock or reserved quantity,
+   * computed from the movement ledger under the product row lock.
+   */
+  private async assertStockModelUnlocked(
+    tx: Prisma.TransactionClient,
+    productId: string,
+    change: 'SUPPLY_METHOD' | 'TRACKING',
+  ) {
+    await tx.$queryRaw`SELECT id FROM products WHERE id = ${productId}::uuid FOR UPDATE`;
+    const onHand = await tx.inventoryMovement.aggregate({
+      where: { productId, type: { notIn: RESERVATION_TYPES } },
+      _sum: { quantity: true },
+    });
+    const reserved = await tx.inventoryMovement.aggregate({
+      where: { productId, type: { in: RESERVATION_TYPES } },
+      _sum: { quantity: true },
+    });
+    if (
+      (onHand._sum.quantity ?? 0) === 0 &&
+      (reserved._sum.quantity ?? 0) === 0
+    ) {
+      return;
+    }
+    throw new ConflictException(
+      change === 'SUPPLY_METHOD'
+        ? {
+            code: 'PRODUCT_SUPPLY_METHOD_LOCKED',
+            message:
+              'لا يمكن التحويل من أو إلى «مجموعة» (Kit) ما دام للمنتج رصيد أو حجوزات — The supply method cannot change to or from Kit while the product has stock on hand or reservations.',
+          }
+        : {
+            code: 'PRODUCT_TRACKING_LOCKED',
+            message:
+              'لا يمكن إيقاف تتبع المخزون أو تحويل المنتج إلى خدمة ما دام له رصيد أو حجوزات — أخرج الرصيد أو حرّر الحجوزات أولًا — Stock tracking cannot be turned off (or the item made a service) while the product has stock on hand or reservations.',
+          },
+    );
+  }
+
+  /** The hard rules between the independent attributes (422 with the rule's code). */
+  private assertAttributeRules(attributes: ProductAttributes): void {
+    const violation = findProductRuleViolation(attributes);
+    if (violation) throw new UnprocessableEntityException(violation);
+  }
+
+  /** Investor eligibility, API-enforced (not only the picker): 422 PRODUCT_INVESTMENT_NOT_ALLOWED with the reason. */
+  private assertInvestmentAllowed(
+    candidate: InvestmentStructuralCandidate,
+    displayName: string,
+  ): void {
+    const reason = investmentBlockedReason(candidate);
+    if (reason) {
+      throw new UnprocessableEntityException(
+        investmentNotAllowedBody(reason, displayName),
+      );
+    }
+  }
+
+  /**
+   * Barcodes are unique among non-archived products, ignoring case and
+   * surrounding spaces — 409 naming the product that already holds it. Also
+   * used by Import's dry-run so a duplicate row shows in the preview.
+   */
+  async assertBarcodeAvailable(barcode: string, excludeId?: string) {
+    const owner = await this.findBarcodeOwner(barcode, excludeId);
+    if (owner) throw this.barcodeDuplicate(owner);
+  }
+
+  private async findBarcodeOwner(barcode: string, excludeId?: string) {
+    const rows = await this.prisma.$queryRaw<
+      { id: string; sku: string; name: string }[]
+    >(
+      Prisma.sql`SELECT id::text AS id, sku, name FROM products
+        WHERE deleted_at IS NULL AND barcode IS NOT NULL
+          AND lower(btrim(barcode)) = lower(btrim(${barcode}))
+          ${excludeId ? Prisma.sql`AND id <> ${excludeId}::uuid` : Prisma.empty}
+        LIMIT 1`,
+    );
+    return rows[0] ?? null;
+  }
+
+  private barcodeDuplicate(owner: { id: string; sku: string; name: string }) {
+    return new ConflictException({
+      code: 'PRODUCT_BARCODE_DUPLICATE',
+      message: `الباركود مستخدم بالفعل للمنتج ${owner.sku} — ${owner.name} — This barcode already belongs to product ${owner.sku} (${owner.name}).`,
+      productId: owner.id,
+      sku: owner.sku,
+      name: owner.name,
+    });
+  }
+
+  private async mapWriteError(
+    error: unknown,
+    barcode?: string | null,
+    excludeId?: string,
+  ): Promise<Error> {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2002') {
+        // Race safety: a concurrent write took the barcode between the check and the insert.
+        const hitBarcodeIndex =
+          error.message.includes('products_barcode_unique_active') ||
+          JSON.stringify(error.meta ?? {}).includes('barcode');
+        if (barcode && hitBarcodeIndex) {
+          const owner = await this.findBarcodeOwner(barcode, excludeId);
+          if (owner) return this.barcodeDuplicate(owner);
+        }
         return new BadRequestException('SKU must be unique.');
       }
       if (error.code === 'P2003') {

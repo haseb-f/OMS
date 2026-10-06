@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
-/** A random v4-style id; `crypto.randomUUID` needs a secure context, so fall back to `getRandomValues`. */
-export function newIdempotencyKey(): string {
+/**
+ * A fresh request key (UUID v4). `crypto.randomUUID` needs a secure context,
+ * so fall back to `crypto.getRandomValues` — never `Math.random`.
+ */
+export function createIdempotencyKey(): string {
   if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
@@ -12,12 +15,18 @@ export function newIdempotencyKey(): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+/** Alias kept for callers that read better with "new". */
+export const newIdempotencyKey = createIdempotencyKey;
+
 /**
- * R13 B2 — one idempotency key per opened create form. Every create request
- * the form sends carries it, so a double click or a retried request returns
- * the first document instead of creating a second one (server-enforced).
+ * One idempotency key per form session (one opened create form / dialog): the
+ * SAME key is sent by every submit of that session — a double click, a retry
+ * after a timeout — so the server performs the operation at most once and
+ * answers the repeat with the original record. `renew()` starts a new session
+ * (call it after a success and whenever the dialog is closed).
  */
-export function useIdempotencyKey(): string {
-  const [key] = useState(newIdempotencyKey);
-  return key;
+export function useIdempotencyKey(): { key: string; renew: () => void } {
+  const [key, setKey] = useState(createIdempotencyKey);
+  const renew = useCallback(() => setKey(createIdempotencyKey()), []);
+  return { key, renew };
 }

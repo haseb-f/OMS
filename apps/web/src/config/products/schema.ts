@@ -1,78 +1,94 @@
 import { z } from "zod";
+import type { MessageKey } from "@/i18n/translate";
+import {
+  defaultsForItemType,
+  type ItemType,
+  type ProductAttributes,
+  type SupplyMethod,
+} from "./attribute-rules";
+import type { ProductRow } from "@/services/products-service";
 
-export const productSchema = z.object({
-  name: z.string().min(1),
-  nameEn: z.string().optional().or(z.literal("")),
-  /** Defaults to `name` on the backend when omitted (ADR-0012/TASK-028) — not required here, matching that. */
-  internalName: z.string().optional().or(z.literal("")),
-  displayName: z.string().optional().or(z.literal("")),
-  barcode: z.string().optional().or(z.literal("")),
-  qrCodeValue: z.string().optional().or(z.literal("")),
-  imageUrl: z.string().optional().or(z.literal("")),
-  description: z.string().optional().or(z.literal("")),
-  shortDescription: z.string().optional().or(z.literal("")),
-  longDescription: z.string().optional().or(z.literal("")),
-  internalNotes: z.string().optional().or(z.literal("")),
-  tagsInput: z.string().optional().or(z.literal("")),
+const optionalText = z.string().optional().or(z.literal(""));
 
-  type: z.enum([
-    "PURCHASE_ONLY",
-    "SALES_ONLY",
-    "PURCHASE_AND_SALE",
-    "MANUFACTURED",
-    "SERVICE",
-    "EXPENSE_ITEM",
-  ]),
-  status: z.enum(["DRAFT", "ACTIVE", "INACTIVE"]),
-  categoryId: z.string().min(1),
-  brandId: z.string().optional().or(z.literal("")),
-  unitId: z.string().min(1),
-  taxId: z.string().optional().or(z.literal("")),
-  analyticAccountId: z.string().optional().or(z.literal("")),
+/**
+ * The ONE product form (create and edit). Only Name, Category and Unit are
+ * required; everything else is optional. The item type is required (the form
+ * defaults it) except for a legacy row that has none yet — that case is
+ * answered at save time, not by the schema. The deprecated `type` is not part
+ * of the form at all: the API derives it from the attributes on every write.
+ */
+export function createProductSchema(t: (key: MessageKey) => string) {
+  const required = { message: t("common.required") };
+  return productShape(required);
+}
 
-  salesPrice: z.number().optional(),
-  salesTaxIncluded: z.boolean(),
-  salesDescription: z.string().optional().or(z.literal("")),
-  allowDiscount: z.boolean(),
-  isSellable: z.boolean(),
+function productShape(required: { message: string }) {
+  return z.object({
+    name: z.string().trim().min(1, required),
+    nameEn: optionalText,
+    /** Default to `name` on the server when empty. */
+    internalName: optionalText,
+    displayName: optionalText,
+    barcode: optionalText,
+    qrCodeValue: optionalText,
+    imageUrl: optionalText,
+    description: optionalText,
+    shortDescription: optionalText,
+    longDescription: optionalText,
+    internalNotes: optionalText,
+    searchKeywords: optionalText,
+    tagsInput: optionalText,
 
-  purchasePrice: z.number().optional(),
-  preferredPartnerId: z.string().optional().or(z.literal("")),
-  purchaseDescription: z.string().optional().or(z.literal("")),
-  isPurchasable: z.boolean(),
+    status: z.enum(["DRAFT", "ACTIVE", "INACTIVE"]),
+    categoryId: z.string().min(1, required),
+    brandId: optionalText,
+    unitId: z.string().min(1, required),
+    taxId: optionalText,
+    analyticAccountId: optionalText,
 
-  isInventoryItem: z.boolean(),
-  reorderLevel: z.number().optional(),
-  reorderQuantity: z.number().optional(),
-  safetyStock: z.number().optional(),
-  minQuantity: z.number().optional(),
-  maxQuantity: z.number().optional(),
-  storageLocation: z.string().optional().or(z.literal("")),
-  preferredWarehouseId: z.string().optional().or(z.literal("")),
-  costingMethod: z.enum(["AVERAGE", "FIFO", "STANDARD"]).optional().or(z.literal("")),
-  /**
-   * Single-select the form works with (TASK-028 Part 2) — the API still
-   * stores `serialNumberTracking`/`batchTracking` as two booleans (ADR-0012),
-   * so this is converted to/from that pair at the form's edges
-   * (`toProductFormValues` / submit payload in product-modal.tsx), never
-   * carried as a third, parallel field.
-   */
-  inventoryTracking: z.enum(["NONE", "BATCH", "SERIAL"]),
-  weight: z.number().optional(),
-  width: z.number().optional(),
-  height: z.number().optional(),
-  length: z.number().optional(),
+    // The independent attributes (spec §2).
+    itemType: z.enum(["PRODUCT", "SERVICE"]).optional().or(z.literal("")),
+    supplyMethod: z.enum(["PURCHASED", "ASSEMBLED", "KIT"]),
+    isSellable: z.boolean(),
+    isPurchasable: z.boolean(),
+    isInventoryItem: z.boolean(),
+    /** Company | Agent; Agent reveals the owner selector. */
+    ownership: z.enum(["COMPANY", "AGENT"]),
+    /** "" = company-owned. */
+    ownerAgentId: optionalText,
+    availableForInvestmentOpportunities: z.boolean(),
 
-  /** Investor Engine Milestone 4, Part B — opt-in gate for the Investment Opportunity Product picker. Defaults unchecked for every new Product. */
-  availableForInvestmentOpportunities: z.boolean(),
+    salesPrice: z.number().optional(),
+    salesTaxIncluded: z.boolean(),
+    salesDescription: optionalText,
+    allowDiscount: z.boolean(),
 
-  /** Agents milestone (spec §4) — owner agent of the goods; "" = company-owned. */
-  ownerAgentId: z.string().optional().or(z.literal("")),
-  /** commission-policy.md A2 — explicit PRODUCT / SERVICE ("" = not classified yet). */
-  itemType: z.enum(["PRODUCT", "SERVICE"]).optional().or(z.literal("")),
-});
+    /** An ESTIMATE of the purchase price — the actual cost is the moving average. */
+    purchasePrice: z.number().optional(),
+    preferredPartnerId: optionalText,
+    purchaseDescription: optionalText,
 
-export type ProductFormValues = z.infer<typeof productSchema>;
+    reorderLevel: z.number().optional(),
+    reorderQuantity: z.number().optional(),
+    safetyStock: z.number().optional(),
+    minQuantity: z.number().optional(),
+    maxQuantity: z.number().optional(),
+    storageLocation: optionalText,
+    preferredWarehouseId: optionalText,
+    /**
+     * One select the form works with; the API stores `serialNumberTracking` /
+     * `batchTracking` as two booleans, converted at the form's edges
+     * (`toProductFormValues` / `toProductPayload`) and never carried twice.
+     */
+    inventoryTracking: z.enum(["NONE", "BATCH", "SERIAL"]),
+    weight: z.number().optional(),
+    width: z.number().optional(),
+    height: z.number().optional(),
+    length: z.number().optional(),
+  });
+}
+
+export type ProductFormValues = z.infer<ReturnType<typeof productShape>>;
 
 export const productDefaultValues: ProductFormValues = {
   name: "",
@@ -86,26 +102,25 @@ export const productDefaultValues: ProductFormValues = {
   shortDescription: "",
   longDescription: "",
   internalNotes: "",
+  searchKeywords: "",
   tagsInput: "",
-  type: "PURCHASE_AND_SALE",
   status: "DRAFT",
   categoryId: "",
   brandId: "",
-  ownerAgentId: "",
-  itemType: "PRODUCT",
   unitId: "",
   taxId: "",
   analyticAccountId: "",
+  ...defaultsForItemType("PRODUCT"),
+  ownership: "COMPANY",
+  ownerAgentId: "",
+  availableForInvestmentOpportunities: false,
   salesPrice: undefined,
   salesTaxIncluded: false,
   salesDescription: "",
   allowDiscount: true,
-  isSellable: true,
   purchasePrice: undefined,
   preferredPartnerId: "",
   purchaseDescription: "",
-  isPurchasable: true,
-  isInventoryItem: true,
   reorderLevel: undefined,
   reorderQuantity: undefined,
   safetyStock: undefined,
@@ -113,11 +128,85 @@ export const productDefaultValues: ProductFormValues = {
   maxQuantity: undefined,
   storageLocation: "",
   preferredWarehouseId: "",
-  costingMethod: "",
   inventoryTracking: "NONE",
   weight: undefined,
   width: undefined,
   height: undefined,
   length: undefined,
-  availableForInvestmentOpportunities: false,
 };
+
+const numberOrUndefined = (value: string | null) => (value ? Number(value) : undefined);
+
+/** The form's view of a stored product (also used to prefill a duplicate). */
+export function toProductFormValues(source: ProductRow | null): ProductFormValues {
+  if (!source) return productDefaultValues;
+  return {
+    name: source.name,
+    nameEn: source.nameEn ?? "",
+    internalName: source.internalName,
+    displayName: source.displayName,
+    barcode: source.barcode ?? "",
+    qrCodeValue: source.qrCodeValue ?? "",
+    imageUrl: source.imageUrl ?? "",
+    description: source.description ?? "",
+    shortDescription: source.shortDescription ?? "",
+    longDescription: source.longDescription ?? "",
+    internalNotes: source.internalNotes ?? "",
+    searchKeywords: source.searchKeywords ?? "",
+    tagsInput: (source.tags ?? []).join(", "),
+    status: source.status,
+    categoryId: source.categoryId,
+    brandId: source.brandId ?? "",
+    unitId: source.unitId,
+    taxId: source.taxId ?? "",
+    analyticAccountId: source.analyticAccountId ?? "",
+    itemType: source.itemType ?? "",
+    supplyMethod: source.supplyMethod ?? "PURCHASED",
+    isSellable: source.isSellable,
+    isPurchasable: source.isPurchasable,
+    isInventoryItem: source.isInventoryItem,
+    ownership: source.ownerAgentId ? "AGENT" : "COMPANY",
+    ownerAgentId: source.ownerAgentId ?? "",
+    availableForInvestmentOpportunities: source.availableForInvestmentOpportunities,
+    salesPrice: numberOrUndefined(source.salesPrice),
+    salesTaxIncluded: source.salesTaxIncluded,
+    salesDescription: source.salesDescription ?? "",
+    allowDiscount: source.allowDiscount,
+    purchasePrice: numberOrUndefined(source.purchasePrice),
+    preferredPartnerId: source.preferredPartnerId ?? "",
+    purchaseDescription: source.purchaseDescription ?? "",
+    reorderLevel: numberOrUndefined(source.reorderLevel),
+    reorderQuantity: numberOrUndefined(source.reorderQuantity),
+    safetyStock: numberOrUndefined(source.safetyStock),
+    minQuantity: numberOrUndefined(source.minQuantity),
+    maxQuantity: numberOrUndefined(source.maxQuantity),
+    storageLocation: source.storageLocation ?? "",
+    preferredWarehouseId: source.preferredWarehouseId ?? "",
+    inventoryTracking: source.serialNumberTracking
+      ? "SERIAL"
+      : source.batchTracking
+        ? "BATCH"
+        : "NONE",
+    weight: numberOrUndefined(source.weight),
+    width: numberOrUndefined(source.width),
+    height: numberOrUndefined(source.height),
+    length: numberOrUndefined(source.length),
+  };
+}
+
+/** The attribute slice of the form (what `attribute-rules` works on). */
+export function attributesOf(
+  values: Pick<
+    ProductFormValues,
+    "itemType" | "isSellable" | "isPurchasable" | "isInventoryItem" | "supplyMethod"
+  >,
+): ProductAttributes | null {
+  if (!values.itemType) return null;
+  return {
+    itemType: values.itemType as ItemType,
+    isSellable: values.isSellable,
+    isPurchasable: values.isPurchasable,
+    isInventoryItem: values.isInventoryItem,
+    supplyMethod: values.supplyMethod as SupplyMethod,
+  };
+}

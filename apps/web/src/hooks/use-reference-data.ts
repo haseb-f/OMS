@@ -116,6 +116,9 @@ export const useCountries = createReferenceDataHook<CountryRow>("countries", () 
 );
 
 /**
+ * Paged until done (never a single capped page): a picker that loads only the first N rows and filters in the browser
+ * silently hides every later category/unit/tax — found by the R13 UI journey with 400+ categories.
+ *
  * Same duplication proven for currencies/countries above, found again
  * verbatim between the Products list page and Product detail page: both
  * independently fetched Category/Brand/Unit/Tax/AnalyticAccount/Warehouse/
@@ -130,31 +133,32 @@ const taxesService = createMasterDataService<TaxRow>("/taxes");
 const analyticAccountsService = createMasterDataService<AnalyticAccountRow>("/analytic-accounts");
 const warehousesService = createMasterDataService<WarehouseRow>("/warehouses");
 
-export const useProductCategories = createReferenceDataHook<CategoryRow>("productCategories", () =>
-  categoriesService.list({ pageSize: 200 }).then((r) => r.items),
+export const fetchAllProductCategories = () => fetchAllRows(categoriesService);
+
+export const useProductCategories = createReferenceDataHook<CategoryRow>(
+  "productCategories",
+  fetchAllProductCategories,
 );
 
 export const useProductBrands = createReferenceDataHook<BrandRow>("productBrands", () =>
-  brandsService.list({ pageSize: 200 }).then((r) => r.items),
+  fetchAllRows(brandsService),
 );
 
-export const useUnits = createReferenceDataHook<UnitRow>("units", () =>
-  unitsService.list({ pageSize: 200 }).then((r) => r.items),
-);
+export const fetchAllUnits = () => fetchAllRows(unitsService);
 
-export const useTaxes = createReferenceDataHook<TaxRow>("taxes", () =>
-  taxesService.list({ pageSize: 200 }).then((r) => r.items),
-);
+export const useUnits = createReferenceDataHook<UnitRow>("units", fetchAllUnits);
+
+export const useTaxes = createReferenceDataHook<TaxRow>("taxes", () => fetchAllRows(taxesService));
 
 export const useAnalyticAccounts = createReferenceDataHook<AnalyticAccountRow>(
   "analyticAccounts",
-  () => analyticAccountsService.list({ pageSize: 200 }).then((r) => r.items),
+  () => fetchAllRows(analyticAccountsService),
 );
 
 export const useWarehouses = createReferenceDataHook<WarehouseRow>("warehouses", () =>
-  warehousesService
-    .list({ pageSize: 200 })
-    .then((r) => r.items.filter((row) => !row.deletedAt && row.isActive !== false)),
+  fetchAllRows(warehousesService).then((rows) =>
+    rows.filter((row) => !row.deletedAt && row.isActive !== false),
+  ),
 );
 
 /** Supplier-role Partners — same "preferred supplier" picker Products uses (spec section 10: Suppliers are a role view over Partner). */

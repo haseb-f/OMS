@@ -69,6 +69,73 @@ describe('StoreOrdersService.generateInvoice — physical inventory delivery', (
     payments: [],
   };
 
+  const kitItem = {
+    id: 'item-3',
+    productId: 'product-kit',
+    quantity: 2,
+    unitPrice: 300,
+    agreedAmount: 600,
+    product: {
+      id: 'product-kit',
+      sku: 'SKU-KIT',
+      isInventoryItem: false,
+      supplyMethod: 'KIT',
+      preferredWarehouseId: warehouseId,
+      unitId: 'unit-1',
+      categoryId: null,
+      currentCost: null,
+      taxId: null,
+    },
+  };
+
+  type ResolverLine = {
+    productId: string;
+    quantity: number;
+    warehouseId: string;
+    lineKey: string;
+  };
+
+  /** Mirrors StockLineResolver: stocked lines pass, the kit explodes (2 × A, 1 × B), services drop. */
+  function resolveLines(lines: ResolverLine[]) {
+    const byProduct = new Map(
+      [inventoryItem, serviceItem, kitItem].map((item) => [
+        item.productId,
+        item.product,
+      ]),
+    );
+    const stock: Array<Record<string, unknown>> = [];
+    const kitSnapshots: Record<string, unknown> = {};
+    for (const line of lines) {
+      const product = byProduct.get(line.productId)!;
+      if (product.isInventoryItem) {
+        stock.push({ ...line });
+        continue;
+      }
+      if (line.productId !== 'product-kit') continue;
+      const components = [
+        { productId: 'component-a', qtyPerKit: 2, unitCost: '10.0000' },
+        { productId: 'component-b', qtyPerKit: 1, unitCost: '15.0000' },
+      ];
+      kitSnapshots[line.lineKey] = {
+        recipeId: 'recipe-1',
+        version: 3,
+        components,
+      };
+      for (const component of components) {
+        stock.push({
+          productId: component.productId,
+          quantity: component.qtyPerKit * line.quantity,
+          warehouseId: line.warehouseId,
+          lineKey: line.lineKey,
+          parentProductId: 'product-kit',
+          recipeId: 'recipe-1',
+          recipeVersion: 3,
+        });
+      }
+    }
+    return Promise.resolve({ stock, kitSnapshots });
+  }
+
   function makeService() {
     const txClient = {
       salesInvoice: {
@@ -77,6 +144,14 @@ describe('StoreOrdersService.generateInvoice — physical inventory delivery', (
           invoiceNumber: 'SI-0001',
         }),
       },
+      salesInvoiceItem: { update: jest.fn().mockResolvedValue(undefined) },
+      product: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'component-a', currentCost: '10.0000' },
+          { id: 'component-b', currentCost: '15.0000' },
+        ]),
+      },
+      $queryRaw: jest.fn().mockResolvedValue([]),
     };
     const prisma = {
       storeOrder: { findFirst: jest.fn().mockResolvedValue(orderRow) },
@@ -99,6 +174,11 @@ describe('StoreOrdersService.generateInvoice — physical inventory delivery', (
     };
     const inventoryService = {
       postSalesDelivery: jest.fn().mockResolvedValue(undefined),
+    };
+    const stockLines = {
+      resolve: jest.fn((_tx: unknown, lines: ResolverLine[]) =>
+        resolveLines(lines),
+      ),
     };
     const fulfillmentCostService = {
       applyStandardCost: jest.fn().mockResolvedValue(undefined),
@@ -124,6 +204,7 @@ describe('StoreOrdersService.generateInvoice — physical inventory delivery', (
       salesScope as never,
       {} as never,
       inventoryService as never,
+      stockLines as never,
       fulfillmentCostService as never,
       collection as never,
       {} as never,
@@ -136,6 +217,7 @@ describe('StoreOrdersService.generateInvoice — physical inventory delivery', (
       prisma,
       accountMapping,
       collection,
+      txClient,
     };
   }
 
@@ -174,6 +256,56 @@ describe('StoreOrdersService.generateInvoice — physical inventory delivery', (
     >;
     const calledProductIds = calls.map(([dto]) => dto.productId);
     expect(calledProductIds).not.toContain('product-service');
+  });
+
+  it('delivers a kit line as its components, keyed per invoice line + component, and stores the recipe snapshot', async () => {
+    const { service, inventoryService, prisma, txClient } = makeService();
+    prisma.storeOrder.findFirst.mockResolvedValueOnce({
+      ...orderRow,
+      items: [kitItem],
+    });
+
+    await service.generateInvoice(orderId, userId);
+
+    const [[createArgs]] = txClient.salesInvoice.create.mock.calls as Array<
+      [
+        {
+          data: { items: { create: Array<{ id: string; productId: string }> } };
+        },
+      ]
+    >;
+    const kitLineId = createArgs.data.items.create[0].id;
+    expect(kitLineId).toEqual(expect.any(String));
+    const calls = inventoryService.postSalesDelivery.mock.calls as Array<
+      [Record<string, unknown>]
+    >;
+    expect(calls.map(([dto]) => [dto.productId, dto.quantity])).toEqual([
+      ['component-a', 4],
+      ['component-b', 2],
+    ]);
+    expect(calls[0][0]).toMatchObject({
+      referenceType: 'SALES_INVOICE',
+      referenceId: 'invoice-1',
+      parentProductId: 'product-kit',
+      recipeId: 'recipe-1',
+      idempotencyKey: `SALES_INVOICE:invoice-1:${kitLineId}:component-a:SALES_DELIVERY`,
+    });
+    expect(calls.some(([dto]) => dto.productId === 'product-kit')).toBe(false);
+    expect(txClient.salesInvoiceItem.update).toHaveBeenCalledWith({
+      where: { id: kitLineId },
+      data: {
+        fulfillmentSnapshot: {
+          recipeId: 'recipe-1',
+          version: 3,
+          components: [
+            { productId: 'component-a', qtyPerKit: 2, unitCost: '10' },
+            { productId: 'component-b', qtyPerKit: 1, unitCost: '15' },
+          ],
+        },
+      },
+    });
+    // Every product row (kit + components) is locked once, before delivering.
+    expect(txClient.$queryRaw).toHaveBeenCalledTimes(1);
   });
 
   it('rejects generating an invoice before the order is fully paid & reconciled', async () => {

@@ -163,6 +163,9 @@ export interface CategoryRow {
   id: string;
   name: string;
   description: string | null;
+  /// R13 — defaults a new product of this category inherits (visible in the product form).
+  defaultUnitId?: string | null;
+  defaultTaxId?: string | null;
   /// TASK-047 (Accounting Configuration) — optional overrides of the
   /// Accounting Settings defaults for this category's products.
   revenueAccountId: string | null;
@@ -791,6 +794,9 @@ export const categoriesSchema = z.object({
   inventoryAccountId: z.string().optional().or(z.literal("")),
   cogsAccountId: z.string().optional().or(z.literal("")),
   purchaseAccountId: z.string().optional().or(z.literal("")),
+  /** R13 — optional defaults a new product of this category inherits. */
+  defaultUnitId: z.string().optional().or(z.literal("")),
+  defaultTaxId: z.string().optional().or(z.literal("")),
 });
 
 export const categoriesDefaultValues = {
@@ -800,6 +806,8 @@ export const categoriesDefaultValues = {
   inventoryAccountId: "",
   cogsAccountId: "",
   purchaseAccountId: "",
+  defaultUnitId: "",
+  defaultTaxId: "",
 };
 export const categoriesExportColumns = ["name"];
 export const categoryRowLabel = (row: CategoryRow) => row.name;

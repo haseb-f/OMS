@@ -63,7 +63,9 @@ export class ProductCostService {
       await this.productActivityService.log(
         productId,
         ProductActivityType.PRODUCT_COST_UPDATED,
-        `Cost of ${product.sku} updated to ${dto.cost}`,
+        // The figure stays in the cost history (cost-permission screens);
+        // the product timeline is readable with products.view alone.
+        `Cost of ${product.sku} updated`,
         undefined,
         tx,
       );

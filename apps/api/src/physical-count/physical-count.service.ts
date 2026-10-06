@@ -3,23 +3,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  InventoryMovementType,
-  PhysicalCountStatus,
-  Prisma,
-  ProductStatus,
-} from '@prisma/client';
+import { PhysicalCountStatus, Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import {
   InventoryService,
-  movementOwnerAgentId,
+  lockProductsForUpdate,
 } from '../inventory/inventory.service';
 import { WarehousesService } from '../warehouses/warehouses.service';
-import {
-  InventoryMovementActivityService,
-  InventoryMovementActivityType,
-} from '../inventory/activities/inventory-movement-activity.service';
 import { CreatePhysicalCountDto } from './dto/create-physical-count.dto';
 import { UpdateCountLineDto } from './dto/update-count-line.dto';
 
@@ -40,7 +31,6 @@ export class PhysicalCountService {
     private readonly numberingEngine: NumberingEngineService,
     private readonly inventoryService: InventoryService,
     private readonly warehousesService: WarehousesService,
-    private readonly activityService: InventoryMovementActivityService,
   ) {}
 
   async create(dto: CreatePhysicalCountDto, userId?: string) {
@@ -156,10 +146,12 @@ export class PhysicalCountService {
   /**
    * Applies each line's (counted − system) difference to CURRENT on-hand
    * quantity — not the frozen snapshot — so the resulting movement's
-   * before/after stays a true ledger reading even if other movements
-   * happened between count creation and confirm. A line whose counted
-   * quantity is still unset, or matches the system quantity exactly,
-   * generates no movement.
+   * before/after stays a true ledger reading (read under the product lock,
+   * inside the transaction) even if other movements happened between count
+   * creation and confirm. A line whose counted quantity matches the system
+   * quantity exactly generates no movement. Every movement goes through
+   * `InventoryService.postPhysicalCountLine`: locked, non-negative, one per
+   * count line (idempotency key) and posted to the GL like an adjustment.
    */
   async confirm(id: string, userId?: string) {
     const count = await this.findOne(id);
@@ -174,50 +166,49 @@ export class PhysicalCountService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      for (let i = 0; i < count.lines.length; i++) {
-        const line = count.lines[i];
+      // Claim the Draft first so two concurrent confirms cannot both apply it.
+      const claimed = await tx.physicalCount.updateMany({
+        where: { id, status: PhysicalCountStatus.DRAFT },
+        data: { updatedBy: userId ?? null },
+      });
+      if (claimed.count === 0) {
+        throw new BadRequestException('Only a Draft count can be confirmed.');
+      }
+      // The lines are re-read inside the claimed transaction (a counted
+      // quantity edited since the first read is honoured), and every counted
+      // product is locked once, in sorted order, before any on-hand read —
+      // the same lock every other stock writer takes.
+      const { lines } = await tx.physicalCount.findUniqueOrThrow({
+        where: { id },
+        include: this.detailInclude(),
+      });
+      if (lines.some((line) => line.countedQuantity === null)) {
+        throw new BadRequestException(
+          'Every line must have a counted quantity before confirming.',
+        );
+      }
+      await lockProductsForUpdate(
+        tx,
+        lines.map((line) => line.productId),
+      );
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         const difference = line.countedQuantity! - line.systemQuantity;
         if (difference === 0) continue;
 
-        const quantityBefore = (
-          await this.inventoryService.getStock(
-            line.productId,
-            count.warehouseId,
-          )
-        ).onHand;
-        const quantityAfter = quantityBefore + difference;
-
-        if (quantityAfter < 0) {
-          throw new BadRequestException(
-            `Confirming would result in negative stock for ${line.product.sku}.`,
-          );
-        }
-
-        const movement = await tx.inventoryMovement.create({
-          data: {
-            ownerAgentId: await movementOwnerAgentId(tx, line.productId),
-            movementNumber: `${count.countNumber}-${i + 1}`,
-            type: InventoryMovementType.PHYSICAL_COUNT,
-            productId: line.productId,
-            warehouseId: count.warehouseId,
-            quantity: difference,
-            quantityBefore,
-            quantityAfter,
-            referenceType: 'PHYSICAL_COUNT',
-            referenceId: count.id,
-            reason: 'Physical Count',
-            notes: count.notes,
-            createdBy: userId ?? null,
-          },
+        const movement = await this.inventoryService.postPhysicalCountLine(tx, {
+          countId: count.id,
+          countLineId: line.id,
+          movementNumber: `${count.countNumber}-${i + 1}`,
+          productId: line.productId,
+          sku: line.product.sku,
+          warehouseId: count.warehouseId,
+          countNumber: count.countNumber,
+          difference,
+          notes: count.notes,
+          userId,
         });
-
-        await this.activityService.log(
-          movement.id,
-          InventoryMovementActivityType.PHYSICAL_COUNT_ADJUSTED,
-          `Physical count ${count.countNumber} adjusted ${line.product.sku} by ${difference}`,
-          undefined,
-          tx,
-        );
 
         await tx.physicalCountLine.update({
           where: { id: line.id },

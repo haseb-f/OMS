@@ -16,6 +16,8 @@ import customerLookupAr from "./modules/customer-lookup.ar";
 import tableViewsAr from "./modules/table-views.ar";
 import salesReportsAr from "./modules/sales-reports.ar";
 import assetSchedulesAr from "./modules/asset-schedules.ar";
+import assemblyAr from "./modules/assembly.ar";
+import inventoryIntegrityAr from "./modules/inventory-integrity.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
@@ -27,6 +29,8 @@ const ar = {
   tableViews: tableViewsAr,
   salesReports: salesReportsAr,
   assetSchedules: assetSchedulesAr,
+  assembly: assemblyAr,
+  inventoryIntegrity: inventoryIntegrityAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
@@ -312,6 +316,7 @@ const ar = {
       lookupAdvanced: "بحث متقدم عن عميل",
       viewAll: "عرض كل السجلات (كل الموظفين)",
       amend: "تعديل الطلب بعد الإنشاء",
+      directCost: "إدخال تكلفة تجميع مباشرة",
     },
     modules: {
       dashboard: "لوحة التحكم",
@@ -424,6 +429,8 @@ const ar = {
       investmentAccounting: "إعدادات محاسبة المستثمرين",
       investorSettings: "إعدادات المستثمرين",
       investorPortal: "بوابة المستثمرين",
+      assembly: "التجميع",
+      productRecipes: "وصفات المنتجات",
     },
   },
   nav: {
@@ -460,6 +467,8 @@ const ar = {
     inventoryMovements: "حركات المخزون",
     inventoryStock: "الرصيد الفعلي",
     inventoryPhysicalCount: "الجرد الفعلي",
+    inventoryAssembly: "التجميع",
+    inventoryIntegrity: "سلامة المخزون",
     expenses: "التكاليف",
     expensesComponents: "فئات التكلفة",
     expensesProductCost: "تكلفة المنتج",
@@ -1217,6 +1226,12 @@ const ar = {
         inventoryAccountId: "الحساب الذي يمثل قيمة مخزون منتجات هذه الفئة.",
         cogsAccountId: "الحساب المستخدم لتسجيل تكلفة المنتجات المباعة من هذه الفئة.",
         purchaseAccountId: "الحساب المستخدم عند شراء منتجات هذه الفئة.",
+        defaultUnitId: "تُقترح كوحدة المنتج الجديد في هذه الفئة (يمكن تغييرها).",
+        defaultTaxId: "تُقترح كضريبة المنتج الجديد في هذه الفئة (يمكن تغييرها).",
+      },
+      fields: {
+        defaultUnit: "الوحدة الافتراضية",
+        defaultTax: "الضريبة الافتراضية",
       },
     },
     brands: {
@@ -2176,14 +2191,7 @@ const ar = {
     duplicateTitle: "نسخ المنتج",
     quickPreview: "معاينة سريعة",
     tabs: {
-      general: "عام",
-      classification: "التصنيف",
-      sales: "المبيعات",
-      purchasing: "المشتريات",
-      inventory: "المخزون",
-      cost: "التكلفة",
       stockMovements: "حركات المخزون",
-      bom: "قائمة المواد (BOM)",
       variants: "المتغيرات",
       attachments: "المرفقات",
     },
@@ -2198,8 +2206,6 @@ const ar = {
       qrCodeValue: "قيمة رمز QR",
       imageUrl: "رابط الصورة",
       description: "الوصف",
-      shortDescription: "وصف مختصر",
-      longDescription: "وصف تفصيلي",
       internalNotes: "ملاحظات داخلية",
       tags: "الوسوم",
       tagsHint: "افصل بينها بفاصلة.",
@@ -2214,13 +2220,15 @@ const ar = {
       salesTaxIncluded: "شامل الضريبة",
       salesDescription: "وصف البيع",
       allowDiscount: "السماح بالخصم",
-      availableForSale: "متاح للبيع",
       purchasePrice: "سعر الشراء",
+      expectedPurchasePrice: "سعر الشراء المتوقع (تقديري)",
+      expectedPurchasePriceHint:
+        "تقدير فقط. التكلفة الفعلية هي المتوسط المتحرك للاستلامات الفعلية.",
+      searchKeywords: "كلمات البحث",
+      searchKeywordsHint: "كلمات إضافية للعثور على المنتج في البحث.",
       preferredSupplier: "المورد المفضل",
       purchaseDescription: "وصف الشراء",
-      availableForPurchase: "متاح للشراء",
       trackInventory: "تتبع المخزون",
-      availableForInvestmentOpportunities: "متاح لفرص الاستثمار",
       availableForInvestmentOpportunitiesHint:
         "عند التفعيل يظهر المنتج (إذا كان نشطًا) في اختيار منتجات الفرص الاستثمارية. إلغاء التفعيل لاحقًا لا يزيله من الفرص القائمة، لكنه يمنع اختياره في أي فرصة جديدة.",
       reorderLevel: "نقطة إعادة الطلب",
@@ -2229,10 +2237,7 @@ const ar = {
       minQuantity: "الحد الأدنى للكمية",
       maxQuantity: "الحد الأقصى للكمية",
       storageLocation: "موقع التخزين",
-      serialNumberTracking: "تتبع الرقم التسلسلي",
-      batchTracking: "تتبع الدفعات",
       preferredWarehouse: "المستودع المفضل",
-      costingMethod: "طريقة التكلفة",
       inventoryTracking: "تتبع المخزون",
       weight: "الوزن",
       width: "العرض",
@@ -2242,14 +2247,10 @@ const ar = {
       color: "اللون",
       size: "المقاس",
       variantWeight: "الوزن",
-      priceAdjustment: "تعديل السعر",
-      variantSku: "رمز المتغير",
       fileUrl: "رابط الملف",
       fileName: "اسم الملف",
-      attachmentDescription: "الوصف",
       createdBy: "أنشئ بواسطة",
       createdAt: "تاريخ الإنشاء",
-      updatedBy: "حُدّث بواسطة",
       updatedAt: "تاريخ التحديث",
     },
     type: {
@@ -2259,19 +2260,6 @@ const ar = {
       MANUFACTURED: "منتج مُصنّع",
       SERVICE: "خدمة",
       EXPENSE_ITEM: "بند مصروف",
-    },
-    typeHint: {
-      PURCHASE_ONLY: "يدخل المخزون، لا يُباع أبدًا.",
-      SALES_ONLY: "يُباع من المخزون — لا يُشترى عبر هذا النظام.",
-      PURCHASE_AND_SALE: "صنف مخزون عادي — يُشترى ويُباع.",
-      MANUFACTURED: "يُباع كصنف واحد، مُكوّن من منتجات فرعية (قائمة المواد).",
-      SERVICE: "بدون مخزون.",
-      EXPENSE_ITEM: "يُشترى ويُصرف كمصروف — لا يُخزّن ولا يُباع.",
-    },
-    costingMethod: {
-      AVERAGE: "متوسط التكلفة",
-      FIFO: "الوارد أولاً يصرف أولاً",
-      STANDARD: "التكلفة المعيارية",
     },
     inventoryTracking: {
       NONE: "بدون",
@@ -2319,24 +2307,11 @@ const ar = {
     variantRemoved: "تمت إزالة المتغير.",
     attachmentAdded: "تمت إضافة المرفق.",
     createdSuccess: "تم إنشاء المنتج بنجاح.",
-    createDialog: {
-      title: "إضافة منتج",
-      description: "فقط ما يلزم للحفظ — يمكن إضافة الباقي لاحقًا.",
-    },
     wizard: {
       steps: {
-        basics: "الأساسيات",
         pricing: "التسعير والتجارة",
         inventory: "المخزون",
-        review: "مراجعة وإنشاء",
       },
-      back: "السابق",
-      next: "التالي",
-      createDraft: "إنشاء كمسودة",
-      createDraftNow: "إنشاء كمسودة الآن",
-      reviewIntro: "راجع البيانات قبل الإنشاء — يمكن إكمال أي حقل لاحقًا من صفحة المنتج.",
-      willStartAsDraft:
-        "سيبدأ المنتج كـ «مسودة» — استخدم زر «تفعيل المنتج» لاحقًا لإتاحته للبيع والشراء.",
       notProvided: "لم تتم إضافته",
     },
     detail: {
@@ -2373,30 +2348,17 @@ const ar = {
       submit: "حفظ الرصيد الافتتاحي",
       success: "تم تسجيل الرصيد الافتتاحي.",
     },
-    kit: {
-      title: "مكوّنات الطقم (BOM)",
-      component: "المنتج المكوّن",
-      quantity: "الكمية",
-      addComponent: "إضافة مكوّن",
-      removeComponent: "إزالة",
-      componentsEmpty: "لا توجد مكوّنات بعد — أضف المنتجات التي يُبنى منها هذا الطقم.",
-      componentSaved: "تم حفظ المكوّن.",
-      componentRemoved: "تمت إزالة المكوّن.",
-    },
     inventory: {
       stockSummary: "ملخص المخزون",
-      incoming: "وارد",
-      outgoing: "صادر",
       status: "حالة المخزون",
       inStock: "متوفر",
       outOfStock: "غير متوفر",
     },
     cost: {
-      currentCost: "التكلفة الحالية",
       lastCostUpdate: "آخر تحديث للتكلفة",
-      methodHint: "بنية أساسية فقط — لا يوجد حساب تلقائي للتكلفة بعد.",
-      architectureHint:
-        "محرك التكلفة يسجّل التكاليف؛ لا يحسبها بعد. حسابات المعياري/المتوسط/الوارد أولاً يصرف أولاً وتوزيع التكلفة تأتي مع مرحلة مستقبلية مرتبطة بالمشتريات.",
+      currentCostActual: "التكلفة الحالية (فعلية)",
+      movingAverage:
+        "التكلفة الفعلية هي المتوسط المتحرك للاستلامات وأوامر التجميع والتسويات الفعلية.",
     },
     stockMovements: {
       reference: "المرجع",
@@ -2404,9 +2366,230 @@ const ar = {
       cost: "التكلفة",
       empty: "لا توجد حركات مخزون مسجّلة لهذا المنتج بعد.",
     },
-    typeChangeWarningTitle: "تغيير نوع عملية المنتج؟",
-    typeChangeWarningDescription:
-      "قد يؤدي تغيير النوع إلى إخفاء بعض التبويبات والحقول. تُحفظ البيانات الحالية وتظهر مجددًا عند الرجوع.",
+    attr: {
+      itemType: {
+        label: "نوع الصنف",
+        PRODUCT: "منتج",
+        SERVICE: "خدمة",
+        unset: "لم يُصنَّف بعد — اختر منتج أو خدمة.",
+        hint: {
+          PRODUCT: "سلعة: تُشترى أو تُخزَّن أو تُجمَّع أو تُباع.",
+          SERVICE: "خدمة — لا تُخزَّن ولا تُجمَّع ولا تكون مجموعة.",
+        },
+      },
+      canSell: "يمكن بيعه",
+      canPurchase: "يمكن شراؤه",
+      trackStock: "تتبع المخزون",
+      trackStockHint: "تُحسب الكميات لكل مستودع من حركات المخزون.",
+      trackStockReason: {
+        KIT: "المجموعة لا تملك رصيدًا خاصًا بها — مكوّناتها هي المخزَّنة.",
+        ASSEMBLED: "الصنف المجمَّع يُتتبَّع دائمًا في المخزون.",
+      },
+      serviceNoStock: "الخدمة بلا مخزون.",
+      supplyMethod: {
+        label: "طريقة التوريد",
+        PURCHASED: "مشترى",
+        ASSEMBLED: "مجمَّع",
+        KIT: "مجموعة (Kit)",
+        help: "مجمَّع: يُصنَّع داخليًا من وصفة إلى صنف مخزَّن. مجموعة: تُباع كبند واحد وتُجهَّز من مكوّناتها — بلا رصيد خاص بها.",
+      },
+      investor: "متاح لفرص الاستثمار",
+    },
+    form: {
+      description: "الاسم والنوع والفئة وطريقة التداول — وكل ما عدا ذلك اختياري.",
+      sections: {
+        basics: "الأساسيات",
+        trading: "التداول والمخزون",
+        pricing: "التسعير والمشتريات",
+        inventory: "المخزون",
+        accounting: "الحسابات الافتراضية",
+        investment: "الاستثمار",
+        details: "مزيد من التفاصيل",
+      },
+      fromCategory: "تمت تعبئة الوحدة والضريبة من الفئة — يمكنك تغييرهما.",
+      taxFromCategory: "من الفئة.",
+      nameDefaultHint: "إن تُرك فارغًا يُستخدم الاسم بالعربية.",
+      barcodeDuplicate: "هذا الباركود مستخدم بالفعل للمنتج {sku} — {name}.",
+      openOtherProduct: "فتح ذلك المنتج",
+      commissionNotSaved: "تم حفظ المنتج لكن لم يُحفظ إعداد العمولة. حدّده من صفحة المنتج.",
+    },
+    similar: {
+      title: "توجد منتجات بأسماء مشابهة",
+      hint: "يمكنك مع ذلك إنشاء هذا المنتج.",
+      match: {
+        EXACT: "نفس الاسم",
+        CONTAINS: "الاسم يحتوي",
+        SIMILAR: "اسم مشابه",
+      },
+    },
+    facets: {
+      itemType: "نوع الصنف",
+      itemTypeUnset: "غير مصنّف",
+      traits: "بيع / شراء / مخزون",
+      allSupplyMethods: "كل طرق التوريد",
+      allItemTypes: "كل أنواع الأصناف",
+    },
+    traits: {
+      sold: "يُباع",
+      purchased: "يُشترى",
+      tracked: "مخزون",
+    },
+    rules: {
+      PRODUCT_SERVICE_RULE: "الخدمة لا تُتتبَّع في المخزون ولا تُجمَّع ولا تكون مجموعة.",
+      PRODUCT_KIT_NOT_STOCKED: "المجموعة لا تملك رصيد مخزون — مكوّناتها هي الأصناف المخزَّنة.",
+      PRODUCT_ASSEMBLED_NOT_STOCKED: "المنتج المجمَّع يجب أن يكون مفعّلًا عليه تتبع المخزون.",
+      PRODUCT_SUPPLY_METHOD_LOCKED:
+        "لا يمكن تغيير طريقة التوريد إلى «مجموعة» أو منها ما دام للمنتج رصيد أو حجوزات.",
+      PRODUCT_TRACKING_LOCKED:
+        "لا يمكن إيقاف تتبع المخزون أو تحويل المنتج إلى خدمة ما دام له رصيد أو حجوزات — أخرج الرصيد أو حرّر الحجوزات أولًا.",
+      PRODUCT_OWNER_LOCKED:
+        "لا يمكن تغيير المالك بعد وجود حركات مخزون أو طلبات أو وصفات على المنتج.",
+    },
+    investment: {
+      reasons: {
+        AGENT_OWNED: "منتجات الوكلاء لا تُعرض على المستثمرين.",
+        SERVICE: "الخدمة لا تُعرض على المستثمرين.",
+        NOT_SELLABLE: "فعّل «يمكن بيعه» ليصبح المنتج مؤهلًا.",
+        NOT_ACTIVE: "المنتج النشط فقط يمكن عرضه على المستثمرين — فعّله أولًا.",
+      },
+      eligible: "مؤهل لفرص الاستثمار",
+      notEligible: "غير معروض على المستثمرين",
+      opportunitiesHidden: "الفرص المرتبطة تظهر للمستخدمين الذين يملكون صلاحية عرض فرص الاستثمار.",
+      noneLinked: "غير مرتبط بأي فرصة بعد.",
+      units: "وحدة",
+      rule: "الأهلية تتيح ظهور المنتج في اختيار منتجات الفرص فقط؛ لا تنشئ تمويلًا ولا تخصيصًا ولا ربحًا، وإيقافها يؤثر في التعيينات الجديدة فقط.",
+      unavailable: "تفاصيل الاستثمار غير متاحة.",
+    },
+    accounting: {
+      description: "للقراءة فقط — قيم موروثة لا تُدخل لكل منتج.",
+      unavailable: "تعذّر تحميل القيم الموروثة.",
+      noTax: "بدون ضريبة",
+      notConfigured: "غير مُعدّ",
+      hint: "تأتي الحسابات من فئة المنتج، وإلا من إعدادات الترحيل. عدّلها هناك.",
+      openCategories: "فئات المنتجات",
+      source: {
+        PRODUCT: "هذا المنتج",
+        CATEGORY: "من الفئة",
+        SETTINGS: "من إعدادات الترحيل",
+      },
+      accounts: {
+        inventory: "حساب المخزون",
+        cogs: "حساب تكلفة البضاعة المباعة",
+        revenue: "حساب إيرادات المبيعات",
+        purchase: "حساب المشتريات",
+      },
+      commission: {
+        label: "نسبة العمولة المطبَّقة",
+        none: "لم تُحدَّد نسبة بعد",
+        source: {
+          ITEM_OVERRIDE: "استثناء الصنف",
+          AGREEMENT: "اتفاقية الوكيل",
+        },
+      },
+    },
+    recipe: {
+      title: "الوصفة",
+      hintAssembled:
+        "صنف مجمَّع: يستهلك أمر التجميع هذه المكوّنات ويُدخل الصنف النهائي إلى المخزون.",
+      hintKit:
+        "مجموعة: تُباع كبند واحد وتُجهَّز من هذه المكوّنات، ولا يوجد للمجموعة نفسها رصيد مخزون.",
+      saveFirst: "احفظ المنتج أولًا ثم أنشئ وصفته.",
+      saveMethodFirst: "احفظ المنتج بطريقة التوريد هذه أولًا، ثم يمكن إنشاء وصفته.",
+      versions: "الإصدار",
+      versionLabel: "الإصدار {version}",
+      status: {
+        DRAFT: "مسودة",
+        ACTIVE: "نشط",
+        RETIRED: "متوقف",
+      },
+      noRecipe: "لا توجد وصفة بعد.",
+      noActive: "لا توجد وصفة نشطة — فعّل إصدارًا قبل تجميع هذا الصنف أو بيعه كمجموعة.",
+      newVersion: "إصدار جديد",
+      createFirst: "إنشاء وصفة",
+      columns: {
+        component: "المكوّن",
+        quantity: "الكمية",
+        unit: "الوحدة",
+      },
+      fields: {
+        outputQuantity: "ناتج الدفعة (الوحدات المنتَجة)",
+        directCostEstimate: "تقدير التكلفة المباشرة",
+        directCostHint:
+          "تقدير فقط (عمالة أو مصاريف لكل دفعة). التكلفة الفعلية تُسجَّل على كل أمر تجميع.",
+        outputKitFixed: "ناتج المجموعة دائمًا 1.",
+      },
+      linesEmpty: "لا توجد مكوّنات بعد.",
+      addComponent: "إضافة مكوّن",
+      componentHint: "يمكن أن تكون المكوّنات منتجات مخزَّنة فقط (بدون مجموعات).",
+      removeLine: "إزالة المكوّن",
+      separateSave: "تُحفظ تغييرات الوصفة هنا، بشكل منفصل عن المنتج.",
+      permissionNote: "يمكنك عرض الوصفات؛ تعديلها يتطلب صلاحية إدارة وصفات المنتجات.",
+      loadFailed: "تعذّر تحميل الوصفات.",
+      actions: {
+        save: "حفظ المسودة",
+        activate: "تفعيل",
+        retire: "إيقاف",
+        delete: "حذف المسودة",
+      },
+      confirm: {
+        activate: {
+          title: "تفعيل هذا الإصدار؟",
+          description:
+            "سيصبح هو الإصدار المعتمد من الآن، ويتوقف الإصدار النشط الحالي. أوامر التجميع ومبيعات المجموعات السابقة تحتفظ بالإصدار الذي استخدمته.",
+        },
+        retire: {
+          title: "إيقاف هذا الإصدار؟",
+          description:
+            "لن يبقى للمنتج وصفة نشطة، فلا يمكن تجميعه أو بيعه كمجموعة حتى يُفعَّل إصدار آخر.",
+        },
+        delete: {
+          title: "حذف هذه المسودة؟",
+          description: "ستُحذف المسودة. الإصدارات النشطة والمتوقفة لا تُحذف أبدًا.",
+        },
+      },
+      toasts: {
+        created: "تم إنشاء إصدار مسودة.",
+        saved: "تم حفظ المسودة.",
+        activated: "تم تفعيل الإصدار {version}.",
+        retired: "تم إيقاف الإصدار {version}.",
+        deleted: "تم حذف المسودة.",
+      },
+      issues: {
+        NO_LINES: "أضف مكوّنًا واحدًا على الأقل.",
+        LINE_INCOMPLETE: "كل مكوّن يحتاج منتجًا وكمية أكبر من صفر ووحدة.",
+        DUPLICATE_COMPONENT: "هناك مكوّن مكرر — ادمجه في سطر واحد.",
+        OUTPUT_INVALID: "يجب ألا يقل ناتج الدفعة عن 1.",
+        DIRECT_COST_INVALID: "لا يجوز أن يكون تقدير التكلفة المباشرة سالبًا.",
+      },
+      errors: {
+        RECIPE_PRODUCT_NOT_ASSEMBLABLE:
+          "لا تكون الوصفة الفعّالة إلا لصنف مجمَّع أو مجموعة. احفظ المنتج بطريقة التوريد هذه أولًا.",
+        RECIPE_EMPTY: "الوصفة تحتاج مكوّنًا واحدًا على الأقل.",
+        RECIPE_CYCLE: "هذه المكوّنات تجعل المنتج جزءًا من نفسه (حلقة مغلقة).",
+        RECIPE_COMPONENT_NOT_STOCKED: "يجب أن يكون كل مكوّن منتجًا مفعّلًا عليه تتبع المخزون.",
+        RECIPE_NESTED_KIT: "لا يمكن أن تكون المجموعة مكوّنًا في وصفة أخرى.",
+        RECIPE_OWNER_MIXED:
+          "يجب أن يكون المنتج وكل مكوّناته لمالك واحد — الشركة كلها أو الوكيل نفسه.",
+        RECIPE_UNIT_CONVERSION_MISSING:
+          "لا يوجد تحويل وحدات بين وحدة المكوّن في الوصفة ووحدة مخزونه. أضفه من تحويلات الوحدات.",
+        RECIPE_KIT_FRACTIONAL: "يجب أن يتحوّل سطر المجموعة إلى عدد صحيح من وحدات المخزون.",
+        RECIPE_KIT_OUTPUT: "ناتج المجموعة دائمًا 1.",
+      },
+      estimate: {
+        title: "تقدير التكلفة",
+        badge: "تقديري",
+        components: "المكوّنات (بالتكلفة الحالية)",
+        direct: "التكلفة المباشرة (تقدير)",
+        total: "الإجمالي التقديري",
+        perUnit: "التقدير للوحدة",
+        note: "تقدير من التكاليف الحالية للمكوّنات — وليس تكلفة فعلية. تُحدَّد التكلفة الفعلية عند تنفيذ أمر التجميع.",
+      },
+      availability: {
+        title: "توفّر المجموعة",
+        available: "المجموعات المتاحة الآن:",
+        limitedBy: "المحدِّد: {name} — يلزم {perKit} لكل مجموعة، والمتاح {available}.",
+      },
+    },
   },
   inventory: {
     movements: {
@@ -2418,6 +2601,22 @@ const ar = {
     },
     stock: {
       description: "الكمية الحالية والمحجوزة والتكلفة والقيمة لكل منتج مخزون.",
+      companyValueTotal: "قيمة مخزون الشركة",
+      companyValueNote:
+        "إجماليات قيمة المخزون تشمل مخزون الشركة فقط — مخزون الوكلاء لا يُقيَّم كأصل للشركة.",
+    },
+    owner: {
+      label: "المالك",
+      all: "كل المالكين",
+      COMPANY: "الشركة",
+      AGENT: "مخزون الوكلاء",
+      unknownAgent: "وكيل",
+    },
+    trace: {
+      title: "الطقم / التجميع",
+      partOf: "ضمن {name}",
+      recipeVersion: "الوصفة إصدار {version}",
+      unknownProduct: "منتج غير ظاهر",
     },
     fields: {
       movementNumber: "رقم الحركة",
@@ -3399,6 +3598,17 @@ const ar = {
       },
     },
     invoices: {
+      kit: {
+        title: "مكوّنات الطقم المسلَّمة",
+        note: "الطقم لا يملك مخزوناً: كل مكوّن أدناه خرج من المخزون عند تأكيد الفاتورة.",
+        component: "المكوّن",
+        perKit: "لكل طقم",
+        delivered: "المسلَّم",
+        unitCost: "تكلفة الوحدة",
+        line: "{product} × {quantity}",
+        recipeVersion: "الوصفة إصدار {version}",
+        unknownComponent: "مكوّن غير ظاهر",
+      },
       title: "الفواتير",
       description: "إصدار فواتير للعملاء وتخفيض المخزون عند التأكيد.",
       addNew: "فاتورة جديدة",
@@ -4661,6 +4871,16 @@ const ar = {
         reconciled: "التوزيع متوازن تمامًا — جاهز للاعتماد.",
         notReconciled: "التوزيع غير متوازن بعد.",
       },
+      posted: {
+        title: "التوزيع المرحَّل",
+        exchangeRate: "سعر الصرف (مثبَّت عند الترحيل)",
+        allocatedQuantity: "الكمية الموزعة",
+        allocatedAmount: "الموزع",
+        capitalized: "مرسمل على المخزون",
+        variance: "مباع مسبقاً (فرق تكلفة المبيعات)",
+        explanation:
+          "حصة الوحدات التي ما زالت في المخزون تُضاف إلى قيمته وتعدّل متوسط التكلفة؛ وحصة الوحدات المباعة مسبقاً تُحمَّل على تكلفة البضاعة المباعة.",
+      },
       relatedPurchaseInvoice: "فاتورة الشراء",
       relatedJournalEntry: "قيد اليومية",
     },
@@ -5331,6 +5551,7 @@ const ar = {
         inventoryAsset: "حساب أصول المخزون",
         inventoryAdjustment: "حساب تسوية المخزون",
         landedCostClearing: "حساب تسوية التكاليف المرحلة",
+        assemblyCost: "تكلفة التجميع (التكاليف المباشرة المحمّلة)",
         purchase: "حساب المشتريات",
         purchaseDiscount: "حساب خصم المشتريات",
         purchaseReturn: "حساب مرتجعات المشتريات",
@@ -5503,6 +5724,10 @@ const ar = {
       address: "العنوان",
       notes: "ملاحظات",
       productType: "نوع المنتج",
+      productItemType: "نوع الصنف (منتج / خدمة)",
+      productIsSellable: "يمكن بيعه",
+      productIsPurchasable: "يمكن شراؤه",
+      productIsInventoryItem: "تتبع المخزون",
       categoryName: "الفئة",
       unitName: "الوحدة",
       barcode: "الباركود",

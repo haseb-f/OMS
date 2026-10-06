@@ -13,7 +13,12 @@ import { NumberingEngineService } from '../../numbering/numbering-engine.service
 import { ProductsService } from '../../products/products.service';
 import { WarehousesService } from '../../warehouses/warehouses.service';
 import { PartnersService } from '../../partners/partners.service';
-import { InventoryService } from '../../inventory/inventory.service';
+import {
+  InventoryService,
+  lockProductsForUpdate,
+} from '../../inventory/inventory.service';
+import { movementIdempotencyKey } from '../../inventory/dto/movement-trace';
+import { assertNoKitProducts } from '../shared/purchase-kit-guard';
 import { PostingEngineService } from '../../accounting/posting-engine/posting-engine.service';
 import { resolveLineTaxes } from '../../taxes/document-tax';
 import {
@@ -366,7 +371,17 @@ export class PurchaseReturnsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      for (const item of purchaseReturn.items) {
+      // F12 — a service / non-stock line sends no goods back (it used to
+      // fail the whole confirm). Stocked lines: every product row locked
+      // once, each movement keyed per return line (never posted twice).
+      const stocked = purchaseReturn.items.filter(
+        (item) => item.product.isInventoryItem,
+      );
+      await lockProductsForUpdate(
+        tx,
+        stocked.map((item) => item.productId),
+      );
+      for (const item of stocked) {
         await this.inventoryService.postPurchaseReturn(
           {
             productId: item.productId,
@@ -374,6 +389,12 @@ export class PurchaseReturnsService {
             quantity: item.quantity,
             referenceType: REFERENCE_TYPE,
             referenceId: purchaseReturn.id,
+            idempotencyKey: movementIdempotencyKey(
+              REFERENCE_TYPE,
+              purchaseReturn.id,
+              item.id,
+              'PURCHASE_RETURN',
+            ),
           },
           userId,
           tx,
@@ -580,6 +601,10 @@ export class PurchaseReturnsService {
   private async computeLines(
     items: PurchaseLineItemInputDto[],
   ): Promise<ComputedReturnLines> {
+    await assertNoKitProducts(
+      this.prisma,
+      items.map((item) => item.productId),
+    );
     const { taxIds, taxById } = await resolveLineTaxes(this.prisma, items);
 
     const computedLines = items.map((item, index) => {

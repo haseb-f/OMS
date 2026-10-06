@@ -53,6 +53,7 @@ import {
   type SubmissionTariff,
 } from '../pricing/agent-shipping-tariff';
 import type { AgentOrderPersistInput } from './agent-order-persist';
+import { isStockAffecting } from '../../inventory/stock-lines/stock-line-resolver';
 import { AgentFulfillmentService } from '../finance/agent-fulfillment.service';
 import { lockStoreOrderRow } from '../../store-orders/store-order-payment-settlement.util';
 import {
@@ -128,6 +129,11 @@ interface PreparedOrder {
     quantity: number;
     listUnitPrice: number | null;
     isInventoryItem: boolean;
+    /**
+     * Whether the line moves stock (R13: a tracked item, or a KIT fulfilled
+     * from its components) — frozen as `inventoryLine`, decides digital-only.
+     */
+    inventoryLine: boolean;
     /** commission-policy.md A2 — explicit PRODUCT / SERVICE (null = unclassified). */
     itemType: 'PRODUCT' | 'SERVICE' | null;
   }>;
@@ -829,6 +835,7 @@ export class AgentOrdersService {
         status: true,
         isSellable: true,
         isInventoryItem: true,
+        supplyMethod: true,
         itemType: true,
         salesPrice: true,
         ownerAgentId: true,
@@ -867,6 +874,7 @@ export class AgentOrdersService {
         listUnitPrice:
           product.salesPrice == null ? null : Number(product.salesPrice),
         isInventoryItem: product.isInventoryItem,
+        inventoryLine: isStockAffecting(product),
         itemType: product.itemType,
       });
     });
@@ -997,7 +1005,7 @@ export class AgentOrdersService {
 
     // Shipping (spec §5): configured rate, or a permitted + audited override.
     const digitalOnly =
-      lines.length > 0 && lines.every((line) => !line.isInventoryItem);
+      lines.length > 0 && lines.every((line) => !line.inventoryLine);
     const frozen =
       options.frozenShipping?.digitalOnly === digitalOnly
         ? options.frozenShipping
@@ -1320,7 +1328,7 @@ export class AgentOrdersService {
         quantity: line.quantity,
         unitPrice: line.unitPrice,
         agreedAmount: line.lineAmount,
-        inventoryLine: prepared.lines[index].isInventoryItem,
+        inventoryLine: prepared.lines[index].inventoryLine,
         commission: prepared.commissionRates![index],
         listAmount:
           prepared.lines[index].listUnitPrice == null

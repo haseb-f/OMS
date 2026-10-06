@@ -1,12 +1,19 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PostingEngineService } from '../posting-engine/posting-engine.service';
-import { InventoryValuationService } from '../inventory-valuation/inventory-valuation.service';
+import {
+  InventoryValuationService,
+  round2,
+} from '../inventory-valuation/inventory-valuation.service';
 import { AccountMappingService } from '../account-mapping/account-mapping.service';
 import { ExchangeRatesService } from '../fx/exchange-rates.service';
 import { snapshotDocumentExchangeRate } from '../fx/snapshot-document-rate';
 import { assertPostedTaxAmountsHaveTax } from '../../taxes/document-tax';
+import {
+  kitComponentValue,
+  readKitSnapshot,
+} from '../../sales/shared/kit-snapshot';
 import type {
   PostingLine,
   PostingProvider,
@@ -24,9 +31,18 @@ import type {
  * Dr Sales Revenue (per resolved account)   grandTotal - taxTotal
  * Dr VAT Output (per resolved account)      taxAmount
  * ----------------------------------------------------------------
- * Cr Cost Of Goods Sold (per resolved account)   sum(quantity * unit cost)
- * Dr Inventory (per resolved account)            sum(quantity * unit cost)
+ * Cr Cost Of Goods Sold (per resolved account)   sum(round2(quantity * unit cost))
+ * Dr Inventory (per resolved account)            sum(round2(quantity * unit cost))
+ *
+ * R13: a kit line returns its components at the ORIGINAL snapshot cost of the
+ * invoice line (`fulfillmentSnapshot`) — Dr each component's inventory account
+ * / Cr the kit's COGS account, the exact mirror of the sale. Service lines
+ * post no cost. The moving average is restored once per product for the whole
+ * document (`applyReturnToStockLines`), so two lines of one product never
+ * distort the blend.
  */
+const ZERO = new Prisma.Decimal(0);
+
 @Injectable()
 export class SalesReturnPostingProvider
   implements PostingProvider, OnModuleInit
@@ -61,9 +77,18 @@ export class SalesReturnPostingProvider
         },
         items: {
           include: {
-            product: { select: { isInventoryItem: true, categoryId: true } },
+            product: {
+              select: {
+                isInventoryItem: true,
+                supplyMethod: true,
+                categoryId: true,
+                sku: true,
+              },
+            },
             tax: { select: { id: true } },
-            salesInvoiceItem: { select: { unitCost: true } },
+            salesInvoiceItem: {
+              select: { unitCost: true, fulfillmentSnapshot: true },
+            },
           },
         },
       },
@@ -148,9 +173,74 @@ export class SalesReturnPostingProvider
       });
     }
 
-    const costByLine = new Map<string, number>();
-    const inventoryByLine = new Map<string, number>();
+    const costByLine = new Map<string, Prisma.Decimal>();
+    const inventoryByLine = new Map<string, Prisma.Decimal>();
+    const addCost = (
+      cogsAccountId: string,
+      inventoryAccountId: string,
+      value: Prisma.Decimal,
+    ) => {
+      costByLine.set(
+        cogsAccountId,
+        (costByLine.get(cogsAccountId) ?? ZERO).add(value),
+      );
+      inventoryByLine.set(
+        inventoryAccountId,
+        (inventoryByLine.get(inventoryAccountId) ?? ZERO).add(value),
+      );
+    };
+    // Units back into the valuation pool at their historical cost, per product.
+    // A zero-cost line is blended too (at 0): its units are already in the
+    // on-hand the blend derives `onHandBefore` from, so leaving them out would
+    // count them as stock held at the old average (value out of thin air).
+    const restored = new Map<
+      string,
+      { quantity: number; unitCost: Prisma.Decimal }[]
+    >();
+    const restore = (
+      productId: string,
+      quantity: number,
+      unitCost: Prisma.Decimal,
+    ) => {
+      restored.set(productId, [
+        ...(restored.get(productId) ?? []),
+        { quantity, unitCost },
+      ]);
+    };
+    const componentCategories = await this.loadComponentCategories(
+      salesReturn.items,
+      tx,
+    );
+
     for (const item of salesReturn.items) {
+      const kit = readKitSnapshot(item.salesInvoiceItem?.fulfillmentSnapshot);
+      if (kit) {
+        const cogsAccountId = await this.accountMapping.resolveCogsAccount(
+          item.product.categoryId,
+          tx,
+        );
+        for (const component of kit.components) {
+          const categoryId = componentCategories.get(component.productId);
+          if (!categoryId) {
+            throw new BadRequestException(
+              `Component ${component.productId} of kit ${item.product.sku} no longer exists — the return cannot be valued.`,
+            );
+          }
+          restore(
+            component.productId,
+            component.qtyPerKit * item.quantity,
+            new Prisma.Decimal(component.unitCost),
+          );
+          const value = kitComponentValue(component, item.quantity);
+          if (value.isZero()) continue;
+          addCost(
+            cogsAccountId,
+            await this.accountMapping.resolveInventoryAccount(categoryId, tx),
+            value,
+          );
+        }
+        continue;
+      }
       if (!item.product.isInventoryItem) continue;
       // TASK-057 — replay the ORIGINAL invoice line's cost (snapshotted at
       // sale-posting time) so this reversal exactly matches the COGS
@@ -160,47 +250,51 @@ export class SalesReturnPostingProvider
       // to a pre-TASK-057 invoice line with no recorded cost.
       const unitCost =
         item.salesInvoiceItem?.unitCost != null
-          ? Number(item.salesInvoiceItem.unitCost)
-          : await this.inventoryValuation.getUnitCost(item.productId, tx);
-      const cost = unitCost * item.quantity;
-      if (cost === 0) continue;
-      // M1 recovery — the physical InventoryMovement (created earlier in
-      // `SalesReturnsService.confirm()`) restored on-hand quantity, but
-      // never re-blended that quantity into the moving-average pool at
-      // this same historical cost, silently diverging Product.currentCost
-      // from the GL Inventory value this reversal just restored. Applying
-      // it here — after the movement, atomically with the journal entry —
-      // mirrors exactly how Purchase Receipt/Landed Cost apply their own
-      // valuation update inside their posting provider, never the caller.
-      await this.inventoryValuation.applyReturnToStock(
-        item.productId,
-        item.quantity,
-        unitCost,
-        tx,
-        undefined,
-      );
-      const cogsAccountId = await this.accountMapping.resolveCogsAccount(
-        item.product.categoryId,
-        tx,
-      );
-      const inventoryAccountId =
+          ? new Prisma.Decimal(item.salesInvoiceItem.unitCost)
+          : await this.inventoryValuation.getUnitCostDecimal(
+              item.productId,
+              tx,
+            );
+      restore(item.productId, item.quantity, unitCost);
+      const cost = round2(unitCost.mul(item.quantity));
+      if (cost.isZero()) continue;
+      addCost(
+        await this.accountMapping.resolveCogsAccount(
+          item.product.categoryId,
+          tx,
+        ),
         await this.accountMapping.resolveInventoryAccount(
           item.product.categoryId,
           tx,
+        ),
+        cost,
+      );
+    }
+
+    // M1 recovery — the physical InventoryMovements (created earlier in
+    // `SalesReturnsService.confirm()`) restored on-hand quantity; the units
+    // are re-blended into the moving-average pool here, at the same
+    // historical cost the journal reverses, atomically with the entry.
+    // Skipped when the return already has a journal entry (an FX-correction
+    // re-post): the pool was restored by the first posting and must never be
+    // restored twice.
+    const alreadyPosted = await tx.journalEntry.count({
+      where: { sourceType: 'SALES_RETURN', sourceId: salesReturn.id },
+    });
+    if (alreadyPosted === 0) {
+      for (const [productId, returned] of restored) {
+        await this.inventoryValuation.applyReturnToStockLines(
+          productId,
+          returned,
+          tx,
+          undefined,
         );
-      costByLine.set(
-        cogsAccountId,
-        (costByLine.get(cogsAccountId) ?? 0) + cost,
-      );
-      inventoryByLine.set(
-        inventoryAccountId,
-        (inventoryByLine.get(inventoryAccountId) ?? 0) + cost,
-      );
+      }
     }
     for (const [accountId, amount] of inventoryByLine) {
       lines.push({
         accountId,
-        debit: amount,
+        debit: amount.toNumber(),
         description: `Inventory increased — ${salesReturn.returnNumber}`,
         functionalAmount: true,
       });
@@ -208,7 +302,7 @@ export class SalesReturnPostingProvider
     for (const [accountId, amount] of costByLine) {
       lines.push({
         accountId,
-        credit: amount,
+        credit: amount.toNumber(),
         description: `COGS reversal — ${salesReturn.returnNumber}`,
         functionalAmount: true,
       });
@@ -226,5 +320,30 @@ export class SalesReturnPostingProvider
       projectId: salesReturn.projectId,
       entryDate: salesReturn.confirmedAt ?? salesReturn.createdAt,
     };
+  }
+
+  /** Category of every component named by the returned kit lines' snapshots (one query). */
+  private async loadComponentCategories(
+    items: Array<{
+      salesInvoiceItem: { fulfillmentSnapshot: Prisma.JsonValue } | null;
+    }>,
+    tx: Prisma.TransactionClient,
+  ): Promise<Map<string, string>> {
+    const ids = [
+      ...new Set(
+        items.flatMap(
+          (item) =>
+            readKitSnapshot(
+              item.salesInvoiceItem?.fulfillmentSnapshot,
+            )?.components.map((component) => component.productId) ?? [],
+        ),
+      ),
+    ];
+    if (ids.length === 0) return new Map();
+    const products = await tx.product.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, categoryId: true },
+    });
+    return new Map(products.map((product) => [product.id, product.categoryId]));
   }
 }

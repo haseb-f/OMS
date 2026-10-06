@@ -22,4 +22,11 @@ export class CreateProductCategoryDto {
 
   @IsOptionalUuid()
   purchaseAccountId?: string;
+
+  /** R13 — pre-filled on a new product of this category (the product form shows where the value came from). */
+  @IsOptionalUuid()
+  defaultUnitId?: string;
+
+  @IsOptionalUuid()
+  defaultTaxId?: string;
 }

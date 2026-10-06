@@ -17,6 +17,10 @@ import { PermissionsResolverService } from '../permissions/permissions-resolver.
 import { PERMISSION_CATALOG } from '../permissions/permission-catalog';
 import { AuthModule } from '../auth/auth.module';
 
+/** `expect.objectContaining` is typed `any`; this keeps matcher objects `unknown` for the linter. */
+const body = (fields: Record<string, unknown>): unknown =>
+  expect.objectContaining(fields);
+
 async function dtoErrors(payload: object) {
   const dto = plainToInstance(CreateProductDto, payload);
   return validate(dto);
@@ -113,9 +117,9 @@ describe('Products — Draft Activation & Creation Wizard', () => {
       expect(errors.some((e) => e.property === 'categoryId')).toBe(true);
     });
 
-    it('rejects a missing unit', async () => {
+    it('accepts a missing unit at the DTO layer (R13: the category default applies; the service rejects when there is none)', async () => {
       const errors = await dtoErrors({ name: 'X', categoryId });
-      expect(errors.some((e) => e.property === 'unitId')).toBe(true);
+      expect(errors).toHaveLength(0);
     });
 
     it('accepts Product Type being entirely omitted (never a mandatory extra step)', async () => {
@@ -392,6 +396,14 @@ describe('Products — Draft Activation & Creation Wizard', () => {
       ids = await listed();
       expect(ids).toContain(disabled.id);
       expect(ids).not.toContain(enabled.id);
+    });
+  });
+
+  it('rejects a product with no unit when the category has no default unit either (400 VALIDATION_ERROR)', async () => {
+    await expect(
+      service.create({ name: `No Unit ${suffix}`, categoryId }),
+    ).rejects.toMatchObject({
+      response: body({ code: 'VALIDATION_ERROR' }),
     });
   });
 

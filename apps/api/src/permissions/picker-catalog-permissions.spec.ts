@@ -40,6 +40,12 @@ describe('Picker catalog read permissions', () => {
     );
   });
 
+  it('product picker is reachable from the assembly screen (R13)', () => {
+    expect(PRODUCT_CATALOG_READ_PERMISSIONS).toContain(
+      'inventory.assembly.create',
+    );
+  });
+
   it('no allow-list entry is a destructive/approval authority', () => {
     const risky = /\.(archive|delete|approve|confirm|cancel|post|reverse)$/;
     expect(

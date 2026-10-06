@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Archive, CheckCircle2, Package, Pencil } from "lucide-react";
+import { Archive, Boxes, CheckCircle2, Package, Pencil } from "lucide-react";
 import {
   DetailField,
   DetailFieldRow,
@@ -35,15 +35,13 @@ import {
   type ProductRow,
 } from "@/services/products-service";
 import {
-  useProductCategories,
-  useProductBrands,
-  useUnits,
-  useTaxes,
-  useAnalyticAccounts,
-  useSuppliers,
-  useWarehouses,
-} from "@/hooks/use-reference-data";
-import { ProductModal } from "../product-modal";
+  ProductFormDialog,
+  type ProductFormSection,
+} from "@/components/products/product-form-dialog";
+import { RecipePanel } from "@/components/products/recipe-panel";
+import { usesRecipe } from "@/config/products/attribute-rules";
+import { AssemblyCreateDialog } from "@/components/inventory/assembly-create-dialog";
+import { ASSEMBLY_PERMISSIONS } from "@/config/inventory/assembly";
 
 const STATUS_TONE: Record<ProductRow["status"], StatusTone> = {
   DRAFT: "warning",
@@ -64,22 +62,18 @@ function ProductDetailContent() {
   const { hasPermission } = useUserContext();
   const canEdit = hasPermission("products.edit");
   const canArchive = hasPermission("products.archive");
+  const canAssemble = hasPermission(ASSEMBLY_PERMISSIONS.create);
+  const [assembleOpen, setAssembleOpen] = useState(false);
 
   const [product, setProduct] = useState<ProductRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<{ notFound: boolean; message: string } | null>(null);
   const [activities, setActivities] = useState<ProductActivityRow[] | null>(null);
 
-  const categories = useProductCategories();
-  const brands = useProductBrands();
-  const units = useUnits();
-  const taxes = useTaxes();
-  const analyticAccounts = useAnalyticAccounts();
-  const suppliers = useSuppliers();
-  const warehouses = useWarehouses();
-
   const [editOpen, setEditOpen] = useState(false);
-  const [editInitialTab, setEditInitialTab] = useState<string | undefined>(undefined);
+  const [editInitialSection, setEditInitialSection] = useState<ProductFormSection | undefined>(
+    undefined,
+  );
   const [isActivating, setIsActivating] = useState(false);
 
   useBreadcrumbLabel(product?.displayName ?? product?.name ?? null);
@@ -118,8 +112,8 @@ function ProductDetailContent() {
     void loadActivities();
   }, [loadActivities]);
 
-  const openEdit = (tab?: string) => {
-    setEditInitialTab(tab);
+  const openEdit = (section?: ProductFormSection) => {
+    setEditInitialSection(section);
     setEditOpen(true);
   };
 
@@ -169,9 +163,9 @@ function ProductDetailContent() {
     );
   }
 
-  const editButton = (tab: string) =>
+  const editButton = (section?: ProductFormSection) =>
     canEdit ? (
-      <IconActionButton label={t("common.edit")} onClick={() => openEdit(tab)}>
+      <IconActionButton label={t("common.edit")} onClick={() => openEdit(section)}>
         <Pencil className="size-3.5" />
       </IconActionButton>
     ) : null;
@@ -190,7 +184,7 @@ function ProductDetailContent() {
     <DetailSplitLayout
       main={
         <>
-          <DetailGroup title={t("products.detail.sections.basics")} actions={editButton("general")}>
+          <DetailGroup title={t("products.detail.sections.basics")} actions={editButton()}>
             <DetailFieldRow label={t("products.fields.name")} value={product.name} />
             <DetailFieldRow label={t("products.fields.nameEn")} value={product.nameEn} />
             <DetailFieldRow label={t("products.fields.sku")} value={product.sku} ltr />
@@ -211,8 +205,22 @@ function ProductDetailContent() {
             value={t(`products.status.${product.status}`)}
           />
           <DetailFieldRow
-            label={t("products.fields.type")}
-            value={t(`products.type.${product.type}`)}
+            label={t("products.attr.itemType.label")}
+            value={
+              product.itemType
+                ? t(`products.attr.itemType.${product.itemType}`)
+                : t("productCommission.itemType.UNSET")
+            }
+          />
+          {product.itemType !== "SERVICE" && (
+            <DetailFieldRow
+              label={t("products.attr.supplyMethod.label")}
+              value={t(`products.attr.supplyMethod.${product.supplyMethod}`)}
+            />
+          )}
+          <DetailFieldRow
+            label={t("agentPricing.ownership.label")}
+            value={product.ownerAgent?.name ?? t("agentPricing.ownership.COMPANY")}
           />
           <DetailFieldRow label={t("products.fields.category")} value={product.category?.name} />
           <DetailFieldRow label={t("products.fields.brand")} value={product.brand?.name} />
@@ -238,14 +246,14 @@ function ProductDetailContent() {
   );
 
   const pricing = (
-    <DetailGroup title={t("products.wizard.steps.pricing")} actions={editButton("sales")}>
+    <DetailGroup title={t("products.wizard.steps.pricing")} actions={editButton("pricing")}>
       <DetailFieldRow
         label={t("products.fields.salesPrice")}
         value={priceText(product.salesPrice)}
         ltr
       />
       <DetailFieldRow
-        label={t("products.fields.purchasePrice")}
+        label={t("products.fields.expectedPurchasePrice")}
         value={priceText(product.purchasePrice)}
         ltr
       />
@@ -272,7 +280,7 @@ function ProductDetailContent() {
   const inventory = (
     <DetailGroup title={t("products.wizard.steps.inventory")} actions={editButton("inventory")}>
       <DetailFieldRow
-        label={t("products.fields.trackInventory")}
+        label={t("products.attr.trackStock")}
         value={product.isInventoryItem ? t("common.yes") : undefined}
       />
       <DetailFieldRow label={t("products.fields.reorderLevel")} value={product.reorderLevel} ltr />
@@ -292,6 +300,14 @@ function ProductDetailContent() {
           {t("products.wizard.notProvided")}
         </p>
       ) : null}
+    </DetailGroup>
+  );
+
+  const recipe = (
+    <DetailGroup title={t("products.recipe.title")} actions={editButton("recipe")}>
+      <div className="py-2">
+        <RecipePanel product={product} />
+      </div>
     </DetailGroup>
   );
 
@@ -333,9 +349,32 @@ function ProductDetailContent() {
                 items: [
                   {
                     key: "type",
-                    label: t("products.fields.type"),
-                    status: <StatusBadge label={t(`products.type.${product.type}`)} tone="info" />,
+                    label: t("products.attr.itemType.label"),
+                    status: (
+                      <StatusBadge
+                        label={
+                          product.itemType
+                            ? t(`products.attr.itemType.${product.itemType}`)
+                            : t("productCommission.itemType.UNSET")
+                        }
+                        tone="info"
+                      />
+                    ),
                   },
+                  ...(product.itemType !== "SERVICE"
+                    ? [
+                        {
+                          key: "supply",
+                          label: t("products.attr.supplyMethod.label"),
+                          status: (
+                            <StatusBadge
+                              label={t(`products.attr.supplyMethod.${product.supplyMethod}`)}
+                              tone="neutral"
+                            />
+                          ),
+                        },
+                      ]
+                    : []),
                 ],
               },
               {
@@ -343,17 +382,17 @@ function ProductDetailContent() {
                 items: [
                   {
                     key: "sale",
-                    label: t("products.fields.availableForSale"),
+                    label: t("products.attr.canSell"),
                     status: flag(product.isSellable),
                   },
                   {
                     key: "purchase",
-                    label: t("products.fields.availableForPurchase"),
+                    label: t("products.attr.canPurchase"),
                     status: flag(product.isPurchasable),
                   },
                   {
                     key: "inventory",
-                    label: t("products.fields.trackInventory"),
+                    label: t("products.attr.trackStock"),
                     status: flag(product.isInventoryItem),
                   },
                 ],
@@ -374,7 +413,7 @@ function ProductDetailContent() {
               }
             />
             <DetailField
-              label={t("products.fields.purchasePrice")}
+              label={t("products.fields.expectedPurchasePrice")}
               value={
                 priceText(product.purchasePrice) ? (
                   <span className="num">{priceText(product.purchasePrice)}</span>
@@ -412,6 +451,18 @@ function ProductDetailContent() {
                 hidden: !canEdit || !isDraft,
                 onSelect: () => openEdit(undefined),
               },
+              {
+                // R13 — shortcut to the assembly dialog, prefilled with this product.
+                key: "assemble",
+                label: t("assembly.assembleAction"),
+                icon: Boxes,
+                hidden:
+                  !canAssemble ||
+                  product.supplyMethod !== "ASSEMBLED" ||
+                  product.status !== "ACTIVE" ||
+                  !!product.deletedAt,
+                onSelect: () => setAssembleOpen(true),
+              },
             ]}
             destructive={[
               {
@@ -437,6 +488,12 @@ function ProductDetailContent() {
           { value: "overview", label: t("products.detail.tabs.overview"), content: overview },
           { value: "pricing", label: t("products.detail.tabs.pricing"), content: pricing },
           { value: "inventory", label: t("products.detail.tabs.inventory"), content: inventory },
+          ...(usesRecipe({
+            itemType: product.itemType === "SERVICE" ? "SERVICE" : "PRODUCT",
+            supplyMethod: product.supplyMethod,
+          })
+            ? [{ value: "recipe", label: t("products.recipe.title"), content: recipe }]
+            : []),
           {
             value: "activity",
             label: t("products.detail.tabs.activity"),
@@ -451,24 +508,24 @@ function ProductDetailContent() {
         ]}
       />
 
-      <ProductModal
+      {canAssemble && product.supplyMethod === "ASSEMBLED" ? (
+        <AssemblyCreateDialog
+          open={assembleOpen}
+          onOpenChange={setAssembleOpen}
+          initialProduct={product}
+          onCreated={() => void loadActivities()}
+        />
+      ) : null}
+
+      <ProductFormDialog
         open={editOpen}
         onOpenChange={setEditOpen}
-        icon={Package}
         editingProduct={product}
-        duplicateSource={null}
-        categories={categories}
-        brands={brands}
-        units={units}
-        taxes={taxes}
-        analyticAccounts={analyticAccounts}
-        suppliers={suppliers}
-        warehouses={warehouses}
+        initialSection={editInitialSection}
         onSaved={() => {
           void load();
+          void loadActivities();
         }}
-        onCategoryCreated={(category) => useProductCategories.add(category)}
-        initialTab={editInitialTab}
       />
     </EditorWorkspace>
   );

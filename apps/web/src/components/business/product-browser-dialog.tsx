@@ -19,21 +19,19 @@ import { cachedLookup } from "@/lib/lookup-cache";
 import { formatMoney } from "@/lib/money";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { productsService, type ProductRow, type ProductType } from "@/services/products-service";
+import {
+  productsService,
+  type ProductRow,
+  type ProductSupplyMethod,
+} from "@/services/products-service";
 
 const PAGE_SIZE = 20;
-const PRODUCT_TYPES: ProductType[] = [
-  "PURCHASE_ONLY",
-  "SALES_ONLY",
-  "PURCHASE_AND_SALE",
-  "MANUFACTURED",
-  "SERVICE",
-  "EXPENSE_ITEM",
-];
+/** R13 — the independent attributes replace the legacy derived `type` filter. */
+const SUPPLY_METHODS: ProductSupplyMethod[] = ["PURCHASED", "ASSEMBLED", "KIT"];
 
 /**
  * Expanded product picker for document lines: server-side search, category/
- * brand/type filters and pagination (never the whole catalog), with
+ * brand/supply-method (and, when purchasing, sellable) filters and pagination (never the whole catalog), with
  * multi-select so a user adds many lines in one pass. Selection survives
  * paging/searching; a product created here joins the selection.
  */
@@ -57,7 +55,9 @@ export function ProductBrowserDialog({
   const debouncedSearch = useDebouncedValue(search);
   const [categoryId, setCategoryId] = useState("");
   const [brandId, setBrandId] = useState("");
-  const [type, setType] = useState("");
+  const [supplyMethod, setSupplyMethod] = useState("");
+  /** Purchase mode only — a sales picker lists sellable products by definition. */
+  const [sellable, setSellable] = useState("");
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<ProductRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -77,7 +77,7 @@ export function ProductBrowserDialog({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
-  }, [debouncedSearch, categoryId, brandId, type]);
+  }, [debouncedSearch, categoryId, brandId, supplyMethod, sellable]);
 
   useEffect(() => {
     if (!open) return;
@@ -85,12 +85,14 @@ export function ProductBrowserDialog({
       search: debouncedSearch || undefined,
       categoryId: categoryId || undefined,
       brandId: brandId || undefined,
-      type: (type || undefined) as ProductType | undefined,
+      supplyMethod: (supplyMethod || undefined) as ProductSupplyMethod | undefined,
       page,
       pageSize: PAGE_SIZE,
       sortBy: "displayName",
       sortOrder: "asc" as const,
-      ...(mode === "purchase" ? { isPurchasable: true } : { isSellable: true }),
+      ...(mode === "purchase"
+        ? { isPurchasable: true, ...(sellable ? { isSellable: sellable === "true" } : {}) }
+        : { isSellable: true }),
     };
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -111,7 +113,7 @@ export function ProductBrowserDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, debouncedSearch, categoryId, brandId, type, page, mode]);
+  }, [open, debouncedSearch, categoryId, brandId, supplyMethod, sellable, page, mode]);
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const selectedList = useMemo(() => [...selected.values()], [selected]);
@@ -143,7 +145,8 @@ export function ProductBrowserDialog({
     setSearch("");
     setCategoryId("");
     setBrandId("");
-    setType("");
+    setSupplyMethod("");
+    setSellable("");
     onOpenChange(false);
   };
 
@@ -198,12 +201,26 @@ export function ProductBrowserDialog({
             searchable
           />
           <SelectFilter
-            label={t("products.fields.type")}
-            value={type}
-            onChange={setType}
-            allLabel={t("docFlow.products.allTypes")}
-            options={PRODUCT_TYPES.map((value) => ({ value, label: t(`products.type.${value}`) }))}
+            label={t("products.attr.supplyMethod.label")}
+            value={supplyMethod}
+            onChange={setSupplyMethod}
+            allLabel={t("products.facets.allSupplyMethods")}
+            options={SUPPLY_METHODS.map((value) => ({
+              value,
+              label: t(`products.attr.supplyMethod.${value}`),
+            }))}
           />
+          {mode === "purchase" ? (
+            <SelectFilter
+              label={t("products.attr.canSell")}
+              value={sellable}
+              onChange={setSellable}
+              options={[
+                { value: "true", label: t("common.yes") },
+                { value: "false", label: t("common.no") },
+              ]}
+            />
+          ) : null}
           {brands.length > 0 ? (
             <SelectFilter
               label={t("products.fields.brand")}

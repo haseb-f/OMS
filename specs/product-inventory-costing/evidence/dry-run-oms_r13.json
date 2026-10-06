@@ -1,0 +1,4341 @@
+{
+  "meta": {
+    "database": "oms_r13",
+    "host": "localhost",
+    "generatedAt": "2026-10-05T15:29:33.047Z",
+    "lastMigration": "20261006090000_r13_product_inventory_costing",
+    "r13Applied": true,
+    "supplyMethodSource": "COLUMN"
+  },
+  "review": {
+    "productCounts": [
+      {
+        "itemType": "PRODUCT",
+        "supplyMethod": "PURCHASED",
+        "isInventoryItem": true,
+        "isSellable": true,
+        "isPurchasable": true,
+        "agentOwned": true,
+        "legacyType": "PURCHASE_AND_SALE",
+        "deleted": false,
+        "count": 286
+      },
+      {
+        "itemType": "PRODUCT",
+        "supplyMethod": "PURCHASED",
+        "isInventoryItem": true,
+        "isSellable": true,
+        "isPurchasable": true,
+        "agentOwned": false,
+        "legacyType": "PURCHASE_AND_SALE",
+        "deleted": false,
+        "count": 280
+      },
+      {
+        "itemType": "SERVICE",
+        "supplyMethod": "PURCHASED",
+        "isInventoryItem": false,
+        "isSellable": true,
+        "isPurchasable": false,
+        "agentOwned": true,
+        "legacyType": "SERVICE",
+        "deleted": false,
+        "count": 74
+      },
+      {
+        "itemType": "PRODUCT",
+        "supplyMethod": "PURCHASED",
+        "isInventoryItem": true,
+        "isSellable": true,
+        "isPurchasable": false,
+        "agentOwned": true,
+        "legacyType": "SALES_ONLY",
+        "deleted": false,
+        "count": 56
+      },
+      {
+        "itemType": "PRODUCT",
+        "supplyMethod": "PURCHASED",
+        "isInventoryItem": true,
+        "isSellable": true,
+        "isPurchasable": true,
+        "agentOwned": true,
+        "legacyType": "PURCHASE_AND_SALE",
+        "deleted": true,
+        "count": 55
+      },
+      {
+        "itemType": "PRODUCT",
+        "supplyMethod": "PURCHASED",
+        "isInventoryItem": true,
+        "isSellable": true,
+        "isPurchasable": true,
+        "agentOwned": false,
+        "legacyType": "PURCHASE_AND_SALE",
+        "deleted": true,
+        "count": 55
+      },
+      {
+        "itemType": "SERVICE",
+        "supplyMethod": "PURCHASED",
+        "isInventoryItem": false,
+        "isSellable": true,
+        "isPurchasable": false,
+        "agentOwned": false,
+        "legacyType": "SERVICE",
+        "deleted": false,
+        "count": 51
+      },
+      {
+        "itemType": "PRODUCT",
+        "supplyMethod": "PURCHASED",
+        "isInventoryItem": false,
+        "isSellable": true,
+        "isPurchasable": true,
+        "agentOwned": true,
+        "legacyType": "PURCHASE_AND_SALE",
+        "deleted": false,
+        "count": 33
+      },
+      {
+        "itemType": "PRODUCT",
+        "supplyMethod": "KIT",
+        "isInventoryItem": false,
+        "isSellable": true,
+        "isPurchasable": false,
+        "agentOwned": false,
+        "legacyType": "PURCHASE_AND_SALE",
+        "deleted": false,
+        "count": 30
+      },
+      {
+        "itemType": "SERVICE",
+        "supplyMethod": "PURCHASED",
+        "isInventoryItem": true,
+        "isSellable": true,
+        "isPurchasable": false,
+        "agentOwned": false,
+        "legacyType": "SERVICE",
+        "deleted": false,
+        "count": 14
+      },
+      {
+        "itemType": null,
+        "supplyMethod": "PURCHASED",
+        "isInventoryItem": false,
+        "isSellable": true,
+        "isPurchasable": false,
+        "agentOwned": true,
+        "legacyType": "SALES_ONLY",
+        "deleted": false,
+        "count": 14
+      },
+      {
+        "itemType": "SERVICE",
+        "supplyMethod": "PURCHASED",
+        "isInventoryItem": false,
+        "isSellable": true,
+        "isPurchasable": true,
+        "agentOwned": true,
+        "legacyType": "PURCHASE_AND_SALE",
+        "deleted": false,
+        "count": 13
+      },
+      {
+        "itemType": "PRODUCT",
+        "supplyMethod": "PURCHASED",
+        "isInventoryItem": false,
+        "isSellable": true,
+        "isPurchasable": false,
+        "agentOwned": true,
+        "legacyType": "SALES_ONLY",
+        "deleted": false,
+        "count": 7
+      },
+      {
+        "itemType": "SERVICE",
+        "supplyMethod": "PURCHASED",
+        "isInventoryItem": false,
+        "isSellable": false,
+        "isPurchasable": true,
+        "agentOwned": false,
+        "legacyType": "SERVICE",
+        "deleted": false,
+        "count": 3
+      },
+      {
+        "itemType": "PRODUCT",
+        "supplyMethod": "KIT",
+        "isInventoryItem": false,
+        "isSellable": true,
+        "isPurchasable": false,
+        "agentOwned": true,
+        "legacyType": "PURCHASE_AND_SALE",
+        "deleted": false,
+        "count": 3
+      },
+      {
+        "itemType": "PRODUCT",
+        "supplyMethod": "PURCHASED",
+        "isInventoryItem": true,
+        "isSellable": false,
+        "isPurchasable": true,
+        "agentOwned": false,
+        "legacyType": "PURCHASE_ONLY",
+        "deleted": false,
+        "count": 2
+      },
+      {
+        "itemType": "PRODUCT",
+        "supplyMethod": "KIT",
+        "isInventoryItem": false,
+        "isSellable": true,
+        "isPurchasable": true,
+        "agentOwned": true,
+        "legacyType": "PURCHASE_AND_SALE",
+        "deleted": false,
+        "count": 1
+      },
+      {
+        "itemType": "PRODUCT",
+        "supplyMethod": "PURCHASED",
+        "isInventoryItem": true,
+        "isSellable": true,
+        "isPurchasable": false,
+        "agentOwned": false,
+        "legacyType": "SALES_ONLY",
+        "deleted": false,
+        "count": 1
+      },
+      {
+        "itemType": "PRODUCT",
+        "supplyMethod": "ASSEMBLED",
+        "isInventoryItem": true,
+        "isSellable": true,
+        "isPurchasable": true,
+        "agentOwned": false,
+        "legacyType": "MANUFACTURED",
+        "deleted": false,
+        "count": 1
+      },
+      {
+        "itemType": "PRODUCT",
+        "supplyMethod": "PURCHASED",
+        "isInventoryItem": false,
+        "isSellable": true,
+        "isPurchasable": true,
+        "agentOwned": false,
+        "legacyType": "PURCHASE_AND_SALE",
+        "deleted": false,
+        "count": 1
+      },
+      {
+        "itemType": null,
+        "supplyMethod": "PURCHASED",
+        "isInventoryItem": false,
+        "isSellable": true,
+        "isPurchasable": false,
+        "agentOwned": false,
+        "legacyType": "SERVICE",
+        "deleted": false,
+        "count": 1
+      }
+    ],
+    "unclassifiedItemType": {
+      "count": 15,
+      "rows": [
+        {
+          "id": "cee2f04a-a262-4b71-8fd2-ea247437bc52",
+          "sku": "CMP-3CB6C7-34",
+          "name": "CMP-3CB6C7-34",
+          "type": "SALES_ONLY",
+          "itemType": null,
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE"
+        },
+        {
+          "id": "22c3394b-37ea-4227-b605-da7df87218ce",
+          "sku": "CMP-3CB6C7-44",
+          "name": "CMP-3CB6C7-44",
+          "type": "SALES_ONLY",
+          "itemType": null,
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE"
+        },
+        {
+          "id": "37653b82-c017-4ef2-baf0-ecc3ecf6b073",
+          "sku": "CMP-62101A-34",
+          "name": "CMP-62101A-34",
+          "type": "SALES_ONLY",
+          "itemType": null,
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE"
+        },
+        {
+          "id": "65d0cc72-6aa2-4474-828e-116da4fe6959",
+          "sku": "CMP-62101A-44",
+          "name": "CMP-62101A-44",
+          "type": "SALES_ONLY",
+          "itemType": null,
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE"
+        },
+        {
+          "id": "d928b472-17d0-4900-809c-8bb7517e1499",
+          "sku": "CMP-8E5817-34",
+          "name": "CMP-8E5817-34",
+          "type": "SALES_ONLY",
+          "itemType": null,
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE"
+        },
+        {
+          "id": "50ad9493-d9af-4ac0-9d49-f4ba676580fb",
+          "sku": "CMP-8E5817-44",
+          "name": "CMP-8E5817-44",
+          "type": "SALES_ONLY",
+          "itemType": null,
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE"
+        },
+        {
+          "id": "fa950bc2-50cd-4fa8-989b-99a5f88f147f",
+          "sku": "CMP-9E9C40-34",
+          "name": "CMP-9E9C40-34",
+          "type": "SALES_ONLY",
+          "itemType": null,
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE"
+        },
+        {
+          "id": "c7396264-f7db-4ae4-b196-738004148c86",
+          "sku": "CMP-9E9C40-44",
+          "name": "CMP-9E9C40-44",
+          "type": "SALES_ONLY",
+          "itemType": null,
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE"
+        },
+        {
+          "id": "4d1b8bd4-7223-4799-8950-a55584ccec72",
+          "sku": "CMP-A63347-34",
+          "name": "CMP-A63347-34",
+          "type": "SALES_ONLY",
+          "itemType": null,
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE"
+        },
+        {
+          "id": "3401b710-0518-43ad-8b9f-25b5c3911799",
+          "sku": "CMP-A63347-44",
+          "name": "CMP-A63347-44",
+          "type": "SALES_ONLY",
+          "itemType": null,
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE"
+        },
+        {
+          "id": "0f5dc693-1eb0-47c3-8ec9-2ad2b4ed9091",
+          "sku": "CMP-A894BF-34",
+          "name": "CMP-A894BF-34",
+          "type": "SALES_ONLY",
+          "itemType": null,
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE"
+        },
+        {
+          "id": "19379cba-ccb1-435f-be4d-f20799438e48",
+          "sku": "CMP-A894BF-44",
+          "name": "CMP-A894BF-44",
+          "type": "SALES_ONLY",
+          "itemType": null,
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE"
+        },
+        {
+          "id": "255eb986-2cc3-4fe7-b026-d876cdc3cfbf",
+          "sku": "CMP-D5A91D-34",
+          "name": "CMP-D5A91D-34",
+          "type": "SALES_ONLY",
+          "itemType": null,
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE"
+        },
+        {
+          "id": "3c86d48d-2866-4585-9035-e9150c53e9cb",
+          "sku": "CMP-D5A91D-44",
+          "name": "CMP-D5A91D-44",
+          "type": "SALES_ONLY",
+          "itemType": null,
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE"
+        },
+        {
+          "id": "53bf274e-9e2b-4cdd-8adf-709a068282c4",
+          "sku": "SHIP-SYNC-TEST-b72608ba",
+          "name": "Shipping Sync Test Product SHIP-SYNC-TEST-b72608ba",
+          "type": "SERVICE",
+          "itemType": null,
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    "legacyTypeInconsistencies": {
+      "count": 47,
+      "rows": [
+        {
+          "id": "f4b8597f-88ee-4479-8a88-04aef469e287",
+          "sku": "AGT-5E03AC-KIT",
+          "name": "Agent Test KIT 5E03AC",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": true,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "ef35599f-e976-4bee-8fe4-5b711e4cb5fc",
+          "sku": "R13C-00DE7E0A-12",
+          "name": "R13 C 00DE7E0A 12",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "2359c545-6e84-4aa4-a22c-a2bfbdda3f1e",
+          "sku": "R13C-00DE7E0A-16",
+          "name": "R13 C 00DE7E0A 16",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "6e703255-345c-47e8-8853-2e9beb0ec288",
+          "sku": "R13C-00DE7E0A-20",
+          "name": "R13 C 00DE7E0A 20",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "e885b78e-2a58-4c3c-bb9d-bcc7d5dfbc8d",
+          "sku": "R13C-00DE7E0A-24",
+          "name": "R13 C 00DE7E0A 24",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "3c2b7d1b-d3b6-4b4e-a5df-a78123a65ec1",
+          "sku": "R13C-00DE7E0A-32",
+          "name": "R13 C 00DE7E0A 32",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "bdafaff3-4ec1-4dac-bd7a-e02756680ba9",
+          "sku": "R13C-00DE7E0A-4",
+          "name": "R13 C 00DE7E0A 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "65f2d1a2-d4d1-40c2-b271-453f30863299",
+          "sku": "R13C-00DE7E0A-8",
+          "name": "R13 C 00DE7E0A 8",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "e909642f-bdc6-43c3-b339-0f7d26821fc5",
+          "sku": "R13C-064C5228-4",
+          "name": "R13 C 064C5228 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "cab91f47-962d-4403-987e-76471d3f3d4c",
+          "sku": "R13C-28C3057F-12",
+          "name": "R13 C 28C3057F 12",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "ef6d7ddb-ec30-4fd5-ad93-3983cfd671e1",
+          "sku": "R13C-28C3057F-16",
+          "name": "R13 C 28C3057F 16",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "f3ddba90-63f0-406a-a441-dea9e1130425",
+          "sku": "R13C-28C3057F-4",
+          "name": "R13 C 28C3057F 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "2b222721-657e-40ad-bcc0-7cd179bf83cf",
+          "sku": "R13C-28C3057F-8",
+          "name": "R13 C 28C3057F 8",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "72c76b1d-6d58-492b-8972-71d2c143a41e",
+          "sku": "R13C-41154BDC-4",
+          "name": "R13 C 41154BDC 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "dc904170-cbd1-48de-8714-2122cecde8b0",
+          "sku": "R13C-6218A33E-12",
+          "name": "R13 C 6218A33E 12",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "68bc296a-a192-4353-97f5-a7a3f9063a72",
+          "sku": "R13C-6218A33E-16",
+          "name": "R13 C 6218A33E 16",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "b1b16fbe-5c4c-469a-9e4e-83ef3071cd99",
+          "sku": "R13C-6218A33E-20",
+          "name": "R13 C 6218A33E 20",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "fa7a45b5-1e28-4dcb-8dd9-3558112be54a",
+          "sku": "R13C-6218A33E-24",
+          "name": "R13 C 6218A33E 24",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "a7a3909b-bc0c-43d3-9f14-0c2561c8c97a",
+          "sku": "R13C-6218A33E-32",
+          "name": "R13 C 6218A33E 32",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "9573bff3-2e89-4eb5-bcd0-b625831e3c3f",
+          "sku": "R13C-6218A33E-4",
+          "name": "R13 C 6218A33E 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "d6b8a268-f657-4e19-99cb-2f5970889653",
+          "sku": "R13C-6218A33E-8",
+          "name": "R13 C 6218A33E 8",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "6fc9d78b-13bb-438c-9dc0-3fd98894a8d1",
+          "sku": "R13C-66F93712-12",
+          "name": "R13 C 66F93712 12",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "d12efb62-1890-4a22-ba3e-a15d2b94af00",
+          "sku": "R13C-66F93712-16",
+          "name": "R13 C 66F93712 16",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "39206bee-afc6-4737-8939-b1f3843d47e6",
+          "sku": "R13C-66F93712-4",
+          "name": "R13 C 66F93712 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "c38fd93e-339d-4bc4-9cc9-bd0eab36cfe1",
+          "sku": "R13C-66F93712-8",
+          "name": "R13 C 66F93712 8",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "de64ca8b-1ed9-439a-ab8c-efeb28eddf35",
+          "sku": "R13C-832A9FBE-4",
+          "name": "R13 C 832A9FBE 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "71a916a5-7343-40f1-ab27-41dd62b77385",
+          "sku": "R13C-95E56824-4",
+          "name": "R13 C 95E56824 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "8aba11a0-3951-42ec-a3d9-7f03dc2eaad2",
+          "sku": "R13C-D2F94509-12",
+          "name": "R13 C D2F94509 12",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "17ea713c-434f-422d-8683-50462e8aa13e",
+          "sku": "R13C-D2F94509-16",
+          "name": "R13 C D2F94509 16",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "77a79216-429e-4c30-9cfc-053997b1d7fd",
+          "sku": "R13C-D2F94509-20",
+          "name": "R13 C D2F94509 20",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "57a4be41-6f5b-4389-b289-fc1d3e3ef3ad",
+          "sku": "R13C-D2F94509-24",
+          "name": "R13 C D2F94509 24",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "1c2f117c-b988-4655-8a7a-0c5242880a06",
+          "sku": "R13C-D2F94509-32",
+          "name": "R13 C D2F94509 32",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "92967f96-3498-4434-a44f-9845c07fd858",
+          "sku": "R13C-D2F94509-4",
+          "name": "R13 C D2F94509 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "4efeba5a-ed92-4d02-aba7-aafdad79208b",
+          "sku": "R13C-D2F94509-8",
+          "name": "R13 C D2F94509 8",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "derivedType": "MANUFACTURED"
+        },
+        {
+          "id": "ec51d61b-e84f-491a-b5c1-5812fb4aa9c1",
+          "sku": "R6SHIP-043599-D",
+          "name": "DEMO-R6-20261001 Ship Product D 043599",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": true,
+          "status": "ACTIVE",
+          "derivedType": "SERVICE"
+        },
+        {
+          "id": "7e8e4287-c07d-43db-8b00-8af5e06b4d4e",
+          "sku": "R6SHIP-1BE62D-D",
+          "name": "DEMO-R6-20261001 Ship Product D 1BE62D",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": true,
+          "status": "ACTIVE",
+          "derivedType": "SERVICE"
+        },
+        {
+          "id": "268e18a4-e7b6-4366-b988-084fb6706c39",
+          "sku": "R6SHIP-3887DB-D",
+          "name": "DEMO-R6-20261001 Ship Product D 3887DB",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": true,
+          "status": "ACTIVE",
+          "derivedType": "SERVICE"
+        },
+        {
+          "id": "9f317769-dc30-4c52-b0f5-85353bf31445",
+          "sku": "R6SHIP-5F96DB-D",
+          "name": "DEMO-R6-20261001 Ship Product D 5F96DB",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": true,
+          "status": "ACTIVE",
+          "derivedType": "SERVICE"
+        },
+        {
+          "id": "d78997df-f631-4aee-a1b1-38d74cb5ac70",
+          "sku": "R6SHIP-6B6417-D",
+          "name": "DEMO-R6-20261001 Ship Product D 6B6417",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": true,
+          "status": "ACTIVE",
+          "derivedType": "SERVICE"
+        },
+        {
+          "id": "03d028a3-8d7f-4137-ae93-7e8713e922e4",
+          "sku": "R6SHIP-895131-D",
+          "name": "DEMO-R6-20261001 Ship Product D 895131",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": true,
+          "status": "ACTIVE",
+          "derivedType": "SERVICE"
+        },
+        {
+          "id": "8d626230-cbcf-49af-b4e2-ea046baaad64",
+          "sku": "R6SHIP-8BDDD6-D",
+          "name": "DEMO-R6-20261001 Ship Product D 8BDDD6",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": true,
+          "status": "ACTIVE",
+          "derivedType": "SERVICE"
+        },
+        {
+          "id": "4ed283f1-4f41-49af-9b26-56c004117bd5",
+          "sku": "R6SHIP-95AA6C-D",
+          "name": "DEMO-R6-20261001 Ship Product D 95AA6C",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": true,
+          "status": "ACTIVE",
+          "derivedType": "SERVICE"
+        },
+        {
+          "id": "f54a7420-e930-4736-a14e-15c5bd7c81f9",
+          "sku": "R6SHIP-A29894-D",
+          "name": "DEMO-R6-20261001 Ship Product D A29894",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": true,
+          "status": "ACTIVE",
+          "derivedType": "SERVICE"
+        },
+        {
+          "id": "5dd617d8-95bd-469c-b55f-e9e1ab9f33ee",
+          "sku": "R6SHIP-D1104F-D",
+          "name": "DEMO-R6-20261001 Ship Product D D1104F",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": true,
+          "status": "ACTIVE",
+          "derivedType": "SERVICE"
+        },
+        {
+          "id": "a6af0377-dc80-4de3-9147-ad76b07d3e46",
+          "sku": "R6SHIP-DF935E-D",
+          "name": "DEMO-R6-20261001 Ship Product D DF935E",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": true,
+          "status": "ACTIVE",
+          "derivedType": "SERVICE"
+        },
+        {
+          "id": "c5bda182-f2ba-457a-b12c-79a1dc715e33",
+          "sku": "R6SHIP-EF8ECF-D",
+          "name": "DEMO-R6-20261001 Ship Product D EF8ECF",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": true,
+          "status": "ACTIVE",
+          "derivedType": "SERVICE"
+        },
+        {
+          "id": "d337dcc3-2af8-47eb-9caa-8958f93a62b0",
+          "sku": "R6SHIP-FAA569-D",
+          "name": "DEMO-R6-20261001 Ship Product D FAA569",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": true,
+          "status": "ACTIVE",
+          "derivedType": "SERVICE"
+        }
+      ]
+    },
+    "attributeRuleViolations": {
+      "count": 14,
+      "rows": [
+        {
+          "id": "b099a789-dc32-4476-955e-d23f285b7178",
+          "sku": "AGT-F7-0293F2",
+          "name": "F7 0293F2",
+          "type": "SERVICE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": true,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "code": "PRODUCT_SERVICE_RULE"
+        },
+        {
+          "id": "f6c72dce-0936-4fff-b673-4c9184fc8589",
+          "sku": "AGT-F7-0AD56B",
+          "name": "F7 0AD56B",
+          "type": "SERVICE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": true,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "code": "PRODUCT_SERVICE_RULE"
+        },
+        {
+          "id": "f7a4164a-6108-42f6-aa36-5f332616e7fb",
+          "sku": "AGT-F7-0B9F54",
+          "name": "F7 0B9F54",
+          "type": "SERVICE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": true,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "code": "PRODUCT_SERVICE_RULE"
+        },
+        {
+          "id": "735d58d1-9a33-4169-a5b2-1605bf8c9260",
+          "sku": "AGT-F7-24FF7A",
+          "name": "F7 24FF7A",
+          "type": "SERVICE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": true,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "code": "PRODUCT_SERVICE_RULE"
+        },
+        {
+          "id": "1662d1fd-01e3-4dc1-868c-55a12daa3b26",
+          "sku": "AGT-F7-31DD42",
+          "name": "F7 31DD42",
+          "type": "SERVICE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": true,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "code": "PRODUCT_SERVICE_RULE"
+        },
+        {
+          "id": "4972574a-5acb-45fa-8bb6-c221fc3f1c69",
+          "sku": "AGT-F7-54CD6B",
+          "name": "F7 54CD6B",
+          "type": "SERVICE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": true,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "code": "PRODUCT_SERVICE_RULE"
+        },
+        {
+          "id": "ab178976-0f11-46a6-8521-294bcec090ca",
+          "sku": "AGT-F7-9AF6D3",
+          "name": "F7 9AF6D3",
+          "type": "SERVICE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": true,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "code": "PRODUCT_SERVICE_RULE"
+        },
+        {
+          "id": "2073dbf1-0854-462f-a978-dace6647ced9",
+          "sku": "AGT-F7-A628F2",
+          "name": "F7 A628F2",
+          "type": "SERVICE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": true,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "code": "PRODUCT_SERVICE_RULE"
+        },
+        {
+          "id": "93deb7ed-e3c9-4ce7-adcb-f19ba413497b",
+          "sku": "AGT-F7-B67015",
+          "name": "F7 B67015",
+          "type": "SERVICE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": true,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "code": "PRODUCT_SERVICE_RULE"
+        },
+        {
+          "id": "330b0498-395e-4758-9f57-d88f273ff662",
+          "sku": "AGT-F7-BD9BC2",
+          "name": "F7 BD9BC2",
+          "type": "SERVICE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": true,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "code": "PRODUCT_SERVICE_RULE"
+        },
+        {
+          "id": "3094c7ce-59ad-4387-a8c1-afca797c382a",
+          "sku": "AGT-F7-C22EB4",
+          "name": "F7 C22EB4",
+          "type": "SERVICE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": true,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "code": "PRODUCT_SERVICE_RULE"
+        },
+        {
+          "id": "805c575f-5dd2-4d22-8320-0c1b052b657f",
+          "sku": "AGT-F7-CDB455",
+          "name": "F7 CDB455",
+          "type": "SERVICE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": true,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "code": "PRODUCT_SERVICE_RULE"
+        },
+        {
+          "id": "45e394e6-7ea3-459a-a138-4b948af67642",
+          "sku": "AGT-F7-ED6611",
+          "name": "F7 ED6611",
+          "type": "SERVICE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": true,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "code": "PRODUCT_SERVICE_RULE"
+        },
+        {
+          "id": "f2f13f1e-f335-49a4-b0d8-4a731dea0dae",
+          "sku": "AGT-F7-F7AF52",
+          "name": "F7 F7AF52",
+          "type": "SERVICE",
+          "itemType": "SERVICE",
+          "supplyMethod": "PURCHASED",
+          "isInventoryItem": true,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "code": "PRODUCT_SERVICE_RULE"
+        }
+      ]
+    },
+    "assembledAndKits": {
+      "count": 35,
+      "rows": [
+        {
+          "id": "f4b8597f-88ee-4479-8a88-04aef469e287",
+          "sku": "AGT-5E03AC-KIT",
+          "name": "Agent Test KIT 5E03AC",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": true,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "e6c6afb1-2eea-4a7b-aa7e-b1e95528b8d4",
+          "sku": "PRD-2026-000008",
+          "name": "بوكس جديد اختبار",
+          "type": "MANUFACTURED",
+          "itemType": "PRODUCT",
+          "supplyMethod": "ASSEMBLED",
+          "isInventoryItem": true,
+          "isSellable": true,
+          "isPurchasable": true,
+          "status": "ACTIVE",
+          "legacyComponents": 1,
+          "recipes": {
+            "DRAFT": 1
+          }
+        },
+        {
+          "id": "ef35599f-e976-4bee-8fe4-5b711e4cb5fc",
+          "sku": "R13C-00DE7E0A-12",
+          "name": "R13 C 00DE7E0A 12",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "2359c545-6e84-4aa4-a22c-a2bfbdda3f1e",
+          "sku": "R13C-00DE7E0A-16",
+          "name": "R13 C 00DE7E0A 16",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "6e703255-345c-47e8-8853-2e9beb0ec288",
+          "sku": "R13C-00DE7E0A-20",
+          "name": "R13 C 00DE7E0A 20",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "e885b78e-2a58-4c3c-bb9d-bcc7d5dfbc8d",
+          "sku": "R13C-00DE7E0A-24",
+          "name": "R13 C 00DE7E0A 24",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "3c2b7d1b-d3b6-4b4e-a5df-a78123a65ec1",
+          "sku": "R13C-00DE7E0A-32",
+          "name": "R13 C 00DE7E0A 32",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "bdafaff3-4ec1-4dac-bd7a-e02756680ba9",
+          "sku": "R13C-00DE7E0A-4",
+          "name": "R13 C 00DE7E0A 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "65f2d1a2-d4d1-40c2-b271-453f30863299",
+          "sku": "R13C-00DE7E0A-8",
+          "name": "R13 C 00DE7E0A 8",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "e909642f-bdc6-43c3-b339-0f7d26821fc5",
+          "sku": "R13C-064C5228-4",
+          "name": "R13 C 064C5228 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "cab91f47-962d-4403-987e-76471d3f3d4c",
+          "sku": "R13C-28C3057F-12",
+          "name": "R13 C 28C3057F 12",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "ef6d7ddb-ec30-4fd5-ad93-3983cfd671e1",
+          "sku": "R13C-28C3057F-16",
+          "name": "R13 C 28C3057F 16",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "f3ddba90-63f0-406a-a441-dea9e1130425",
+          "sku": "R13C-28C3057F-4",
+          "name": "R13 C 28C3057F 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "2b222721-657e-40ad-bcc0-7cd179bf83cf",
+          "sku": "R13C-28C3057F-8",
+          "name": "R13 C 28C3057F 8",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "72c76b1d-6d58-492b-8972-71d2c143a41e",
+          "sku": "R13C-41154BDC-4",
+          "name": "R13 C 41154BDC 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "dc904170-cbd1-48de-8714-2122cecde8b0",
+          "sku": "R13C-6218A33E-12",
+          "name": "R13 C 6218A33E 12",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "68bc296a-a192-4353-97f5-a7a3f9063a72",
+          "sku": "R13C-6218A33E-16",
+          "name": "R13 C 6218A33E 16",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "b1b16fbe-5c4c-469a-9e4e-83ef3071cd99",
+          "sku": "R13C-6218A33E-20",
+          "name": "R13 C 6218A33E 20",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "fa7a45b5-1e28-4dcb-8dd9-3558112be54a",
+          "sku": "R13C-6218A33E-24",
+          "name": "R13 C 6218A33E 24",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "a7a3909b-bc0c-43d3-9f14-0c2561c8c97a",
+          "sku": "R13C-6218A33E-32",
+          "name": "R13 C 6218A33E 32",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "9573bff3-2e89-4eb5-bcd0-b625831e3c3f",
+          "sku": "R13C-6218A33E-4",
+          "name": "R13 C 6218A33E 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "d6b8a268-f657-4e19-99cb-2f5970889653",
+          "sku": "R13C-6218A33E-8",
+          "name": "R13 C 6218A33E 8",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "6fc9d78b-13bb-438c-9dc0-3fd98894a8d1",
+          "sku": "R13C-66F93712-12",
+          "name": "R13 C 66F93712 12",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "d12efb62-1890-4a22-ba3e-a15d2b94af00",
+          "sku": "R13C-66F93712-16",
+          "name": "R13 C 66F93712 16",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "39206bee-afc6-4737-8939-b1f3843d47e6",
+          "sku": "R13C-66F93712-4",
+          "name": "R13 C 66F93712 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "c38fd93e-339d-4bc4-9cc9-bd0eab36cfe1",
+          "sku": "R13C-66F93712-8",
+          "name": "R13 C 66F93712 8",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "de64ca8b-1ed9-439a-ab8c-efeb28eddf35",
+          "sku": "R13C-832A9FBE-4",
+          "name": "R13 C 832A9FBE 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "71a916a5-7343-40f1-ab27-41dd62b77385",
+          "sku": "R13C-95E56824-4",
+          "name": "R13 C 95E56824 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "8aba11a0-3951-42ec-a3d9-7f03dc2eaad2",
+          "sku": "R13C-D2F94509-12",
+          "name": "R13 C D2F94509 12",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "17ea713c-434f-422d-8683-50462e8aa13e",
+          "sku": "R13C-D2F94509-16",
+          "name": "R13 C D2F94509 16",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "77a79216-429e-4c30-9cfc-053997b1d7fd",
+          "sku": "R13C-D2F94509-20",
+          "name": "R13 C D2F94509 20",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "57a4be41-6f5b-4389-b289-fc1d3e3ef3ad",
+          "sku": "R13C-D2F94509-24",
+          "name": "R13 C D2F94509 24",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "1c2f117c-b988-4655-8a7a-0c5242880a06",
+          "sku": "R13C-D2F94509-32",
+          "name": "R13 C D2F94509 32",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "92967f96-3498-4434-a44f-9845c07fd858",
+          "sku": "R13C-D2F94509-4",
+          "name": "R13 C D2F94509 4",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        },
+        {
+          "id": "4efeba5a-ed92-4d02-aba7-aafdad79208b",
+          "sku": "R13C-D2F94509-8",
+          "name": "R13 C D2F94509 8",
+          "type": "PURCHASE_AND_SALE",
+          "itemType": "PRODUCT",
+          "supplyMethod": "KIT",
+          "isInventoryItem": false,
+          "isSellable": true,
+          "isPurchasable": false,
+          "status": "ACTIVE",
+          "legacyComponents": 0,
+          "recipes": {}
+        }
+      ]
+    },
+    "draftRecipesNeedingActivation": {
+      "count": 1,
+      "rows": [
+        {
+          "productId": "e6c6afb1-2eea-4a7b-aa7e-b1e95528b8d4",
+          "sku": "PRD-2026-000008",
+          "name": "بوكس جديد اختبار",
+          "supplyMethod": "ASSEMBLED",
+          "version": 1,
+          "lines": 1,
+          "migrated": true
+        }
+      ]
+    },
+    "barcodeDuplicates": {
+      "count": 0,
+      "rows": []
+    },
+    "productsWithStockButNoCost": {
+      "count": 216,
+      "rows": [
+        {
+          "productId": "ec95ed49-50ff-469e-86e7-7b6b28fd8a36",
+          "sku": "AGT-05C6E9-LOCK",
+          "name": "Agent Test LOCK 05C6E9",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "b359e5e5-3bd1-4a22-9b2f-a3c0de7b9631",
+          "sku": "AGT-0C7622-LOCK",
+          "name": "Agent Test LOCK 0C7622",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "277eba4b-1207-4640-9be5-ca55c726ab02",
+          "sku": "AGT-0CC4CC-LOCK",
+          "name": "Agent Test LOCK 0CC4CC",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "bc686dfd-65b3-492b-80dd-d915b1d016f2",
+          "sku": "AGT-119C9A-LOCK",
+          "name": "Agent Test LOCK 119C9A",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "e936ddd7-4b77-41a0-b108-ce0af11271d7",
+          "sku": "AGT-122270-LOCK",
+          "name": "Agent Test LOCK 122270",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "6435d330-7f0c-402c-8523-d8e614404979",
+          "sku": "AGT-2C5D44-LOCK",
+          "name": "Agent Test LOCK 2C5D44",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "5d3195a1-451e-4ea4-8815-8b89aa6b1082",
+          "sku": "AGT-360083-LOCK",
+          "name": "Agent Test LOCK 360083",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "a9a09a18-ad8b-4b66-813b-2dba8719ff06",
+          "sku": "AGT-3938B2-LOCK",
+          "name": "Agent Test LOCK 3938B2",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "7e7c89b0-d552-465c-839d-6d977f0da606",
+          "sku": "AGT-42F429-LOCK",
+          "name": "Agent Test LOCK 42F429",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "e8530287-9daa-4b16-894c-0adbb19cfb38",
+          "sku": "AGT-43A974-LOCK",
+          "name": "Agent Test LOCK 43A974",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "add29fc8-9456-4ed8-8ce3-ed52602d40bd",
+          "sku": "AGT-443930-LOCK",
+          "name": "Agent Test LOCK 443930",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "b03af561-4aa3-4f38-a6db-c766bf3d37bb",
+          "sku": "AGT-4FB212-LOCK",
+          "name": "Agent Test LOCK 4FB212",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "f6a36786-e2db-4fbb-945c-e020cd29b87e",
+          "sku": "AGT-51D7AD-LOCK",
+          "name": "Agent Test LOCK 51D7AD",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "29c0946f-eab8-458a-9574-50822c70c43c",
+          "sku": "AGT-5E03AC-LOCK",
+          "name": "Agent Test LOCK 5E03AC",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "795e63b2-3256-4c8f-91ef-2e63984afcb3",
+          "sku": "AGT-6755C4-LOCK",
+          "name": "Agent Test LOCK 6755C4",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "5b68c172-3e15-4cb9-8def-e20bbadd12e4",
+          "sku": "AGT-68FA89-LOCK",
+          "name": "Agent Test LOCK 68FA89",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "853eb859-dff2-4410-a5bc-365e8934318e",
+          "sku": "AGT-6CC97D-LOCK",
+          "name": "Agent Test LOCK 6CC97D",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "32090fda-42a0-420c-904d-3f320215d0a7",
+          "sku": "AGT-779352-LOCK",
+          "name": "Agent Test LOCK 779352",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "d662938f-af1a-45b2-aea8-28e0d8a63ba0",
+          "sku": "AGT-7DBE37-LOCK",
+          "name": "Agent Test LOCK 7DBE37",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "8796320b-7959-4ff2-905c-35e2948ebfcd",
+          "sku": "AGT-87E2A3-LOCK",
+          "name": "Agent Test LOCK 87E2A3",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "993b446e-cc9c-4b76-8763-cd726e565dcb",
+          "sku": "AGT-893C24-LOCK",
+          "name": "Agent Test LOCK 893C24",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "70523dfb-8147-4c3e-89d6-cf7ce778bc2f",
+          "sku": "AGT-8C064B-LOCK",
+          "name": "Agent Test LOCK 8C064B",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "e39bcb48-9a78-4c28-aa34-8a1eba83cc9e",
+          "sku": "AGT-93067D-LOCK",
+          "name": "Agent Test LOCK 93067D",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "dd92e6d1-24d2-43ca-bd6f-727685afaace",
+          "sku": "AGT-A-0293F2",
+          "name": "AGT-A 0293F2",
+          "onHand": 92,
+          "movements": 7,
+          "agentOwned": false
+        },
+        {
+          "productId": "46a46653-00da-4bc4-9696-b59dec402e50",
+          "sku": "AGT-A-0AD56B",
+          "name": "AGT-A 0AD56B",
+          "onHand": 92,
+          "movements": 7,
+          "agentOwned": false
+        },
+        {
+          "productId": "5e85918d-4a58-4606-a129-187e8d75ceac",
+          "sku": "AGT-A-0B9F54",
+          "name": "AGT-A 0B9F54",
+          "onHand": 92,
+          "movements": 7,
+          "agentOwned": false
+        },
+        {
+          "productId": "21864a05-def1-4c98-a395-7cf29c1782eb",
+          "sku": "AGT-A-1DD9B8",
+          "name": "AGT-A 1DD9B8",
+          "onHand": 98,
+          "movements": 2,
+          "agentOwned": false
+        },
+        {
+          "productId": "5c77397c-3b9f-48a4-bd97-32f5d2eeeb86",
+          "sku": "AGT-A-220826",
+          "name": "AGT-A 220826",
+          "onHand": 94,
+          "movements": 6,
+          "agentOwned": false
+        },
+        {
+          "productId": "851b539a-9dfa-4988-8840-2a02a8c4ad02",
+          "sku": "AGT-A-24FF7A",
+          "name": "AGT-A 24FF7A",
+          "onHand": 92,
+          "movements": 7,
+          "agentOwned": false
+        },
+        {
+          "productId": "f282350f-856c-42a3-b5c2-de993b5c32d3",
+          "sku": "AGT-A-2B8215",
+          "name": "AGT-A 2B8215",
+          "onHand": 94,
+          "movements": 6,
+          "agentOwned": false
+        },
+        {
+          "productId": "3810d4b1-d303-424d-9dcb-05e263bb9b75",
+          "sku": "AGT-A-31DD42",
+          "name": "AGT-A 31DD42",
+          "onHand": 92,
+          "movements": 7,
+          "agentOwned": false
+        },
+        {
+          "productId": "0f5fb9da-21bf-481b-804a-f98e9a07cc58",
+          "sku": "AGT-A-400595",
+          "name": "AGT-A 400595",
+          "onHand": 94,
+          "movements": 6,
+          "agentOwned": false
+        },
+        {
+          "productId": "a4357252-7ba4-4a4d-9af4-8abda63f1f6c",
+          "sku": "AGT-A-53832B",
+          "name": "AGT-A 53832B",
+          "onHand": 94,
+          "movements": 6,
+          "agentOwned": false
+        },
+        {
+          "productId": "20daae1e-e0de-4a0e-99dd-0f7956acbf2b",
+          "sku": "AGT-A-54CD6B",
+          "name": "AGT-A 54CD6B",
+          "onHand": 92,
+          "movements": 7,
+          "agentOwned": false
+        },
+        {
+          "productId": "6020c8ed-02bd-414b-a54e-cda47ec33a0c",
+          "sku": "AGT-A-8329A9",
+          "name": "AGT-A 8329A9",
+          "onHand": 94,
+          "movements": 6,
+          "agentOwned": false
+        },
+        {
+          "productId": "8b2c96d2-2729-43b6-87eb-dc7d58f44f4a",
+          "sku": "AGT-A-83541A",
+          "name": "AGT-A 83541A",
+          "onHand": 94,
+          "movements": 6,
+          "agentOwned": false
+        },
+        {
+          "productId": "cae723a3-b5f2-4a97-938e-bc3859908333",
+          "sku": "AGT-A-847444",
+          "name": "AGT-A 847444",
+          "onHand": 94,
+          "movements": 6,
+          "agentOwned": false
+        },
+        {
+          "productId": "b57049a4-a839-4104-9f01-18a2748d34cd",
+          "sku": "AGT-A-9AF6D3",
+          "name": "AGT-A 9AF6D3",
+          "onHand": 92,
+          "movements": 7,
+          "agentOwned": false
+        },
+        {
+          "productId": "13e38df9-9117-42f3-8779-69b46a557df6",
+          "sku": "AGT-A-A628F2",
+          "name": "AGT-A A628F2",
+          "onHand": 92,
+          "movements": 7,
+          "agentOwned": false
+        },
+        {
+          "productId": "6b4edede-6bdd-42bb-b96d-795a117c2f37",
+          "sku": "AGT-A-ABA2F0",
+          "name": "AGT-A ABA2F0",
+          "onHand": 94,
+          "movements": 6,
+          "agentOwned": false
+        },
+        {
+          "productId": "ed1e629c-aa9e-4601-b688-d79c112faada",
+          "sku": "AGT-A-B67015",
+          "name": "AGT-A B67015",
+          "onHand": 92,
+          "movements": 7,
+          "agentOwned": false
+        },
+        {
+          "productId": "db644789-e0ea-4ca7-9a92-1c67241174ec",
+          "sku": "AGT-A-BA42A7",
+          "name": "AGT-A BA42A7",
+          "onHand": 98,
+          "movements": 2,
+          "agentOwned": false
+        },
+        {
+          "productId": "7bc50e0e-34a6-4a9d-bd48-d9ca5b1240a1",
+          "sku": "AGT-A-BD9BC2",
+          "name": "AGT-A BD9BC2",
+          "onHand": 92,
+          "movements": 7,
+          "agentOwned": false
+        },
+        {
+          "productId": "91376df2-29eb-47b4-bb9f-1b48524413e2",
+          "sku": "AGT-A-C22EB4",
+          "name": "AGT-A C22EB4",
+          "onHand": 92,
+          "movements": 7,
+          "agentOwned": false
+        },
+        {
+          "productId": "58bd4f07-b394-4178-86c9-95c33a93ad31",
+          "sku": "AGT-A-CDB455",
+          "name": "AGT-A CDB455",
+          "onHand": 92,
+          "movements": 7,
+          "agentOwned": false
+        },
+        {
+          "productId": "8befec16-828d-48a6-b341-17647f755ce6",
+          "sku": "AGT-A-E93C62",
+          "name": "AGT-A E93C62",
+          "onHand": 94,
+          "movements": 6,
+          "agentOwned": false
+        },
+        {
+          "productId": "345f4427-0ed7-4c50-9352-391ff7764967",
+          "sku": "AGT-A-ED6611",
+          "name": "AGT-A ED6611",
+          "onHand": 92,
+          "movements": 7,
+          "agentOwned": false
+        },
+        {
+          "productId": "1eb55372-7402-4d03-a0e3-fdcf8a951e0d",
+          "sku": "AGT-A-F7AF52",
+          "name": "AGT-A F7AF52",
+          "onHand": 92,
+          "movements": 7,
+          "agentOwned": false
+        },
+        {
+          "productId": "066498ae-2f2f-41c4-8043-faa89ee368ad",
+          "sku": "AGT-A5E8E1-LOCK",
+          "name": "Agent Test LOCK A5E8E1",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "7aedfc40-ae80-4a3d-add9-d828732ac680",
+          "sku": "AGT-A86A24-LOCK",
+          "name": "Agent Test LOCK A86A24",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "e66e7e09-af4e-4573-a928-53e5a2c5024d",
+          "sku": "AGT-AF5A0E-LOCK",
+          "name": "Agent Test LOCK AF5A0E",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "f485dd76-25b7-486b-b658-d436eb30c99c",
+          "sku": "AGT-B-0293F2",
+          "name": "AGT-B 0293F2",
+          "onHand": 100,
+          "movements": 10,
+          "agentOwned": false
+        },
+        {
+          "productId": "157d7ab0-cc75-480a-b3b0-e573e3d393d8",
+          "sku": "AGT-B-0AD56B",
+          "name": "AGT-B 0AD56B",
+          "onHand": 100,
+          "movements": 10,
+          "agentOwned": false
+        },
+        {
+          "productId": "f5fa347d-5067-4fb8-8956-0c0fbee8ec17",
+          "sku": "AGT-B-0B9F54",
+          "name": "AGT-B 0B9F54",
+          "onHand": 100,
+          "movements": 10,
+          "agentOwned": false
+        },
+        {
+          "productId": "1dc6f546-feb2-4993-8ad0-b497cf3938d5",
+          "sku": "AGT-B-1DD9B8",
+          "name": "AGT-B 1DD9B8",
+          "onHand": 100,
+          "movements": 4,
+          "agentOwned": false
+        },
+        {
+          "productId": "43108d7d-5f5d-4110-9d58-d362c4b174e9",
+          "sku": "AGT-B-220826",
+          "name": "AGT-B 220826",
+          "onHand": 100,
+          "movements": 6,
+          "agentOwned": false
+        },
+        {
+          "productId": "962b8c0b-7165-4358-80f3-97e08124e43b",
+          "sku": "AGT-B-24FF7A",
+          "name": "AGT-B 24FF7A",
+          "onHand": 100,
+          "movements": 10,
+          "agentOwned": false
+        },
+        {
+          "productId": "337e903b-1345-4578-bf08-08b55a9f3875",
+          "sku": "AGT-B-2B8215",
+          "name": "AGT-B 2B8215",
+          "onHand": 100,
+          "movements": 6,
+          "agentOwned": false
+        },
+        {
+          "productId": "4e21c384-bc11-40a5-8063-8e67c8dbf4f1",
+          "sku": "AGT-B-31DD42",
+          "name": "AGT-B 31DD42",
+          "onHand": 100,
+          "movements": 10,
+          "agentOwned": false
+        },
+        {
+          "productId": "8a247f53-c4b3-4e9a-bdf7-7d20f3e7a36b",
+          "sku": "AGT-B-400595",
+          "name": "AGT-B 400595",
+          "onHand": 100,
+          "movements": 6,
+          "agentOwned": false
+        },
+        {
+          "productId": "f3ff8c1e-d20d-455a-a005-0c088c104381",
+          "sku": "AGT-B-53832B",
+          "name": "AGT-B 53832B",
+          "onHand": 100,
+          "movements": 6,
+          "agentOwned": false
+        },
+        {
+          "productId": "49098f11-82d9-43c7-aeab-4aba52b820a7",
+          "sku": "AGT-B-54CD6B",
+          "name": "AGT-B 54CD6B",
+          "onHand": 100,
+          "movements": 10,
+          "agentOwned": false
+        },
+        {
+          "productId": "b6af2a5a-b988-42b6-8835-060f0c589f16",
+          "sku": "AGT-B-8329A9",
+          "name": "AGT-B 8329A9",
+          "onHand": 100,
+          "movements": 6,
+          "agentOwned": false
+        },
+        {
+          "productId": "173ffa18-99dc-474a-9e75-0aabf69208f5",
+          "sku": "AGT-B-83541A",
+          "name": "AGT-B 83541A",
+          "onHand": 100,
+          "movements": 6,
+          "agentOwned": false
+        },
+        {
+          "productId": "5a8f1eb4-9043-4cd2-8a9d-dd1e172b0cbb",
+          "sku": "AGT-B-847444",
+          "name": "AGT-B 847444",
+          "onHand": 100,
+          "movements": 6,
+          "agentOwned": false
+        },
+        {
+          "productId": "d81531d8-0d4d-411a-80bc-8185dfabfe9a",
+          "sku": "AGT-B-9AF6D3",
+          "name": "AGT-B 9AF6D3",
+          "onHand": 100,
+          "movements": 10,
+          "agentOwned": false
+        },
+        {
+          "productId": "4c2c0274-4232-4cea-98cd-3dc654151ba3",
+          "sku": "AGT-B-A628F2",
+          "name": "AGT-B A628F2",
+          "onHand": 100,
+          "movements": 10,
+          "agentOwned": false
+        },
+        {
+          "productId": "2f2b7154-b2ad-458b-99f7-52d2c98a0afb",
+          "sku": "AGT-B-ABA2F0",
+          "name": "AGT-B ABA2F0",
+          "onHand": 100,
+          "movements": 6,
+          "agentOwned": false
+        },
+        {
+          "productId": "ee42ba05-6fd0-4f8a-b09b-a864eb601cbc",
+          "sku": "AGT-B-B67015",
+          "name": "AGT-B B67015",
+          "onHand": 100,
+          "movements": 10,
+          "agentOwned": false
+        },
+        {
+          "productId": "11b6f927-d816-4f9d-b80d-ccaa0ef45274",
+          "sku": "AGT-B-BA42A7",
+          "name": "AGT-B BA42A7",
+          "onHand": 100,
+          "movements": 4,
+          "agentOwned": false
+        },
+        {
+          "productId": "78587a75-738c-463d-9e2a-4e43bec87611",
+          "sku": "AGT-B-BD9BC2",
+          "name": "AGT-B BD9BC2",
+          "onHand": 100,
+          "movements": 10,
+          "agentOwned": false
+        },
+        {
+          "productId": "df640c72-82fc-44a8-a479-fb2fc6bafcbd",
+          "sku": "AGT-B-C22EB4",
+          "name": "AGT-B C22EB4",
+          "onHand": 100,
+          "movements": 10,
+          "agentOwned": false
+        },
+        {
+          "productId": "4f923c6d-3cba-4955-96f6-35088c956cd3",
+          "sku": "AGT-B-CDB455",
+          "name": "AGT-B CDB455",
+          "onHand": 100,
+          "movements": 10,
+          "agentOwned": false
+        },
+        {
+          "productId": "6e1d9517-433e-43e8-aecd-26601a6f3b04",
+          "sku": "AGT-B-E93C62",
+          "name": "AGT-B E93C62",
+          "onHand": 100,
+          "movements": 4,
+          "agentOwned": false
+        },
+        {
+          "productId": "5191d8c1-c92a-4f9f-8c27-dae0abb69de5",
+          "sku": "AGT-B-ED6611",
+          "name": "AGT-B ED6611",
+          "onHand": 100,
+          "movements": 10,
+          "agentOwned": false
+        },
+        {
+          "productId": "10d4c09a-6f9e-47ae-a7b1-81b4af0935b5",
+          "sku": "AGT-B-F7AF52",
+          "name": "AGT-B F7AF52",
+          "onHand": 100,
+          "movements": 10,
+          "agentOwned": false
+        },
+        {
+          "productId": "e427bbc0-e78e-42a5-8010-b4866ae8e9d4",
+          "sku": "AGT-BDDAB0-LOCK",
+          "name": "Agent Test LOCK BDDAB0",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "9866ea20-96ed-4144-a51f-9702ddf325d3",
+          "sku": "AGT-BE1F79-LOCK",
+          "name": "Agent Test LOCK BE1F79",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "d1f7e8d4-dac4-4c62-8df8-f5da1e88a043",
+          "sku": "AGT-D51961-LOCK",
+          "name": "Agent Test LOCK D51961",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "475e1b7b-1ae8-4ab4-86d0-0e33134a5410",
+          "sku": "AGT-D80454-LOCK",
+          "name": "Agent Test LOCK D80454",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "92b25984-6108-4716-b2ab-af91cd752847",
+          "sku": "AGT-DBE0E5-LOCK",
+          "name": "Agent Test LOCK DBE0E5",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "4d0adc0e-dc09-4602-b428-68e8568c0794",
+          "sku": "AGT-DC57EA-LOCK",
+          "name": "Agent Test LOCK DC57EA",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "758b49ed-279c-4868-a186-dea046ed91ad",
+          "sku": "AGT-DEABD7-LOCK",
+          "name": "Agent Test LOCK DEABD7",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "3b7da28c-87e8-4877-a3f9-39db2c9efed1",
+          "sku": "AGT-E1CFAB-LOCK",
+          "name": "Agent Test LOCK E1CFAB",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "e522b1ba-1636-418f-9cc2-077aae688657",
+          "sku": "AGT-EBC4C8-LOCK",
+          "name": "Agent Test LOCK EBC4C8",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "f4ecf662-8707-4e50-b488-8b7421486d52",
+          "sku": "AGT-ED5CB6-LOCK",
+          "name": "Agent Test LOCK ED5CB6",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "a7d51709-5ae3-40f0-bda1-4621b6369bdc",
+          "sku": "AGT-F904DA-LOCK",
+          "name": "Agent Test LOCK F904DA",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "b727aa2b-faf4-4383-8183-08080a3e7e45",
+          "sku": "AGT-FB7038-LOCK",
+          "name": "Agent Test LOCK FB7038",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "73778260-de39-44b7-bb7a-49dfa4ecd30b",
+          "sku": "AGT-FE02C7-LOCK",
+          "name": "Agent Test LOCK FE02C7",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "ca8839ac-d29d-4ddf-b926-a2d04d8bc900",
+          "sku": "AGT-FEF5E5-LOCK",
+          "name": "Agent Test LOCK FEF5E5",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "d74903ad-7ce7-45f3-8eee-9328deadbf84",
+          "sku": "AGT-FF5E10-LOCK",
+          "name": "Agent Test LOCK FF5E10",
+          "onHand": 5,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "e95b33f6-0199-4946-8010-26a98cc6f39f",
+          "sku": "CMP-3CB6C7-13",
+          "name": "CMP-3CB6C7-13",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "f2e39270-2810-4df0-ba18-30c7f4057c2f",
+          "sku": "CMP-3CB6C7-17",
+          "name": "CMP-3CB6C7-17",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "bc0036b7-6ca8-4830-a67e-c1660762049a",
+          "sku": "CMP-3CB6C7-2",
+          "name": "CMP-3CB6C7-2",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "933f1957-56f9-4abb-92a1-3bf3ea8d18cf",
+          "sku": "CMP-3CB6C7-21",
+          "name": "CMP-3CB6C7-21",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "144451d5-843d-4c9f-816c-1eb8a6133a29",
+          "sku": "CMP-3CB6C7-31",
+          "name": "CMP-3CB6C7-31",
+          "onHand": 100,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "4f493709-6721-497b-a630-a0ce0a119647",
+          "sku": "CMP-3CB6C7-37",
+          "name": "CMP-3CB6C7-37",
+          "onHand": 99,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "2777fc9e-3024-4dce-819a-e4586cb8ba5c",
+          "sku": "CMP-3CB6C7-43",
+          "name": "CMP-3CB6C7-43",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "f4fbb5ee-bde5-41b8-80b8-d77380168cef",
+          "sku": "CMP-3CB6C7-9",
+          "name": "CMP-3CB6C7-9",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "fe5ab12d-d5c2-4b41-b745-ebcfc2a72837",
+          "sku": "CMP-62101A-13",
+          "name": "CMP-62101A-13",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "b01d8d82-b9c5-44f2-9b83-0b3d5aeebe12",
+          "sku": "CMP-62101A-17",
+          "name": "CMP-62101A-17",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "c1ece158-1fa9-4ae4-b4f7-de5459c0017a",
+          "sku": "CMP-62101A-2",
+          "name": "CMP-62101A-2",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "8cf75dc7-f69b-4299-8711-e8a584e1773f",
+          "sku": "CMP-62101A-21",
+          "name": "CMP-62101A-21",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "241a63e7-0140-457a-8e9a-8b214a63cf9f",
+          "sku": "CMP-62101A-31",
+          "name": "CMP-62101A-31",
+          "onHand": 100,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "edbd8ccd-9a50-40ab-a9c3-8404e968fb16",
+          "sku": "CMP-62101A-37",
+          "name": "CMP-62101A-37",
+          "onHand": 99,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "3f8c8ea4-5326-409d-a08d-c4eaa2a1cdf9",
+          "sku": "CMP-62101A-43",
+          "name": "CMP-62101A-43",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "271038f5-142d-493c-94dc-e11d5b784eff",
+          "sku": "CMP-62101A-9",
+          "name": "CMP-62101A-9",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "5a68cf4c-d551-4ab2-a23c-1aaa5cde7613",
+          "sku": "CMP-8E5817-13",
+          "name": "CMP-8E5817-13",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "69a37883-5ae5-4825-b638-7c671ef44394",
+          "sku": "CMP-8E5817-17",
+          "name": "CMP-8E5817-17",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "4848f277-07c3-4d57-a43a-1f5623230a66",
+          "sku": "CMP-8E5817-2",
+          "name": "CMP-8E5817-2",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "ad55c021-f0cc-4d88-aa9a-f871e2d9b754",
+          "sku": "CMP-8E5817-21",
+          "name": "CMP-8E5817-21",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "2d47b408-d99c-417c-a9cb-cf1212df0841",
+          "sku": "CMP-8E5817-31",
+          "name": "CMP-8E5817-31",
+          "onHand": 100,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "f684d8eb-a854-419e-b323-47697580a6a9",
+          "sku": "CMP-8E5817-37",
+          "name": "CMP-8E5817-37",
+          "onHand": 99,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "bcda1777-b4a1-4c8c-b80f-1cc4c61142b9",
+          "sku": "CMP-8E5817-43",
+          "name": "CMP-8E5817-43",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "b763ac1c-235a-4167-bb41-68047eb2a863",
+          "sku": "CMP-8E5817-9",
+          "name": "CMP-8E5817-9",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "f3ca4e78-db0f-4a63-bc34-740d84d14964",
+          "sku": "CMP-9E9C40-13",
+          "name": "CMP-9E9C40-13",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "e7e2a624-eb48-483b-be9e-57a0a9bc153c",
+          "sku": "CMP-9E9C40-17",
+          "name": "CMP-9E9C40-17",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "064de995-57cb-4518-b938-0f4294a9f21e",
+          "sku": "CMP-9E9C40-2",
+          "name": "CMP-9E9C40-2",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "57806a20-e1a7-4488-bec3-24f24c95c1b5",
+          "sku": "CMP-9E9C40-21",
+          "name": "CMP-9E9C40-21",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "3234306a-5705-4d60-96fa-f7b977934661",
+          "sku": "CMP-9E9C40-31",
+          "name": "CMP-9E9C40-31",
+          "onHand": 100,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "8f27e83e-0397-4af1-9f3b-ee9cf779847e",
+          "sku": "CMP-9E9C40-37",
+          "name": "CMP-9E9C40-37",
+          "onHand": 99,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "cafc6816-05ea-407c-ac75-86540e8d57a8",
+          "sku": "CMP-9E9C40-43",
+          "name": "CMP-9E9C40-43",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "ca1fb5ed-2979-4c92-94cd-3d220902f3d1",
+          "sku": "CMP-9E9C40-9",
+          "name": "CMP-9E9C40-9",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "f2d2e21f-ca58-4cfe-8d09-165878ccd1d4",
+          "sku": "CMP-A63347-13",
+          "name": "CMP-A63347-13",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "144c4c75-595e-4d08-b618-941774feb34d",
+          "sku": "CMP-A63347-17",
+          "name": "CMP-A63347-17",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "b3eee231-3fc9-411b-8078-33036c0494a3",
+          "sku": "CMP-A63347-2",
+          "name": "CMP-A63347-2",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "be69a02d-bbed-49c6-8a29-89e731cd7d72",
+          "sku": "CMP-A63347-21",
+          "name": "CMP-A63347-21",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "119672fe-4cc5-4b32-9e05-946a3c18f075",
+          "sku": "CMP-A63347-31",
+          "name": "CMP-A63347-31",
+          "onHand": 100,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "7dd96705-9fcf-4cf0-a445-ea12eabe45e1",
+          "sku": "CMP-A63347-37",
+          "name": "CMP-A63347-37",
+          "onHand": 99,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "5ea1e867-983b-47e5-8c69-201692dabfe6",
+          "sku": "CMP-A63347-43",
+          "name": "CMP-A63347-43",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "955f51c3-c6ef-4b66-9e10-185a61a46385",
+          "sku": "CMP-A63347-9",
+          "name": "CMP-A63347-9",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "28120a98-7121-4141-8244-8ad2d3c2eb99",
+          "sku": "CMP-A894BF-13",
+          "name": "CMP-A894BF-13",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "c4274313-a5e8-4461-b83c-7769b02d31f4",
+          "sku": "CMP-A894BF-17",
+          "name": "CMP-A894BF-17",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "29812e18-476c-4531-9f03-8ed15405a7f7",
+          "sku": "CMP-A894BF-2",
+          "name": "CMP-A894BF-2",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "d0da193d-4da9-475d-8d7d-91771de0374b",
+          "sku": "CMP-A894BF-21",
+          "name": "CMP-A894BF-21",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "bd337a05-a2e6-44f1-b093-fb2717883d7a",
+          "sku": "CMP-A894BF-31",
+          "name": "CMP-A894BF-31",
+          "onHand": 100,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "f5f0807d-b572-4ec6-a6d4-bb2545c6c232",
+          "sku": "CMP-A894BF-37",
+          "name": "CMP-A894BF-37",
+          "onHand": 99,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "37a5d801-bc79-4cd2-9cef-f2189f3ad26f",
+          "sku": "CMP-A894BF-43",
+          "name": "CMP-A894BF-43",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "beda7832-eae2-4aa7-80c5-7584a11ff340",
+          "sku": "CMP-A894BF-9",
+          "name": "CMP-A894BF-9",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "ea4db14d-8bd2-4006-ab21-ca3bb81c9fd4",
+          "sku": "CMP-D5A91D-13",
+          "name": "CMP-D5A91D-13",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "ebcf10fb-a9b3-43d7-9a9a-0e037574b95f",
+          "sku": "CMP-D5A91D-17",
+          "name": "CMP-D5A91D-17",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "8deb3e9d-ba63-43d8-abe2-6a34298ec88a",
+          "sku": "CMP-D5A91D-2",
+          "name": "CMP-D5A91D-2",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "fdd091b4-327b-4292-98cd-0f1cd7d45bbb",
+          "sku": "CMP-D5A91D-21",
+          "name": "CMP-D5A91D-21",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "f114fb29-9b4e-48c7-b56e-de71c846cd6e",
+          "sku": "CMP-D5A91D-31",
+          "name": "CMP-D5A91D-31",
+          "onHand": 100,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "085a6af6-402e-4a68-888d-1b3b47bce2cc",
+          "sku": "CMP-D5A91D-37",
+          "name": "CMP-D5A91D-37",
+          "onHand": 99,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "3a8a1bf5-1e30-448c-b2e9-0412f8bef490",
+          "sku": "CMP-D5A91D-43",
+          "name": "CMP-D5A91D-43",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "af91c9ce-f0cc-423a-a58c-b9184cbc2f98",
+          "sku": "CMP-D5A91D-9",
+          "name": "CMP-D5A91D-9",
+          "onHand": 99,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "03cb544d-a4ef-4dee-af00-8d9acc67878a",
+          "sku": "PRD-2026-001548",
+          "name": "منتج الوكيل A — DEMO-AGT-20260928",
+          "onHand": 161,
+          "movements": 36,
+          "agentOwned": true
+        },
+        {
+          "productId": "d8e10fa4-36f1-49ca-b243-5190cd1b0482",
+          "sku": "PRD-2026-001550",
+          "name": "منتج الوكيل B — DEMO-AGT-20260928",
+          "onHand": 95,
+          "movements": 6,
+          "agentOwned": true
+        },
+        {
+          "productId": "5923f25b-31b4-4e7b-8f4b-130ba50e743b",
+          "sku": "PRD-2026-001682",
+          "name": "DEMO-R5-20260930 Stocked Product",
+          "onHand": 30,
+          "movements": 1,
+          "agentOwned": false
+        },
+        {
+          "productId": "cdbc7383-183b-470e-935b-fa97455c46f0",
+          "sku": "PRD-2026-001683",
+          "name": "DEMO-R5-20260930 Agent Stocked Product",
+          "onHand": 29,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "ffcdd001-806e-4b66-a59c-bb11654fecb1",
+          "sku": "PRD-2026-001696",
+          "name": "DEMO-R5-20261001 O1 Stocked",
+          "onHand": 5,
+          "movements": 6,
+          "agentOwned": true
+        },
+        {
+          "productId": "5d954ddc-a5d6-47ee-a4da-47d7738f57f2",
+          "sku": "R5P-15DFC8-1",
+          "name": "R5 pricing R5P-15DFC8-1",
+          "onHand": 48,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "9a5b2cb6-f953-4e28-88d9-5e04df971f32",
+          "sku": "R5P-15DFC8-10",
+          "name": "R5 pricing R5P-15DFC8-10",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "49172103-5c87-41b6-89b6-2f55d9c3810f",
+          "sku": "R5P-15DFC8-2",
+          "name": "R5 pricing R5P-15DFC8-2",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "bb347dfa-dc07-4a8a-8141-c36766281469",
+          "sku": "R5P-15DFC8-7",
+          "name": "R5 pricing R5P-15DFC8-7",
+          "onHand": 50,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "2f292deb-0222-4fda-ae7b-60318870f38d",
+          "sku": "R5P-226685-1",
+          "name": "R5 pricing R5P-226685-1",
+          "onHand": 48,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "3776a97b-9a19-45d9-8487-b338771745f3",
+          "sku": "R5P-226685-10",
+          "name": "R5 pricing R5P-226685-10",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "0f9f4211-287f-4b11-b542-b284a2f38214",
+          "sku": "R5P-226685-2",
+          "name": "R5 pricing R5P-226685-2",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "f2a21b42-788f-4332-8ca8-b6bdd341a668",
+          "sku": "R5P-226685-7",
+          "name": "R5 pricing R5P-226685-7",
+          "onHand": 50,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "3bb41a01-bfea-4d33-874c-31e6afdd8939",
+          "sku": "R5P-390B8E-1",
+          "name": "R5 pricing R5P-390B8E-1",
+          "onHand": 48,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "ad93ea8f-e2b5-4d29-93d8-c88b7912dc15",
+          "sku": "R5P-390B8E-10",
+          "name": "R5 pricing R5P-390B8E-10",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "92095d33-ec9a-49b9-bc9f-cfc037199251",
+          "sku": "R5P-390B8E-2",
+          "name": "R5 pricing R5P-390B8E-2",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "3758d5c4-f0ac-4dfe-ae1a-7845b35143ab",
+          "sku": "R5P-390B8E-7",
+          "name": "R5 pricing R5P-390B8E-7",
+          "onHand": 50,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "749e846b-0324-4c0f-af70-04e70df40a90",
+          "sku": "R5P-4F196E-1",
+          "name": "R5 pricing R5P-4F196E-1",
+          "onHand": 48,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "ebe4083f-1754-49e8-aa04-aded7d1ce273",
+          "sku": "R5P-4F196E-10",
+          "name": "R5 pricing R5P-4F196E-10",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "7cdcb04c-9a13-4162-a16b-93d844e38ae4",
+          "sku": "R5P-4F196E-2",
+          "name": "R5 pricing R5P-4F196E-2",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "0f72105d-eab0-48b8-9c6d-2fc5046ba76c",
+          "sku": "R5P-4F196E-7",
+          "name": "R5 pricing R5P-4F196E-7",
+          "onHand": 50,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "7fb79852-cb11-4d37-af82-ef6934edfc25",
+          "sku": "R5P-4F5F07-1",
+          "name": "R5 pricing R5P-4F5F07-1",
+          "onHand": 48,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "6511edc0-743d-43ae-bd07-72f27028ddd1",
+          "sku": "R5P-4F5F07-10",
+          "name": "R5 pricing R5P-4F5F07-10",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "f845a12e-73e9-4420-9585-33d6b00e725d",
+          "sku": "R5P-4F5F07-2",
+          "name": "R5 pricing R5P-4F5F07-2",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "9bb5fb15-a190-4942-ad33-247b6a778046",
+          "sku": "R5P-4F5F07-7",
+          "name": "R5 pricing R5P-4F5F07-7",
+          "onHand": 50,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "8a5643b2-9159-4b7a-a970-85a543598dfa",
+          "sku": "R5P-5A5BA6-1",
+          "name": "R5 pricing R5P-5A5BA6-1",
+          "onHand": 48,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "fc1add14-f42c-4cdc-ab3c-32cd4f157f94",
+          "sku": "R5P-5A5BA6-10",
+          "name": "R5 pricing R5P-5A5BA6-10",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "b4f30ebd-72e7-47c3-9dff-d373bbb19358",
+          "sku": "R5P-5A5BA6-2",
+          "name": "R5 pricing R5P-5A5BA6-2",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "4694e6c1-75e9-4c1e-886a-343961b3d56d",
+          "sku": "R5P-5A5BA6-7",
+          "name": "R5 pricing R5P-5A5BA6-7",
+          "onHand": 50,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "e6cfd305-20ec-405f-8c44-5b208c1c37c6",
+          "sku": "R5P-5C40E2-1",
+          "name": "R5 pricing R5P-5C40E2-1",
+          "onHand": 48,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "8f179fe9-3453-472d-8553-bbffa3b61a6a",
+          "sku": "R5P-5C40E2-10",
+          "name": "R5 pricing R5P-5C40E2-10",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "de265271-dae2-4d86-85fb-775a1b1a708f",
+          "sku": "R5P-5C40E2-2",
+          "name": "R5 pricing R5P-5C40E2-2",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "77bc558b-83da-4a58-bc80-93dc2e4b466b",
+          "sku": "R5P-5C40E2-7",
+          "name": "R5 pricing R5P-5C40E2-7",
+          "onHand": 50,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "a82533d3-64c5-46ea-9597-ace9757ded46",
+          "sku": "R5P-6C5646-1",
+          "name": "R5 pricing R5P-6C5646-1",
+          "onHand": 48,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "358e3e0e-6019-4bcb-8512-d6c5ccce9dbd",
+          "sku": "R5P-6C5646-10",
+          "name": "R5 pricing R5P-6C5646-10",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "76dcfd59-7fc4-45c8-a84e-1c75ba0b06fb",
+          "sku": "R5P-6C5646-2",
+          "name": "R5 pricing R5P-6C5646-2",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "1e7e3fa8-7788-44fe-9396-10dfe825939f",
+          "sku": "R5P-6C5646-7",
+          "name": "R5 pricing R5P-6C5646-7",
+          "onHand": 50,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "f292c667-aa1a-436f-8b3b-bd07c102189a",
+          "sku": "R5P-6F4378-1",
+          "name": "R5 pricing R5P-6F4378-1",
+          "onHand": 48,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "fda7212a-b83b-4441-86c6-3831576c3209",
+          "sku": "R5P-6F4378-10",
+          "name": "R5 pricing R5P-6F4378-10",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "c0224efe-dc30-48ae-b967-e55b4a3d2f56",
+          "sku": "R5P-6F4378-2",
+          "name": "R5 pricing R5P-6F4378-2",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "5ee798ac-b01a-42cd-9211-165dd51d2cbf",
+          "sku": "R5P-6F4378-7",
+          "name": "R5 pricing R5P-6F4378-7",
+          "onHand": 50,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "ab3c462f-7b1d-44b8-a682-3dfc0401ff2e",
+          "sku": "R5P-7D16EA-1",
+          "name": "R5 pricing R5P-7D16EA-1",
+          "onHand": 48,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "34b21268-d95a-48e3-ba28-087b51168a92",
+          "sku": "R5P-7D16EA-10",
+          "name": "R5 pricing R5P-7D16EA-10",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "45c5c563-065b-4dc9-9c51-7229eefc7207",
+          "sku": "R5P-7D16EA-2",
+          "name": "R5 pricing R5P-7D16EA-2",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "2bfa1196-3a5c-4b45-9e56-88df760b6876",
+          "sku": "R5P-7D16EA-7",
+          "name": "R5 pricing R5P-7D16EA-7",
+          "onHand": 50,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "25fdef34-bc37-438a-8dfb-3363e0e50cd5",
+          "sku": "R5P-8DB399-1",
+          "name": "R5 pricing R5P-8DB399-1",
+          "onHand": 48,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "705cb1cf-bf41-46fa-b3a8-30b0b0d664b1",
+          "sku": "R5P-8DB399-10",
+          "name": "R5 pricing R5P-8DB399-10",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "5a18aca7-74e8-49b0-9c19-7eb8fece454e",
+          "sku": "R5P-8DB399-2",
+          "name": "R5 pricing R5P-8DB399-2",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "ade791f2-53fc-4827-9e34-89ef296041e9",
+          "sku": "R5P-8DB399-7",
+          "name": "R5 pricing R5P-8DB399-7",
+          "onHand": 50,
+          "movements": 1,
+          "agentOwned": true
+        },
+        {
+          "productId": "981659a8-4ad3-4523-894e-0a4a8555de0f",
+          "sku": "R5P-995E81-1",
+          "name": "R5 pricing R5P-995E81-1",
+          "onHand": 48,
+          "movements": 3,
+          "agentOwned": true
+        },
+        {
+          "productId": "69075065-b89e-4839-8280-1bb3258c1d43",
+          "sku": "R5P-995E81-10",
+          "name": "R5 pricing R5P-995E81-10",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "bfce1111-bc72-4e83-a289-e90aa8c17341",
+          "sku": "R5P-995E81-2",
+          "name": "R5 pricing R5P-995E81-2",
+          "onHand": 49,
+          "movements": 2,
+          "agentOwned": true
+        },
+        {
+          "productId": "a89cbc9e-9cf0-4968-8244-52466d97d3b6",
+          "sku": "R5P-995E81-7",
+          "name": "R5 pricing R5P-995E81-7",
+          "onHand": 50,
+          "movements": 1,
+          "agentOwned": true
+        }
+      ]
+    },
+    "investmentEligibilityBlocked": {
+      "count": 0,
+      "rows": []
+    },
+    "agentOwnedWithCompanyGl": {
+      "count": 0,
+      "rows": []
+    }
+  },
+  "baseline": {
+    "products": {
+      "count": 981,
+      "deleted": 110,
+      "attributeFingerprint": "60f7f8705d70bfffc840ac60ea46e3e5"
+    },
+    "movements": {
+      "count": 778,
+      "byType": {
+        "ADJUSTMENT": 1,
+        "OPENING_BALANCE": 227,
+        "PURCHASE_RECEIPT": 15,
+        "PURCHASE_RETURN": 3,
+        "RESERVATION": 9,
+        "RESERVATION_RELEASE": 9,
+        "SALES_DELIVERY": 381,
+        "SALES_RETURN": 133
+      },
+      "fingerprint": "e4c65f0130898ca23abe5996facc034f"
+    },
+    "onHand": {
+      "03cb544d-a4ef-4dee-af00-8d9acc67878a|bce10b3e-6022-4a2e-a5f4-1e44985b43f2": "161/0",
+      "050bd8d1-d1dd-462c-ac7a-a08f4ccfd58c|6a02d2be-5344-4514-909e-d82f2a39e743": "49/0",
+      "064de995-57cb-4518-b938-0f4294a9f21e|20bd5c0c-8813-4a60-89b6-dd18e044df1f": "99/0",
+      "066498ae-2f2f-41c4-8043-faa89ee368ad|f21c93ac-8415-467a-997b-c47b0d607483": "5/0",
+      "085a6af6-402e-4a68-888d-1b3b47bce2cc|388534a9-5049-42ea-ad7b-8a71f37d99bc": "99/0",
+      "0f5fb9da-21bf-481b-804a-f98e9a07cc58|918efa7d-79d5-4978-ab2f-4b9bab6701cd": "94/0",
+      "0f72105d-eab0-48b8-9c6d-2fc5046ba76c|fde84a80-dc56-470f-9315-480529c52240": "50/0",
+      "0f9f4211-287f-4b11-b542-b284a2f38214|95f91fd6-81c0-4ddc-ab06-e7fd1497e34f": "49/0",
+      "10d4c09a-6f9e-47ae-a7b1-81b4af0935b5|4fa80e3b-3125-4e30-91ff-b49b4f00c448": "100/0",
+      "119672fe-4cc5-4b32-9e05-946a3c18f075|e358ba08-5c8a-4b2c-a9f2-64d3252c2c44": "100/0",
+      "11b6f927-d816-4f9d-b80d-ccaa0ef45274|81662508-f054-4def-9a85-8ed9015a757d": "100/0",
+      "1330f292-18ea-4fd3-98a4-bc9142637784|bce10b3e-6022-4a2e-a5f4-1e44985b43f2": "102/0",
+      "13e38df9-9117-42f3-8779-69b46a557df6|d4317e19-f95e-4db3-a610-26606c059bce": "92/0",
+      "144451d5-843d-4c9f-816c-1eb8a6133a29|6a4900d5-d54e-4daf-a150-194fbd5e098d": "100/0",
+      "144c4c75-595e-4d08-b618-941774feb34d|e358ba08-5c8a-4b2c-a9f2-64d3252c2c44": "99/0",
+      "157d7ab0-cc75-480a-b3b0-e573e3d393d8|c8e7e12e-6deb-4999-bca5-de1936346269": "100/0",
+      "15fee3ff-d281-4358-a317-66e1d8a9ec26|3802a423-b63d-4758-a9f8-e213a4badaba": "46/0",
+      "15fee3ff-d281-4358-a317-66e1d8a9ec26|bce10b3e-6022-4a2e-a5f4-1e44985b43f2": "47/0",
+      "173ffa18-99dc-474a-9e75-0aabf69208f5|357b6a99-2e85-41fe-84a5-ff259be79033": "100/0",
+      "1cf200aa-e840-4ecb-ac5e-a6d267c2cca7|7bc6e046-8636-4186-859d-98e7165e0c6e": "49/0",
+      "1dc6f546-feb2-4993-8ad0-b497cf3938d5|7e43a7fa-9663-4683-9748-0f0ce8179c55": "100/0",
+      "1e7e3fa8-7788-44fe-9396-10dfe825939f|1ab05ba7-135c-47a1-8c66-0f43a56b0c4c": "50/0",
+      "1eb55372-7402-4d03-a0e3-fdcf8a951e0d|4fa80e3b-3125-4e30-91ff-b49b4f00c448": "92/0",
+      "20daae1e-e0de-4a0e-99dd-0f7956acbf2b|ced8403e-0a75-4f23-a01b-28fb01a023a4": "92/0",
+      "21864a05-def1-4c98-a395-7cf29c1782eb|7e43a7fa-9663-4683-9748-0f0ce8179c55": "98/0",
+      "241a63e7-0140-457a-8e9a-8b214a63cf9f|2b6b4d0f-617f-45c2-8d7d-ccf4aa430472": "100/0",
+      "25fdef34-bc37-438a-8dfb-3363e0e50cd5|fc76f30b-0e8a-4870-8afe-46183b376126": "48/0",
+      "271038f5-142d-493c-94dc-e11d5b784eff|2b6b4d0f-617f-45c2-8d7d-ccf4aa430472": "99/0",
+      "2777fc9e-3024-4dce-819a-e4586cb8ba5c|6a4900d5-d54e-4daf-a150-194fbd5e098d": "99/0",
+      "277eba4b-1207-4640-9be5-ca55c726ab02|2f2f0c62-220c-4232-8da9-1141545caa58": "5/0",
+      "28120a98-7121-4141-8244-8ad2d3c2eb99|e9cb41ab-b818-4c12-8143-9a79d35f3f9b": "99/0",
+      "29812e18-476c-4531-9f03-8ed15405a7f7|e9cb41ab-b818-4c12-8143-9a79d35f3f9b": "99/0",
+      "29c0946f-eab8-458a-9574-50822c70c43c|c0a3794a-7dbc-46d8-bc4a-abf94e97edcc": "5/0",
+      "2bfa1196-3a5c-4b45-9e56-88df760b6876|f2f7122b-e3aa-4b8f-b42f-f9215ed3deaa": "50/0",
+      "2c92cd06-4e67-4f85-91fb-d539cda0a6d7|bce10b3e-6022-4a2e-a5f4-1e44985b43f2": "15/0",
+      "2d47b408-d99c-417c-a9cb-cf1212df0841|e654c8cc-b0a7-4456-86b3-5ce395671823": "100/0",
+      "2e6c6a2c-b4dc-46ab-b9d9-69d6144c57d4|3802a423-b63d-4758-a9f8-e213a4badaba": "21/0",
+      "2f292deb-0222-4fda-ae7b-60318870f38d|95f91fd6-81c0-4ddc-ab06-e7fd1497e34f": "48/0",
+      "2f2b7154-b2ad-458b-99f7-52d2c98a0afb|e94070db-3f22-4d04-be90-c8f67f86e96d": "100/0",
+      "2f6f8a43-52ad-4f6d-a89e-5f2df326e498|5015d336-71a2-496e-ac55-e87c25d9d0ce": "48/0",
+      "32090fda-42a0-420c-904d-3f320215d0a7|5b0fe0ad-0521-4664-8a32-6e00011a8cf3": "5/0",
+      "3234306a-5705-4d60-96fa-f7b977934661|20bd5c0c-8813-4a60-89b6-dd18e044df1f": "100/0",
+      "337e903b-1345-4578-bf08-08b55a9f3875|8bd008ed-c5df-4a38-a6ff-419f599b0b4b": "100/0",
+      "345f4427-0ed7-4c50-9352-391ff7764967|20f6a61e-0215-4b7d-a03c-8feae32bf670": "92/0",
+      "34b21268-d95a-48e3-ba28-087b51168a92|f2f7122b-e3aa-4b8f-b42f-f9215ed3deaa": "49/0",
+      "358e3e0e-6019-4bcb-8512-d6c5ccce9dbd|1ab05ba7-135c-47a1-8c66-0f43a56b0c4c": "49/0",
+      "3758d5c4-f0ac-4dfe-ae1a-7845b35143ab|bd1afdd0-bd85-45d0-97d6-a67ba0555f00": "50/0",
+      "3776a97b-9a19-45d9-8487-b338771745f3|95f91fd6-81c0-4ddc-ab06-e7fd1497e34f": "49/0",
+      "37a5d801-bc79-4cd2-9cef-f2189f3ad26f|e9cb41ab-b818-4c12-8143-9a79d35f3f9b": "99/0",
+      "3810d4b1-d303-424d-9dcb-05e263bb9b75|0a735cd0-b517-4984-a59e-e1ff0eb084c4": "92/0",
+      "3a8a1bf5-1e30-448c-b2e9-0412f8bef490|388534a9-5049-42ea-ad7b-8a71f37d99bc": "99/0",
+      "3b7da28c-87e8-4877-a3f9-39db2c9efed1|46f9b72c-55c1-4f43-af15-0bc7ff91c9b0": "5/0",
+      "3bb41a01-bfea-4d33-874c-31e6afdd8939|bd1afdd0-bd85-45d0-97d6-a67ba0555f00": "48/0",
+      "3ef2f98d-accd-4620-874a-74c9c99e5036|3802a423-b63d-4758-a9f8-e213a4badaba": "15/0",
+      "3f8c8ea4-5326-409d-a08d-c4eaa2a1cdf9|2b6b4d0f-617f-45c2-8d7d-ccf4aa430472": "99/0",
+      "43108d7d-5f5d-4110-9d58-d362c4b174e9|c773358a-c217-4ffb-ab74-caffccdeac1f": "100/0",
+      "45c5c563-065b-4dc9-9c51-7229eefc7207|f2f7122b-e3aa-4b8f-b42f-f9215ed3deaa": "49/0",
+      "4694e6c1-75e9-4c1e-886a-343961b3d56d|b29529bd-08aa-4761-b628-4b1c9a9ec907": "50/0",
+      "46a46653-00da-4bc4-9696-b59dec402e50|c8e7e12e-6deb-4999-bca5-de1936346269": "92/0",
+      "475e1b7b-1ae8-4ab4-86d0-0e33134a5410|2d831191-7d0a-4095-9432-bba4af7e8d36": "5/0",
+      "47aac801-f5f8-49d3-b9ca-1a00d963a30d|7bc6e046-8636-4186-859d-98e7165e0c6e": "49/0",
+      "4848f277-07c3-4d57-a43a-1f5623230a66|e654c8cc-b0a7-4456-86b3-5ce395671823": "99/0",
+      "49098f11-82d9-43c7-aeab-4aba52b820a7|ced8403e-0a75-4f23-a01b-28fb01a023a4": "100/0",
+      "49172103-5c87-41b6-89b6-2f55d9c3810f|16af7a28-2a6a-4733-b4a7-cbd1d003327e": "49/0",
+      "4c2c0274-4232-4cea-98cd-3dc654151ba3|d4317e19-f95e-4db3-a610-26606c059bce": "100/0",
+      "4d0adc0e-dc09-4602-b428-68e8568c0794|a4f3710d-ec46-40d5-afd5-3fd93cbc33e5": "5/0",
+      "4e21c384-bc11-40a5-8063-8e67c8dbf4f1|0a735cd0-b517-4984-a59e-e1ff0eb084c4": "100/0",
+      "4f493709-6721-497b-a630-a0ce0a119647|6a4900d5-d54e-4daf-a150-194fbd5e098d": "99/0",
+      "4f923c6d-3cba-4955-96f6-35088c956cd3|c7988764-8501-402f-b8aa-7091abb07a78": "100/0",
+      "5191d8c1-c92a-4f9f-8c27-dae0abb69de5|20f6a61e-0215-4b7d-a03c-8feae32bf670": "100/0",
+      "55c90393-555a-42ad-a479-af193493caf5|5397ca7a-60f7-4cec-8a0b-70b4172a0f59": "50/0",
+      "57806a20-e1a7-4488-bec3-24f24c95c1b5|20bd5c0c-8813-4a60-89b6-dd18e044df1f": "99/0",
+      "58bd4f07-b394-4178-86c9-95c33a93ad31|c7988764-8501-402f-b8aa-7091abb07a78": "92/0",
+      "5923f25b-31b4-4e7b-8f4b-130ba50e743b|94523cc1-b105-4f37-8623-0493903921f8": "30/0",
+      "5a18aca7-74e8-49b0-9c19-7eb8fece454e|fc76f30b-0e8a-4870-8afe-46183b376126": "49/0",
+      "5a68cf4c-d551-4ab2-a23c-1aaa5cde7613|e654c8cc-b0a7-4456-86b3-5ce395671823": "99/0",
+      "5a8f1eb4-9043-4cd2-8a9d-dd1e172b0cbb|912c3fef-4095-43af-a28e-f824ee9b70d4": "100/0",
+      "5b68c172-3e15-4cb9-8def-e20bbadd12e4|3e4908f3-c7e1-438b-b215-eecf209e5330": "5/0",
+      "5b96a505-7060-4feb-9699-e3e2511a42b0|3802a423-b63d-4758-a9f8-e213a4badaba": "2/0",
+      "5c77397c-3b9f-48a4-bd97-32f5d2eeeb86|c773358a-c217-4ffb-ab74-caffccdeac1f": "94/0",
+      "5d3195a1-451e-4ea4-8815-8b89aa6b1082|21ddbaa4-03a9-428c-ad8d-b300f8efdc7b": "5/0",
+      "5d954ddc-a5d6-47ee-a4da-47d7738f57f2|16af7a28-2a6a-4733-b4a7-cbd1d003327e": "48/0",
+      "5e85918d-4a58-4606-a129-187e8d75ceac|0e5174d2-af98-4920-a2d6-2f1bda33820a": "92/0",
+      "5ea1e867-983b-47e5-8c69-201692dabfe6|e358ba08-5c8a-4b2c-a9f2-64d3252c2c44": "99/0",
+      "5ee798ac-b01a-42cd-9211-165dd51d2cbf|e789a553-9c65-4ea9-a262-7b2aa370db58": "50/0",
+      "6020c8ed-02bd-414b-a54e-cda47ec33a0c|7876d0ea-97b0-4e5a-a9b1-07ecd3658135": "94/0",
+      "6435d330-7f0c-402c-8523-d8e614404979|055323d8-5138-479e-b609-e2ee65f651e3": "5/0",
+      "6511edc0-743d-43ae-bd07-72f27028ddd1|036671b8-bf25-43c8-910d-d46828ad38d6": "49/0",
+      "668ce405-9021-4e86-a041-18840bec3513|5397ca7a-60f7-4cec-8a0b-70b4172a0f59": "49/0",
+      "69075065-b89e-4839-8280-1bb3258c1d43|18096b3e-30f9-4247-b0fa-93542cb1e9c0": "49/0",
+      "69a37883-5ae5-4825-b638-7c671ef44394|e654c8cc-b0a7-4456-86b3-5ce395671823": "99/0",
+      "6a2c9a6c-a4bd-4240-9b2d-816f3656d4e2|6a02d2be-5344-4514-909e-d82f2a39e743": "50/0",
+      "6b4edede-6bdd-42bb-b96d-795a117c2f37|e94070db-3f22-4d04-be90-c8f67f86e96d": "94/0",
+      "6e1d9517-433e-43e8-aecd-26601a6f3b04|89bc8c94-7f83-4af1-86ca-31db99e9f43b": "100/0",
+      "70523dfb-8147-4c3e-89d6-cf7ce778bc2f|e9f06f51-7a3f-459e-95fa-d2366597ddc4": "5/0",
+      "705cb1cf-bf41-46fa-b3a8-30b0b0d664b1|fc76f30b-0e8a-4870-8afe-46183b376126": "49/0",
+      "73778260-de39-44b7-bb7a-49dfa4ecd30b|40d96e0e-6480-400d-a5d7-ae6a91ff7748": "5/0",
+      "749e846b-0324-4c0f-af70-04e70df40a90|fde84a80-dc56-470f-9315-480529c52240": "48/0",
+      "758b49ed-279c-4868-a186-dea046ed91ad|dd3814b2-dc18-40aa-8fe7-3c25740bb119": "5/0",
+      "76dcfd59-7fc4-45c8-a84e-1c75ba0b06fb|1ab05ba7-135c-47a1-8c66-0f43a56b0c4c": "49/0",
+      "77bc558b-83da-4a58-bc80-93dc2e4b466b|2905e2c8-0777-46f7-96e6-7223513cdf0e": "50/0",
+      "78587a75-738c-463d-9e2a-4e43bec87611|781ef15a-ebfb-4c10-8238-76e6e5156c29": "100/0",
+      "795e63b2-3256-4c8f-91ef-2e63984afcb3|b42830e7-90a4-48d6-a13b-e2b85d267eef": "5/0",
+      "7aedfc40-ae80-4a3d-add9-d828732ac680|7ecbd13b-1a6a-44a8-9df8-221957e269b6": "5/0",
+      "7bc50e0e-34a6-4a9d-bd48-d9ca5b1240a1|781ef15a-ebfb-4c10-8238-76e6e5156c29": "92/0",
+      "7cdcb04c-9a13-4162-a16b-93d844e38ae4|fde84a80-dc56-470f-9315-480529c52240": "49/0",
+      "7dd59291-f2c2-44df-927f-9917a4b5123d|bce10b3e-6022-4a2e-a5f4-1e44985b43f2": "102/0",
+      "7dd96705-9fcf-4cf0-a445-ea12eabe45e1|e358ba08-5c8a-4b2c-a9f2-64d3252c2c44": "99/0",
+      "7e7c89b0-d552-465c-839d-6d977f0da606|1bcd8029-de94-4fa1-9749-251aa80908a0": "5/0",
+      "7fb79852-cb11-4d37-af82-ef6934edfc25|036671b8-bf25-43c8-910d-d46828ad38d6": "48/0",
+      "8333f1e1-5ad5-467b-a957-7104bbeabde2|7bc6e046-8636-4186-859d-98e7165e0c6e": "50/0",
+      "851b539a-9dfa-4988-8840-2a02a8c4ad02|c6f014fa-63e9-42a1-b927-6f2fde0ee70c": "92/0",
+      "853eb859-dff2-4410-a5bc-365e8934318e|4bd8e832-5e3d-4737-959b-0074a470ced2": "5/0",
+      "8796320b-7959-4ff2-905c-35e2948ebfcd|8e5d9a3f-413e-40c9-8ab9-8d5790af15f2": "5/0",
+      "8a247f53-c4b3-4e9a-bdf7-7d20f3e7a36b|918efa7d-79d5-4978-ab2f-4b9bab6701cd": "100/0",
+      "8a5643b2-9159-4b7a-a970-85a543598dfa|b29529bd-08aa-4761-b628-4b1c9a9ec907": "48/0",
+      "8b2c96d2-2729-43b6-87eb-dc7d58f44f4a|357b6a99-2e85-41fe-84a5-ff259be79033": "94/0",
+      "8befec16-828d-48a6-b341-17647f755ce6|89bc8c94-7f83-4af1-86ca-31db99e9f43b": "94/0",
+      "8cf75dc7-f69b-4299-8711-e8a584e1773f|2b6b4d0f-617f-45c2-8d7d-ccf4aa430472": "99/0",
+      "8deb3e9d-ba63-43d8-abe2-6a34298ec88a|388534a9-5049-42ea-ad7b-8a71f37d99bc": "99/0",
+      "8f179fe9-3453-472d-8553-bbffa3b61a6a|2905e2c8-0777-46f7-96e6-7223513cdf0e": "49/0",
+      "8f27e83e-0397-4af1-9f3b-ee9cf779847e|20bd5c0c-8813-4a60-89b6-dd18e044df1f": "99/0",
+      "8fd1165d-9839-44e1-a0be-7e805ca1b5d0|bce10b3e-6022-4a2e-a5f4-1e44985b43f2": "15/0",
+      "91376df2-29eb-47b4-bb9f-1b48524413e2|ce20e770-4201-4333-977b-ca3490c8c566": "92/0",
+      "92095d33-ec9a-49b9-bc9f-cfc037199251|bd1afdd0-bd85-45d0-97d6-a67ba0555f00": "49/0",
+      "92b25984-6108-4716-b2ab-af91cd752847|119a21c3-b82e-440a-9913-c04fd7b52f0a": "5/0",
+      "933f1957-56f9-4abb-92a1-3bf3ea8d18cf|6a4900d5-d54e-4daf-a150-194fbd5e098d": "99/0",
+      "955f51c3-c6ef-4b66-9e10-185a61a46385|e358ba08-5c8a-4b2c-a9f2-64d3252c2c44": "99/0",
+      "962b8c0b-7165-4358-80f3-97e08124e43b|c6f014fa-63e9-42a1-b927-6f2fde0ee70c": "100/0",
+      "96fc73be-a4b5-49c5-aee1-9a6794a60d9c|3802a423-b63d-4758-a9f8-e213a4badaba": "0/0",
+      "96fc73be-a4b5-49c5-aee1-9a6794a60d9c|bce10b3e-6022-4a2e-a5f4-1e44985b43f2": "500/0",
+      "981659a8-4ad3-4523-894e-0a4a8555de0f|18096b3e-30f9-4247-b0fa-93542cb1e9c0": "48/0",
+      "9852fcee-03ff-43b0-953e-f783def8e7f7|5015d336-71a2-496e-ac55-e87c25d9d0ce": "50/0",
+      "9866ea20-96ed-4144-a51f-9702ddf325d3|0dcf20f7-6f38-45c0-83cd-d50807bd5bde": "5/0",
+      "993b446e-cc9c-4b76-8763-cd726e565dcb|b04356ba-c023-4bc7-a492-7c2f5bf65bbd": "5/0",
+      "9a5b2cb6-f953-4e28-88d9-5e04df971f32|16af7a28-2a6a-4733-b4a7-cbd1d003327e": "49/0",
+      "9bb5fb15-a190-4942-ad33-247b6a778046|036671b8-bf25-43c8-910d-d46828ad38d6": "50/0",
+      "a4357252-7ba4-4a4d-9af4-8abda63f1f6c|fbd2134c-edef-4fe7-b2b7-a0d3d8773229": "94/0",
+      "a7d51709-5ae3-40f0-bda1-4621b6369bdc|4889e012-2c7a-462c-ba89-6ffded63059f": "5/0",
+      "a82533d3-64c5-46ea-9597-ace9757ded46|1ab05ba7-135c-47a1-8c66-0f43a56b0c4c": "48/0",
+      "a89cbc9e-9cf0-4968-8244-52466d97d3b6|18096b3e-30f9-4247-b0fa-93542cb1e9c0": "50/0",
+      "a92cfa37-0275-44e7-ac56-42bfa5f6db32|bce10b3e-6022-4a2e-a5f4-1e44985b43f2": "16/0",
+      "a9a09a18-ad8b-4b66-813b-2dba8719ff06|69c9a0c0-3401-464e-9087-19a7c26ad8b4": "5/0",
+      "ab3c462f-7b1d-44b8-a682-3dfc0401ff2e|f2f7122b-e3aa-4b8f-b42f-f9215ed3deaa": "48/0",
+      "ad55c021-f0cc-4d88-aa9a-f871e2d9b754|e654c8cc-b0a7-4456-86b3-5ce395671823": "99/0",
+      "ad93ea8f-e2b5-4d29-93d8-c88b7912dc15|bd1afdd0-bd85-45d0-97d6-a67ba0555f00": "49/0",
+      "add29fc8-9456-4ed8-8ce3-ed52602d40bd|31cbccc5-2061-47d2-af09-0d02b093d7e2": "5/0",
+      "ade791f2-53fc-4827-9e34-89ef296041e9|fc76f30b-0e8a-4870-8afe-46183b376126": "50/0",
+      "af91c9ce-f0cc-423a-a58c-b9184cbc2f98|388534a9-5049-42ea-ad7b-8a71f37d99bc": "99/0",
+      "b01d8d82-b9c5-44f2-9b83-0b3d5aeebe12|2b6b4d0f-617f-45c2-8d7d-ccf4aa430472": "99/0",
+      "b03af561-4aa3-4f38-a6db-c766bf3d37bb|d6bb65c8-e627-4465-a2ae-48c205fed689": "5/0",
+      "b1167ea8-0549-4d83-91e3-4713280315a7|5397ca7a-60f7-4cec-8a0b-70b4172a0f59": "48/0",
+      "b359e5e5-3bd1-4a22-9b2f-a3c0de7b9631|c7070a98-4aeb-4ce4-b0fd-b48ab646b169": "5/0",
+      "b3eee231-3fc9-411b-8078-33036c0494a3|e358ba08-5c8a-4b2c-a9f2-64d3252c2c44": "99/0",
+      "b437fbc6-90fc-4ff7-b8f3-3224c7e7c279|7bc6e046-8636-4186-859d-98e7165e0c6e": "48/0",
+      "b4f30ebd-72e7-47c3-9dff-d373bbb19358|b29529bd-08aa-4761-b628-4b1c9a9ec907": "49/0",
+      "b57049a4-a839-4104-9f01-18a2748d34cd|28a8570c-3c0f-43c1-845e-b83b766cc73f": "92/0",
+      "b6af2a5a-b988-42b6-8835-060f0c589f16|7876d0ea-97b0-4e5a-a9b1-07ecd3658135": "100/0",
+      "b727aa2b-faf4-4383-8183-08080a3e7e45|08428585-62b9-4384-8812-fd0128c10f12": "5/0",
+      "b763ac1c-235a-4167-bb41-68047eb2a863|e654c8cc-b0a7-4456-86b3-5ce395671823": "99/0",
+      "bb347dfa-dc07-4a8a-8141-c36766281469|16af7a28-2a6a-4733-b4a7-cbd1d003327e": "50/0",
+      "bb7a262e-8989-43d4-83df-54faa6da8723|6a02d2be-5344-4514-909e-d82f2a39e743": "49/0",
+      "bc0036b7-6ca8-4830-a67e-c1660762049a|6a4900d5-d54e-4daf-a150-194fbd5e098d": "99/0",
+      "bc686dfd-65b3-492b-80dd-d915b1d016f2|ddb00e65-43b3-42dc-b941-a28516af3149": "5/0",
+      "bcda1777-b4a1-4c8c-b80f-1cc4c61142b9|e654c8cc-b0a7-4456-86b3-5ce395671823": "99/0",
+      "bd337a05-a2e6-44f1-b093-fb2717883d7a|e9cb41ab-b818-4c12-8143-9a79d35f3f9b": "100/0",
+      "be69a02d-bbed-49c6-8a29-89e731cd7d72|e358ba08-5c8a-4b2c-a9f2-64d3252c2c44": "99/0",
+      "beda7832-eae2-4aa7-80c5-7584a11ff340|e9cb41ab-b818-4c12-8143-9a79d35f3f9b": "99/0",
+      "bfce1111-bc72-4e83-a289-e90aa8c17341|18096b3e-30f9-4247-b0fa-93542cb1e9c0": "49/0",
+      "bfd6c59e-65a9-41c6-8023-b95c0c3480bf|bce10b3e-6022-4a2e-a5f4-1e44985b43f2": "20/0",
+      "c0224efe-dc30-48ae-b967-e55b4a3d2f56|e789a553-9c65-4ea9-a262-7b2aa370db58": "49/0",
+      "c0e3623a-1d97-496f-87ca-42c848268b11|bce10b3e-6022-4a2e-a5f4-1e44985b43f2": "16/0",
+      "c1ece158-1fa9-4ae4-b4f7-de5459c0017a|2b6b4d0f-617f-45c2-8d7d-ccf4aa430472": "99/0",
+      "c4274313-a5e8-4461-b83c-7769b02d31f4|e9cb41ab-b818-4c12-8143-9a79d35f3f9b": "99/0",
+      "c4ee7b93-f390-4c94-a0da-7a0a81fbf626|6a02d2be-5344-4514-909e-d82f2a39e743": "48/0",
+      "ca1fb5ed-2979-4c92-94cd-3d220902f3d1|20bd5c0c-8813-4a60-89b6-dd18e044df1f": "99/0",
+      "ca8839ac-d29d-4ddf-b926-a2d04d8bc900|d5445da0-ff65-4cf0-a73b-65a94eefbbee": "5/0",
+      "cae723a3-b5f2-4a97-938e-bc3859908333|912c3fef-4095-43af-a28e-f824ee9b70d4": "94/0",
+      "cafc6816-05ea-407c-ac75-86540e8d57a8|20bd5c0c-8813-4a60-89b6-dd18e044df1f": "99/0",
+      "cdbc7383-183b-470e-935b-fa97455c46f0|94523cc1-b105-4f37-8623-0493903921f8": "29/0",
+      "d0da193d-4da9-475d-8d7d-91771de0374b|e9cb41ab-b818-4c12-8143-9a79d35f3f9b": "99/0",
+      "d1f7e8d4-dac4-4c62-8df8-f5da1e88a043|180fdd00-9fc0-4e93-b5a6-dbca1b16228b": "5/0",
+      "d662938f-af1a-45b2-aea8-28e0d8a63ba0|dfed9a38-e90d-41a3-b2a1-3c756de76eea": "5/0",
+      "d74903ad-7ce7-45f3-8eee-9328deadbf84|e80cca59-99de-4ca4-bfa8-c5ea1c1af4b3": "5/0",
+      "d81531d8-0d4d-411a-80bc-8185dfabfe9a|28a8570c-3c0f-43c1-845e-b83b766cc73f": "100/0",
+      "d8e10fa4-36f1-49ca-b243-5190cd1b0482|bce10b3e-6022-4a2e-a5f4-1e44985b43f2": "95/0",
+      "db644789-e0ea-4ca7-9a92-1c67241174ec|81662508-f054-4def-9a85-8ed9015a757d": "98/0",
+      "dd92e6d1-24d2-43ca-bd6f-727685afaace|135cf466-5e3a-499c-b66c-6b61de29dcf3": "92/0",
+      "de265271-dae2-4d86-85fb-775a1b1a708f|2905e2c8-0777-46f7-96e6-7223513cdf0e": "49/0",
+      "df640c72-82fc-44a8-a479-fb2fc6bafcbd|ce20e770-4201-4333-977b-ca3490c8c566": "100/0",
+      "e39bcb48-9a78-4c28-aa34-8a1eba83cc9e|1275db1c-76a3-42b8-89b6-72fed33cf1c6": "5/0",
+      "e427bbc0-e78e-42a5-8010-b4866ae8e9d4|6451b882-1437-4142-8b67-aef1d51e204a": "5/0",
+      "e522b1ba-1636-418f-9cc2-077aae688657|85cd3d19-494d-41bf-8d44-4df0ba59c349": "5/0",
+      "e66e7e09-af4e-4573-a928-53e5a2c5024d|60b93466-a78e-4487-a86a-8464f6eddfde": "5/0",
+      "e6cfd305-20ec-405f-8c44-5b208c1c37c6|2905e2c8-0777-46f7-96e6-7223513cdf0e": "48/0",
+      "e7e2a624-eb48-483b-be9e-57a0a9bc153c|20bd5c0c-8813-4a60-89b6-dd18e044df1f": "99/0",
+      "e8530287-9daa-4b16-894c-0adbb19cfb38|c86dd774-4894-4ef0-8174-46dc83dd3ba5": "5/0",
+      "e936ddd7-4b77-41a0-b108-ce0af11271d7|4c46236f-33f1-46d8-9ff0-5ceeb401b3ce": "5/0",
+      "e95b33f6-0199-4946-8010-26a98cc6f39f|6a4900d5-d54e-4daf-a150-194fbd5e098d": "99/0",
+      "ea4db14d-8bd2-4006-ab21-ca3bb81c9fd4|388534a9-5049-42ea-ad7b-8a71f37d99bc": "99/0",
+      "ebcf10fb-a9b3-43d7-9a9a-0e037574b95f|388534a9-5049-42ea-ad7b-8a71f37d99bc": "99/0",
+      "ebe4083f-1754-49e8-aa04-aded7d1ce273|fde84a80-dc56-470f-9315-480529c52240": "49/0",
+      "ec358126-6ce0-40e6-8369-066832af45d0|bce10b3e-6022-4a2e-a5f4-1e44985b43f2": "102/0",
+      "ec95ed49-50ff-469e-86e7-7b6b28fd8a36|94523cc1-b105-4f37-8623-0493903921f8": "5/0",
+      "ed1e629c-aa9e-4601-b688-d79c112faada|4113991d-a328-42ce-a0d2-8e252322c139": "92/0",
+      "edbd8ccd-9a50-40ab-a9c3-8404e968fb16|2b6b4d0f-617f-45c2-8d7d-ccf4aa430472": "99/0",
+      "ee42ba05-6fd0-4f8a-b09b-a864eb601cbc|4113991d-a328-42ce-a0d2-8e252322c139": "100/0",
+      "eef5ca0e-376e-4eb9-a832-630a80c86495|5015d336-71a2-496e-ac55-e87c25d9d0ce": "49/0",
+      "f114fb29-9b4e-48c7-b56e-de71c846cd6e|388534a9-5049-42ea-ad7b-8a71f37d99bc": "100/0",
+      "f282350f-856c-42a3-b5c2-de993b5c32d3|8bd008ed-c5df-4a38-a6ff-419f599b0b4b": "94/0",
+      "f292c667-aa1a-436f-8b3b-bd07c102189a|e789a553-9c65-4ea9-a262-7b2aa370db58": "48/0",
+      "f2a21b42-788f-4332-8ca8-b6bdd341a668|95f91fd6-81c0-4ddc-ab06-e7fd1497e34f": "50/0",
+      "f2d2e21f-ca58-4cfe-8d09-165878ccd1d4|e358ba08-5c8a-4b2c-a9f2-64d3252c2c44": "99/0",
+      "f2e39270-2810-4df0-ba18-30c7f4057c2f|6a4900d5-d54e-4daf-a150-194fbd5e098d": "99/0",
+      "f3b3dde7-5fd7-4129-ace8-21f8d7892c08|5397ca7a-60f7-4cec-8a0b-70b4172a0f59": "49/0",
+      "f3ca4e78-db0f-4a63-bc34-740d84d14964|20bd5c0c-8813-4a60-89b6-dd18e044df1f": "99/0",
+      "f3ff8c1e-d20d-455a-a005-0c088c104381|fbd2134c-edef-4fe7-b2b7-a0d3d8773229": "100/0",
+      "f485dd76-25b7-486b-b658-d436eb30c99c|135cf466-5e3a-499c-b66c-6b61de29dcf3": "100/0",
+      "f4ecf662-8707-4e50-b488-8b7421486d52|ef076655-6cd6-43da-a79c-0a4805828d83": "5/0",
+      "f4fbb5ee-bde5-41b8-80b8-d77380168cef|6a4900d5-d54e-4daf-a150-194fbd5e098d": "99/0",
+      "f5f0807d-b572-4ec6-a6d4-bb2545c6c232|e9cb41ab-b818-4c12-8143-9a79d35f3f9b": "99/0",
+      "f5fa347d-5067-4fb8-8956-0c0fbee8ec17|0e5174d2-af98-4920-a2d6-2f1bda33820a": "100/0",
+      "f684d8eb-a854-419e-b323-47697580a6a9|e654c8cc-b0a7-4456-86b3-5ce395671823": "99/0",
+      "f6a36786-e2db-4fbb-945c-e020cd29b87e|3b87ec46-6331-4c9a-ba80-3b04af9d42cb": "5/0",
+      "f845a12e-73e9-4420-9585-33d6b00e725d|036671b8-bf25-43c8-910d-d46828ad38d6": "49/0",
+      "f8ffe1d5-06f8-4838-93eb-95c8b5fd4b68|bce10b3e-6022-4a2e-a5f4-1e44985b43f2": "16/0",
+      "fa510e06-d099-4743-be08-f2c170b73979|5015d336-71a2-496e-ac55-e87c25d9d0ce": "49/0",
+      "fc1add14-f42c-4cdc-ab3c-32cd4f157f94|b29529bd-08aa-4761-b628-4b1c9a9ec907": "49/0",
+      "fda7212a-b83b-4441-86c6-3831576c3209|e789a553-9c65-4ea9-a262-7b2aa370db58": "49/0",
+      "fdd091b4-327b-4292-98cd-0f1cd7d45bbb|388534a9-5049-42ea-ad7b-8a71f37d99bc": "99/0",
+      "fe5ab12d-d5c2-4b41-b745-ebcfc2a72837|2b6b4d0f-617f-45c2-8d7d-ccf4aa430472": "99/0",
+      "ffcdd001-806e-4b66-a59c-bb11654fecb1|94523cc1-b105-4f37-8623-0493903921f8": "5/0"
+    },
+    "onHandUnits": 15077,
+    "companyStockValue": "396820.56",
+    "costs": {
+      "productsWithCost": 92,
+      "currentCostFingerprint": "24803bd9d0335e89b59569cb284c2cc8",
+      "snapshots": 14,
+      "snapshotFingerprint": "2268bd12aee0078517264bba8fd7bc2f",
+      "history": 31,
+      "historyFingerprint": "3cd69b316d567404b51a9310d6ebffe3",
+      "invoiceLineCostFingerprint": "4eacd7be520e89f080ec4285c36f023a"
+    },
+    "gl": {
+      "entries": 5958,
+      "lines": 13112,
+      "totalDebit": "24470164.99",
+      "totalCredit": "24470164.99",
+      "linesFingerprint": "4bff19d1ca9f29b65db1fb3fd1ac1645",
+      "inventoryAccounts": [
+        {
+          "id": "2a1bdc1f-6eb8-42ad-ab73-b19704a5fcb7",
+          "code": "INV",
+          "name": "مخزون البضاعة",
+          "balance": "374909.36"
+        },
+        {
+          "id": "597513c6-da19-40ad-baee-d00b97032d28",
+          "code": "R13C-00DE7E0A-A1-INV",
+          "name": "R13 C A1 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "8364e270-4783-4d56-b866-a4bb734c3faf",
+          "code": "R13C-00DE7E0A-A13-INV",
+          "name": "R13 C A13 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "9fb144df-2df5-4a6c-a4e3-7b90a6fb560c",
+          "code": "R13C-00DE7E0A-A17-INV",
+          "name": "R13 C A17 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "b18a0cba-4c52-4da8-9fed-08ded218868d",
+          "code": "R13C-00DE7E0A-A29-INV",
+          "name": "R13 C A29 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "9c129c6b-dda1-4d3a-bb0c-739448d713db",
+          "code": "R13C-00DE7E0A-A5-INV",
+          "name": "R13 C A5 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "4ce382a5-b4eb-4aad-a420-1345566eaded",
+          "code": "R13C-00DE7E0A-A9-INV",
+          "name": "R13 C A9 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "57cc4ad6-6213-4f51-8b48-cb0ed530dbe0",
+          "code": "R13C-00DE7E0A-AG21-INV",
+          "name": "R13 C AG21 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "187a9e3d-3e87-41a0-8d83-4f7cf4666106",
+          "code": "R13C-00DE7E0A-B1-INV",
+          "name": "R13 C B1 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "86d52b96-bb77-46ed-940b-faa356bf94ff",
+          "code": "R13C-00DE7E0A-B13-INV",
+          "name": "R13 C B13 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "dffdb13d-b828-417e-8ef3-6cedb644fee9",
+          "code": "R13C-00DE7E0A-B17-INV",
+          "name": "R13 C B17 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "36484d2f-ea44-4cdf-b138-f2752a7bd9c7",
+          "code": "R13C-00DE7E0A-B29-INV",
+          "name": "R13 C B29 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "152d9f3d-6e78-467e-8a0c-d40b173e1f26",
+          "code": "R13C-00DE7E0A-B5-INV",
+          "name": "R13 C B5 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "d11869c0-9fcb-4e0a-bb4a-0f95bcdc1e0f",
+          "code": "R13C-00DE7E0A-B9-INV",
+          "name": "R13 C B9 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "0eed0614-1618-4a39-907b-5aa1b2b8713f",
+          "code": "R13C-00DE7E0A-DUP27-INV",
+          "name": "R13 C DUP27 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "a1fb8a2c-a266-445d-8276-9e5442634ed4",
+          "code": "R13C-00DE7E0A-K1-INV",
+          "name": "R13 C K1 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "d1393a76-f2bb-4ac4-84e3-21f2394141e9",
+          "code": "R13C-00DE7E0A-K13-INV",
+          "name": "R13 C K13 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "31d29c22-c355-4cff-bec1-74daf73cfa38",
+          "code": "R13C-00DE7E0A-K17-INV",
+          "name": "R13 C K17 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "3c47c59a-6771-4e7c-879f-f1e80934666a",
+          "code": "R13C-00DE7E0A-K29-INV",
+          "name": "R13 C K29 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "ecf0ffdf-f39f-424f-8ffd-3bd37b65b2d3",
+          "code": "R13C-00DE7E0A-K5-INV",
+          "name": "R13 C K5 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "55b00985-e785-419f-b794-aabedd96b175",
+          "code": "R13C-00DE7E0A-K9-INV",
+          "name": "R13 C K9 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "cd84500b-cc27-4d37-b04d-c8b7eebb6a2f",
+          "code": "R13C-00DE7E0A-LC35-INV",
+          "name": "R13 C LC35 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "9a2d0ff6-ecb5-4420-b908-9be8c6776d2e",
+          "code": "R13C-00DE7E0A-LF39-INV",
+          "name": "R13 C LF39 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "21d5fab0-28b3-4b34-8af0-c37aa04e8e13",
+          "code": "R13C-00DE7E0A-LX41-INV",
+          "name": "R13 C LX41 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "132ca17b-a93a-42f7-8081-d5c9d1c48f2b",
+          "code": "R13C-00DE7E0A-LZ37-INV",
+          "name": "R13 C LZ37 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "07817e86-12a9-47c0-9941-14415d4d942b",
+          "code": "R13C-00DE7E0A-PB33-INV",
+          "name": "R13 C PB33 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "552d0e89-107d-45b9-9f36-b0879a005d79",
+          "code": "R13C-00DE7E0A-S25-INV",
+          "name": "R13 C S25 INV 00DE7E0A",
+          "balance": "0.00"
+        },
+        {
+          "id": "b13280f0-09b1-401d-8494-dbbbdc672b9d",
+          "code": "R13C-064C5228-A1-INV",
+          "name": "R13 C A1 INV 064C5228",
+          "balance": "0.00"
+        },
+        {
+          "id": "8f7e3698-6188-4366-b6a6-d79fffd767d4",
+          "code": "R13C-064C5228-B1-INV",
+          "name": "R13 C B1 INV 064C5228",
+          "balance": "0.00"
+        },
+        {
+          "id": "c0137e01-84db-4a57-9559-8b1295790408",
+          "code": "R13C-064C5228-K1-INV",
+          "name": "R13 C K1 INV 064C5228",
+          "balance": "0.00"
+        },
+        {
+          "id": "ec8c82bf-0292-48b4-81a5-2a76cf01f7c3",
+          "code": "R13C-28C3057F-A1-INV",
+          "name": "R13 C A1 INV 28C3057F",
+          "balance": "0.00"
+        },
+        {
+          "id": "7ebcf666-c5dc-4252-8591-e81427dc2ff7",
+          "code": "R13C-28C3057F-A13-INV",
+          "name": "R13 C A13 INV 28C3057F",
+          "balance": "0.00"
+        },
+        {
+          "id": "8c32e09e-8a05-4f1b-9943-67c9684eb944",
+          "code": "R13C-28C3057F-A5-INV",
+          "name": "R13 C A5 INV 28C3057F",
+          "balance": "0.00"
+        },
+        {
+          "id": "1363dbff-aba3-465a-9315-1350e2e32934",
+          "code": "R13C-28C3057F-A9-INV",
+          "name": "R13 C A9 INV 28C3057F",
+          "balance": "0.00"
+        },
+        {
+          "id": "6b84408e-fd90-4c21-a8bd-19431ef5acbd",
+          "code": "R13C-28C3057F-B1-INV",
+          "name": "R13 C B1 INV 28C3057F",
+          "balance": "0.00"
+        },
+        {
+          "id": "4bbf5160-c264-49a7-ba7d-66c3f8c4f31b",
+          "code": "R13C-28C3057F-B13-INV",
+          "name": "R13 C B13 INV 28C3057F",
+          "balance": "0.00"
+        },
+        {
+          "id": "c34640fe-1509-43d8-90bc-8c3ca895f70a",
+          "code": "R13C-28C3057F-B5-INV",
+          "name": "R13 C B5 INV 28C3057F",
+          "balance": "0.00"
+        },
+        {
+          "id": "8a36ce30-3bab-442f-b6fd-74fb5abcfedd",
+          "code": "R13C-28C3057F-B9-INV",
+          "name": "R13 C B9 INV 28C3057F",
+          "balance": "0.00"
+        },
+        {
+          "id": "e6ceb8af-8a14-4e51-a25d-d2547f83018a",
+          "code": "R13C-28C3057F-K1-INV",
+          "name": "R13 C K1 INV 28C3057F",
+          "balance": "0.00"
+        },
+        {
+          "id": "7bc3f4e1-f7b3-4554-8f73-57983da2ab2d",
+          "code": "R13C-28C3057F-K13-INV",
+          "name": "R13 C K13 INV 28C3057F",
+          "balance": "0.00"
+        },
+        {
+          "id": "c2cdc79a-ecde-4ea0-ac3b-6023981c74d0",
+          "code": "R13C-28C3057F-K5-INV",
+          "name": "R13 C K5 INV 28C3057F",
+          "balance": "0.00"
+        },
+        {
+          "id": "fa4bc10c-ea15-4abd-bb13-30aa4f117b7b",
+          "code": "R13C-28C3057F-K9-INV",
+          "name": "R13 C K9 INV 28C3057F",
+          "balance": "0.00"
+        },
+        {
+          "id": "f7534d7a-03b7-454b-aed5-d154d0c9e2d9",
+          "code": "R13C-41154BDC-A1-INV",
+          "name": "R13 C A1 INV 41154BDC",
+          "balance": "0.00"
+        },
+        {
+          "id": "1155f4f0-352e-427d-93e1-04163335ee3c",
+          "code": "R13C-41154BDC-B1-INV",
+          "name": "R13 C B1 INV 41154BDC",
+          "balance": "0.00"
+        },
+        {
+          "id": "701280c3-c966-4436-be63-32e0fcf63f7e",
+          "code": "R13C-41154BDC-K1-INV",
+          "name": "R13 C K1 INV 41154BDC",
+          "balance": "0.00"
+        },
+        {
+          "id": "9ba57e03-b89a-40c6-923a-7620cc09760d",
+          "code": "R13C-6218A33E-A1-INV",
+          "name": "R13 C A1 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "048796c6-b3c1-46c0-a289-283869645cdd",
+          "code": "R13C-6218A33E-A13-INV",
+          "name": "R13 C A13 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "0c62dc34-f4cd-477f-99a0-3c27313e4e29",
+          "code": "R13C-6218A33E-A17-INV",
+          "name": "R13 C A17 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "942d7ed0-baba-4f38-a525-af673ec36a0d",
+          "code": "R13C-6218A33E-A29-INV",
+          "name": "R13 C A29 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "46825a1f-be5d-44e6-b304-23709f994a4a",
+          "code": "R13C-6218A33E-A5-INV",
+          "name": "R13 C A5 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "3cae7bcb-324e-4d32-a1c6-e30e622dc838",
+          "code": "R13C-6218A33E-A9-INV",
+          "name": "R13 C A9 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "79fb3c17-3528-4c91-ad4e-e04f341a30fd",
+          "code": "R13C-6218A33E-AG21-INV",
+          "name": "R13 C AG21 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "9fa1f8ce-464f-44a5-90ab-d45705b4974f",
+          "code": "R13C-6218A33E-B1-INV",
+          "name": "R13 C B1 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "4dcf42e2-dd5e-4f3e-8bbb-8b31ddce67db",
+          "code": "R13C-6218A33E-B13-INV",
+          "name": "R13 C B13 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "9e423336-f39a-4193-b649-fc9c0a36091c",
+          "code": "R13C-6218A33E-B17-INV",
+          "name": "R13 C B17 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "75391154-1791-4eed-8e4e-66658662a41a",
+          "code": "R13C-6218A33E-B29-INV",
+          "name": "R13 C B29 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "b871db94-6d72-4494-887c-ebec2e18a773",
+          "code": "R13C-6218A33E-B5-INV",
+          "name": "R13 C B5 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "2ea59ff8-1b8e-441c-a0ad-98f8821ca50b",
+          "code": "R13C-6218A33E-B9-INV",
+          "name": "R13 C B9 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "9ad93352-7076-4f15-8866-df86dc4a4263",
+          "code": "R13C-6218A33E-DUP27-INV",
+          "name": "R13 C DUP27 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "61e6178d-b638-42fa-b17d-77b15d34ca88",
+          "code": "R13C-6218A33E-K1-INV",
+          "name": "R13 C K1 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "06df8680-b5f0-45d3-9d62-6d11c5ad4eb3",
+          "code": "R13C-6218A33E-K13-INV",
+          "name": "R13 C K13 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "2132b95b-8113-4f8d-90b3-7c3aec6a74b5",
+          "code": "R13C-6218A33E-K17-INV",
+          "name": "R13 C K17 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "bd1b8017-bdcb-4dc2-8083-83fcd31f6c34",
+          "code": "R13C-6218A33E-K29-INV",
+          "name": "R13 C K29 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "25a0b530-b2d6-4d2a-aa13-f17c8cafea55",
+          "code": "R13C-6218A33E-K5-INV",
+          "name": "R13 C K5 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "f2567534-c40a-4f2e-98d3-b3cd3de2285f",
+          "code": "R13C-6218A33E-K9-INV",
+          "name": "R13 C K9 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "ee77a826-2d8a-4955-98b8-953128d2da6e",
+          "code": "R13C-6218A33E-LC35-INV",
+          "name": "R13 C LC35 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "70c6facd-34fb-4bef-8cc7-00c97f7ad6e7",
+          "code": "R13C-6218A33E-LF39-INV",
+          "name": "R13 C LF39 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "780f5217-8f38-4e29-85ed-ccb4d77861b2",
+          "code": "R13C-6218A33E-LX41-INV",
+          "name": "R13 C LX41 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "5e36f555-c0b8-49d0-a388-3779d5a2b073",
+          "code": "R13C-6218A33E-LZ37-INV",
+          "name": "R13 C LZ37 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "ba2394d6-28d5-4eb8-b584-2e0980ff3a6f",
+          "code": "R13C-6218A33E-PB33-INV",
+          "name": "R13 C PB33 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "5245ebf5-f976-43d0-a7d1-c9b20079443f",
+          "code": "R13C-6218A33E-S25-INV",
+          "name": "R13 C S25 INV 6218A33E",
+          "balance": "0.00"
+        },
+        {
+          "id": "a51c6fd9-d130-4924-9527-98900feb2962",
+          "code": "R13C-66F93712-A1-INV",
+          "name": "R13 C A1 INV 66F93712",
+          "balance": "0.00"
+        },
+        {
+          "id": "62c37ab5-e1c7-4dcd-b961-2ad853fe3559",
+          "code": "R13C-66F93712-A13-INV",
+          "name": "R13 C A13 INV 66F93712",
+          "balance": "0.00"
+        },
+        {
+          "id": "89307706-dfb7-4989-838a-33e49981b03d",
+          "code": "R13C-66F93712-A5-INV",
+          "name": "R13 C A5 INV 66F93712",
+          "balance": "0.00"
+        },
+        {
+          "id": "72195f9e-5c19-4454-8d0c-597c9c5bb47a",
+          "code": "R13C-66F93712-A9-INV",
+          "name": "R13 C A9 INV 66F93712",
+          "balance": "0.00"
+        },
+        {
+          "id": "2fc6ebd2-7920-49d3-9b04-b2505e8b701e",
+          "code": "R13C-66F93712-B1-INV",
+          "name": "R13 C B1 INV 66F93712",
+          "balance": "0.00"
+        },
+        {
+          "id": "710b3645-4ee4-4810-be24-7780eaa45f43",
+          "code": "R13C-66F93712-B13-INV",
+          "name": "R13 C B13 INV 66F93712",
+          "balance": "0.00"
+        },
+        {
+          "id": "12621394-d21d-4f2b-ab79-a08282f53565",
+          "code": "R13C-66F93712-B5-INV",
+          "name": "R13 C B5 INV 66F93712",
+          "balance": "0.00"
+        },
+        {
+          "id": "e0d06d65-d005-41dc-bf7b-31cf7d6d24f7",
+          "code": "R13C-66F93712-B9-INV",
+          "name": "R13 C B9 INV 66F93712",
+          "balance": "0.00"
+        },
+        {
+          "id": "06da4184-f7b3-4de2-b11e-3596356a5090",
+          "code": "R13C-66F93712-K1-INV",
+          "name": "R13 C K1 INV 66F93712",
+          "balance": "0.00"
+        },
+        {
+          "id": "d7f2557c-d46b-471c-8bf1-95f495d74e2a",
+          "code": "R13C-66F93712-K13-INV",
+          "name": "R13 C K13 INV 66F93712",
+          "balance": "0.00"
+        },
+        {
+          "id": "e04bf623-a22b-4ebf-8c88-b495e3a9711b",
+          "code": "R13C-66F93712-K5-INV",
+          "name": "R13 C K5 INV 66F93712",
+          "balance": "0.00"
+        },
+        {
+          "id": "972ef169-4ea0-4551-a247-8a8f55bea555",
+          "code": "R13C-66F93712-K9-INV",
+          "name": "R13 C K9 INV 66F93712",
+          "balance": "0.00"
+        },
+        {
+          "id": "6df1edca-87e0-42a1-847a-37cba247e49f",
+          "code": "R13C-832A9FBE-A1-INV",
+          "name": "R13 C A1 INV 832A9FBE",
+          "balance": "0.00"
+        },
+        {
+          "id": "532f637e-6c18-4c4f-a8eb-b1368a4c9c87",
+          "code": "R13C-832A9FBE-B1-INV",
+          "name": "R13 C B1 INV 832A9FBE",
+          "balance": "0.00"
+        },
+        {
+          "id": "b231706c-ee8a-40f2-9fcd-16f413453121",
+          "code": "R13C-832A9FBE-K1-INV",
+          "name": "R13 C K1 INV 832A9FBE",
+          "balance": "0.00"
+        },
+        {
+          "id": "c0c6bd12-9d36-442b-af09-1a81e6addb78",
+          "code": "R13C-95E56824-A1-INV",
+          "name": "R13 C A1 INV 95E56824",
+          "balance": "0.00"
+        },
+        {
+          "id": "d17ca7a6-be0f-435f-958e-d176158cf4c8",
+          "code": "R13C-95E56824-B1-INV",
+          "name": "R13 C B1 INV 95E56824",
+          "balance": "0.00"
+        },
+        {
+          "id": "609c09d3-94e3-461d-997b-dfb919c0b074",
+          "code": "R13C-95E56824-K1-INV",
+          "name": "R13 C K1 INV 95E56824",
+          "balance": "0.00"
+        },
+        {
+          "id": "41a1a24e-88b9-4d11-984b-d2447a5056e1",
+          "code": "R13C-D2F94509-A1-INV",
+          "name": "R13 C A1 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "5f15147e-cc43-4a73-afd5-90113b218964",
+          "code": "R13C-D2F94509-A13-INV",
+          "name": "R13 C A13 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "6cc698b4-3dca-4c66-8f2f-df1bc908b1c3",
+          "code": "R13C-D2F94509-A17-INV",
+          "name": "R13 C A17 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "1f7639b4-2cef-4f00-a156-a4ae8816e2fa",
+          "code": "R13C-D2F94509-A29-INV",
+          "name": "R13 C A29 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "8f4e6cb6-2209-41d6-a4d5-3f7e38161319",
+          "code": "R13C-D2F94509-A5-INV",
+          "name": "R13 C A5 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "f3e953d3-742a-4954-89d1-257be23d9db0",
+          "code": "R13C-D2F94509-A9-INV",
+          "name": "R13 C A9 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "c73f5900-47f7-4ec4-9bc9-e9d305c28ec4",
+          "code": "R13C-D2F94509-AG21-INV",
+          "name": "R13 C AG21 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "0294c233-1ae2-477d-9a2c-89573111a68d",
+          "code": "R13C-D2F94509-B1-INV",
+          "name": "R13 C B1 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "400ca019-fb79-4a7b-b23a-42bf3ee87680",
+          "code": "R13C-D2F94509-B13-INV",
+          "name": "R13 C B13 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "ac98f02e-79d7-4732-9755-b058e2ef299f",
+          "code": "R13C-D2F94509-B17-INV",
+          "name": "R13 C B17 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "85b6cd2a-5d1f-48a2-aa85-600ca20c4bb2",
+          "code": "R13C-D2F94509-B29-INV",
+          "name": "R13 C B29 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "09523272-60c6-41c8-95bc-091e3d06f34b",
+          "code": "R13C-D2F94509-B5-INV",
+          "name": "R13 C B5 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "5610d81f-f447-452a-9a74-02669611c142",
+          "code": "R13C-D2F94509-B9-INV",
+          "name": "R13 C B9 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "b7b07cfc-b7d7-4148-9a44-7e289c30ff92",
+          "code": "R13C-D2F94509-DUP27-INV",
+          "name": "R13 C DUP27 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "bef87956-9fb6-4898-86fb-927b55dfc963",
+          "code": "R13C-D2F94509-K1-INV",
+          "name": "R13 C K1 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "a8b5dcb0-2878-4734-9e37-ac3bdef9c447",
+          "code": "R13C-D2F94509-K13-INV",
+          "name": "R13 C K13 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "a5d22a4a-0fdd-4f69-b63c-99134291ed39",
+          "code": "R13C-D2F94509-K17-INV",
+          "name": "R13 C K17 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "a779c61d-627e-476f-8a1f-929de1de3243",
+          "code": "R13C-D2F94509-K29-INV",
+          "name": "R13 C K29 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "4e2b1fc2-1e00-4e33-af00-b480af05a190",
+          "code": "R13C-D2F94509-K5-INV",
+          "name": "R13 C K5 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "75c48448-d7b9-4b0b-b9ec-c0e65e0d5f2e",
+          "code": "R13C-D2F94509-K9-INV",
+          "name": "R13 C K9 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "9d99b319-a66a-4f68-b8bf-8def8f4dff22",
+          "code": "R13C-D2F94509-LC35-INV",
+          "name": "R13 C LC35 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "12b903d2-928c-43d6-aad1-aa1e8134dcd9",
+          "code": "R13C-D2F94509-LF39-INV",
+          "name": "R13 C LF39 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "7af9a5ff-f13a-44a3-9f2c-9ffe1afd7992",
+          "code": "R13C-D2F94509-LX41-INV",
+          "name": "R13 C LX41 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "ab444ac5-64d7-456f-9499-9549629edefe",
+          "code": "R13C-D2F94509-LZ37-INV",
+          "name": "R13 C LZ37 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "fc7d2925-65ef-44b9-aa2d-2aca2f701396",
+          "code": "R13C-D2F94509-PB33-INV",
+          "name": "R13 C PB33 INV D2F94509",
+          "balance": "0.00"
+        },
+        {
+          "id": "fc9a471d-5ac7-401f-a180-bff0613cebbb",
+          "code": "R13C-D2F94509-S25-INV",
+          "name": "R13 C S25 INV D2F94509",
+          "balance": "0.00"
+        }
+      ],
+      "cogsBalance": "9644.64"
+    },
+    "salesDeliveryCogs": {
+      "movementValue": "0.00",
+      "invoiceLineCogs": "10988.26"
+    },
+    "legacyComponents": {
+      "count": 1,
+      "fingerprint": "cf5cf1d2c0643248e182706d8be4a9b2"
+    },
+    "recipes": {
+      "count": 1,
+      "byStatus": {
+        "DRAFT": 1
+      }
+    }
+  }
+}

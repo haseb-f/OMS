@@ -38,7 +38,15 @@ import type { MessageKey } from "@/i18n/translate";
 import { InventoryStockGridCard } from "@/config/inventory/inventory-grid-cards";
 import { canViewInventoryCost, omitInventoryCostColumns } from "@/config/inventory/cost-visibility";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import { SelectFilter } from "@/components/shared/data-table";
 import { useUserContext } from "@/providers/user-context";
+import { usePathRestorableState } from "@/hooks/use-restorable-state";
+import {
+  STOCK_OWNER_FILTERS,
+  companyStockValueTotal,
+  stockOwnerLabel,
+  stockOwnerQuery,
+} from "@/config/inventory/stock-owner";
 
 // TASK-057 — FIFO is a real enum value but no costing logic implements it
 // anywhere (InventoryValuationService only computes moving-average cost);
@@ -61,12 +69,14 @@ function InventoryStockPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [valuationMethod, setValuationMethod] = useState<InventoryValuationMethod | null>(null);
   const [isSavingValuation, setIsSavingValuation] = useState(false);
+  // R13 — company stock, agent stock, or both (the owner is shown on every row).
+  const [ownerFilter, setOwnerFilter] = usePathRestorableState("owner", "");
 
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
       const [items, settings] = await Promise.all([
-        inventoryService.getStockCards(),
+        inventoryService.getStockCards(stockOwnerQuery(ownerFilter)),
         inventoryService.getValuationSettings().catch(() => null),
       ]);
       setRows(items);
@@ -76,7 +86,7 @@ function InventoryStockPageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [ownerFilter]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -120,6 +130,16 @@ function InventoryStockPageContent() {
         meta: { titleKey: "masterData.fields.code", defaultHidden: true },
         accessorFn: (row) => row.sku,
         cell: (info) => <SemanticValue kind="id">{info.getValue() as string}</SemanticValue>,
+      },
+      {
+        id: "owner",
+        header: t("inventory.owner.label"),
+        meta: { titleKey: "inventory.owner.label" },
+        accessorFn: (row) =>
+          stockOwnerLabel(row, {
+            company: t("inventory.owner.COMPANY"),
+            unknownAgent: t("inventory.owner.unknownAgent"),
+          }),
       },
       {
         id: "available",
@@ -182,6 +202,11 @@ function InventoryStockPageContent() {
     () => omitInventoryCostColumns(allColumns, canViewCost),
     [allColumns, canViewCost],
   );
+  // Valuation total = company-owned stock only (agent stock is never a company asset).
+  const companyValue = useMemo(
+    () => (canViewCost ? companyStockValueTotal(rows) : null),
+    [rows, canViewCost],
+  );
 
   return (
     <PageWorkspace
@@ -219,6 +244,28 @@ function InventoryStockPageContent() {
       </EnterpriseCard>
 
       <EnterpriseDataTable
+        filterBar={
+          <SelectFilter
+            label={t("inventory.owner.label")}
+            value={ownerFilter}
+            onChange={setOwnerFilter}
+            allLabel={t("inventory.owner.all")}
+            options={STOCK_OWNER_FILTERS.map((value) => ({
+              value,
+              label: t(`inventory.owner.${value}`),
+            }))}
+          />
+        }
+        activeFilterCount={ownerFilter ? 1 : 0}
+        onClearFilters={ownerFilter ? () => setOwnerFilter("") : undefined}
+        footerRow={
+          companyValue !== null
+            ? {
+                productName: t("inventory.stock.companyValueTotal"),
+                stockValue: <MoneyValue value={companyValue} />,
+              }
+            : undefined
+        }
         tableId="inventory-stock"
         printTitle={t("nav.inventoryStock")}
         columns={columns}
@@ -242,6 +289,11 @@ function InventoryStockPageContent() {
           )
         }
       />
+      {canViewCost ? (
+        <p className="text-caption text-muted-foreground">
+          {t("inventory.stock.companyValueNote")}
+        </p>
+      ) : null}
     </PageWorkspace>
   );
 }

@@ -12,11 +12,15 @@ import { ProductVariantsService } from './product-variants.service';
 import { CreateProductVariantDto } from '../dto/create-product-variant.dto';
 import { UpdateProductVariantDto } from '../dto/update-product-variant.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { PermissionModule } from '../../auth/decorators/permission-module.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../../auth/guards/jwt-auth.guard';
 
+/** Same authority as the Product itself: viewing / creating / editing / deleting a variant needs the matching `products.*` permission. */
 @Controller('products/:productId/variants')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('products')
 export class ProductVariantsController {
   constructor(
     private readonly productVariantsService: ProductVariantsService,

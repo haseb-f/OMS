@@ -58,9 +58,10 @@ export class SalesLineItemInputDto {
   @IsOptional()
   notes?: string;
 
-  /** Sales Return lines only — links back to the invoice line being
-   * reversed, capping returned quantity at invoiced-minus-already-returned.
-   * Unused (ignored) by the other three document types. */
+  /** Sales Return lines — links back to the invoice line being reversed,
+   * capping returned quantity at invoiced-minus-already-returned. Sales
+   * Invoice edit — the existing line this one replaces, so a line created
+   * from a Sales Order keeps its order link. Ignored by Quotations / Orders. */
   @IsUUID()
   @IsOptional()
   salesInvoiceItemId?: string;

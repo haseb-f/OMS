@@ -47,11 +47,10 @@ import { formatDateTime } from "@/lib/date";
 import { formatAmount } from "@/lib/money";
 import type { MessageKey } from "@/i18n/translate";
 import { RelatedRecordsButton } from "@/components/shared/related-records-panel";
-import {
-  MOVEMENT_REFERENCE_KIND,
-  RECORD_ROUTES,
-  recordHref,
-} from "@/config/traceability/record-routes";
+import { movementReferenceLink } from "@/config/traceability/record-routes";
+import { hasMovementTrace, movementTrace } from "@/config/inventory/movement-trace";
+import { useProductNames } from "@/hooks/use-product-names";
+import { useRecipeVersions } from "@/hooks/use-recipe-versions";
 import { movementTypeTone } from "@/config/inventory/movement-type";
 import { InventoryMovementGridCard } from "@/config/inventory/inventory-grid-cards";
 import { canViewInventoryCost, omitInventoryCostColumns } from "@/config/inventory/cost-visibility";
@@ -132,6 +131,15 @@ function InventoryMovementsPageContent() {
     void load();
   }, [load]);
 
+  // R13 traceability: kit / assembled parent names and recipe versions, resolved
+  // through the existing product and recipe reads (ids only on the movement).
+  const traces = useMemo(() => rows.map(movementTrace), [rows]);
+  const parentNames = useProductNames(traces.map((trace) => trace.parentProductId));
+  const recipeVersions = useRecipeVersions(
+    traces.map((trace) => trace.recipeProductId),
+    hasPermission("products.view"),
+  );
+
   const allColumns = useMemo<ColumnDef<InventoryMovementRow, unknown>[]>(
     () => [
       {
@@ -199,13 +207,17 @@ function InventoryMovementsPageContent() {
         accessorFn: (row) => row.referenceType ?? "",
         cell: (info) => {
           const row = info.row.original;
-          const kind = row.referenceType ? MOVEMENT_REFERENCE_KIND[row.referenceType] : undefined;
-          const href = kind && row.referenceId ? recordHref(kind, row.referenceId) : null;
-          if (kind && href) {
+          const reference = movementReferenceLink(row.referenceType, row.referenceId);
+          if (reference?.href) {
             return (
-              <Link href={href} className="text-caption text-primary hover:underline">
-                {t(RECORD_ROUTES[kind].labelKey)}
+              <Link href={reference.href} className="text-caption text-primary hover:underline">
+                {t(reference.labelKey)}
               </Link>
+            );
+          }
+          if (reference) {
+            return (
+              <span className="text-caption text-muted-foreground">{t(reference.labelKey)}</span>
             );
           }
           return row.referenceType ? (
@@ -214,6 +226,48 @@ function InventoryMovementsPageContent() {
             </span>
           ) : (
             "—"
+          );
+        },
+      },
+      {
+        id: "trace",
+        header: t("inventory.trace.title"),
+        meta: { titleKey: "inventory.trace.title" },
+        accessorFn: (row) => {
+          const trace = movementTrace(row);
+          if (!hasMovementTrace(trace)) return "";
+          const parent = trace.parentProductId ? parentNames.get(trace.parentProductId) : null;
+          const version = trace.recipeId ? recipeVersions.get(trace.recipeId) : undefined;
+          return [
+            trace.parentProductId
+              ? t("inventory.trace.partOf", {
+                  name: parent?.name ?? t("inventory.trace.unknownProduct"),
+                })
+              : null,
+            version !== undefined ? t("inventory.trace.recipeVersion", { version }) : null,
+          ]
+            .filter(Boolean)
+            .join(" · ");
+        },
+        cell: (info) => {
+          const row = info.row.original;
+          const trace = movementTrace(row);
+          if (!hasMovementTrace(trace)) return "—";
+          const parent = trace.parentProductId ? parentNames.get(trace.parentProductId) : null;
+          const version = trace.recipeId ? recipeVersions.get(trace.recipeId) : undefined;
+          return (
+            <StackedCell
+              primary={
+                trace.parentProductId
+                  ? t("inventory.trace.partOf", {
+                      name: parent?.name ?? t("inventory.trace.unknownProduct"),
+                    })
+                  : undefined
+              }
+              secondary={
+                version !== undefined ? t("inventory.trace.recipeVersion", { version }) : undefined
+              }
+            />
           );
         },
       },
@@ -310,7 +364,7 @@ function InventoryMovementsPageContent() {
         cell: (info) => info.getValue() as string,
       },
     ],
-    [t],
+    [t, parentNames, recipeVersions],
   );
   // Cost columns (and their export columns) exist only for a caller who may see valuation data.
   const columns = useMemo(

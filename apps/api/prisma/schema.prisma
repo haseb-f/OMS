@@ -1084,6 +1084,13 @@ model ProductCategory {
   purchaseAccountId String?         @map("purchase_account_id") @db.Uuid
   purchaseAccount   ChartOfAccount? @relation("CategoryPurchaseAccount", fields: [purchaseAccountId], references: [id])
 
+  /// R13 — product-entry defaults (the product form pre-fills these and shows where the value came from).
+  defaultUnitId String? @map("default_unit_id") @db.Uuid
+  defaultUnit   Unit?   @relation("CategoryDefaultUnit", fields: [defaultUnitId], references: [id])
+
+  defaultTaxId String? @map("default_tax_id") @db.Uuid
+  defaultTax   Tax?    @relation("CategoryDefaultTax", fields: [defaultTaxId], references: [id])
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by") @db.Uuid
@@ -1129,6 +1136,8 @@ model Unit {
   purchaseOrderItems      PurchaseOrderItem[]
   conversionsFrom         UnitConversion[]         @relation("UnitConversionFrom")
   conversionsTo           UnitConversion[]         @relation("UnitConversionTo")
+  categoryDefaults        ProductCategory[]        @relation("CategoryDefaultUnit")
+  recipeLines             ProductRecipeLine[]
   salesQuotationItems     SalesQuotationItem[]
   salesOrderDocumentItems SalesOrderDocumentItem[]
   salesInvoiceItems       SalesInvoiceItem[]
@@ -1222,6 +1231,8 @@ model Warehouse {
   salesReturnItems        SalesReturnItem[]
   purchaseInvoiceItems    PurchaseInvoiceItem[]
   purchaseReturnItems     PurchaseReturnItem[]
+
+  assemblyOrders AssemblyOrder[]
 
   @@map("warehouses")
 }
@@ -2530,6 +2541,7 @@ model ChartOfAccount {
 
   /// HR Milestone 1 — Payroll posting defaults + per-component overrides.
   postingSettingsPayrollPayable          PostingSettings[]  @relation("PostingPayrollPayable")
+  postingSettingsAssemblyCost            PostingSettings[]  @relation("PostingAssemblyCost")
   postingSettingsSalaryExpense           PostingSettings[]  @relation("PostingSalaryExpense")
   postingSettingsKpiExpense              PostingSettings[]  @relation("PostingKpiExpense")
   postingSettingsCommissionExpense       PostingSettings[]  @relation("PostingCommissionExpense")
@@ -3599,6 +3611,9 @@ model Product {
   ownerAgent               Agent?                           @relation("AgentProducts", fields: [ownerAgentId], references: [id])
   /// commission-policy.md A2 — PRODUCT / SERVICE, null until classified.
   itemType                 ItemType?                        @map("item_type")
+  /// R13 — how the item is supplied/fulfilled, independent of stock tracking and commercial flags. SERVICE => PURCHASED (n/a).
+  /// KIT owns no stock (components are reserved/delivered); ASSEMBLED is a stocked finished item built by an AssemblyOrder.
+  supplyMethod             ProductSupplyMethod              @default(PURCHASED) @map("supply_method")
   agentCommissionOverrides AgentProductCommissionOverride[]
   agentCommissionLines     AgentCommissionLine[]
   /// Arabic name — the primary identity field (Arabic is the default locale
@@ -3739,7 +3754,7 @@ model Product {
   /// ProductCostSnapshot for fast reads without a join. `costingMethod`
   /// above (TASK-028) is the one and only "cost method" field — not a
   /// second column parallel to it.
-  currentCost    Decimal?  @map("current_cost") @db.Decimal(12, 2)
+  currentCost    Decimal?  @map("current_cost") @db.Decimal(14, 4)
   lastCostUpdate DateTime? @map("last_cost_update")
 
   createdAt DateTime  @default(now()) @map("created_at")
@@ -3763,6 +3778,10 @@ model Product {
   /// BOM lines where this product is used AS a component of some Kit.
   usedInKits                ProductComponent[]          @relation("ComponentUsedIn")
   physicalCountLines        PhysicalCountLine[]
+  recipes                   ProductRecipe[]             @relation("RecipeProduct")
+  usedInRecipeLines         ProductRecipeLine[]         @relation("RecipeLineComponent")
+  assemblyOrders            AssemblyOrder[]             @relation("AssemblyFinishedProduct")
+  assemblyOrderLines        AssemblyOrderLine[]         @relation("AssemblyLineComponent")
 
   salesQuotationItems     SalesQuotationItem[]
   salesOrderDocumentItems SalesOrderDocumentItem[]
@@ -3781,6 +3800,9 @@ model Product {
   @@map("products")
 }
 
+/// DEPRECATED (R13): superseded by ProductRecipe/ProductRecipeLine — the one canonical component relationship. Rows were
+/// copied into DRAFT recipes by the R13 migration for review; nothing reads this table any more. Dropping it is a
+/// destructive change that needs explicit owner approval (spec O3).
 /// Kit Bill of Materials (TASK-028) — one row per (Kit, component) pair.
 /// Deliberately just the composition list: quantity of each component per
 /// one unit of the Kit. No automatic inventory deduction on sale is wired
@@ -3803,6 +3825,152 @@ model ProductComponent {
 
   @@unique([kitProductId, componentProductId])
   @@map("product_components")
+}
+
+/// R13 — supply/fulfillment method (independent of ItemType, stock tracking, commercial flags and ownership).
+enum ProductSupplyMethod {
+  PURCHASED
+  ASSEMBLED
+  KIT
+}
+
+enum RecipeStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+}
+
+enum AssemblyStatus {
+  POSTED
+  REVERSED
+}
+
+/// R13 — the one canonical component relationship (versioned bill of materials) for ASSEMBLED and KIT products. DRAFT is
+/// editable; ACTIVE/RETIRED are immutable (an edit is a new version). At most one ACTIVE per product (partial unique index in
+/// the migration). Transactions snapshot the recipe they used, so later edits never rewrite history.
+model ProductRecipe {
+  id String @id @default(uuid()) @db.Uuid
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation("RecipeProduct", fields: [productId], references: [id])
+
+  version       Int
+  status        RecipeStatus @default(DRAFT)
+  effectiveFrom DateTime?    @map("effective_from")
+
+  /// Units of the finished product one recipe run yields (exactly 1 for a KIT).
+  outputQuantity Decimal @default(1) @map("output_quantity") @db.Decimal(18, 6)
+
+  /// Approved direct assembly cost estimate per run (labour/overhead). Estimate only — an AssemblyOrder records the actual.
+  directCostEstimate Decimal @default(0) @map("direct_cost_estimate") @db.Decimal(14, 4)
+
+  notes String?
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  createdBy   String?   @map("created_by") @db.Uuid
+  updatedBy   String?   @map("updated_by") @db.Uuid
+  activatedAt DateTime? @map("activated_at")
+  activatedBy String?   @map("activated_by") @db.Uuid
+  retiredAt   DateTime? @map("retired_at")
+
+  lines ProductRecipeLine[]
+
+  @@unique([productId, version])
+  @@index([productId, status])
+  @@map("product_recipes")
+}
+
+model ProductRecipeLine {
+  id String @id @default(uuid()) @db.Uuid
+
+  recipeId String        @map("recipe_id") @db.Uuid
+  recipe   ProductRecipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  componentProductId String  @map("component_product_id") @db.Uuid
+  componentProduct   Product @relation("RecipeLineComponent", fields: [componentProductId], references: [id])
+
+  /// Quantity of the component per recipe run, expressed in `unitId` (converted to the component's stock unit on use).
+  quantity Decimal @db.Decimal(18, 6)
+  unitId   String  @map("unit_id") @db.Uuid
+  unit     Unit    @relation(fields: [unitId], references: [id])
+
+  sortOrder Int @default(0) @map("sort_order")
+
+  @@unique([recipeId, componentProductId])
+  @@map("product_recipe_lines")
+}
+
+/// R13 — an immediate assembly operation (no scheduling/work orders): consumes components and receives the finished item in
+/// one transaction. Snapshots the recipe; records valued consumption per line; reversible only while the output is on hand.
+model AssemblyOrder {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Numbering Engine series ASSEMBLY ("ASM-2026-000001").
+  assemblyNumber String @unique @map("assembly_number")
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation("AssemblyFinishedProduct", fields: [productId], references: [id])
+
+  warehouseId String    @map("warehouse_id") @db.Uuid
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  recipeId       String @map("recipe_id") @db.Uuid
+  recipeVersion  Int    @map("recipe_version")
+  /// The resolved recipe lines at posting time (componentProductId, quantity per run, unitId, stock quantity per run).
+  recipeSnapshot Json   @map("recipe_snapshot")
+
+  quantity Int
+
+  /// Owner snapshot (null = company). Company assemblies post to the GL; agent-owned ones never do.
+  ownerAgentId String? @map("owner_agent_id") @db.Uuid
+
+  /// Σ line values (consumption at moving-average) + directCost = totalCost; unitCost = totalCost / quantity (4 dp).
+  componentCost Decimal @map("component_cost") @db.Decimal(14, 2)
+  directCost    Decimal @default(0) @map("direct_cost") @db.Decimal(14, 2)
+  totalCost     Decimal @map("total_cost") @db.Decimal(14, 2)
+  unitCost      Decimal @map("unit_cost") @db.Decimal(14, 4)
+
+  outputMovementId String? @map("output_movement_id") @db.Uuid
+
+  /// Client/derived key so a retried request never assembles twice.
+  idempotencyKey String? @unique @map("idempotency_key")
+
+  status         AssemblyStatus @default(POSTED)
+  notes          String?
+  reversedAt     DateTime?      @map("reversed_at")
+  reversedBy     String?        @map("reversed_by") @db.Uuid
+  reversalReason String?        @map("reversal_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  lines AssemblyOrderLine[]
+
+  @@index([productId, createdAt])
+  @@map("assembly_orders")
+}
+
+model AssemblyOrderLine {
+  id String @id @default(uuid()) @db.Uuid
+
+  assemblyOrderId String        @map("assembly_order_id") @db.Uuid
+  assemblyOrder   AssemblyOrder @relation(fields: [assemblyOrderId], references: [id], onDelete: Cascade)
+
+  componentProductId String  @map("component_product_id") @db.Uuid
+  componentProduct   Product @relation("AssemblyLineComponent", fields: [componentProductId], references: [id])
+
+  /// Whole stock units consumed (component stock unit).
+  quantity Int
+  /// Moving-average cost at consumption, and the 2-dp value actually credited to inventory.
+  unitCost Decimal @map("unit_cost") @db.Decimal(14, 4)
+  value    Decimal @db.Decimal(14, 2)
+
+  consumptionMovementId String? @map("consumption_movement_id") @db.Uuid
+  /// Set on reversal: the movement that returned the component to stock.
+  reversalMovementId    String? @map("reversal_movement_id") @db.Uuid
+
+  @@map("assembly_order_lines")
 }
 
 /// Product Variants (TASK-027) — generic attribute bag (`attributes` as
@@ -3967,7 +4135,7 @@ model InventoryMovement {
   /// Movements) — nullable, since most movement types (Adjustment/
   /// Transfer/Damage) don't carry a cost. Never calculated here — the same
   /// "store what's given, compute nothing" rule as ProductCostService.
-  unitCost Decimal? @map("unit_cost") @db.Decimal(12, 2)
+  unitCost Decimal? @map("unit_cost") @db.Decimal(14, 4)
 
   /// TASK-029 — required on Adjustment ("Reason" field), also set on the
   /// movements a confirmed Physical Count generates. Nullable at the DB
@@ -3976,6 +4144,15 @@ model InventoryMovement {
   reason String?
 
   notes String?
+
+  /// R13 — duplicate protection for document-driven writers (`<referenceType>:<referenceId>:<lineId>:<type>`). A second
+  /// insert with the same key is rejected (409), never silently double-posted. Null for manual movements.
+  idempotencyKey String? @unique @map("idempotency_key")
+
+  /// R13 — kit traceability: set on component movements generated by a kit sale/return (the kit product that was sold and
+  /// the recipe version that exploded it). Null otherwise.
+  parentProductId String? @map("parent_product_id") @db.Uuid
+  recipeId        String? @map("recipe_id") @db.Uuid
 
   createdAt     DateTime @default(now()) @map("created_at")
   createdBy     String?  @map("created_by") @db.Uuid
@@ -4367,6 +4544,10 @@ model LandedCostDocument {
   /// until a later milestone actually implements them.
   allocationMethod CostAllocationMethod @map("allocation_method")
 
+  /// R13 — frozen document-currency -> functional rate (same snapshot rule as every other document). Null until posted;
+  /// a foreign-currency document can no longer post at an implicit rate of 1.
+  exchangeRate Decimal? @map("exchange_rate") @db.Decimal(18, 8)
+
   status LandedCostStatus @default(DRAFT)
 
   /// Sum of `lines.netAmount` — the amount actually capitalized into
@@ -4440,6 +4621,11 @@ model LandedCostAllocation {
   allocatedQuantity Int     @map("allocated_quantity")
   allocatedAmount   Decimal @map("allocated_amount") @db.Decimal(12, 2)
 
+  /// R13 — set at posting: the part of `allocatedAmount` added to remaining stock value vs the part for units already
+  /// sold (posted to COGS as landed-cost variance). capitalized + variance = allocatedAmount.
+  capitalizedAmount  Decimal? @map("capitalized_amount") @db.Decimal(12, 2)
+  cogsVarianceAmount Decimal? @map("cogs_variance_amount") @db.Decimal(12, 2)
+
   createdAt DateTime @default(now()) @map("created_at")
 
   @@unique([landedCostDocumentId, purchaseInvoiceItemId])
@@ -4472,8 +4658,8 @@ model ProductCostHistory {
   product   Product @relation(fields: [productId], references: [id])
 
   /// Null on the very first cost ever recorded for a product (no prior value existed).
-  previousCost Decimal? @map("previous_cost") @db.Decimal(12, 2)
-  newCost      Decimal  @map("new_cost") @db.Decimal(12, 2)
+  previousCost Decimal? @map("previous_cost") @db.Decimal(14, 4)
+  newCost      Decimal  @map("new_cost") @db.Decimal(14, 4)
 
   reason String?
 
@@ -4498,7 +4684,7 @@ model ProductCostSnapshot {
   productId String  @unique @map("product_id") @db.Uuid
   product   Product @relation(fields: [productId], references: [id])
 
-  cost Decimal @db.Decimal(12, 2)
+  cost Decimal @db.Decimal(14, 4)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -5691,7 +5877,11 @@ model SalesInvoiceItem {
   /// current cost, so the reversal always matches the original COGS amount
   /// exactly even if the product's cost has moved since the sale. Null for
   /// non-inventory items and for rows created before this task.
-  unitCost Decimal? @map("unit_cost") @db.Decimal(12, 2)
+  unitCost Decimal? @map("unit_cost") @db.Decimal(14, 4)
+
+  /// R13 — kit lines only: the recipe snapshot used at posting (recipeId, version, components[{productId, qtyPerKit,
+  /// unitCost}]). Immutable once written; a return of a kit line replays it.
+  fulfillmentSnapshot Json? @map("fulfillment_snapshot")
 
   notes String?
 
@@ -6594,7 +6784,8 @@ model Tax {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  products Product[]
+  products         Product[]
+  categoryDefaults ProductCategory[] @relation("CategoryDefaultTax")
 
   salesQuotationItems     SalesQuotationItem[]
   salesOrderDocumentItems SalesOrderDocumentItem[]
@@ -7425,6 +7616,11 @@ model PostingSettings {
 
   retainedEarningsAccountId String?         @map("retained_earnings_account_id") @db.Uuid
   retainedEarningsAccount   ChartOfAccount? @relation("PostingRetainedEarnings", fields: [retainedEarningsAccountId], references: [id])
+
+  /// R13 — credit side of approved direct assembly costs (labour/overhead absorbed into finished-item cost). Required when an
+  /// assembly has a direct cost > 0 (fail closed, never a guessed account).
+  assemblyCostAccountId String?         @map("assembly_cost_account_id") @db.Uuid
+  assemblyCostAccount   ChartOfAccount? @relation("PostingAssemblyCost", fields: [assemblyCostAccountId], references: [id])
 
   /// Agents milestone (spec §8, decision D1) — until all three are set, agent
   /// ledger entries stay PENDING_CONFIGURATION and are never posted to a guessed account.

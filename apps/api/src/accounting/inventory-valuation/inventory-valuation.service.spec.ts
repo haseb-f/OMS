@@ -119,7 +119,7 @@ describe('InventoryValuationService — moving weighted-average acceptance scena
       130,
       laterReceipt.tx,
     );
-    expect(step4.newCost).toBeCloseTo(117.407407, 6); // (170*110 + 100*130) / 270
+    expect(step4.newCost).toBe(117.4074); // (170*110 + 100*130) / 270 = 117.407407… stored at 4 dp
 
     // Historical COGS from the earlier sale must never be recalculated from
     // today's average — it stays exactly what it was when recognized.
@@ -144,10 +144,10 @@ describe('InventoryValuationService — moving weighted-average acceptance scena
       110,
       returnTx.tx,
     );
-    expect(step5.newCost).toBeCloseTo(117.272727, 6); // (270*117.407407... + 5*110) / 275
+    expect(step5.newCost).toBe(117.2727); // (270*117.4074 + 5*110) / 275 = 117.27272 stored at 4 dp
   });
 
-  it('never capitalizes landed cost into a zero on-hand balance', async () => {
+  it('never throws on a zero on-hand balance: the whole landed cost becomes variance', async () => {
     const service = new InventoryValuationService({} as never);
     const zeroStock = makeTx(0);
     Object.defineProperty(zeroStock.tx, 'product', {
@@ -156,8 +156,25 @@ describe('InventoryValuationService — moving weighted-average acceptance scena
         update: jest.fn().mockResolvedValue({}),
       },
     });
-    await expect(
-      service.applyLandedCost(productId, 500, zeroStock.tx),
-    ).rejects.toThrow(/no on-hand quantity remains/);
+    const result = await service.applyLandedCost(
+      productId,
+      500,
+      zeroStock.tx,
+      undefined,
+      {
+        allocatedQuantity: 10,
+      },
+    );
+    expect(result).toMatchObject({
+      capitalized: 0,
+      variance: 500,
+      newCost: 110,
+      previousCost: 110,
+      onHandQuantity: 0,
+    });
+    expect(
+      (zeroStock.tx.productCostHistory as unknown as { create: jest.Mock })
+        .create,
+    ).not.toHaveBeenCalled();
   });
 });

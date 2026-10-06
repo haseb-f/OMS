@@ -2,14 +2,28 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
-import { PartnerRoleType, Prisma, SalesDocumentStatus } from '@prisma/client';
+import {
+  PartnerRoleType,
+  Prisma,
+  ProductSupplyMethod,
+  SalesDocumentStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
 import { WarehousesService } from '../../warehouses/warehouses.service';
 import { PartnersService } from '../../partners/partners.service';
-import { InventoryService } from '../../inventory/inventory.service';
+import {
+  InventoryService,
+  lockProductsForUpdate,
+} from '../../inventory/inventory.service';
+import { movementIdempotencyKey } from '../../inventory/dto/movement-trace';
+import {
+  productsDeliveredThemselves,
+  readKitSnapshot,
+} from '../shared/kit-snapshot';
 import { PostingEngineService } from '../../accounting/posting-engine/posting-engine.service';
 import { resolveLineTaxes } from '../../taxes/document-tax';
 import {
@@ -356,19 +370,7 @@ export class SalesReturnsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      for (const item of salesReturn.items) {
-        await this.inventoryService.postSalesReturn(
-          {
-            productId: item.productId,
-            warehouseId: item.warehouseId,
-            quantity: item.quantity,
-            referenceType: REFERENCE_TYPE,
-            referenceId: salesReturn.id,
-          },
-          userId,
-          tx,
-        );
-      }
+      await this.returnStock(tx, salesReturn, userId);
 
       const updated = await tx.salesReturn.update({
         where: { id },
@@ -395,6 +397,147 @@ export class SalesReturnsService {
       await this.postingEngine.post('SALES_RETURN', id, userId, tx);
       return updated;
     });
+  }
+
+  /**
+   * R13 — the stock side of confirming a return:
+   *  - a service / non-stock line returns nothing (F12: it used to fail);
+   *  - a kit line returns its COMPONENTS, as recorded in the invoice line's
+   *    `fulfillmentSnapshot` (recipe + quantity per kit) — never the kit's
+   *    current recipe; the movements carry the kit and recipe;
+   *  - a stocked line returns itself.
+   * Every product row is locked once up front; each movement is keyed per
+   * return line (+ component) so a repeated confirm can never post it twice.
+   * The valuation / journal side (snapshot costs) is the posting provider's.
+   */
+  private async returnStock(
+    tx: Prisma.TransactionClient,
+    salesReturn: {
+      id: string;
+      returnNumber: string;
+      items: Array<{
+        id: string;
+        productId: string;
+        warehouseId: string;
+        quantity: number;
+        salesInvoiceItemId: string | null;
+        product: {
+          sku: string;
+          isInventoryItem: boolean;
+          supplyMethod: ProductSupplyMethod;
+        };
+      }>;
+    },
+    userId?: string,
+  ) {
+    const invoiceLines = await tx.salesInvoiceItem.findMany({
+      where: {
+        id: {
+          in: salesReturn.items
+            .map((item) => item.salesInvoiceItemId)
+            .filter((id): id is string => Boolean(id)),
+        },
+      },
+      select: { id: true, salesInvoiceId: true, fulfillmentSnapshot: true },
+    });
+    const invoiceOfLine = new Map(
+      invoiceLines.map((line) => [line.id, line.salesInvoiceId]),
+    );
+    const snapshotByLine = new Map(
+      invoiceLines.map((line) => [
+        line.id,
+        readKitSnapshot(line.fulfillmentSnapshot),
+      ]),
+    );
+    const movements: Array<{
+      key: string;
+      productId: string;
+      warehouseId: string;
+      quantity: number;
+      parentProductId?: string;
+      recipeId?: string;
+    }> = [];
+    for (const item of salesReturn.items) {
+      const kit = item.salesInvoiceItemId
+        ? snapshotByLine.get(item.salesInvoiceItemId)
+        : null;
+      if (kit) {
+        for (const component of kit.components) {
+          movements.push({
+            key: `${item.id}:${component.productId}`,
+            productId: component.productId,
+            warehouseId: item.warehouseId,
+            quantity: component.qtyPerKit * item.quantity,
+            parentProductId: item.productId,
+            recipeId: kit.recipeId,
+          });
+        }
+        continue;
+      }
+      if (item.product.supplyMethod === ProductSupplyMethod.KIT) {
+        // R13 L7 — decided by the line's history, not the current supply
+        // method: a line sold as a stocked item before the product became a
+        // kit delivered the product itself. Its units would have to come back
+        // as stock of a product that no longer holds any.
+        const invoiceId = item.salesInvoiceItemId
+          ? invoiceOfLine.get(item.salesInvoiceItemId)
+          : undefined;
+        const soldFromStock =
+          invoiceId &&
+          (
+            await productsDeliveredThemselves(tx, [
+              { salesInvoiceId: invoiceId, productId: item.productId },
+            ])
+          ).size > 0;
+        if (soldFromStock) {
+          throw new UnprocessableEntityException({
+            code: 'SALES_RETURN_PRODUCT_NOT_STOCKED',
+            message: `${item.product.sku} was sold from stock on its invoice but is now a kit, which holds no stock of its own — it cannot be received back on ${salesReturn.returnNumber} until it is set to a stock-tracked supply method again.`,
+          });
+        }
+        throw new BadRequestException({
+          code: 'KIT_RETURN_SNAPSHOT_MISSING',
+          message: `Kit ${item.product.sku} cannot be returned on ${salesReturn.returnNumber} — its invoice line has no fulfillment snapshot of the components delivered.`,
+        });
+      }
+      if (!item.product.isInventoryItem) continue;
+      movements.push({
+        key: item.id,
+        productId: item.productId,
+        warehouseId: item.warehouseId,
+        quantity: item.quantity,
+      });
+    }
+    if (movements.length === 0) return;
+    await lockProductsForUpdate(
+      tx,
+      movements.map((movement) => movement.productId),
+    );
+    for (const movement of movements) {
+      await this.inventoryService.postSalesReturn(
+        {
+          productId: movement.productId,
+          warehouseId: movement.warehouseId,
+          quantity: movement.quantity,
+          referenceType: REFERENCE_TYPE,
+          referenceId: salesReturn.id,
+          idempotencyKey: movementIdempotencyKey(
+            REFERENCE_TYPE,
+            salesReturn.id,
+            movement.key,
+            'SALES_RETURN',
+          ),
+          ...(movement.parentProductId
+            ? {
+                parentProductId: movement.parentProductId,
+                recipeId: movement.recipeId,
+              }
+            : {}),
+        },
+        userId,
+        tx,
+      );
+    }
   }
 
   /**

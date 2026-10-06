@@ -7,6 +7,7 @@ import { PartnersModule } from '../../partners/partners.module';
 import { ProductsModule } from '../../products/products.module';
 import { WarehousesModule } from '../../warehouses/warehouses.module';
 import { InventoryModule } from '../../inventory/inventory.module';
+import { StockLinesModule } from '../../inventory/stock-lines/stock-lines.module';
 import { NumberingModule } from '../../numbering/numbering.module';
 import { SalesInvoicesModule } from '../invoices/sales-invoices.module';
 
@@ -16,6 +17,7 @@ import { SalesInvoicesModule } from '../invoices/sales-invoices.module';
     ProductsModule,
     WarehousesModule,
     InventoryModule,
+    StockLinesModule,
     NumberingModule,
     SalesInvoicesModule,
   ],

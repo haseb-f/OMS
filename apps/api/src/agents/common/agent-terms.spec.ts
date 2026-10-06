@@ -5,6 +5,12 @@ import {
 } from './agent-terms';
 
 const at = new Date('2026-09-20T00:00:00.000Z');
+const tracked = { isInventoryItem: true, supplyMethod: 'PURCHASED' as const };
+const untracked = {
+  isInventoryItem: false,
+  supplyMethod: 'PURCHASED' as const,
+};
+const kit = { isInventoryItem: false, supplyMethod: 'KIT' as const };
 
 const order = (
   over: Partial<Parameters<typeof agentFulfillmentFacts>[0]> = {},
@@ -16,7 +22,7 @@ const order = (
     lines: [{ productId: 'phys', inventoryLine: true }],
   },
   fulfillmentStatus: { code: 'NEW' },
-  items: [{ productId: 'phys', product: { isInventoryItem: true } }],
+  items: [{ productId: 'phys', product: tracked }],
   _count: { agentReturns: 0 },
   ...over,
 });
@@ -29,7 +35,7 @@ const digital = (
       agreementId: 'a',
       lines: [{ productId: 'course', inventoryLine: false }],
     },
-    items: [{ productId: 'course', product: { isInventoryItem: false } }],
+    items: [{ productId: 'course', product: untracked }],
     ...over,
   });
 
@@ -41,7 +47,7 @@ describe('isAgentOrderDigitalOnly', () => {
         agentTermsSnapshot: {
           lines: [{ productId: 'p', inventoryLine: false }],
         },
-        items: [{ productId: 'p', product: { isInventoryItem: true } }],
+        items: [{ productId: 'p', product: tracked }],
       }),
     ).toBe(true);
   });
@@ -50,18 +56,51 @@ describe('isAgentOrderDigitalOnly', () => {
     expect(
       isAgentOrderDigitalOnly({
         agentTermsSnapshot: { agreementId: 'a' },
-        items: [{ productId: 'p', product: { isInventoryItem: false } }],
+        items: [{ productId: 'p', product: untracked }],
       }),
     ).toBe(true);
     expect(
       isAgentOrderDigitalOnly({
         agentTermsSnapshot: null,
         items: [
-          { productId: 'p', product: { isInventoryItem: false } },
-          { productId: 'q', product: { isInventoryItem: true } },
+          { productId: 'p', product: untracked },
+          { productId: 'q', product: tracked },
         ],
       }),
     ).toBe(false);
+  });
+});
+
+describe('isAgentOrderDigitalOnly — kits (R13)', () => {
+  it('a kit-only order frozen as stock-moving is not digital-only', () => {
+    expect(
+      isAgentOrderDigitalOnly({
+        agentTermsSnapshot: {
+          lines: [{ productId: 'k', inventoryLine: true }],
+        },
+        items: [{ productId: 'k', product: kit }],
+      }),
+    ).toBe(false);
+  });
+
+  it('without a line snapshot a live kit counts as stock-moving', () => {
+    expect(
+      isAgentOrderDigitalOnly({
+        agentTermsSnapshot: { agreementId: 'a' },
+        items: [{ productId: 'k', product: kit }],
+      }),
+    ).toBe(false);
+  });
+
+  it('a historical frozen flag is never re-read from the live product', () => {
+    expect(
+      isAgentOrderDigitalOnly({
+        agentTermsSnapshot: {
+          lines: [{ productId: 'k', inventoryLine: false }],
+        },
+        items: [{ productId: 'k', product: kit }],
+      }),
+    ).toBe(true);
   });
 });
 

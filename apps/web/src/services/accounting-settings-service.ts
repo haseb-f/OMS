@@ -62,6 +62,9 @@ export interface AccountingSettingsRow {
   defaultDeductionAccount: AccountRef | null;
   landedCostClearingAccountId: string | null;
   landedCostClearingAccount: AccountRef | null;
+  /** R13 — credited with the approved direct cost (labour / overhead) absorbed by an assembly order. */
+  assemblyCostAccountId: string | null;
+  assemblyCostAccount?: AccountRef | null;
   shippingExpenseAccountId: string | null;
   shippingExpenseAccount: AccountRef | null;
   accruedShippingAccountId: string | null;

@@ -54,6 +54,7 @@ describe('StoreOrdersService.findAll — profitability summary', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       orderEconomicsService as never,
       {} as never,
     );
@@ -117,6 +118,7 @@ describe('StoreOrdersService.findAllIds — profitability filters', () => {
     };
     const service = new StoreOrdersService(
       prisma as unknown as PrismaService,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,

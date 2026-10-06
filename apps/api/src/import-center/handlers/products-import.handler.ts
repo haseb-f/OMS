@@ -1,10 +1,14 @@
 import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
-import { ProductType } from '@prisma/client';
+import { ItemType, ProductType } from '@prisma/client';
 import { ProductsService } from '../../products/products.service';
 import { ProductCategoriesService } from '../../product-categories/product-categories.service';
 import { UnitsService } from '../../units/units.service';
 import { ImportTypeRegistryService } from '../import-type-registry.service';
-import { resolveRequiredIdByField } from '../import-value.util';
+import {
+  parseBoolean,
+  resolveOptionalIdByField,
+  resolveRequiredIdByField,
+} from '../import-value.util';
 import type {
   ImportFieldDef,
   ImportRowOptions,
@@ -22,10 +26,45 @@ const FIELDS: ImportFieldDef[] = [
     example: 'A4 Paper Ream',
   },
   {
+    key: 'itemType',
+    labelKey: 'importCenter.fields.productItemType',
+    label: 'Item Type',
+    required: false,
+    type: 'string',
+    example: 'PRODUCT',
+    options: Object.values(ItemType),
+  },
+  {
+    key: 'isSellable',
+    labelKey: 'importCenter.fields.productIsSellable',
+    label: 'Sellable',
+    required: false,
+    type: 'boolean',
+    example: 'yes',
+  },
+  {
+    key: 'isPurchasable',
+    labelKey: 'importCenter.fields.productIsPurchasable',
+    label: 'Purchasable',
+    required: false,
+    type: 'boolean',
+    example: 'yes',
+  },
+  {
+    key: 'isInventoryItem',
+    labelKey: 'importCenter.fields.productIsInventoryItem',
+    label: 'Track Stock',
+    required: false,
+    type: 'boolean',
+    example: 'yes',
+  },
+  {
+    // Deprecated (R13): kept so existing files keep importing. Only read when
+    // no item type / sell / buy / track-stock column is filled in the row.
     key: 'type',
     labelKey: 'importCenter.fields.productType',
-    label: 'Product Type',
-    required: true,
+    label: 'Product Type (legacy)',
+    required: false,
     type: 'string',
     example: 'PURCHASE_AND_SALE',
     options: Object.values(ProductType),
@@ -42,7 +81,7 @@ const FIELDS: ImportFieldDef[] = [
     key: 'unitName',
     labelKey: 'importCenter.fields.unitName',
     label: 'Unit',
-    required: true,
+    required: false,
     type: 'string',
     referenceType: 'UNIT',
   },
@@ -78,10 +117,11 @@ const FIELDS: ImportFieldDef[] = [
 
 /**
  * Products Import (TASK-056) — every row calls `ProductsService.create()`
- * unchanged (SKU minting, ADR-0012 defaults-by-type, all included).
- * `categoryName`/`unitName` are the only read-only lookups this handler
- * does itself — resolving a human-readable name to the id
- * `CreateProductDto` actually requires, never a write.
+ * unchanged (SKU minting, itemType-driven defaults, attribute rules, barcode
+ * uniqueness, all included). `categoryName`/`unitName` are the only read-only
+ * lookups this handler does itself — resolving a human-readable name to the
+ * id `CreateProductDto` actually requires, never a write. A blank Unit falls
+ * back to the category's default unit inside `create()`.
  */
 @Injectable()
 export class ProductsImportHandler implements ImportTypeHandler, OnModuleInit {
@@ -107,8 +147,14 @@ export class ProductsImportHandler implements ImportTypeHandler, OnModuleInit {
     userId?: string,
     options?: ImportRowOptions,
   ): Promise<ImportRowResult> {
+    const itemType = row.itemType?.trim().toUpperCase();
+    if (itemType && !Object.values(ItemType).includes(itemType as ItemType)) {
+      throw new BadRequestException(
+        `Invalid item type "${row.itemType}" — expected one of ${Object.values(ItemType).join(', ')}.`,
+      );
+    }
     const type = row.type?.trim().toUpperCase();
-    if (!type || !Object.values(ProductType).includes(type as ProductType)) {
+    if (type && !Object.values(ProductType).includes(type as ProductType)) {
       throw new BadRequestException(
         `Invalid product type "${row.type}" — expected one of ${Object.values(ProductType).join(', ')}.`,
       );
@@ -120,22 +166,32 @@ export class ProductsImportHandler implements ImportTypeHandler, OnModuleInit {
       row.categoryName,
       'Category',
     );
-    const unitId = await resolveRequiredIdByField(
+    const unitId = await resolveOptionalIdByField(
       this.unitsService,
       'name',
       row.unitName,
       'Unit',
     );
+    const barcode = row.barcode?.trim();
 
-    if (options?.dryRun) return { id: 'dry-run' };
+    // The same uniqueness check create() performs, so a duplicate shows in the preview as a row error.
+    if (options?.dryRun) {
+      if (barcode) await this.productsService.assertBarcodeAvailable(barcode);
+      return { id: 'dry-run' };
+    }
 
     const product = await this.productsService.create(
       {
         name: row.name,
-        type: type as ProductType,
+        // Legacy hint only; create() derives the stored type from the attributes.
+        type: type ? (type as ProductType) : undefined,
+        itemType: itemType ? (itemType as ItemType) : undefined,
+        isSellable: parseBoolean(row.isSellable),
+        isPurchasable: parseBoolean(row.isPurchasable),
+        isInventoryItem: parseBoolean(row.isInventoryItem),
         categoryId,
         unitId,
-        barcode: row.barcode || undefined,
+        barcode: barcode || undefined,
         salesPrice: row.salesPrice ? Number(row.salesPrice) : undefined,
         purchasePrice: row.purchasePrice
           ? Number(row.purchasePrice)

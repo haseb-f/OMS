@@ -62,7 +62,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
   const printCompany = usePrintCompany();
   const { user, hasPermission } = useUserContext();
   /** One key per opened form — a double submit returns the first document (R13 B2). */
-  const idempotencyKey = useIdempotencyKey();
+  const { key: idempotencyKey } = useIdempotencyKey();
 
   const [receipt, setReceipt] = useState<FinancialTransactionRow | null>(null);
   const [isLoading, setIsLoading] = useState(!!id);

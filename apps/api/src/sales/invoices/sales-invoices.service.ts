@@ -23,6 +23,7 @@ import { ProductsService } from '../../products/products.service';
 import { WarehousesService } from '../../warehouses/warehouses.service';
 import { PartnersService } from '../../partners/partners.service';
 import { InventoryService } from '../../inventory/inventory.service';
+import { StockLineResolver } from '../../inventory/stock-lines/stock-line-resolver';
 import { PostingEngineService } from '../../accounting/posting-engine/posting-engine.service';
 import { AccountMappingService } from '../../accounting/account-mapping/account-mapping.service';
 import { resolveLineTaxes } from '../../taxes/document-tax';
@@ -48,8 +49,21 @@ import { FindSalesInvoicesQueryDto } from './dto/find-sales-invoices-query.dto';
 import type { SalesLineItemInputDto } from '../shared/sales-line-item-input.dto';
 import { assertActiveProduct } from '../../products/assert-active-product.util';
 import { prismaEnumFilter } from '../../common/query/enum-list';
+import {
+  resolveAndLockStockLines,
+  stockLineMovementKey,
+  stockLineTrace,
+} from '../shared/stock-fulfillment';
+import { kitSnapshotJson } from '../shared/kit-snapshot';
+import {
+  releaseAllReserved,
+  releaseReserved,
+  reservedUnderReference,
+  SALES_ORDER_RESERVATION_REFERENCE,
+  type ReservedBalance,
+} from '../shared/order-reservations';
 
-const ORDER_REFERENCE_TYPE = 'SALES_ORDER_DOC';
+const ORDER_REFERENCE_TYPE = SALES_ORDER_RESERVATION_REFERENCE;
 const INVOICE_REFERENCE_TYPE = 'SALES_INVOICE';
 
 interface ComputedInvoiceLines {
@@ -65,6 +79,7 @@ export class SalesInvoicesService {
     private readonly productsService: ProductsService,
     private readonly warehousesService: WarehousesService,
     private readonly inventoryService: InventoryService,
+    private readonly stockLines: StockLineResolver,
     private readonly activityService: SalesInvoiceActivityService,
     private readonly numberingEngine: NumberingEngineService,
     private readonly postingEngine: PostingEngineService,
@@ -309,7 +324,11 @@ export class SalesInvoicesService {
         assertActiveProduct(item.productId, productsById);
         await this.assertInvoiceWarehouse(item.warehouseId);
       }
-      computed = await this.computeLines(dto.items);
+      const plain = await this.computeLines(dto.items);
+      computed = {
+        ...plain,
+        lines: await this.keepOrderLinks(existing, dto.items, plain.lines),
+      };
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -458,35 +477,7 @@ export class SalesInvoicesService {
           tx,
         );
       }
-      for (const item of invoice.items) {
-        // Services / non-stock lines deliver nothing and were never reserved.
-        if (!item.product.isInventoryItem) continue;
-        await this.inventoryService.postSalesDelivery(
-          {
-            productId: item.productId,
-            warehouseId: item.warehouseId,
-            quantity: item.quantity,
-            referenceType: INVOICE_REFERENCE_TYPE,
-            referenceId: invoice.id,
-          },
-          userId,
-          tx,
-        );
-
-        if (item.salesOrderItemId && invoice.salesOrderId) {
-          await this.inventoryService.release(
-            {
-              productId: item.productId,
-              warehouseId: item.warehouseId,
-              quantity: item.quantity,
-              referenceType: ORDER_REFERENCE_TYPE,
-              referenceId: invoice.salesOrderId,
-            },
-            userId,
-            tx,
-          );
-        }
-      }
+      await this.deliverInvoiceLines(tx, invoice, userId);
 
       const updated = await tx.salesInvoice.update({
         where: { id },
@@ -521,6 +512,7 @@ export class SalesInvoicesService {
               orderItemId: item.salesOrderItemId as string,
               quantity: item.quantity,
             })),
+          userId,
         );
       }
 
@@ -528,6 +520,107 @@ export class SalesInvoicesService {
 
       return updated;
     });
+  }
+
+  /**
+   * R13 — the stock side of confirming: lines resolve to the stock they move
+   * (a kit delivers its components, a service nothing), every product row is
+   * locked once, each delivery is keyed per invoice line (+ component) so it
+   * can never be posted twice, a kit line keeps its recipe/cost snapshot, and
+   * an order's own reservation is consumed by the delivery
+   * (`ignoreReservedForReference`) and then released — never more than is
+   * still reserved under the order.
+   */
+  private async deliverInvoiceLines(
+    tx: Prisma.TransactionClient,
+    invoice: {
+      id: string;
+      salesOrderId: string | null;
+      items: Array<{
+        id: string;
+        productId: string;
+        warehouseId: string;
+        quantity: number;
+        salesOrderItemId: string | null;
+      }>;
+    },
+    userId?: string,
+  ) {
+    const resolved = await resolveAndLockStockLines(
+      tx,
+      this.stockLines,
+      invoice.items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        warehouseId: item.warehouseId,
+        lineKey: item.id,
+      })),
+    );
+    const orderReference = invoice.salesOrderId
+      ? {
+          referenceType: ORDER_REFERENCE_TYPE,
+          referenceId: invoice.salesOrderId,
+        }
+      : null;
+    const fromOrder = new Set(
+      invoice.items
+        .filter((item) => item.salesOrderItemId)
+        .map((item) => item.id),
+    );
+    const reserved = orderReference
+      ? await reservedUnderReference(
+          tx,
+          orderReference.referenceType,
+          orderReference.referenceId,
+        )
+      : new Map<string, ReservedBalance>();
+    // Each delivery is followed by the release of what it consumed, so the
+    // next line of the same product never sees that quantity both delivered
+    // and still reserved.
+    for (const line of resolved.stock) {
+      await this.inventoryService.postSalesDelivery(
+        {
+          productId: line.productId,
+          warehouseId: line.warehouseId,
+          quantity: line.quantity,
+          referenceType: INVOICE_REFERENCE_TYPE,
+          referenceId: invoice.id,
+          idempotencyKey: stockLineMovementKey(
+            INVOICE_REFERENCE_TYPE,
+            invoice.id,
+            line,
+            'SALES_DELIVERY',
+          ),
+          ...stockLineTrace(line),
+          // Only a line that fulfils an order line may consume the order's
+          // reservation (up to what is still reserved — released right
+          // after); a line added to the invoice by hand competes for the
+          // available stock like any other sale.
+          ignoreReservedForReference:
+            orderReference && fromOrder.has(line.lineKey)
+              ? orderReference
+              : undefined,
+        },
+        userId,
+        tx,
+      );
+      if (orderReference && fromOrder.has(line.lineKey)) {
+        await releaseReserved(
+          tx,
+          this.inventoryService,
+          reserved,
+          orderReference,
+          line,
+          userId,
+        );
+      }
+    }
+    for (const [lineKey, snapshot] of Object.entries(resolved.kitSnapshots)) {
+      await tx.salesInvoiceItem.update({
+        where: { id: lineKey },
+        data: { fulfillmentSnapshot: kitSnapshotJson(snapshot) },
+      });
+    }
   }
 
   /**
@@ -540,6 +633,7 @@ export class SalesInvoicesService {
     tx: Prisma.TransactionClient,
     orderId: string,
     deliveries: { orderItemId: string; quantity: number }[],
+    userId?: string,
   ) {
     for (const delivery of deliveries) {
       await tx.salesOrderDocumentItem.update({
@@ -561,6 +655,18 @@ export class SalesInvoicesService {
       : anyDelivered
         ? SalesDocumentStatus.PARTIALLY_DELIVERED
         : order.status;
+
+    // A fully delivered order holds nothing any more: release what may be
+    // left under it (e.g. components of a kit whose recipe changed between
+    // the order's confirmation and its invoice). No-op otherwise.
+    if (fullyDelivered) {
+      await releaseAllReserved(
+        tx,
+        this.inventoryService,
+        { referenceType: ORDER_REFERENCE_TYPE, referenceId: orderId },
+        userId,
+      );
+    }
 
     if (nextStatus !== order.status) {
       await tx.salesOrderDocument.update({
@@ -816,6 +922,98 @@ export class SalesInvoicesService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Draft edit of an invoice created from a Sales Order: the items are
+   * replaced, so each line names the line it replaces (`salesInvoiceItemId`)
+   * to keep its order link — only for the same product, never a link the
+   * client invents. Linked quantities stay capped at what is left to invoice
+   * on the order line (ordered − delivered − other open invoices).
+   */
+  private async keepOrderLinks(
+    existing: {
+      id: string;
+      salesOrderId: string | null;
+      items: Array<{
+        id: string;
+        productId: string;
+        salesOrderItemId: string | null;
+      }>;
+    },
+    items: SalesLineItemInputDto[],
+    lines: ComputedInvoiceLines['lines'],
+  ): Promise<ComputedInvoiceLines['lines']> {
+    if (!existing.salesOrderId) return lines;
+    const previous = new Map(existing.items.map((item) => [item.id, item]));
+    const linked = lines.map((line, index) => {
+      const replaced = items[index].salesInvoiceItemId
+        ? previous.get(items[index].salesInvoiceItemId)
+        : undefined;
+      return {
+        ...line,
+        salesOrderItemId:
+          replaced?.salesOrderItemId && replaced.productId === line.productId
+            ? replaced.salesOrderItemId
+            : null,
+      };
+    });
+    const requested = new Map<string, number>();
+    for (const line of linked) {
+      if (!line.salesOrderItemId) continue;
+      requested.set(
+        line.salesOrderItemId,
+        (requested.get(line.salesOrderItemId) ?? 0) + line.quantity,
+      );
+    }
+    if (requested.size === 0) return linked;
+    const orderItemIds = [...requested.keys()];
+    const [orderItems, pending] = await Promise.all([
+      this.prisma.salesOrderDocumentItem.findMany({
+        where: { id: { in: orderItemIds } },
+        select: {
+          id: true,
+          quantity: true,
+          deliveredQuantity: true,
+          product: { select: { sku: true } },
+        },
+      }),
+      this.prisma.salesInvoiceItem.groupBy({
+        by: ['salesOrderItemId'],
+        where: {
+          salesOrderItemId: { in: orderItemIds },
+          salesInvoiceId: { not: existing.id },
+          salesInvoice: {
+            deletedAt: null,
+            status: {
+              in: [
+                SalesDocumentStatus.DRAFT,
+                SalesDocumentStatus.PENDING_APPROVAL,
+                SalesDocumentStatus.APPROVED,
+              ],
+            },
+          },
+        },
+        _sum: { quantity: true },
+      }),
+    ]);
+    const pendingByItem = new Map(
+      pending.map((row) => [row.salesOrderItemId, row._sum.quantity ?? 0]),
+    );
+    for (const orderItem of orderItems) {
+      const remaining =
+        orderItem.quantity -
+        orderItem.deliveredQuantity -
+        (pendingByItem.get(orderItem.id) ?? 0);
+      const quantity = requested.get(orderItem.id) ?? 0;
+      if (quantity > remaining) {
+        throw new BadRequestException({
+          code: 'SALES_INVOICE_EXCEEDS_ORDER',
+          message: `The invoice bills ${quantity} × ${orderItem.product.sku} against its Sales Order line, but only ${Math.max(remaining, 0)} remain to invoice on it.`,
+        });
+      }
+    }
+    return linked;
   }
 
   private async assertInvoiceWarehouse(warehouseId: string | undefined) {

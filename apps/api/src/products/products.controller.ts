@@ -8,12 +8,19 @@ import {
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { ProductCostRedactionInterceptor } from '../inventory/product-cost-redaction.interceptor';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { FindProductsQueryDto } from './dto/find-products-query.dto';
 import { CreateProductAttachmentDto } from './dto/create-product-attachment.dto';
+import { SimilarProductNamesQueryDto } from './dto/similar-product-names-query.dto';
+import {
+  ProductInsightsService,
+  type ProductInsightAccess,
+} from './product-insights.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PermissionModule } from '../auth/decorators/permission-module.decorator';
@@ -49,6 +56,8 @@ export const PRODUCT_CATALOG_READ_PERMISSIONS: readonly string[] = [
   'purchasing.invoices.create',
   'purchasing.returns.create',
   'inventory.movements.create',
+  // R13 — an assembler picks the finished product (and sees its components).
+  'inventory.assembly.create',
   // Investor Engine Milestone 4, Part 11 — root cause of "the Investment
   // Opportunity Product dropdown shows nothing": an Investor-module user
   // holding only investment-opportunities.* permissions (no products.view,
@@ -68,18 +77,42 @@ export const PRODUCT_CATALOG_READ_PERMISSIONS: readonly string[] = [
   'cost-explorer.view',
 ];
 
+/** Inherited GL accounts are finance data: any of these (or Super Admin) unlocks them on `effective-defaults`. */
+export const PRODUCT_ACCOUNT_VIEW_PERMISSIONS: readonly string[] = [
+  'finance.view',
+  'accounting.chart-of-accounts.view',
+  'accounting.journal-entries.view',
+];
+
 @Controller('products')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseInterceptors(ProductCostRedactionInterceptor)
 @PermissionModule('products')
 export class ProductsController {
   constructor(
     private readonly productsService: ProductsService,
+    private readonly insights: ProductInsightsService,
     private readonly permissions: PermissionsResolverService,
   ) {}
 
   @Post()
   create(@Body() dto: CreateProductDto, @CurrentUser() user: JwtPayload) {
     return this.productsService.create(dto, user.sub);
+  }
+
+  /** What this caller may see of the inherited / linked sections beyond `products.view`. */
+  private async insightAccess(user: JwtPayload): Promise<ProductInsightAccess> {
+    const holdsAny = async (names: readonly string[]) => {
+      for (const name of names) {
+        if (await this.permissions.hasPermission(user.sub, name)) return true;
+      }
+      return false;
+    };
+    return {
+      accounts: await holdsAny(PRODUCT_ACCOUNT_VIEW_PERMISSIONS),
+      commission: await holdsAny(['agents.view']),
+      opportunities: await holdsAny(['investment-opportunities.view']),
+    };
   }
 
   @Get()
@@ -122,9 +155,37 @@ export class ProductsController {
     return this.productsService.findSellableCatalog(query);
   }
 
+  /** Static route — must precede `:id`. Advisory only: a match never blocks saving. */
+  @Get('similar-names')
+  similarNames(@Query() query: SimilarProductNamesQueryDto) {
+    return this.insights.findSimilarNames({
+      name: query.name ?? '',
+      excludeId: query.excludeId,
+      categoryId: query.categoryId,
+    });
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.productsService.findOne(id);
+  }
+
+  /** Read-only inheritance (unit, tax, accounts, commission); sections the caller may not see are omitted. */
+  @Get(':id/effective-defaults')
+  async effectiveDefaults(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.insights.effectiveDefaults(id, await this.insightAccess(user));
+  }
+
+  /** Investor eligibility; linked opportunities only for holders of `investment-opportunities.view`. */
+  @Get(':id/investment-links')
+  async investmentLinks(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.insights.investmentLinks(id, await this.insightAccess(user));
   }
 
   @Patch(':id')

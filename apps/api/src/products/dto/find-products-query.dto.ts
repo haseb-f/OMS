@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsBoolean,
   IsEnum,
   IsIn,
@@ -9,7 +10,11 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { ProductStatus, ProductType } from '@prisma/client';
+import {
+  ProductStatus,
+  ProductSupplyMethod,
+  ProductType,
+} from '@prisma/client';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
 import {
   TransformEnumList,
@@ -25,8 +30,14 @@ import {
  * Table).
  */
 export class FindProductsQueryDto {
-  /** Resolve a picker's already-selected value(s) by id — e.g. an Edit form showing a Product picked before the current filters/search were applied. */
+  /**
+   * Resolve a picker's already-selected value(s) by id — e.g. an Edit form
+   * showing a Product picked before the current filters/search were applied,
+   * or a screen resolving the names of the products it lists. Comma-separated
+   * uuids, at most 100 (list and catalog).
+   */
   @IsOptionalUuidList()
+  @ArrayMaxSize(100)
   ids?: string[];
 
   /**
@@ -65,6 +76,11 @@ export class FindProductsQueryDto {
   @IsIn(['PRODUCT', 'SERVICE', 'UNSET'])
   @IsOptional()
   itemType?: 'PRODUCT' | 'SERVICE' | 'UNSET';
+
+  /** R13 — supply method (purchased / assembled / kit). */
+  @IsEnum(ProductSupplyMethod)
+  @IsOptional()
+  supplyMethod?: ProductSupplyMethod;
 
   /** Inventory movement pickers (Transfer/Adjustment/Opening) — only products a movement can legally apply to (ADR-0013). */
   @Transform(({ value }) => value === true || value === 'true')

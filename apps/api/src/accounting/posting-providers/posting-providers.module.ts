@@ -21,6 +21,8 @@ import { PrepaidExpensePostingProvider } from './prepaid-expense-posting.provide
 import { AccruedExpensePostingProvider } from './accrued-expense-posting.provider';
 import { FxRevaluationPostingProvider } from './fx-revaluation-posting.provider';
 import { AgentLedgerPostingProvider } from './agent-ledger-posting.provider';
+import { AssemblyOrderPostingProvider } from './assembly-order-posting.provider';
+import { AssemblyReversalVariancePostingProvider } from './assembly-reversal-variance-posting.provider';
 
 /**
  * Accounting Posting Engine (TASK-046/047, HR Milestone 1) — every default
@@ -61,6 +63,8 @@ import { AgentLedgerPostingProvider } from './agent-ledger-posting.provider';
     AccruedExpensePostingProvider,
     FxRevaluationPostingProvider,
     AgentLedgerPostingProvider,
+    AssemblyOrderPostingProvider,
+    AssemblyReversalVariancePostingProvider,
   ],
 })
 export class PostingProvidersModule {}
