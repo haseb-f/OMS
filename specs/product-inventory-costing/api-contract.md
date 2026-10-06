@@ -41,7 +41,7 @@ All new routes sit behind the standard `JwtAuthGuard` + `PermissionsGuard`. Mone
   (component not a tracked PRODUCT), `RECIPE_NESTED_KIT`, `RECIPE_OWNER_MIXED` (company+agent or two agents),
   `RECIPE_UNIT_CONVERSION_MISSING`, `RECIPE_KIT_FRACTIONAL` (kit line does not convert to whole stock units), `RECIPE_KIT_OUTPUT` (kit outputQuantity ≠ 1).
 - `GET /products/:productId/recipe-cost-estimate` → `{ recipeId, version, isEstimate:true, lines:[{componentProductId,name,quantityStock,unitCost,value}], componentsEstimate, directCostEstimate, totalEstimate, perUnitEstimate }` (costs omitted without cost-visibility right, same rule as stock cards).
-- `GET /products/:productId/kit-availability?warehouseId=` → `{ productId, available, limiting:{productId,name,available,perKit}|null, components:[{productId,name,perKit,available}] }`.
+- `GET /products/:productId/kit-availability?warehouseId=` (also requires `inventory.view`, else 403 `INVENTORY_VIEW_REQUIRED`) → `{ productId, available, limiting:{productId,name,available,perKit}|null, components:[{productId,name,perKit,available}] }`.
 - **Service API** exported by `RecipesModule` for other modules (C): `RecipeService.getActiveRecipe(tx, productId)`,
   `RecipeService.resolveStockQuantities(tx, recipe, runs)` (unit conversion, whole-number check) and
   `UnitConversionService.convert(qty, fromUnitId, toUnitId)` (direct or inverse, one hop, else throws `UNIT_CONVERSION_MISSING`).
