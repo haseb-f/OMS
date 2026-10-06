@@ -446,6 +446,17 @@ export const navigationConfig: NavigationItem[] = [
     order: 10,
     permissions: ["inventory.view"],
   },
+  {
+    // R13 — read-only integrity report (I1–I7). The API additionally requires a costing
+    // permission (Product Cost or Cost Explorer); the page explains that when it is missing.
+    id: "inventory-integrity",
+    titleKey: "nav.inventoryIntegrity",
+    parent: "products",
+    route: "/inventory/integrity",
+    icon: "shield-check",
+    order: 11,
+    permissions: ["inventory.view"],
+  },
 
   {
     id: "hr",

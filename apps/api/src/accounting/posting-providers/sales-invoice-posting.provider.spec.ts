@@ -100,6 +100,9 @@ describe('SalesInvoicePostingProvider.buildEntries — COGS', () => {
         update: jest.fn(),
       },
       salesInvoiceItem: { update: jest.fn() },
+      // No delivery of the line's own product (L7: a kit line without a
+      // snapshot is only a plain line when the product itself was delivered).
+      inventoryMovement: { findMany: jest.fn().mockResolvedValue([]) },
       product: {
         findMany: jest.fn().mockResolvedValue([
           {

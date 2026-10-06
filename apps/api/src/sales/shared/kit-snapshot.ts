@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { InventoryMovementType, Prisma } from '@prisma/client';
 import {
   round2,
   round4,
@@ -101,3 +101,35 @@ export function kitComponentValue(
     ),
   );
 }
+
+/**
+ * R13 — a historical sale line is decided by what happened to it, never by the
+ * product's CURRENT supply method (a product sold as a stocked item may have
+ * been switched to KIT once its stock ran out). A line without a kit snapshot
+ * whose own product was delivered from stock under its invoice (a
+ * `SALES_DELIVERY` of the product itself — not as a kit component) was a
+ * plain stocked line. Returns the `invoiceId:productId` pairs for which such a
+ * delivery exists (one query).
+ */
+export async function productsDeliveredThemselves(
+  tx: Pick<Prisma.TransactionClient, 'inventoryMovement'>,
+  lines: { salesInvoiceId: string; productId: string }[],
+): Promise<Set<string>> {
+  if (lines.length === 0) return new Set();
+  const movements = await tx.inventoryMovement.findMany({
+    where: {
+      type: InventoryMovementType.SALES_DELIVERY,
+      referenceType: 'SALES_INVOICE',
+      referenceId: { in: [...new Set(lines.map((l) => l.salesInvoiceId))] },
+      productId: { in: [...new Set(lines.map((l) => l.productId))] },
+      parentProductId: null,
+    },
+    select: { referenceId: true, productId: true },
+  });
+  return new Set(
+    movements.map((m) => deliveredKey(m.referenceId ?? '', m.productId)),
+  );
+}
+
+export const deliveredKey = (salesInvoiceId: string, productId: string) =>
+  `${salesInvoiceId}:${productId}`;

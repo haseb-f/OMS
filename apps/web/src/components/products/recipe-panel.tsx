@@ -28,6 +28,7 @@ import { KitAvailabilityCard, RecipeCostEstimateCard } from "@/components/produc
 import { useUnits } from "@/hooks/use-reference-data";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
+import { canViewInventoryCost } from "@/config/inventory/cost-visibility";
 import { apiErrorMessage, reportApiError, toast } from "@/lib/toast";
 import { formatNumber } from "@/lib/format-number";
 import type { MessageKey } from "@/i18n/translate";
@@ -84,6 +85,9 @@ export function RecipePanel({ product }: { product: ProductRow }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const canManage = hasPermission(MANAGE_RECIPES_PERMISSION);
+  // The direct-cost estimate is a cost figure (API withholds it otherwise).
+  const canSeeCost =
+    canViewInventoryCost(hasPermission) || hasPermission("inventory.assembly.direct_cost");
   const kind: RecipeProductKind = product.supplyMethod === "KIT" ? "KIT" : "ASSEMBLED";
   const units = useUnits();
 
@@ -412,22 +416,24 @@ export function RecipePanel({ product }: { product: ProductRow }) {
                       }
                     />
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <Label htmlFor="recipe-direct">
-                      {t("products.recipe.fields.directCostEstimate")}
-                    </Label>
-                    <MoneyInput
-                      id="recipe-direct"
-                      value={draft.directCostEstimate}
-                      aria-invalid={showIssues && issues.includes("DIRECT_COST_INVALID")}
-                      onChange={(event) =>
-                        setDraft({ ...draft, directCostEstimate: event.target.value })
-                      }
-                    />
-                    <p className="text-caption text-muted-foreground">
-                      {t("products.recipe.fields.directCostHint")}
-                    </p>
-                  </div>
+                  {canSeeCost ? (
+                    <div className="flex flex-col gap-1">
+                      <Label htmlFor="recipe-direct">
+                        {t("products.recipe.fields.directCostEstimate")}
+                      </Label>
+                      <MoneyInput
+                        id="recipe-direct"
+                        value={draft.directCostEstimate}
+                        aria-invalid={showIssues && issues.includes("DIRECT_COST_INVALID")}
+                        onChange={(event) =>
+                          setDraft({ ...draft, directCostEstimate: event.target.value })
+                        }
+                      />
+                      <p className="text-caption text-muted-foreground">
+                        {t("products.recipe.fields.directCostHint")}
+                      </p>
+                    </div>
+                  ) : null}
                 </>
               ) : (
                 <p className="text-caption text-muted-foreground sm:col-span-2">

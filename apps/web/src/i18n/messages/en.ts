@@ -15,6 +15,7 @@ import leadOpsEn from "./modules/lead-ops.en";
 import customerLookupEn from "./modules/customer-lookup.en";
 import tableViewsEn from "./modules/table-views.en";
 import assemblyEn from "./modules/assembly.en";
+import inventoryIntegrityEn from "./modules/inventory-integrity.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
@@ -25,6 +26,7 @@ const en = {
   customerLookup: customerLookupEn,
   tableViews: tableViewsEn,
   assembly: assemblyEn,
+  inventoryIntegrity: inventoryIntegrityEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
@@ -456,6 +458,7 @@ const en = {
     inventoryStock: "Actual Stock",
     inventoryPhysicalCount: "Physical Count",
     inventoryAssembly: "Assembly",
+    inventoryIntegrity: "Inventory integrity",
     expenses: "Expenses",
     expensesComponents: "Cost Categories",
     expensesProductCost: "Product Cost",

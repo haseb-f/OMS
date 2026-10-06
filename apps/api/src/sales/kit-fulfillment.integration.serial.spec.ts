@@ -33,6 +33,9 @@ import { StoreOrdersModule } from '../store-orders/store-orders.module';
 import { StoreOrdersService } from '../store-orders/store-orders.service';
 import { AgentLedgerModule } from '../agents/finance/agent-ledger.module';
 import { AgentFulfillmentService } from '../agents/finance/agent-fulfillment.service';
+import { AssemblyModule } from '../assembly/assembly.module';
+import { AssemblyService } from '../assembly/assembly.service';
+import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
 
 const D = (value: string | number | Prisma.Decimal) =>
   new Prisma.Decimal(value);
@@ -80,6 +83,8 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
   let landedCosts: LandedCostDocumentsService;
   let storeOrders: StoreOrdersService;
   let agentFulfillment: AgentFulfillmentService;
+  let assembly: AssemblyService;
+  let postingEngine: PostingEngineService;
 
   const tag = randomUUID().slice(0, 8).toUpperCase();
   const today = new Date().toISOString().slice(0, 10);
@@ -302,6 +307,28 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
       ).currentCost ?? 0,
     );
 
+  /** Net balance (debit − credit) of an account over every journal line ever posted to it. */
+  const accountBalance = async (accountId: string) => {
+    const sums = await prisma.journalEntryLine.aggregate({
+      where: { accountId },
+      _sum: { debit: true, credit: true },
+    });
+    return D(sums._sum.debit ?? 0).sub(sums._sum.credit ?? 0);
+  };
+
+  /** Waits until `count` sessions wait on a row lock of the products table. */
+  const waitForProductLockWaiters = async (count: number) => {
+    for (let attempt = 0; attempt < 150; attempt++) {
+      const [row] = await prisma.$queryRaw<{ waiting: number }[]>`
+        SELECT count(*)::int AS waiting FROM pg_stat_activity
+        WHERE datname = current_database() AND wait_event_type = 'Lock'
+          AND query ILIKE '%products%'`;
+      if (row.waiting >= count) return;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    throw new Error(`timed out waiting for ${count} product-lock waiter(s)`);
+  };
+
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
       imports: [
@@ -320,6 +347,7 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
         LandedCostDocumentsModule,
         StoreOrdersModule,
         AgentLedgerModule,
+        AssemblyModule,
       ],
     }).compile();
     await moduleRef.init();
@@ -335,6 +363,8 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
     landedCosts = get(LandedCostDocumentsService);
     storeOrders = get(StoreOrdersService);
     agentFulfillment = get(AgentFulfillmentService);
+    assembly = get(AssemblyService);
+    postingEngine = get(PostingEngineService);
 
     const lower = tag.toLowerCase();
     actorId = (
@@ -467,6 +497,17 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
       await attempt(() =>
         prisma.landedCostDocument.deleteMany({ where: { id: { in: landed } } }),
       );
+      await attempt(async () => {
+        const orders = await prisma.assemblyOrder.findMany({
+          where: { productId: { in: productIds } },
+          select: { id: true },
+        });
+        const ids = orders.map((order) => order.id);
+        await prisma.assemblyOrderLine.deleteMany({
+          where: { assemblyOrderId: { in: ids } },
+        });
+        await prisma.assemblyOrder.deleteMany({ where: { id: { in: ids } } });
+      });
       const movements = await prisma.inventoryMovement.findMany({
         where: { productId: { in: productIds } },
         select: { id: true },
@@ -1024,6 +1065,327 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
         status: 422,
         code: 'LANDED_COST_CLASS_NOT_CAPITALIZABLE',
       });
+    });
+
+    it('H1: a landed cost posted while a purchase of the same product commits keeps both in the average (no lost update)', async () => {
+      const cat = await makeCategory(`LH${++skuSeq}`);
+      const product = await makeProduct({ categoryId: cat.id });
+      const receipt = await purchase([
+        { productId: product, quantity: 10, unitPrice: 10 },
+      ]);
+      const document = await landedCosts.create(
+        {
+          purchaseInvoiceId: receipt.id,
+          currencyId: functionalCurrencyId,
+          documentDate: today,
+          allocationMethod: 'BY_QUANTITY',
+          lines: [{ costComponentId: componentCostId, netAmount: 100 }],
+        },
+        actorId,
+      );
+      sources.push({ type: 'LANDED_COST', id: document.id });
+      await landedCosts.approve(document.id, actorId);
+      const second = await purchases.create({
+        partnerId: supplierId,
+        items: [
+          {
+            productId: product,
+            quantity: 10,
+            unitPrice: 40,
+            warehouseId,
+            unitId,
+          },
+        ],
+      });
+      sources.push({ type: 'PURCHASE_INVOICE', id: second.id });
+
+      // Hold the product row so both writers queue behind it: the purchase
+      // first, then the landed cost — released together.
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      let holding!: () => void;
+      const held = new Promise<void>((resolve) => (holding = resolve));
+      const holder = prisma.$transaction(
+        async (tx) => {
+          await tx.$queryRaw`SELECT id FROM products WHERE id = ${product}::uuid FOR UPDATE`;
+          holding();
+          await gate;
+        },
+        { timeout: 60_000, maxWait: 10_000 },
+      );
+      await held;
+      const confirm = purchases.confirm(second.id, actorId);
+      await waitForProductLockWaiters(1);
+      const post = landedCosts.post(document.id, actorId);
+      await waitForProductLockWaiters(2);
+      release();
+      await Promise.all([holder, confirm, post]);
+
+      // Serial result: purchase → (10×10 + 10×40) / 20 = 25; landed cost Q=10,
+      // O=20 → 100 capitalized → 25 + 100/20 = 30. A landed cost computed from
+      // the pre-purchase state and written after the purchase gives 20.
+      expect((await avgCost(product)).toString()).toBe('30');
+      expect(await onHand(product)).toBe(20);
+    });
+  });
+
+  describe('independent-review fixes', () => {
+    it('L8: a receipt blends the exact functional line value the GL books, never a 4-dp unit cost × quantity', async () => {
+      const cat = await makeCategory(`L8${++skuSeq}`);
+      const product = await makeProduct({ categoryId: cat.id, cost: 10 });
+      await open(product, 1);
+      const invoice = await purchases.create({
+        partnerId: supplierId,
+        items: [
+          {
+            productId: product,
+            quantity: 6,
+            unitPrice: 10,
+            discountValue: 0.01,
+            warehouseId,
+            unitId,
+          },
+        ],
+      });
+      sources.push({ type: 'PURCHASE_INVOICE', id: invoice.id });
+      await purchases.confirm(invoice.id, actorId);
+      const journal = await journalOf('PURCHASE_INVOICE', invoice.id);
+      expect(journal.debit(cat.inventoryAccountId).toString()).toBe('59.99');
+      // (1 × 10 + 59.99) / 7 = 9.998571… → 9.9986. The 4-dp unit cost
+      // 9.9983 × 6 = 59.9898 gave 9.9985.
+      expect((await avgCost(product)).toString()).toBe('9.9986');
+    });
+
+    it('L5: a return at a zero snapshot cost blends its units into the average', async () => {
+      const cat = await makeCategory(`L5${++skuSeq}`);
+      const product = await makeProduct({ categoryId: cat.id, cost: 0 });
+      await open(product, 2);
+      const sale = await sell(product, 2);
+      await purchase([{ productId: product, quantity: 2, unitPrice: 10 }]);
+      expect((await avgCost(product)).toString()).toBe('10');
+      const item = await prisma.salesInvoiceItem.findFirstOrThrow({
+        where: { salesInvoiceId: sale.id },
+      });
+      expect(D(item.unitCost!).toString()).toBe('0');
+      const salesReturn = await returns.create({
+        partnerId: customerId,
+        salesInvoiceId: sale.id,
+        items: [{ ...saleLine(product, 2, 50), salesInvoiceItemId: item.id }],
+      });
+      sources.push({ type: 'SALES_RETURN', id: salesReturn.id });
+      await returns.submit(salesReturn.id);
+      await returns.approve(salesReturn.id);
+      await returns.confirm(salesReturn.id, actorId);
+      expect(await onHand(product)).toBe(4);
+      // 2 @ 10 + 2 returned @ 0 → 20 / 4 = 5 (sub-ledger 20 = GL 20)
+      expect((await avgCost(product)).toString()).toBe('5');
+    });
+
+    it('L7: a line sold from stock before the product became a kit re-posts as a plain line; its return names why it cannot come back', async () => {
+      const cat = await makeCategory(`L7${++skuSeq}`);
+      const product = await makeProduct({ categoryId: cat.id, cost: 12 });
+      await open(product, 3);
+      const sale = await sell(product, 3);
+      // Stock is gone, so the switch to KIT is allowed.
+      await prisma.product.update({
+        where: { id: product },
+        data: { supplyMethod: 'KIT', isInventoryItem: false },
+      });
+      // FX-correction style re-post: reverse, then post again.
+      await prisma.$transaction(async (tx) => {
+        await postingEngine.reverse('SALES_INVOICE', sale.id, actorId, tx);
+        await postingEngine.post('SALES_INVOICE', sale.id, actorId, tx);
+      });
+      const reposted = await journalOf('SALES_INVOICE', sale.id);
+      expect(reposted.debit(cat.cogsAccountId).toString()).toBe('36');
+      expect(reposted.credit(cat.inventoryAccountId).toString()).toBe('36');
+
+      const item = await prisma.salesInvoiceItem.findFirstOrThrow({
+        where: { salesInvoiceId: sale.id },
+      });
+      const salesReturn = await returns.create({
+        partnerId: customerId,
+        salesInvoiceId: sale.id,
+        items: [{ ...saleLine(product, 1, 50), salesInvoiceItemId: item.id }],
+      });
+      sources.push({ type: 'SALES_RETURN', id: salesReturn.id });
+      await returns.submit(salesReturn.id);
+      await returns.approve(salesReturn.id);
+      expect(
+        await rejection(returns.confirm(salesReturn.id, actorId)),
+      ).toMatchObject({
+        status: 422,
+        code: 'SALES_RETURN_PRODUCT_NOT_STOCKED',
+      });
+    });
+
+    it('M3: reversing after the finished average moved relieves the GL at the sub-ledger value (assemble 2 = 80, buy 2 @ 60, sell 2, reverse)', async () => {
+      const catC = await makeCategory(`M3C${++skuSeq}`);
+      const catF = await makeCategory(`M3F${skuSeq}`);
+      const component = await makeProduct({ categoryId: catC.id, cost: 10 });
+      await open(component, 8);
+      const fg = await makeProduct({
+        categoryId: catF.id,
+        supply: 'ASSEMBLED',
+      });
+      await makeRecipe(fg, [{ componentProductId: component, quantity: '4' }]);
+      const { order } = await assembly.create(
+        { productId: fg, warehouseId, quantity: 2 },
+        actorId,
+        { includeCosts: true },
+      );
+      sources.push({ type: 'ASSEMBLY_ORDER', id: order.id });
+      sources.push({ type: 'ASSEMBLY_REVERSAL_VARIANCE', id: order.id });
+      expect(order.totalCost).toBe('80');
+      await purchase([{ productId: fg, quantity: 2, unitPrice: 60 }]);
+      expect((await avgCost(fg)).toString()).toBe('50');
+      await sell(fg, 2);
+
+      await assembly.reverse(order.id, { reason: 'M3' }, actorId, true);
+      expect(await onHand(fg)).toBe(0);
+      expect(await onHand(component)).toBe(8);
+      expect((await avgCost(fg)).toString()).toBe('50'); // never moves
+      // GL finished-goods inventory = sub-ledger value (0 units → 0).
+      expect((await accountBalance(catF.inventoryAccountId)).toString()).toBe(
+        '0',
+      );
+      const variance = await journalOf('ASSEMBLY_REVERSAL_VARIANCE', order.id);
+      // D = R − qty × avg = 80 − 100 = −20 → Dr COGS 20 / Cr FG inventory 20
+      expect(variance.debit(catF.cogsAccountId).toString()).toBe('20');
+      expect(variance.credit(catF.inventoryAccountId).toString()).toBe('20');
+      expect(variance.totals.debit.equals(variance.totals.credit)).toBe(true);
+      // Components came back at their recorded value through the engine reversal.
+      expect((await accountBalance(catC.inventoryAccountId)).toString()).toBe(
+        '0',
+      );
+    });
+
+    it('M4: only an order-linked line consumes the order reservation; an edited invoice keeps its links and releases its share', async () => {
+      const cat = await makeCategory(`M4${++skuSeq}`);
+      const held = await makeProduct({ categoryId: cat.id, cost: 5 });
+      const billed = await makeProduct({ categoryId: cat.id, cost: 5 });
+      await open(held, 10);
+      await open(billed, 3);
+      // The order reserves all 10 of `held` (and 3 of `billed`).
+      const order = await orders.create({
+        partnerId: customerId,
+        items: [saleLine(held, 10), saleLine(billed, 3)],
+      });
+      await orders.confirm(order.id, actorId);
+      expect(await reservedUnder(order.id, held)).toBe(10);
+      const billedOrderItem = order.items.find((i) => i.productId === billed)!;
+      const invoice = await orders.convertToInvoice(
+        order.id,
+        { items: [{ salesOrderItemId: billedOrderItem.id, quantity: 2 }] },
+        actorId,
+      );
+      sources.push({ type: 'SALES_INVOICE', id: invoice.id });
+
+      // Edit: keep the order line (it names itself) and add, by hand, 8 of the
+      // product the order still holds for its other line.
+      await invoices.update(invoice.id, {
+        items: [
+          { ...saleLine(billed, 2), salesInvoiceItemId: invoice.items[0].id },
+          saleLine(held, 8),
+        ],
+      });
+      const edited = await invoices.findOne(invoice.id);
+      const linkOf = (productId: string) =>
+        edited.items.find((item) => item.productId === productId)!;
+      expect(linkOf(billed).salesOrderItemId).toBe(billedOrderItem.id);
+      expect(linkOf(held).salesOrderItemId).toBeNull();
+      // The manual 8 may not take stock the order holds for its own line.
+      expect(
+        await rejection(invoices.confirm(invoice.id, actorId)),
+      ).toMatchObject({
+        status: 400,
+        code: 'INVENTORY_AVAILABLE_INSUFFICIENT',
+      });
+      expect(await onHand(held)).toBe(10);
+      expect(await reservedUnder(order.id, held)).toBe(10);
+
+      // Invoiced ≤ ordered still holds for the kept link (3 ordered).
+      expect(
+        await rejection(
+          invoices.update(invoice.id, {
+            items: [
+              { ...saleLine(billed, 4), salesInvoiceItemId: linkOf(billed).id },
+            ],
+          }),
+        ),
+      ).toMatchObject({ status: 400, code: 'SALES_INVOICE_EXCEEDS_ORDER' });
+
+      // Drop the manual line: the linked line delivers and releases its share.
+      await invoices.update(invoice.id, {
+        items: [
+          {
+            ...saleLine(billed, 2, 310),
+            salesInvoiceItemId: linkOf(billed).id,
+          },
+        ],
+      });
+      await invoices.confirm(invoice.id, actorId);
+      expect(await onHand(billed)).toBe(1);
+      expect(await reservedUnder(order.id, billed)).toBe(1);
+      expect(await reservedUnder(order.id, held)).toBe(10);
+      const after = await prisma.salesOrderDocument.findUniqueOrThrow({
+        where: { id: order.id },
+        include: { items: true },
+      });
+      expect(
+        after.items.find((i) => i.id === billedOrderItem.id)!.deliveredQuantity,
+      ).toBe(2);
+      expect(after.status).toBe('PARTIALLY_DELIVERED');
+    });
+
+    it('S7: company sales documents refuse an agent-owned kit; a company kit whose component became agent-owned is refused at confirm', async () => {
+      const cat = await makeCategory(`S7${++skuSeq}`);
+      const agentComponent = await makeProduct({
+        categoryId: cat.id,
+        cost: 4,
+        owner: agentId,
+      });
+      const agentKit = await makeProduct({
+        categoryId: cat.id,
+        supply: 'KIT',
+        owner: agentId,
+      });
+      await makeRecipe(agentKit, [
+        { componentProductId: agentComponent, quantity: '1' },
+      ]);
+      for (const create of [
+        () =>
+          orders.create({
+            partnerId: customerId,
+            items: [saleLine(agentKit, 1)],
+          }),
+        () =>
+          invoices.create({
+            partnerId: customerId,
+            items: [saleLine(agentKit, 1)],
+          }),
+      ]) {
+        expect(await rejection(create())).toMatchObject({
+          status: 422,
+          code: 'AGENT_PRODUCT_IN_COMPANY_DOCUMENT',
+        });
+      }
+
+      // A legacy row whose component owner changed outside the owner lock.
+      const { a, kit } = await makeKit({ aStock: 4, bStock: 2 });
+      const order = await orders.create({
+        partnerId: customerId,
+        items: [saleLine(kit, 1)],
+      });
+      await prisma.product.update({
+        where: { id: a },
+        data: { ownerAgentId: agentId },
+      });
+      expect(await rejection(orders.confirm(order.id, actorId))).toMatchObject({
+        status: 422,
+        code: 'KIT_OWNER_MIXED',
+      });
+      expect(await reservedUnder(order.id, a)).toBe(0);
     });
   });
 });

@@ -78,33 +78,14 @@ export function splitLandedCost(input: {
 }
 
 /**
- * Removing units from the pool at their recorded value (assembly reversal):
- *
- *   newAverage = (onHandBefore × previousCost − removedValue) / (onHandBefore − removedQuantity)
- *
- * So the remaining units keep their cost: when the removed units were costed
- * at the current average the average does not move at all, and it only
- * shifts by the difference between the removed units' recorded cost and the
- * average. When nothing remains, or the formula would give a negative pool
- * (a recorded cost above the whole remaining value), the previous average is
- * kept — it is only ever a reference for the next receipt.
+ * One received line: `quantity` units worth `value` in total (functional
+ * currency) — or, for callers that only know a unit cost, `quantity × unitCost`.
+ * `value` wins when given: it is exactly what the journal books for the line,
+ * so the pool never drifts from the GL by a rounded unit cost × quantity.
  */
-export function removeFromAverage(input: {
-  onHandBefore: number;
-  previousCost: DecimalInput;
-  removedQuantity: number;
-  removedValue: DecimalInput;
-}): Prisma.Decimal {
-  const remainingQuantity = input.onHandBefore - input.removedQuantity;
-  if (remainingQuantity <= 0) return round4(input.previousCost);
-  const remainingValue = D(input.previousCost)
-    .mul(input.onHandBefore)
-    .sub(D(input.removedValue));
-  if (remainingValue.lte(0)) return round4(input.previousCost);
-  return round4(remainingValue.div(remainingQuantity));
-}
-
-type ReceiptLine = { quantity: number; unitCost: DecimalInput };
+type ReceiptLine =
+  | { quantity: number; unitCost: DecimalInput; value?: undefined }
+  | { quantity: number; value: DecimalInput; unitCost?: undefined };
 
 /**
  * Inventory Valuation Service (TASK-046) — the ONLY place that knows how a
@@ -330,7 +311,12 @@ export class InventoryValuationService {
   ): Promise<{ previousCost: number; newCost: number }> {
     const addedQuantity = lines.reduce((sum, line) => sum + line.quantity, 0);
     const addedValue = lines.reduce(
-      (sum, line) => sum.add(D(line.unitCost).mul(line.quantity)),
+      (sum, line) =>
+        sum.add(
+          line.value !== undefined
+            ? D(line.value)
+            : D(line.unitCost).mul(line.quantity),
+        ),
       ZERO,
     );
     const [onHandNow, previousCost] = await Promise.all([
@@ -472,48 +458,44 @@ export class InventoryValuationService {
   }
 
   /**
-   * Reversal of an assembly's finished item — takes `quantityRemoved` units
-   * back out at their RECORDED value (`removedValue` = the order's total cost),
-   * not at today's average:
-   *
-   *   newAverage = (onHandBefore × previousCost − removedValue) / (onHandBefore − quantityRemoved)
-   *
-   * `onHandBefore` includes the units being removed. Remaining units therefore
-   * keep their own cost (the average only moves through the gap between the
-   * recorded cost and the average at that time); with nothing left the previous
-   * average is kept. Writes the cost snapshot + a history row (`ASSEMBLY_ORDER`).
+   * Reversal of an assembly's finished item (R13 M3 decision): the units leave
+   * the pool at the CURRENT moving average, so the average of what remains is
+   * unchanged and the sub-ledger value drops by exactly
+   * `removedValue = round2(quantityRemoved × average)`. When the average moved
+   * since the assembly, the gap to the order's recorded total is booked by the
+   * caller as a separate variance entry (Posting Engine), so the GL relieves
+   * the same value. Nothing is persisted (the average does not change).
    */
   async applyAssemblyReversal(
     tx: Prisma.TransactionClient,
-    input: {
-      productId: string;
-      quantityRemoved: number;
-      removedValue: DecimalInput;
-      referenceId: string;
-      onHandBefore: number;
-      userId?: string;
-    },
-  ): Promise<{ previousCost: number; newCost: number }> {
-    const previousCost = await this.getStoredCost(tx, input.productId);
-    const newCost = removeFromAverage({
-      onHandBefore: input.onHandBefore,
-      previousCost,
-      removedQuantity: input.quantityRemoved,
-      removedValue: round2(input.removedValue),
-    });
-    await this.persistCost(tx, {
-      productId: input.productId,
-      previousCost,
-      newCost,
-      reason: 'Assembly reversal — finished item removed at its recorded cost',
-      referenceType: 'ASSEMBLY_ORDER',
-      referenceId: input.referenceId,
-      userId: input.userId,
-    });
+    input: { productId: string; quantityRemoved: number },
+  ): Promise<{ unitCost: Prisma.Decimal; removedValue: Prisma.Decimal }> {
+    const unitCost = round4(await this.getStoredCost(tx, input.productId));
     return {
-      previousCost: previousCost.toNumber(),
-      newCost: newCost.toNumber(),
+      unitCost,
+      removedValue: round2(unitCost.mul(input.quantityRemoved)),
     };
+  }
+
+  /**
+   * The recorded moving average per product — `null` when no cost was ever
+   * recorded (as opposed to a recorded cost of 0). Callers that must never
+   * value stock at a silent zero (assembly consumption) block on `null`.
+   */
+  async getRecordedUnitCosts(
+    tx: Prisma.TransactionClient | PrismaService,
+    productIds: string[],
+  ): Promise<Map<string, Prisma.Decimal | null>> {
+    const products = await tx.product.findMany({
+      where: { id: { in: [...new Set(productIds)] } },
+      select: { id: true, currentCost: true },
+    });
+    return new Map(
+      products.map((product) => [
+        product.id,
+        product.currentCost == null ? null : D(product.currentCost),
+      ]),
+    );
   }
 
   private async getStoredCost(

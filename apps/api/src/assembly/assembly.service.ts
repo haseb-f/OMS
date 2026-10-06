@@ -1,5 +1,10 @@
 import { randomUUID } from 'crypto';
-import { ForbiddenException, HttpException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  HttpException,
+  Injectable,
+} from '@nestjs/common';
 import {
   AssemblyStatus,
   Prisma,
@@ -32,6 +37,11 @@ import {
   unprocessable,
 } from '../common/errors/business-errors';
 import { AssemblyCostService } from './assembly-cost.service';
+import {
+  ASSEMBLY_REFERENCE_TYPE,
+  ASSEMBLY_REVERSAL_VARIANCE_TYPE,
+  assemblyReversalOutputKey,
+} from './assembly-keys';
 import { computeAssemblyCost } from './assembly-cost';
 import type {
   AssemblyPreviewQueryDto,
@@ -40,9 +50,11 @@ import type {
   ReverseAssemblyDto,
 } from './dto/assembly.dto';
 
-const REFERENCE_TYPE = 'ASSEMBLY_ORDER';
+const REFERENCE_TYPE = ASSEMBLY_REFERENCE_TYPE;
 const TRANSACTION_OPTIONS = { timeout: 30_000, maxWait: 10_000 };
 const DIRECT_COST_PERMISSION = 'inventory.assembly.direct_cost';
+/** Idempotency keys travel in a header and are stored: short, printable, no spaces. */
+const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9._:-]{1,200}$/;
 
 /** Timeline entries written to the finished product's activity log. */
 export const AssemblyActivityType = {
@@ -248,14 +260,16 @@ export class AssemblyService {
     userId: string,
     options: { idempotencyKey?: string; includeCosts: boolean },
   ): Promise<{ order: AssemblyOrderView; replayed: boolean }> {
-    const key = (dto.idempotencyKey ?? options.idempotencyKey)?.trim() || null;
+    const key = validIdempotencyKey(
+      dto.idempotencyKey ?? options.idempotencyKey,
+    );
     const view = (order: LoadedOrder) => toView(order, options.includeCosts);
 
     if (key) {
       const existing = await this.findByKey(this.prisma, key);
       if (existing) {
         return {
-          order: view(this.assertSameRequest(existing, dto)),
+          order: view(this.assertSameRequest(existing, dto, userId)),
           replayed: true,
         };
       }
@@ -271,7 +285,7 @@ export class AssemblyService {
         const existing = await this.findByKey(this.prisma, key);
         if (existing) {
           return {
-            order: view(this.assertSameRequest(existing, dto)),
+            order: view(this.assertSameRequest(existing, dto, userId)),
             replayed: true,
           };
         }
@@ -299,7 +313,7 @@ export class AssemblyService {
       const existing = await this.findByKey(tx, key);
       if (existing) {
         return {
-          order: this.assertSameRequest(existing, dto),
+          order: this.assertSameRequest(existing, dto, userId),
           replayed: true,
         };
       }
@@ -432,13 +446,16 @@ export class AssemblyService {
       plan.product.id,
       AssemblyActivityType.ASSEMBLY_POSTED,
       `Assembled ${dto.quantity} × ${label(plan.product)} (${assemblyNumber}) from recipe version ${recipe.version}`,
+      // No cost figures: the product timeline is readable with products.view.
       {
         assemblyOrderId: orderId,
         assemblyNumber,
         quantity: dto.quantity,
-        totalCost: cost.totalCost.toString(),
+        recipeId: recipe.id,
+        recipeVersion: recipe.version,
       },
       tx,
+      userId,
     );
     return { order: await this.loadOrder(tx, orderId), replayed: false };
   }
@@ -517,10 +534,13 @@ export class AssemblyService {
         );
       }
 
-      const onHandBefore = await this.valuation.getOnHandQuantity(
-        tx,
-        order.productId,
-      );
+      // The finished units leave at the CURRENT average (the rest keep their
+      // cost); the movement records that average — the variance entry below
+      // reads it back.
+      const removal = await this.valuation.applyAssemblyReversal(tx, {
+        productId: order.productId,
+        quantityRemoved: order.quantity,
+      });
       await this.inventory.postProductionMovement(tx, {
         type: 'PRODUCTION_OUTPUT',
         productId: order.productId,
@@ -528,21 +548,13 @@ export class AssemblyService {
         quantity: -order.quantity,
         referenceType: REFERENCE_TYPE,
         referenceId: order.id,
-        idempotencyKey: `${REFERENCE_TYPE}:${order.id}:${order.productId}:PRODUCTION_OUTPUT:REVERSAL`,
-        unitCost: order.unitCost,
+        idempotencyKey: assemblyReversalOutputKey(order.id, order.productId),
+        unitCost: removal.unitCost,
         recipeId: order.recipeId,
         notes: dto.reason,
         userId,
         // The finished item may have been archived / deactivated since.
         allowInactiveProduct: true,
-      });
-      await this.valuation.applyAssemblyReversal(tx, {
-        productId: order.productId,
-        quantityRemoved: order.quantity,
-        removedValue: order.totalCost,
-        referenceId: order.id,
-        onHandBefore,
-        userId,
       });
 
       for (const line of order.lines) {
@@ -581,7 +593,15 @@ export class AssemblyService {
       }
 
       if (!order.ownerAgentId) {
+        // Exact mirror of the assembly journal, then the gap between the
+        // recorded total and what the sub-ledger relieved (average moved).
         await this.postingEngine.reverse(REFERENCE_TYPE, order.id, userId, tx);
+        await this.postingEngine.post(
+          ASSEMBLY_REVERSAL_VARIANCE_TYPE,
+          order.id,
+          userId,
+          tx,
+        );
       }
       await tx.assemblyOrder.update({
         where: { id: order.id },
@@ -596,8 +616,14 @@ export class AssemblyService {
         order.productId,
         AssemblyActivityType.ASSEMBLY_REVERSED,
         `Assembly ${order.assemblyNumber} reversed: ${dto.reason}`,
-        { assemblyOrderId: order.id, reason: dto.reason },
+        {
+          assemblyOrderId: order.id,
+          assemblyNumber: order.assemblyNumber,
+          quantity: order.quantity,
+          reason: dto.reason,
+        },
         tx,
+        userId,
       );
       return toView(await this.loadOrder(tx, order.id), includeCosts);
     }, TRANSACTION_OPTIONS);
@@ -749,12 +775,16 @@ export class AssemblyService {
       resolved.map((line) => line.componentProductId),
       input.warehouseId,
     );
+    const recordedCosts = await this.valuation.getRecordedUnitCosts(
+      client,
+      resolved.map((line) => line.componentProductId),
+    );
     const lines: PlanLine[] = [];
+    const uncosted: typeof resolved = [];
     for (const line of resolved) {
-      const unitCost = await this.valuation.getUnitCostDecimal(
-        line.componentProductId,
-        client,
-      );
+      const recorded = recordedCosts.get(line.componentProductId) ?? null;
+      if (recorded === null) uncosted.push(line);
+      const unitCost = recorded ?? new Prisma.Decimal(0);
       lines.push({
         componentProductId: line.componentProductId,
         sku: line.sku,
@@ -766,6 +796,24 @@ export class AssemblyService {
         recipeQuantity: line.recipeQuantity,
         unitId: line.unitId,
         quantityPerRun: line.quantityPerRun,
+      });
+    }
+
+    // A component with no recorded cost would be consumed at a silent zero —
+    // same posture as sales COGS. A recorded cost of exactly 0 is allowed.
+    if (uncosted.length > 0) {
+      blockers.push({
+        code: 'ASSEMBLY_COMPONENT_COST_MISSING',
+        message:
+          `No cost is recorded for ${uncosted.map((line) => `${line.sku} ${line.name}`).join(', ')} — ` +
+          'record a product cost or an opening balance with a cost before assembling; components are never consumed at a silent zero.',
+        details: {
+          components: uncosted.map((line) => ({
+            productId: line.componentProductId,
+            sku: line.sku,
+            name: line.name,
+          })),
+        },
       });
     }
 
@@ -803,12 +851,18 @@ export class AssemblyService {
     });
   }
 
-  /** The same key with a different request is a client bug — never answer it with an unrelated order. */
+  /**
+   * The same key with a different request is a client bug — never answer it
+   * with an unrelated order. Keys are scoped to the user who sent them: another
+   * user's key never replays (or reveals) that user's order.
+   */
   private assertSameRequest(
     existing: LoadedOrder,
     dto: CreateAssemblyDto,
+    userId: string,
   ): LoadedOrder {
     if (
+      existing.createdBy !== userId ||
       existing.productId !== dto.productId ||
       existing.warehouseId !== dto.warehouseId ||
       existing.quantity !== dto.quantity
@@ -891,6 +945,30 @@ function recipeSnapshot(
   };
 }
 
+/** The recipe snapshot of an order with its direct-cost estimate withheld (lines untouched). */
+function withoutDirectCostEstimate(
+  snapshot: Prisma.JsonValue,
+): Prisma.JsonValue {
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+    return snapshot;
+  }
+  return { ...snapshot, directCostEstimate: null };
+}
+
+/** A key from the body or the `Idempotency-Key` header: ≤ 200 of `[A-Za-z0-9._:-]`, else 400. */
+function validIdempotencyKey(raw: string | undefined): string | null {
+  const key = raw?.trim();
+  if (!key) return null;
+  if (!IDEMPOTENCY_KEY_PATTERN.test(key)) {
+    throw new BadRequestException({
+      code: 'ASSEMBLY_IDEMPOTENCY_KEY_INVALID',
+      message:
+        'The idempotency key must be 1–200 characters of letters, digits, ".", "_", ":" or "-".',
+    });
+  }
+  return key;
+}
+
 export function toView(
   order: LoadedOrder,
   includeCosts: boolean,
@@ -907,7 +985,9 @@ export function toView(
     warehouse: order.warehouse,
     recipeId: order.recipeId,
     recipeVersion: order.recipeVersion,
-    recipeSnapshot: order.recipeSnapshot,
+    recipeSnapshot: includeCosts
+      ? order.recipeSnapshot
+      : withoutDirectCostEstimate(order.recipeSnapshot),
     quantity: order.quantity,
     ownerAgentId: order.ownerAgentId,
     componentCost: show(order.componentCost),

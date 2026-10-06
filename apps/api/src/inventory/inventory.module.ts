@@ -8,6 +8,7 @@ import { WarehousesModule } from '../warehouses/warehouses.module';
 import { NumberingModule } from '../numbering/numbering.module';
 import { ProductCostModule } from '../product-cost/product-cost.module';
 import { PostingEngineModule } from '../accounting/posting-engine/posting-engine.module';
+import { InventoryIntegrityModule } from './integrity/inventory-integrity.module';
 
 @Module({
   imports: [
@@ -16,6 +17,8 @@ import { PostingEngineModule } from '../accounting/posting-engine/posting-engine
     NumberingModule,
     ProductCostModule,
     PostingEngineModule,
+    // R13 — read-only integrity report (GET /inventory/integrity).
+    InventoryIntegrityModule,
   ],
   controllers: [InventoryController, InventoryMovementActivitiesController],
   providers: [InventoryService, InventoryMovementActivityService],

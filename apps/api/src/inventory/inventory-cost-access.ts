@@ -16,3 +16,20 @@ export async function canViewInventoryCost(
   }
   return false;
 }
+
+/** Holders of this right enter assembly direct costs — they read assembly / recipe cost figures by definition. */
+export const ASSEMBLY_DIRECT_COST_PERMISSION = 'inventory.assembly.direct_cost';
+
+/**
+ * Assembly / recipe cost figures (order costs, recipe direct-cost estimates):
+ * inventory-cost visibility, or the assembly direct-cost right.
+ */
+export async function canViewAssemblyCost(
+  permissions: Pick<PermissionsResolverService, 'hasPermission'>,
+  userId: string,
+): Promise<boolean> {
+  return (
+    (await canViewInventoryCost(permissions, userId)) ||
+    (await permissions.hasPermission(userId, ASSEMBLY_DIRECT_COST_PERMISSION))
+  );
+}

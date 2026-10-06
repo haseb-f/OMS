@@ -15,6 +15,7 @@ import leadOpsAr from "./modules/lead-ops.ar";
 import customerLookupAr from "./modules/customer-lookup.ar";
 import tableViewsAr from "./modules/table-views.ar";
 import assemblyAr from "./modules/assembly.ar";
+import inventoryIntegrityAr from "./modules/inventory-integrity.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
@@ -25,6 +26,7 @@ const ar = {
   customerLookup: customerLookupAr,
   tableViews: tableViewsAr,
   assembly: assemblyAr,
+  inventoryIntegrity: inventoryIntegrityAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
@@ -456,6 +458,7 @@ const ar = {
     inventoryStock: "الرصيد الفعلي",
     inventoryPhysicalCount: "الجرد الفعلي",
     inventoryAssembly: "التجميع",
+    inventoryIntegrity: "سلامة المخزون",
     expenses: "التكاليف",
     expensesComponents: "فئات التكلفة",
     expensesProductCost: "تكلفة المنتج",

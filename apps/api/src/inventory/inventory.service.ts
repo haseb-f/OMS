@@ -202,6 +202,15 @@ export class InventoryService {
           'Adjustment would result in negative stock.',
         );
       }
+      if (dto.quantity < 0) {
+        await this.assertUnreservedStock(tx, {
+          product,
+          warehouse,
+          onHand: quantityBefore,
+          quantity: -dto.quantity,
+          operation: 'Adjustment',
+        });
+      }
 
       const movement = await this.createMovement(tx, {
         movementNumber: await this.numberingEngine.generateNumber(
@@ -747,6 +756,13 @@ export class InventoryService {
       if (quantityAfter < 0) {
         throw new BadRequestException('Return quantity exceeds on-hand stock.');
       }
+      await this.assertUnreservedStock(client, {
+        product,
+        warehouse,
+        onHand: quantityBefore,
+        quantity: dto.quantity,
+        operation: 'Purchase return',
+      });
 
       const movement = await this.createMovement(client, {
         movementNumber: await this.numberingEngine.generateNumber(
@@ -1241,6 +1257,13 @@ export class InventoryService {
           `${label} quantity exceeds on-hand stock.`,
         );
       }
+      await this.assertUnreservedStock(tx, {
+        product,
+        warehouse,
+        onHand: quantityBefore,
+        quantity: dto.quantity,
+        operation: label,
+      });
 
       const movement = await this.createMovement(tx, {
         movementNumber: await this.numberingEngine.generateNumber(
@@ -1543,6 +1566,38 @@ export class InventoryService {
       _sum: { quantity: true },
     });
     return result._sum.quantity ?? 0;
+  }
+
+  /**
+   * R13 (L6) — a write-off (damage / expired), a negative adjustment or a
+   * purchase return takes stock out of the warehouse: it may only take what
+   * is not reserved for other documents (`onHand − reserved`), otherwise the
+   * reserved ledger would exceed the stock left (I2). A physical count is not
+   * routed here — it records reality and is reported by the integrity check.
+   * Runs under the caller's product lock, after its on-hand read.
+   */
+  private async assertUnreservedStock(
+    client: Prisma.TransactionClient,
+    input: {
+      product: { id: string; sku: string };
+      warehouse: { id: string; code: string };
+      onHand: number;
+      quantity: number;
+      operation: string;
+    },
+  ): Promise<void> {
+    const reserved = await this.getReservedQuantity(
+      client,
+      input.product.id,
+      input.warehouse.id,
+    );
+    const available = input.onHand - reserved;
+    if (input.quantity > available) {
+      throw new BadRequestException({
+        code: 'INVENTORY_RESERVED_STOCK',
+        message: `${input.operation} of ${input.quantity} × ${input.product.sku} at ${input.warehouse.code} would take stock reserved for other documents (on-hand ${input.onHand}, reserved ${reserved}, available ${Math.max(available, 0)}). Release or deliver the reservation first.`,
+      });
+    }
   }
 
   /**

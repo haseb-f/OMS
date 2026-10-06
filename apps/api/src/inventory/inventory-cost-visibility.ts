@@ -66,7 +66,49 @@ export function redactLineCost<T extends WithLineCost>(line: T): T {
   }
   const product = line.product;
   if (product && typeof product === 'object' && 'currentCost' in product) {
-    out.product = { ...product, currentCost: null };
+    out.product = redactProductCost(product as WithProductCost);
+  }
+  return out as T;
+}
+
+type WithProductCost = { currentCost?: unknown; lastCostUpdate?: unknown };
+
+/**
+ * A product row with its ACTUAL cost withheld — the moving average
+ * (`currentCost`) and when it last moved (`lastCostUpdate`). `purchasePrice`
+ * (the catalog / expected price edited on the product form) is not inventory
+ * valuation and stays.
+ */
+export function redactProductCost<T extends WithProductCost>(product: T): T {
+  const out: WithProductCost = { ...product };
+  if ('currentCost' in product) out.currentCost = null;
+  if ('lastCostUpdate' in product) out.lastCostUpdate = null;
+  return out as T;
+}
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  !!value &&
+  typeof value === 'object' &&
+  Object.getPrototypeOf(value) === Object.prototype;
+
+/**
+ * Deep form of `redactProductCost` for API responses that embed products
+ * anywhere (a product page, a document whose lines carry `product: true`):
+ * every plain object holding `currentCost` / `lastCostUpdate` gets them nulled.
+ * Only plain objects and arrays are walked (Decimal / Date values untouched);
+ * the input is never mutated.
+ */
+export function redactProductCostDeep<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item: unknown) => redactProductCostDeep(item)) as T;
+  }
+  if (!isPlainObject(value)) return value;
+  const out: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value)) {
+    out[key] =
+      key === 'currentCost' || key === 'lastCostUpdate'
+        ? null
+        : redactProductCostDeep(child);
   }
   return out as T;
 }

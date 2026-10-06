@@ -106,6 +106,8 @@ export interface SalesInvoiceRow {
 }
 
 export interface SalesInvoiceLineItemPayload {
+  /** Editing: the saved line this one replaces (keeps its Sales Order link). */
+  salesInvoiceItemId?: string;
   productId: string;
   description?: string;
   warehouseId?: string;

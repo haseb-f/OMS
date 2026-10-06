@@ -12,6 +12,8 @@ import { DetailField, DetailFieldGrid } from "@/components/shared/detail-workspa
 import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
 import { useLocale } from "@/providers/locale-provider";
+import { useUserContext } from "@/providers/user-context";
+import { canViewInventoryCost } from "@/config/inventory/cost-visibility";
 import { toast, reportApiError } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
 import { formatNumber } from "@/lib/format-number";
@@ -45,6 +47,8 @@ export function ProductStockSummary({
   onOpeningBalance: () => void;
 }) {
   const { t } = useLocale();
+  const { hasPermission } = useUserContext();
+  const showCost = canViewInventoryCost(hasPermission);
   const [stockCard, setStockCard] = useState<StockCard | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -91,22 +95,29 @@ export function ProductStockSummary({
             )
           }
         />
-        <DetailField
-          label={t("products.cost.currentCostActual")}
-          value={
-            <span dir="ltr">
-              {product.currentCost ? formatNumber(product.currentCost, { maxDecimals: 4 }) : "—"}
-            </span>
-          }
-        />
-        <DetailField
-          label={t("products.cost.lastCostUpdate")}
-          value={
-            <span dir="ltr">
-              {product.lastCostUpdate ? formatDateTime(product.lastCostUpdate) : "—"}
-            </span>
-          }
-        />
+        {/* Actual cost is inventory valuation: the API withholds it without a costing permission. */}
+        {showCost ? (
+          <>
+            <DetailField
+              label={t("products.cost.currentCostActual")}
+              value={
+                <span dir="ltr">
+                  {product.currentCost
+                    ? formatNumber(product.currentCost, { maxDecimals: 4 })
+                    : "—"}
+                </span>
+              }
+            />
+            <DetailField
+              label={t("products.cost.lastCostUpdate")}
+              value={
+                <span dir="ltr">
+                  {product.lastCostUpdate ? formatDateTime(product.lastCostUpdate) : "—"}
+                </span>
+              }
+            />
+          </>
+        ) : null}
         <DetailField
           label={t("products.openingBalance.warehouse")}
           value={product.preferredWarehouse?.name}

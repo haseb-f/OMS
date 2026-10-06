@@ -3,7 +3,6 @@ import { Prisma } from '@prisma/client';
 import {
   blendMovingAverage,
   InventoryValuationService,
-  removeFromAverage,
   round2,
   round4,
   splitLandedCost,
@@ -113,45 +112,6 @@ describe('inventory valuation math (R13)', () => {
       ).toMatchObject({
         code: 'LANDED_COST_QUANTITY_INVALID',
       });
-    });
-
-    it('removes units at their recorded value without moving the average of the rest', () => {
-      // avg 40, 10 on hand; removing 2 units recorded at 40 each keeps 40
-      expect(
-        removeFromAverage({
-          onHandBefore: 10,
-          previousCost: 40,
-          removedQuantity: 2,
-          removedValue: 80,
-        }).toString(),
-      ).toBe('40');
-      // the removed unit was cheaper than the average (30 vs 40) → the rest cost more
-      expect(
-        removeFromAverage({
-          onHandBefore: 10,
-          previousCost: 40,
-          removedQuantity: 2,
-          removedValue: 60,
-        }).toString(),
-      ).toBe('42.5');
-      // nothing remains → keep the last average
-      expect(
-        removeFromAverage({
-          onHandBefore: 2,
-          previousCost: 40,
-          removedQuantity: 2,
-          removedValue: 80,
-        }).toString(),
-      ).toBe('40');
-      // an impossible negative pool never produces a negative average
-      expect(
-        removeFromAverage({
-          onHandBefore: 3,
-          previousCost: 10,
-          removedQuantity: 1,
-          removedValue: 1000,
-        }).toString(),
-      ).toBe('10');
     });
   });
 
@@ -346,19 +306,17 @@ describe('inventory valuation math (R13)', () => {
       expect(result.newCost).toBe(20);
     });
 
-    it('assembly reversal removes the output at its recorded value', async () => {
+    it('assembly reversal removes the output at the current average — the average never moves', async () => {
       const state = { onHand: 7, cost: '20' };
       const { tx, history } = makeTx(state);
       const result = await service.applyAssemblyReversal(tx, {
         productId,
         quantityRemoved: 3,
-        removedValue: '100',
-        referenceId: 'asm-2',
-        onHandBefore: 7,
       });
-      // (7×20 − 100) / 4 = 10
-      expect(result.newCost).toBe(10);
-      expect(history[0]).toMatchObject({ referenceType: 'ASSEMBLY_ORDER' });
+      expect(result.unitCost.toString()).toBe('20');
+      expect(result.removedValue.toString()).toBe('60');
+      expect(state.cost).toBe('20');
+      expect(history).toHaveLength(0);
     });
   });
 

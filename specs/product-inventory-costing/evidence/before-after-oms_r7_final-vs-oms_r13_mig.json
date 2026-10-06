@@ -1,0 +1,284 @@
+{
+  "before": {
+    "database": "oms_r7_final",
+    "host": "localhost",
+    "generatedAt": "2026-10-05T15:27:02.440Z",
+    "lastMigration": "20261005140000_r12_country_default_currency_usd",
+    "r13Applied": false,
+    "supplyMethodSource": "PROJECTED"
+  },
+  "after": {
+    "database": "oms_r13_mig",
+    "host": "localhost",
+    "generatedAt": "2026-10-05T15:28:18.470Z",
+    "lastMigration": "20261006090000_r13_product_inventory_costing",
+    "r13Applied": true,
+    "supplyMethodSource": "COLUMN"
+  },
+  "ok": true,
+  "checks": [
+    {
+      "kind": "STRICT",
+      "name": "products.count",
+      "before": 715,
+      "after": 715,
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "products.deleted",
+      "before": 95,
+      "after": 95,
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "products.attributes (id, sku, type, item type, flags, owner, status, category, unit, barcode, investment flag)",
+      "before": "eabec6911dd006e6a3daf7e7672eb603",
+      "after": "eabec6911dd006e6a3daf7e7672eb603",
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "movements.count",
+      "before": 626,
+      "after": 626,
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "movements.byType",
+      "before": {
+        "ADJUSTMENT": 1,
+        "OPENING_BALANCE": 175,
+        "PURCHASE_RECEIPT": 15,
+        "PURCHASE_RETURN": 3,
+        "RESERVATION": 9,
+        "RESERVATION_RELEASE": 9,
+        "SALES_DELIVERY": 309,
+        "SALES_RETURN": 105
+      },
+      "after": {
+        "ADJUSTMENT": 1,
+        "OPENING_BALANCE": 175,
+        "PURCHASE_RECEIPT": 15,
+        "PURCHASE_RETURN": 3,
+        "RESERVATION": 9,
+        "RESERVATION_RELEASE": 9,
+        "SALES_DELIVERY": 309,
+        "SALES_RETURN": 105
+      },
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "movements.rows (qty, before/after, cost@4dp, owner, reference, createdAt)",
+      "before": "d151e75993d42e7e37d6ee6d026f5c83",
+      "after": "d151e75993d42e7e37d6ee6d026f5c83",
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "onHand/reserved per product × warehouse",
+      "before": 180,
+      "after": 180,
+      "ok": true,
+      "detail": "all balances identical"
+    },
+    {
+      "kind": "STRICT",
+      "name": "onHand units",
+      "before": 10725,
+      "after": 10725,
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "company stock value",
+      "before": "396820.56",
+      "after": "396820.56",
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "costs.productsWithCost",
+      "before": 14,
+      "after": 14,
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "costs.currentCostFingerprint",
+      "before": "7e1cafba7327d4304b8dcedec37478ca",
+      "after": "7e1cafba7327d4304b8dcedec37478ca",
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "costs.snapshots",
+      "before": 14,
+      "after": 14,
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "costs.snapshotFingerprint",
+      "before": "2268bd12aee0078517264bba8fd7bc2f",
+      "after": "2268bd12aee0078517264bba8fd7bc2f",
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "costs.history",
+      "before": 31,
+      "after": 31,
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "costs.historyFingerprint",
+      "before": "3cd69b316d567404b51a9310d6ebffe3",
+      "after": "3cd69b316d567404b51a9310d6ebffe3",
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "costs.invoiceLineCostFingerprint",
+      "before": "ff93e437a308d9aa3d1e756edcf53bb9",
+      "after": "ff93e437a308d9aa3d1e756edcf53bb9",
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "gl.entries",
+      "before": 5462,
+      "after": 5462,
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "gl.lines",
+      "before": 12131,
+      "after": 12131,
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "gl.totalDebit",
+      "before": "22794576.99",
+      "after": "22794576.99",
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "gl.totalCredit",
+      "before": "22794576.99",
+      "after": "22794576.99",
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "gl.lines (account, debit, credit)",
+      "before": "7d687c212bbe12d13167f57ea0a234b9",
+      "after": "7d687c212bbe12d13167f57ea0a234b9",
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "gl.inventory account balances",
+      "before": [
+        {
+          "id": "2a1bdc1f-6eb8-42ad-ab73-b19704a5fcb7",
+          "code": "INV",
+          "name": "مخزون البضاعة",
+          "balance": "374909.36"
+        }
+      ],
+      "after": [
+        {
+          "id": "2a1bdc1f-6eb8-42ad-ab73-b19704a5fcb7",
+          "code": "INV",
+          "name": "مخزون البضاعة",
+          "balance": "374909.36"
+        }
+      ],
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "gl.COGS balance",
+      "before": "9644.64",
+      "after": "9644.64",
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "SALES_DELIVERY movement value",
+      "before": "0.00",
+      "after": "0.00",
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "invoice line COGS",
+      "before": "9930.26",
+      "after": "9930.26",
+      "ok": true
+    },
+    {
+      "kind": "STRICT",
+      "name": "legacy product_components preserved",
+      "before": {
+        "count": 1,
+        "fingerprint": "cf5cf1d2c0643248e182706d8be4a9b2"
+      },
+      "after": {
+        "count": 1,
+        "fingerprint": "cf5cf1d2c0643248e182706d8be4a9b2"
+      },
+      "ok": true
+    },
+    {
+      "kind": "EXPECTED",
+      "name": "DRAFT recipes = legacy kits (one v1 per kit, same line count)",
+      "before": 1,
+      "after": 1,
+      "ok": true,
+      "detail": "after recipes by status {\"DRAFT\":1}"
+    },
+    {
+      "kind": "EXPECTED",
+      "name": "supply method backfill = pre-migration projection (MANUFACTURED → ASSEMBLED, else PURCHASED)",
+      "before": "PROJECTED",
+      "after": "COLUMN",
+      "ok": true
+    },
+    {
+      "kind": "INFO",
+      "name": "review list sizes",
+      "before": {
+        "unclassifiedItemType": 7,
+        "legacyTypeInconsistencies": 10,
+        "attributeRuleViolations": 10,
+        "assembledAndKits": 1,
+        "draftRecipesNeedingActivation": 1,
+        "barcodeDuplicates": 0,
+        "productsWithStockButNoCost": 164,
+        "investmentEligibilityBlocked": 0,
+        "agentOwnedWithCompanyGl": 0
+      },
+      "after": {
+        "unclassifiedItemType": 7,
+        "legacyTypeInconsistencies": 10,
+        "attributeRuleViolations": 10,
+        "assembledAndKits": 1,
+        "draftRecipesNeedingActivation": 1,
+        "barcodeDuplicates": 0,
+        "productsWithStockButNoCost": 164,
+        "investmentEligibilityBlocked": 0,
+        "agentOwnedWithCompanyGl": 0
+      },
+      "ok": true
+    }
+  ]
+}

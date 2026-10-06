@@ -1,0 +1,588 @@
+{
+  "database": "oms_r13",
+  "host": "localhost",
+  "generatedAt": "2026-10-06T04:15:38.198Z",
+  "durationMs": 3977,
+  "filter": {
+    "productIds": null,
+    "warehouseId": null
+  },
+  "status": "FAIL",
+  "summary": {
+    "PASS": 5,
+    "WARN": 1,
+    "FAIL": 1
+  },
+  "invariants": [
+    {
+      "id": "I1",
+      "title": "Movement chain per product and warehouse",
+      "status": "PASS",
+      "checked": 778,
+      "violationCount": 0,
+      "violations": [],
+      "truncated": false,
+      "notes": [],
+      "metrics": {
+        "movements": 778,
+        "chains": 232
+      }
+    },
+    {
+      "id": "I2",
+      "title": "No negative stock; reserved within on-hand",
+      "status": "PASS",
+      "checked": 232,
+      "violationCount": 0,
+      "violations": [],
+      "truncated": false,
+      "notes": [],
+      "metrics": {
+        "balances": 232
+      }
+    },
+    {
+      "id": "I3",
+      "title": "No duplicate document-line movements",
+      "status": "PASS",
+      "checked": 532,
+      "violationCount": 0,
+      "violations": [],
+      "truncated": false,
+      "notes": [
+        "Keyed (R13) movements are protected by a unique index; a duplicate key is a FAIL.",
+        "Un-keyed legacy document movements repeated more often than the document has matching lines are listed as WARN for owner review — never auto-corrected."
+      ],
+      "metrics": {
+        "keyedMovements": 50,
+        "legacyDocumentMovements": 482
+      }
+    },
+    {
+      "id": "I4",
+      "title": "Assembly orders: cost, consumption and journal",
+      "status": "PASS",
+      "checked": 0,
+      "violationCount": 0,
+      "violations": [],
+      "truncated": false,
+      "notes": [],
+      "metrics": {
+        "orders": 0,
+        "reversed": 0,
+        "agentOwned": 0
+      }
+    },
+    {
+      "id": "I5",
+      "title": "Kit sales: component deliveries and COGS once",
+      "status": "FAIL",
+      "checked": 12,
+      "violationCount": 36,
+      "violations": [
+        {
+          "invoiceId": "5050d089-2abb-4662-a196-a227c36bfc4d",
+          "invoiceNumber": "INV-2026-000323",
+          "kitProductId": "17ea713c-434f-422d-8683-50462e8aa13e",
+          "kitSku": "R13C-D2F94509-16",
+          "componentProductId": "1b34a5ef-de79-4253-91df-9eb64ed79d6f",
+          "componentSku": "R13C-D2F94509-14",
+          "expected": "-2",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000323: kit R13C-D2F94509-16 component R13C-D2F94509-14 delivered 0, snapshot implies -2"
+        },
+        {
+          "invoiceId": "0f5f9384-86a9-4e8b-b4ce-166cc3dc9070",
+          "invoiceNumber": "INV-2026-000310",
+          "kitProductId": "6e703255-345c-47e8-8853-2e9beb0ec288",
+          "kitSku": "R13C-00DE7E0A-20",
+          "componentProductId": "9e480c8e-f0fd-4dff-a278-48e10f2987f1",
+          "componentSku": "R13C-00DE7E0A-19",
+          "expected": "-2",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000310: kit R13C-00DE7E0A-20 component R13C-00DE7E0A-19 delivered 0, snapshot implies -2"
+        },
+        {
+          "invoiceId": "f73a825e-e68b-42b8-9f7e-4472e3eed07c",
+          "invoiceNumber": "INV-2026-000319",
+          "kitProductId": "d12efb62-1890-4a22-ba3e-a15d2b94af00",
+          "kitSku": "R13C-66F93712-16",
+          "componentProductId": "d39a55b9-2332-41fb-a2da-94c3029cd5ab",
+          "componentSku": "R13C-66F93712-14",
+          "expected": "-2",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000319: kit R13C-66F93712-16 component R13C-66F93712-14 delivered 0, snapshot implies -2"
+        },
+        {
+          "invoiceId": "5050d089-2abb-4662-a196-a227c36bfc4d",
+          "invoiceNumber": "INV-2026-000323",
+          "kitProductId": "17ea713c-434f-422d-8683-50462e8aa13e",
+          "kitSku": "R13C-D2F94509-16",
+          "componentProductId": "d57456e4-06e6-4241-9aae-67d92172e2f8",
+          "componentSku": "R13C-D2F94509-15",
+          "expected": "-1",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000323: kit R13C-D2F94509-16 component R13C-D2F94509-15 delivered 0, snapshot implies -1"
+        },
+        {
+          "invoiceId": "40e98cec-a082-4643-a155-cd240cca357a",
+          "invoiceNumber": "INV-2026-000308",
+          "kitProductId": "bdafaff3-4ec1-4dac-bd7a-e02756680ba9",
+          "kitSku": "R13C-00DE7E0A-4",
+          "componentProductId": "d76238ef-02e6-4559-8d93-0a51ca45e819",
+          "componentSku": "R13C-00DE7E0A-2",
+          "expected": "-4",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000308: kit R13C-00DE7E0A-4 component R13C-00DE7E0A-2 delivered 0, snapshot implies -4"
+        },
+        {
+          "invoiceId": "bdb47fd7-cf18-4b5c-b8fb-10dbac1cfb3c",
+          "invoiceNumber": "INV-2026-000302",
+          "kitProductId": "68bc296a-a192-4353-97f5-a7a3f9063a72",
+          "kitSku": "R13C-6218A33E-16",
+          "componentProductId": "11e14e31-0e34-4213-8e8e-a73afc12f091",
+          "componentSku": "R13C-6218A33E-14",
+          "expected": "-2",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000302: kit R13C-6218A33E-16 component R13C-6218A33E-14 delivered 0, snapshot implies -2"
+        },
+        {
+          "invoiceId": "8d8a9d70-8c62-446d-8282-0c3622ee9aec",
+          "invoiceNumber": "INV-2026-000316",
+          "kitProductId": "ef6d7ddb-ec30-4fd5-ad93-3983cfd671e1",
+          "kitSku": "R13C-28C3057F-16",
+          "componentProductId": "c8ab1dda-32b4-4560-a3ec-9ae725d49653",
+          "componentSku": "R13C-28C3057F-15",
+          "expected": "-1",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000316: kit R13C-28C3057F-16 component R13C-28C3057F-15 delivered 0, snapshot implies -1"
+        },
+        {
+          "invoiceId": "c8171cb4-669b-4efe-b4fb-b62350f02b6a",
+          "invoiceNumber": "INV-2026-000301",
+          "kitProductId": "9573bff3-2e89-4eb5-bcd0-b625831e3c3f",
+          "kitSku": "R13C-6218A33E-4",
+          "componentProductId": "81161d24-960e-433c-b9a9-e4bbc1458052",
+          "componentSku": "R13C-6218A33E-2",
+          "expected": "-4",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000301: kit R13C-6218A33E-4 component R13C-6218A33E-2 delivered 0, snapshot implies -4"
+        },
+        {
+          "invoiceId": "f60460bf-c1c8-41ae-8fc7-1a0c3f3d12c3",
+          "invoiceNumber": "INV-2026-000318",
+          "kitProductId": "39206bee-afc6-4737-8939-b1f3843d47e6",
+          "kitSku": "R13C-66F93712-4",
+          "componentProductId": "0446dc45-195d-4fb4-82bf-1935a24a2051",
+          "componentSku": "R13C-66F93712-2",
+          "expected": "-4",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000318: kit R13C-66F93712-4 component R13C-66F93712-2 delivered 0, snapshot implies -4"
+        },
+        {
+          "invoiceId": "37d9e86a-3702-40bc-81c4-5af6c7d2ba72",
+          "invoiceNumber": "INV-2026-000309",
+          "kitProductId": "2359c545-6e84-4aa4-a22c-a2bfbdda3f1e",
+          "kitSku": "R13C-00DE7E0A-16",
+          "componentProductId": "ec310ad2-feab-4761-af8a-f8d95ed4a781",
+          "componentSku": "R13C-00DE7E0A-15",
+          "expected": "-1",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000309: kit R13C-00DE7E0A-16 component R13C-00DE7E0A-15 delivered 0, snapshot implies -1"
+        },
+        {
+          "invoiceId": "72713435-dd96-48ea-9f00-6af9fa226df0",
+          "invoiceNumber": "INV-2026-000324",
+          "kitProductId": "77a79216-429e-4c30-9cfc-053997b1d7fd",
+          "kitSku": "R13C-D2F94509-20",
+          "componentProductId": "faaa247a-f995-4e81-a59b-afa4e2c3a644",
+          "componentSku": "R13C-D2F94509-19",
+          "expected": "-2",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000324: kit R13C-D2F94509-20 component R13C-D2F94509-19 delivered 0, snapshot implies -2"
+        },
+        {
+          "invoiceId": "aad9e7b5-a8c7-457c-aed4-6eda6efd9e69",
+          "invoiceNumber": "INV-2026-000315",
+          "kitProductId": "f3ddba90-63f0-406a-a441-dea9e1130425",
+          "kitSku": "R13C-28C3057F-4",
+          "componentProductId": "15299ce2-7176-4936-955e-3b8f3d98ecbb",
+          "componentSku": "R13C-28C3057F-3",
+          "expected": "-2",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000315: kit R13C-28C3057F-4 component R13C-28C3057F-3 delivered 0, snapshot implies -2"
+        },
+        {
+          "invoiceId": "aad9e7b5-a8c7-457c-aed4-6eda6efd9e69",
+          "invoiceNumber": "INV-2026-000315",
+          "kitProductId": "f3ddba90-63f0-406a-a441-dea9e1130425",
+          "kitSku": "R13C-28C3057F-4",
+          "componentProductId": "38a53254-df36-4189-83f5-af71b9fdef33",
+          "componentSku": "R13C-28C3057F-2",
+          "expected": "-4",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000315: kit R13C-28C3057F-4 component R13C-28C3057F-2 delivered 0, snapshot implies -4"
+        },
+        {
+          "invoiceId": "40e98cec-a082-4643-a155-cd240cca357a",
+          "invoiceNumber": "INV-2026-000308",
+          "kitProductId": "bdafaff3-4ec1-4dac-bd7a-e02756680ba9",
+          "kitSku": "R13C-00DE7E0A-4",
+          "componentProductId": "03be08f0-dcc8-45e1-b6cf-d57d547a6332",
+          "componentSku": "R13C-00DE7E0A-3",
+          "expected": "-2",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000308: kit R13C-00DE7E0A-4 component R13C-00DE7E0A-3 delivered 0, snapshot implies -2"
+        },
+        {
+          "invoiceId": "f73a825e-e68b-42b8-9f7e-4472e3eed07c",
+          "invoiceNumber": "INV-2026-000319",
+          "kitProductId": "d12efb62-1890-4a22-ba3e-a15d2b94af00",
+          "kitSku": "R13C-66F93712-16",
+          "componentProductId": "05f0c863-26c6-44a1-9016-44ae47e50a25",
+          "componentSku": "R13C-66F93712-15",
+          "expected": "-1",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000319: kit R13C-66F93712-16 component R13C-66F93712-15 delivered 0, snapshot implies -1"
+        },
+        {
+          "invoiceId": "f60460bf-c1c8-41ae-8fc7-1a0c3f3d12c3",
+          "invoiceNumber": "INV-2026-000318",
+          "kitProductId": "39206bee-afc6-4737-8939-b1f3843d47e6",
+          "kitSku": "R13C-66F93712-4",
+          "componentProductId": "09a044c2-c2c4-49c3-b3fb-bdf6c5622c4b",
+          "componentSku": "R13C-66F93712-3",
+          "expected": "-2",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000318: kit R13C-66F93712-4 component R13C-66F93712-3 delivered 0, snapshot implies -2"
+        },
+        {
+          "invoiceId": "bdb47fd7-cf18-4b5c-b8fb-10dbac1cfb3c",
+          "invoiceNumber": "INV-2026-000302",
+          "kitProductId": "68bc296a-a192-4353-97f5-a7a3f9063a72",
+          "kitSku": "R13C-6218A33E-16",
+          "componentProductId": "faebcd66-da17-4f58-ae46-0c01e71c0d91",
+          "componentSku": "R13C-6218A33E-15",
+          "expected": "-1",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000302: kit R13C-6218A33E-16 component R13C-6218A33E-15 delivered 0, snapshot implies -1"
+        },
+        {
+          "invoiceId": "56bc809a-8258-48d7-bdde-49e905fbf753",
+          "invoiceNumber": "INV-2026-000322",
+          "kitProductId": "92967f96-3498-4434-a44f-9845c07fd858",
+          "kitSku": "R13C-D2F94509-4",
+          "componentProductId": "cb7832de-429c-417e-968e-5eeaf8c2f1c0",
+          "componentSku": "R13C-D2F94509-3",
+          "expected": "-2",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000322: kit R13C-D2F94509-4 component R13C-D2F94509-3 delivered 0, snapshot implies -2"
+        },
+        {
+          "invoiceId": "56bc809a-8258-48d7-bdde-49e905fbf753",
+          "invoiceNumber": "INV-2026-000322",
+          "kitProductId": "92967f96-3498-4434-a44f-9845c07fd858",
+          "kitSku": "R13C-D2F94509-4",
+          "componentProductId": "a8d57edd-d197-498f-8e33-2ddf740e73b2",
+          "componentSku": "R13C-D2F94509-2",
+          "expected": "-4",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000322: kit R13C-D2F94509-4 component R13C-D2F94509-2 delivered 0, snapshot implies -4"
+        },
+        {
+          "invoiceId": "c8171cb4-669b-4efe-b4fb-b62350f02b6a",
+          "invoiceNumber": "INV-2026-000301",
+          "kitProductId": "9573bff3-2e89-4eb5-bcd0-b625831e3c3f",
+          "kitSku": "R13C-6218A33E-4",
+          "componentProductId": "c0d2225e-9150-4f5f-9999-b0811aa7af64",
+          "componentSku": "R13C-6218A33E-3",
+          "expected": "-2",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000301: kit R13C-6218A33E-4 component R13C-6218A33E-3 delivered 0, snapshot implies -2"
+        },
+        {
+          "invoiceId": "37d9e86a-3702-40bc-81c4-5af6c7d2ba72",
+          "invoiceNumber": "INV-2026-000309",
+          "kitProductId": "2359c545-6e84-4aa4-a22c-a2bfbdda3f1e",
+          "kitSku": "R13C-00DE7E0A-16",
+          "componentProductId": "93240b50-c7e5-43c8-90db-4cc0f83c2bbc",
+          "componentSku": "R13C-00DE7E0A-14",
+          "expected": "-2",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000309: kit R13C-00DE7E0A-16 component R13C-00DE7E0A-14 delivered 0, snapshot implies -2"
+        },
+        {
+          "invoiceId": "8d8a9d70-8c62-446d-8282-0c3622ee9aec",
+          "invoiceNumber": "INV-2026-000316",
+          "kitProductId": "ef6d7ddb-ec30-4fd5-ad93-3983cfd671e1",
+          "kitSku": "R13C-28C3057F-16",
+          "componentProductId": "3d059dcb-3580-4685-b919-a5524eec7736",
+          "componentSku": "R13C-28C3057F-14",
+          "expected": "-2",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000316: kit R13C-28C3057F-16 component R13C-28C3057F-14 delivered 0, snapshot implies -2"
+        },
+        {
+          "invoiceId": "0f5f9384-86a9-4e8b-b4ce-166cc3dc9070",
+          "invoiceNumber": "INV-2026-000310",
+          "kitProductId": "6e703255-345c-47e8-8853-2e9beb0ec288",
+          "kitSku": "R13C-00DE7E0A-20",
+          "componentProductId": "706d3a3e-7964-4302-ad67-1da132322475",
+          "componentSku": "R13C-00DE7E0A-18",
+          "expected": "-4",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000310: kit R13C-00DE7E0A-20 component R13C-00DE7E0A-18 delivered 0, snapshot implies -4"
+        },
+        {
+          "invoiceId": "72713435-dd96-48ea-9f00-6af9fa226df0",
+          "invoiceNumber": "INV-2026-000324",
+          "kitProductId": "77a79216-429e-4c30-9cfc-053997b1d7fd",
+          "kitSku": "R13C-D2F94509-20",
+          "componentProductId": "fdcfdcb2-639b-4905-ae41-256fb959edaa",
+          "componentSku": "R13C-D2F94509-18",
+          "expected": "-4",
+          "actual": "0",
+          "movements": 0,
+          "rule": "KIT_DELIVERY_QUANTITY_MISMATCH",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000324: kit R13C-D2F94509-20 component R13C-D2F94509-18 delivered 0, snapshot implies -4"
+        },
+        {
+          "rule": "KIT_COGS_NOT_POSTED",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000310 has 0 active journal entries (exactly one expected).",
+          "invoiceId": "0f5f9384-86a9-4e8b-b4ce-166cc3dc9070",
+          "invoiceNumber": "INV-2026-000310",
+          "activeEntries": 0
+        },
+        {
+          "rule": "KIT_COGS_NOT_POSTED",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000309 has 0 active journal entries (exactly one expected).",
+          "invoiceId": "37d9e86a-3702-40bc-81c4-5af6c7d2ba72",
+          "invoiceNumber": "INV-2026-000309",
+          "activeEntries": 0
+        },
+        {
+          "rule": "KIT_COGS_NOT_POSTED",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000308 has 0 active journal entries (exactly one expected).",
+          "invoiceId": "40e98cec-a082-4643-a155-cd240cca357a",
+          "invoiceNumber": "INV-2026-000308",
+          "activeEntries": 0
+        },
+        {
+          "rule": "KIT_COGS_NOT_POSTED",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000323 has 0 active journal entries (exactly one expected).",
+          "invoiceId": "5050d089-2abb-4662-a196-a227c36bfc4d",
+          "invoiceNumber": "INV-2026-000323",
+          "activeEntries": 0
+        },
+        {
+          "rule": "KIT_COGS_NOT_POSTED",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000322 has 0 active journal entries (exactly one expected).",
+          "invoiceId": "56bc809a-8258-48d7-bdde-49e905fbf753",
+          "invoiceNumber": "INV-2026-000322",
+          "activeEntries": 0
+        },
+        {
+          "rule": "KIT_COGS_NOT_POSTED",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000324 has 0 active journal entries (exactly one expected).",
+          "invoiceId": "72713435-dd96-48ea-9f00-6af9fa226df0",
+          "invoiceNumber": "INV-2026-000324",
+          "activeEntries": 0
+        },
+        {
+          "rule": "KIT_COGS_NOT_POSTED",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000316 has 0 active journal entries (exactly one expected).",
+          "invoiceId": "8d8a9d70-8c62-446d-8282-0c3622ee9aec",
+          "invoiceNumber": "INV-2026-000316",
+          "activeEntries": 0
+        },
+        {
+          "rule": "KIT_COGS_NOT_POSTED",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000315 has 0 active journal entries (exactly one expected).",
+          "invoiceId": "aad9e7b5-a8c7-457c-aed4-6eda6efd9e69",
+          "invoiceNumber": "INV-2026-000315",
+          "activeEntries": 0
+        },
+        {
+          "rule": "KIT_COGS_NOT_POSTED",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000302 has 0 active journal entries (exactly one expected).",
+          "invoiceId": "bdb47fd7-cf18-4b5c-b8fb-10dbac1cfb3c",
+          "invoiceNumber": "INV-2026-000302",
+          "activeEntries": 0
+        },
+        {
+          "rule": "KIT_COGS_NOT_POSTED",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000301 has 0 active journal entries (exactly one expected).",
+          "invoiceId": "c8171cb4-669b-4efe-b4fb-b62350f02b6a",
+          "invoiceNumber": "INV-2026-000301",
+          "activeEntries": 0
+        },
+        {
+          "rule": "KIT_COGS_NOT_POSTED",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000318 has 0 active journal entries (exactly one expected).",
+          "invoiceId": "f60460bf-c1c8-41ae-8fc7-1a0c3f3d12c3",
+          "invoiceNumber": "INV-2026-000318",
+          "activeEntries": 0
+        },
+        {
+          "rule": "KIT_COGS_NOT_POSTED",
+          "severity": "FAIL",
+          "message": "Invoice INV-2026-000319 has 0 active journal entries (exactly one expected).",
+          "invoiceId": "f73a825e-e68b-42b8-9f7e-4472e3eed07c",
+          "invoiceNumber": "INV-2026-000319",
+          "activeEntries": 0
+        }
+      ],
+      "truncated": false,
+      "notes": [],
+      "metrics": {
+        "kitLines": 12,
+        "invoices": 12
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Inventory valuation vs GL inventory accounts",
+      "status": "WARN",
+      "checked": 65,
+      "violationCount": 1,
+      "violations": [
+        {
+          "rule": "VALUATION_GL_DIFFERENCE",
+          "severity": "WARN",
+          "message": "INV مخزون البضاعة: stock value 396820.56 vs posted balance 374909.36 (difference 21911.20).",
+          "accountId": "2a1bdc1f-6eb8-42ad-ab73-b19704a5fcb7",
+          "code": "INV",
+          "name": "مخزون البضاعة",
+          "subledgerValue": "396820.56",
+          "glBalance": "374909.36",
+          "difference": "21911.20",
+          "products": 65
+        }
+      ],
+      "truncated": false,
+      "notes": [
+        "GL side = posted balance of the inventory accounts read from journal lines (POSTED + REVERSED pairs net to zero) — never a recomputed balance.",
+        "Sub-ledger = Σ on-hand × moving average of company-owned stock (agent-owned stock excluded), each product rounded to 2 dp.",
+        "A difference is reported with its known causes for review — it is never forced to zero and never auto-corrected."
+      ],
+      "metrics": {
+        "subledgerValue": "396820.56",
+        "glBalance": "374909.36",
+        "difference": "21911.20",
+        "roundingBound": "0.62",
+        "inventoryAccounts": 115,
+        "openingBalanceMovements": 62,
+        "openingBalanceMovementValue": "20231.00",
+        "openingBalanceGlOnInventoryAccounts": "0.00",
+        "transferMovementsGlNeutral": 0,
+        "unpostedAdjustmentMovements": 1,
+        "unpostedAdjustmentValue": "5177.48",
+        "documentMovementsWithoutJournal": 195,
+        "documentMovementsWithoutJournalValue": "-225.87",
+        "stockedProductsWithoutCost": 51,
+        "explainedByKnownCauses": "25182.61",
+        "remainderAfterKnownCauses": "-3271.41"
+      }
+    },
+    {
+      "id": "I7",
+      "title": "Agent-owned stock stays outside company books",
+      "status": "PASS",
+      "checked": 778,
+      "violationCount": 0,
+      "violations": [],
+      "truncated": false,
+      "notes": [
+        "Company valuation check is company-wide (the product / warehouse filter does not apply to it)."
+      ],
+      "metrics": {
+        "movements": 778,
+        "agentOwnedMovements": 331,
+        "agentOwnedProductsInStock": 165,
+        "agentOwnedUnitsExcluded": 9182,
+        "agentOwnedValueExcluded": "0.00"
+      }
+    }
+  ]
+}

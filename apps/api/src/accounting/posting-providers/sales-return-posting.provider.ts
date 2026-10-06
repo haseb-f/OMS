@@ -190,6 +190,9 @@ export class SalesReturnPostingProvider
       );
     };
     // Units back into the valuation pool at their historical cost, per product.
+    // A zero-cost line is blended too (at 0): its units are already in the
+    // on-hand the blend derives `onHandBefore` from, so leaving them out would
+    // count them as stock held at the old average (value out of thin air).
     const restored = new Map<
       string,
       { quantity: number; unitCost: Prisma.Decimal }[]
@@ -199,7 +202,6 @@ export class SalesReturnPostingProvider
       quantity: number,
       unitCost: Prisma.Decimal,
     ) => {
-      if (unitCost.isZero()) return;
       restored.set(productId, [
         ...(restored.get(productId) ?? []),
         { quantity, unitCost },

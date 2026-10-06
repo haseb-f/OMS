@@ -25,12 +25,14 @@ export const ProductActivityType = {
 export class ProductActivityService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** `userId` — the acting user, recorded as the entry's `createdBy` (audit actor). */
   log(
     productId: string,
     type: string,
     description: string,
     metadata?: Record<string, unknown>,
     tx: Prisma.TransactionClient | PrismaService = this.prisma,
+    userId?: string | null,
   ) {
     return tx.productActivity.create({
       data: {
@@ -38,6 +40,7 @@ export class ProductActivityService {
         type,
         description,
         metadata: metadata as Prisma.InputJsonValue,
+        createdBy: userId ?? null,
       },
     });
   }

@@ -8,6 +8,7 @@ import {
   IsString,
   IsUUID,
   Max,
+  Matches,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -46,6 +47,10 @@ export class CreateAssemblyDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(200)
+  @Matches(/^[A-Za-z0-9._:-]+$/, {
+    message:
+      'idempotencyKey may only contain letters, digits, ".", "_", ":" and "-".',
+  })
   idempotencyKey?: string;
 }
 

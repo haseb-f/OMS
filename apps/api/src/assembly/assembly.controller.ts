@@ -19,7 +19,7 @@ import { PermissionModule } from '../auth/decorators/permission-module.decorator
 import { PermissionAction } from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
-import { canViewInventoryCost } from '../inventory/inventory-cost-access';
+import { canViewAssemblyCost } from '../inventory/inventory-cost-access';
 import { AssemblyService } from './assembly.service';
 import {
   AssemblyPreviewQueryDto,
@@ -38,18 +38,9 @@ export class AssemblyController {
     private readonly permissions: PermissionsResolverService,
   ) {}
 
-  /**
-   * Costs are shown to callers who may see inventory cost or who hold the
-   * assembly direct-cost right (they enter and read cost figures by definition).
-   */
-  private async canSeeCost(user: JwtPayload): Promise<boolean> {
-    return (
-      (await canViewInventoryCost(this.permissions, user.sub)) ||
-      (await this.permissions.hasPermission(
-        user.sub,
-        'inventory.assembly.direct_cost',
-      ))
-    );
+  /** Costs: inventory-cost visibility or the assembly direct-cost right (`canViewAssemblyCost`). */
+  private canSeeCost(user: JwtPayload): Promise<boolean> {
+    return canViewAssemblyCost(this.permissions, user.sub);
   }
 
   @Get('preview')

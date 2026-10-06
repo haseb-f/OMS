@@ -472,6 +472,72 @@ describe('Inventory hardening (integration)', () => {
     });
   });
 
+  describe('decreasing writers respect reservations (L6)', () => {
+    it('damage, expired, a negative adjustment and a purchase return may not take reserved stock; a physical count still records reality', async () => {
+      const productId = await makeProduct({ cost: 4 });
+      await open(productId, 5);
+      await inventory.reserve({
+        productId,
+        warehouseId,
+        quantity: 4,
+        referenceType: 'SALES_ORDER_DOC',
+        referenceId: randomUUID(),
+      });
+      const attempts: Array<() => Promise<unknown>> = [
+        () => inventory.damage({ productId, warehouseId, quantity: 2 }),
+        () => inventory.expired({ productId, warehouseId, quantity: 2 }),
+        () =>
+          inventory.adjustment({
+            productId,
+            warehouseId,
+            quantity: -2,
+            reason: 'L6',
+          }),
+        () =>
+          prisma.$transaction((tx) =>
+            inventory.postPurchaseReturn(
+              {
+                productId,
+                warehouseId,
+                quantity: 2,
+                referenceType: 'PURCHASE_RETURN',
+                referenceId: randomUUID(),
+              },
+              undefined,
+              tx,
+            ),
+          ),
+      ];
+      for (const attempt of attempts) {
+        const error = await rejection(attempt());
+        expect(codeOf(error)).toBe('INVENTORY_RESERVED_STOCK');
+        expect((error as HttpException).getStatus()).toBe(400);
+      }
+      expect(await stock(productId)).toBe(5);
+
+      // The one unreserved unit may still go; a positive adjustment is never blocked.
+      await inventory.damage({ productId, warehouseId, quantity: 1 });
+      await inventory.adjustment({
+        productId,
+        warehouseId,
+        quantity: 1,
+        reason: 'L6 found',
+      });
+      expect(await stock(productId)).toBe(5);
+
+      // A physical count records reality even below the reservation (I2 reports it).
+      const count = await counts.create({
+        warehouseId,
+        productIds: [productId],
+      });
+      await counts.updateLine(count.id, count.lines[0].id, {
+        countedQuantity: 1,
+      });
+      await counts.confirm(count.id);
+      expect(await stock(productId)).toBe(1);
+    });
+  });
+
   describe('owner separation', () => {
     it('agent-owned stock never counts in company valuation and cards show the owner', async () => {
       const companyProduct = await makeProduct({ cost: 12.5 });

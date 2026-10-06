@@ -324,7 +324,11 @@ export class SalesInvoicesService {
         assertActiveProduct(item.productId, productsById);
         await this.assertInvoiceWarehouse(item.warehouseId);
       }
-      computed = await this.computeLines(dto.items);
+      const plain = await this.computeLines(dto.items);
+      computed = {
+        ...plain,
+        lines: await this.keepOrderLinks(existing, dto.items, plain.lines),
+      };
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -588,7 +592,14 @@ export class SalesInvoicesService {
             'SALES_DELIVERY',
           ),
           ...stockLineTrace(line),
-          ignoreReservedForReference: orderReference ?? undefined,
+          // Only a line that fulfils an order line may consume the order's
+          // reservation (up to what is still reserved — released right
+          // after); a line added to the invoice by hand competes for the
+          // available stock like any other sale.
+          ignoreReservedForReference:
+            orderReference && fromOrder.has(line.lineKey)
+              ? orderReference
+              : undefined,
         },
         userId,
         tx,
@@ -911,6 +922,98 @@ export class SalesInvoicesService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Draft edit of an invoice created from a Sales Order: the items are
+   * replaced, so each line names the line it replaces (`salesInvoiceItemId`)
+   * to keep its order link — only for the same product, never a link the
+   * client invents. Linked quantities stay capped at what is left to invoice
+   * on the order line (ordered − delivered − other open invoices).
+   */
+  private async keepOrderLinks(
+    existing: {
+      id: string;
+      salesOrderId: string | null;
+      items: Array<{
+        id: string;
+        productId: string;
+        salesOrderItemId: string | null;
+      }>;
+    },
+    items: SalesLineItemInputDto[],
+    lines: ComputedInvoiceLines['lines'],
+  ): Promise<ComputedInvoiceLines['lines']> {
+    if (!existing.salesOrderId) return lines;
+    const previous = new Map(existing.items.map((item) => [item.id, item]));
+    const linked = lines.map((line, index) => {
+      const replaced = items[index].salesInvoiceItemId
+        ? previous.get(items[index].salesInvoiceItemId)
+        : undefined;
+      return {
+        ...line,
+        salesOrderItemId:
+          replaced?.salesOrderItemId && replaced.productId === line.productId
+            ? replaced.salesOrderItemId
+            : null,
+      };
+    });
+    const requested = new Map<string, number>();
+    for (const line of linked) {
+      if (!line.salesOrderItemId) continue;
+      requested.set(
+        line.salesOrderItemId,
+        (requested.get(line.salesOrderItemId) ?? 0) + line.quantity,
+      );
+    }
+    if (requested.size === 0) return linked;
+    const orderItemIds = [...requested.keys()];
+    const [orderItems, pending] = await Promise.all([
+      this.prisma.salesOrderDocumentItem.findMany({
+        where: { id: { in: orderItemIds } },
+        select: {
+          id: true,
+          quantity: true,
+          deliveredQuantity: true,
+          product: { select: { sku: true } },
+        },
+      }),
+      this.prisma.salesInvoiceItem.groupBy({
+        by: ['salesOrderItemId'],
+        where: {
+          salesOrderItemId: { in: orderItemIds },
+          salesInvoiceId: { not: existing.id },
+          salesInvoice: {
+            deletedAt: null,
+            status: {
+              in: [
+                SalesDocumentStatus.DRAFT,
+                SalesDocumentStatus.PENDING_APPROVAL,
+                SalesDocumentStatus.APPROVED,
+              ],
+            },
+          },
+        },
+        _sum: { quantity: true },
+      }),
+    ]);
+    const pendingByItem = new Map(
+      pending.map((row) => [row.salesOrderItemId, row._sum.quantity ?? 0]),
+    );
+    for (const orderItem of orderItems) {
+      const remaining =
+        orderItem.quantity -
+        orderItem.deliveredQuantity -
+        (pendingByItem.get(orderItem.id) ?? 0);
+      const quantity = requested.get(orderItem.id) ?? 0;
+      if (quantity > remaining) {
+        throw new BadRequestException({
+          code: 'SALES_INVOICE_EXCEEDS_ORDER',
+          message: `The invoice bills ${quantity} × ${orderItem.product.sku} against its Sales Order line, but only ${Math.max(remaining, 0)} remain to invoice on it.`,
+        });
+      }
+    }
+    return linked;
   }
 
   private async assertInvoiceWarehouse(warehouseId: string | undefined) {

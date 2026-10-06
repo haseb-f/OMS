@@ -56,7 +56,8 @@ export interface RecipeView {
   status: LoadedRecipe['status'];
   effectiveFrom: Date | null;
   outputQuantity: string;
-  directCostEstimate: string;
+  /** `null` for a caller without assembly-cost visibility (`withRecipeCostRule`). */
+  directCostEstimate: string | null;
   notes: string | null;
   createdAt: Date;
   activatedAt: Date | null;
@@ -88,6 +89,23 @@ export function toRecipeView(recipe: LoadedRecipe): RecipeView {
       sortOrder: line.sortOrder,
     })),
   };
+}
+
+/**
+ * The recipe's direct-cost estimate is a cost figure: withheld (`null`) unless
+ * the caller may see assembly costs (`canViewAssemblyCost`) — the same rule as
+ * the assembly order and preview views. Works on one view or a list.
+ */
+export function withRecipeCostRule<T extends RecipeView | RecipeView[]>(
+  views: T,
+  includeCosts: boolean,
+): T {
+  if (includeCosts) return views;
+  const redact = (view: RecipeView): RecipeView => ({
+    ...view,
+    directCostEstimate: null,
+  });
+  return (Array.isArray(views) ? views.map(redact) : redact(views)) as T;
 }
 
 const label = (product: { sku: string; name: string }) =>
@@ -171,6 +189,7 @@ export class RecipeManagementService {
         `Recipe version ${created.version} created (draft)`,
         { recipeId: created.id, version: created.version },
         tx,
+        userId,
       );
       return toRecipeView(created);
     }, TRANSACTION_OPTIONS);
@@ -193,7 +212,8 @@ export class RecipeManagementService {
         where: { id },
         data: {
           outputQuantity: dto.outputQuantity,
-          directCostEstimate: dto.directCostEstimate,
+          // `null` = not sent: a caller who cannot see the estimate never clears it.
+          directCostEstimate: dto.directCostEstimate ?? undefined,
           notes: dto.notes,
           updatedBy: userId ?? null,
           ...(lineData ? { lines: { create: lineData } } : {}),
@@ -206,6 +226,7 @@ export class RecipeManagementService {
         `Recipe version ${recipe.version} (draft) updated`,
         { recipeId: id, version: recipe.version },
         tx,
+        userId,
       );
       return toRecipeView(updated);
     }, TRANSACTION_OPTIONS);
@@ -219,8 +240,9 @@ export class RecipeManagementService {
         recipe.productId,
         RecipeActivityType.RECIPE_DELETED,
         `Recipe version ${recipe.version} (draft) deleted`,
-        { recipeId: id, version: recipe.version, deletedBy: userId ?? null },
+        { recipeId: id, version: recipe.version },
         tx,
+        userId,
       );
       return { id };
     }, TRANSACTION_OPTIONS);
@@ -279,6 +301,7 @@ export class RecipeManagementService {
           previousVersion: previous?.version ?? null,
         },
         tx,
+        userId,
       );
       return toRecipeView(activated);
     }, TRANSACTION_OPTIONS);
@@ -310,6 +333,7 @@ export class RecipeManagementService {
         `Recipe version ${recipe.version} retired`,
         { recipeId: id, version: recipe.version },
         tx,
+        userId,
       );
       return toRecipeView(retired);
     }, TRANSACTION_OPTIONS);

@@ -11,8 +11,10 @@ import { ExchangeRatesService } from '../fx/exchange-rates.service';
 import { snapshotDocumentExchangeRate } from '../fx/snapshot-document-rate';
 import { assertPostedTaxAmountsHaveTax } from '../../taxes/document-tax';
 import {
+  deliveredKey,
   kitComponentValue,
   kitUnitCost,
+  productsDeliveredThemselves,
   readKitSnapshot,
 } from '../../sales/shared/kit-snapshot';
 import type {
@@ -222,6 +224,23 @@ export class SalesInvoicePostingProvider
       );
     };
     const kitComponents = await this.loadKitComponents(invoice.items, tx);
+    // A line of a product that is a KIT today but carries no kit snapshot was
+    // sold before the switch: it is a plain stocked line when the product
+    // itself was delivered under this invoice (R13 L7 — decided by history,
+    // never by the current supply method).
+    const deliveredItself = await productsDeliveredThemselves(
+      tx,
+      invoice.items
+        .filter(
+          (item) =>
+            item.product.supplyMethod === ProductSupplyMethod.KIT &&
+            !item.fulfillmentSnapshot,
+        )
+        .map((item) => ({
+          salesInvoiceId: invoice.id,
+          productId: item.productId,
+        })),
+    );
     for (const item of invoice.items) {
       const kit = readKitSnapshot(item.fulfillmentSnapshot);
       if (kit) {
@@ -255,12 +274,15 @@ export class SalesInvoicePostingProvider
         continue;
       }
       if (item.product.supplyMethod === ProductSupplyMethod.KIT) {
-        throw new BadRequestException(
-          `Kit ${item.product.sku} on Sales Invoice ${invoice.invoiceNumber} has no fulfillment snapshot — its components were not delivered, so COGS cannot be posted.`,
-        );
+        if (!deliveredItself.has(deliveredKey(invoice.id, item.productId))) {
+          throw new BadRequestException(
+            `Kit ${item.product.sku} on Sales Invoice ${invoice.invoiceNumber} has no fulfillment snapshot — its components were not delivered, so COGS cannot be posted.`,
+          );
+        }
+      } else if (!item.product.isInventoryItem) {
+        continue;
       }
-      if (!item.product.isInventoryItem) continue;
-      if (item.product.currentCost == null) {
+      if (item.unitCost == null && item.product.currentCost == null) {
         throw new BadRequestException(
           `Product ${item.product.sku} has no recorded cost. Record a product cost or opening balance before invoicing — COGS cannot silently post as zero.`,
         );

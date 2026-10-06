@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   ParseUUIDPipe,
@@ -15,13 +16,19 @@ import { PermissionModule } from '../auth/decorators/permission-module.decorator
 import { PermissionAction } from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
-import { canViewInventoryCost } from '../inventory/inventory-cost-access';
+import {
+  canViewAssemblyCost,
+  canViewInventoryCost,
+} from '../inventory/inventory-cost-access';
 import {
   CreateRecipeDto,
   KitAvailabilityQueryDto,
   RecipeCostEstimateQueryDto,
 } from './dto/recipe.dto';
-import { RecipeManagementService } from './recipe-management.service';
+import {
+  RecipeManagementService,
+  withRecipeCostRule,
+} from './recipe-management.service';
 import { RecipeInsightsService } from './recipe-insights.service';
 
 /** A product's recipe versions and recipe-derived figures. Reads: `products.view`; creating a version: `products.recipes.manage`. */
@@ -35,19 +42,30 @@ export class ProductRecipesController {
     private readonly permissions: PermissionsResolverService,
   ) {}
 
+  /** The direct-cost estimate is withheld without assembly-cost visibility. */
   @Get('recipes')
-  list(@Param('productId', ParseUUIDPipe) productId: string) {
-    return this.management.list(productId);
+  async list(
+    @Param('productId', ParseUUIDPipe) productId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const [views, includeCosts] = await Promise.all([
+      this.management.list(productId),
+      canViewAssemblyCost(this.permissions, user.sub),
+    ]);
+    return withRecipeCostRule(views, includeCosts);
   }
 
   @Post('recipes')
   @PermissionAction('manage')
-  create(
+  async create(
     @Param('productId', ParseUUIDPipe) productId: string,
     @Body() dto: CreateRecipeDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.management.create(productId, dto, user.sub);
+    return withRecipeCostRule(
+      await this.management.create(productId, dto, user.sub),
+      await canViewAssemblyCost(this.permissions, user.sub),
+    );
   }
 
   /** Costs are withheld from callers without a costing permission (same rule as the stock cards). */
@@ -63,11 +81,20 @@ export class ProductRecipesController {
     });
   }
 
+  /** Per-component stock figures: `products.view` (module) AND `inventory.view` — 403 otherwise. */
   @Get('kit-availability')
-  availability(
+  async availability(
     @Param('productId', ParseUUIDPipe) productId: string,
     @Query() query: KitAvailabilityQueryDto,
+    @CurrentUser() user: JwtPayload,
   ) {
+    if (!(await this.permissions.hasPermission(user.sub, 'inventory.view'))) {
+      throw new ForbiddenException({
+        code: 'INVENTORY_VIEW_REQUIRED',
+        message:
+          'Kit availability shows component stock — it needs the inventory.view permission.',
+      });
+    }
     return this.insights.availability(productId, query.warehouseId);
   }
 }

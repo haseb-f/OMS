@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import {
   PartnerRoleType,
@@ -19,7 +20,10 @@ import {
   lockProductsForUpdate,
 } from '../../inventory/inventory.service';
 import { movementIdempotencyKey } from '../../inventory/dto/movement-trace';
-import { readKitSnapshot } from '../shared/kit-snapshot';
+import {
+  productsDeliveredThemselves,
+  readKitSnapshot,
+} from '../shared/kit-snapshot';
 import { PostingEngineService } from '../../accounting/posting-engine/posting-engine.service';
 import { resolveLineTaxes } from '../../taxes/document-tax';
 import {
@@ -434,8 +438,11 @@ export class SalesReturnsService {
             .filter((id): id is string => Boolean(id)),
         },
       },
-      select: { id: true, fulfillmentSnapshot: true },
+      select: { id: true, salesInvoiceId: true, fulfillmentSnapshot: true },
     });
+    const invoiceOfLine = new Map(
+      invoiceLines.map((line) => [line.id, line.salesInvoiceId]),
+    );
     const snapshotByLine = new Map(
       invoiceLines.map((line) => [
         line.id,
@@ -468,6 +475,26 @@ export class SalesReturnsService {
         continue;
       }
       if (item.product.supplyMethod === ProductSupplyMethod.KIT) {
+        // R13 L7 — decided by the line's history, not the current supply
+        // method: a line sold as a stocked item before the product became a
+        // kit delivered the product itself. Its units would have to come back
+        // as stock of a product that no longer holds any.
+        const invoiceId = item.salesInvoiceItemId
+          ? invoiceOfLine.get(item.salesInvoiceItemId)
+          : undefined;
+        const soldFromStock =
+          invoiceId &&
+          (
+            await productsDeliveredThemselves(tx, [
+              { salesInvoiceId: invoiceId, productId: item.productId },
+            ])
+          ).size > 0;
+        if (soldFromStock) {
+          throw new UnprocessableEntityException({
+            code: 'SALES_RETURN_PRODUCT_NOT_STOCKED',
+            message: `${item.product.sku} was sold from stock on its invoice but is now a kit, which holds no stock of its own — it cannot be received back on ${salesReturn.returnNumber} until it is set to a stock-tracked supply method again.`,
+          });
+        }
         throw new BadRequestException({
           code: 'KIT_RETURN_SNAPSHOT_MISSING',
           message: `Kit ${item.product.sku} cannot be returned on ${salesReturn.returnNumber} — its invoice line has no fulfillment snapshot of the components delivered.`,

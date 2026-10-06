@@ -17,6 +17,7 @@ import { computeSalesLine, round2 } from '../sales/shared/sales-totals.util';
 import { resolveTaxesById } from '../taxes/document-tax';
 import { allocateProportionally } from './landed-cost-allocation.util';
 import { unprocessable } from '../common/errors/business-errors';
+import { lockProductsForUpdate } from '../inventory/inventory.service';
 import { CreateLandedCostDocumentDto } from './dto/create-landed-cost-document.dto';
 import { UpdateLandedCostDocumentDto } from './dto/update-landed-cost-document.dto';
 
@@ -404,6 +405,18 @@ export class LandedCostDocumentsService {
           `Landed Cost ${document.documentNumber} was changed by someone else — reload and try again.`,
         );
       }
+      // The posting reads each allocated product's on-hand and moves its
+      // moving average: lock those product rows first (sorted, the same lock
+      // every stock writer takes) so a concurrent receipt / sale can never
+      // commit between that read and the average update (lost update).
+      const allocated = await tx.landedCostAllocation.findMany({
+        where: { landedCostDocumentId: id },
+        select: { purchaseInvoiceItem: { select: { productId: true } } },
+      });
+      await lockProductsForUpdate(
+        tx,
+        allocated.map((allocation) => allocation.purchaseInvoiceItem.productId),
+      );
       await this.postingEngine.post('LANDED_COST', id, userId, tx);
       // Re-read after posting: the frozen rate and each allocation's
       // capitalized / variance split are written by the posting itself.

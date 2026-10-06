@@ -8,7 +8,9 @@ import {
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { ProductCostRedactionInterceptor } from '../../inventory/product-cost-redaction.interceptor';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { PermissionModule } from '../../auth/decorators/permission-module.decorator';
@@ -31,6 +33,7 @@ import { SalesOrderDocumentScopeGuard } from './sales-order-document-scope.guard
 /** Business operations only: Create, Update, Submit, Approve, Confirm (Reserve Inventory), Cancel, Archive, Convert-to-Invoice, Search, Details. */
 @Controller('sales/orders')
 @UseGuards(JwtAuthGuard, PermissionsGuard, SalesOrderDocumentScopeGuard)
+@UseInterceptors(ProductCostRedactionInterceptor)
 @PermissionModule('sales-orders')
 export class SalesOrdersController {
   constructor(

@@ -8,7 +8,9 @@ import {
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { ProductCostRedactionInterceptor } from '../inventory/product-cost-redaction.interceptor';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -84,6 +86,7 @@ export const PRODUCT_ACCOUNT_VIEW_PERMISSIONS: readonly string[] = [
 
 @Controller('products')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseInterceptors(ProductCostRedactionInterceptor)
 @PermissionModule('products')
 export class ProductsController {
   constructor(

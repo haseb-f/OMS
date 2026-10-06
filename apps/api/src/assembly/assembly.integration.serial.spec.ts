@@ -24,6 +24,8 @@ import { RecipeManagementService } from '../recipes/recipe-management.service';
 import { RecipeInsightsService } from '../recipes/recipe-insights.service';
 import { AssemblyModule } from './assembly.module';
 import { AssemblyService } from './assembly.service';
+import { ProductRecipesController } from '../recipes/product-recipes.controller';
+import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 
 const D = (value: string | number) => new Prisma.Decimal(value);
 
@@ -1214,8 +1216,18 @@ describe('Recipes, stock-line resolution and assembly (integration)', () => {
       expect(await stock(a)).toBe(10);
       expect(await stock(b)).toBe(10);
       expect(await stock(fg)).toBe(4);
-      expect(Number(await avgCost(fg))).toBe(30);
+      // M3: the finished unit leaves at the CURRENT average (32) — the rest
+      // keep their cost; the gap to the recorded 40 is a variance entry.
+      expect(Number(await avgCost(fg))).toBe(32);
       expect(Number(await avgCost(a))).toBe(10);
+      const variance = await prisma.journalEntry.findFirstOrThrow({
+        where: { sourceType: 'ASSEMBLY_REVERSAL_VARIANCE', sourceId: order.id },
+        include: { lines: true },
+      });
+      const fgLine = variance.lines.find((line) => line.accountId === accFg);
+      expect(fgLine?.debit.toString()).toBe('8'); // R 40 − 1 × 32
+      expect(sumLines(variance.lines).debit.toString()).toBe('8');
+      expect(sumLines(variance.lines).credit.toString()).toBe('8');
 
       const entries = await journalFor(order.id);
       expect(entries.map((entry) => entry.status).sort()).toEqual([
@@ -1348,7 +1360,16 @@ describe('Recipes, stock-line resolution and assembly (integration)', () => {
       await expect(
         assembly.reverse(order.id, { reason: 'archived' }, actorId, true),
       ).resolves.toMatchObject({ status: 'REVERSED' });
-      expect(await stock(a)).toBe(10);
+      // getStock refuses an archived product: read the ledger directly.
+      const archivedOnHand = await prisma.inventoryMovement.aggregate({
+        where: {
+          productId: a,
+          warehouseId,
+          type: { notIn: ['RESERVATION', 'RESERVATION_RELEASE'] },
+        },
+        _sum: { quantity: true },
+      });
+      expect(archivedOnHand._sum.quantity).toBe(10);
       expect(await stock(b)).toBe(10);
       expect(await stock(fg)).toBe(0);
     });
@@ -1390,6 +1411,188 @@ describe('Recipes, stock-line resolution and assembly (integration)', () => {
           where: { productId: inactive },
         }),
       ).toBe(0);
+    });
+  });
+
+  // ------------------------------------------- independent-review fixes (F)
+
+  describe('review fixes', () => {
+    it('H2: a component without a recorded cost blocks the assembly (ASSEMBLY_COMPONENT_COST_MISSING); a recorded cost of 0 does not', async () => {
+      const a = await makeProduct({ category: catA }); // no cost recorded
+      const b = await makeProduct({ category: catB, cost: 0 });
+      const fg = await makeProduct({ category: catFg, supply: 'ASSEMBLED' });
+      await open(a, 4);
+      await open(b, 4);
+      await makeRecipe(fg, [
+        { componentProductId: a, quantity: '1' },
+        { componentProductId: b, quantity: '1' },
+      ]);
+
+      const preview = await assembly.preview(
+        { productId: fg, warehouseId, quantity: 1 },
+        true,
+      );
+      expect(preview.canAssemble).toBe(false);
+      const blocker = preview.blockers.find(
+        (item) => item.code === 'ASSEMBLY_COMPONENT_COST_MISSING',
+      );
+      expect(blocker?.message).toContain(`R13B2-${tag}`);
+      expect(
+        preview.blockers.some((item) => item.message.includes('needs')),
+      ).toBe(false);
+
+      const error = await rejection(assemble(fg, 1));
+      expect(error).toMatchObject({
+        status: 422,
+        code: 'ASSEMBLY_COMPONENT_COST_MISSING',
+      });
+      expect(await stock(a)).toBe(4);
+      expect(await stock(fg)).toBe(0);
+
+      // A recorded cost of exactly 0 is a cost: allowed.
+      await prisma.product.update({
+        where: { id: a },
+        data: { currentCost: 0 },
+      });
+      const { order } = await assemble(fg, 1);
+      expect(order.totalCost).toBe('0');
+      expect(await stock(fg)).toBe(1);
+    });
+
+    it('S4: an idempotency key is scoped to its user and validated', async () => {
+      const { fg } = await makeFixture();
+      const key = `s4-${tag}`;
+      const mine = await assemble(fg, 1, { idempotencyKey: key });
+      const otherUser = randomUUID();
+      const stolen = await rejection(
+        assembly.create(
+          { productId: fg, warehouseId, quantity: 1 },
+          otherUser,
+          { idempotencyKey: key, includeCosts: true },
+        ),
+      );
+      expect(stolen).toMatchObject({
+        status: 409,
+        code: 'ASSEMBLY_IDEMPOTENCY_MISMATCH',
+      });
+      expect(JSON.stringify(stolen.body)).not.toContain(mine.order.id);
+      expect(await stock(fg)).toBe(1);
+
+      for (const bad of ['has space', 'x'.repeat(201), 'semi;colon', '<k>']) {
+        const invalid = await rejection(
+          assembly.create(
+            { productId: fg, warehouseId, quantity: 1 },
+            actorId,
+            { idempotencyKey: bad, includeCosts: true },
+          ),
+        );
+        expect(invalid).toMatchObject({
+          status: 400,
+          code: 'ASSEMBLY_IDEMPOTENCY_KEY_INVALID',
+        });
+      }
+      expect(await stock(fg)).toBe(1);
+    });
+
+    it('S1/S6: product activity entries carry the acting user and no cost figures', async () => {
+      const { fg } = await makeFixture();
+      const { order } = await assemble(fg, 1, { directCost: '5' });
+      await assembly.reverse(order.id, { reason: 'audit' }, actorId, true);
+      const entries = await prisma.productActivity.findMany({
+        where: {
+          productId: fg,
+          type: {
+            in: [
+              'RECIPE_CREATED',
+              'RECIPE_ACTIVATED',
+              'ASSEMBLY_POSTED',
+              'ASSEMBLY_REVERSED',
+            ],
+          },
+        },
+      });
+      expect(entries.map((entry) => entry.type).sort()).toEqual([
+        'ASSEMBLY_POSTED',
+        'ASSEMBLY_REVERSED',
+        'RECIPE_ACTIVATED',
+        'RECIPE_CREATED',
+      ]);
+      expect(entries.every((entry) => entry.createdBy === actorId)).toBe(true);
+      for (const entry of entries) {
+        const text = JSON.stringify(entry.metadata ?? {});
+        expect(text).not.toMatch(/cost/i);
+        expect(entry.description).not.toMatch(/\b40\b/);
+      }
+      const posted = entries.find((entry) => entry.type === 'ASSEMBLY_POSTED');
+      expect(posted?.metadata).toMatchObject({
+        assemblyOrderId: order.id,
+        assemblyNumber: order.assemblyNumber,
+        quantity: 1,
+      });
+    });
+
+    it('S2: recipe and assembly views withhold the direct-cost estimate without cost visibility', async () => {
+      const a = await makeProduct({ category: catA, cost: 10 });
+      await open(a, 10);
+      const fg = await makeProduct({ category: catFg, supply: 'ASSEMBLED' });
+      await makeRecipe(fg, [{ componentProductId: a, quantity: '1' }], {
+        direct: '7',
+      });
+      const { order } = await assemble(fg, 1);
+      const controller = moduleRef.get(ProductRecipesController, {
+        strict: false,
+      });
+      const user = { sub: actorId } as JwtPayload;
+
+      // granted holds inventory.assembly.direct_cost → visible
+      const visible = await controller.list(fg, user);
+      expect(visible[0].directCostEstimate).toBe('7');
+      expect(
+        (
+          (await assembly.findOne(order.id, true)).recipeSnapshot as {
+            directCostEstimate: string | null;
+          }
+        ).directCostEstimate,
+      ).toBe('7');
+
+      granted.delete('inventory.assembly.direct_cost');
+      try {
+        const hidden = await controller.list(fg, user);
+        expect(hidden[0].directCostEstimate).toBeNull();
+        expect(hidden[0].lines).toHaveLength(1);
+        const view = await assembly.findOne(order.id, false);
+        const snapshot = view.recipeSnapshot as {
+          directCostEstimate: string | null;
+          lines: unknown[];
+        };
+        expect(snapshot.directCostEstimate).toBeNull();
+        expect(snapshot.lines).toHaveLength(1);
+        expect(view.totalCost).toBeNull();
+      } finally {
+        granted.add('inventory.assembly.direct_cost');
+      }
+    });
+
+    it('S5: kit availability needs inventory.view (403 otherwise)', async () => {
+      const a = await makeProduct({ category: catA, cost: 10 });
+      await open(a, 6);
+      const kit = await makeProduct({ category: catFg, supply: 'KIT' });
+      await makeRecipe(kit, [{ componentProductId: a, quantity: '2' }]);
+      const controller = moduleRef.get(ProductRecipesController, {
+        strict: false,
+      });
+      const user = { sub: actorId } as JwtPayload;
+      expect(
+        await rejection(controller.availability(kit, {}, user)),
+      ).toMatchObject({ status: 403, code: 'INVENTORY_VIEW_REQUIRED' });
+      granted.add('inventory.view');
+      try {
+        expect((await controller.availability(kit, {}, user)).available).toBe(
+          3,
+        );
+      } finally {
+        granted.delete('inventory.view');
+      }
     });
   });
 });

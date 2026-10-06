@@ -2,7 +2,10 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Prisma, PurchaseLineTreatment } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PostingEngineService } from '../posting-engine/posting-engine.service';
-import { InventoryValuationService } from '../inventory-valuation/inventory-valuation.service';
+import {
+  InventoryValuationService,
+  round2,
+} from '../inventory-valuation/inventory-valuation.service';
 import { AccountMappingService } from '../account-mapping/account-mapping.service';
 import { ExchangeRatesService } from '../fx/exchange-rates.service';
 import { snapshotDocumentExchangeRate } from '../fx/snapshot-document-rate';
@@ -91,7 +94,7 @@ export class PurchaseInvoicePostingProvider
     // document, so the same product on two lines never distorts it.
     const receivedByProduct = new Map<
       string,
-      { quantity: number; unitCost: number }[]
+      { quantity: number; value: Prisma.Decimal }[]
     >();
     for (const item of invoice.items) {
       const netAmount = Number(item.lineTotal) - Number(item.taxAmount);
@@ -122,15 +125,19 @@ export class PurchaseInvoicePostingProvider
           (debitByAccount.get(accountId) ?? 0) + netAmount,
         );
         // Moving-average cost lives in functional currency and must equal
-        // what this entry debits to Inventory (net of discount, converted).
-        const functionalUnitCost =
-          item.quantity > 0
-            ? Math.round((netAmount / item.quantity) * exchangeRate * 10000) /
-              10000
-            : Number(item.unitPrice) * exchangeRate;
+        // what this entry debits to Inventory (net of discount, converted at
+        // the frozen rate, 2 dp): the blend takes that exact line VALUE —
+        // never a rounded unit cost × quantity, which drifts from the GL.
         receivedByProduct.set(item.productId, [
           ...(receivedByProduct.get(item.productId) ?? []),
-          { quantity: item.quantity, unitCost: functionalUnitCost },
+          {
+            quantity: item.quantity,
+            value: round2(
+              new Prisma.Decimal(item.lineTotal)
+                .sub(item.taxAmount)
+                .mul(exchangeRate),
+            ),
+          },
         ]);
       } else {
         const accountId = await this.accountMapping.resolvePurchaseAccount(
