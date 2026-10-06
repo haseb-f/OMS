@@ -192,6 +192,16 @@ product · F investor-eligible product. Evidence in `verification.md`.
   the average pool. Needs the owner/accountant to choose; until then the purchase return + re-bill correction path named in
   §4 carries this known gap (visible in I6), and additional later charges use Landed Cost, which reconciles exactly.
 
+### Owner decisions received (2026-10-06)
+
+- `PRD-2026-000041` «كومبو بوكس» stays **ASSEMBLED** (already the migrated value — no change).
+- **O3** approved for the legacy table: `product_components` is dropped by migration `20261006150000_r13_drop_legacy_product_components`
+  (before/after proof `evidence/before-after-oms_r7_final-vs-oms_r13_drop.md` PASS). `products.type` (derived column) is kept.
+- **O6 permissions:** `inventory.assembly.create|reverse|direct_cost` and `products.recipes.manage` stay grantable in the Permission
+  Matrix only (not granted by migration); the owner grants them later to shipping, warehouse, accounting staff or admins.
+- Historical test financial data and the purchase-return entries: owner says they are test data and may be deleted — the exact
+  deletion scope is being confirmed before anything is removed (see handoff).
+
 ### Decisions taken during implementation (recorded)
 
 - Assembly reversal removes the finished goods at **current** average (average unchanged); the GL mirror is completed by an

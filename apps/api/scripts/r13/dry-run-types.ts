@@ -119,7 +119,8 @@ export interface DryRunReport {
       cogsBalance: string;
     };
     salesDeliveryCogs: { movementValue: string; invoiceLineCogs: string };
-    legacyComponents: { count: number; fingerprint: string };
+    /** `dropped`: the legacy table no longer exists (R13 follow-up migration, owner approval O3). */
+    legacyComponents: { count: number; fingerprint: string; dropped?: boolean };
     recipes: { count: number; byStatus: Record<string, number> };
   };
 }

@@ -3535,10 +3535,9 @@ model PaymentActivity {
 /// data) and SALES_ONLY added: sellable, not purchased through this
 /// system, still inventory-tracked (distinct from SERVICE, which has no
 /// physical form at all). MANUFACTURED is "sold as one item, built from
-/// child products (BOM)" — the BOM itself lives on `ProductComponent`;
-/// automatic inventory deduction on sale is NOT implemented here (it would
-/// mean changing SalesOrders' fulfillment logic, a separate module this
-/// task doesn't touch) — the architecture is prepared, not wired.
+/// child products (BOM)". R13: this legacy column is DERIVED (never input) from
+/// itemType / flags / supplyMethod; the BOM is the versioned ProductRecipe, and
+/// kit/assembly behaviour is driven by Product.supplyMethod, not by this value.
 /// EXPENSE_ITEM predates this behavior list and isn't one of its five named
 /// values, but nothing asked for its removal and it may already have data
 /// — kept as a sixth, additional value rather than deleted.
@@ -3750,10 +3749,6 @@ model Product {
   investmentReallocations   OpportunityReallocation[]
   variants                  ProductVariant[]
   attachments               ProductAttachment[]
-  /// BOM lines where this product is the finished Kit.
-  components                ProductComponent[]          @relation("KitComponents")
-  /// BOM lines where this product is used AS a component of some Kit.
-  usedInKits                ProductComponent[]          @relation("ComponentUsedIn")
   physicalCountLines        PhysicalCountLine[]
   recipes                   ProductRecipe[]             @relation("RecipeProduct")
   usedInRecipeLines         ProductRecipeLine[]         @relation("RecipeLineComponent")
@@ -3775,33 +3770,6 @@ model Product {
   @@index([brandId])
   @@index([status])
   @@map("products")
-}
-
-/// DEPRECATED (R13): superseded by ProductRecipe/ProductRecipeLine — the one canonical component relationship. Rows were
-/// copied into DRAFT recipes by the R13 migration for review; nothing reads this table any more. Dropping it is a
-/// destructive change that needs explicit owner approval (spec O3).
-/// Kit Bill of Materials (TASK-028) — one row per (Kit, component) pair.
-/// Deliberately just the composition list: quantity of each component per
-/// one unit of the Kit. No automatic inventory deduction on sale is wired
-/// here (see the ProductType enum comment) — this is the data a future
-/// Sales fulfillment step would explode against, not a working deduction
-/// engine yet.
-model ProductComponent {
-  id String @id @default(uuid()) @db.Uuid
-
-  kitProductId String  @map("kit_product_id") @db.Uuid
-  kitProduct   Product @relation("KitComponents", fields: [kitProductId], references: [id])
-
-  componentProductId String  @map("component_product_id") @db.Uuid
-  componentProduct   Product @relation("ComponentUsedIn", fields: [componentProductId], references: [id])
-
-  quantity Decimal @db.Decimal(12, 3)
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@unique([kitProductId, componentProductId])
-  @@map("product_components")
 }
 
 /// R13 — supply/fulfillment method (independent of ItemType, stock tracking, commercial flags and ownership).

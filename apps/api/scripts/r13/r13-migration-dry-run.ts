@@ -152,8 +152,12 @@ async function review(
     ? await db.$queryRaw<Row[]>(Prisma.sql`
         SELECT product_id, status::text AS status, COUNT(*)::int AS n FROM product_recipes GROUP BY 1, 2`)
     : [];
-  const componentCounts = await db.$queryRaw<Row[]>(Prisma.sql`
-    SELECT kit_product_id, COUNT(*)::int AS n FROM product_components GROUP BY 1`);
+  // The legacy table is dropped by the R13 follow-up migration (owner approval O3): absent = no legacy rows.
+  const legacyTable = await exists(db, 'product_components');
+  const componentCounts = legacyTable
+    ? await db.$queryRaw<Row[]>(Prisma.sql`
+        SELECT kit_product_id, COUNT(*)::int AS n FROM product_components GROUP BY 1`)
+    : [];
   const componentsOf = new Map(
     componentCounts.map((row) => [str(row.kit_product_id), num(row.n)]),
   );
@@ -378,10 +382,13 @@ async function baseline(
            (SELECT COALESCE(SUM(round(si.unit_cost * si.quantity, 2)), 0)
               FROM sales_invoice_items si JOIN sales_invoices i ON i.id = si.sales_invoice_id
               WHERE i.status NOT IN ('DRAFT', 'CANCELLED') AND si.unit_cost IS NOT NULL) AS invoice_cogs`);
-  const [components] = await db.$queryRaw<Row[]>(Prisma.sql`
-    SELECT COUNT(*)::int AS count,
-           md5(string_agg(concat_ws('|', id, kit_product_id, component_product_id, quantity), ',' ORDER BY id)) AS fingerprint
-    FROM product_components`);
+  const legacyTable = await exists(db, 'product_components');
+  const [components] = legacyTable
+    ? await db.$queryRaw<Row[]>(Prisma.sql`
+        SELECT COUNT(*)::int AS count,
+               md5(string_agg(concat_ws('|', id, kit_product_id, component_product_id, quantity), ',' ORDER BY id)) AS fingerprint
+        FROM product_components`)
+    : [];
   const recipes = r13
     ? await db.$queryRaw<Row[]>(Prisma.sql`
         SELECT status::text AS status, COUNT(*)::int AS n FROM product_recipes GROUP BY 1`)
@@ -438,6 +445,7 @@ async function baseline(
     legacyComponents: {
       count: num(components?.count),
       fingerprint: str(components?.fingerprint),
+      dropped: !legacyTable,
     },
     recipes: {
       count: recipes.reduce((sum, row) => sum + num(row.n), 0),

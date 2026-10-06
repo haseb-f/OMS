@@ -112,12 +112,22 @@ function compare(before: DryRunReport, after: DryRunReport): Check[] {
     B.salesDeliveryCogs.invoiceLineCogs,
     A.salesDeliveryCogs.invoiceLineCogs,
   );
-  add(
-    'STRICT',
-    'legacy product_components preserved',
-    B.legacyComponents,
-    A.legacyComponents,
-  );
+  if (A.legacyComponents.dropped) {
+    // Dropped by the approved follow-up migration; its rows must have become the DRAFT recipes (checked below).
+    add(
+      'EXPECTED',
+      'legacy product_components dropped (owner approval O3)',
+      true,
+      true,
+    );
+  } else {
+    add(
+      'STRICT',
+      'legacy product_components preserved',
+      B.legacyComponents,
+      A.legacyComponents,
+    );
+  }
 
   // Expected (allowed) differences must match what the migration promised.
   const projectedDrafts = before.review.draftRecipesNeedingActivation.rows.map(
