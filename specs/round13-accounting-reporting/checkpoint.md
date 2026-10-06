@@ -1,6 +1,6 @@
 # Round 13 — recovery checkpoint
 
-**Last update:** 2026-10-06 (R13b) — release candidate green (see evidence.md R13b). Next: merge to `main`, push (Vercel Production), verify deployment status.
+**Last update:** 2026-10-06 — RELEASED to Production: `9e56a551`, Vercel deployment 6887073454 success (see release.md).
 
 ## Environment (recreate after a container restart)
 
