@@ -1,6 +1,21 @@
 # R13 handoff
 
-**State:** LOCAL on `feat/r13-product-model` (canonical repo), not pushed, not released. Awaiting owner review + approvals.
+**State (2026-10-06):** RELEASED to Production — `main` = `fc88026f`, Vercel Production deployment 6880819835 `success`
+(owner approval of the local review, 2026-10-06). Verified read-only on Production as the QA admin
+(`evidence/prod/r13-prod-survey-post.{json,md}`): new fields/routes live, migration applied, 41 products unchanged.
+
+**Combined release:** the parallel workstream _R13 accounting & reporting_ (`claude/hopeful-feynman-2hzaxf`, specs
+`round13-accounting-reporting/`) was still active and is NOT released — it awaits its own owner decisions O-1…O-10, visual
+review and its Production pre-flight SQL (`proposals/payment-matches-duplicates.sql`). It is integrated and tested on
+`integration/r13-combined` (`825197e9`: conflicts resolved — one shared `useIdempotencyKey` hook, additive i18n; all 5
+migrations apply in order on a clone; API 190/190 suites, serial 14/14, web 140/140, both builds green). When it is approved:
+re-merge its latest commits, re-run the gates, then push a NEW commit to `main` (a SHA first pushed to a branch does not
+trigger a Production deploy on Vercel).
+
+**Production integrity after deploy:** I1 FAIL = 12 historical movements of `PRD-2026-000001 @ WH-000001` written on
+2026-09-18 within minutes (QA runs before the R13 row locks; no new violation since). I6 WARN = sub-ledger 4 147 059.83 vs GL
+97 163.06, explained almost entirely by 27 opening-balance movements (4 049 800.00) with no opening journal on the inventory
+account; remainder 428.19. Both are historical financial matters — reported, NOT corrected (needs the owner).
 
 ## Review locally
 
