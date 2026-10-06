@@ -37,6 +37,7 @@ import {
 } from "@/config/inventory/assembly";
 import { AssemblyOrderGridCard } from "@/config/inventory/inventory-grid-cards";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
+import { useWarehouses } from "@/hooks/use-reference-data";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 import { cachedLookup } from "@/lib/lookup-cache";
 import { formatDateTime, toISODate } from "@/lib/date";
@@ -70,6 +71,8 @@ function AssemblyListPageContent() {
   const [page, setPage] = usePathRestorableState("page", 1);
   const [pageSize, setPageSize] = usePathRestorableState("pageSize", 20);
   const [statusFilter, setStatusFilter] = usePathRestorableState("status", "");
+  const [warehouseFilter, setWarehouseFilter] = usePathRestorableState("warehouse", "");
+  const warehouses = useWarehouses();
   const [productFilter, setProductFilter] = useState<ProductRow[]>([]);
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -78,11 +81,12 @@ function AssemblyListPageContent() {
   const filters = useMemo<AssemblyListParams>(
     () => ({
       productId: productFilter[0]?.id,
+      warehouseId: warehouseFilter || undefined,
       status: (statusFilter || undefined) as AssemblyStatus | undefined,
       from: dateRange.from ? toISODate(dateRange.from) : undefined,
       to: dateRange.to ? toISODate(dateRange.to) : undefined,
     }),
-    [productFilter, statusFilter, dateRange],
+    [productFilter, warehouseFilter, statusFilter, dateRange],
   );
 
   const load = useCallback(async () => {
@@ -224,7 +228,11 @@ function AssemblyListPageContent() {
   const exportKeys = columns.map((column) => column.id!).filter((id) => id !== "__actions");
 
   const hasFilters =
-    productFilter.length > 0 || !!statusFilter || !!dateRange.from || !!dateRange.to;
+    productFilter.length > 0 ||
+    !!warehouseFilter ||
+    !!statusFilter ||
+    !!dateRange.from ||
+    !!dateRange.to;
 
   return (
     <PageWorkspace
@@ -264,12 +272,24 @@ function AssemblyListPageContent() {
                 const result = await cachedLookup(`products:${JSON.stringify(params)}`, () =>
                   productsService.catalog(params),
                 );
-                return result.items.filter((product) => product.supplyMethod === "ASSEMBLED");
+                return result.items;
               }}
               getId={(product) => product.id}
               getTitle={(product) => product.displayName || product.name}
               getSubtitle={(product) => product.sku}
               subtitleDir="ltr"
+            />
+            <SelectFilter
+              label={t("assembly.fields.warehouse")}
+              value={warehouseFilter}
+              onChange={(value) => {
+                setWarehouseFilter(value);
+                setPage(1);
+              }}
+              options={warehouses.map((warehouse) => ({
+                value: warehouse.id,
+                label: `${warehouse.code} — ${warehouse.name}`,
+              }))}
             />
             <SelectFilter
               label={t("assembly.fields.status")}
@@ -294,6 +314,7 @@ function AssemblyListPageContent() {
         }
         activeFilterCount={
           (productFilter.length > 0 ? 1 : 0) +
+          (warehouseFilter ? 1 : 0) +
           (statusFilter ? 1 : 0) +
           (dateRange.from || dateRange.to ? 1 : 0)
         }
@@ -301,6 +322,7 @@ function AssemblyListPageContent() {
           hasFilters
             ? () => {
                 setProductFilter([]);
+                setWarehouseFilter("");
                 setStatusFilter("");
                 setDateRange(EMPTY_DATE_RANGE);
                 setPage(1);

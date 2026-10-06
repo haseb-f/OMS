@@ -78,6 +78,7 @@ export interface CreateAssemblyInput {
 
 export interface AssemblyListParams {
   productId?: string;
+  warehouseId?: string;
   status?: AssemblyStatus;
   /** Inclusive `YYYY-MM-DD` (a plain date covers the whole day). */
   from?: string;

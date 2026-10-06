@@ -1317,6 +1317,79 @@ describe('Recipes, stock-line resolution and assembly (integration)', () => {
       );
       expect(list.total).toBe(1);
       expect(list.items[0].product.id).toBe(fg);
+      const inWarehouse = await assembly.findAll(
+        { productId: fg, warehouseId, page: 1, pageSize: 10 },
+        true,
+      );
+      expect(inWarehouse.total).toBe(1);
+      const elsewhere = await assembly.findAll(
+        { productId: fg, warehouseId: randomUUID(), page: 1, pageSize: 10 },
+        true,
+      );
+      expect(elsewhere.total).toBe(0);
+    });
+
+    it('reverses even when a component was archived and the finished item deactivated since', async () => {
+      const { a, b, fg } = await makeFixture();
+      const { order } = await assemble(fg, 1);
+      await prisma.product.update({
+        where: { id: a },
+        data: { deletedAt: new Date() },
+      });
+      await prisma.product.update({
+        where: { id: b },
+        data: { status: 'INACTIVE' },
+      });
+      await prisma.product.update({
+        where: { id: fg },
+        data: { status: 'INACTIVE' },
+      });
+
+      await expect(
+        assembly.reverse(order.id, { reason: 'archived' }, actorId, true),
+      ).resolves.toMatchObject({ status: 'REVERSED' });
+      expect(await stock(a)).toBe(10);
+      expect(await stock(b)).toBe(10);
+      expect(await stock(fg)).toBe(0);
+    });
+
+    it('never lets new consumption or output move an inactive product', async () => {
+      const inactive = await makeProduct({
+        category: catA,
+        status: 'INACTIVE',
+      });
+      const move = (
+        type: 'PRODUCTION_CONSUMPTION' | 'PRODUCTION_OUTPUT',
+        quantity: number,
+        allowInactiveProduct?: boolean,
+      ) =>
+        rejection(
+          prisma.$transaction((tx) =>
+            inventory.postProductionMovement(tx, {
+              type,
+              productId: inactive,
+              warehouseId,
+              quantity,
+              referenceType: 'ASSEMBLY_ORDER',
+              referenceId: randomUUID(),
+              idempotencyKey: `r13-inactive-${randomUUID()}`,
+              allowInactiveProduct,
+            }),
+          ),
+        );
+      // New consumption / output: refused with or without the option.
+      for (const [type, quantity] of [
+        ['PRODUCTION_CONSUMPTION', -1],
+        ['PRODUCTION_OUTPUT', 1],
+      ] as const) {
+        expect((await move(type, quantity)).status).toBe(400);
+        expect((await move(type, quantity, true)).status).toBe(400);
+      }
+      expect(
+        await prisma.inventoryMovement.count({
+          where: { productId: inactive },
+        }),
+      ).toBe(0);
     });
   });
 });

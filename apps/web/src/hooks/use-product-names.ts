@@ -9,8 +9,8 @@ export interface ProductNameEntry {
   sku: string;
 }
 
-/** The catalog API caps `pageSize` at 200. */
-const CHUNK = 200;
+/** The catalog API accepts at most 100 `ids` per request. */
+const CHUNK = 100;
 
 /** Distinct, sorted ids — the cache key of a look-up, so the same set is asked once. */
 export function productNameLookupKey(ids: readonly (string | null | undefined)[]): string {

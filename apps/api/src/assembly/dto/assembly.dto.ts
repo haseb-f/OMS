@@ -79,6 +79,10 @@ export class ListAssemblyQueryDto {
   productId?: string;
 
   @IsOptional()
+  @IsUUID()
+  warehouseId?: string;
+
+  @IsOptional()
   @IsEnum(AssemblyStatus)
   status?: AssemblyStatus;
 

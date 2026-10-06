@@ -238,6 +238,7 @@ export class ProductsService {
   async findAll(query: FindProductsQueryDto) {
     const where: Prisma.ProductWhereInput = {
       deletedAt: query.includeArchived ? undefined : null,
+      id: query.ids?.length ? { in: query.ids } : undefined,
       categoryId: prismaEnumFilter(query.categoryId),
       brandId: prismaEnumFilter(query.brandId),
       taxId: query.taxId,
@@ -307,6 +308,10 @@ export class ProductsService {
       categoryId: prismaEnumFilter(query.categoryId),
       brandId: prismaEnumFilter(query.brandId),
       type: prismaEnumFilter(query.type),
+      itemType:
+        query.itemType === 'UNSET' ? null : (query.itemType ?? undefined),
+      // R13 — assembly / kit pickers (e.g. only ASSEMBLED products to assemble).
+      supplyMethod: query.supplyMethod,
       isInventoryItem: query.isInventoryItem,
       isSellable: query.isSellable,
       isPurchasable: query.isPurchasable,

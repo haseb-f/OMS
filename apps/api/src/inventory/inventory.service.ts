@@ -1355,6 +1355,11 @@ export class InventoryService {
    * affected product once, sorted, with `lockProductsForUpdate` first. Reversal
    * is the opposite sign with its own idempotency key. Posting is the caller's
    * (ASSEMBLY_ORDER provider) — nothing is posted here.
+   *
+   * `allowInactiveProduct` — reversal only: stock going back to where it came
+   * from (positive PRODUCTION_CONSUMPTION / negative PRODUCTION_OUTPUT) may
+   * touch a product archived or deactivated since the assembly; it must still
+   * exist and be stock-tracked. New consumption / output never accepts it.
    */
   async postProductionMovement(
     tx: Prisma.TransactionClient,
@@ -1370,6 +1375,7 @@ export class InventoryService {
       unitCost?: Prisma.Decimal | string | number;
       notes?: string;
       userId?: string;
+      allowInactiveProduct?: boolean;
     } & Pick<MovementTrace, 'parentProductId' | 'recipeId'>,
   ) {
     if (!Number.isInteger(input.quantity) || input.quantity === 0) {
@@ -1377,7 +1383,9 @@ export class InventoryService {
         'A production movement needs a non-zero whole quantity.',
       );
     }
-    const product = await this.assertInventoryProduct(input.productId);
+    const product = input.allowInactiveProduct
+      ? await this.assertReversibleProduct(tx, input)
+      : await this.assertInventoryProduct(input.productId);
     const warehouse = await this.assertActiveWarehouse(input.warehouseId);
     await lockProductsForUpdate(tx, [input.productId]);
 
@@ -1430,6 +1438,41 @@ export class InventoryService {
     const product = await this.productsService.findOne(productId);
     if (product.status !== ProductStatus.ACTIVE) {
       throw new BadRequestException('Product is inactive.');
+    }
+    if (!product.isInventoryItem) {
+      throw new BadRequestException('Product is not an inventory item.');
+    }
+    return product;
+  }
+
+  /**
+   * A production REVERSAL may return stock of a product archived / deactivated
+   * after the assembly (the row must exist and still be stock-tracked); any
+   * other direction is new consumption / output and is refused here.
+   */
+  private async assertReversibleProduct(
+    tx: Prisma.TransactionClient,
+    input: {
+      type: 'PRODUCTION_CONSUMPTION' | 'PRODUCTION_OUTPUT';
+      productId: string;
+      quantity: number;
+    },
+  ) {
+    const reversal =
+      input.type === 'PRODUCTION_CONSUMPTION'
+        ? input.quantity > 0
+        : input.quantity < 0;
+    if (!reversal) {
+      throw new BadRequestException(
+        'Only a production reversal may move an inactive product.',
+      );
+    }
+    const product = await tx.product.findUnique({
+      where: { id: input.productId },
+      select: { id: true, sku: true, isInventoryItem: true },
+    });
+    if (!product) {
+      throw new NotFoundException(`Product ${input.productId} not found`);
     }
     if (!product.isInventoryItem) {
       throw new BadRequestException('Product is not an inventory item.');

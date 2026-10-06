@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'crypto';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import {
   InventoryMovementType,
   ItemType,
@@ -18,6 +20,7 @@ import { ProductsModule } from './products.module';
 import { ProductsService } from './products.service';
 import { ProductInsightsService } from './product-insights.service';
 import { ProductVariantsController } from './variants/product-variants.controller';
+import { FindProductsQueryDto } from './dto/find-products-query.dto';
 
 /** `expect.objectContaining` is typed `any`; this keeps matcher objects `unknown` for the linter. */
 const body = (fields: Record<string, unknown>): unknown =>
@@ -661,6 +664,75 @@ describe('Products R13 — attributes, barcode, eligibility, locks', () => {
           items: [],
         },
       );
+    });
+  });
+
+  describe('catalog + list filters', () => {
+    it('the catalog filters by supply method and item type; ids resolve on both list and catalog', async () => {
+      const assembled = await create('flt-assembled', {
+        supplyMethod: ProductSupplyMethod.ASSEMBLED,
+      });
+      const kit = await create('flt-kit', {
+        supplyMethod: ProductSupplyMethod.KIT,
+      });
+      const service_ = await create('flt-service', {
+        itemType: ItemType.SERVICE,
+      });
+      const plain = await create('flt-plain');
+      const catalogIds = async (extra: Record<string, unknown>) =>
+        (
+          await service.findSellableCatalog({
+            search: `flt-`,
+            categoryId: [categoryId],
+            pageSize: 100,
+            ...extra,
+          })
+        ).items.map((p) => p.id);
+
+      expect(
+        await catalogIds({ supplyMethod: ProductSupplyMethod.ASSEMBLED }),
+      ).toEqual(expect.arrayContaining([assembled.id]));
+      const assembledOnly = await catalogIds({
+        supplyMethod: ProductSupplyMethod.ASSEMBLED,
+      });
+      expect(assembledOnly).not.toContain(kit.id);
+      expect(assembledOnly).not.toContain(plain.id);
+      expect(
+        await catalogIds({ supplyMethod: ProductSupplyMethod.KIT }),
+      ).toEqual([kit.id]);
+      const services = await catalogIds({ itemType: 'SERVICE' });
+      expect(services).toEqual([service_.id]);
+      expect(await catalogIds({ itemType: 'PRODUCT' })).not.toContain(
+        service_.id,
+      );
+
+      const wanted = [kit.id, plain.id];
+      const byIds = await service.findSellableCatalog({
+        ids: wanted,
+        pageSize: 100,
+      });
+      expect(byIds.items.map((p) => p.id).sort()).toEqual([...wanted].sort());
+      // The catalog stays cost-free.
+      expect(byIds.items[0]).not.toHaveProperty('currentCost');
+      expect(byIds.items[0]).not.toHaveProperty('purchasePrice');
+      const listed = await service.findAll({ ids: wanted, pageSize: 100 });
+      expect(listed.items.map((p) => p.id).sort()).toEqual([...wanted].sort());
+      expect(listed.total).toBe(2);
+    });
+
+    it('ids accept a comma-separated list of at most 100 uuids', async () => {
+      const toDto = (ids: string) =>
+        plainToInstance(FindProductsQueryDto, { ids });
+      const two = toDto(`${randomUUID()},${randomUUID()}`);
+      expect(two.ids).toHaveLength(2);
+      expect(await validate(two)).toEqual([]);
+      const tooMany = toDto(
+        Array.from({ length: 101 }, () => randomUUID()).join(','),
+      );
+      expect((await validate(tooMany)).map((e) => e.property)).toEqual(['ids']);
+      expect(
+        (await validate(toDto('not-a-uuid'))).map((e) => e.property),
+      ).toEqual(['ids']);
     });
   });
 

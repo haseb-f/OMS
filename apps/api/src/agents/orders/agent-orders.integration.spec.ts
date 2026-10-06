@@ -51,6 +51,7 @@ import { OrderEconomicsService } from '../../store-orders/order-economics/order-
 import { assertActiveProduct } from '../../products/assert-active-product.util';
 import { eligibleStoreOrderWhere } from '../../investment-sales/shared/allocation-eligibility.util';
 import { AllExceptionsFilter } from '../../common/errors/all-exceptions.filter';
+import { isAgentOrderDigitalOnly } from '../common/agent-terms';
 
 async function expectCode(promise: Promise<unknown>, code: string) {
   let caught: unknown;
@@ -136,11 +137,12 @@ describe('Agents B1 — admin + orders (integration)', () => {
 
   const makeProduct = async (
     suffix: string,
-    opts: { owner?: string | null; inventory?: boolean } = {},
+    opts: { owner?: string | null; inventory?: boolean; kit?: boolean } = {},
   ) =>
     (
       await prisma.product.create({
         data: {
+          ...(opts.kit ? { supplyMethod: 'KIT' as const } : {}),
           sku: `AGT-${tag}-${suffix}`,
           name: `Agent Test ${suffix} ${tag}`,
           internalName: `Agent Test ${suffix}`,
@@ -150,7 +152,7 @@ describe('Agents B1 — admin + orders (integration)', () => {
           type: opts.inventory === false ? 'SERVICE' : 'PURCHASE_AND_SALE',
           isPurchasable: opts.inventory !== false,
           isSellable: true,
-          isInventoryItem: opts.inventory !== false,
+          isInventoryItem: opts.inventory !== false && !opts.kit,
           itemType: opts.inventory === false ? 'SERVICE' : 'PRODUCT',
           salesPrice: 600,
           ownerAgentId: opts.owner ?? null,
@@ -779,6 +781,44 @@ describe('Agents B1 — admin + orders (integration)', () => {
       expect(digital.shippingChargeSource).toBe('NONE');
       expect(digital.shippingStage).toBe('NOT_READY');
       expect(Number(digital.payableTotal)).toBe(300);
+    });
+
+    it('a kit-only order ships: its lines are frozen as stock-moving, never digital-only (R13)', async () => {
+      const kitId = await makeProduct('KIT', { owner: agentId, kit: true });
+      const input = orderInput({
+        lines: [{ productId: kitId, quantity: 1, lineAmount: 500 }],
+      });
+      const quote = await orders.quote(input, { userId: adminId });
+      expect(quote.valid).toBe(true);
+      expect(quote.digitalOnly).toBe(false);
+      expect(quote.shipping).toMatchObject({ rate: 100, source: 'RATE' });
+      // The quote still reports the product's own flag (a kit holds no stock).
+      expect(quote.lines[0].isInventoryItem).toBe(false);
+
+      const order = await orders.createAgentOrder(input, { userId: adminId });
+      expect(order.shippingChargeSource).toBe('RATE');
+      expect(Number(order.shippingCharge)).toBe(100);
+      const snapshot = order.agentTermsSnapshot as {
+        lines: { productId: string; inventoryLine: boolean }[];
+      };
+      expect(snapshot.lines).toEqual([
+        expect.objectContaining({ productId: kitId, inventoryLine: true }),
+      ]);
+      const stored = await prisma.storeOrder.findUniqueOrThrow({
+        where: { id: order.id },
+        select: {
+          agentTermsSnapshot: true,
+          items: {
+            select: {
+              productId: true,
+              product: {
+                select: { isInventoryItem: true, supplyMethod: true },
+              },
+            },
+          },
+        },
+      });
+      expect(isAgentOrderDigitalOnly(stored)).toBe(false);
     });
 
     it('currency must equal the agreement currency; the key makes submits idempotent', async () => {

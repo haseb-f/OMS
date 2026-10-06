@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ProductsModule } from '../../products/products.module';
 import { InventoryModule } from '../../inventory/inventory.module';
+import { RecipesModule } from '../../recipes/recipes.module';
 import { AgentsAdminModule } from '../admin/agents-admin.module';
 import { AgentOrdersModule } from '../orders/agent-orders.module';
 import { AgentFinanceModule } from '../finance/agent-finance.module';
@@ -23,6 +24,7 @@ import { AgentPortalTeamService } from './agent-portal-team.service';
   imports: [
     ProductsModule,
     InventoryModule,
+    RecipesModule,
     AgentsAdminModule,
     AgentOrdersModule,
     AgentFinanceModule,

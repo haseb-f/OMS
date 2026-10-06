@@ -11,12 +11,13 @@ import { RecipeInsightsService } from './recipe-insights.service';
  * Versioned recipes (bill of materials) for ASSEMBLED and KIT products (R13).
  * `RecipeService` is the API the stock-facing modules use (assembly, kit-line
  * resolution): the ACTIVE recipe and a recipe's lines in the components' stock
- * units. Permissions come from the global `PermissionsCoreModule`.
+ * units; `RecipeInsightsService` the one kit-availability rule (agent portal).
+ * Permissions come from the global `PermissionsCoreModule`.
  */
 @Module({
   imports: [UnitsModule, ProductsModule],
   controllers: [ProductRecipesController, RecipesController],
   providers: [RecipeService, RecipeManagementService, RecipeInsightsService],
-  exports: [RecipeService],
+  exports: [RecipeService, RecipeInsightsService],
 })
 export class RecipesModule {}

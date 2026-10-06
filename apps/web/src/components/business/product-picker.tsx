@@ -137,10 +137,7 @@ export function ProductPicker({
           const result = await cachedLookup(`products:${JSON.stringify(params)}`, () =>
             productsService.catalog(params),
           );
-          // The rule is also applied here so the picker can never offer another kind of item.
-          return supplyMethod
-            ? result.items.filter((product) => product.supplyMethod === supplyMethod)
-            : result.items;
+          return result.items;
         }}
         getId={(product) => product.id}
         getTitle={(product) => product.displayName || product.name}

@@ -334,6 +334,7 @@ export class AgentPortalOrdersService {
                 nameEn: true,
                 displayName: true,
                 isInventoryItem: true,
+                supplyMethod: true,
               },
             },
           },

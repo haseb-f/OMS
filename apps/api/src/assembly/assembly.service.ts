@@ -533,6 +533,8 @@ export class AssemblyService {
         recipeId: order.recipeId,
         notes: dto.reason,
         userId,
+        // The finished item may have been archived / deactivated since.
+        allowInactiveProduct: true,
       });
       await this.valuation.applyAssemblyReversal(tx, {
         productId: order.productId,
@@ -561,6 +563,8 @@ export class AssemblyService {
           recipeId: order.recipeId,
           notes: dto.reason,
           userId,
+          // Components go back even if archived / deactivated since.
+          allowInactiveProduct: true,
         });
         await this.assemblyCost.returnComponentToAverage(tx, {
           productId: line.componentProductId,
@@ -606,6 +610,7 @@ export class AssemblyService {
     const pageSize = query.pageSize ?? 20;
     const where: Prisma.AssemblyOrderWhereInput = {
       productId: query.productId,
+      warehouseId: query.warehouseId,
       status: query.status,
       createdAt: {
         gte: query.from ? new Date(query.from) : undefined,

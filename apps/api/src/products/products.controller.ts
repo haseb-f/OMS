@@ -54,6 +54,8 @@ export const PRODUCT_CATALOG_READ_PERMISSIONS: readonly string[] = [
   'purchasing.invoices.create',
   'purchasing.returns.create',
   'inventory.movements.create',
+  // R13 — an assembler picks the finished product (and sees its components).
+  'inventory.assembly.create',
   // Investor Engine Milestone 4, Part 11 — root cause of "the Investment
   // Opportunity Product dropdown shows nothing": an Investor-module user
   // holding only investment-opportunities.* permissions (no products.view,

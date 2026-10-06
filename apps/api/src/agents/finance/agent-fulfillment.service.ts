@@ -13,7 +13,10 @@ import {
   InventoryService,
   lockProductsForUpdate,
 } from '../../inventory/inventory.service';
-import { StockLineResolver } from '../../inventory/stock-lines/stock-line-resolver';
+import {
+  StockLineResolver,
+  isStockAffecting,
+} from '../../inventory/stock-lines/stock-line-resolver';
 import { movementIdempotencyKey } from '../../inventory/dto/movement-trace';
 import { RECIPE_INCLUDE, RecipeService } from '../../recipes/recipe.service';
 import {
@@ -239,8 +242,8 @@ export class AgentFulfillmentService {
 
   /**
    * Whether a line moves stock, as frozen at submission (F-L7): the
-   * snapshot's per-line flag, falling back to the live product flag only for
-   * orders created before the snapshot carried lines.
+   * snapshot's per-line flag, falling back to the live product (tracked or
+   * KIT) only for orders created before the snapshot carried lines.
    */
   isInventoryLine(
     order: AgentOrderContext,
@@ -248,13 +251,13 @@ export class AgentFulfillmentService {
   ): boolean {
     const lines = this.snapshotOf(order).lines;
     const frozen = lines?.find((line) => line.productId === item.productId);
-    return frozen ? frozen.inventoryLine : item.product.isInventoryItem;
+    return frozen ? frozen.inventoryLine : isStockAffecting(item.product);
   }
 
   /**
-   * Whether a line issues stock at dispatch: a stocked line (frozen flag
-   * above), or a KIT — fulfilled from its components (R13 spec §3B). A kit is
-   * never stocked itself, so its frozen flag is false.
+   * Whether a line issues stock at dispatch: a stock-affecting line (frozen
+   * flag above), or a KIT — fulfilled from its components (R13 spec §3B). The
+   * KIT check keeps kit lines frozen before the flag counted kits dispatching.
    */
   private movesStock(
     order: AgentOrderContext,
