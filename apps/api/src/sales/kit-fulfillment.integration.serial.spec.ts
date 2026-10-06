@@ -1262,6 +1262,11 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
         code: 'KIT_OWNER_MIXED',
       });
       expect(await reservedUnder(order.id, a)).toBe(0);
+      // Fixtures are kept whole (see afterAll): put the owner back so the kept rows stay consistent (I7).
+      await prisma.product.update({
+        where: { id: a },
+        data: { ownerAgentId: null },
+      });
     });
   });
 });

@@ -4,7 +4,8 @@ import { AccountingReportsService } from './accounting-reports.service';
 import { buildLedgerMovements, type LedgerLineInput } from './ledger-movements';
 import { GeneralLedgerQueryDto } from './dto/general-ledger-query.dto';
 
-const cents = (value: number) => Math.round(value * 100);
+// `|| 0` folds -0 (a float sum a hair below zero) into 0: equal cents must compare equal.
+const cents = (value: number) => Math.round(value * 100) || 0;
 
 function line(
   id: string,
