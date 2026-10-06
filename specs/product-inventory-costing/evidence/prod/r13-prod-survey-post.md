@@ -1,4 +1,4 @@
-# R13 Production survey — post-deploy (2026-10-06T12:12:06.029Z)
+# R13 Production survey — post-deploy (2026-10-06T15:51:32.437Z)
 
 Read-only (login + GET only) as the QA admin.
 
@@ -9,7 +9,7 @@ Read-only (login + GET only) as the QA admin.
 - PASS products expose supplyMethod
 - PASS GET /assembly?pageSize=5 — status 200
 - PASS GET /inventory/integrity — status 200
-- FAIL integrity: no FAIL invariants — I1:FAIL I2:PASS I3:PASS I4:PASS I5:PASS I6:WARN I7:PASS
+- PASS integrity: no FAIL invariants — I1:PASS I2:PASS I3:PASS I4:PASS I5:PASS I6:PASS I7:PASS
 - PASS GET /products/:id/effective-defaults — status 200
 - PASS GET /products/:id/investment-links — status 200
 - PASS GET /products/similar-names?name=%D9%85%D9%86%D8%AA%D8%AC%20%D8%A7%D8%AE%D8%AA%D8%A8%D8%A7%D8%B1 — status 200
@@ -19,7 +19,7 @@ Read-only (login + GET only) as the QA admin.
 ```json
 {
   "phase": "post",
-  "at": "2026-10-06T12:12:03.448Z",
+  "at": "2026-10-06T15:51:30.655Z",
   "totals": {
     "products": 41,
     "byLegacyType": {
@@ -62,8 +62,8 @@ Read-only (login + GET only) as the QA admin.
   "integrity": [
     {
       "id": "I1",
-      "status": "FAIL",
-      "violations": 12
+      "status": "PASS",
+      "violations": 0
     },
     {
       "id": "I2",
@@ -87,8 +87,8 @@ Read-only (login + GET only) as the QA admin.
     },
     {
       "id": "I6",
-      "status": "WARN",
-      "violations": 1
+      "status": "PASS",
+      "violations": 0
     },
     {
       "id": "I7",

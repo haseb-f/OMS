@@ -61,3 +61,21 @@ Before the combined release can ship, the owner must:
 Release steps: re-merge the accounting branch's latest commits into `integration/r13-combined`, re-run the gates, fast-forward
 `main`, push a NEW commit (branch-pushed SHAs do not trigger a Production deploy), then verify with
 `scripts/acceptance/r13/r13-prod-survey.mjs` (PHASE=post) and `GET /inventory/integrity` (expect I1–I7 PASS, I6 difference 0).
+
+## Final release record (2026-10-06)
+
+- `23190597` (Production deployment 6888305845, success): legacy `product_components` dropped, purchase returns at
+  the moving average (O9), one-time reset of Production test transactions (guarded; ran once).
+- `8e64eb09` (Production deployment 6888662855, success): repair + build guard (below).
+- Production after the reset (read-only checks): 41 products, 219 partners, 3 agents, 17 investors kept; 0 movements,
+  invoices, returns, store orders, investment opportunities; stock cards all zero, no costs; integrity I1–I7 PASS with
+  I6 difference 0.00; Google Sheets sync source "Default Agent" disabled before the reset (re-enable in Settings when the
+  sheet holds real data).
+- **Incident + root cause:** right after the reset deploy every purchase-invoice read returned DATABASE_ERROR. Vercel
+  Preview builds share the Production database and `vercel-build.sh` ran `prisma migrate deploy` in every environment,
+  so branch Previews had applied early versions of R13 migrations; later edits never reached Production
+  (`purchase_invoice_items.tax_capitalized` missing). Fixed by `20261007140000_r13_repair_preview_applied_migrations`
+  (idempotent; reproduced locally 500 → 200) and `vercel-build.sh` now runs migrations/data scripts only for Production.
+  Recommended owner action: give Preview its own database in Vercel (Preview builds still read Production data at run
+  time).
+- Not done by us: a Supabase backup before the reset (no access) — the owner confirmed the data was test data.

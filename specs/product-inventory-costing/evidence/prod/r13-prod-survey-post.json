@@ -37,8 +37,8 @@
     },
     {
       "name": "integrity: no FAIL invariants",
-      "ok": false,
-      "detail": "I1:FAIL I2:PASS I3:PASS I4:PASS I5:PASS I6:WARN I7:PASS"
+      "ok": true,
+      "detail": "I1:PASS I2:PASS I3:PASS I4:PASS I5:PASS I6:PASS I7:PASS"
     },
     {
       "name": "GET /products/:id/effective-defaults",
@@ -58,7 +58,7 @@
   ],
   "review": {
     "phase": "post",
-    "at": "2026-10-06T12:12:03.448Z",
+    "at": "2026-10-06T15:51:30.655Z",
     "totals": {
       "products": 41,
       "byLegacyType": {
@@ -101,8 +101,8 @@
     "integrity": [
       {
         "id": "I1",
-        "status": "FAIL",
-        "violations": 12
+        "status": "PASS",
+        "violations": 0
       },
       {
         "id": "I2",
@@ -126,8 +126,8 @@
       },
       {
         "id": "I6",
-        "status": "WARN",
-        "violations": 1
+        "status": "PASS",
+        "violations": 0
       },
       {
         "id": "I7",
