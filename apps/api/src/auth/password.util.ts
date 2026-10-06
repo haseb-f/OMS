@@ -1,5 +1,6 @@
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
+import { PASSWORD_POLICY } from './password-policy';
 
 /** Cost used by create, reset, seed, and login — never hash twice, never mix libraries. */
 export const PASSWORD_HASH_ROUNDS = 10;
@@ -31,44 +32,34 @@ export async function verifyPassword(
   return bcrypt.compare(plain, passwordHash);
 }
 
-function pickChar(alphabet: string, index: number): string {
-  const char = alphabet[index % alphabet.length];
-  if (!char) {
-    throw new Error('Password alphabet is empty.');
-  }
-  return char;
-}
-
 /**
- * Cryptographically random temporary password: mixed case, digit, and
- * symbol, length ≥ 8 so it satisfies the same rule as a manually entered
- * password. Unambiguous alphabet (no 0/O, 1/l/I).
+ * Cryptographically random temporary password satisfying `PASSWORD_POLICY`:
+ * at least one upper-case, lower-case, digit and symbol from the policy's
+ * unambiguous classes, every pick and the shuffle drawn with
+ * `crypto.randomInt` (uniform — no modulo bias).
  */
-export function generateTemporaryPassword(length = 12): string {
-  if (length < 8) {
-    throw new Error('Temporary passwords must be at least 8 characters.');
+export function generateTemporaryPassword(
+  length: number = PASSWORD_POLICY.generatedLength,
+): string {
+  if (
+    length < PASSWORD_POLICY.minLength ||
+    length > PASSWORD_POLICY.maxLength
+  ) {
+    throw new Error(
+      `Temporary passwords must be ${PASSWORD_POLICY.minLength}–${PASSWORD_POLICY.maxLength} characters.`,
+    );
   }
-  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const lower = 'abcdefghijkmnopqrstuvwxyz';
-  const digits = '23456789';
-  const symbols = '!@#$%';
-  const all = `${upper}${lower}${digits}${symbols}`;
-  const bytes = crypto.randomBytes(length);
-  const chars: string[] = [
-    pickChar(upper, bytes[0]),
-    pickChar(lower, bytes[1]),
-    pickChar(digits, bytes[2]),
-    pickChar(symbols, bytes[3]),
-  ];
-  for (let i = 4; i < length; i++) {
-    chars.push(pickChar(all, bytes[i]));
-  }
+  const { upper, lower, digits, symbols } = PASSWORD_POLICY.generatorClasses;
+  const classes = [upper, lower, digits, symbols];
+  const all = classes.join('');
+  const pick = (alphabet: string) =>
+    alphabet.charAt(crypto.randomInt(alphabet.length));
+  const chars = classes.map(pick);
+  while (chars.length < length) chars.push(pick(all));
   for (let i = chars.length - 1; i > 0; i--) {
-    const j = bytes[i] % (i + 1);
+    const j = crypto.randomInt(i + 1);
     const current = chars[i];
-    const swap = chars[j];
-    if (!current || !swap) continue;
-    chars[i] = swap;
+    chars[i] = chars[j];
     chars[j] = current;
   }
   return chars.join('');

@@ -22,8 +22,10 @@ export class MasterDataActivityLogService {
     description: string,
     userId?: string,
     metadata?: Record<string, unknown>,
+    /** Pass the caller's transaction so the entry commits / rolls back with the change it records. */
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
   ) {
-    return this.prisma.masterDataActivityLog.create({
+    return client.masterDataActivityLog.create({
       data: {
         entityType,
         entityId,

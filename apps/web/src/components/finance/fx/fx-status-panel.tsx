@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { CalendarClock, PauseCircle, Power } from "lucide-react";
+import { CalendarClock, Info, PauseCircle, Power } from "lucide-react";
 import { StatusBadge } from "@/components/business/status-badge";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { DisclosureTrigger } from "@/components/shared/disclosure-trigger";
 import { formatBusinessDateTime } from "@/lib/business-date";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
@@ -13,7 +15,10 @@ import { fxDayLabel } from "./fx-format";
 import {
   FRESHNESS_ICON,
   FRESHNESS_TONE,
+  deriveFxOverallState,
   elapsedSeconds,
+  runErrorSummary,
+  utcTimeLabel,
   runCounts,
   runVisual,
   schedulerPaused,
@@ -82,7 +87,17 @@ export function FxStatusPanel({
   const lastRun = status.lastRun;
   const visual = runVisual(lastRun);
   const counts = lastRun ? runCounts(lastRun) : null;
-  const lastRunFailed = lastRun?.status === "FAILED";
+  const lastRunFailed = lastRun?.status === "FAILED" || lastRun?.status === "PARTIAL";
+  const overall = deriveFxOverallState(status);
+  const OverallIcon = overall.icon;
+  const overallHint = t(`fxSettings.state.overall.hint.${overall.key}` as MessageKey, {
+    error: runErrorSummary(overall.run) ?? t("fxSettings.state.overall.noDetails"),
+    date: fxDayLabel(t, status.newestEffectiveDate),
+    days: status.settings.staleAlertDays,
+  });
+  const lastSuccessAt = status.lastSuccess
+    ? (status.lastSuccess.finishedAt ?? status.lastSuccess.startedAt)
+    : null;
   const triggerText = (trigger: string) =>
     t(
       (["CRON", "MANUAL", "BACKFILL"].includes(trigger)
@@ -94,6 +109,50 @@ export function FxStatusPanel({
 
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" data-testid="fx-status-panel">
+      {/* 0 — the one headline state (icon + text, never colour alone) */}
+      <div
+        className="flex min-w-0 flex-col gap-1 rounded-md border border-border px-3 py-2 sm:col-span-2"
+        data-testid="fx-state-overall"
+        data-state={overall.key}
+        role="status"
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-caption text-muted-foreground">
+            {t("fxSettings.state.overall.label")}
+          </span>
+          <StatusBadge
+            label={t(`fxSettings.state.overall.${overall.key}` as MessageKey)}
+            tone={overall.tone}
+            icon={OverallIcon}
+          />
+        </div>
+        <span
+          className={
+            overall.key === "FAILED"
+              ? "break-words text-caption text-destructive"
+              : "break-words text-caption text-muted-foreground"
+          }
+        >
+          {overallHint}
+        </span>
+        <span className="flex flex-wrap gap-x-4 gap-y-0.5 text-caption text-muted-foreground">
+          <span className="num" data-testid="fx-last-success">
+            {lastSuccessAt
+              ? t("fxSettings.state.overall.lastSuccess", {
+                  at: formatBusinessDateTime(lastSuccessAt),
+                })
+              : t("fxSettings.state.freshness.noSuccess")}
+          </span>
+          {status.newestEffectiveDate ? (
+            <span>
+              {t("fxSettings.state.overall.effectiveDate", {
+                date: fxDayLabel(t, status.newestEffectiveDate),
+              })}
+            </span>
+          ) : null}
+        </span>
+      </div>
+
       {/* 1 — switch */}
       <StateTile label={t("fxSettings.state.autoImport.label")} testId="fx-state-switch">
         <div className="flex flex-wrap items-center gap-2">
@@ -157,9 +216,16 @@ export function FxStatusPanel({
             </span>
           ) : null}
         </div>
-        {lastRunFailed && lastRun?.error ? (
-          <span className="break-words text-caption text-destructive" data-testid="fx-last-error">
-            {t("fxSettings.state.lastRun.reason", { error: lastRun.error })}
+        {lastRunFailed && runErrorSummary(lastRun) ? (
+          <span
+            className={
+              lastRun?.status === "FAILED"
+                ? "break-words text-caption text-destructive"
+                : "break-words text-caption text-warning-foreground"
+            }
+            data-testid="fx-last-error"
+          >
+            {t("fxSettings.state.lastRun.reason", { error: runErrorSummary(lastRun) ?? "" })}
           </span>
         ) : null}
         {lastRun?.status === "SKIPPED" ? (
@@ -203,13 +269,6 @@ export function FxStatusPanel({
         <span className="text-caption text-muted-foreground">
           {t("fxSettings.state.freshness.threshold", { days: status.settings.staleAlertDays })}
         </span>
-        <span className="text-caption text-muted-foreground" data-testid="fx-last-success">
-          {status.lastSuccess
-            ? t("fxSettings.state.freshness.lastSuccess", {
-                at: formatBusinessDateTime(status.lastSuccess.startedAt),
-              })
-            : t("fxSettings.state.freshness.noSuccess")}
-        </span>
       </StateTile>
 
       {/* 5 — next scheduled run, Cairo time */}
@@ -230,7 +289,10 @@ export function FxStatusPanel({
             <span className="inline-flex items-center gap-1.5 text-body">
               <CalendarClock aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="num">
-                {t("fxSettings.state.next.at", { at: formatBusinessDateTime(next.at) })}
+                {t("fxSettings.state.next.atUtc", {
+                  at: formatBusinessDateTime(next.at),
+                  utc: utcTimeLabel(next.at),
+                })}
               </span>
             </span>
             <span className="text-caption text-muted-foreground">
@@ -243,6 +305,32 @@ export function FxStatusPanel({
           "—"
         )}
       </StateTile>
+
+      {/* Progressive disclosure: the rules the import follows, stated from the code. */}
+      <Collapsible className="sm:col-span-2" data-testid="fx-how-it-works">
+        <CollapsibleTrigger asChild>
+          <DisclosureTrigger>
+            <Info aria-hidden className="size-3.5" />
+            {t("fxSettings.howItWorks.toggle")}
+          </DisclosureTrigger>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <ul className="ms-5 mt-1 list-disc space-y-1 text-caption text-muted-foreground">
+            <li>{t("fxSettings.howItWorks.schedule")}</li>
+            <li>{t("fxSettings.howItWorks.source")}</li>
+            <li>
+              {t("fxSettings.howItWorks.basis", {
+                basis: t(`fxSettings.autoImport.basisOptions.${status.settings.rateBasis}`),
+              })}
+            </li>
+            <li>{t("fxSettings.howItWorks.manual")}</li>
+            <li>{t("fxSettings.howItWorks.weekends")}</li>
+            <li>{t("fxSettings.howItWorks.stale", { days: status.settings.maxStaleDays })}</li>
+            <li>{t("fxSettings.howItWorks.frozen")}</li>
+            <li>{t("fxSettings.howItWorks.refresh")}</li>
+          </ul>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

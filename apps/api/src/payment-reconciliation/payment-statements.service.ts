@@ -21,6 +21,7 @@ import {
   parseXlsxWorkbook,
 } from '../import-center/xlsx-parser.util';
 import { isAfterCairoToday } from '../accounting/fx/fx-dates';
+import { ImportMappingTemplatesService } from '../import-center/import-mapping-templates.service';
 import {
   EXCEPTION_REASON,
   STATEMENT_FIELDS,
@@ -78,6 +79,59 @@ export interface StatementRunSummary {
 }
 
 const SHEET_CONNECTION_KIND = 'SHEET_CONNECTION';
+
+/** R13 (D2) — the reusable file mapping per method, kept in the Import Center's template store. */
+export const statementMappingImportType = (methodId: string) =>
+  `payment-statement:${methodId}`;
+export const STATEMENT_MAPPING_TEMPLATE_NAME = 'default';
+/** Parsing options travel in the flat template next to the columns under these reserved keys. */
+const TEMPLATE_OPTION_KEYS = {
+  defaultCurrencyCode: '$defaultCurrencyCode',
+  phoneRegion: '$phoneRegion',
+  dateFormat: '$dateFormat',
+} as const;
+
+/** Where the preview's mapping came from — the user's own, the method's saved one, or a header guess. */
+export type StatementMappingSource = 'PROVIDED' | 'SAVED' | 'SUGGESTED';
+
+function mappingToTemplate(
+  config: StatementMappingConfig,
+): Record<string, string> {
+  const flat: Record<string, string> = {};
+  for (const field of STATEMENT_FIELDS) {
+    const header = config.columns[field];
+    if (header) flat[field] = header;
+  }
+  if (config.defaultCurrencyCode) {
+    flat[TEMPLATE_OPTION_KEYS.defaultCurrencyCode] = config.defaultCurrencyCode;
+  }
+  if (config.phoneRegion) {
+    flat[TEMPLATE_OPTION_KEYS.phoneRegion] = config.phoneRegion;
+  }
+  if (config.dateFormat) {
+    flat[TEMPLATE_OPTION_KEYS.dateFormat] = config.dateFormat;
+  }
+  return flat;
+}
+
+function templateToMapping(flat: Record<string, unknown>) {
+  const dateFormat = flat[TEMPLATE_OPTION_KEYS.dateFormat];
+  return toMappingConfig({
+    columns: flat as Record<string, string>,
+    defaultCurrencyCode:
+      typeof flat[TEMPLATE_OPTION_KEYS.defaultCurrencyCode] === 'string'
+        ? (flat[TEMPLATE_OPTION_KEYS.defaultCurrencyCode] as string)
+        : null,
+    phoneRegion:
+      typeof flat[TEMPLATE_OPTION_KEYS.phoneRegion] === 'string'
+        ? (flat[TEMPLATE_OPTION_KEYS.phoneRegion] as string)
+        : null,
+    dateFormat:
+      dateFormat === 'DMY' || dateFormat === 'MDY' || dateFormat === 'YMD'
+        ? dateFormat
+        : 'DMY',
+  });
+}
 
 /** Upload cap (multer `limits.fileSize` in the controller, re-checked here). */
 export const STATEMENT_MAX_BYTES = 5 * 1024 * 1024;
@@ -221,6 +275,7 @@ export class PaymentStatementsService {
     private readonly prisma: PrismaService,
     private readonly phone: PhoneNumberService,
     private readonly sheets: GoogleSheetsService,
+    private readonly mappingTemplates: ImportMappingTemplatesService,
   ) {}
 
   // ---------------------------------------------------------------- helpers
@@ -433,6 +488,7 @@ export class PaymentStatementsService {
       ? this.phone.parse(row.customerPhone, phoneRegion ?? undefined)
       : null;
     return {
+      kind: row.kind,
       providerReference: row.providerReference,
       customerName: row.customerName,
       customerPhone: row.customerPhone,
@@ -747,11 +803,13 @@ export class PaymentStatementsService {
     config: StatementMappingConfig,
     planned: PlannedRow[] | null,
     mappingErrors: string[],
+    mappingSource: StatementMappingSource = 'PROVIDED',
   ) {
     return {
       headers: table.headers,
       sheetName: table.sheetName ?? null,
       mapping: config,
+      mappingSource,
       mappingErrors,
       summary: planned ? PaymentStatementsService.summarize(planned) : null,
       rows: (planned ?? []).slice(0, PREVIEW_ROW_LIMIT).map((entry) => ({
@@ -773,15 +831,50 @@ export class PaymentStatementsService {
   ) {
     await this.requireReconciledMethod(methodId);
     const table = await this.readUploadedFile(file);
-    const config =
-      mapping ??
-      toMappingConfig({ columns: suggestStatementMapping(table.headers) });
+    let config = mapping;
+    let mappingSource: StatementMappingSource = 'PROVIDED';
+    if (!config) {
+      const saved = await this.savedFileMapping(methodId);
+      // The saved mapping applies only when every column it names is in this file.
+      if (
+        saved &&
+        validateStatementMapping(saved, table.headers).length === 0
+      ) {
+        config = saved;
+        mappingSource = 'SAVED';
+      } else {
+        config = toMappingConfig({
+          columns: suggestStatementMapping(table.headers),
+        });
+        mappingSource = 'SUGGESTED';
+      }
+    }
     const mappingErrors = validateStatementMapping(config, table.headers);
     const planned =
       mappingErrors.length === 0
         ? await this.planRows(this.prisma, methodId, table.rows, config)
         : null;
-    return this.previewPayload(table, config, planned, mappingErrors);
+    return this.previewPayload(
+      table,
+      config,
+      planned,
+      mappingErrors,
+      mappingSource,
+    );
+  }
+
+  /** The method's saved file mapping (written by the last committed file import), or null. */
+  async savedFileMapping(
+    methodId: string,
+  ): Promise<StatementMappingConfig | null> {
+    const templates = await this.mappingTemplates.findAll(
+      statementMappingImportType(methodId),
+    );
+    const template = templates.find(
+      (row) => row.name === STATEMENT_MAPPING_TEMPLATE_NAME,
+    );
+    if (!template || typeof template.columnMapping !== 'object') return null;
+    return templateToMapping(template.columnMapping as Record<string, unknown>);
   }
 
   async commitFile(
@@ -801,7 +894,7 @@ export class PaymentStatementsService {
     if (table.rows.length === 0) {
       throw new BadRequestException('The file has no data rows.');
     }
-    return this.commitRows({
+    const summary = await this.commitRows({
       methodId,
       sourceType: PaymentStatementSourceType.FILE,
       rows: table.rows,
@@ -810,6 +903,16 @@ export class PaymentStatementsService {
       fileName: file.originalname,
       sheetName: table.sheetName,
     });
+    // The confirmed mapping becomes the method's default for its next file (upsert by type + name).
+    await this.mappingTemplates.save(
+      {
+        importType: statementMappingImportType(methodId),
+        name: STATEMENT_MAPPING_TEMPLATE_NAME,
+        columnMapping: mappingToTemplate(mapping),
+      },
+      userId,
+    );
+    return summary;
   }
 
   // ----------------------------------------------------------- manual entry

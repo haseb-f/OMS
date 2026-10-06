@@ -7,6 +7,7 @@ import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-ta
 import { RowActionsMenu, type RowAction } from "@/components/shared/data-table";
 import { SelectFilter } from "@/components/shared/data-table/select-filter";
 import { StatementLineBadge } from "@/components/payments/payment-term-badge";
+import { StatementLineKindBadge } from "./line-kind-badge";
 import { paymentTerm, statementLineTerm } from "@/config/payments/payment-vocabulary";
 import { isSettled } from "@/components/payments/match-panel/match-panel-model";
 import { MoneyValue } from "@/components/shared/money-value";
@@ -253,7 +254,19 @@ export function StatementLinesTable({
         meta: { titleKey: "paymentReconciliation.fields.status" as MessageKey },
         cell: ({ row }) => (
           <div className="flex min-w-0 flex-col gap-0.5">
-            <StatementLineBadge status={row.original.status} />
+            {/* A refund / chargeback awaiting review shows that state instead of "unmatched". */}
+            {row.original.kind && row.original.kind !== "PAYMENT" ? (
+              row.original.status === "UNMATCHED" ? (
+                <StatementLineKindBadge kind={row.original.kind} review />
+              ) : (
+                <>
+                  <StatementLineBadge status={row.original.status} />
+                  <StatementLineKindBadge kind={row.original.kind} />
+                </>
+              )
+            ) : (
+              <StatementLineBadge status={row.original.status} />
+            )}
             {row.original.exceptionReason ? (
               <span className="text-caption text-muted-foreground">
                 {row.original.exceptionReason}
@@ -321,7 +334,11 @@ export function StatementLinesTable({
               key: "match",
               label: t("paymentReconciliation.tabs.matching"),
               icon: GitCompareArrows,
-              hidden: !canMatch || !onMatchLine || line.status !== "UNMATCHED",
+              hidden:
+                !canMatch ||
+                !onMatchLine ||
+                line.status !== "UNMATCHED" ||
+                (line.kind ?? "PAYMENT") !== "PAYMENT",
               onSelect: () => onMatchLine?.(line),
             },
             {

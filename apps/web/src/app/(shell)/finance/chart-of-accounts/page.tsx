@@ -1,7 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
-import { Archive, Download, FileText, Pencil, Plus, Printer, RotateCcw } from "lucide-react";
+import {
+  Archive,
+  Download,
+  FileText,
+  FolderTree,
+  Lock,
+  Pencil,
+  Plus,
+  Printer,
+  RotateCcw,
+} from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,6 +38,7 @@ import { LoadingOverlay } from "@/components/shared/loading-overlay";
 import { AccountPicker } from "@/components/business/account-picker";
 import { CurrencyPicker } from "@/components/business/currency-picker";
 import { SelectFilter } from "@/components/shared/data-table/select-filter";
+import { SegmentedRadioGroup } from "@/components/documents/segmented-radio-group";
 import { invalidateLookups } from "@/lib/lookup-cache";
 import { normalizeArabicSearch } from "@/lib/arabic-search";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -71,6 +82,8 @@ const ACCOUNT_TYPE_LABEL_KEY: Record<(typeof ACCOUNT_TYPES)[number], MessageKey>
 };
 
 type AccountNature = "MAIN" | "SUB";
+/** R13 B1 — explicit Group / Posting kind (Group = `allowsPosting=false`). */
+type AccountKind = "GROUP" | "POSTING";
 
 interface TreeNode extends ChartOfAccountRow {
   children: TreeNode[];
@@ -113,6 +126,7 @@ interface FormState {
   nameEn: string;
   accountType: (typeof ACCOUNT_TYPES)[number];
   nature: AccountNature;
+  kind: AccountKind;
   currencyId: string;
   allowReconciliation: boolean;
   description: string;
@@ -125,6 +139,7 @@ const emptyForm: FormState = {
   nameEn: "",
   accountType: "ASSET",
   nature: "MAIN",
+  kind: "POSTING",
   currencyId: "",
   allowReconciliation: false,
   description: "",
@@ -153,6 +168,11 @@ function ChartOfAccountsPageContent() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<ChartOfAccountRow | null>(null);
+  /** Journal-line / sub-account counts of the account being edited — what freezes its fields. */
+  const [editingUsage, setEditingUsage] = useState<{
+    journalLineCount: number;
+    childCount: number;
+  } | null>(null);
   const [parentAccount, setParentAccount] = useState<ChartOfAccountRow | null>(null);
   const [excludeIds, setExcludeIds] = useState<string[]>([]);
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -249,6 +269,7 @@ function ChartOfAccountsPageContent() {
 
   const openEdit = async (account: ChartOfAccountRow) => {
     setEditingAccount(account);
+    setEditingUsage(null);
     setParentAccount(null);
     setProposedCode(null);
     setForm({
@@ -256,12 +277,22 @@ function ChartOfAccountsPageContent() {
       nameEn: account.nameEn ?? "",
       accountType: account.accountType,
       nature: account.parentAccountId ? "SUB" : "MAIN",
+      kind: account.allowsPosting ? "POSTING" : "GROUP",
       currencyId: account.currencyId ?? "",
       allowReconciliation: account.allowReconciliation,
       description: account.description ?? "",
       codeOverride: "",
     });
     setModalOpen(true);
+    service
+      .get(account.id)
+      .then((detail) =>
+        setEditingUsage({
+          journalLineCount: detail.journalLineCount ?? 0,
+          childCount: detail.childCount ?? 0,
+        }),
+      )
+      .catch(() => setEditingUsage(null));
     if (account.parentAccountId) {
       service
         .get(account.parentAccountId)
@@ -299,10 +330,20 @@ function ChartOfAccountsPageContent() {
       };
       if (form.codeOverride.trim()) payload.codeOverride = form.codeOverride.trim();
       if (editingAccount) {
-        payload.parentAccountId = form.nature === "SUB" ? parentAccount?.id : null;
+        // Only real changes are sent: the server treats a different parent as
+        // a move and a different kind as a conversion, both frozen once used.
+        const nextParentId = form.nature === "SUB" ? (parentAccount?.id ?? null) : null;
+        if (nextParentId !== editingAccount.parentAccountId) {
+          payload.parentAccountId = nextParentId;
+        }
+        if (form.kind !== (editingAccount.allowsPosting ? "POSTING" : "GROUP")) {
+          payload.accountKind = form.kind;
+        }
+        if (form.accountType === editingAccount.accountType) delete payload.accountType;
         await service.update(editingAccount.id, payload);
       } else {
         payload.parentAccountId = form.nature === "SUB" ? parentAccount?.id : undefined;
+        payload.accountKind = form.kind;
         await service.create(payload);
       }
       // Every AccountPicker search is cached — drop it so the new/renamed account shows up.
@@ -564,7 +605,8 @@ function ChartOfAccountsPageContent() {
                   key: "add-child",
                   label: t("masterData.chartOfAccounts.addChild"),
                   icon: Plus,
-                  hidden: isArchived || !canCreate,
+                  // Only a Group account can have sub-accounts (R13 B1).
+                  hidden: isArchived || !canCreate || node.allowsPosting,
                   onSelect: () => openCreate(node),
                 },
                 {
@@ -594,6 +636,16 @@ function ChartOfAccountsPageContent() {
   };
 
   const displayedCode = editingAccount ? editingAccount.code : proposedCode;
+  const usedForPosting = !!editingAccount && (editingUsage?.journalLineCount ?? 0) > 0;
+  const kindLockReason: MessageKey | null = !editingAccount
+    ? null
+    : editingAccount.isSystemAccount
+      ? "masterData.chartOfAccounts.kindLockedSystem"
+      : editingAccount.allowsPosting && usedForPosting
+        ? "masterData.chartOfAccounts.kindLockedLines"
+        : !editingAccount.allowsPosting && (editingUsage?.childCount ?? 0) > 0
+          ? "masterData.chartOfAccounts.kindLockedChildren"
+          : null;
 
   return (
     <PageWorkspace
@@ -774,6 +826,7 @@ function ChartOfAccountsPageContent() {
             </label>
             <Select
               value={form.accountType}
+              disabled={usedForPosting}
               onValueChange={(value) =>
                 setForm((current) => ({
                   ...current,
@@ -801,6 +854,7 @@ function ChartOfAccountsPageContent() {
             </label>
             <Select
               value={form.nature}
+              disabled={usedForPosting || !!editingAccount?.isSystemAccount}
               onValueChange={(value) => {
                 const nature = value as AccountNature;
                 setForm((current) => ({ ...current, nature }));
@@ -817,6 +871,52 @@ function ChartOfAccountsPageContent() {
             </Select>
           </div>
 
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <label id={`${fieldId}-kind`} className="text-sm font-medium">
+              {t("masterData.chartOfAccounts.kindLabel")}{" "}
+              <span className="text-destructive">*</span>
+            </label>
+            <SegmentedRadioGroup<AccountKind>
+              aria-labelledby={`${fieldId}-kind`}
+              value={form.kind}
+              disabled={!!kindLockReason}
+              onValueChange={(kind) => setForm((current) => ({ ...current, kind }))}
+              options={[
+                {
+                  value: "GROUP",
+                  label: t("masterData.chartOfAccounts.groupAccount"),
+                  icon: FolderTree,
+                },
+                {
+                  value: "POSTING",
+                  label: t("masterData.chartOfAccounts.postingAccount"),
+                  icon: FileText,
+                },
+              ]}
+            />
+            {kindLockReason ? (
+              <p className="flex items-center gap-1.5 text-caption text-muted-foreground">
+                <Lock className="size-3.5 shrink-0" aria-hidden />
+                {t(kindLockReason)}
+              </p>
+            ) : (
+              <p className="text-caption text-muted-foreground">
+                {t(
+                  form.kind === "GROUP"
+                    ? "masterData.chartOfAccounts.kindGroupHint"
+                    : "masterData.chartOfAccounts.kindPostingHint",
+                )}
+              </p>
+            )}
+          </div>
+
+          {usedForPosting && (
+            <p className="flex items-center gap-1.5 text-caption text-muted-foreground sm:col-span-2">
+              <Lock className="size-3.5 shrink-0" aria-hidden />
+              {t("masterData.chartOfAccounts.usedLockedHint")}
+            </p>
+          )}
+
           {form.nature === "SUB" && (
             <div className="flex flex-col gap-1.5 sm:col-span-2">
               <label htmlFor={`${fieldId}-parent`} className="text-sm font-medium">
@@ -827,6 +927,8 @@ function ChartOfAccountsPageContent() {
                 value={parentAccount}
                 onChange={setParentAccount}
                 accountType={form.accountType}
+                groupOnly
+                disabled={usedForPosting}
                 excludeIds={excludeIds}
                 placeholder={t("masterData.chartOfAccounts.selectParent")}
               />
@@ -876,27 +978,12 @@ function ChartOfAccountsPageContent() {
             <CurrencyPicker
               id={`${fieldId}-currency`}
               valueKey="id"
+              disabled={usedForPosting}
               value={form.currencyId}
               onValueChange={(value) => setForm((current) => ({ ...current, currencyId: value }))}
               allowClear
             />
           </div>
-
-          {editingAccount && (
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">{t("common.status")}</label>
-              <div>
-                <StatusBadge
-                  label={
-                    editingAccount.allowsPosting
-                      ? t("masterData.chartOfAccounts.postingAccount")
-                      : t("masterData.chartOfAccounts.groupAccount")
-                  }
-                  tone={editingAccount.allowsPosting ? "success" : "neutral"}
-                />
-              </div>
-            </div>
-          )}
 
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <label className="text-sm font-medium">{t("masterData.fields.description")}</label>

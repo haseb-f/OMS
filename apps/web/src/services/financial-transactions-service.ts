@@ -77,6 +77,8 @@ export interface FinancialTransactionFormPayload {
   referenceNumber?: string;
   notes?: string;
   allocations?: AllocationInputPayload[];
+  /** Create only — one key per opened form; a repeated submit returns the first document. */
+  idempotencyKey?: string;
 }
 
 export interface FinancialTransactionListParams {

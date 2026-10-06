@@ -59,6 +59,8 @@ import {
 import type { PartnerPickerRow } from "@/services/partners-service";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import type { MessageKey } from "@/i18n/translate";
+import { RelatedRecordLink } from "@/components/shared/record-preview";
+import type { TraceKind } from "@/services/traceability-service";
 
 const INCOMING_STATUS_TABS: BankTransactionMatchStatus[] = [
   "UNMATCHED",
@@ -277,10 +279,22 @@ function CashFlowPageContent() {
           row.matchedPayment?.paymentNumber ??
           row.matchedFinancialTransaction?.transactionNumber ??
           "",
-        cell: ({ row }) =>
-          row.original.matchedPayment?.paymentNumber ??
-          row.original.matchedFinancialTransaction?.transactionNumber ??
-          "—",
+        cell: ({ row }) => {
+          const voucher = row.original.matchedFinancialTransaction;
+          if (row.original.matchedPayment) return row.original.matchedPayment.paymentNumber;
+          // The generated voucher opens in place with its posting state and
+          // journal entry (R13 B2 — originating document → journal link).
+          return voucher ? (
+            <RelatedRecordLink
+              kind={voucher.type as TraceKind}
+              id={voucher.id}
+              number={voucher.transactionNumber}
+              variant="inline"
+            />
+          ) : (
+            "—"
+          );
+        },
       },
       {
         id: "__actions",

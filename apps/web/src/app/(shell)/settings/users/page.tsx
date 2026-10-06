@@ -13,6 +13,10 @@ import {
 } from "@/components/master-data/enterprise-data-table";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { GeneratedPasswordDialog } from "@/components/settings/generated-password-dialog";
+import {
+  ResetPasswordField,
+  isResetPasswordAcceptable,
+} from "@/components/settings/reset-password-field";
 import { UserEditorModal } from "@/components/settings/user-editor-modal";
 import { UserGridCard } from "@/components/settings/user-grid-card";
 import {
@@ -55,6 +59,8 @@ function UsersPageContent() {
   const [forceChangeTarget, setForceChangeTarget] = useState<UserRow | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<UserRow | null>(null);
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
+  // Optional admin-entered / generated password of the reset (empty → the server generates one).
+  const [resetPasswordValue, setResetPasswordValue] = useState("");
 
   const load = useCallback(() => {
     setIsLoading(true);
@@ -240,18 +246,34 @@ function UsersPageContent() {
 
       <ConfirmationDialog
         open={!!resetPasswordTarget}
-        onOpenChange={(open) => !open && setResetPasswordTarget(null)}
+        onOpenChange={(open) => {
+          if (open) return;
+          setResetPasswordTarget(null);
+          setResetPasswordValue("");
+        }}
         tone="destructive"
         title={t("settings.users.confirmResetPasswordTitle")}
         description={t("settings.users.confirmResetPasswordDescription")}
+        extra={
+          <ResetPasswordField
+            value={resetPasswordValue}
+            onChange={setResetPasswordValue}
+            disabled={pendingAction === "reset"}
+          />
+        }
+        confirmDisabled={!isResetPasswordAcceptable(resetPasswordValue)}
         confirmLabel={t("settings.users.actions.resetPassword")}
         isConfirming={pendingAction === "reset"}
         onConfirm={async () => {
           if (!resetPasswordTarget) return;
           setPendingAction("reset");
           try {
-            const result = await usersService.resetPassword(resetPasswordTarget.id);
+            const result = await usersService.resetPassword(
+              resetPasswordTarget.id,
+              resetPasswordValue || undefined,
+            );
             setResetPasswordTarget(null);
+            setResetPasswordValue("");
             load();
             if (result.temporaryPassword) {
               setGeneratedPassword(result.temporaryPassword);

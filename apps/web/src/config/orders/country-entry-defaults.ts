@@ -1,4 +1,5 @@
 import { getCountryPhoneMetadata } from "@/services/phone-service";
+import { canProposeCallingCode } from "@/lib/phone-calling-code";
 
 /**
  * Smart defaults of an order-entry form (R12): choosing the customer's COUNTRY
@@ -59,7 +60,10 @@ export function applicableProposals(input: {
   phoneHasValue: boolean;
 }): { phone: boolean; currency: boolean } {
   return {
-    phone: !input.phoneCodeTouched && !input.phoneHasValue,
+    phone: canProposeCallingCode({
+      codeChosen: input.phoneCodeTouched,
+      hasNumber: input.phoneHasValue,
+    }),
     currency: !input.currencyTouched,
   };
 }

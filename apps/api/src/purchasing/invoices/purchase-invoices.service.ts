@@ -270,6 +270,18 @@ export class PurchaseInvoicesService {
             prepaidExpenseAccount: {
               select: { id: true, code: true, name: true, accountType: true },
             },
+            // Round 13 C1 — the asset / prepayment each line is linked to.
+            fixedAsset: {
+              select: { id: true, code: true, name: true, status: true },
+            },
+            prepaidExpense: {
+              select: {
+                id: true,
+                prepaidNumber: true,
+                name: true,
+                status: true,
+              },
+            },
           },
         },
         // TASK-050 — Related Documents: Purchase Return(s) and Supplier
@@ -341,6 +353,7 @@ export class PurchaseInvoicesService {
 
     return this.prisma.$transaction(async (tx) => {
       if (dto.items) {
+        await this.lineRecognition.assertLinesReplaceable(id, tx);
         await tx.purchaseInvoiceItem.deleteMany({
           where: { purchaseInvoiceId: id },
         });

@@ -197,6 +197,7 @@ const paymentVocabularyAr = {
     PROVIDER_STATUS_FAILED: "حالة المزوّد «{status}» ليست دفعة ناجحة — لا يمكن مطابقتها.",
     LINE_NOT_UNMATCHED: "لم تعد هذه الحركة غير مطابقة — الاقتراحات للحركات غير المطابقة فقط.",
     LINE_FULLY_ALLOCATED: "هذه الحركة مخصصة بالكامل.",
+    NOT_A_PAYMENT: "تُراجَع حركات الاسترداد / الاعتراض ولا تُطابَق مع أي مطالبة.",
   },
   bulk: {
     progress: "جارٍ معالجة {done} من {total}…",

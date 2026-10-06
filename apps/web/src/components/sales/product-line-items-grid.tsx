@@ -50,6 +50,7 @@ import type { ProductRow } from "@/services/products-service";
 import type { ChartOfAccountRow, WarehouseRow } from "@/config/master-data/entities";
 import { previewSalesLine } from "./sales-line-preview-math";
 import { useLocale } from "@/providers/locale-provider";
+import { RelatedRecordLink } from "@/components/shared/record-preview";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
 
@@ -93,6 +94,13 @@ export interface ProductLineItemsGridLine {
   scheduleStartDate?: string | null;
   prepaidMonths?: number | null;
   prepaidExpenseAccount?: ChartOfAccountRow | null;
+  /** Purchase Invoice only — the fixed asset / prepaid expense the saved line is linked to. */
+  linkedRecord?: {
+    kind: "FIXED_ASSET" | "PREPAID_EXPENSE";
+    id: string;
+    number: string;
+    status?: string | null;
+  } | null;
 }
 
 let nextRowId = 1;
@@ -387,6 +395,26 @@ function LineOptions({
                       : "docFlow.lines.prepaidHint",
                   )}
                 </p>
+              </div>
+            ) : null}
+            {treatment !== "STANDARD" && line.linkedRecord !== undefined ? (
+              <div className="flex flex-wrap items-center gap-1.5 border-t border-border pt-2 text-caption">
+                <span className="text-muted-foreground">
+                  {t("assetSchedules.links.linkedRecord")}:
+                </span>
+                {line.linkedRecord ? (
+                  <RelatedRecordLink
+                    kind={line.linkedRecord.kind}
+                    id={line.linkedRecord.id}
+                    number={line.linkedRecord.number}
+                    status={line.linkedRecord.status}
+                    variant="inline"
+                  />
+                ) : (
+                  <span className="text-muted-foreground">
+                    {t("assetSchedules.links.linkedRecordPending")}
+                  </span>
+                )}
               </div>
             ) : null}
           </div>

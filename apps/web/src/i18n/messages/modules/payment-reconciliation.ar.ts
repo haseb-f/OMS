@@ -36,6 +36,8 @@ const paymentReconciliationAr = {
     title: "ملخص حسب العملة",
     none: "—",
     line: "{count} · {amount}",
+    refunds: "المستردات / الاعتراضات",
+    net: "صافي الكشف (المدفوعات − المستردات)",
   },
   status: {
     ALL: "كل الحالات",
@@ -104,6 +106,9 @@ const paymentReconciliationAr = {
     phoneRegionPlaceholder: "مثال: SA أو EG",
     refreshPreview: "تحديث المعاينة",
     previewTitle: "المعاينة (أول 100 صف)",
+    mappingSaved: "طُبِّق الربط المحفوظ لهذه الطريقة — عدّله إذا تغيّر تنسيق الملف.",
+    mappingSuggested:
+      "تمت مطابقة الأعمدة من صف العناوين. يُحفَظ الربط الذي تستورد به لملف هذه الطريقة التالي.",
     summaryLine:
       "{total} صف · {created} جديد · {duplicate} مكرر · {updated} محدَّث · {exception} استثناء · {error} خطأ",
     outcome: {
@@ -237,6 +242,39 @@ const paymentReconciliationAr = {
     reversedReceipt: "تم عكس المطابقة — أُلغي سند القبض {receipt} (رُحّل قيد عكسي).",
   },
   reasonRequired: "السبب مطلوب.",
+  kind: {
+    PAYMENT: "دفعة",
+    REFUND: "استرداد",
+    CHARGEBACK: "اعتراض على عملية",
+    review: "استرداد / اعتراض — للمراجعة",
+  },
+  methodsArea: {
+    title: "طرق الدفع",
+    description:
+      "كيف يدفع العملاء: كل طريقة، والقناة التي تقف خلفها، والحسابات التي تصل إليها الأموال.",
+    tabs: {
+      methods: "الطرق",
+      channels: "القنوات",
+      receivingAccounts: "حسابات الاستلام",
+    },
+    methodsDescription: "تُرحَّل كل طريقة إلى حساب التسوية الخاص بها، وتحدّد قناتها تقدير الرسوم.",
+    channelsTitle: "قنوات الدفع",
+    channelsDescription:
+      "قائمة القنوات الداخلية (بطاقة، محفظة، تحويل…) مع تقدير اختياري للرسوم. تُستخدم القناة الافتراضية عندما لا تكون للطريقة قناة.",
+    receivingTitle: "حسابات الاستلام",
+    receivingDescription:
+      "وجهات البنوك والنقدية والمحافظ التي تصل إليها الأموال — الحساب الذي تُقيِّد عليه التسوية أو سند القبض.",
+    default: "افتراضي",
+    codeGenerated: "يُولَّد تلقائيًا",
+    fields: {
+      channel: "القناة",
+      feeEstimate: "تقدير الرسوم",
+      clearingAccount: "حساب التسوية",
+      destinationAccount: "الحساب",
+      isDefaultChannel: "القناة الافتراضية",
+      isDefaultDestination: "الوجهة الافتراضية",
+    },
+  },
 } as const;
 
 export default paymentReconciliationAr;

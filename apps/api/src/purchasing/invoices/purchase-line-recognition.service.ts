@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   FixedAssetStatus,
   Prisma,
@@ -8,6 +8,10 @@ import {
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { buildDepreciationSchedule } from '../../fixed-assets/depreciation-schedule';
 import { buildMonthlyRecognitionSchedule } from '../../prepaid-expenses/prepaid-schedule';
+import { businessDateOf } from '../../common/time/business-date';
+import { dateOnly } from '../../accounting/schedules/schedule-due';
+import { PrismaService } from '../../prisma/prisma.service';
+import { MasterDataActivityLogService } from '../../master-data/master-data-activity-log.service';
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -28,10 +32,43 @@ export function purchaseLineNetAmount(item: {
  * and the prepayment ACTIVE with no second entry; only the future
  * depreciation/recognition schedule posts later. Keyed by the invoice line
  * (unique): re-running the confirm can never create a duplicate.
+ *
+ * A DRAFT asset the user linked to the line beforehand is ADOPTED instead
+ * of creating a second asset: its cost becomes the line's base net amount
+ * and it is capitalized by the invoice JE (no capitalization entry of its
+ * own). It keeps its own name / cost center / salvage / method and, when
+ * set, its useful life and start date; otherwise the line's are used.
  */
 @Injectable()
 export class PurchaseLineRecognitionService {
-  constructor(private readonly numberingEngine: NumberingEngineService) {}
+  constructor(
+    private readonly numberingEngine: NumberingEngineService,
+    private readonly prisma: PrismaService,
+    private readonly activityLog: MasterDataActivityLogService,
+  ) {}
+
+  /**
+   * Editing a Draft invoice's lines recreates them, which would silently
+   * drop the link of a Draft asset prepared for one of them. Refuse until
+   * the asset is unlinked (Fixed Asset → Unlink invoice line).
+   */
+  async assertLinesReplaceable(
+    invoiceId: string,
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<void> {
+    const linked = await client.fixedAsset.findMany({
+      where: {
+        purchaseInvoiceItem: { purchaseInvoiceId: invoiceId },
+        deletedAt: null,
+      },
+      select: { code: true },
+    });
+    if (linked.length > 0) {
+      throw new BadRequestException(
+        `The invoice lines are linked to fixed asset(s) ${linked.map((a) => a.code).join(', ')}. Unlink them before changing the lines.`,
+      );
+    }
+  }
 
   async recognize(
     invoiceId: string,
@@ -48,7 +85,7 @@ export class PurchaseLineRecognitionService {
           },
           include: {
             product: { select: { name: true, displayName: true } },
-            fixedAsset: { select: { id: true } },
+            fixedAsset: true,
             prepaidExpense: { select: { id: true } },
           },
         },
@@ -56,7 +93,11 @@ export class PurchaseLineRecognitionService {
     });
     const rate =
       invoice.exchangeRate != null ? Number(invoice.exchangeRate) : 1;
-    const postedOn = invoice.confirmedAt ?? new Date();
+    // The business (Africa/Cairo) date of the confirmation — schedule and
+    // acquisition dates are date-only.
+    const postedOn = dateOnly(
+      businessDateOf(invoice.confirmedAt ?? new Date()),
+    );
     const assetIds: string[] = [];
     const prepaidIds: string[] = [];
 
@@ -72,6 +113,22 @@ export class PurchaseLineRecognitionService {
 
       if (item.treatment === PurchaseLineTreatment.FIXED_ASSET) {
         if (item.fixedAsset) {
+          if (item.fixedAsset.status === FixedAssetStatus.DRAFT) {
+            await this.adoptDraftAsset(
+              item.fixedAsset,
+              {
+                baseAmount,
+                months: item.assetUsefulLifeMonths,
+                method: item.assetDepreciationMethod,
+                start: item.scheduleStartDate,
+                postedOn,
+                partnerId: invoice.partnerId,
+                invoiceNumber: invoice.invoiceNumber,
+              },
+              tx,
+              userId,
+            );
+          }
           assetIds.push(item.fixedAsset.id);
           continue;
         }
@@ -155,5 +212,87 @@ export class PurchaseLineRecognitionService {
       prepaidIds.push(prepaid.id);
     }
     return { assetIds, prepaidIds };
+  }
+
+  private async adoptDraftAsset(
+    asset: {
+      id: string;
+      code: string | null;
+      salvageValue: Prisma.Decimal;
+      usefulLifeMonths: number | null;
+      depreciationMethod: 'STRAIGHT_LINE' | 'DECLINING_BALANCE';
+      depreciationStartDate: Date | null;
+      capitalizedAt: Date | null;
+      notes: string | null;
+    },
+    line: {
+      baseAmount: number;
+      months: number | null;
+      method: 'STRAIGHT_LINE' | 'DECLINING_BALANCE' | null;
+      start: Date | null;
+      postedOn: Date;
+      partnerId: string;
+      invoiceNumber: string;
+    },
+    tx: Prisma.TransactionClient,
+    userId?: string,
+  ) {
+    // Defence in depth: linking already refuses a once-capitalized asset.
+    if (asset.capitalizedAt) {
+      throw new BadRequestException(
+        `${asset.code} was already capitalized and cannot be capitalized again by Purchase Invoice ${line.invoiceNumber}.`,
+      );
+    }
+    const salvage = Number(asset.salvageValue);
+    if (salvage > line.baseAmount) {
+      throw new BadRequestException(
+        `${asset.code}: salvage value ${salvage} exceeds the invoice line amount ${line.baseAmount}.`,
+      );
+    }
+    const months = asset.usefulLifeMonths ?? line.months ?? 0;
+    const method = asset.depreciationMethod ?? line.method ?? 'STRAIGHT_LINE';
+    const start = asset.depreciationStartDate ?? line.start ?? line.postedOn;
+    await tx.fixedAssetDepreciationPeriod.deleteMany({
+      where: { fixedAssetId: asset.id },
+    });
+    await tx.fixedAsset.update({
+      where: { id: asset.id },
+      data: {
+        cost: line.baseAmount,
+        acquisitionDate: line.postedOn,
+        status: FixedAssetStatus.CAPITALIZED,
+        usefulLifeMonths: months,
+        depreciationMethod: method,
+        depreciationStartDate: start,
+        partnerId: line.partnerId,
+        capitalizedAt: line.postedOn,
+        capitalizedBy: userId ?? null,
+        updatedBy: userId ?? null,
+        notes: [
+          asset.notes,
+          `Capitalized by Purchase Invoice ${line.invoiceNumber}`,
+        ]
+          .filter(Boolean)
+          .join('\n'),
+        depreciationPeriods: {
+          create: buildDepreciationSchedule(
+            method,
+            line.baseAmount,
+            salvage,
+            months,
+            start,
+          ),
+        },
+      },
+    });
+    await this.activityLog.log(
+      'FIXED_ASSET',
+      asset.id,
+      'CAPITALIZED',
+      `Capitalized by Purchase Invoice ${line.invoiceNumber} (linked draft asset adopted)`,
+      userId,
+      undefined,
+      tx,
+    );
   }
 }

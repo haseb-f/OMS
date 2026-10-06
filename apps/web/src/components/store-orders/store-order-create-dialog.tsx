@@ -10,15 +10,26 @@ import { FormSection } from "@/components/documents/form-section";
 import {
   FormErrorSummary,
   applyServerFieldErrors,
+  findFieldElement,
+  focusElement,
   formErrorsFromRhf,
   useFocusFirstInvalid,
   type FormErrorItem,
 } from "@/components/shared/form-error-summary";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { StepFlow, StepFlowFooter } from "@/components/shared/step-flow";
 import {
-  CreateOperationFooter,
-  CreateOperationSummary,
-} from "@/components/shared/create-operation";
+  ORDER_CREATE_STEPS,
+  ORDER_CREATE_STEP_FIELDS,
+  ORDER_CREATE_STEP_LABEL_KEY,
+  firstStepWithError,
+  orderCreateStepIndex,
+  stepForField,
+  type OrderCreateStepId,
+} from "@/config/orders/order-create-steps";
+import { ApiError } from "@/services/api-client";
+import { formatDate } from "@/lib/date";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { CreateOperationSummary } from "@/components/shared/create-operation";
 import { MoneyValue } from "@/components/shared/money-value";
 import {
   ComboboxFormField,
@@ -144,6 +155,18 @@ export function StoreOrderCreateDialog({
   const [serverErrors, setServerErrors] = useState<FormErrorItem[]>([]);
   const bodyRef = useRef<HTMLDivElement>(null);
   const focusFirstInvalid = useFocusFirstInvalid(bodyRef);
+  // R13 A4 — four steps over ONE form: the steps only decide what is shown; every value
+  // (form fields and the dialog's own state) survives Back / Next.
+  const [stepIndex, setStepIndex] = useState(0);
+  const step: OrderCreateStepId = ORDER_CREATE_STEPS[stepIndex];
+  const [checkingStep, setCheckingStep] = useState(false);
+  // Leaving step 1 was attempted: an unanswered duplicate match is now explained in place.
+  const [customerGateAttempted, setCustomerGateAttempted] = useState(false);
+  // An existing customer's stored phone failed validation: show it so it can be corrected.
+  const [existingPhoneEditable, setExistingPhoneEditable] = useState(false);
+  const stepPanelRef = useRef<HTMLDivElement>(null);
+  const stepFocusPendingRef = useRef(false);
+  const submittingRef = useRef(false);
 
   // Phone country ≠ shipping destination (phone-field.md): the phone country
   // follows the shipping country until the user picks one explicitly
@@ -212,8 +235,19 @@ export function StoreOrderCreateDialog({
     setShowDeclarationError(false);
     setSubmitAttempted(false);
     setServerErrors([]);
+    setStepIndex(0);
+    setCustomerGateAttempted(false);
+    setExistingPhoneEditable(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // A step change moves focus to the new step (screen readers announce it) and shows its top.
+  useEffect(() => {
+    if (!stepFocusPendingRef.current) return;
+    stepFocusPendingRef.current = false;
+    stepPanelRef.current?.focus({ preventScroll: true });
+    stepPanelRef.current?.scrollIntoView?.({ block: "start" });
+  }, [stepIndex]);
 
   const isDirty = form.formState.isDirty;
   const isSubmitting = form.formState.isSubmitting;
@@ -307,8 +341,6 @@ export function StoreOrderCreateDialog({
     : countryId || "";
   const existingNeedsPhone =
     !!existingCustomer && !(existingCustomer.phone || existingCustomer.mobile);
-  const summaryProduct =
-    namedLines.map((line) => line.product!.displayName || line.product!.name).join(" · ") || "—";
   const summaryQuantity = namedLines.reduce((sum, line) => sum + line.quantity, 0);
 
   const applyCustomer = (customer: PartnerPickerRow) => {
@@ -330,6 +362,7 @@ export function StoreOrderCreateDialog({
     );
     setDifferentCountry(false);
     setDifferentAddress(false);
+    setExistingPhoneEditable(false);
   };
 
   // Spec 1B duplicate warning — debounced check of the typed phone / name.
@@ -393,6 +426,7 @@ export function StoreOrderCreateDialog({
     setPhoneCountryOverride(null);
     setDifferentCountry(false);
     setDifferentAddress(false);
+    setExistingPhoneEditable(false);
     clearCustomerFields();
   };
   const clearExistingCustomer = () => {
@@ -400,6 +434,7 @@ export function StoreOrderCreateDialog({
     setPhoneCountryOverride(null);
     setDifferentCountry(false);
     setDifferentAddress(false);
+    setExistingPhoneEditable(false);
     clearCustomerFields();
   };
   /** Existing customer: deliver to this order's own address, or back to the customer's. */
@@ -436,45 +471,146 @@ export function StoreOrderCreateDialog({
           : []),
         ...(receiptError ? [{ fieldId: "receipts", message: receiptError }] : []),
         ...(duplicates.blocked && duplicates.state.status === "ready"
-          ? [{ fieldId: "customerPhone", message: t("orderDuplicates.required") }]
+          ? [{ fieldId: "duplicates", message: t("orderDuplicates.required") }]
           : []),
         ...serverErrors,
       ]
     : [];
 
-  const onValid = async (values: StoreOrderCreateFormValues) => {
+  const stepItems = ORDER_CREATE_STEPS.map((id) => ({
+    id,
+    label: t(ORDER_CREATE_STEP_LABEL_KEY[id]),
+  }));
+
+  /** Shows a step. `focusInvalid` (a failed check) moves focus to its first invalid field instead of the step itself. */
+  const goToStep = (target: OrderCreateStepId, options: { focusInvalid?: boolean } = {}) => {
+    const index = orderCreateStepIndex(target);
+    if (options.focusInvalid) {
+      setStepIndex(index);
+      focusFirstInvalid();
+      return;
+    }
+    if (index === stepIndex) return;
+    stepFocusPendingRef.current = true;
+    setStepIndex(index);
+  };
+
+  // Shown under the duplicate panel once the user tried to leave step 1 with it unanswered.
+  const duplicateGateMessage =
+    customerGateAttempted && duplicates.blocked
+      ? duplicates.state.status === "ready"
+        ? t("orderDuplicates.required")
+        : t("storeOrders.createDialog.existingCustomer.checking")
+      : null;
+
+  /** Line items are dialog state, not form fields — checked here (step 2 and Create). */
+  const validateLines = () => {
     const validLines = lines.filter((line) => line.product && line.quantity > 0);
     if (validLines.length === 0) {
       setItemsError(t("storeOrders.createDialog.items.required"));
-      focusFirstInvalid();
-      return;
+      return false;
     }
     setItemsError(null);
     // The agreed price is required — a blank or 0 price is never sent as a 0.00 order.
     if (validLines.some((line) => isLinePriceMissing(line))) {
       setShowLineErrors(true);
+      return false;
+    }
+    return true;
+  };
+
+  /** A link attachment needs both its name and its URL. */
+  const validateReceiptPair = () => {
+    const hasReceiptName = Boolean(form.getValues("receiptName")?.trim());
+    const hasReceiptUrl = Boolean(form.getValues("receiptUrl")?.trim());
+    if (hasReceiptName !== hasReceiptUrl) {
+      setReceiptError(t("storeOrders.createDialog.receiptIncomplete"));
+      return false;
+    }
+    setReceiptError(null);
+    return true;
+  };
+
+  /** "Next" checks only the current step's fields. */
+  const validateStep = async (current: OrderCreateStepId) => {
+    if (current === "customer") {
+      const valid = await form.trigger([...ORDER_CREATE_STEP_FIELDS.customer]);
+      if (!valid && existingCustomer && form.getFieldState("customerPhone").invalid) {
+        setExistingPhoneEditable(true);
+      }
+      setCustomerGateAttempted(true);
+      // An unanswered duplicate match (or a check still running) keeps the user on step 1.
+      return valid && !duplicates.blocked;
+    }
+    if (current === "products") return validateLines();
+    if (current === "deliveryPayment") {
+      const valid = await form.trigger([...ORDER_CREATE_STEP_FIELDS.deliveryPayment]);
+      const receiptsValid = validateReceiptPair();
+      if (declarationError) setShowDeclarationError(true);
+      return valid && receiptsValid && !declarationError;
+    }
+    return true;
+  };
+
+  const goNext = async () => {
+    if (checkingStep || stepIndex >= ORDER_CREATE_STEPS.length - 1) return;
+    setCheckingStep(true);
+    let valid = false;
+    try {
+      valid = await validateStep(step);
+    } finally {
+      setCheckingStep(false);
+    }
+    if (!valid) {
       focusFirstInvalid();
       return;
     }
+    goToStep(ORDER_CREATE_STEPS[stepIndex + 1]);
+  };
 
+  const goBack = () => {
+    if (stepIndex > 0) goToStep(ORDER_CREATE_STEPS[stepIndex - 1]);
+  };
+
+  /** An error-summary item: open the step holding the field, then focus it. */
+  const focusSummaryField = (fieldId: string) => {
+    const target = stepForField(fieldId);
+    if (target) setStepIndex(orderCreateStepIndex(target));
+    let attempts = 0;
+    const tryFocus = () => {
+      const element = findFieldElement(fieldId, bodyRef.current ?? document);
+      if (element) {
+        focusElement(element);
+        return;
+      }
+      if (++attempts < 10) window.requestAnimationFrame(tryFocus);
+    };
+    window.requestAnimationFrame(tryFocus);
+  };
+
+  const onValid = async (values: StoreOrderCreateFormValues) => {
+    if (!validateLines()) {
+      goToStep("products", { focusInvalid: true });
+      return;
+    }
     if (declarationError) {
       setShowDeclarationError(true);
-      focusFirstInvalid();
+      goToStep("deliveryPayment", { focusInvalid: true });
       return;
     }
     if (declarationReceipts.some((item) => item.status === "uploading")) return;
-
+    if (!validateReceiptPair()) {
+      goToStep("deliveryPayment", { focusInvalid: true });
+      return;
+    }
     const hasReceiptName = Boolean(values.receiptName?.trim());
     const hasReceiptUrl = Boolean(values.receiptUrl?.trim());
-    if (hasReceiptName !== hasReceiptUrl) {
-      setReceiptError(t("storeOrders.createDialog.receiptIncomplete"));
-      return;
-    }
-    setReceiptError(null);
     if (duplicates.blocked) {
-      focusFirstInvalid();
+      setCustomerGateAttempted(true);
+      goToStep("customer", { focusInvalid: true });
       return;
     }
+    const validLines = lines.filter((line) => line.product && line.quantity > 0);
 
     try {
       const created = await storeOrdersService.create({
@@ -562,10 +698,12 @@ export function StoreOrderCreateDialog({
       onOpenChange(false);
       onCreated(created);
     } catch (error) {
-      // The server found a customer the panel had not answered — reopen it.
+      // The server found a customer the panel had not answered — reopen it on step 1.
       const duplicate = duplicateFromError(error);
       if (duplicate) {
         duplicates.applyServerResult(duplicate);
+        setCustomerGateAttempted(true);
+        goToStep("customer", { focusInvalid: true });
         toast.warning(t("orderDuplicates.conflictToast"));
         return;
       }
@@ -576,16 +714,55 @@ export function StoreOrderCreateDialog({
           fallback: "common.failedToSave",
         }),
       );
-      focusFirstInvalid();
+      // Back to the step holding the (first) field the server rejected.
+      const target =
+        error instanceof ApiError
+          ? firstStepWithError((error.fields ?? []).map((detail) => detail.field))
+          : null;
+      if (target) goToStep(target, { focusInvalid: true });
+      else focusFirstInvalid();
       reportApiError(error, "common.failedToSave");
     }
   };
 
-  const submit = () => {
+  const submit = async () => {
+    // One Create at a time; a retry of the same form reuses `creationKey`.
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitAttempted(true);
     setServerErrors([]);
-    return form.handleSubmit(onValid, () => focusFirstInvalid())();
+    try {
+      await form.handleSubmit(onValid, (errors) => {
+        if (existingCustomer && errors.customerPhone) setExistingPhoneEditable(true);
+        const target = firstStepWithError(Object.keys(errors));
+        if (target) goToStep(target, { focusInvalid: true });
+        else focusFirstInvalid();
+      })();
+    } finally {
+      submittingRef.current = false;
+    }
   };
+
+  const countryLabel = (id?: string | null) => {
+    const country = id ? countries.find((item) => item.id === id) : undefined;
+    return country ? localizedName(country, locale) : "";
+  };
+  const reviewValues = form.getValues();
+  const deliveryDestination = needsDelivery
+    ? [
+        reviewValues.address,
+        reviewValues.city,
+        countryLabel(effectiveDeliveryCountryId || existingCustomer?.countryId),
+      ]
+        .map((part) => part?.trim())
+        .filter(Boolean)
+        .join("، ")
+    : fulfillmentMethod === "PICKUP"
+      ? t("storeOrders.createDialog.entry.pickupNote")
+      : t("storeOrders.createDialog.entry.nonPhysicalNote");
+  const attachmentCount = pendingFiles.length + (receiptName?.trim() && receiptUrl?.trim() ? 1 : 0);
+  const showCustomerPhone =
+    customerMode === "new" || existingNeedsPhone || (!!existingCustomer && existingPhoneEditable);
 
   return (
     <EnterpriseModal
@@ -595,406 +772,582 @@ export function StoreOrderCreateDialog({
       title={t("storeOrders.createDialog.title")}
       description={t("storeOrders.createDialog.description")}
       isDirty={isDirty}
-      errorSummary={<FormErrorSummary errors={summaryErrors} />}
+      testId="store-order-create-dialog"
+      subheader={
+        <StepFlow
+          steps={stepItems}
+          currentIndex={stepIndex}
+          onStepSelect={(index) => goToStep(ORDER_CREATE_STEPS[index])}
+        />
+      }
+      errorSummary={<FormErrorSummary errors={summaryErrors} onFocusField={focusSummaryField} />}
       footer={(requestClose) => (
-        <CreateOperationFooter
+        <StepFlowFooter
+          currentIndex={stepIndex}
+          stepCount={ORDER_CREATE_STEPS.length}
+          onBack={goBack}
+          onNext={() => void goNext()}
           requestClose={requestClose}
-          onSubmit={() => void submit()}
+          finalLabel={t("storeOrders.createDialog.submit")}
+          onFinal={() => void submit()}
           isSubmitting={isSubmitting}
-          submitDisabled={duplicates.blocked}
-          submitLabel={t("storeOrders.createDialog.submit")}
+          isBusy={checkingStep}
         />
       )}
     >
       <Form {...form}>
-        <div ref={bodyRef} className="flex flex-col gap-4">
-          <FormSection title={t("storeOrders.createDialog.sections.customer")}>
-            <div className="flex flex-col gap-3">
-              <ToggleGroup
-                type="single"
-                value={customerMode}
-                onValueChange={(value) => value && switchCustomerMode(value as "new" | "existing")}
-                aria-label={t("storeOrders.createDialog.entry.modeLabel")}
-                data-testid="customer-mode"
-              >
-                <ToggleGroupItem value="new" size="default">
-                  {t("storeOrders.createDialog.entry.modeNew")}
-                </ToggleGroupItem>
-                <ToggleGroupItem value="existing" size="default">
-                  {t("storeOrders.createDialog.entry.modeExisting")}
-                </ToggleGroupItem>
-              </ToggleGroup>
+        <div ref={bodyRef}>
+          <div
+            ref={stepPanelRef}
+            tabIndex={-1}
+            role="group"
+            aria-label={stepItems[stepIndex].label}
+            data-step={step}
+            className="flex scroll-mt-4 flex-col gap-4 outline-none"
+          >
+            {step === "customer" ? (
+              <FormSection title={t("storeOrders.createDialog.sections.customer")}>
+                <div className="flex flex-col gap-3">
+                  <ToggleGroup
+                    type="single"
+                    value={customerMode}
+                    onValueChange={(value) =>
+                      value && switchCustomerMode(value as "new" | "existing")
+                    }
+                    aria-label={t("storeOrders.createDialog.entry.modeLabel")}
+                    data-testid="customer-mode"
+                  >
+                    <ToggleGroupItem value="new" size="default">
+                      {t("storeOrders.createDialog.entry.modeNew")}
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="existing" size="default">
+                      {t("storeOrders.createDialog.entry.modeExisting")}
+                    </ToggleGroupItem>
+                  </ToggleGroup>
 
-              {customerMode === "existing" && !existingCustomer ? (
-                <div className="flex max-w-xl flex-col gap-1">
-                  <PartnerPicker
-                    role="CUSTOMER"
-                    value={selectedCustomer}
-                    onChange={applyCustomer}
-                    className="max-w-none"
-                  />
-                  <p className="text-caption text-muted-foreground">
-                    {t("storeOrders.createDialog.entry.findExisting")}
-                  </p>
-                </div>
-              ) : null}
-
-              {existingCustomer ? (
-                <CustomerIdentitySummary
-                  name={existingCustomer.name}
-                  phone={existingCustomer.phone || existingCustomer.mobile}
-                  location={[existingCustomer.address, existingCustomer.city]
-                    .filter(Boolean)
-                    .join("، ")}
-                  changeLabel={t("storeOrders.createDialog.entry.changeCustomer")}
-                  onChange={clearExistingCustomer}
-                />
-              ) : null}
-
-              {customerMode === "new" || existingNeedsPhone ? (
-                <div
-                  className={
-                    customerMode === "new"
-                      ? "grid grid-cols-1 items-start gap-x-3 gap-y-2 @md:grid-cols-2 @xl:grid-cols-[minmax(0,5fr)_minmax(0,4fr)_minmax(0,6fr)]"
-                      : "max-w-md"
-                  }
-                >
-                  {customerMode === "new" ? (
-                    <>
-                      <TextFormField
-                        control={form.control}
-                        name="customerName"
-                        label={t("storeOrders.createDialog.fields.customerName")}
-                        required
+                  {customerMode === "existing" && !existingCustomer ? (
+                    <div
+                      className="flex max-w-xl flex-col gap-1"
+                      data-field-name="customerName"
+                      data-invalid={form.formState.errors.customerName ? "true" : undefined}
+                    >
+                      <PartnerPicker
+                        role="CUSTOMER"
+                        value={selectedCustomer}
+                        onChange={applyCustomer}
+                        className="max-w-none"
                       />
-                      <ComboboxFormField
-                        control={form.control}
-                        name="countryId"
-                        label={t("storeOrders.createDialog.fields.country")}
-                        required
-                        items={countries}
-                        getId={(country) => country.id}
-                        getTitle={(country) => localizedName(country, locale)}
-                        getSearchText={(country) =>
-                          [country.name, country.nameEn, country.code, country.iso3]
-                            .filter(Boolean)
-                            .join(" ")
-                        }
-                        icon={<Globe className="size-3.5 shrink-0 text-muted-foreground" />}
-                        onValueChange={onCountryChosen}
-                      />
-                    </>
+                      <p className="text-caption text-muted-foreground">
+                        {t("storeOrders.createDialog.entry.findExisting")}
+                      </p>
+                      <FieldMessage>
+                        {form.formState.errors.customerName
+                          ? t("storeOrders.createDialog.steps.chooseCustomer")
+                          : null}
+                      </FieldMessage>
+                    </div>
                   ) : null}
-                  <div className={customerMode === "new" ? "@md:col-span-2 @xl:col-span-1" : ""}>
-                    <PhoneFormField
-                      control={form.control}
-                      name="customerPhone"
-                      label={t("storeOrders.fields.phone")}
-                      required
-                      countryCode={phoneCountryCode}
-                      availableCountryCodes={countries.map((country) => country.code)}
-                      countries={countries}
-                      onCountryChange={(iso2) => {
-                        const match = countries.find((country) => country.code === iso2);
-                        if (match) selectPhoneCountry(match.id);
-                      }}
+
+                  {existingCustomer ? (
+                    <CustomerIdentitySummary
+                      name={existingCustomer.name}
+                      phone={existingCustomer.phone || existingCustomer.mobile}
+                      location={[existingCustomer.address, existingCustomer.city]
+                        .filter(Boolean)
+                        .join("، ")}
+                      changeLabel={t("storeOrders.createDialog.entry.changeCustomer")}
+                      onChange={clearExistingCustomer}
                     />
-                  </div>
+                  ) : null}
+
+                  {showCustomerPhone ? (
+                    <div
+                      className={
+                        customerMode === "new"
+                          ? "grid grid-cols-1 items-start gap-x-3 gap-y-2 @md:grid-cols-2 @xl:grid-cols-[minmax(0,5fr)_minmax(0,4fr)_minmax(0,6fr)]"
+                          : "max-w-md"
+                      }
+                    >
+                      {customerMode === "new" ? (
+                        <>
+                          <TextFormField
+                            control={form.control}
+                            name="customerName"
+                            label={t("storeOrders.createDialog.fields.customerName")}
+                            required
+                          />
+                          <ComboboxFormField
+                            control={form.control}
+                            name="countryId"
+                            label={t("storeOrders.createDialog.fields.country")}
+                            required
+                            items={countries}
+                            getId={(country) => country.id}
+                            getTitle={(country) => localizedName(country, locale)}
+                            getSearchText={(country) =>
+                              [country.name, country.nameEn, country.code, country.iso3]
+                                .filter(Boolean)
+                                .join(" ")
+                            }
+                            icon={<Globe className="size-3.5 shrink-0 text-muted-foreground" />}
+                            onValueChange={onCountryChosen}
+                          />
+                        </>
+                      ) : null}
+                      <div
+                        className={customerMode === "new" ? "@md:col-span-2 @xl:col-span-1" : ""}
+                      >
+                        <PhoneFormField
+                          control={form.control}
+                          name="customerPhone"
+                          label={t("storeOrders.fields.phone")}
+                          required
+                          countryCode={phoneCountryCode}
+                          availableCountryCodes={countries.map((country) => country.code)}
+                          countries={countries}
+                          onCountryChange={(iso2) => {
+                            const match = countries.find((country) => country.code === iso2);
+                            if (match) selectPhoneCountry(match.id);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {customerMode === "new" ||
+                  existingNeedsPhone ||
+                  (duplicates.blocked && duplicates.state.status === "ready") ? (
+                    <div
+                      className="flex flex-col gap-1"
+                      data-field-name="duplicates"
+                      data-invalid={duplicateGateMessage ? "true" : undefined}
+                    >
+                      <DuplicateCustomerPanel
+                        state={duplicates.state}
+                        onChoose={chooseDuplicate}
+                        orderHref={(id) => `/store-orders/${id}`}
+                        onEditDetails={() => form.setFocus("customerPhone")}
+                      />
+                      <FieldMessage>{duplicateGateMessage}</FieldMessage>
+                    </div>
+                  ) : duplicateGateMessage ? (
+                    <FieldMessage>{duplicateGateMessage}</FieldMessage>
+                  ) : null}
+
+                  {customerMode === "new" ? (
+                    <Collapsible defaultOpen={Boolean(form.getValues("customerEmail"))}>
+                      <CollapsibleTrigger asChild>
+                        <DisclosureTrigger>
+                          {t("storeOrders.createDialog.entry.moreDetails")}
+                          <span className="font-normal">({t("common.optional")})</span>
+                        </DisclosureTrigger>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="pt-2">
+                        <div className="max-w-md">
+                          <TextFormField
+                            control={form.control}
+                            name="customerEmail"
+                            label={t("storeOrders.createDialog.fields.customerEmail")}
+                            optional
+                            dir="ltr"
+                            inputMode="email"
+                          />
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  ) : null}
                 </div>
-              ) : null}
+              </FormSection>
+            ) : null}
 
-              {customerMode === "new" || existingNeedsPhone ? (
-                <DuplicateCustomerPanel
-                  state={duplicates.state}
-                  onChoose={chooseDuplicate}
-                  orderHref={(id) => `/store-orders/${id}`}
-                  onEditDetails={() => form.setFocus("customerPhone")}
-                />
-              ) : null}
-
-              {existingCustomer && needsDelivery && !existingMissingAddress ? (
-                <EnterpriseButton
-                  type="button"
-                  variant="link"
-                  size="inline"
-                  className="self-start"
-                  aria-pressed={differentAddress}
-                  onClick={() => toggleDifferentAddress(!differentAddress)}
-                  data-testid="different-address-toggle"
-                >
-                  {differentAddress
-                    ? t("storeOrders.createDialog.entry.customerAddress")
-                    : t("storeOrders.createDialog.entry.differentAddress")}
-                </EnterpriseButton>
-              ) : null}
-
-              {showDeliveryFields ? (
-                <div className="flex flex-col gap-1.5">
-                  <p className="text-caption font-medium text-muted-foreground">
-                    {t("storeOrders.createDialog.entry.deliveryTitle")}
-                    {existingCustomer
-                      ? ` — ${existingMissingAddress ? t("storeOrders.createDialog.entry.missingAddress") : t("storeOrders.createDialog.entry.orderOnlyNote")}`
-                      : ""}
-                  </p>
-                  <DeliveryFields
-                    control={form.control}
-                    names={{ countryId: "deliveryCountryId", city: "city", address: "address" }}
-                    labels={{
-                      country: t("storeOrders.createDialog.fields.deliveryCountry"),
-                      city: t("storeOrders.createDialog.fields.city"),
-                      address: t("storeOrders.createDialog.fields.address"),
+            {step === "products" ? (
+              <FormSection
+                title={t("storeOrders.createDialog.items.title")}
+                data-field-name="lines"
+                data-invalid={itemsError || priceMissing ? "true" : undefined}
+              >
+                <div className="flex flex-col gap-2">
+                  <ProductLineItemsGrid
+                    lines={lines}
+                    onChange={(next) => {
+                      setLines(next);
+                      setItemsError(null);
                     }}
-                    countries={countries}
-                    differentCountry={differentCountry}
-                    onDifferentCountryChange={setDifferentCountry}
+                    requireWarehouse={false}
+                    showWarehouse={false}
+                    showUnit={false}
+                    showDiscount={false}
+                    showTax={false}
+                    showDescription={false}
+                    unitPriceLabel={t("storeOrders.createDialog.items.agreedUnitPrice")}
+                    requirePrice
+                    showErrors={showLineErrors}
+                    totalLabel={t("storeOrders.fields.total")}
+                    currencyCode={currencyCode}
                   />
+                  <FieldMessage>{itemsError}</FieldMessage>
                 </div>
-              ) : !needsDelivery ? (
-                <p className="text-caption text-muted-foreground" data-testid="no-delivery-note">
-                  {fulfillmentMethod === "PICKUP"
-                    ? t("storeOrders.createDialog.entry.pickupNote")
-                    : t("storeOrders.createDialog.entry.nonPhysicalNote")}
-                </p>
-              ) : null}
+              </FormSection>
+            ) : null}
 
-              {customerMode === "new" ? (
-                <Collapsible>
-                  <CollapsibleTrigger asChild>
-                    <DisclosureTrigger>
-                      {t("storeOrders.createDialog.entry.moreDetails")}
-                      <span className="font-normal">({t("common.optional")})</span>
-                    </DisclosureTrigger>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-2">
-                    <div className="max-w-md">
-                      <TextFormField
+            {step === "deliveryPayment" ? (
+              <>
+                <FormSection title={t("storeOrders.createDialog.entry.deliveryTitle")}>
+                  <div className="flex flex-col gap-3">
+                    <div className="max-w-xs">
+                      <SelectFormField
                         control={form.control}
-                        name="customerEmail"
-                        label={t("storeOrders.createDialog.fields.customerEmail")}
-                        optional
-                        dir="ltr"
-                        inputMode="email"
+                        name="fulfillmentMethod"
+                        label={t("storeOrders.createDialog.entry.method")}
+                        options={[
+                          {
+                            value: "SHIPPING",
+                            label: t("storeOrders.createDialog.entry.methodShipping"),
+                          },
+                          {
+                            value: "PICKUP",
+                            label: t("storeOrders.createDialog.entry.methodPickup"),
+                          },
+                        ]}
                       />
                     </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              ) : null}
-            </div>
-          </FormSection>
 
-          <FormSection title={t("storeOrders.createDialog.sections.orderInfo")}>
-            <div className="grid grid-cols-1 items-start gap-x-3 gap-y-2 @md:grid-cols-2 @xl:grid-cols-6">
-              <div className="@xl:col-span-2">
-                <TextFormField
-                  control={form.control}
-                  name="externalOrderId"
-                  label={t("storeOrders.fields.externalOrderId")}
-                  optional
-                  dir="ltr"
-                />
-              </div>
-              <div className="@xl:col-span-2">
-                <DateFormField
-                  control={form.control}
-                  name="orderDate"
-                  label={t("storeOrders.fields.orderDate")}
-                />
-              </div>
-              <div className="@xl:col-span-2">
-                <ComboboxFormField
-                  control={form.control}
-                  name="currencyId"
-                  label={t("storeOrders.createDialog.fields.currency")}
-                  description={
-                    noCurrencyDefault
-                      ? t("storeOrders.createDialog.entry.noCurrencyDefault")
-                      : undefined
-                  }
-                  onValueChange={() => {
-                    currencyTouchedRef.current = true;
-                  }}
-                  required
-                  items={currencies}
-                  getId={(currency) => currency.id}
-                  getTitle={(currency) => currency.code}
-                  getSubtitle={(currency) => currency.name}
-                  getSearchText={(currency) => `${currency.code} ${currency.name}`}
-                  subtitleDir="ltr"
-                  icon={<Banknote className="size-3.5 shrink-0 text-muted-foreground" />}
-                />
-              </div>
-              <div className="@xl:col-span-3">
-                <SelectFormField
-                  control={form.control}
-                  name="paymentType"
-                  label={t("storeOrders.fields.paymentType")}
-                  options={[
-                    { value: "PREPAID", label: t("storeOrders.paymentType.PREPAID") },
-                    {
-                      value: "CASH_ON_DELIVERY",
-                      label: t("storeOrders.paymentType.CASH_ON_DELIVERY"),
-                    },
-                  ]}
-                />
-              </div>
-              <div className="@xl:col-span-3">
-                <SelectFormField
-                  control={form.control}
-                  name="fulfillmentMethod"
-                  label={t("storeOrders.createDialog.entry.method")}
-                  options={[
-                    {
-                      value: "SHIPPING",
-                      label: t("storeOrders.createDialog.entry.methodShipping"),
-                    },
-                    { value: "PICKUP", label: t("storeOrders.createDialog.entry.methodPickup") },
-                  ]}
-                />
-              </div>
-            </div>
-          </FormSection>
+                    {existingCustomer && needsDelivery && !existingMissingAddress ? (
+                      <div className="flex flex-col gap-1">
+                        {!differentAddress ? (
+                          <p className="text-caption text-muted-foreground">
+                            {t("storeOrders.createDialog.entry.deliverTo")}:{" "}
+                            <span className="text-foreground">
+                              {[existingCustomer.address, existingCustomer.city]
+                                .filter(Boolean)
+                                .join("، ")}
+                            </span>
+                          </p>
+                        ) : null}
+                        <EnterpriseButton
+                          type="button"
+                          variant="link"
+                          size="inline"
+                          className="self-start"
+                          aria-pressed={differentAddress}
+                          onClick={() => toggleDifferentAddress(!differentAddress)}
+                          data-testid="different-address-toggle"
+                        >
+                          {differentAddress
+                            ? t("storeOrders.createDialog.entry.customerAddress")
+                            : t("storeOrders.createDialog.entry.differentAddress")}
+                        </EnterpriseButton>
+                      </div>
+                    ) : null}
 
-          <FormSection
-            title={t("storeOrders.createDialog.items.title")}
-            data-field-name="lines"
-            data-invalid={itemsError || priceMissing ? "true" : undefined}
-          >
-            <div className="flex flex-col gap-2">
-              <ProductLineItemsGrid
-                lines={lines}
-                onChange={(next) => {
-                  setLines(next);
-                  setItemsError(null);
-                }}
-                requireWarehouse={false}
-                showWarehouse={false}
-                showUnit={false}
-                showDiscount={false}
-                showTax={false}
-                showDescription={false}
-                unitPriceLabel={t("storeOrders.createDialog.items.agreedUnitPrice")}
-                requirePrice
-                showErrors={showLineErrors}
-                totalLabel={t("storeOrders.fields.total")}
-                currencyCode={currencyCode}
-              />
-              <FieldMessage>{itemsError}</FieldMessage>
-            </div>
-          </FormSection>
+                    {showDeliveryFields ? (
+                      <div className="flex flex-col gap-1.5">
+                        {existingCustomer ? (
+                          <p className="text-caption font-medium text-muted-foreground">
+                            {existingMissingAddress
+                              ? t("storeOrders.createDialog.entry.missingAddress")
+                              : t("storeOrders.createDialog.entry.orderOnlyNote")}
+                          </p>
+                        ) : null}
+                        <DeliveryFields
+                          control={form.control}
+                          names={{
+                            countryId: "deliveryCountryId",
+                            city: "city",
+                            address: "address",
+                          }}
+                          labels={{
+                            country: t("storeOrders.createDialog.fields.deliveryCountry"),
+                            city: t("storeOrders.createDialog.fields.city"),
+                            address: t("storeOrders.createDialog.fields.address"),
+                          }}
+                          countries={countries}
+                          differentCountry={differentCountry}
+                          onDifferentCountryChange={setDifferentCountry}
+                        />
+                      </div>
+                    ) : !needsDelivery ? (
+                      <p
+                        className="text-caption text-muted-foreground"
+                        data-testid="no-delivery-note"
+                      >
+                        {fulfillmentMethod === "PICKUP"
+                          ? t("storeOrders.createDialog.entry.pickupNote")
+                          : t("storeOrders.createDialog.entry.nonPhysicalNote")}
+                      </p>
+                    ) : null}
+                  </div>
+                </FormSection>
 
-          {canDeclarePayment && paymentType !== "CASH_ON_DELIVERY" ? (
-            <PaymentDeclarationFields
-              value={declaration}
-              onChange={(next) => {
-                setDeclaration(next);
-                setShowDeclarationError(false);
-              }}
-              receipts={declarationReceipts}
-              onReceiptsChange={setDeclarationReceipts}
-              total={itemsTotal}
-              remaining={itemsTotal}
-              currency={currencyCode}
-              error={showDeclarationError ? declarationError : null}
-              disabled={isSubmitting}
-            />
-          ) : null}
+                <FormSection title={t("storeOrders.createDialog.sections.orderInfo")}>
+                  <div className="grid grid-cols-1 items-start gap-x-3 gap-y-2 @md:grid-cols-2 @xl:grid-cols-4">
+                    <TextFormField
+                      control={form.control}
+                      name="externalOrderId"
+                      label={t("storeOrders.fields.externalOrderId")}
+                      optional
+                      dir="ltr"
+                    />
+                    <DateFormField
+                      control={form.control}
+                      name="orderDate"
+                      label={t("storeOrders.fields.orderDate")}
+                    />
+                    <ComboboxFormField
+                      control={form.control}
+                      name="currencyId"
+                      label={t("storeOrders.createDialog.fields.currency")}
+                      description={
+                        noCurrencyDefault
+                          ? t("storeOrders.createDialog.entry.noCurrencyDefault")
+                          : undefined
+                      }
+                      onValueChange={() => {
+                        currencyTouchedRef.current = true;
+                      }}
+                      required
+                      items={currencies}
+                      getId={(currency) => currency.id}
+                      getTitle={(currency) => currency.code}
+                      getSubtitle={(currency) => currency.name}
+                      getSearchText={(currency) => `${currency.code} ${currency.name}`}
+                      subtitleDir="ltr"
+                      icon={<Banknote className="size-3.5 shrink-0 text-muted-foreground" />}
+                    />
+                    <SelectFormField
+                      control={form.control}
+                      name="paymentType"
+                      label={t("storeOrders.fields.paymentType")}
+                      options={[
+                        { value: "PREPAID", label: t("storeOrders.paymentType.PREPAID") },
+                        {
+                          value: "CASH_ON_DELIVERY",
+                          label: t("storeOrders.paymentType.CASH_ON_DELIVERY"),
+                        },
+                      ]}
+                    />
+                  </div>
+                </FormSection>
 
-          {/* Optional extras: progressive disclosure, no bordered boxes. */}
-          <div className="flex flex-col gap-1 border-t border-border pt-2">
-            <Collapsible>
-              <CollapsibleTrigger asChild>
-                <DisclosureTrigger>
-                  {t("storeOrders.createDialog.sections.notes")}
-                  <span className="font-normal">({t("common.optional")})</span>
-                </DisclosureTrigger>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="pt-2">
-                <TextareaFormField
-                  control={form.control}
-                  name="notes"
-                  label={t("storeOrders.createDialog.fields.notes")}
-                  optional
-                />
-              </CollapsibleContent>
-            </Collapsible>
-            <Collapsible>
-              <CollapsibleTrigger asChild>
-                <DisclosureTrigger>
-                  {t("storeOrders.createDialog.sections.receipts")}
-                  <span className="font-normal">({t("common.optional")})</span>
-                </DisclosureTrigger>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="pt-2">
-                <div
-                  className="flex flex-col gap-3"
-                  data-field-name="receipts"
-                  data-invalid={receiptError ? "true" : undefined}
-                >
-                  <FileDropField files={pendingFiles} onFilesChange={setPendingFiles} />
-                  <FileUrlField
-                    fileName={receiptName ?? ""}
-                    fileUrl={receiptUrl ?? ""}
-                    onFileNameChange={(value) =>
-                      form.setValue("receiptName", value, { shouldDirty: true })
-                    }
-                    onFileUrlChange={(value) =>
-                      form.setValue("receiptUrl", value, { shouldDirty: true })
-                    }
-                    onClear={() => {
-                      form.setValue("receiptName", "", { shouldDirty: true });
-                      form.setValue("receiptUrl", "", { shouldDirty: true });
+                {canDeclarePayment && paymentType !== "CASH_ON_DELIVERY" ? (
+                  <PaymentDeclarationFields
+                    value={declaration}
+                    onChange={(next) => {
+                      setDeclaration(next);
+                      setShowDeclarationError(false);
                     }}
-                    namePlaceholder={t("storeOrders.createDialog.fields.receiptName")}
-                    urlPlaceholder={t("storeOrders.createDialog.fields.receiptUrl")}
-                    error={receiptError}
+                    receipts={declarationReceipts}
+                    onReceiptsChange={setDeclarationReceipts}
+                    total={itemsTotal}
+                    remaining={itemsTotal}
+                    currency={currencyCode}
+                    error={showDeclarationError ? declarationError : null}
+                    disabled={isSubmitting}
                   />
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
+                ) : null}
 
-          <CreateOperationSummary
-            title={t("storeOrders.createDialog.summary.title")}
-            rows={[
-              {
-                label: t("storeOrders.createDialog.fields.customer"),
-                value: customerName?.trim() || "—",
-              },
-              {
-                label: t("storeOrders.createDialog.summary.product"),
-                value: summaryProduct,
-              },
-              {
-                label: t("storeOrders.createDialog.summary.quantity"),
-                value: <span dir="ltr">{summaryQuantity || "—"}</span>,
-              },
-              {
-                label: t("storeOrders.createDialog.totals.total"),
-                value: <MoneyValue value={itemsTotal} currency={currencyCode} />,
-              },
-              ...(paidAmount > 0
-                ? [
+                {/* Optional extras: progressive disclosure, no bordered boxes. */}
+                <div className="flex flex-col gap-1 border-t border-border pt-2">
+                  <Collapsible defaultOpen={Boolean(form.getValues("notes"))}>
+                    <CollapsibleTrigger asChild>
+                      <DisclosureTrigger>
+                        {t("storeOrders.createDialog.sections.notes")}
+                        <span className="font-normal">({t("common.optional")})</span>
+                      </DisclosureTrigger>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-2">
+                      <TextareaFormField
+                        control={form.control}
+                        name="notes"
+                        label={t("storeOrders.createDialog.fields.notes")}
+                        optional
+                      />
+                    </CollapsibleContent>
+                  </Collapsible>
+                  <Collapsible defaultOpen={attachmentCount > 0 || Boolean(receiptError)}>
+                    <CollapsibleTrigger asChild>
+                      <DisclosureTrigger>
+                        {t("storeOrders.createDialog.sections.receipts")}
+                        <span className="font-normal">({t("common.optional")})</span>
+                      </DisclosureTrigger>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-2">
+                      <div
+                        className="flex flex-col gap-3"
+                        data-field-name="receipts"
+                        data-invalid={receiptError ? "true" : undefined}
+                      >
+                        <FileDropField files={pendingFiles} onFilesChange={setPendingFiles} />
+                        <FileUrlField
+                          fileName={receiptName ?? ""}
+                          fileUrl={receiptUrl ?? ""}
+                          onFileNameChange={(value) =>
+                            form.setValue("receiptName", value, { shouldDirty: true })
+                          }
+                          onFileUrlChange={(value) =>
+                            form.setValue("receiptUrl", value, { shouldDirty: true })
+                          }
+                          onClear={() => {
+                            form.setValue("receiptName", "", { shouldDirty: true });
+                            form.setValue("receiptUrl", "", { shouldDirty: true });
+                          }}
+                          namePlaceholder={t("storeOrders.createDialog.fields.receiptName")}
+                          urlPlaceholder={t("storeOrders.createDialog.fields.receiptUrl")}
+                          error={receiptError}
+                        />
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              </>
+            ) : null}
+
+            {step === "review" ? (
+              <div className="flex flex-col gap-4" data-testid="order-review">
+                <p className="text-caption text-muted-foreground">
+                  {t("storeOrders.createDialog.steps.reviewDescription")}
+                </p>
+                <CreateOperationSummary
+                  title={t("storeOrders.createDialog.steps.customer")}
+                  rows={[
                     {
-                      label: t("storeOrders.createDialog.totals.paid"),
-                      value: <MoneyValue value={paidAmount} currency={currencyCode} />,
+                      label: t("storeOrders.createDialog.fields.customerName"),
+                      value: customerName?.trim() || "—",
                     },
-                  ]
-                : []),
-              {
-                label: t("storeOrders.fields.paymentType"),
-                value: t(PAYMENT_TYPE_LABEL_KEY[paymentType ?? "PREPAID"]),
-              },
-              {
-                label: t("storeOrders.fields.payment"),
-                value:
-                  paidAmount > 0
-                    ? t("paymentDeclaration.gate.readyDeclared")
-                    : paymentType === "CASH_ON_DELIVERY"
-                      ? t("storeOrders.paymentStatus.AWAITING_COLLECTION")
-                      : t("storeOrders.paymentStatus.AWAITING_RECONCILIATION"),
-              },
-            ]}
-          />
+                    {
+                      label: t("storeOrders.fields.phone"),
+                      value: customerPhone ? <span dir="ltr">{customerPhone}</span> : "—",
+                    },
+                    {
+                      label: t("storeOrders.createDialog.fields.country"),
+                      value: countryLabel(countryId),
+                    },
+                    {
+                      label: t("storeOrders.createDialog.fields.customerEmail"),
+                      value: existingCustomer
+                        ? existingCustomer.email || ""
+                        : reviewValues.customerEmail?.trim() || "",
+                    },
+                  ]}
+                />
+                <CreateOperationSummary
+                  title={t("storeOrders.createDialog.items.title")}
+                  rows={namedLines.map((line, index) => ({
+                    label: `${index + 1}. ${line.product!.displayName || line.product!.name}`,
+                    value: (
+                      <span dir="ltr" className="inline-flex flex-wrap justify-end gap-x-1">
+                        <span>{line.quantity} ×</span>
+                        <MoneyValue value={line.unitPrice} currency={currencyCode} />
+                        <span>=</span>
+                        <MoneyValue
+                          value={line.quantity * line.unitPrice}
+                          currency={currencyCode}
+                        />
+                      </span>
+                    ),
+                  }))}
+                />
+                <CreateOperationSummary
+                  title={t("storeOrders.createDialog.steps.deliveryPayment")}
+                  rows={[
+                    {
+                      label: t("storeOrders.createDialog.entry.method"),
+                      value:
+                        fulfillmentMethod === "PICKUP"
+                          ? t("storeOrders.createDialog.entry.methodPickup")
+                          : t("storeOrders.createDialog.entry.methodShipping"),
+                    },
+                    {
+                      label: t("storeOrders.createDialog.entry.deliverTo"),
+                      value: deliveryDestination,
+                    },
+                    {
+                      label: t("storeOrders.fields.externalOrderId"),
+                      value: reviewValues.externalOrderId?.trim() ? (
+                        <span dir="ltr">{reviewValues.externalOrderId.trim()}</span>
+                      ) : (
+                        ""
+                      ),
+                    },
+                    {
+                      label: t("storeOrders.fields.orderDate"),
+                      value: reviewValues.orderDate ? formatDate(reviewValues.orderDate) : "",
+                    },
+                    {
+                      label: t("storeOrders.createDialog.fields.currency"),
+                      value: currencyCode,
+                    },
+                    {
+                      label: t("storeOrders.createDialog.fields.notes"),
+                      value: reviewValues.notes?.trim() || "",
+                    },
+                    {
+                      label: t("storeOrders.createDialog.sections.receipts"),
+                      value:
+                        attachmentCount > 0
+                          ? t("storeOrders.createDialog.steps.attachmentsCount", {
+                              count: attachmentCount,
+                            })
+                          : "",
+                    },
+                  ]}
+                />
+                <div className="flex flex-col gap-1">
+                  <CreateOperationSummary
+                    title={t("storeOrders.createDialog.summary.title")}
+                    rows={[
+                      {
+                        label: t("storeOrders.createDialog.summary.quantity"),
+                        value: <span dir="ltr">{summaryQuantity || "—"}</span>,
+                      },
+                      {
+                        label: t("storeOrders.createDialog.totals.total"),
+                        value: <MoneyValue value={itemsTotal} currency={currencyCode} />,
+                      },
+                      ...(paidAmount > 0
+                        ? [
+                            {
+                              label: t("storeOrders.createDialog.totals.paid"),
+                              value: <MoneyValue value={paidAmount} currency={currencyCode} />,
+                            },
+                            {
+                              label: t("storeOrders.createDialog.totals.balance"),
+                              value: (
+                                <MoneyValue
+                                  value={Math.max(itemsTotal - paidAmount, 0)}
+                                  currency={currencyCode}
+                                />
+                              ),
+                            },
+                          ]
+                        : []),
+                      {
+                        label: t("storeOrders.fields.paymentType"),
+                        value: t(PAYMENT_TYPE_LABEL_KEY[paymentType ?? "PREPAID"]),
+                      },
+                      {
+                        label: t("storeOrders.fields.payment"),
+                        value:
+                          paidAmount > 0
+                            ? t("paymentDeclaration.gate.readyDeclared")
+                            : paymentType === "CASH_ON_DELIVERY"
+                              ? t("storeOrders.paymentStatus.AWAITING_COLLECTION")
+                              : t("storeOrders.paymentStatus.AWAITING_RECONCILIATION"),
+                      },
+                    ]}
+                  />
+                  <p className="text-caption text-muted-foreground" data-testid="pricing-note">
+                    {t("storeOrders.createDialog.steps.pricingNote", {
+                      currency: currencyCode || "—",
+                    })}
+                    {paidAmount > 0
+                      ? ` ${t("storeOrders.createDialog.steps.pricingPaidNote")}`
+                      : ""}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       </Form>
     </EnterpriseModal>

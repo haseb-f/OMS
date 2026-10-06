@@ -256,7 +256,7 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
 
     // Payout fixtures (read-only in the portal): one per agent, with evidence.
     const glAccount = await prisma.chartOfAccount.findFirstOrThrow({
-      where: { deletedAt: null },
+      where: { deletedAt: null, accountType: 'ASSET', allowsPosting: true },
       select: { id: true },
     });
     const payingAccountId = (

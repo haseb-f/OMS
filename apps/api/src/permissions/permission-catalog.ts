@@ -674,6 +674,13 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     ],
   },
   {
+    // R13 spec E — Sales reports (Live / employees / teams / comparison /
+    // payment mix). Data scope stays SalesScopeService (OWN / TEAM / ALL).
+    key: 'sales-reports',
+    labelKey: 'permissions.modules.salesReports',
+    actions: [{ action: 'view', name: 'reports.sales.view' }],
+  },
+  {
     key: 'inventory-reports',
     labelKey: 'permissions.modules.inventoryReports',
     actions: [
@@ -1555,6 +1562,7 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'accounting.opening-balances': 'finance.view',
   'reports.financial': 'reports.view',
   'reports.inventory': 'reports.view',
+  'reports.sales': 'reports.view',
   'import-center': 'datamanagement.view',
   settings: 'settings.view',
   // R6 — every settings domain key reveals the Settings section.

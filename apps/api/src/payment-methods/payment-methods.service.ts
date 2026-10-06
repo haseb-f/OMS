@@ -17,6 +17,15 @@ import { UpdatePaymentMethodDto } from './dto/update-payment-method.dto';
 
 const ACCOUNT_INCLUDE = {
   account: { select: { id: true, code: true, name: true } },
+  paymentSource: {
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      feePercentage: true,
+      feeFixedAmount: true,
+    },
+  },
 };
 
 @Injectable()
@@ -54,6 +63,7 @@ export class PaymentMethodsService extends MasterDataCrudService<PaymentMethod> 
 
   async create(dto: CreatePaymentMethodDto, userId?: string) {
     await this.assertPostingAccount(dto.accountId);
+    if (dto.paymentSourceId) await this.assertChannel(dto.paymentSourceId);
     const created = await super.create(dto, userId);
     return this.findOne(created.id);
   }
@@ -63,6 +73,7 @@ export class PaymentMethodsService extends MasterDataCrudService<PaymentMethod> 
       await this.assertPostingAccount(dto.accountId);
       await this.assertAccountChangeAllowed(id, dto.accountId);
     }
+    if (dto.paymentSourceId) await this.assertChannel(dto.paymentSourceId);
     const updated = await super.update(id, dto, userId);
     return this.findOne(updated.id);
   }
@@ -115,6 +126,24 @@ export class PaymentMethodsService extends MasterDataCrudService<PaymentMethod> 
     if (!account.allowsPosting) {
       throw new BadRequestException(
         `"${account.name}" is a header account and cannot receive postings — choose a leaf account instead.`,
+      );
+    }
+  }
+
+  /** The channel must be an existing, active Payment Source. */
+  private async assertChannel(paymentSourceId: string) {
+    const source = await this.prisma.paymentSource.findFirst({
+      where: { id: paymentSourceId, deletedAt: null },
+      select: { name: true, isActive: true },
+    });
+    if (!source) {
+      throw new BadRequestException(
+        'Selected channel was not found — choose an existing payment channel.',
+      );
+    }
+    if (!source.isActive) {
+      throw new BadRequestException(
+        `Channel "${source.name}" is inactive — activate it or choose another channel.`,
       );
     }
   }

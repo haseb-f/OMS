@@ -60,8 +60,14 @@ export const RECORD_ROUTES: Record<
     href: (id) => `/finance/journal-entries/${id}`,
   },
   INVENTORY_MOVEMENT: { labelKey: "docFlow.kinds.INVENTORY_MOVEMENT" },
-  FIXED_ASSET: { labelKey: "docFlow.kinds.FIXED_ASSET" },
-  PREPAID_EXPENSE: { labelKey: "docFlow.kinds.PREPAID_EXPENSE" },
+  FIXED_ASSET: {
+    labelKey: "docFlow.kinds.FIXED_ASSET",
+    href: (id) => `/finance/fixed-assets/${id}`,
+  },
+  PREPAID_EXPENSE: {
+    labelKey: "docFlow.kinds.PREPAID_EXPENSE",
+    href: (id) => `/finance/prepaid-expenses/${id}`,
+  },
 };
 
 export function recordHref(kind: TraceKind, id: string): string | null {

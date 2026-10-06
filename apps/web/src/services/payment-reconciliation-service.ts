@@ -29,14 +29,22 @@ export interface StatementMapping {
 }
 
 export type StatementLineStatus = "UNMATCHED" | "MATCHED" | "EXCEPTION" | "IGNORED";
+/** R13 D2 — a refund / chargeback row is imported for review (positive amount) and never matched. */
+export type StatementLineKind = "PAYMENT" | "REFUND" | "CHARGEBACK";
 export type StatementSourceType = "FILE" | "GOOGLE_SHEET" | "MANUAL";
 export type ClaimStatus = "PENDING" | "MATCHED" | "VERIFIED" | "REJECTED" | "DISPUTED";
 
 export type CurrencyTotals = Record<string, { count: number; amount: number }>;
 
 export interface MethodSummary {
+  /** Payment lines per status (refund / chargeback lines are counted in `refundLines`). */
   lines: Record<StatementLineStatus, number>;
+  refundLines?: number;
   unmatchedByCurrency: CurrencyTotals;
+  /** Statement totals (ignored lines excluded): payments, refunds / chargebacks and net. */
+  statementPaymentsByCurrency?: CurrencyTotals;
+  statementRefundsByCurrency?: CurrencyTotals;
+  statementNetByCurrency?: CurrencyTotals;
   claimsAwaitingReconciliation: CurrencyTotals;
   disputedClaims: CurrencyTotals;
   awaitingSettlement: CurrencyTotals;
@@ -98,6 +106,7 @@ export interface StatementLine {
   feeAmount: number | null;
   netAmount: number | null;
   status: StatementLineStatus;
+  kind?: StatementLineKind;
   exceptionReason: string | null;
   sourceType: StatementSourceType;
   provenance: {
@@ -137,10 +146,14 @@ export interface StatementRunSummary {
   errors: { rowNumber: number; messages: string[] }[];
 }
 
+/** Where a preview's mapping came from: the caller's own, the method's saved file mapping, or a header guess. */
+export type StatementMappingSource = "PROVIDED" | "SAVED" | "SUGGESTED";
+
 export interface StatementPreview {
   headers: string[];
   sheetName: string | null;
   mapping: StatementMapping;
+  mappingSource?: StatementMappingSource;
   mappingErrors: string[];
   summary: Omit<StatementRunSummary, "importId" | "deletedAtSourceRows"> | null;
   rows: {
@@ -148,6 +161,7 @@ export interface StatementPreview {
     outcome: RowOutcome;
     errors: string[];
     row: {
+      kind?: StatementLineKind;
       providerReference: string | null;
       customerName: string | null;
       amount: number;
@@ -216,7 +230,7 @@ export interface ClaimView {
 export type SuggestionStrength = "STRONG" | "MEDIUM" | "WEAK";
 
 export type SuggestionBlockedCode =
-  "PROVIDER_STATUS_FAILED" | "LINE_NOT_UNMATCHED" | "LINE_FULLY_ALLOCATED";
+  "NOT_A_PAYMENT" | "PROVIDER_STATUS_FAILED" | "LINE_NOT_UNMATCHED" | "LINE_FULLY_ALLOCATED";
 
 export interface Suggestion {
   paymentId: string;
@@ -238,6 +252,7 @@ export interface SuggestionResult {
     remaining: number;
     currency: { id: string; code: string };
     status: StatementLineStatus;
+    kind?: StatementLineKind;
     providerStatusClass: "SUCCESS" | "FAILED" | "UNKNOWN";
   };
   candidates: Suggestion[];
@@ -372,6 +387,7 @@ export const paymentReconciliationService = {
     methodId: string,
     params: {
       status?: StatementLineStatus;
+      kind?: StatementLineKind;
       search?: string;
       importId?: string;
       page?: number;

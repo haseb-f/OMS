@@ -18,7 +18,10 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { PaymentStatementLineStatus } from '@prisma/client';
+import {
+  PaymentStatementLineKind,
+  PaymentStatementLineStatus,
+} from '@prisma/client';
 
 const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
@@ -123,6 +126,11 @@ export class FindStatementLinesQueryDto {
   @IsOptional()
   @IsIn(Object.values(PaymentStatementLineStatus))
   status?: PaymentStatementLineStatus;
+
+  /** PAYMENT, REFUND or CHARGEBACK (R13 D2). */
+  @IsOptional()
+  @IsIn(Object.values(PaymentStatementLineKind))
+  kind?: PaymentStatementLineKind;
 
   @IsOptional()
   @IsString()

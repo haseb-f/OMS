@@ -13,6 +13,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CurrencyPicker } from "@/components/business/currency-picker";
+import { OMSPhoneInput, optionalPhoneIssue } from "@/components/shared/phone-input";
+import { useCountries } from "@/hooks/use-reference-data";
 import { agentsService, type AgentDetail, type AgentInput } from "@/services/agents-service";
 import { useLocale } from "@/providers/locale-provider";
 import { reportApiError, reportSuccess, toast } from "@/lib/toast";
@@ -61,6 +63,7 @@ export function AgentFormDialog({
   const { t } = useLocale();
   const router = useRouter();
   const fieldId = useId();
+  const countries = useCountries();
   const [initial] = useState(() => toState(agent));
   const [form, setForm] = useState<AgentFormState>(initial);
   const [showErrors, setShowErrors] = useState(false);
@@ -71,9 +74,10 @@ export function AgentFormDialog({
   const isDirty = JSON.stringify(form) !== JSON.stringify(initial);
   const nameError = !form.name.trim() ? t("agents.form.nameRequired") : null;
   const currencyError = !form.currencyId ? t("agents.form.currencyRequired") : null;
+  const phoneError = optionalPhoneIssue(form.phone, t);
 
   const submit = async () => {
-    if (nameError || currencyError) {
+    if (nameError || currencyError || phoneError) {
       setShowErrors(true);
       return;
     }
@@ -189,13 +193,14 @@ export function AgentFormDialog({
                 onChange={(event) => set("contactName")(event.target.value)}
               />
             </FormCardField>
-            <FormCardField size="sm" label={t("agents.fields.phone")} htmlFor={`${fieldId}-phone`}>
-              <Input
+            <FormCardField size="md" label={t("agents.fields.phone")} htmlFor={`${fieldId}-phone`}>
+              {/* The calling code is the phone's own (R13 A1): picked in the field, read back from the stored number. */}
+              <OMSPhoneInput
                 id={`${fieldId}-phone`}
-                dir="ltr"
-                inputMode="tel"
                 value={form.phone}
-                onChange={(event) => set("phone")(event.target.value)}
+                onChange={set("phone")}
+                countries={countries}
+                forceValidation={showErrors}
               />
             </FormCardField>
             <FormCardField size="md" label={t("agents.fields.email")} htmlFor={`${fieldId}-email`}>

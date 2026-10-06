@@ -37,14 +37,25 @@ function isWorkspaceTab(value: string | null): value is WorkspaceTab {
 }
 
 /** Per-currency summary strip: reported/awaiting, unmatched statement, awaiting settlement, disputed — never one "Paid" flag. */
-export function MethodSummaryStrip({ method }: { method: ReconciliationMethod }) {
+export function MethodSummaryStrip({
+  method,
+  withStatementTotals = false,
+}: {
+  method: ReconciliationMethod;
+  /** Workspace only: add the statement's refunds / chargebacks and its net total. */
+  withStatementTotals?: boolean;
+}) {
   const { t } = useLocale();
   const summary = method.summary;
   return (
     <div
       role="group"
       aria-label={t("paymentReconciliation.workspace.summaryLabel")}
-      className="grid grid-cols-2 gap-x-3 gap-y-2 lg:grid-cols-4 lg:[&>*+*]:border-s lg:[&>*+*]:border-border lg:[&>*+*]:ps-3"
+      className={
+        withStatementTotals
+          ? "grid grid-cols-2 gap-x-3 gap-y-2 md:grid-cols-3 xl:grid-cols-6 xl:[&>*+*]:border-s xl:[&>*+*]:border-border xl:[&>*+*]:ps-3"
+          : "grid grid-cols-2 gap-x-3 gap-y-2 lg:grid-cols-4 lg:[&>*+*]:border-s lg:[&>*+*]:border-border lg:[&>*+*]:ps-3"
+      }
     >
       <CurrencyTotalsList
         label={t(paymentTerm("DECLARED").labelKey)}
@@ -62,6 +73,19 @@ export function MethodSummaryStrip({ method }: { method: ReconciliationMethod })
         label={t(paymentTerm("DISPUTED").labelKey)}
         totals={summary?.disputedClaims}
       />
+      {/* Refunds / chargebacks are never matched, but they reduce what the provider pays out. */}
+      {withStatementTotals ? (
+        <>
+          <CurrencyTotalsList
+            label={t("paymentReconciliation.summary.refunds")}
+            totals={summary?.statementRefundsByCurrency}
+          />
+          <CurrencyTotalsList
+            label={t("paymentReconciliation.summary.net")}
+            totals={summary?.statementNetByCurrency}
+          />
+        </>
+      ) : null}
     </div>
   );
 }
@@ -152,7 +176,7 @@ export function ReconciliationWorkspace({ methodId }: { methodId: string }) {
         {/* Compact summary strip — one surface, figures separated by hairlines. */}
         <EnterpriseCard size="sm">
           <EnterpriseCardContent>
-            <MethodSummaryStrip method={method} />
+            <MethodSummaryStrip method={method} withStatementTotals />
           </EnterpriseCardContent>
         </EnterpriseCard>
 

@@ -62,6 +62,12 @@ export class AgentsService {
 
   async create(dto: CreateAgentDto, userId: string) {
     await this.assertCurrency(dto.currencyId);
+    // One stored form for the agent's phone and its Partner identity (R13 A1):
+    // a full E.164, never raw text.
+    const phone = await this.partners.normalizePartnerPhone(
+      dto.phone,
+      dto.countryId,
+    );
     // Reuses an existing Partner with the same phone/email (adds the AGENT
     // role) — never a duplicate identity; an HR/investor identity is refused
     // by PartnersService itself.
@@ -70,7 +76,7 @@ export class AgentsService {
         name: dto.name,
         legalName: dto.legalName,
         entityType: PartnerEntityType.ORGANIZATION,
-        phone: dto.phone,
+        phone,
         email: dto.email ?? undefined,
         address: dto.address,
         countryId: dto.countryId,
@@ -103,7 +109,7 @@ export class AgentsService {
           name: dto.name,
           legalName: dto.legalName,
           contactName: dto.contactName,
-          phone: dto.phone,
+          phone,
           email: dto.email ?? null,
           address: dto.address,
           notes: dto.notes,
@@ -241,7 +247,12 @@ export class AgentsService {
         name: dto.name,
         legalName: dto.legalName,
         contactName: dto.contactName,
-        phone: dto.phone,
+        phone:
+          dto.phone === undefined
+            ? undefined
+            : await this.partners.normalizePartnerPhone(dto.phone, null, [
+                existing.phone,
+              ]),
         email: dto.email === undefined ? undefined : dto.email,
         address: dto.address,
         notes: dto.notes,

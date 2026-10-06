@@ -111,7 +111,12 @@ describe("buildHomeTiles — agent portal", () => {
         "agent-portal-team",
       ]),
     );
-    expect(sales).toEqual(["agent-portal-dashboard", "agent-portal-leads", "agent-portal-orders"]);
+    expect(sales).toEqual([
+      "agent-portal-dashboard",
+      "agent-portal-leads",
+      "agent-portal-orders",
+      "agent-portal-reports",
+    ]);
     expect(admin.every((id) => id.startsWith("agent-portal"))).toBe(true);
     expect(admin).not.toContain("agent-portal-home");
   });

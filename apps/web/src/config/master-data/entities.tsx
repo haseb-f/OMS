@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { fixedAssetStatusTone } from "@/config/finance/schedule-status";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -109,6 +110,7 @@ export interface FixedAssetRow {
   notes: string | null;
   status: "DRAFT" | "CAPITALIZED" | "DISPOSED";
   usefulLifeMonths: number | null;
+  depreciationMethod?: "STRAIGHT_LINE" | "DECLINING_BALANCE";
   salvageValue: string | number;
   depreciationStartDate: string | null;
   accumulatedDepreciation: string | number;
@@ -214,6 +216,15 @@ export interface PaymentMethodRow {
   requiresReconciliation?: boolean;
   /** Inactive methods cannot be chosen for new payment declarations. */
   isActive?: boolean;
+  /** R13 D1 — the method's channel (a Payment Source): internal vocabulary + fee estimate. */
+  paymentSourceId?: string | null;
+  paymentSource?: {
+    id: string;
+    name: string;
+    code: string | null;
+    feePercentage: number | string | null;
+    feeFixedAmount: number | string | null;
+  } | null;
   deletedAt: string | null;
 }
 
@@ -477,8 +488,7 @@ export const expenseRowLabel = (row: ExpenseRow) => `${formatDate(row.date)} —
 
 function FixedAssetStatusCell({ status }: { status: FixedAssetRow["status"] }) {
   const { t } = useLocale();
-  const tone =
-    status === "CAPITALIZED" ? "success" : status === "DISPOSED" ? "destructive" : "neutral";
+  const tone = fixedAssetStatusTone[status];
   return (
     <StatusBadge label={t(`accounting.lifecycleStatus.${status}` as MessageKey)} tone={tone} />
   );
@@ -572,6 +582,7 @@ export const fixedAssetsSchema = z.object({
   acquisitionDate: z.string().min(1),
   cost: z.number().min(0),
   usefulLifeMonths: z.union([z.literal(0), z.number().min(1)]).optional(),
+  depreciationMethod: z.enum(["STRAIGHT_LINE", "DECLINING_BALANCE"]).optional(),
   salvageValue: z.number().min(0).optional(),
   depreciationStartDate: z.string().optional().or(z.literal("")),
   costCenterId: z.string().optional().or(z.literal("")),
@@ -586,6 +597,7 @@ export const fixedAssetsDefaultValues = {
   acquisitionDate: "",
   cost: undefined as unknown as number, // new, unset → the field stays empty (placeholder "0.00"), never a 0 to delete
   usefulLifeMonths: 0,
+  depreciationMethod: "STRAIGHT_LINE",
   salvageValue: undefined as unknown as number, // new, unset → the field stays empty (placeholder "0.00"), never a 0 to delete
   depreciationStartDate: "",
   costCenterId: "",
@@ -919,11 +931,14 @@ export interface ChartOfAccountRow {
   currency?: { code: string } | null;
   allowReconciliation: boolean;
   level: number;
-  /** False once this account has at least one child — a header account, never a direct journal-posting target (Part 13). */
+  /** R13 B1 — the explicit kind: false = Group (aggregates sub-accounts, never receives a journal line), true = Posting (leaf). Never flipped implicitly. */
   allowsPosting: boolean;
   /** One of the 5 permanently-protected root categories (Assets/Liabilities/Equity/Revenue/Expenses) — never deletable, set only by the server. */
   isSystemAccount: boolean;
   deletedAt: string | null;
+  /** Detail read only (`GET /chart-of-accounts/:id`) — what freezes the editor's fields. */
+  journalLineCount?: number;
+  childCount?: number;
 }
 
 export const chartOfAccountRowLabel = (row: ChartOfAccountRow, locale?: string) =>
@@ -996,41 +1011,112 @@ export const journalRowLabel = (row: JournalRow) => `${row.code} — ${row.name}
 // Payment Methods
 // ---------------------------------------------------------------------------
 
+/** A channel's fee estimate as "2.5% + 1.00" (either part optional); null when it has none. */
+export function channelFeeEstimate(
+  source:
+    | { feePercentage?: number | string | null; feeFixedAmount?: number | string | null }
+    | null
+    | undefined,
+): string | null {
+  if (!source) return null;
+  const parts = [
+    source.feePercentage != null && Number(source.feePercentage) > 0
+      ? `${Number(source.feePercentage)}%`
+      : null,
+    source.feeFixedAmount != null && Number(source.feeFixedAmount) > 0
+      ? formatAmount(Number(source.feeFixedAmount))
+      : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(" + ") : null;
+}
+
+function PaymentMethodReconciliationCell({ row }: { row: PaymentMethodRow }) {
+  const { t } = useLocale();
+  return (
+    <StatusBadge
+      label={row.requiresReconciliation ? t("common.yes") : t("common.no")}
+      tone={row.requiresReconciliation ? "info" : "neutral"}
+    />
+  );
+}
+
 export const paymentMethodsColumns: ColumnDef<PaymentMethodRow, unknown>[] = [
   textColumn("name", "masterData.fields.name", (r) => r.name),
-  textColumn("description", "masterData.fields.description", (r) => r.description),
   textColumn(
     "account",
-    "masterData.fields.account",
+    "paymentReconciliation.methodsArea.fields.clearingAccount",
     (r) => (r.account ? `${r.account.code} — ${r.account.name}` : null),
     "default",
   ),
+  textColumn(
+    "channel",
+    "paymentReconciliation.methodsArea.fields.channel",
+    (r) => r.paymentSource?.name,
+    "default",
+  ),
+  textColumn(
+    "feeEstimate",
+    "paymentReconciliation.methodsArea.fields.feeEstimate",
+    (r) => channelFeeEstimate(r.paymentSource),
+    "default",
+  ),
+  {
+    id: "requiresReconciliation",
+    meta: {
+      titleKey: "paymentDeclaration.method.requiresReconciliation",
+      type: "default",
+      displayValue: (row, t) => t(row.requiresReconciliation ? "common.yes" : "common.no"),
+    },
+    accessorFn: (row) => (row.requiresReconciliation ? "yes" : "no"),
+    cell: ({ row }) => <PaymentMethodReconciliationCell row={row.original} />,
+    enableSorting: false,
+  },
   statusColumn<PaymentMethodRow>(),
 ];
 
-export const paymentMethodsFormFields: MasterDataFormField[] = [
-  { name: "name", label: "masterData.fields.name", type: "text", required: true },
-  { name: "description", label: "masterData.fields.description", type: "textarea" },
-  {
-    name: "accountId",
-    label: "masterData.fields.account",
-    type: "account",
-    required: true,
-    postingOnly: true,
-  },
-  // Changing either flag never re-processes existing claims.
-  {
-    name: "requiresReconciliation",
-    label: "paymentDeclaration.method.requiresReconciliation",
-    type: "boolean",
-  },
-  { name: "isActive", label: "paymentDeclaration.method.isActive", type: "boolean" },
-];
+/**
+ * The method form. The channel select (`paymentSourceId`) carries the live channel list, so the
+ * page passes its options in (each label shows the channel's fee estimate).
+ */
+export function paymentMethodsFormFields(
+  channelOptions: { value: string; label: string }[],
+): MasterDataFormField[] {
+  return [
+    { name: "name", label: "masterData.fields.name", type: "text", required: true },
+    {
+      name: "accountId",
+      label: "paymentReconciliation.methodsArea.fields.clearingAccount",
+      type: "account",
+      required: true,
+      postingOnly: true,
+    },
+    {
+      name: "paymentSourceId",
+      label: "paymentReconciliation.methodsArea.fields.channel",
+      type: "select",
+      options: channelOptions,
+    },
+    // Changing either flag never re-processes existing claims.
+    {
+      name: "requiresReconciliation",
+      label: "paymentDeclaration.method.requiresReconciliation",
+      type: "boolean",
+    },
+    { name: "isActive", label: "paymentDeclaration.method.isActive", type: "boolean" },
+    {
+      name: "description",
+      label: "masterData.fields.description",
+      type: "textarea",
+      span: "full",
+    },
+  ];
+}
 
 export const paymentMethodsSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional().or(z.literal("")),
   accountId: z.string().uuid(),
+  paymentSourceId: z.string().optional().or(z.literal("")),
   requiresReconciliation: z.boolean().optional(),
   isActive: z.boolean().optional(),
 });
@@ -1039,14 +1125,16 @@ export const paymentMethodsDefaultValues = {
   name: "",
   description: "",
   accountId: "",
+  paymentSourceId: "",
   requiresReconciliation: false,
   isActive: true,
 };
-export const paymentMethodsExportColumns = ["name"];
+export const paymentMethodsExportColumns = ["name", "account", "channel", "feeEstimate"];
 export const paymentMethodsToFormValues = (row: PaymentMethodRow) => ({
   name: row.name,
   description: row.description ?? "",
   accountId: row.accountId ?? "",
+  paymentSourceId: row.paymentSourceId ?? "",
   requiresReconciliation: row.requiresReconciliation ?? false,
   isActive: row.isActive ?? true,
 });
@@ -1070,6 +1158,7 @@ export interface PaymentSourceRow {
   defaultChartOfAccountId: string | null;
   feePercentage: number | string | null;
   feeFixedAmount: number | string | null;
+  isDefault?: boolean;
   deletedAt: string | null;
 }
 
@@ -1100,6 +1189,11 @@ export const paymentSourcesFormFieldsTail: MasterDataFormField[] = [
   { name: "feePercentage", label: "masterData.fields.feePercentage", type: "number" },
   { name: "feeFixedAmount", label: "masterData.fields.feeFixedAmount", type: "number" },
   { name: "sortOrder", label: "masterData.fields.sortOrder", type: "number" },
+  {
+    name: "isDefault",
+    label: "paymentReconciliation.methodsArea.fields.isDefaultChannel",
+    type: "boolean",
+  },
   { name: "isActive", label: "masterData.fields.isActive", type: "boolean" },
   { name: "description", label: "masterData.fields.description", type: "textarea" },
 ];
@@ -1111,6 +1205,7 @@ export const paymentSourcesSchema = z.object({
   feeFixedAmount: z.number().min(0).optional(),
   defaultChartOfAccountId: z.string().optional().or(z.literal("")),
   sortOrder: z.number().optional(),
+  isDefault: z.boolean().optional(),
   isActive: z.boolean().optional(),
   description: z.string().optional().or(z.literal("")),
 });
@@ -1122,6 +1217,7 @@ export const paymentSourcesDefaultValues = {
   feeFixedAmount: undefined,
   defaultChartOfAccountId: "",
   sortOrder: 0,
+  isDefault: false,
   isActive: true,
   description: "",
 };

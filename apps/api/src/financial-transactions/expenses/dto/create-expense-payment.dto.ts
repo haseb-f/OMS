@@ -6,6 +6,7 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import { IsIdempotencyKey } from '../../shared/idempotency-key';
 import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
 
 /** No `allocations`/`customerId`/`supplierId` — an Expense Payment Voucher has no party and never settles an invoice, only `expenseAccountId` (required) instead. */
@@ -44,4 +45,8 @@ export class CreateExpensePaymentDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  /** One key per opened form — a repeated submit returns the first document. */
+  @IsIdempotencyKey()
+  idempotencyKey?: string;
 }

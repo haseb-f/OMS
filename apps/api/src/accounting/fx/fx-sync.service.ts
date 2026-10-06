@@ -516,12 +516,26 @@ export class FxSyncService {
 
   async status(now: Date = new Date()) {
     const settings = await this.exchangeRates.getFxSettings();
-    const [lastRun, lastSuccess, newest, running, cooldownEndsAt] =
+    const [lastRun, lastSuccess, lastAttempt, newest, running, cooldownEndsAt] =
       await Promise.all([
         this.prisma.fxSyncRun.findFirst({ orderBy: { startedAt: 'desc' } }),
         this.prisma.fxSyncRun.findFirst({
           where: {
             status: { in: [FxSyncRunStatus.SUCCESS, FxSyncRunStatus.PARTIAL] },
+          },
+          orderBy: { startedAt: 'desc' },
+        }),
+        // The newest run that actually tried to fetch (R13 B3): a later
+        // SKIPPED row (paused / already current) must not hide a failure.
+        this.prisma.fxSyncRun.findFirst({
+          where: {
+            status: {
+              in: [
+                FxSyncRunStatus.SUCCESS,
+                FxSyncRunStatus.PARTIAL,
+                FxSyncRunStatus.FAILED,
+              ],
+            },
           },
           orderBy: { startedAt: 'desc' },
         }),
@@ -567,6 +581,8 @@ export class FxSyncService {
       freshness: rateFreshness(newestAgeDays, settings.staleAlertDays),
       lastRun,
       lastSuccess,
+      /** Newest SUCCESS / PARTIAL / FAILED run — the "did the last fetch fail" fact. */
+      lastAttempt,
       newestEffectiveDate: newest ? isoDay(newest.effectiveDate) : null,
       newestAgeDays,
       staleAlert:

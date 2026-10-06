@@ -117,6 +117,7 @@ describe('ChartOfAccountsService — Safe Account Deletion', () => {
   async function createLeaf(overrides: {
     code: string;
     parentAccountId?: string;
+    accountKind?: 'GROUP' | 'POSTING';
   }) {
     return service.create(
       {
@@ -124,6 +125,7 @@ describe('ChartOfAccountsService — Safe Account Deletion', () => {
         name: `Test Account ${overrides.code}`,
         accountType: AccountType.ASSET,
         parentAccountId: overrides.parentAccountId,
+        accountKind: overrides.accountKind,
       },
       overrideUserId,
     );
@@ -245,7 +247,10 @@ describe('ChartOfAccountsService — Safe Account Deletion', () => {
   });
 
   it('rejects deletion of a header account that still has child accounts', async () => {
-    const parent = await createLeaf({ code: `${prefix}-6` });
+    const parent = await createLeaf({
+      code: `${prefix}-6`,
+      accountKind: 'GROUP',
+    });
     await createLeaf({ code: `${prefix}-601`, parentAccountId: parent.id });
 
     await expect(service.archive(parent.id, overrideUserId)).rejects.toThrow(
@@ -287,13 +292,17 @@ describe('ChartOfAccountsService — Safe Account Deletion', () => {
     // naive "max sibling suffix + 1" gives P10, but a grandchild under P1
     // already owns it, and an ARCHIVED grandchild owns P11 (codes stay
     // unique even after archive) — the proposal must be P12.
-    const parent = await createLeaf({ code: `${prefix}-9` });
+    const parent = await createLeaf({
+      code: `${prefix}-9`,
+      accountKind: 'GROUP',
+    });
     const children = [];
     for (let i = 1; i <= 9; i++) {
       children.push(
         await createLeaf({
           code: `${prefix}-9${i}`,
           parentAccountId: parent.id,
+          accountKind: i === 1 ? 'GROUP' : 'POSTING',
         }),
       );
     }

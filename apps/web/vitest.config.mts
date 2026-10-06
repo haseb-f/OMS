@@ -17,6 +17,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // Workspace package (tsconfig paths) — the shared password policy (R13 A2).
+      "@oms/shared": fileURLToPath(new URL("../../packages/shared/index.ts", import.meta.url)),
     },
   },
 });

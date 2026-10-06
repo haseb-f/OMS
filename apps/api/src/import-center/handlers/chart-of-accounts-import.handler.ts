@@ -131,20 +131,24 @@ export class ChartOfAccountsImportHandler
     }
     cache.set(CODE_TO_ROW_KEY, codeToRow);
 
+    // Archived rows are loaded too: `code` is unique across the whole table,
+    // so an archived code must surface as a clear row error, not as a
+    // unique-index crash at apply time.
     const existing = await this.prisma.chartOfAccount.findMany({
-      where: { deletedAt: null },
       select: {
         id: true,
         code: true,
         name: true,
         accountType: true,
         level: true,
+        allowsPosting: true,
+        deletedAt: true,
         parentAccount: { select: { code: true } },
       },
     });
     cache.set(
       EXISTING_BY_CODE_KEY,
-      new Map(existing.map((a) => [a.code, a.id])),
+      new Map(existing.filter((a) => !a.deletedAt).map((a) => [a.code, a.id])),
     );
     cache.set(CREATED_BY_CODE_KEY, new Map<string, string>());
 
@@ -162,6 +166,8 @@ export class ChartOfAccountsImportHandler
         accountType: row.accountType,
         parentCode: row.parentAccount?.code ?? null,
         level: row.level,
+        allowsPosting: row.allowsPosting,
+        archived: row.deletedAt != null,
       })),
     );
     if (graphErrors.length > 0) {
@@ -298,7 +304,7 @@ export class ChartOfAccountsImportHandler
           currencyId,
           allowReconciliation: parseBoolean(row.allowReconciliation),
           description: row.description || undefined,
-          allowsPosting: kind === ACCOUNT_KIND.POSTING,
+          accountKind: kind === ACCOUNT_KIND.POSTING ? 'POSTING' : 'GROUP',
         },
         userId,
       );
@@ -316,7 +322,7 @@ export class ChartOfAccountsImportHandler
         currencyId,
         allowReconciliation: parseBoolean(row.allowReconciliation),
         description: row.description || undefined,
-        allowsPosting: kind === ACCOUNT_KIND.POSTING,
+        accountKind: kind === ACCOUNT_KIND.POSTING ? 'POSTING' : 'GROUP',
       },
       userId,
     );
@@ -349,12 +355,9 @@ export class ChartOfAccountsImportHandler
     const createdId = createdByCode.get(trimmed);
     if (createdId) return createdId;
 
-    const cache = getReferenceCache();
-    const existingByCode = cache?.get(EXISTING_BY_CODE_KEY) as
-      Map<string, string> | undefined;
-    const existingId = existingByCode?.get(trimmed);
-    if (existingId) return existingId;
-
+    // A parent row present in this file is applied first, even when the
+    // account already exists — its kind may change to Group in this very
+    // file, and a child may only be attached under a Group.
     if (codeToRow.has(trimmed)) {
       const result = await this.upsertAccountForCode(
         trimmed,
@@ -366,6 +369,12 @@ export class ChartOfAccountsImportHandler
       );
       return result.id;
     }
+
+    const cache = getReferenceCache();
+    const existingByCode = cache?.get(EXISTING_BY_CODE_KEY) as
+      Map<string, string> | undefined;
+    const existingId = existingByCode?.get(trimmed);
+    if (existingId) return existingId;
 
     if (!cache) {
       const found = await this.prisma.chartOfAccount.findFirst({

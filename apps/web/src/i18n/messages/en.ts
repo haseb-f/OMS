@@ -14,6 +14,8 @@ import shippingHandoffEn from "./modules/shipping-handoff.en";
 import leadOpsEn from "./modules/lead-ops.en";
 import customerLookupEn from "./modules/customer-lookup.en";
 import tableViewsEn from "./modules/table-views.en";
+import salesReportsEn from "./modules/sales-reports.en";
+import assetSchedulesEn from "./modules/asset-schedules.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
@@ -23,6 +25,8 @@ const en = {
   leadOps: leadOpsEn,
   customerLookup: customerLookupEn,
   tableViews: tableViewsEn,
+  salesReports: salesReportsEn,
+  assetSchedules: assetSchedulesEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
@@ -134,6 +138,11 @@ const en = {
     more: "More",
     previous: "Previous",
     next: "Next",
+    stepFlow: {
+      label: "Steps",
+      progress: "Step {current} of {total}",
+      completed: "Completed",
+    },
   },
   accessDenied: {
     title: "Access Denied",
@@ -332,6 +341,7 @@ const en = {
       openingBalances: "Opening Balances",
       openingInventory: "Opening Inventory",
       financialReports: "Financial Reports",
+      salesReports: "Sales Reports",
       inventoryReports: "Inventory Reports",
       importCenter: "Import Center",
       settings: "Users & system administration",
@@ -458,11 +468,9 @@ const en = {
     financeChartOfAccounts: "Chart of Accounts",
     financeBankTransactions: "Transaction Matching",
     financeJournals: "Journals",
-    financePaymentSources: "Payment Sources",
     financeFulfillmentCostRules: "Fulfillment Cost Rules",
     financeCostAllocationRules: "Cost Allocation Rules",
     financeCarrierReconciliation: "Carrier Reconciliation",
-    financeReceivingAccounts: "Accounts",
     financeProjects: "Projects",
     financeCostCenters: "Cost Centers",
     financeExpenses: "Expenses",
@@ -1269,10 +1277,19 @@ const en = {
       natureMain: "Main Account",
       natureSub: "Sub-Account",
       selectParent: "Select the parent account...",
-      parentHint: "Choose the account this one will appear under.",
+      parentHint:
+        "Choose the Group account this one will appear under — only Group accounts can have sub-accounts.",
       parentRequired: "A sub-account needs a parent account.",
       postingAccount: "Posting Account",
       groupAccount: "Group Account",
+      kindLabel: "Group or Posting",
+      kindGroupHint: "A Group account totals its sub-accounts and never receives journal lines.",
+      kindPostingHint: "A Posting account receives journal lines and cannot have sub-accounts.",
+      kindLockedSystem: "System root accounts are always Group accounts.",
+      kindLockedLines: "This account has journal lines, so it stays a Posting account.",
+      kindLockedChildren: "This account has sub-accounts, so it stays a Group account.",
+      usedLockedHint:
+        "This account has journal lines — its type, parent and currency are frozen. Name, description and reconciliation can still change.",
       expandAll: "Expand All",
       collapseAll: "Collapse All",
       deleteAction: "Delete",
@@ -2152,10 +2169,11 @@ const en = {
         selectUser: "Select User",
         loadPermissions: "Load Permissions",
         permissionsLoaded: "Permissions loaded — review and save.",
-        generatePassword: "Generate password automatically",
+        generatedPasswordHint:
+          "Generated password — copy it now. The user must change it at the first sign-in.",
         validationRequired: "Full Name, Username, and Email are required.",
         validationDepartment: "Department is required.",
-        validationPassword: "Password must be at least 8 characters.",
+        validationPassword: "Password must be {min}–{max} characters.",
       },
     },
   },
@@ -3809,6 +3827,20 @@ const en = {
         lastOrder: "Last order",
         useData: "Use this customer's data",
         applied: "Existing customer data applied.",
+      },
+      steps: {
+        customer: "Customer",
+        products: "Products",
+        deliveryPayment: "Delivery & payment",
+        review: "Review",
+        chooseCustomer: "Choose the customer, or switch to New customer.",
+        reviewDescription:
+          "Check the order before creating it. Use Back or a completed step to change anything.",
+        pricingNote:
+          "Each line is quantity × agreed unit price; the order total is the sum of the lines in {currency}.",
+        pricingPaidNote:
+          "The declared payment is deducted from the total; the balance remains due.",
+        attachmentsCount: "{count} attachment(s)",
       },
     },
     globalLookup: {

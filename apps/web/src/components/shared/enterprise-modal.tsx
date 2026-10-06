@@ -68,6 +68,7 @@ export function EnterpriseModal({
   bodyClassName,
   testId,
   errorSummary,
+  subheader,
   layout = "default",
 }: {
   open: boolean;
@@ -97,6 +98,11 @@ export function EnterpriseModal({
    * (design-system §11.4). It renders nothing while there are no errors.
    */
   errorSummary?: ReactNode;
+  /**
+   * A fixed band between the header and the scrolling body (e.g. a `StepFlow`
+   * header) — it stays visible while the body scrolls.
+   */
+  subheader?: ReactNode;
   layout?: EnterpriseModalLayout;
 }) {
   const { t } = useLocale();
@@ -173,6 +179,17 @@ export function EnterpriseModal({
               <XIcon />
             </EnterpriseButton>
           </div>
+
+          {subheader ? (
+            <div
+              className={cn(
+                "shrink-0 border-b border-border py-2",
+                formCard ? "px-4 max-sm:px-3" : "px-5",
+              )}
+            >
+              {subheader}
+            </div>
+          ) : null}
 
           <div
             className={cn(

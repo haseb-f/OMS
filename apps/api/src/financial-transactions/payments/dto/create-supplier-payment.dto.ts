@@ -11,6 +11,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { AllocationInputDto } from '../../shared/allocation-input.dto';
+import { IsIdempotencyKey } from '../../shared/idempotency-key';
 import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
 
 export class CreateSupplierPaymentDto {
@@ -57,4 +58,8 @@ export class CreateSupplierPaymentDto {
   @Type(() => AllocationInputDto)
   @IsOptional()
   allocations?: AllocationInputDto[];
+
+  /** One key per opened form — a repeated submit returns the first document. */
+  @IsIdempotencyKey()
+  idempotencyKey?: string;
 }

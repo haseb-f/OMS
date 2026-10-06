@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Landmark, ScrollText, Trash2 } from "lucide-react";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import { createMasterDataService } from "@/services/master-data-service";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
@@ -12,11 +11,11 @@ import {
   fixedAssetsDefaultValues,
   fixedAssetsExportColumns,
   fixedAssetRowLabel,
-  type FixedAssetRow,
   type CostCenterRow,
 } from "@/config/master-data/entities";
 import { fixedAssetsService } from "@/services/fixed-assets-service";
 import { useSuppliers } from "@/hooks/use-reference-data";
+import { useProcessDueSchedules } from "@/hooks/use-process-due-schedules";
 import { cachedLookup } from "@/lib/lookup-cache";
 import {
   receivingAccountsService,
@@ -24,33 +23,30 @@ import {
 } from "@/services/receiving-accounts-service";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { PermissionGate } from "@/components/shared/permission-gate";
-import { Input } from "@/components/ui/input";
-import type { RowAction } from "@/components/shared/data-table";
 import { useLocale } from "@/providers/locale-provider";
-import { toast, reportApiError } from "@/lib/toast";
-import { useRouter } from "next/navigation";
-import { journalEntriesService } from "@/services/journal-entries-service";
+import { useUserContext } from "@/providers/user-context";
 
 const costCentersService = createMasterDataService<CostCenterRow>("/cost-centers");
 
 /** `/receiving-accounts` rows carry `code` at runtime; the shared option type does not declare it. */
 type ReceivingAccountOption = SharedReceivingAccountOption & { code?: string };
 
+/**
+ * Fixed-asset register. A row opens the asset's detail screen
+ * (`[id]/page.tsx`) — parameters, source invoice, depreciation schedule and
+ * the lifecycle actions (Capitalize with schedule preview, Dispose, Link
+ * invoice line). "Process due entries" runs the same posting as the daily job.
+ */
 function FixedAssetsPageContent() {
   const { t } = useLocale();
-  const router = useRouter();
+  const { hasPermission } = useUserContext();
   const [costCenters, setCostCenters] = useState<CostCenterRow[]>([]);
   const [receivingAccounts, setReceivingAccounts] = useState<ReceivingAccountOption[]>([]);
   // Session-cached supplier-role partners (same list Products uses).
   const suppliers = useSuppliers();
   const [tableKey, setTableKey] = useState(0);
-  const [capitalizeTarget, setCapitalizeTarget] = useState<FixedAssetRow | null>(null);
-  const [disposeTarget, setDisposeTarget] = useState<FixedAssetRow | null>(null);
-  const [disposeAmount, setDisposeAmount] = useState("");
   const [runOpen, setRunOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  const reload = () => setTableKey((value) => value + 1);
+  const processDue = useProcessDueSchedules("all", () => setTableKey((value) => value + 1));
 
   useEffect(() => {
     cachedLookup("cost-centers:prefetch:500", () => costCentersService.list({ pageSize: 500 }))
@@ -64,7 +60,22 @@ function FixedAssetsPageContent() {
 
   const formFields = useMemo<MasterDataFormField[]>(
     () => [
-      ...fixedAssetsFormFields,
+      ...fixedAssetsFormFields.flatMap((field): MasterDataFormField[] =>
+        field.name === "usefulLifeMonths"
+          ? [
+              field,
+              {
+                name: "depreciationMethod",
+                label: "assetSchedules.fields.method",
+                type: "select",
+                options: (["STRAIGHT_LINE", "DECLINING_BALANCE"] as const).map((method) => ({
+                  value: method,
+                  label: t(`assetSchedules.methods.${method}`),
+                })),
+              },
+            ]
+          : [field],
+      ),
       {
         name: "costCenterId",
         label: "masterData.expenses.fields.costCenter",
@@ -92,73 +103,8 @@ function FixedAssetsPageContent() {
         })),
       },
     ],
-    [costCenters, receivingAccounts, suppliers],
+    [costCenters, receivingAccounts, suppliers, t],
   );
-
-  const handleCapitalize = async () => {
-    if (!capitalizeTarget) return;
-    if (!capitalizeTarget.usefulLifeMonths) {
-      toast.error(t("masterData.fixedAssets.validation.usefulLifeRequired"));
-      return;
-    }
-    if (!capitalizeTarget.receivingAccountId && !capitalizeTarget.partnerId) {
-      toast.error(t("masterData.fixedAssets.validation.paymentSourceRequired"));
-      return;
-    }
-    setBusy(true);
-    try {
-      await fixedAssetsService.capitalize(capitalizeTarget.id, {
-        usefulLifeMonths: capitalizeTarget.usefulLifeMonths,
-        salvageValue: Number(capitalizeTarget.salvageValue ?? 0),
-        depreciationStartDate: capitalizeTarget.depreciationStartDate
-          ? capitalizeTarget.depreciationStartDate.slice(0, 10)
-          : undefined,
-        receivingAccountId: capitalizeTarget.receivingAccountId ?? undefined,
-        partnerId: capitalizeTarget.partnerId ?? undefined,
-      });
-      toast.success(t("masterData.fixedAssets.toasts.capitalized"));
-      setCapitalizeTarget(null);
-      reload();
-    } catch (error) {
-      reportApiError(error, "errors.generic");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleDispose = async () => {
-    if (!disposeTarget) return;
-    setBusy(true);
-    try {
-      await fixedAssetsService.dispose(disposeTarget.id, {
-        disposalAmount: Number(disposeAmount || 0),
-        receivingAccountId: disposeTarget.receivingAccountId ?? undefined,
-      });
-      toast.success(t("masterData.fixedAssets.toasts.disposed"));
-      setDisposeTarget(null);
-      reload();
-    } catch (error) {
-      reportApiError(error, "errors.generic");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleRun = async () => {
-    setBusy(true);
-    try {
-      const result = await fixedAssetsService.runDepreciation({});
-      toast.success(
-        t("masterData.fixedAssets.toasts.depreciationRun", { count: result.postedCount }),
-      );
-      setRunOpen(false);
-      reload();
-    } catch (error) {
-      reportApiError(error, "errors.generic");
-    } finally {
-      setBusy(false);
-    }
-  };
 
   return (
     <>
@@ -176,52 +122,13 @@ function FixedAssetsPageContent() {
         permissionPrefix="masterdata.fixed-assets"
         rowLabel={fixedAssetRowLabel}
         defaultSortBy="acquisitionDate"
+        getRowHref={(row) => `/finance/fixed-assets/${row.id}`}
         headerSecondary={[
           {
-            key: "run-depreciation",
-            label: t("masterData.fixedAssets.actions.runDepreciation"),
+            key: "process-due",
+            label: t("assetSchedules.actions.processDue"),
+            hidden: !hasPermission("masterdata.fixed-assets.edit"),
             onSelect: () => setRunOpen(true),
-          },
-        ]}
-        extraRowActions={(entity): RowAction[] => [
-          {
-            key: "capitalize",
-            label: t("masterData.fixedAssets.actions.capitalize"),
-            icon: Landmark,
-            hidden: entity.status !== "DRAFT" || Boolean(entity.deletedAt),
-            onSelect: () => setCapitalizeTarget(entity),
-          },
-          {
-            key: "dispose",
-            label: t("masterData.fixedAssets.actions.dispose"),
-            icon: Trash2,
-            hidden: entity.status !== "CAPITALIZED" || Boolean(entity.deletedAt),
-            onSelect: () => {
-              setDisposeAmount("");
-              setDisposeTarget(entity);
-            },
-          },
-          {
-            key: "journal",
-            label: t("accounting.journalEntries.fields.viewJournalEntry"),
-            icon: ScrollText,
-            hidden: entity.status === "DRAFT" || Boolean(entity.deletedAt),
-            onSelect: () => {
-              const sourceType =
-                entity.status === "DISPOSED"
-                  ? "FIXED_ASSET_DISPOSAL"
-                  : "FIXED_ASSET_CAPITALIZATION";
-              void journalEntriesService
-                .list({ sourceType, sourceId: entity.id, status: "POSTED", pageSize: 1 })
-                .then((result) => {
-                  const entry = result.items[0];
-                  if (entry) router.push(`/finance/journal-entries/${entry.id}`);
-                  else toast.error(t("accounting.journalEntries.missingJournal"));
-                })
-                .catch((error: unknown) => {
-                  reportApiError(error, "common.failedToSave");
-                });
-            },
           },
         ]}
         toFormValues={(entity) => ({
@@ -230,6 +137,7 @@ function FixedAssetsPageContent() {
           acquisitionDate: entity.acquisitionDate,
           cost: Number(entity.cost),
           usefulLifeMonths: entity.usefulLifeMonths ?? 0,
+          depreciationMethod: entity.depreciationMethod ?? "STRAIGHT_LINE",
           salvageValue: Number(entity.salvageValue ?? 0),
           depreciationStartDate: entity.depreciationStartDate ?? "",
           costCenterId: entity.costCenterId ?? "",
@@ -240,52 +148,13 @@ function FixedAssetsPageContent() {
       />
 
       <ConfirmationDialog
-        open={Boolean(capitalizeTarget)}
-        onOpenChange={(open) => {
-          if (!open) setCapitalizeTarget(null);
-        }}
-        title={t("masterData.fixedAssets.actions.capitalize")}
-        description={capitalizeTarget ? fixedAssetRowLabel(capitalizeTarget) : undefined}
-        confirmLabel={t("masterData.fixedAssets.actions.capitalize")}
-        isConfirming={busy}
-        onConfirm={() => void handleCapitalize()}
-      />
-
-      <ConfirmationDialog
-        open={Boolean(disposeTarget)}
-        onOpenChange={(open) => {
-          if (!open) setDisposeTarget(null);
-        }}
-        title={t("masterData.fixedAssets.actions.dispose")}
-        description={disposeTarget ? fixedAssetRowLabel(disposeTarget) : undefined}
-        extra={
-          <div className="flex flex-col gap-1.5 px-6">
-            <label className="text-caption text-muted-foreground">
-              {t("masterData.fixedAssets.fields.disposalAmount")}
-            </label>
-            <Input
-              type="number"
-              min={0}
-              step="0.01"
-              placeholder="0.00"
-              value={disposeAmount}
-              onChange={(event) => setDisposeAmount(event.target.value)}
-            />
-          </div>
-        }
-        tone="warning"
-        confirmLabel={t("masterData.fixedAssets.actions.dispose")}
-        isConfirming={busy}
-        onConfirm={() => void handleDispose()}
-      />
-
-      <ConfirmationDialog
         open={runOpen}
         onOpenChange={setRunOpen}
-        title={t("masterData.fixedAssets.actions.runDepreciation")}
-        confirmLabel={t("masterData.fixedAssets.actions.runDepreciation")}
-        isConfirming={busy}
-        onConfirm={() => void handleRun()}
+        title={t("assetSchedules.actions.processDue")}
+        description={t("assetSchedules.dialogs.processDueDescription")}
+        confirmLabel={t("assetSchedules.actions.processDue")}
+        isConfirming={processDue.busy}
+        onConfirm={() => void processDue.run().then(() => setRunOpen(false))}
       />
     </>
   );

@@ -32,7 +32,7 @@ describe('password.util', () => {
     expect(first).toMatch(/[A-Z]/);
     expect(first).toMatch(/[a-z]/);
     expect(first).toMatch(/[0-9]/);
-    expect(first).toMatch(/[!@#$%]/);
+    expect(first).toMatch(/[^A-Za-z0-9]/);
     const hash = await hashPassword(first);
     expect(hash).not.toBe(first);
     expect(await verifyPassword(first, hash)).toBe(true);

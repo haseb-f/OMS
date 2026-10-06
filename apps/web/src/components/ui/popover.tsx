@@ -13,8 +13,37 @@ function PopoverTrigger({ ...props }: React.ComponentProps<typeof PopoverPrimiti
   return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />;
 }
 
+/**
+ * Scroll isolation for portaled popover content (R13 A3).
+ *
+ * A modal Radix Dialog / Sheet locks scrolling with react-remove-scroll, which
+ * listens for `wheel` / `touchmove` on `document` and cancels every event whose
+ * target is outside the dialog's own DOM node. A non-modal popover (pickers,
+ * comboboxes, the calling-code list) is portaled to `<body>`, so its list could
+ * not be scrolled by wheel or touch while a dialog was open. Stopping those two
+ * events from bubbling past the popover keeps them away from the lock: the
+ * browser scrolls the list natively, the list's `overscroll-contain` stops any
+ * chaining, and the page itself stays locked (the lock's body `overflow:
+ * hidden` is untouched). Native listeners — not React handlers — so it works
+ * whatever node React's root listener is attached to.
+ */
+function stopScrollPropagation(event: Event) {
+  event.stopPropagation();
+}
+
+export function isolatePortalScroll(node: HTMLElement): () => void {
+  const options: AddEventListenerOptions = { passive: true };
+  node.addEventListener("wheel", stopScrollPropagation, options);
+  node.addEventListener("touchmove", stopScrollPropagation, options);
+  return () => {
+    node.removeEventListener("wheel", stopScrollPropagation, options);
+    node.removeEventListener("touchmove", stopScrollPropagation, options);
+  };
+}
+
 function PopoverContent({
   className,
+  ref,
   align = "center",
   sideOffset = 4,
   // Keep every popover (pickers, filters, date pickers) a gutter away from
@@ -23,9 +52,24 @@ function PopoverContent({
   onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+  const contentRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      if (typeof ref === "function") ref(node);
+      else if (ref) ref.current = node;
+      if (!node) return;
+      const release = isolatePortalScroll(node);
+      return () => {
+        release();
+        if (typeof ref === "function") ref(null);
+        else if (ref) ref.current = null;
+      };
+    },
+    [ref],
+  );
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
+        ref={contentRef}
         data-slot="popover-content"
         align={align}
         sideOffset={sideOffset}

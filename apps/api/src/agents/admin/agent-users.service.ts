@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MasterDataActivityLogService } from '../../master-data/master-data-activity-log.service';
 import { UsersService } from '../../users/users.service';
+import { ResetPasswordDto } from '../../users/dto/reset-password.dto';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import {
   AGENT_ROLE_PRESETS,
@@ -168,9 +169,14 @@ export class AgentUsersService {
     return this.findOne(agentId, userId);
   }
 
-  async resetPassword(agentId: string, userId: string) {
+  /** Admin-entered / form-generated password, or empty → server-generated (R13 A2). */
+  async resetPassword(
+    agentId: string,
+    userId: string,
+    dto: ResetPasswordDto = {},
+  ) {
     await this.requireAgentUser(agentId, userId);
-    return this.users.resetPassword(userId);
+    return this.users.resetPassword(userId, dto);
   }
 
   async findOne(agentId: string, userId: string) {
@@ -282,10 +288,14 @@ export class AgentTeamService {
     );
   }
 
-  async resetSalesUserPassword(actor: AgentRequestContext, userId: string) {
+  async resetSalesUserPassword(
+    actor: AgentRequestContext,
+    userId: string,
+    dto: ResetPasswordDto = {},
+  ) {
     await this.assertTeamManager(actor);
     await this.requireManagedSalesUser(actor, userId);
-    return this.agentUsers.resetPassword(actor.agentId, userId);
+    return this.agentUsers.resetPassword(actor.agentId, userId, dto);
   }
 
   private async assertTeamManager(

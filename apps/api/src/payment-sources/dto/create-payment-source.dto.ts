@@ -38,6 +38,11 @@ export class CreatePaymentSourceDto {
   @IsOptional()
   isActive?: boolean;
 
+  /** The channel a declaration falls back to when its method has none (one default at a time). */
+  @IsBoolean()
+  @IsOptional()
+  isDefault?: boolean;
+
   /** Optional default suggestion only — never the actual accounting destination. */
   @IsOptionalUuid()
   defaultChartOfAccountId?: string;

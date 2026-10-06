@@ -41,6 +41,7 @@ import {
 import { AgentPortalService } from './agent-portal.service';
 import { AgentPortalOrdersService } from './agent-portal-orders.service';
 import { AgentPortalTeamService } from './agent-portal-team.service';
+import { ResetPasswordDto } from '../../users/dto/reset-password.dto';
 import { StoreOrderDuplicatesService } from '../../store-orders/duplicates/store-order-duplicates.service';
 import { AgentDuplicateCheckDto } from '../../store-orders/duplicates/dto/duplicate.dto';
 import { StoreOrderAmendmentsService } from '../../store-orders/amendments/store-order-amendments.service';
@@ -435,7 +436,8 @@ export class AgentPortalTeamController {
   resetPassword(
     @CurrentAgent() agent: AgentRequestContext,
     @Param('userId', ParseUUIDPipe) userId: string,
+    @Body() dto: ResetPasswordDto,
   ) {
-    return this.team.resetPassword(agent, userId);
+    return this.team.resetPassword(agent, userId, dto ?? {});
   }
 }

@@ -1,3 +1,4 @@
+import { assertNotProviderMatched } from '../payment-reconciliation/engine-guard.util';
 import {
   BadRequestException,
   Injectable,
@@ -337,6 +338,8 @@ export class BankTransactionsService {
         `Payment ${payment.paymentNumber} is already matched to another bank transaction.`,
       );
     }
+    // One claim, one engine (R13 D2): a provider-statement allocation settles through the provider.
+    await assertNotProviderMatched(this.prisma, payment);
 
     await this.paymentsService.match(dto.paymentId, { matchedById: userId });
 

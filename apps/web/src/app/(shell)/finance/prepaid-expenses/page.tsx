@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
-import { Play } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { MasterDataPage } from "@/components/master-data/master-data-page";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
@@ -12,7 +11,6 @@ import { formatAmount } from "@/lib/money";
 import { StatusBadge } from "@/components/business/status-badge";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
-import type { RowAction } from "@/components/shared/data-table";
 import {
   prepaidExpensesService,
   type PrepaidExpenseRow,
@@ -22,8 +20,9 @@ import {
   type ReceivingAccountOption,
 } from "@/services/receiving-accounts-service";
 import { useLocale } from "@/providers/locale-provider";
-import { toast, reportApiError } from "@/lib/toast";
+import { useProcessDueSchedules } from "@/hooks/use-process-due-schedules";
 import { formatDate } from "@/lib/date";
+import { prepaidStatusTone } from "@/config/finance/schedule-status";
 import type { MessageKey } from "@/i18n/translate";
 import { useUserContext } from "@/providers/user-context";
 
@@ -37,7 +36,6 @@ const schema = z.object({
   name: z.string().min(1),
   amount: z.number().min(0.01),
   startDate: z.string().min(1),
-  endDate: z.string().min(1),
   totalPeriods: z.number().min(1),
   expenseAccountId: z.string().min(1),
   receivingAccountId: z.string().min(1),
@@ -48,7 +46,6 @@ const defaultValues = {
   name: "",
   amount: undefined as unknown as number, // new, unset → the field stays empty (placeholder "0.00"), never a 0 to delete
   startDate: "",
-  endDate: "",
   totalPeriods: 1,
   expenseAccountId: "",
   receivingAccountId: "",
@@ -57,7 +54,7 @@ const defaultValues = {
 
 function PrepaidStatusCell({ status }: { status: PrepaidExpenseRow["status"] }) {
   const { t } = useLocale();
-  const tone = status === "ACTIVE" ? "success" : status === "COMPLETED" ? "info" : "neutral";
+  const tone = prepaidStatusTone[status];
   return (
     <StatusBadge label={t(`accounting.lifecycleStatus.${status}` as MessageKey)} tone={tone} />
   );
@@ -122,9 +119,7 @@ function PrepaidExpensesPageContent() {
   const { hasPermission } = useUserContext();
   const [receivingAccounts, setReceivingAccounts] = useState<ReceivingAccountWithCode[]>([]);
   const [tableKey, setTableKey] = useState(0);
-  const [activateTarget, setActivateTarget] = useState<PrepaidExpenseRow | null>(null);
   const [recognizeOpen, setRecognizeOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     // Session-cached, active-only list (shared with every other receiving-account picker).
@@ -150,12 +145,13 @@ function PrepaidExpensesPageContent() {
         type: "date",
         required: true,
       },
-      { name: "endDate", label: "accounting.prepaid.fields.endDate", type: "date", required: true },
       {
         name: "totalPeriods",
         label: "accounting.prepaid.fields.totalPeriods",
         type: "number",
         required: true,
+        // The end date is derived (start + periods − 1 day), never typed.
+        description: t("assetSchedules.fields.endDateDerived"),
       },
       {
         name: "expenseAccountId",
@@ -176,39 +172,10 @@ function PrepaidExpensesPageContent() {
       },
       { name: "notes", label: "masterData.fields.notes", type: "textarea" },
     ],
-    [receivingAccounts],
+    [receivingAccounts, t],
   );
 
-  const reload = () => setTableKey((value) => value + 1);
-
-  const handleActivate = async () => {
-    if (!activateTarget) return;
-    setBusy(true);
-    try {
-      await prepaidExpensesService.activate(activateTarget.id);
-      toast.success(t("accounting.prepaid.toasts.activated"));
-      setActivateTarget(null);
-      reload();
-    } catch (error) {
-      reportApiError(error, "errors.generic");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleRecognize = async () => {
-    setBusy(true);
-    try {
-      const result = await prepaidExpensesService.recognize({});
-      toast.success(t("accounting.prepaid.toasts.recognized", { count: result.postedCount }));
-      setRecognizeOpen(false);
-      reload();
-    } catch (error) {
-      reportApiError(error, "errors.generic");
-    } finally {
-      setBusy(false);
-    }
-  };
+  const processDue = useProcessDueSchedules("prepaid", () => setTableKey((value) => value + 1));
 
   return (
     <>
@@ -236,33 +203,16 @@ function PrepaidExpensesPageContent() {
             onSelect: () => setRecognizeOpen(true),
           },
         ]}
-        extraRowActions={(entity): RowAction[] => [
-          {
-            key: "activate",
-            label: t("accounting.prepaid.activate"),
-            icon: Play,
-            hidden: entity.status !== "DRAFT" || Boolean(entity.deletedAt),
-            onSelect: () => setActivateTarget(entity),
-          },
-        ]}
-      />
-      <ConfirmationDialog
-        open={Boolean(activateTarget)}
-        onOpenChange={(open) => {
-          if (!open) setActivateTarget(null);
-        }}
-        title={t("accounting.prepaid.activate")}
-        confirmLabel={t("accounting.prepaid.activate")}
-        isConfirming={busy}
-        onConfirm={() => void handleActivate()}
+        getRowHref={(row) => `/finance/prepaid-expenses/${row.id}`}
       />
       <ConfirmationDialog
         open={recognizeOpen}
         onOpenChange={setRecognizeOpen}
         title={t("accounting.prepaid.recognize")}
+        description={t("assetSchedules.dialogs.processDueDescription")}
         confirmLabel={t("accounting.prepaid.recognize")}
-        isConfirming={busy}
-        onConfirm={() => void handleRecognize()}
+        isConfirming={processDue.busy}
+        onConfirm={() => void processDue.run().then(() => setRecognizeOpen(false))}
       />
     </>
   );

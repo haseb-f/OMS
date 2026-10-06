@@ -17,9 +17,10 @@ export class CreateReceivingAccountDto {
   @IsNotEmpty()
   name!: string;
 
+  /** Generated (RA-0001, …) when omitted — the user never has to type one. */
   @IsString()
-  @IsNotEmpty()
-  code!: string;
+  @IsOptional()
+  code?: string;
 
   /** No Company/multi-entity module exists yet — placeholder, not validated against anything. */
   @IsOptionalUuid()
@@ -38,4 +39,9 @@ export class CreateReceivingAccountDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  /** The smart-default destination proposed for new receipts. */
+  @IsBoolean()
+  @IsOptional()
+  isDefault?: boolean;
 }

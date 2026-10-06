@@ -5,7 +5,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { messages } from "@/i18n/messages";
 import { translate, type MessageKey } from "@/i18n/translate";
 
-vi.mock("@/lib/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+const toastSuccess = vi.fn();
+vi.mock("@/lib/toast", () => ({
+  toast: { success: (...args: unknown[]) => toastSuccess(...args), error: vi.fn() },
+}));
 vi.mock("@/providers/locale-provider", () => ({
   useLocale: () => ({
     t: (key: MessageKey, params?: Record<string, string | number>) =>
@@ -16,6 +19,7 @@ vi.mock("@/providers/locale-provider", () => ({
 }));
 
 import { PasswordInput } from "./password-input";
+import { PASSWORD_POLICY } from "@/lib/password-generator";
 
 // jsdom has no ResizeObserver; the tooltip (Radix popper) measures with it.
 globalThis.ResizeObserver ??= class {
@@ -31,7 +35,11 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-function Controlled(props: { autoComplete?: string }) {
+function Controlled(props: {
+  autoComplete?: string;
+  generatable?: boolean;
+  onGenerated?: (password: string) => void;
+}) {
   const [value, setValue] = useState("");
   return (
     <PasswordInput
@@ -100,5 +108,33 @@ describe("PasswordInput", () => {
   it("can hide the Copy action", () => {
     renderField(<PasswordInput aria-label="Password" copyable={false} />);
     expect(screen.queryByRole("button", { name: "Copy password" })).toBeNull();
+  });
+
+  it("copy also confirms with a 'Password copied' toast", async () => {
+    toastSuccess.mockReset();
+    renderField(<Controlled />);
+    fireEvent.change(field(), { target: { value: "S3cret!pass" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Copy password" }));
+    });
+    expect(toastSuccess).toHaveBeenCalledWith("Password copied");
+  });
+
+  it("Generate is opt-in", () => {
+    renderField(<Controlled />);
+    expect(screen.queryByRole("button", { name: "Generate a strong password" })).toBeNull();
+  });
+
+  it("Generate fills a policy-compliant password through onChange, reveals it, then offers Regenerate", () => {
+    const onGenerated = vi.fn();
+    renderField(<Controlled generatable onGenerated={onGenerated} />);
+    fireEvent.click(screen.getByRole("button", { name: "Generate a strong password" }));
+    const first = field().value;
+    expect(first).toHaveLength(PASSWORD_POLICY.generatedLength);
+    expect(onGenerated).toHaveBeenCalledWith(first);
+    expect(field().type).toBe("text");
+    fireEvent.click(screen.getByRole("button", { name: "Generate another password" }));
+    expect(field().value).toHaveLength(PASSWORD_POLICY.generatedLength);
+    expect(field().value).not.toBe(first);
   });
 });

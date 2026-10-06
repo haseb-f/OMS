@@ -9,6 +9,7 @@ const agentPortalAr = {
     payouts: "المدفوعات للوكيل",
     team: "الفريق",
     commission: "تقرير العمولة",
+    reports: "تقارير المبيعات",
   },
   identity: {
     portal: "بوابة الوكيل",

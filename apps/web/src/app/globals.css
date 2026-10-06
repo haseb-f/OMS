@@ -263,14 +263,15 @@
   --selector-ring: var(--toolbar-tone-3-ring);
 
   /* Control colour (Round 9 correction, design-system §12.18) — ONE blue family.
-     A related run of selector controls steps through five solid blues, deep → medium →
-     light, in logical order (RTL right → left, LTR mirrored); a standalone control takes
-     the middle step. White text on every step; every step has its own hover / pressed /
+     A related run of selector controls steps through five solid blues in logical order
+     (Round 13, D-A3): tone 1 is the LIGHTEST at the inline-start, darkening to tone 5 at
+     the inline-end — RTL light on the right → dark on the left, LTR mirrored, with no
+     direction logic anywhere. A standalone control takes the middle step (tone 3). White text on every step; every step has its own hover / pressed /
      hairline / label / chip / applied ring / open edge (contrast-check.mjs). The ramp is
      blue only: no teal, no second hue next to a neighbouring control. */
   --ramp-navy: #04203c;
   --ramp-blue: #3c78d0;
-  --toolbar-tone-1: color-mix(in oklab, var(--ramp-blue) 36%, var(--ramp-navy));
+  --toolbar-tone-1: color-mix(in oklab, var(--ramp-blue) 88%, var(--ramp-navy));
   --toolbar-tone-1-foreground: #ffffff;
   --toolbar-tone-1-hover: color-mix(in oklab, var(--toolbar-tone-1) 90%, black);
   --toolbar-tone-1-active: color-mix(in oklab, var(--toolbar-tone-1) 82%, black);
@@ -279,7 +280,7 @@
   --toolbar-tone-1-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-1));
   --toolbar-tone-1-ring: #dbeeff;
   --toolbar-tone-1-open-edge: #9cc9ff;
-  --toolbar-tone-2: color-mix(in oklab, var(--ramp-blue) 49%, var(--ramp-navy));
+  --toolbar-tone-2: color-mix(in oklab, var(--ramp-blue) 75%, var(--ramp-navy));
   --toolbar-tone-2-foreground: #ffffff;
   --toolbar-tone-2-hover: color-mix(in oklab, var(--toolbar-tone-2) 90%, black);
   --toolbar-tone-2-active: color-mix(in oklab, var(--toolbar-tone-2) 82%, black);
@@ -297,7 +298,7 @@
   --toolbar-tone-3-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-3));
   --toolbar-tone-3-ring: #dbeeff;
   --toolbar-tone-3-open-edge: #9cc9ff;
-  --toolbar-tone-4: color-mix(in oklab, var(--ramp-blue) 75%, var(--ramp-navy));
+  --toolbar-tone-4: color-mix(in oklab, var(--ramp-blue) 49%, var(--ramp-navy));
   --toolbar-tone-4-foreground: #ffffff;
   --toolbar-tone-4-hover: color-mix(in oklab, var(--toolbar-tone-4) 90%, black);
   --toolbar-tone-4-active: color-mix(in oklab, var(--toolbar-tone-4) 82%, black);
@@ -306,7 +307,7 @@
   --toolbar-tone-4-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-4));
   --toolbar-tone-4-ring: #dbeeff;
   --toolbar-tone-4-open-edge: #9cc9ff;
-  --toolbar-tone-5: color-mix(in oklab, var(--ramp-blue) 88%, var(--ramp-navy));
+  --toolbar-tone-5: color-mix(in oklab, var(--ramp-blue) 36%, var(--ramp-navy));
   --toolbar-tone-5-foreground: #ffffff;
   --toolbar-tone-5-hover: color-mix(in oklab, var(--toolbar-tone-5) 90%, black);
   --toolbar-tone-5-active: color-mix(in oklab, var(--toolbar-tone-5) 82%, black);
@@ -578,9 +579,10 @@
   --selector-chip: var(--toolbar-tone-3-chip);
   --selector-applied: var(--toolbar-tone-3);
   --selector-ring: var(--toolbar-tone-3-ring);
-  /* Dark control ramp: the same blue family, the deep end lifted off the canvas
-     (#0e2a4b) with a light hairline on every step. */
-  --toolbar-tone-1: #0e2a4b;
+  /* Dark control ramp: the same blue family and the same logical order (tone 1 lightest →
+     tone 5 deepest), the deep end lifted off the canvas (#0e2a4b) with a light hairline on
+     every step. */
+  --toolbar-tone-1: color-mix(in oklab, var(--ramp-blue) 88%, #0e2a4b);
   --toolbar-tone-1-foreground: #ffffff;
   --toolbar-tone-1-hover: color-mix(in oklab, var(--toolbar-tone-1) 90%, black);
   --toolbar-tone-1-active: color-mix(in oklab, var(--toolbar-tone-1) 82%, black);
@@ -589,7 +591,7 @@
   --toolbar-tone-1-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-1));
   --toolbar-tone-1-ring: #cfe6ff;
   --toolbar-tone-1-open-edge: #7fb2f0;
-  --toolbar-tone-2: color-mix(in oklab, var(--ramp-blue) 22%, #0e2a4b);
+  --toolbar-tone-2: color-mix(in oklab, var(--ramp-blue) 66%, #0e2a4b);
   --toolbar-tone-2-foreground: #ffffff;
   --toolbar-tone-2-hover: color-mix(in oklab, var(--toolbar-tone-2) 90%, black);
   --toolbar-tone-2-active: color-mix(in oklab, var(--toolbar-tone-2) 82%, black);
@@ -607,7 +609,7 @@
   --toolbar-tone-3-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-3));
   --toolbar-tone-3-ring: #cfe6ff;
   --toolbar-tone-3-open-edge: #7fb2f0;
-  --toolbar-tone-4: color-mix(in oklab, var(--ramp-blue) 66%, #0e2a4b);
+  --toolbar-tone-4: color-mix(in oklab, var(--ramp-blue) 22%, #0e2a4b);
   --toolbar-tone-4-foreground: #ffffff;
   --toolbar-tone-4-hover: color-mix(in oklab, var(--toolbar-tone-4) 90%, black);
   --toolbar-tone-4-active: color-mix(in oklab, var(--toolbar-tone-4) 82%, black);
@@ -616,7 +618,7 @@
   --toolbar-tone-4-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-4));
   --toolbar-tone-4-ring: #cfe6ff;
   --toolbar-tone-4-open-edge: #7fb2f0;
-  --toolbar-tone-5: color-mix(in oklab, var(--ramp-blue) 88%, #0e2a4b);
+  --toolbar-tone-5: #0e2a4b;
   --toolbar-tone-5-foreground: #ffffff;
   --toolbar-tone-5-hover: color-mix(in oklab, var(--toolbar-tone-5) 90%, black);
   --toolbar-tone-5-active: color-mix(in oklab, var(--toolbar-tone-5) 82%, black);

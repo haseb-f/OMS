@@ -36,6 +36,8 @@ const paymentReconciliationEn = {
     title: "Summary by currency",
     none: "—",
     line: "{count} · {amount}",
+    refunds: "Refunds / chargebacks",
+    net: "Statement net (payments − refunds)",
   },
   status: {
     ALL: "All statuses",
@@ -104,6 +106,9 @@ const paymentReconciliationEn = {
     phoneRegionPlaceholder: "e.g. SA, EG",
     refreshPreview: "Refresh preview",
     previewTitle: "Preview (first 100 rows)",
+    mappingSaved: "This method's saved mapping was applied — adjust it if the file layout changed.",
+    mappingSuggested:
+      "Columns were matched from the header row. The mapping you import with is saved for this method's next file.",
     summaryLine:
       "{total} rows · {created} new · {duplicate} duplicates · {updated} updated · {exception} exceptions · {error} errors",
     outcome: {
@@ -240,6 +245,40 @@ const paymentReconciliationEn = {
     reversedReceipt: "Match reversed — receipt {receipt} cancelled (reversal JE posted).",
   },
   reasonRequired: "A reason is required.",
+  kind: {
+    PAYMENT: "Payment",
+    REFUND: "Refund",
+    CHARGEBACK: "Chargeback",
+    review: "Refund / chargeback — review",
+  },
+  methodsArea: {
+    title: "Payment Methods",
+    description:
+      "How customers pay: each method, the channel behind it and the accounts where the money arrives.",
+    tabs: {
+      methods: "Methods",
+      channels: "Channels",
+      receivingAccounts: "Receiving accounts",
+    },
+    methodsDescription:
+      "Each method posts to its clearing account; its channel supplies the fee estimate.",
+    channelsTitle: "Payment channels",
+    channelsDescription:
+      "The internal channel list (card, wallet, transfer…) with an optional fee estimate. The default channel is used when a method has none.",
+    receivingTitle: "Receiving accounts",
+    receivingDescription:
+      "Bank, cash and wallet destinations where the money arrives — the account a settlement or receipt debits.",
+    default: "Default",
+    codeGenerated: "Generated automatically",
+    fields: {
+      channel: "Channel",
+      feeEstimate: "Fee estimate",
+      clearingAccount: "Clearing account",
+      destinationAccount: "Account",
+      isDefaultChannel: "Default channel",
+      isDefaultDestination: "Default destination",
+    },
+  },
 } as const;
 
 export default paymentReconciliationEn;

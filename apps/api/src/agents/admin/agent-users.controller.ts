@@ -15,6 +15,7 @@ import { PermissionModule } from '../../auth/decorators/permission-module.decora
 import { PermissionAction } from '../../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { AgentUsersService } from './agent-users.service';
+import { ResetPasswordDto } from '../../users/dto/reset-password.dto';
 import {
   CreateAgentUserDto,
   SetAgentUserPermissionsDto,
@@ -86,7 +87,8 @@ export class AgentUsersController {
   resetPassword(
     @Param('agentId', ParseUUIDPipe) agentId: string,
     @Param('userId', ParseUUIDPipe) userId: string,
+    @Body() dto: ResetPasswordDto,
   ) {
-    return this.agentUsers.resetPassword(agentId, userId);
+    return this.agentUsers.resetPassword(agentId, userId, dto ?? {});
   }
 }

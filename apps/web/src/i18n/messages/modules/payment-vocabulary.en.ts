@@ -209,6 +209,7 @@ const paymentVocabularyEn = {
     LINE_NOT_UNMATCHED:
       "This transaction is no longer unmatched — only unmatched transactions take suggestions.",
     LINE_FULLY_ALLOCATED: "This transaction is fully allocated.",
+    NOT_A_PAYMENT: "Refund / chargeback lines are reviewed, never matched to a claim.",
   },
   bulk: {
     progress: "Processing {done} of {total}…",

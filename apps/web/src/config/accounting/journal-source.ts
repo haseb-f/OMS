@@ -121,7 +121,7 @@ export const JOURNAL_SOURCE_DEFINITIONS: Record<string, JournalSourceDefinition>
   },
   FIXED_ASSET_CAPITALIZATION: {
     sourceType: "FIXED_ASSET_CAPITALIZATION",
-    href: () => `/finance/fixed-assets`,
+    href: (id) => `/finance/fixed-assets/${id}`,
     labelKey: "accounting.journalEntries.sourceTypes.FIXED_ASSET_CAPITALIZATION",
     generated: true,
   },
@@ -133,13 +133,13 @@ export const JOURNAL_SOURCE_DEFINITIONS: Record<string, JournalSourceDefinition>
   },
   FIXED_ASSET_DISPOSAL: {
     sourceType: "FIXED_ASSET_DISPOSAL",
-    href: () => `/finance/fixed-assets`,
+    href: (id) => `/finance/fixed-assets/${id}`,
     labelKey: "accounting.journalEntries.sourceTypes.FIXED_ASSET_DISPOSAL",
     generated: true,
   },
   PREPAID_EXPENSE: {
     sourceType: "PREPAID_EXPENSE",
-    href: () => `/finance/prepaid-expenses`,
+    href: (id) => `/finance/prepaid-expenses/${id}`,
     labelKey: "accounting.journalEntries.sourceTypes.PREPAID_EXPENSE",
     generated: true,
   },

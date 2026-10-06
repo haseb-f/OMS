@@ -26,6 +26,7 @@ export function AccountPicker({
   excludeIds,
   accountType,
   postingOnly,
+  groupOnly,
   items,
   id,
   "aria-label": ariaLabel,
@@ -37,6 +38,8 @@ export function AccountPicker({
   excludeIds?: string[];
   accountType?: ChartOfAccountRow["accountType"];
   postingOnly?: boolean;
+  /** Group accounts only — the parent picker (a child may only hang under a Group, R13 B1). */
+  groupOnly?: boolean;
   /** Skip the async search and filter this already-fetched list instead — for callers (e.g. a line-grid) that prefetch the account list once for the whole page rather than per-row. */
   items?: ChartOfAccountRow[];
   /** Forwarded to the trigger so an external `<Label htmlFor>` / `FormControl` can name it. */
@@ -62,6 +65,7 @@ export function AccountPicker({
                 pageSize: 25,
                 ...(accountType ? { accountType } : {}),
                 ...(postingOnly ? { postingOnly: true } : {}),
+                ...(groupOnly ? { groupOnly: true } : {}),
               };
               const result = await cachedLookup(`accounts:${JSON.stringify(params)}`, () =>
                 accountsService.list(params),

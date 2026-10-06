@@ -51,9 +51,10 @@ Icons · Motion · next-themes.
 - RTL must be real, not cosmetic — verify any new shell/layout component in both
   directions using logical properties (`ps-`/`pe-`/`ms-`/`me-`/`start-`/`end-`),
   never `left`/`right` or `ml-`/`mr-`.
-- Control colour is ONE blue family (R9 corrected, design-system §12.18): deep → medium → light blue
-  (`--toolbar-tone-1…5`), white text, one solid shade per control. Related controls (`ListToolbar`,
-  `SelectorRow`) step through it in logical order (RTL right → left); a standalone control takes the middle
+- Control colour is ONE blue family (R9 corrected, design-system §12.18; direction R13 D-A3): light → medium → deep
+  blue (`--toolbar-tone-1…5`, tone 1 lightest), white text, one solid shade per control. Related controls
+  (`ListToolbar`, `SelectorRow`) step through it in logical order — lightest at the inline-start, darkening toward
+  the inline-end (RTL light on the right → dark on the left; LTR mirrored); a standalone control takes the middle
   step. Primary = solid navy, secondary = soft blue, outline / ghost = blue-tinted. Never a second hue on
   neighbouring controls and never colour a control locally (guarded by `selector-triggers.spec.tsx`).
   Blue is interaction colour, never status; green / red / amber keep their meanings; text inputs and menu

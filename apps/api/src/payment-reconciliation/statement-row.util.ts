@@ -147,6 +147,26 @@ export const FAILED_PROVIDER_STATUSES = [
 
 export type ProviderStatusClass = 'SUCCESS' | 'FAILED' | 'UNKNOWN';
 
+/**
+ * R13 (D2) — a statement row is a PAYMENT, or a REFUND / CHARGEBACK imported for review (never
+ * matched to a claim). A negative amount, or a refund / chargeback provider status, decides it.
+ */
+export type StatementLineKind = 'PAYMENT' | 'REFUND' | 'CHARGEBACK';
+
+export const REFUND_PROVIDER_STATUSES = [
+  'REFUNDED',
+  'PARTIALLY_REFUNDED',
+  'REFUND',
+  'مسترد',
+  'مسترجع',
+];
+export const CHARGEBACK_PROVIDER_STATUSES = [
+  'CHARGEBACK',
+  'CHARGED_BACK',
+  'DISPUTED',
+  'رد المبلغ',
+];
+
 function statusToken(value: string): string {
   return normalizeArabicSearch(value)
     .toUpperCase()
@@ -155,6 +175,21 @@ function statusToken(value: string): string {
 
 const SUCCESS_TOKENS = new Set(SUCCESS_PROVIDER_STATUSES.map(statusToken));
 const FAILED_TOKENS = new Set(FAILED_PROVIDER_STATUSES.map(statusToken));
+const REFUND_TOKENS = new Set(REFUND_PROVIDER_STATUSES.map(statusToken));
+const CHARGEBACK_TOKENS = new Set(
+  CHARGEBACK_PROVIDER_STATUSES.map(statusToken),
+);
+
+/** Line kind from the signed amount and the provider status (a chargeback status wins over a plain refund). */
+export function statementLineKind(
+  signedAmount: number,
+  status: string | null | undefined,
+): StatementLineKind {
+  const token = status?.trim() ? statusToken(status) : '';
+  if (token && CHARGEBACK_TOKENS.has(token)) return 'CHARGEBACK';
+  if (token && REFUND_TOKENS.has(token)) return 'REFUND';
+  return signedAmount < 0 ? 'REFUND' : 'PAYMENT';
+}
 
 export function classifyProviderStatus(
   status: string | null | undefined,
@@ -305,6 +340,8 @@ export function parseStatementDate(
 }
 
 export interface NormalizedStatementRow {
+  /** PAYMENT, or a refund / chargeback row (amount, fee and net are stored positive). */
+  kind: StatementLineKind;
   providerReference: string | null;
   customerName: string | null;
   customerPhone: string | null;
@@ -334,8 +371,10 @@ function cell(
 }
 
 /**
- * Row validation (spec §4): amount > 0, currency exists, date parses,
+ * Row validation (spec §4): amount ≠ 0, currency exists, date parses,
  * fee ≤ amount, and net = amount − fee when both are present (else derived).
+ * A negative amount or a refund / chargeback status makes the row a REFUND /
+ * CHARGEBACK line (R13 D2): its amount, fee and net are kept as magnitudes.
  * `knownCurrencyCodes` is the active currency catalog (upper-cased codes).
  */
 export function normalizeStatementRow(
@@ -347,15 +386,21 @@ export function normalizeStatementRow(
   const errors: string[] = [];
 
   const amountCell = cell(raw, columns, 'amount');
-  const amount = parseStatementAmount(amountCell);
+  const signed = parseStatementAmount(amountCell);
+  const providerStatus = cell(raw, columns, 'providerStatus');
+  const kind = statementLineKind(signed.value ?? 0, providerStatus);
+  const amount = {
+    ...signed,
+    value: signed.value === null ? null : Math.abs(signed.value),
+  };
   if (amount.value === null) {
     errors.push(
       amount.invalid
         ? `Amount "${amountCell}" is not a number.`
         : 'Amount is required.',
     );
-  } else if (amount.value <= 0) {
-    errors.push(`Amount must be greater than zero (got ${amount.value}).`);
+  } else if (amount.value === 0) {
+    errors.push('Amount must not be zero.');
   }
 
   const currencyCode = (
@@ -389,7 +434,9 @@ export function normalizeStatementRow(
   if (net.invalid) errors.push(`Net "${netCell}" is not a number.`);
 
   let feeAmount = fee.value === null ? null : Math.abs(fee.value);
-  let netAmount = net.value;
+  // A refund / chargeback row usually carries a negative net — kept as a magnitude like the amount.
+  let netAmount =
+    net.value !== null && kind !== 'PAYMENT' ? Math.abs(net.value) : net.value;
   if (amount.value !== null && amount.value > 0) {
     if (feeAmount !== null && feeAmount > amount.value) {
       errors.push(
@@ -421,6 +468,7 @@ export function normalizeStatementRow(
   return {
     ok: true,
     row: {
+      kind,
       providerReference: cell(raw, columns, 'providerReference'),
       customerName: cell(raw, columns, 'customerName'),
       customerPhone: cell(raw, columns, 'customerPhone'),
@@ -428,7 +476,7 @@ export function normalizeStatementRow(
       amount: amount.value as number,
       currencyCode,
       transactionDate: transactionDate as string,
-      providerStatus: cell(raw, columns, 'providerStatus'),
+      providerStatus,
       feeAmount,
       netAmount,
     },
@@ -450,17 +498,26 @@ export function statementRowHash(row: NormalizedStatementRow): string {
     row.providerStatus ? statusToken(row.providerStatus) : '',
     row.feeAmount === null ? '' : row.feeAmount.toFixed(2),
     row.netAmount === null ? '' : row.netAmount.toFixed(2),
+    // Appended only for non-payment rows, so every pre-R13 payment row keeps its hash.
+    ...(row.kind === 'PAYMENT' ? [] : [row.kind]),
   ].join('\u001f');
   return createHash('sha256').update(canonical).digest('hex');
 }
 
-/** Dedupe identity, unique per payment method: the provider reference when present, else the content hash. */
+/**
+ * Dedupe identity, unique per payment method: the provider reference when present, else the
+ * content hash. A refund / chargeback often repeats the original payment's reference, so its
+ * reference key is namespaced by kind (`refund:ref:<ref>`) — it never overwrites the payment line.
+ */
 export function statementDedupeKey(
   row: NormalizedStatementRow,
   rowHash: string,
 ): string {
   const reference = row.providerReference?.trim();
-  return reference ? `ref:${reference}` : `hash:${rowHash}`;
+  if (!reference) return `hash:${rowHash}`;
+  return row.kind === 'PAYMENT'
+    ? `ref:${reference}`
+    : `${row.kind.toLowerCase()}:ref:${reference}`;
 }
 
 export const EXCEPTION_REASON = {

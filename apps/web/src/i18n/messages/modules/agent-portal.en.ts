@@ -9,6 +9,7 @@ const agentPortalEn = {
     payouts: "Payouts to agent",
     team: "Team",
     commission: "Commission report",
+    reports: "Sales reports",
   },
   identity: {
     portal: "Agent portal",

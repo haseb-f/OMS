@@ -6,6 +6,7 @@ import {
   parseStatementAmount,
   parseStatementDate,
   statementDedupeKey,
+  statementLineKind,
   statementRowHash,
   statusFromAllocation,
   suggestStatementMapping,
@@ -112,8 +113,7 @@ describe('row validation', () => {
   });
 
   it.each([
-    [{ Amount: '0' }, /greater than zero/],
-    [{ Amount: '-5' }, /greater than zero/],
+    [{ Amount: '0' }, /must not be zero/],
     [{ Amount: 'abc' }, /not a number/],
     [{ Currency: 'XYZ' }, /not defined/],
     [{ Date: '31/02/2026' }, /could not be read/],
@@ -125,6 +125,48 @@ describe('row validation', () => {
     const result = normalizeStatementRow(row(overrides), CONFIG, CODES);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.errors.join(' ')).toMatch(message);
+  });
+
+  it('imports a negative row as a REFUND with positive magnitudes (R13 D2)', () => {
+    const result = normalizeStatementRow(
+      row({ Amount: '-200', Fee: '-5', Net: '-195' }),
+      CONFIG,
+      CODES,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.row).toEqual(
+      expect.objectContaining({
+        kind: 'REFUND',
+        amount: 200,
+        feeAmount: 5,
+        netAmount: 195,
+      }),
+    );
+  });
+
+  it('classifies refund / chargeback statuses and keeps payment keys and hashes unchanged', () => {
+    expect(statementLineKind(100, 'Paid')).toBe('PAYMENT');
+    expect(statementLineKind(100, 'REFUNDED')).toBe('REFUND');
+    expect(statementLineKind(100, 'charged back')).toBe('CHARGEBACK');
+    expect(statementLineKind(-100, 'Chargeback')).toBe('CHARGEBACK');
+    expect(statementLineKind(-100, null)).toBe('REFUND');
+
+    const payment = normalizeStatementRow(row(), CONFIG, CODES);
+    const refund = normalizeStatementRow(
+      row({ Status: 'Refunded' }),
+      CONFIG,
+      CODES,
+    );
+    expect(payment.ok && refund.ok).toBe(true);
+    if (!payment.ok || !refund.ok) return;
+    expect(refund.row.kind).toBe('REFUND');
+    const paymentHash = statementRowHash(payment.row);
+    const refundHash = statementRowHash(refund.row);
+    expect(refundHash).not.toBe(paymentHash);
+    expect(statementDedupeKey(payment.row, paymentHash)).toBe('ref:TX-1');
+    // Same provider reference as the payment — never collides with it.
+    expect(statementDedupeKey(refund.row, refundHash)).toBe('refund:ref:TX-1');
   });
 
   it('derives net from fee and fee from net', () => {

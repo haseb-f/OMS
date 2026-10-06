@@ -53,12 +53,39 @@ describe("selector triggers keep one shared colour (design-system §12.14 / §12
       expect(scope).toMatch(/--selector-active:\s*var\(--toolbar-tone-3-active\);/);
     }
   });
+
+  it("orders the ramp light → deep: tone 1 (inline-start) is the lightest, tone 5 the deepest (D-A3)", () => {
+    const css = readFileSync(join(SRC, "app/globals.css"), "utf8");
+    const darkStart = css.indexOf(".dark {");
+    const luminance = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => {
+        const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+        return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const blue = css.match(/--ramp-blue:\s*(#[0-9a-f]{6});/i)?.[1];
+    const navy = css.match(/--ramp-navy:\s*(#[0-9a-f]{6});/i)?.[1];
+    expect(blue && navy && luminance(blue) > luminance(navy)).toBe(true);
+    for (const scope of [css.slice(0, darkStart), css.slice(darkStart)]) {
+      // Each tone mixes the lighter ramp blue into a deep navy; a plain colour is the navy itself.
+      const blueShare = [1, 2, 3, 4, 5].map((n) => {
+        const value = scope.match(new RegExp(`--toolbar-tone-${n}:\\s*([^;]+);`))?.[1] ?? "";
+        expect(value).not.toBe("");
+        return Number(value.match(/var\(--ramp-blue\)\s*(\d+)%/)?.[1] ?? 0);
+      });
+      for (let i = 1; i < blueShare.length; i += 1) {
+        expect(blueShare[i]).toBeLessThan(blueShare[i - 1]);
+      }
+      expect(blueShare[0]).toBeGreaterThan(blueShare[4]);
+    }
+  });
 });
 
 describe("SelectorRow", () => {
   afterEach(cleanup);
 
-  it("steps its selector controls through the tones in logical order", () => {
+  it("steps its selector controls through the tones in logical order (tone 1 = lightest at the inline-start)", () => {
     const { container } = render(
       <SelectorRow>
         <button data-select-trigger="" />

@@ -6,6 +6,7 @@ import { JournalEntryActivityService } from '../../journal-entries/activities/jo
 import { AccountingPeriodsService } from '../fiscal-periods/accounting-periods.service';
 import { FiscalYearsService } from '../fiscal-periods/fiscal-years.service';
 import { PostingLine, PostingProvider } from './posting-provider.interface';
+import { assertPostableAccounts } from './postable-accounts';
 import {
   findCurrencyMismatches,
   readAccountCurrencyPolicy,
@@ -180,10 +181,10 @@ export class PostingEngineService {
         ? result.lines
         : this.applyExchangeRate(result.lines, result.exchangeRate);
       this.assertBalanced(lines);
-      await this.assertPostableAccounts(
-        lines,
+      await assertPostableAccounts(
         client,
-        sourceType === YEAR_CLOSING_SOURCE_TYPE,
+        lines.map((line) => line.accountId),
+        { closingEntry: sourceType === YEAR_CLOSING_SOURCE_TYPE },
       );
       await this.assertPartnersRequired(lines, client);
       const currencyMismatches = await this.assertAccountCurrencies(
@@ -486,44 +487,6 @@ export class PostingEngineService {
       totalDebit: lines.reduce((sum, l) => sum + (l.debit ?? 0), 0),
       totalCredit: lines.reduce((sum, l) => sum + (l.credit ?? 0), 0),
     };
-  }
-
-  /**
-   * A generated entry may only hit posting (leaf) accounts that still exist
-   * — the same rule manual journals already enforce. A mapping that points
-   * at a header account would otherwise post "into" a group, where the
-   * Trial Balance can no longer show it against a real account.
-   */
-  private async assertPostableAccounts(
-    lines: PostingLine[],
-    client: Prisma.TransactionClient,
-    closingEntry = false,
-  ) {
-    const accountIds = [...new Set(lines.map((line) => line.accountId))];
-    const accounts = await client.chartOfAccount.findMany({
-      where: { id: { in: accountIds } },
-      select: {
-        id: true,
-        code: true,
-        name: true,
-        allowsPosting: true,
-        deletedAt: true,
-      },
-    });
-    const byId = new Map(accounts.map((account) => [account.id, account]));
-    for (const accountId of accountIds) {
-      const account = byId.get(accountId);
-      if (!account || (account.deletedAt && !closingEntry)) {
-        throw new BadRequestException(
-          'A posting rule points to an account that no longer exists — review Accounting Settings mappings.',
-        );
-      }
-      if (!account.allowsPosting && !closingEntry) {
-        throw new BadRequestException(
-          `Account ${account.code} ${account.name} is a group (header) account and cannot receive postings — map a posting account under it in Accounting Settings.`,
-        );
-      }
-    }
   }
 
   /**
