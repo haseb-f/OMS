@@ -274,6 +274,17 @@ No functional defect was found in journeys A–F, the cross-cutting rules or the
 | O-2 | Low (pre-existing convention) | Activity-log descriptions are English server text in the Arabic UI, including the new landed-cost split line ("… posted — 18 capitalized into inventory, 12 to cost of goods sold …").                                                                                                                                                                                                                                                                              | `apps/api/src/landed-cost/landed-cost-documents.service.ts:439`; screenshot [mobile-ar-13b-landed-cost-bottom](evidence/browser/mobile-ar-13b-landed-cost-bottom.png) |
 | O-3 | Info (demo data)              | Setup on `oms_r13_demo`: `PostingSettings.assemblyCostAccountId` was empty and is now the new postable EXPENSE account **549 "[R13-DEMO] Applied assembly cost"** (created through the API). The first exploratory run (WB0LIY) had temporarily used **521 Shipping / Carrier**: its two assembly orders credited 5.00 each to 521 (one reversed → net 5.00 on 521 in demo data).                                                                                   | demo database only                                                                                                                                                    |
 
+## Covered by DB integration specs instead of the journeys
+
+Several items below the journeys did not exercise are covered by the serial integration specs run in the gates:
+agent-owned assembly and mixed-owner refusal (`assembly/assembly.integration.serial.spec.ts`), agent kit dispatch/return,
+store-order kit invoice, purchase kit refusal, foreign-currency landed cost, landed cost vs purchase race (H1)
+(`sales/kit-fulfillment.integration.serial.spec.ts`), unit conversion / fractional refusals and recipe codes (assembly spec),
+damage/expired/count postings, transfers and reservation guards, concurrent last-unit delivery
+(`inventory/inventory-hardening.integration.serial.spec.ts`), injected-fault detection of every invariant
+(`inventory/integrity/inventory-integrity.integration.serial.spec.ts`). Production data was surveyed read-only through the
+API (`evidence/prod/r13-prod-survey-pre.md`, migration.md §4).
+
 ## Not verified (scope of this acceptance)
 
 - Production / Supabase, the production migration path and any non-local host (owner gate O6).

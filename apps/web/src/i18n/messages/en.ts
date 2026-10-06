@@ -2435,6 +2435,8 @@ const en = {
       PRODUCT_ASSEMBLED_NOT_STOCKED: "An assembled product must be stock-tracked.",
       PRODUCT_SUPPLY_METHOD_LOCKED:
         "The supply method cannot change to or from Kit while the product has stock or reservations.",
+      PRODUCT_TRACKING_LOCKED:
+        "Stock tracking cannot be turned off (or the item made a service) while the product has stock or reservations — issue the stock or release the reservations first.",
       PRODUCT_OWNER_LOCKED:
         "The owner cannot change once the product has stock movements, orders or recipes.",
     },

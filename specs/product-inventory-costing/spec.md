@@ -185,6 +185,12 @@ product · F investor-eligible product. Evidence in `verification.md`.
   kit holds no stock — default: refuse; owner to decide whether such returns go to a component or a write-off.
 - **O8** Physical count confirm applies the counted − snapshot difference to the locked current on-hand (sales made after the
   count was opened are preserved) — default kept from the existing behaviour.
+- **O9 (accounting decision, NOT taken)** Purchase return valuation (pre-existing, unchanged by R13): the GL credits Inventory
+  at the return's net price while the sub-ledger removes the units at the moving average, so each return leaves a
+  qty × (return price − average) gap that the integrity report shows under I6. Options: (a) relieve inventory at average and
+  post the difference to a price-difference / COGS account (Odoo-style AVCO), or (b) remove the units at the return price from
+  the average pool. Needs the owner/accountant to choose; until then the purchase return + re-bill correction path named in
+  §4 carries this known gap (visible in I6), and additional later charges use Landed Cost, which reconciles exactly.
 
 ### Decisions taken during implementation (recorded)
 
@@ -197,6 +203,14 @@ product · F investor-eligible product. Evidence in `verification.md`.
 - Cost redaction: `currentCost`/`lastCostUpdate`, invoice `unitCost`, kit snapshot costs, recipe/assembly direct-cost estimates and
   assembly costs are returned only with the existing cost-visibility right; `purchasePrice` (catalog/expected price) is not cost.
 - Assembly idempotency keys are scoped to the user who created the order.
+- Turning stock tracking off (or making the item a SERVICE) is refused while the product has stock or reservations
+  (`PRODUCT_TRACKING_LOCKED`), like the KIT switch — a configuration change can never strand stock or open reservations.
+- Recipe versions take effect when activated (`effectiveFrom` = activation time); future-dated versions are not supported.
+- Investor eligibility is allowed for company-owned, sellable, ACTIVE **PRODUCT** items of any supply method (purchased,
+  assembled or kit); allocation follows the product sold, so a kit's funded units are its kit sales, not its components.
+- Duplicate protection by idempotency key covers document-driven movements (invoices, returns, orders, assembly, store-order
+  invoices, agent dispatch/returns, physical count). Manual inventory forms (adjustment, transfer, damage, expired, opening
+  balance) are single user actions without a key: a double submit is prevented by the form, not by the ledger (limitation).
 
 ## 11. Out of scope (stated, not hidden)
 

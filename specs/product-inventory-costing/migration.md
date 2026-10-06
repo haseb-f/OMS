@@ -82,6 +82,21 @@ integration spec cleans documents + journals + movements in one transaction to a
 | Investment-eligible items the new rule blocks |                      0 | (Grandfathered anyway — existing links are never changed.)                                                                                                                                            |
 | Agent stock in company journals               |                      0 | —                                                                                                                                                                                                     |
 
+### Production survey (read-only through the API, 2026-10-06)
+
+Direct Production database reads are not used; `scripts/acceptance/r13/r13-prod-survey.mjs` (QA admin, login + GET only)
+reproduced the review list on Production data — `evidence/prod/r13-prod-survey-pre.{json,md}`:
+
+| Item                                     |                                                                                                                                                                                Production |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
+| Products                                 |                                                                                                       41 (PURCHASE_AND_SALE 29, SALES_ONLY 3, SERVICE 6, PURCHASE_ONLY 2, MANUFACTURED 1) |
+| UNCLASSIFIED `itemType`                  |                                                                                                                                                                                         0 |
+| SERVICE but stock-tracked                |                                                                                                                                                                                         0 |
+| Duplicate barcodes                       |                                                                                                                                                      0 → the unique index will be created |
+| Company stock without cost               |                                                                                                                                                                                         0 |
+| Investment flag the new rule would block |                                                                                                                                                                                         0 |
+| MANUFACTURED → ASSEMBLED                 | 1: `PRD-2026-000041` «كومبو بوكس اهم 5000 كلمة», no legacy components (no recipe). Behaviour unchanged (stocked item). Owner to decide whether it should be a KIT (sold from components). |
+
 ## 5. Material historical corrections for review (deliberately NOT changed)
 
 Each needs an explicit owner decision; R13 only reports them (I6 metrics, dry run).

@@ -80,6 +80,9 @@ describe("product rule mapping", () => {
     expect(
       productRuleMessage(apiError(409, { code: "PRODUCT_SUPPLY_METHOD_LOCKED" }), translate),
     ).toBe("«products.rules.PRODUCT_SUPPLY_METHOD_LOCKED»");
+    expect(productRuleMessage(apiError(409, { code: "PRODUCT_TRACKING_LOCKED" }), translate)).toBe(
+      "«products.rules.PRODUCT_TRACKING_LOCKED»",
+    );
     expect(productRuleMessage(apiError(400, { code: "VALIDATION_ERROR" }), translate)).toBeNull();
   });
 

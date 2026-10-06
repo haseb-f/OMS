@@ -388,7 +388,7 @@ export class AccountMappingService {
   }
 
   /**
-   * R13 � the credit side of an assembly order's approved direct cost
+   * R13 — the credit side of an assembly order's approved direct cost
    * (labour / overhead absorbed into the finished item). Global default only;
    * fails closed with a named configuration error, never a guessed account.
    */

@@ -499,6 +499,12 @@ export class ProductsService {
       attributeData.supplyMethod !== existing.supplyMethod &&
       (attributeData.supplyMethod === ProductSupplyMethod.KIT ||
         existing.supplyMethod === ProductSupplyMethod.KIT);
+    // Turning stock tracking off (directly, or by becoming a SERVICE) would strand the remaining stock and reservations:
+    // later sales would move nothing and post no COGS. Same lock as the KIT switch.
+    const trackingLocking =
+      attributeData !== undefined &&
+      existing.isInventoryItem &&
+      !attributeData.isInventoryItem;
 
     const ownerChanging =
       dto.ownerAgentId !== undefined &&
@@ -541,7 +547,10 @@ export class ProductsService {
     try {
       return await this.prisma.$transaction(async (tx) => {
         if (ownerChanging) await this.assertOwnerUnlocked(tx, id);
-        if (supplyMethodLocking) await this.assertSupplyMethodUnlocked(tx, id);
+        if (supplyMethodLocking)
+          await this.assertStockModelUnlocked(tx, id, 'SUPPLY_METHOD');
+        else if (trackingLocking)
+          await this.assertStockModelUnlocked(tx, id, 'TRACKING');
         const product = await tx.product.update({
           where: { id },
           data: {
@@ -819,13 +828,14 @@ export class ProductsService {
   }
 
   /**
-   * KIT is a different stock model (no balance of its own): switching to or
-   * from it is refused while the product still has on-hand stock or reserved
-   * quantity, computed from the movement ledger under the product row lock.
+   * KIT is a different stock model (no balance of its own), and an untracked item moves no stock: switching to or from
+   * KIT, or turning stock tracking off, is refused while the product still has on-hand stock or reserved quantity,
+   * computed from the movement ledger under the product row lock.
    */
-  private async assertSupplyMethodUnlocked(
+  private async assertStockModelUnlocked(
     tx: Prisma.TransactionClient,
     productId: string,
+    change: 'SUPPLY_METHOD' | 'TRACKING',
   ) {
     await tx.$queryRaw`SELECT id FROM products WHERE id = ${productId}::uuid FOR UPDATE`;
     const onHand = await tx.inventoryMovement.aggregate({
@@ -837,15 +847,24 @@ export class ProductsService {
       _sum: { quantity: true },
     });
     if (
-      (onHand._sum.quantity ?? 0) !== 0 ||
-      (reserved._sum.quantity ?? 0) !== 0
+      (onHand._sum.quantity ?? 0) === 0 &&
+      (reserved._sum.quantity ?? 0) === 0
     ) {
-      throw new ConflictException({
-        code: 'PRODUCT_SUPPLY_METHOD_LOCKED',
-        message:
-          'لا يمكن التحويل من أو إلى «مجموعة» (Kit) ما دام للمنتج رصيد أو حجوزات — The supply method cannot change to or from Kit while the product has stock on hand or reservations.',
-      });
+      return;
     }
+    throw new ConflictException(
+      change === 'SUPPLY_METHOD'
+        ? {
+            code: 'PRODUCT_SUPPLY_METHOD_LOCKED',
+            message:
+              'لا يمكن التحويل من أو إلى «مجموعة» (Kit) ما دام للمنتج رصيد أو حجوزات — The supply method cannot change to or from Kit while the product has stock on hand or reservations.',
+          }
+        : {
+            code: 'PRODUCT_TRACKING_LOCKED',
+            message:
+              'لا يمكن إيقاف تتبع المخزون أو تحويل المنتج إلى خدمة ما دام له رصيد أو حجوزات — أخرج الرصيد أو حرّر الحجوزات أولًا — Stock tracking cannot be turned off (or the item made a service) while the product has stock on hand or reservations.',
+          },
+    );
   }
 
   /** The hard rules between the independent attributes (422 with the rule's code). */

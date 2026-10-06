@@ -148,7 +148,7 @@ export class RecipeService {
       if (code !== 'UNIT_CONVERSION_MISSING') throw error;
       throw unprocessable(
         'RECIPE_UNIT_CONVERSION_MISSING',
-        `${line.componentProduct.sku} ${line.componentProduct.name}: no unit conversion exists between the recipe unit (${line.unit.name}) and the component's stock unit � add one under Unit Conversions first.`,
+        `${line.componentProduct.sku} ${line.componentProduct.name}: no unit conversion exists between the recipe unit (${line.unit.name}) and the component's stock unit — add one under Unit Conversions first.`,
         {
           componentProductId: line.componentProductId,
           fromUnitId: line.unitId,

@@ -333,6 +333,45 @@ describe('Products R13 — attributes, barcode, eligibility, locks', () => {
       });
     });
 
+    it('PRODUCT_TRACKING_LOCKED: tracking cannot be turned off, nor the item made a service, while stock is on hand', async () => {
+      const product = await create('tracked-with-stock');
+      await prisma.inventoryMovement.create({
+        data: {
+          movementNumber: `MV-R13-${suffix}-3`,
+          type: InventoryMovementType.OPENING_BALANCE,
+          warehouseId,
+          productId: product.id,
+          quantity: 3,
+          quantityBefore: 0,
+          quantityAfter: 3,
+        },
+      });
+      for (const change of [
+        { isInventoryItem: false },
+        { itemType: ItemType.SERVICE },
+      ]) {
+        await expect(service.update(product.id, change)).rejects.toMatchObject({
+          status: 409,
+          response: body({ code: 'PRODUCT_TRACKING_LOCKED' }),
+        });
+      }
+      const unchanged = await prisma.product.findUniqueOrThrow({
+        where: { id: product.id },
+      });
+      expect(unchanged).toMatchObject({
+        isInventoryItem: true,
+        itemType: 'PRODUCT',
+      });
+    });
+
+    it('allows turning tracking off while the product has no stock', async () => {
+      const product = await create('tracked-empty');
+      const untracked = await service.update(product.id, {
+        isInventoryItem: false,
+      });
+      expect(untracked).toMatchObject({ isInventoryItem: false });
+    });
+
     it('a reservation alone also locks the switch', async () => {
       const product = await create('reserved');
       await prisma.inventoryMovement.create({
