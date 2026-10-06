@@ -39,9 +39,13 @@ describe("createIdempotencyKey", () => {
     expect(createIdempotencyKey()).toBe("uuid-1");
   });
 
-  it("falls back to a unique random key without randomUUID", () => {
-    vi.stubGlobal("crypto", {});
+  it("falls back to a v4 UUID from getRandomValues without randomUUID (never Math.random)", () => {
+    const real = globalThis.crypto;
+    vi.stubGlobal("crypto", { getRandomValues: real.getRandomValues.bind(real) });
     const keys = new Set(Array.from({ length: 50 }, () => createIdempotencyKey()));
     expect(keys.size).toBe(50);
+    for (const key of keys) {
+      expect(key).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    }
   });
 });
