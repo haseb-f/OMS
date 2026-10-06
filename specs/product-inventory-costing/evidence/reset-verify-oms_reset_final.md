@@ -1,0 +1,244 @@
+# R13 reset verification — database "oms_reset_final"
+
+2026-10-06T13:55:53.278Z · overall **WARN**
+
+| Check                                                 | Status | Detail                                                                                                       |
+| ----------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------ |
+| every table classified                                | PASS   | 219 tables                                                                                                   |
+| DELETE tables empty                                   | PASS   | 108 tables at 0                                                                                              |
+| journal entries = opening balance (+ reversal) only   | PASS   | 0 other entries; kept: JV-2026-000020 OPENING_BALANCE REVERSED 200.00; JV-2026-000021 MANUAL POSTED 200.00   |
+| trial balance balanced                                | PASS   | debit 400.00 = credit 400.00; unbalanced entries 0                                                           |
+| product current cost cleared                          | PASS   | 0 products still carry a cost                                                                                |
+| no unreferenced attachment records                    | PASS   | 0                                                                                                            |
+| no activity-log rows of deleted entities              | PASS   | 0                                                                                                            |
+| lead timeline consistent with leads                   | WARN   | 2 orphan rows (see before/after comparison)                                                                  |
+| sync sources point at no deleted import job           | PASS   | 0                                                                                                            |
+| agent append-only guard triggers enabled              | PASS   | agent_ledger_entries_no_truncate_trg=O, agent_ledger_entries_guard_trg=O, agent_commission_lines_guard_trg=O |
+| fiscal year FY2026-Import-Test keeps its opening      | PASS   | 1 opening entry                                                                                              |
+| master / configuration rows identical to the snapshot | PASS   | KEEP + RESET-FIELD tables identical (counts and id fingerprints)                                             |
+| reset added no lead-timeline orphans                  | PASS   | 2 before → 2 after                                                                                           |
+| number series counters unchanged (no number reuse)    | PASS   | 55 series                                                                                                    |
+
+## Row counts
+
+| Table                              | Class       | Before | After |
+| ---------------------------------- | ----------- | -----: | ----: |
+| _ClassificationSuggestedReasons    | KEEP        |      0 |     0 |
+| _prisma_migrations                 | KEEP        |    127 |   127 |
+| accounting_periods                 | KEEP        |     12 |    12 |
+| accrued_expenses                   | DELETE      |      0 |     0 |
+| agent_agreements                   | KEEP        |    417 |   417 |
+| agent_commission_lines             | DELETE      |    157 |     0 |
+| agent_ledger_entries               | DELETE      |   1517 |     0 |
+| agent_order_returns                | DELETE      |    108 |     0 |
+| agent_payment_destinations         | KEEP        |    162 |   162 |
+| agent_payout_allocations           | DELETE      |    113 |     0 |
+| agent_payout_attachments           | DELETE      |     64 |     0 |
+| agent_payouts                      | DELETE      |    152 |     0 |
+| agent_product_commission_overrides | KEEP        |     12 |    12 |
+| agent_shipping_rates               | KEEP        |    389 |   389 |
+| agents                             | KEEP        |    610 |   610 |
+| analytic_accounts                  | KEEP        |     24 |    24 |
+| analytic_distribution_lines        | DELETE      |      1 |     0 |
+| analytic_plans                     | KEEP        |     10 |    10 |
+| assembly_order_lines               | DELETE      |      1 |     0 |
+| assembly_orders                    | DELETE      |      1 |     0 |
+| attachments                        | PARTIAL     |    145 |     0 |
+| bank_transactions                  | DELETE      |      5 |     0 |
+| branches                           | KEEP        |      3 |     3 |
+| capital_contribution_attachments   | DELETE      |      0 |     0 |
+| capital_contributions              | DELETE      |     17 |     0 |
+| capital_returns                    | DELETE      |      4 |     0 |
+| carrier_charge_imports             | DELETE      |      9 |     0 |
+| carrier_charges                    | DELETE      |     33 |     0 |
+| chart_of_accounts                  | KEEP        |   1196 |  1196 |
+| cities                             | KEEP        |      8 |     8 |
+| commission_adjustments             | DELETE      |      0 |     0 |
+| commission_calculations            | DELETE      |      0 |     0 |
+| commission_plan_assignments        | KEEP        |      0 |     0 |
+| commission_plan_tiers              | KEEP        |      0 |     0 |
+| commission_plans                   | KEEP        |      0 |     0 |
+| companies                          | KEEP        |      2 |     2 |
+| company_memberships                | KEEP        |     26 |    26 |
+| compensation_revision_lines        | KEEP        |      0 |     0 |
+| compensation_revisions             | KEEP        |      0 |     0 |
+| cost_allocation_results            | DELETE      |      0 |     0 |
+| cost_allocation_rules              | KEEP        |      0 |     0 |
+| cost_allocation_runs               | DELETE      |      0 |     0 |
+| cost_centers                       | KEEP        |      4 |     4 |
+| cost_component_activities          | KEEP        |      0 |     0 |
+| cost_components                    | KEEP        |     11 |    11 |
+| countries                          | KEEP        |    248 |   248 |
+| currencies                         | KEEP        |    809 |   809 |
+| customer_classifications           | KEEP        |      2 |     2 |
+| customer_groups                    | KEEP        |      2 |     2 |
+| customer_profiles                  | KEEP        |   6742 |  6742 |
+| departments                        | KEEP        |      4 |     4 |
+| direct_fulfillment_cost_rules      | KEEP        |      0 |     0 |
+| distribution_payment_attachments   | DELETE      |      0 |     0 |
+| distribution_payments              | DELETE      |      8 |     0 |
+| employee_profiles                  | KEEP        |      0 |     0 |
+| exchange_rate_overrides            | KEEP        |    291 |   291 |
+| exchange_rates                     | KEEP        |    809 |   809 |
+| expenses                           | DELETE      |      3 |     0 |
+| financial_transaction_activities   | DELETE      |   3023 |     0 |
+| financial_transaction_allocations  | DELETE      |    193 |     0 |
+| financial_transactions             | DELETE      |   3227 |     0 |
+| fiscal_years                       | KEEP        |      1 |     1 |
+| fixed_asset_depreciation_periods   | DELETE      |     72 |     0 |
+| fixed_assets                       | DELETE      |      7 |     0 |
+| fx_revaluation_runs                | DELETE      |      0 |     0 |
+| fx_sync_runs                       | KEEP        |    408 |   408 |
+| fx_sync_settings                   | KEEP        |      1 |     1 |
+| global_lookup_audits               | KEEP        |    330 |   330 |
+| import_job_errors                  | DELETE      |    400 |     0 |
+| import_jobs                        | DELETE      |   5651 |     0 |
+| import_mapping_templates           | KEEP        |      1 |     1 |
+| inventory_movement_activities      | DELETE      |    744 |     0 |
+| inventory_movements                | DELETE      |    744 |     0 |
+| inventory_settings                 | KEEP        |      1 |     1 |
+| investment_opportunities           | CONDITIONAL |     10 |     0 |
+| investor_distributions             | DELETE      |      8 |     0 |
+| investor_ledger_entries            | DELETE      |     29 |     0 |
+| investor_portal_accounts           | KEEP        |      1 |     1 |
+| investor_portal_activation_tokens  | KEEP        |      1 |     1 |
+| investor_profiles                  | KEEP        |    124 |   124 |
+| investor_subscriptions             | DELETE      |     17 |     0 |
+| investor_types                     | KEEP        |      5 |     5 |
+| job_titles                         | KEEP        |      9 |     9 |
+| journal_entries                    | PARTIAL     |   5694 |     2 |
+| journal_entry_activities           | PARTIAL     |   4741 |     3 |
+| journal_entry_lines                | PARTIAL     |  12629 |     4 |
+| journal_entry_templates            | KEEP        |      0 |     0 |
+| journals                           | KEEP        |      5 |     5 |
+| kpi_evaluation_audit_logs          | DELETE      |      0 |     0 |
+| kpi_evaluation_items               | DELETE      |      0 |     0 |
+| kpi_evaluations                    | DELETE      |      0 |     0 |
+| kpi_template_assignments           | KEEP        |      0 |     0 |
+| kpi_template_items                 | KEEP        |      0 |     0 |
+| kpi_templates                      | KEEP        |      0 |     0 |
+| landed_cost_activities             | DELETE      |     15 |     0 |
+| landed_cost_allocations            | DELETE      |      5 |     0 |
+| landed_cost_documents              | DELETE      |      5 |     0 |
+| landed_cost_lines                  | DELETE      |      5 |     0 |
+| languages                          | KEEP        |      2 |     2 |
+| lead_activities                    | CONDITIONAL |   1929 |  1929 |
+| lead_assignments                   | CONDITIONAL |    576 |   576 |
+| lead_distribution_policies         | KEEP        |   1373 |  1373 |
+| lead_distribution_states           | KEEP        |    846 |   846 |
+| lead_follow_up_types               | KEEP        |      4 |     4 |
+| lead_follow_ups                    | CONDITIONAL |      9 |     9 |
+| lead_notes                         | CONDITIONAL |      0 |     0 |
+| lead_views                         | CONDITIONAL |    134 |   134 |
+| leads                              | CONDITIONAL |    671 |   671 |
+| master_data_activity_logs          | PARTIAL     |  45553 | 37719 |
+| no_purchase_reasons                | KEEP        |      4 |     4 |
+| number_series                      | KEEP        |     55 |    55 |
+| opportunity_expense_attachments    | DELETE      |      0 |     0 |
+| opportunity_expenses               | DELETE      |      4 |     0 |
+| opportunity_products               | CONDITIONAL |     11 |     0 |
+| opportunity_reallocations          | DELETE      |      0 |     0 |
+| opportunity_sale_allocations       | DELETE      |      0 |     0 |
+| opportunity_settlements            | DELETE      |      0 |     0 |
+| order_items                        | DELETE      |      0 |     0 |
+| partner_phone_keys                 | KEEP        |   6694 |  6694 |
+| partner_role_assignments           | KEEP        |   7923 |  7923 |
+| partners                           | KEEP        |   8621 |  8621 |
+| password_reset_tokens              | KEEP        |      1 |     1 |
+| payment_activities                 | DELETE      |   5239 |     0 |
+| payment_attachments                | DELETE      |     80 |     0 |
+| payment_matches                    | DELETE      |    982 |     0 |
+| payment_methods                    | KEEP        |    824 |   824 |
+| payment_notes                      | DELETE      |      1 |     0 |
+| payment_receipt_links              | DELETE      |   2404 |     0 |
+| payment_settlement_lines           | DELETE      |   1567 |     0 |
+| payment_settlements                | DELETE      |    297 |     0 |
+| payment_sources                    | KEEP        |     15 |    15 |
+| payment_statement_imports          | DELETE      |   1020 |     0 |
+| payment_statement_lines            | DELETE      |  41721 |     0 |
+| payment_terms                      | KEEP        |      1 |     1 |
+| payments                           | DELETE      |   4813 |     0 |
+| payroll_components                 | KEEP        |      0 |     0 |
+| payroll_line_components            | DELETE      |      0 |     0 |
+| payroll_lines                      | DELETE      |      0 |     0 |
+| payroll_runs                       | DELETE      |      0 |     0 |
+| permissions                        | KEEP        |    536 |   536 |
+| physical_count_lines               | DELETE      |      0 |     0 |
+| physical_counts                    | DELETE      |      0 |     0 |
+| posting_settings                   | KEEP        |      1 |     1 |
+| prepaid_expenses                   | DELETE      |      6 |     0 |
+| prepaid_recognitions               | DELETE      |     27 |     0 |
+| product_activities                 | KEEP        |    170 |   170 |
+| product_attachments                | KEEP        |      0 |     0 |
+| product_brands                     | KEEP        |      2 |     2 |
+| product_categories                 | KEEP        |    461 |   461 |
+| product_components                 | KEEP        |      1 |     1 |
+| product_cost_histories             | DELETE      |     49 |     0 |
+| product_cost_snapshots             | DELETE      |     26 |     0 |
+| product_recipe_lines               | KEEP        |     23 |    23 |
+| product_recipes                    | KEEP        |     13 |    13 |
+| product_variants                   | KEEP        |      0 |     0 |
+| products                           | RESET-FIELD |    799 |   799 |
+| profit_calculation_investor_shares | DELETE      |     10 |     0 |
+| profit_calculations                | DELETE      |      5 |     0 |
+| profit_distributions               | DELETE      |      4 |     0 |
+| projects                           | KEEP        |      0 |     0 |
+| purchase_invoice_activities        | DELETE      |    117 |     0 |
+| purchase_invoice_items             | DELETE      |     43 |     0 |
+| purchase_invoices                  | DELETE      |     54 |     0 |
+| purchase_order_activities          | DELETE      |     42 |     0 |
+| purchase_order_items               | DELETE      |     18 |     0 |
+| purchase_orders                    | DELETE      |     18 |     0 |
+| purchase_quotation_activities      | DELETE      |     54 |     0 |
+| purchase_quotation_items           | DELETE      |     14 |     0 |
+| purchase_quotations                | DELETE      |     14 |     0 |
+| purchase_return_activities         | DELETE      |     12 |     0 |
+| purchase_return_items              | DELETE      |      3 |     0 |
+| purchase_returns                   | DELETE      |      3 |     0 |
+| receiving_accounts                 | KEEP        |    276 |   276 |
+| sales_invoice_activities           | DELETE      |    134 |     0 |
+| sales_invoice_items                | DELETE      |     67 |     0 |
+| sales_invoices                     | DELETE      |     92 |     0 |
+| sales_order_activities             | DELETE      |      0 |     0 |
+| sales_order_attachments            | DELETE      |      0 |     0 |
+| sales_order_document_activities    | DELETE      |     68 |     0 |
+| sales_order_document_items         | DELETE      |     18 |     0 |
+| sales_order_documents              | DELETE      |     17 |     0 |
+| sales_order_notes                  | DELETE      |      0 |     0 |
+| sales_order_status_history         | DELETE      |      0 |     0 |
+| sales_orders                       | DELETE      |      0 |     0 |
+| sales_quotation_activities         | DELETE      |     65 |     0 |
+| sales_quotation_items              | DELETE      |     23 |     0 |
+| sales_quotations                   | DELETE      |     23 |     0 |
+| sales_return_activities            | DELETE      |     35 |     0 |
+| sales_return_items                 | DELETE      |      9 |     0 |
+| sales_returns                      | DELETE      |      9 |     0 |
+| sales_targets                      | KEEP        |      0 |     0 |
+| sales_team_members                 | KEEP        |     33 |    33 |
+| sales_teams                        | KEEP        |     17 |    17 |
+| shipment_attachments               | DELETE      |      1 |     0 |
+| shipments                          | DELETE      |   1100 |     0 |
+| shipping_companies                 | KEEP        |     60 |    60 |
+| shipping_methods                   | KEEP        |      5 |     5 |
+| shipping_statuses                  | KEEP        |      7 |     7 |
+| status_definitions                 | KEEP        |     43 |    43 |
+| status_history                     | CONDITIONAL |    712 |   712 |
+| store_order_activities             | DELETE      |   1665 |     0 |
+| store_order_amendments             | DELETE      |    163 |     0 |
+| store_order_fulfillment_costs      | DELETE      |      0 |     0 |
+| store_order_items                  | DELETE      |    883 |     0 |
+| store_order_receipts               | DELETE      |     54 |     0 |
+| store_orders                       | DELETE      |   4243 |     0 |
+| supplier_groups                    | KEEP        |      2 |     2 |
+| supplier_profiles                  | KEEP        |     23 |    23 |
+| sync_source_configs                | RESET-FIELD |      2 |     2 |
+| taxes                              | KEEP        |      3 |     3 |
+| transaction_types                  | KEEP        |     22 |    22 |
+| unit_conversions                   | KEEP        |      0 |     0 |
+| units                              | KEEP        |    430 |   430 |
+| user_permissions                   | KEEP        |   8827 |  8827 |
+| users                              | KEEP        |   1177 |  1177 |
+| warehouse_locations                | KEEP        |      2 |     2 |
+| warehouses                         | KEEP        |     88 |    88 |
+| workflow_approvals                 | CONDITIONAL |      0 |     0 |
+| workflow_transitions               | KEEP        |     21 |    21 |
