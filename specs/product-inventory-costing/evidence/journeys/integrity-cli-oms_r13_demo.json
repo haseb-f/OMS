@@ -1,0 +1,155 @@
+{
+  "database": "oms_r13_demo",
+  "host": "localhost",
+  "generatedAt": "2026-10-06T06:58:25.054Z",
+  "durationMs": 4740,
+  "filter": {
+    "productIds": null,
+    "warehouseId": null
+  },
+  "status": "WARN",
+  "summary": {
+    "PASS": 6,
+    "WARN": 1,
+    "FAIL": 0
+  },
+  "invariants": [
+    {
+      "id": "I1",
+      "title": "Movement chain per product and warehouse",
+      "status": "PASS",
+      "checked": 722,
+      "violationCount": 0,
+      "violations": [],
+      "truncated": false,
+      "notes": [],
+      "metrics": {
+        "movements": 722,
+        "chains": 204
+      }
+    },
+    {
+      "id": "I2",
+      "title": "No negative stock; reserved within on-hand",
+      "status": "PASS",
+      "checked": 204,
+      "violationCount": 0,
+      "violations": [],
+      "truncated": false,
+      "notes": [],
+      "metrics": {
+        "balances": 204
+      }
+    },
+    {
+      "id": "I3",
+      "title": "No duplicate document-line movements",
+      "status": "PASS",
+      "checked": 507,
+      "violationCount": 0,
+      "violations": [],
+      "truncated": false,
+      "notes": [
+        "Keyed (R13) movements are protected by a unique index; a duplicate key is a FAIL.",
+        "Un-keyed legacy document movements repeated more often than the document has matching lines are listed as WARN for owner review — never auto-corrected."
+      ],
+      "metrics": {
+        "keyedMovements": 75,
+        "legacyDocumentMovements": 432
+      }
+    },
+    {
+      "id": "I4",
+      "title": "Assembly orders: cost, consumption and journal",
+      "status": "PASS",
+      "checked": 6,
+      "violationCount": 0,
+      "violations": [],
+      "truncated": false,
+      "notes": [],
+      "metrics": {
+        "orders": 6,
+        "reversed": 3,
+        "agentOwned": 0
+      }
+    },
+    {
+      "id": "I5",
+      "title": "Kit sales: component deliveries and COGS once",
+      "status": "PASS",
+      "checked": 3,
+      "violationCount": 0,
+      "violations": [],
+      "truncated": false,
+      "notes": [],
+      "metrics": {
+        "kitLines": 3,
+        "invoices": 3
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Inventory valuation vs GL inventory accounts",
+      "status": "WARN",
+      "checked": 75,
+      "violationCount": 1,
+      "violations": [
+        {
+          "rule": "VALUATION_GL_DIFFERENCE",
+          "severity": "WARN",
+          "message": "INV مخزون البضاعة: stock value 397523.85 vs posted balance 375612.65 (difference 21911.20).",
+          "accountId": "2a1bdc1f-6eb8-42ad-ab73-b19704a5fcb7",
+          "code": "INV",
+          "name": "مخزون البضاعة",
+          "subledgerValue": "397523.85",
+          "glBalance": "375612.65",
+          "difference": "21911.20",
+          "products": 75
+        }
+      ],
+      "truncated": false,
+      "notes": [
+        "GL side = posted balance of the inventory accounts read from journal lines (POSTED + REVERSED pairs net to zero) — never a recomputed balance.",
+        "Sub-ledger = Σ on-hand × moving average of company-owned stock (agent-owned stock excluded), each product rounded to 2 dp.",
+        "A difference is reported with its known causes for review — it is never forced to zero and never auto-corrected."
+      ],
+      "metrics": {
+        "subledgerValue": "397523.85",
+        "glBalance": "375612.65",
+        "difference": "21911.20",
+        "roundingBound": "0.64",
+        "inventoryAccounts": 1,
+        "openingBalanceMovements": 54,
+        "openingBalanceMovementValue": "20231.00",
+        "openingBalanceGlOnInventoryAccounts": "0.00",
+        "transferMovementsGlNeutral": 0,
+        "unpostedAdjustmentMovements": 1,
+        "unpostedAdjustmentValue": "5177.48",
+        "documentMovementsWithoutJournal": 159,
+        "documentMovementsWithoutJournalValue": "-225.87",
+        "stockedProductsWithoutCost": 43,
+        "explainedByKnownCauses": "25182.61",
+        "remainderAfterKnownCauses": "-3271.41"
+      }
+    },
+    {
+      "id": "I7",
+      "title": "Agent-owned stock stays outside company books",
+      "status": "PASS",
+      "checked": 722,
+      "violationCount": 0,
+      "violations": [],
+      "truncated": false,
+      "notes": [
+        "Company valuation check is company-wide (the product / warehouse filter does not apply to it)."
+      ],
+      "metrics": {
+        "movements": 722,
+        "agentOwnedMovements": 253,
+        "agentOwnedProductsInStock": 124,
+        "agentOwnedUnitsExcluded": 5610,
+        "agentOwnedValueExcluded": "600.00"
+      }
+    }
+  ]
+}

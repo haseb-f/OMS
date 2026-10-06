@@ -1,0 +1,1174 @@
+{
+  "generatedAt": "2026-10-06T06:55:52.737Z",
+  "base": "http://localhost:4801",
+  "total": 176,
+  "passed": 176,
+  "failed": 0,
+  "screenshots": 106,
+  "results": [
+    {
+      "scope": "desktop/ar",
+      "name": "similar-name warning visible (non-blocking)",
+      "ok": true,
+      "detail": "shown"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "product form (new) + similar-name warning: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "product form (new) + similar-name warning: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "barcode duplicate shown inline, naming the other product",
+      "ok": true,
+      "detail": "PRD-2026-001842"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "product form: barcode duplicate inline error: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "product form: barcode duplicate inline error: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "service: 'no stock' note, no track-stock switch",
+      "ok": true,
+      "detail": "note=true switch=false"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "product form: service shows no stock fields: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "product form: service shows no stock fields: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "kit: track stock off + locked, reason shown",
+      "ok": true,
+      "detail": "reason=true locked=true off=true"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "product form: kit forces track stock off with reason: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "product form: kit forces track stock off with reason: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "recipe panel lists the components and an estimate of 40",
+      "ok": true,
+      "detail": "PRD-2026-001833"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "product detail: assembled item recipe panel: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "product detail: assembled item recipe panel: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "assembly list: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "assembly list: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "preview lists component lines and the 40.0000 estimate",
+      "ok": true,
+      "detail": "PRD-2026-001833"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "new-assembly dialog with preview: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "new-assembly dialog with preview: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "assembly detail: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "assembly detail: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "owner shown on the stock page",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "stock page with owner column: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "stock page with owner column: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "kit components listed on the invoice",
+      "ok": true,
+      "detail": "PRD-2026-001836"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "sales invoice: kit line with delivered components: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "sales invoice: kit line with delivered components: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "capitalized 18 and variance 12 shown",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "landed cost detail: capitalized vs variance: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "landed cost detail: capitalized vs variance: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "all seven invariants rendered",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "integrity report page: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "integrity report page: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "investment section shows the linked opportunity",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "product form: investment section: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "desktop/ar",
+      "name": "product form: investment section: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/en",
+      "name": "switched to English via language control",
+      "ok": true,
+      "detail": "dir=ltr"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "similar-name warning visible (non-blocking)",
+      "ok": true,
+      "detail": "shown"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "product form (new) + similar-name warning: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "product form (new) + similar-name warning: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/en",
+      "name": "barcode duplicate shown inline, naming the other product",
+      "ok": true,
+      "detail": "PRD-2026-001842"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "product form: barcode duplicate inline error: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "product form: barcode duplicate inline error: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/en",
+      "name": "service: 'no stock' note, no track-stock switch",
+      "ok": true,
+      "detail": "note=true switch=false"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "product form: service shows no stock fields: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "product form: service shows no stock fields: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/en",
+      "name": "kit: track stock off + locked, reason shown",
+      "ok": true,
+      "detail": "reason=true locked=true off=true"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "product form: kit forces track stock off with reason: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "product form: kit forces track stock off with reason: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/en",
+      "name": "recipe panel lists the components and an estimate of 40",
+      "ok": true,
+      "detail": "PRD-2026-001833"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "product detail: assembled item recipe panel: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "product detail: assembled item recipe panel: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/en",
+      "name": "assembly list: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "assembly list: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/en",
+      "name": "preview lists component lines and the 40.0000 estimate",
+      "ok": true,
+      "detail": "PRD-2026-001833"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "new-assembly dialog with preview: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "new-assembly dialog with preview: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/en",
+      "name": "assembly detail: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "assembly detail: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/en",
+      "name": "owner shown on the stock page",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/en",
+      "name": "stock page with owner column: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "stock page with owner column: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/en",
+      "name": "kit components listed on the invoice",
+      "ok": true,
+      "detail": "PRD-2026-001836"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "sales invoice: kit line with delivered components: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "sales invoice: kit line with delivered components: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/en",
+      "name": "capitalized 18 and variance 12 shown",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/en",
+      "name": "landed cost detail: capitalized vs variance: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "landed cost detail: capitalized vs variance: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/en",
+      "name": "all seven invariants rendered",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/en",
+      "name": "integrity report page: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "integrity report page: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/en",
+      "name": "investment section shows the linked opportunity",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop/en",
+      "name": "product form: investment section: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "desktop/en",
+      "name": "product form: investment section: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "similar-name warning visible (non-blocking)",
+      "ok": true,
+      "detail": "shown"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product form (new) + similar-name warning: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product form (new) + similar-name warning: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product form (new) + similar-name warning: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "barcode duplicate shown inline, naming the other product",
+      "ok": true,
+      "detail": "PRD-2026-001842"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product form: barcode duplicate inline error: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product form: barcode duplicate inline error: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product form: barcode duplicate inline error: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "service: 'no stock' note, no track-stock switch",
+      "ok": true,
+      "detail": "note=true switch=false"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product form: service shows no stock fields: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product form: service shows no stock fields: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product form: service shows no stock fields: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "kit: track stock off + locked, reason shown",
+      "ok": true,
+      "detail": "reason=true locked=true off=true"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product form: kit forces track stock off with reason: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product form: kit forces track stock off with reason: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product form: kit forces track stock off with reason: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "recipe panel lists the components and an estimate of 40",
+      "ok": true,
+      "detail": "PRD-2026-001833"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product detail: assembled item recipe panel: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product detail: assembled item recipe panel: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product detail: assembled item recipe panel: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "assembly list: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "assembly list: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "assembly list: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "preview lists component lines and the 40.0000 estimate",
+      "ok": true,
+      "detail": "PRD-2026-001833"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "new-assembly dialog with preview: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "new-assembly dialog with preview: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "new-assembly dialog with preview: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "assembly detail: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "assembly detail: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "assembly detail: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "owner shown on the stock page",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "stock page with owner column: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "stock page with owner column: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "stock page with owner column: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "kit components listed on the invoice",
+      "ok": true,
+      "detail": "PRD-2026-001836"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "sales invoice: kit line with delivered components: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "sales invoice: kit line with delivered components: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "sales invoice: kit line with delivered components: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "capitalized 18 and variance 12 shown",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "landed cost detail: capitalized vs variance: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "landed cost detail: capitalized vs variance: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "landed cost detail: capitalized vs variance: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "all seven invariants rendered",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "integrity report page: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "integrity report page: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "integrity report page: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "investment section shows the linked opportunity",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product form: investment section: html dir=rtl",
+      "ok": true,
+      "detail": "dir=rtl lang=ar"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product form: investment section: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/ar",
+      "name": "product form: investment section: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/en",
+      "name": "switched to English via language control",
+      "ok": true,
+      "detail": "dir=ltr"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "similar-name warning visible (non-blocking)",
+      "ok": true,
+      "detail": "shown"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product form (new) + similar-name warning: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product form (new) + similar-name warning: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product form (new) + similar-name warning: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/en",
+      "name": "barcode duplicate shown inline, naming the other product",
+      "ok": true,
+      "detail": "PRD-2026-001842"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product form: barcode duplicate inline error: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product form: barcode duplicate inline error: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product form: barcode duplicate inline error: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/en",
+      "name": "service: 'no stock' note, no track-stock switch",
+      "ok": true,
+      "detail": "note=true switch=false"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product form: service shows no stock fields: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product form: service shows no stock fields: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product form: service shows no stock fields: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/en",
+      "name": "kit: track stock off + locked, reason shown",
+      "ok": true,
+      "detail": "reason=true locked=true off=true"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product form: kit forces track stock off with reason: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product form: kit forces track stock off with reason: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product form: kit forces track stock off with reason: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/en",
+      "name": "recipe panel lists the components and an estimate of 40",
+      "ok": true,
+      "detail": "PRD-2026-001833"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product detail: assembled item recipe panel: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product detail: assembled item recipe panel: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product detail: assembled item recipe panel: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/en",
+      "name": "assembly list: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "assembly list: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "assembly list: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/en",
+      "name": "preview lists component lines and the 40.0000 estimate",
+      "ok": true,
+      "detail": "PRD-2026-001833"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "new-assembly dialog with preview: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "new-assembly dialog with preview: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "new-assembly dialog with preview: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/en",
+      "name": "assembly detail: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "assembly detail: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "assembly detail: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/en",
+      "name": "owner shown on the stock page",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/en",
+      "name": "stock page with owner column: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "stock page with owner column: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "stock page with owner column: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/en",
+      "name": "kit components listed on the invoice",
+      "ok": true,
+      "detail": "PRD-2026-001836"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "sales invoice: kit line with delivered components: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "sales invoice: kit line with delivered components: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "sales invoice: kit line with delivered components: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/en",
+      "name": "capitalized 18 and variance 12 shown",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/en",
+      "name": "landed cost detail: capitalized vs variance: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "landed cost detail: capitalized vs variance: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "landed cost detail: capitalized vs variance: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/en",
+      "name": "all seven invariants rendered",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/en",
+      "name": "integrity report page: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "integrity report page: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "integrity report page: no console errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/en",
+      "name": "investment section shows the linked opportunity",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product form: investment section: html dir=ltr",
+      "ok": true,
+      "detail": "dir=ltr lang=en"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product form: investment section: no horizontal scroll at 390px",
+      "ok": true,
+      "detail": "scrollWidth=390 innerWidth=390"
+    },
+    {
+      "scope": "mobile/en",
+      "name": "product form: investment section: no console errors",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "shots": [
+    "desktop-ar-01-product-new-first-screen.png",
+    "desktop-ar-02-product-new-similar-warning.png",
+    "desktop-ar-03-product-new-expanded-1.png",
+    "desktop-ar-03-product-new-expanded-2.png",
+    "desktop-ar-03-product-new-expanded-3.png",
+    "desktop-ar-03-product-new-expanded-4.png",
+    "desktop-ar-04-product-barcode-duplicate.png",
+    "desktop-ar-05-product-service-1.png",
+    "desktop-ar-05-product-service-2.png",
+    "desktop-ar-05-product-service-3.png",
+    "desktop-ar-06-product-kit-1.png",
+    "desktop-ar-06-product-kit-2.png",
+    "desktop-ar-06-product-kit-3.png",
+    "desktop-ar-07-product-assembled-recipe.png",
+    "desktop-ar-07b-product-assembled-recipe-bottom.png",
+    "desktop-ar-08-assembly-list.png",
+    "desktop-ar-09-assembly-new-preview-1.png",
+    "desktop-ar-10-assembly-detail.png",
+    "desktop-ar-10b-assembly-detail-bottom.png",
+    "desktop-ar-11-stock-owner.png",
+    "desktop-ar-12-sales-invoice-kit.png",
+    "desktop-ar-12b-sales-invoice-kit-bottom.png",
+    "desktop-ar-13-landed-cost.png",
+    "desktop-ar-13b-landed-cost-bottom.png",
+    "desktop-ar-14-integrity.png",
+    "desktop-ar-15-product-investment.png",
+    "desktop-en-01-product-new-first-screen.png",
+    "desktop-en-02-product-new-similar-warning.png",
+    "desktop-en-03-product-new-expanded-1.png",
+    "desktop-en-03-product-new-expanded-2.png",
+    "desktop-en-03-product-new-expanded-3.png",
+    "desktop-en-03-product-new-expanded-4.png",
+    "desktop-en-04-product-barcode-duplicate.png",
+    "desktop-en-05-product-service-1.png",
+    "desktop-en-05-product-service-2.png",
+    "desktop-en-05-product-service-3.png",
+    "desktop-en-06-product-kit-1.png",
+    "desktop-en-06-product-kit-2.png",
+    "desktop-en-06-product-kit-3.png",
+    "desktop-en-07-product-assembled-recipe.png",
+    "desktop-en-07b-product-assembled-recipe-bottom.png",
+    "desktop-en-08-assembly-list.png",
+    "desktop-en-09-assembly-new-preview-1.png",
+    "desktop-en-10-assembly-detail.png",
+    "desktop-en-10b-assembly-detail-bottom.png",
+    "desktop-en-11-stock-owner.png",
+    "desktop-en-12-sales-invoice-kit.png",
+    "desktop-en-12b-sales-invoice-kit-bottom.png",
+    "desktop-en-13-landed-cost.png",
+    "desktop-en-13b-landed-cost-bottom.png",
+    "desktop-en-14-integrity.png",
+    "desktop-en-15-product-investment.png",
+    "mobile-ar-01-product-new-first-screen.png",
+    "mobile-ar-02-product-new-similar-warning.png",
+    "mobile-ar-03-product-new-expanded-1.png",
+    "mobile-ar-03-product-new-expanded-2.png",
+    "mobile-ar-03-product-new-expanded-3.png",
+    "mobile-ar-03-product-new-expanded-4.png",
+    "mobile-ar-04-product-barcode-duplicate.png",
+    "mobile-ar-05-product-service-1.png",
+    "mobile-ar-05-product-service-2.png",
+    "mobile-ar-05-product-service-3.png",
+    "mobile-ar-06-product-kit-1.png",
+    "mobile-ar-06-product-kit-2.png",
+    "mobile-ar-06-product-kit-3.png",
+    "mobile-ar-07-product-assembled-recipe.png",
+    "mobile-ar-07b-product-assembled-recipe-bottom.png",
+    "mobile-ar-08-assembly-list.png",
+    "mobile-ar-09-assembly-new-preview-1.png",
+    "mobile-ar-09-assembly-new-preview-2.png",
+    "mobile-ar-10-assembly-detail.png",
+    "mobile-ar-10b-assembly-detail-bottom.png",
+    "mobile-ar-11-stock-owner.png",
+    "mobile-ar-12-sales-invoice-kit.png",
+    "mobile-ar-12b-sales-invoice-kit-bottom.png",
+    "mobile-ar-13-landed-cost.png",
+    "mobile-ar-13b-landed-cost-bottom.png",
+    "mobile-ar-14-integrity.png",
+    "mobile-ar-15-product-investment.png",
+    "mobile-en-01-product-new-first-screen.png",
+    "mobile-en-02-product-new-similar-warning.png",
+    "mobile-en-03-product-new-expanded-1.png",
+    "mobile-en-03-product-new-expanded-2.png",
+    "mobile-en-03-product-new-expanded-3.png",
+    "mobile-en-03-product-new-expanded-4.png",
+    "mobile-en-04-product-barcode-duplicate.png",
+    "mobile-en-05-product-service-1.png",
+    "mobile-en-05-product-service-2.png",
+    "mobile-en-05-product-service-3.png",
+    "mobile-en-06-product-kit-1.png",
+    "mobile-en-06-product-kit-2.png",
+    "mobile-en-06-product-kit-3.png",
+    "mobile-en-07-product-assembled-recipe.png",
+    "mobile-en-07b-product-assembled-recipe-bottom.png",
+    "mobile-en-08-assembly-list.png",
+    "mobile-en-09-assembly-new-preview-1.png",
+    "mobile-en-09-assembly-new-preview-2.png",
+    "mobile-en-10-assembly-detail.png",
+    "mobile-en-10b-assembly-detail-bottom.png",
+    "mobile-en-11-stock-owner.png",
+    "mobile-en-12-sales-invoice-kit.png",
+    "mobile-en-12b-sales-invoice-kit-bottom.png",
+    "mobile-en-13-landed-cost.png",
+    "mobile-en-13b-landed-cost-bottom.png",
+    "mobile-en-14-integrity.png",
+    "mobile-en-15-product-investment.png"
+  ]
+}
