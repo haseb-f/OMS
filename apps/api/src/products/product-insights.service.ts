@@ -95,11 +95,24 @@ export class ProductInsightsService {
           Prisma.sql`${normalizedArabicColumnSql(column)} LIKE ${`%${escapeLikePattern(prefix)}%`}`,
       ),
     );
+    // The cap must never drop a real duplicate in a large catalog: rank candidates in SQL first — rows containing the
+    // whole normalized name, then rows matching the most token prefixes — and only then cut.
+    const wholeName = columns.map(
+      (column) =>
+        Prisma.sql`${normalizedArabicColumnSql(column)} LIKE ${`%${escapeLikePattern(needle)}%`}`,
+    );
+    const score = Prisma.join(
+      conditions.map(
+        (condition) => Prisma.sql`(CASE WHEN ${condition} THEN 1 ELSE 0 END)`,
+      ),
+      ' + ',
+    );
     const candidateIds = await this.prisma.$queryRaw<{ id: string }[]>(
       Prisma.sql`SELECT id::text AS id FROM "products"
         WHERE "deleted_at" IS NULL
         ${query.excludeId ? Prisma.sql`AND "id" <> ${query.excludeId}::uuid` : Prisma.empty}
         AND (${Prisma.join(conditions, ' OR ')})
+        ORDER BY (CASE WHEN ${Prisma.join(wholeName, ' OR ')} THEN 1 ELSE 0 END) DESC, (${score}) DESC, "created_at" DESC
         LIMIT ${SIMILAR_NAMES_CANDIDATE_CAP}`,
     );
     if (candidateIds.length === 0) return { items: [] };
