@@ -18,3 +18,5 @@
 - **O-4 Legacy `Expense` screen** (no posting) duplicates expense vouchers. _Recommend:_ hide from navigation, keep data read-only.
 - **O-5 Employee ranking in a reporting currency.** _Recommend:_ keep per-currency ranking (no conversion) until a reporting-currency policy with dated rates is approved.
 - **O-6 Production grant of `reports.sales.view`.** Migration grants it to roles already holding `reports.view`; confirm before deploying.
+- **O-7 Depreciation for the disposal month.** Catch-up stops at the last full month ending on/before the disposal date. Example: asset disposed 20 March → depreciation through 28/29 Feb only. *Recommend:* keep full-month convention (simple, consistent with the monthly schedule) unless auditors require pro-rata days.
+- **O-8 Assets disposed before R13 that still hold PENDING periods.** They are never posted (the run skips disposed assets), but they show as pending. *Recommend:* a separate, reviewable SQL proposal that marks them CANCELLED (status only, no journal impact) — not executed in this round.

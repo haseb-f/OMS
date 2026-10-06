@@ -30,7 +30,7 @@ Databases: each agent tests against its own clone (`oms_a`, `oms_b`, …) via `D
 - [x] A-ui implemented + verified (agent: web 125 files/887 tests, API 21 suites; risk: `@oms/shared` in next build)
 - [x] A-order implemented + verified (66 tests; enterprise-modal `subheader` additive)
 - [ ] B implemented + verified
-- [ ] C implemented + verified
+- [x] C implemented + verified (serial 9/9, related 171/171)
 - [x] D implemented + verified (payment suites 169/169, new integration 8/8; minor: channel not clearable in form)
 - [x] E implemented + verified (API metrics 10 + integration 8; web 87)
 - [ ] Integration: migrate, typecheck, lint, build, vitest, jest
