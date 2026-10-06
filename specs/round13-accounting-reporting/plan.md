@@ -27,8 +27,8 @@ Databases: each agent tests against its own clone (`oms_a`, `oms_b`, …) via `D
 
 - [x] Audit A–E (`audit/`)
 - [x] Specs A–E
-- [ ] A-ui implemented + verified
-- [ ] A-order implemented + verified
+- [x] A-ui implemented + verified (agent: web 125 files/887 tests, API 21 suites; risk: `@oms/shared` in next build)
+- [x] A-order implemented + verified (66 tests; enterprise-modal `subheader` additive)
 - [ ] B implemented + verified
 - [ ] C implemented + verified
 - [ ] D implemented + verified
