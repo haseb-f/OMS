@@ -27,6 +27,8 @@ import { SalesReturnsModule } from './returns/sales-returns.module';
 import { SalesReturnsService } from './returns/sales-returns.service';
 import { PurchaseInvoicesModule } from '../purchasing/invoices/purchase-invoices.module';
 import { PurchaseInvoicesService } from '../purchasing/invoices/purchase-invoices.service';
+import { PurchaseReturnsModule } from '../purchasing/returns/purchase-returns.module';
+import { PurchaseReturnsService } from '../purchasing/returns/purchase-returns.service';
 import { LandedCostDocumentsModule } from '../landed-cost/landed-cost-documents.module';
 import { LandedCostDocumentsService } from '../landed-cost/landed-cost-documents.service';
 import { StoreOrdersModule } from '../store-orders/store-orders.module';
@@ -80,6 +82,7 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
   let invoices: SalesInvoicesService;
   let returns: SalesReturnsService;
   let purchases: PurchaseInvoicesService;
+  let purchaseReturns: PurchaseReturnsService;
   let landedCosts: LandedCostDocumentsService;
   let storeOrders: StoreOrdersService;
   let agentFulfillment: AgentFulfillmentService;
@@ -339,6 +342,7 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
         SalesInvoicesModule,
         SalesReturnsModule,
         PurchaseInvoicesModule,
+        PurchaseReturnsModule,
         LandedCostDocumentsModule,
         StoreOrdersModule,
         AgentLedgerModule,
@@ -355,6 +359,7 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
     invoices = get(SalesInvoicesService);
     returns = get(SalesReturnsService);
     purchases = get(PurchaseInvoicesService);
+    purchaseReturns = get(PurchaseReturnsService);
     landedCosts = get(LandedCostDocumentsService);
     storeOrders = get(StoreOrdersService);
     agentFulfillment = get(AgentFulfillmentService);
@@ -858,6 +863,117 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
       // (10 × 10 + 10 × 12 + 10 × 18) / 30 = 400 / 30 = 13.3333
       expect((await avgCost(product)).toString()).toBe('13.3333');
       expect(await onHand(product)).toBe(30);
+    });
+  });
+
+  describe('purchase return at the moving average (O9)', () => {
+    /** Receives 10 @ 10 and 10 @ 20 (average 15) on one invoice and returns `quantity` of the @20 line at `unitPrice`. */
+    const buyAndReturn = async (cat: { id: string }, quantity: number) => {
+      const product = await makeProduct({ categoryId: cat.id });
+      const receipt = await purchase([
+        { productId: product, quantity: 10, unitPrice: 10 },
+        { productId: product, quantity: 10, unitPrice: 20 },
+      ]);
+      expect((await avgCost(product)).toString()).toBe('15');
+      const sourceLine = await prisma.purchaseInvoiceItem.findFirstOrThrow({
+        where: { purchaseInvoiceId: receipt.id, unitPrice: 20 },
+      });
+      const draft = await purchaseReturns.create({
+        partnerId: supplierId,
+        purchaseInvoiceId: receipt.id,
+        items: [
+          {
+            productId: product,
+            warehouseId,
+            unitId,
+            quantity,
+            unitPrice: 20,
+            purchaseInvoiceItemId: sourceLine.id,
+          },
+        ],
+      });
+      await purchaseReturns.submit(draft.id);
+      await purchaseReturns.approve(draft.id);
+      return { product, receipt, draft };
+    };
+
+    it('relieves inventory at the average, books the price difference to COGS, keeps the average and GL = sub-ledger (re-post replays the recorded cost)', async () => {
+      const cat = await makeCategory(`PR${++skuSeq}`);
+      const { product, draft } = await buyAndReturn(cat, 5);
+      await purchaseReturns.confirm(draft.id, actorId);
+
+      const journal = await journalOf('PURCHASE_RETURN', draft.id);
+      const apDebit = journal.entry.lines.find(
+        (line) => line.partnerId === supplierId,
+      );
+      expect(D(apDebit!.debit).toString()).toBe('100');
+      expect(journal.credit(cat.inventoryAccountId).toString()).toBe('75');
+      expect(journal.credit(cat.cogsAccountId).toString()).toBe('25');
+      expect(journal.debit(cat.cogsAccountId).toString()).toBe('0');
+      expect(journal.totals.debit.equals(journal.totals.credit)).toBe(true);
+
+      const movement = await prisma.inventoryMovement.findFirstOrThrow({
+        where: {
+          referenceType: 'PURCHASE_RETURN',
+          referenceId: draft.id,
+          type: InventoryMovementType.PURCHASE_RETURN,
+        },
+      });
+      expect(movement.quantity).toBe(-5);
+      expect(D(movement.unitCost!).toString()).toBe('15');
+      expect((await avgCost(product)).toString()).toBe('15');
+      expect(await onHand(product)).toBe(15);
+      // GL inventory = sub-ledger exactly: 300 received − 75 relieved = 225 = 15 × 15.
+      expect((await accountBalance(cat.inventoryAccountId)).toString()).toBe(
+        '225',
+      );
+
+      // The average moves afterwards (5 @ 30 → (225 + 150) / 20 = 18.75); an
+      // FX-correction style re-post still relieves the RECORDED 15, not 18.75.
+      await purchase([{ productId: product, quantity: 5, unitPrice: 30 }]);
+      expect((await avgCost(product)).toString()).toBe('18.75');
+      await prisma.$transaction(async (tx) => {
+        await postingEngine.reverse('PURCHASE_RETURN', draft.id, actorId, tx);
+        await postingEngine.post('PURCHASE_RETURN', draft.id, actorId, tx);
+      });
+      const reposted = await journalOf('PURCHASE_RETURN', draft.id);
+      expect(reposted.entry.id).not.toBe(journal.entry.id);
+      expect(reposted.credit(cat.inventoryAccountId).toString()).toBe('75');
+      expect(reposted.credit(cat.cogsAccountId).toString()).toBe('25');
+      expect((await accountBalance(cat.inventoryAccountId)).toString()).toBe(
+        '375',
+      );
+      expect(
+        D(20)
+          .mul(await avgCost(product))
+          .toString(),
+      ).toBe('375');
+    });
+
+    it('fails closed (422 PURCHASE_RETURN_COST_MISSING) for a product with no recorded cost — nothing leaves stock', async () => {
+      const cat = await makeCategory(`PN${++skuSeq}`);
+      const { product, draft } = await buyAndReturn(cat, 2);
+      await prisma.product.update({
+        where: { id: product },
+        data: { currentCost: null },
+      });
+      try {
+        expect(
+          await rejection(purchaseReturns.confirm(draft.id, actorId)),
+        ).toMatchObject({ status: 422, code: 'PURCHASE_RETURN_COST_MISSING' });
+        expect(await onHand(product)).toBe(20);
+        expect(
+          await prisma.journalEntry.count({
+            where: { sourceType: 'PURCHASE_RETURN', sourceId: draft.id },
+          }),
+        ).toBe(0);
+      } finally {
+        // Fixtures are kept whole (see afterAll): restore the recorded average.
+        await prisma.product.update({
+          where: { id: product },
+          data: { currentCost: 15 },
+        });
+      }
     });
   });
 

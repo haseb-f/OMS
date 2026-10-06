@@ -1,0 +1,180 @@
+# R13 — Production test-data reset: plan, classification, rehearsal
+
+**Owner decision (2026-10-06):** Production transactional data (2026-09-17 … 2026-10-05) is test data → reset all
+test transactions (documents, stock movements, journal entries, payments, orders) and keep all master data,
+configuration, users / roles / permissions and settings. The system must keep working afterwards
+(order → invoice → posting) and every inventory / accounting invariant must hold.
+
+| Artifact                                                                     | Path                                                                                                                                                                         |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Migration (ships with the next combined release, runs once, Production only) | `apps/api/prisma/migrations/20261007130000_r13_reset_production_test_data/migration.sql`                                                                                     |
+| Read-only verifier (snapshot, invariants, before/after)                      | `apps/api/scripts/r13/r13-reset-verify.ts`                                                                                                                                   |
+| Rehearsal evidence                                                           | `evidence/reset-verify-oms_reset_final.md`, `evidence/reset-notices-oms_reset_final.txt`, `evidence/integrity-oms_reset_final.md`, `evidence/reset-guard-oms_reset_guard.md` |
+
+## 1. Mechanism and guard
+
+- One Prisma migration whose whole body is a single `DO $$ … $$` block = one transaction. Any error rolls back
+  everything; a post-condition check (`RAISE EXCEPTION`) refuses a half-reset ledger. Prisma records it in
+  `_prisma_migrations`, so it runs once per database. It never DROPs or ALTERs a table definition; the only DDL is
+  `ALTER TABLE … DISABLE/ENABLE TRIGGER` on the two agent append-only guards, inside the same transaction
+  (re-enabled before commit; the verifier checks they are `O` = enabled).
+- **Guard — both must hold, otherwise `RAISE NOTICE … no-op` and `RETURN`:**
+  1. `products` row `6ba85694-5fac-48ae-b501-8de7263d0774` with SKU `PRD-2026-000041` (Production's
+     «كومبو بوكس اهم 5000 كلمة», from the R13 Production survey). Checked on all 24 local databases: present in none.
+  2. Role `supabase_admin` exists (Production is a Supabase project). A `pg_dump` of Production restored into a local
+     or CI Postgres therefore never resets itself.
+  - The suggested second marker `qa-admin@oms.haseb.org` was **rejected**: that user exists in every local database
+    (`ensure-qa-users` / seed), so it is not Production-only.
+- **Owner switches** (top of the DO block; defaults = recommendations, §7): `keep_opening_balance := true`,
+  `reset_investment_contracts := true`, `keep_crm_leads := true`.
+
+## 2. Table classification (219 tables on the rehearsal DB; 218 on Production — `product_components` is dropped by `20261007120000`)
+
+Totals: **KEEP 93 · RESET-FIELD 2 · CONDITIONAL 10 · PARTIAL 5 · DELETE 108** (+ `_prisma_migrations`). The verifier
+FAILs if any table is unclassified, so a future table cannot slip through silently.
+
+### KEEP — master data, configuration, security (rows identical afterwards; proven by count + id fingerprint)
+
+| Domain                      | Tables                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Reason                                                                                                                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Products                    | `products` (see RESET-FIELD), `product_categories`, `product_brands`, `units`, `unit_conversions`, `product_variants`, `product_attachments`, `product_recipes`, `product_recipe_lines`, `product_activities`, (`product_components` legacy, dropped before)                                                                                                                                                                                                                               | Owner keep list; product activity = master-data history                                                                                                                  |
+| Partners                    | `partners`, `partner_phone_keys`, `partner_role_assignments`, `customer_profiles`, `customer_groups`, `customer_classifications`, `_ClassificationSuggestedReasons`, `no_purchase_reasons`, `supplier_profiles`, `supplier_groups`, `payment_terms`                                                                                                                                                                                                                                        | Customers / suppliers                                                                                                                                                    |
+| Agents                      | `agents`, `agent_agreements`, `agent_shipping_rates`, `agent_payment_destinations`, `agent_product_commission_overrides`                                                                                                                                                                                                                                                                                                                                                                   | Owner keep list (agreements, rates, destinations, users)                                                                                                                 |
+| Investors (master)          | `investor_profiles`, `investor_types`, `investor_portal_accounts`, `investor_portal_activation_tokens`                                                                                                                                                                                                                                                                                                                                                                                     | People / logins, not money (see R-O2 for contracts)                                                                                                                      |
+| Accounting setup            | `chart_of_accounts`, `journals`, `journal_entry_templates`, `posting_settings`, `fiscal_years`, `accounting_periods`, `taxes`, `currencies`, `exchange_rates`, `exchange_rate_overrides`, `fx_sync_runs`, `fx_sync_settings`, `receiving_accounts`, `payment_methods`, `payment_sources`, `transaction_types`, `cost_centers`, `projects`, `analytic_plans`, `analytic_accounts`, `cost_components`, `cost_component_activities`, `cost_allocation_rules`, `direct_fulfillment_cost_rules` | Owner keep list; `fx_sync_runs` is the provenance of kept rates                                                                                                          |
+| Inventory setup             | `warehouses`, `warehouse_locations`, `inventory_settings`                                                                                                                                                                                                                                                                                                                                                                                                                                  | Owner keep list                                                                                                                                                          |
+| Organisation / HR config    | `companies`, `branches`, `company_memberships`, `departments`, `job_titles`, `employee_profiles`, `compensation_revisions`, `compensation_revision_lines`, `payroll_components`, `commission_plans`, `commission_plan_tiers`, `commission_plan_assignments`, `kpi_templates`, `kpi_template_items`, `kpi_template_assignments`, `sales_targets`, `sales_teams`, `sales_team_members`                                                                                                       | Configuration / contracts of employees                                                                                                                                   |
+| Geography / shipping config | `countries`, `cities`, `languages`, `shipping_companies`, `shipping_methods`, `shipping_statuses`, `status_definitions`, `workflow_transitions`                                                                                                                                                                                                                                                                                                                                            | Reference data                                                                                                                                                           |
+| CRM config                  | `lead_distribution_policies`, `lead_distribution_states`, `lead_follow_up_types`                                                                                                                                                                                                                                                                                                                                                                                                           | Distribution settings                                                                                                                                                    |
+| Security / numbering        | `users`, `permissions`, `user_permissions`, `password_reset_tokens`, `global_lookup_audits`, `number_series`, `import_mapping_templates`                                                                                                                                                                                                                                                                                                                                                   | Users / roles / permissions; lookup audit is the per-user budget source; **number series counters are not reset (no number reuse — audit-safe)**; DB sequences untouched |
+
+### RESET-FIELD — kept rows, derived fields cleared
+
+| Table                 | Field                                     | Reason                                                                              |
+| --------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------- |
+| `products`            | `current_cost`, `last_cost_update` → NULL | Mirror of the deleted cost snapshot / history (43 products on the rehearsal DB)     |
+| `sync_source_configs` | `import_job_id` → NULL                    | "Latest sync run" pointer to a deleted import job (the next Sync creates a new one) |
+
+No other kept table stores a running balance (partner / agent / investor balances are all derived from deleted
+ledgers). The only nullable FK from a kept table into a deleted table is `sync_source_configs.import_job_id`
+(checked over all 592 foreign keys). FK-less pointers left dangling on purpose: `global_lookup_audits.matched_store_order_id`
+(security audit, kept) and `leads.external_order_id` (text id of the sheet row).
+
+### CONDITIONAL — owner switch
+
+| Tables                                                                                                                                              | Default | Switch |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ |
+| `leads`, `lead_activities`, `lead_assignments`, `lead_follow_ups`, `lead_notes`, `lead_views`, `status_history` (LEAD), `workflow_approvals` (LEAD) | KEEP    | R-O3   |
+| `investment_opportunities`, `opportunity_products`                                                                                                  | DELETE  | R-O2   |
+
+### PARTIAL
+
+| Table                                                                | Kept rows                                                                                                                                                                                                                                                                                                                     |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `journal_entries`, `journal_entry_lines`, `journal_entry_activities` | Each fiscal year's `OPENING_BALANCE` entry + any entry reversing it (R-O1)                                                                                                                                                                                                                                                    |
+| `attachments`                                                        | Only file records still referenced by a kept row (none today). Storage objects are not deleted                                                                                                                                                                                                                                |
+| `master_data_activity_logs`                                          | Master-data history kept; rows of deleted entities removed (capital contributions/returns, carrier charges, distribution payments, expenses, fixed assets, subscriptions, opportunity expenses/reallocations/sale allocations/settlements, profit calculations/distributions, and opportunities / leads when those are reset) |
+
+### DELETE — transactional test data (empty afterwards)
+
+| Domain                               | Tables                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Sales                                | `sales_quotations`, `sales_quotation_items`, `sales_quotation_activities`, `sales_order_documents`, `sales_order_document_items`, `sales_order_document_activities`, `sales_invoices`, `sales_invoice_items`, `sales_invoice_activities`, `sales_returns`, `sales_return_items`, `sales_return_activities`                                                                                                                                                         |
+| Legacy sales orders                  | `sales_orders`, `order_items`, `sales_order_activities`, `sales_order_notes`, `sales_order_status_history`, `sales_order_attachments`                                                                                                                                                                                                                                                                                                                              |
+| Store orders                         | `store_orders`, `store_order_items`, `store_order_activities`, `store_order_amendments`, `store_order_fulfillment_costs`, `store_order_receipts`                                                                                                                                                                                                                                                                                                                   |
+| Shipping                             | `shipments`, `shipment_attachments`, `carrier_charges`, `carrier_charge_imports`                                                                                                                                                                                                                                                                                                                                                                                   |
+| Receipts / payments / reconciliation | `payments`, `payment_activities`, `payment_attachments`, `payment_notes`, `payment_matches`, `payment_receipt_links`, `payment_settlements`, `payment_settlement_lines`, `payment_statement_imports`, `payment_statement_lines`, `bank_transactions`, `financial_transactions`, `financial_transaction_activities`, `financial_transaction_allocations`                                                                                                            |
+| Purchasing                           | `purchase_quotations`, `purchase_quotation_items`, `purchase_quotation_activities`, `purchase_orders`, `purchase_order_items`, `purchase_order_activities`, `purchase_invoices`, `purchase_invoice_items`, `purchase_invoice_activities`, `purchase_returns`, `purchase_return_items`, `purchase_return_activities`, `landed_cost_documents`, `landed_cost_lines`, `landed_cost_allocations`, `landed_cost_activities`                                             |
+| Schedules created by documents       | `fixed_assets`, `fixed_asset_depreciation_periods`, `prepaid_expenses`, `prepaid_recognitions`, `accrued_expenses`, `expenses`                                                                                                                                                                                                                                                                                                                                     |
+| Inventory                            | `inventory_movements` (incl. reservations), `inventory_movement_activities`, `physical_counts`, `physical_count_lines`, `assembly_orders`, `assembly_order_lines`                                                                                                                                                                                                                                                                                                  |
+| Costing                              | `product_cost_histories`, `product_cost_snapshots`, `cost_allocation_runs`, `cost_allocation_results`                                                                                                                                                                                                                                                                                                                                                              |
+| Accounting                           | journal entries (except PARTIAL), `fx_revaluation_runs`, `analytic_distribution_lines` (always attached to a document)                                                                                                                                                                                                                                                                                                                                             |
+| Agents                               | `agent_ledger_entries`, `agent_commission_lines`, `agent_order_returns`, `agent_payouts`, `agent_payout_allocations`, `agent_payout_attachments`                                                                                                                                                                                                                                                                                                                   |
+| Investors (money)                    | `investor_subscriptions`, `capital_contributions`, `capital_contribution_attachments`, `capital_returns`, `opportunity_sale_allocations`, `opportunity_reallocations`, `opportunity_settlements`, `opportunity_expenses`, `opportunity_expense_attachments`, `profit_calculations`, `profit_calculation_investor_shares`, `profit_distributions`, `investor_distributions`, `distribution_payments`, `distribution_payment_attachments`, `investor_ledger_entries` |
+| Payroll / commission / KPI runs      | `payroll_runs`, `payroll_lines`, `payroll_line_components`, `commission_calculations`, `commission_adjustments`, `kpi_evaluations`, `kpi_evaluation_items`, `kpi_evaluation_audit_logs`                                                                                                                                                                                                                                                                            |
+| Import Center history                | `import_jobs`, `import_job_errors`                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+
+**Deletion order** = the statement array in the migration (children before parents, grouped: agents → investors →
+receipts/settlements/statements → financial transactions → shipping → sales → legacy orders → store orders →
+purchasing + schedules → inventory → costing → payroll/KPI → accounting → import history → [opportunities] → [leads] →
+product cost fields → attachments → activity logs). A static check of all 592 FKs against that order (every
+RESTRICT child deleted before its parent, no kept RESTRICT child under a deleted parent) reports 0 violations,
+including tables that are empty locally but may hold rows on Production.
+
+## 3. Fiscal year and opening balance (R-O1)
+
+`FiscalYearsService.assertPostingAllowed` refuses every posting dated inside an open fiscal year unless the year has an
+established opening: an `OPENING_BALANCE` journal entry for that year (any status, not soft-deleted) **or** posted
+history before the year starts. After a full reset neither exists, so every document posting in 2026 fails with
+_"Cannot post — Fiscal Year … has no Opening Balance yet."_ The opening wizard would then accept a new go-live
+opening (no earlier history), but until the owner posts one, orders/invoices/receipts cannot post.
+
+- **Rehearsal DB:** fiscal year `FY2026-Import-Test` (2026-01-01 … 2026-12-31, OPEN, 12 open periods);
+  opening `JV-2026-000020` (REVERSED; Dr General expenses 200 / Cr Cash 200) reversed by `JV-2026-000021`
+  (MANUAL, POSTED) — net zero. Kept → trial balance 400 = 400, every account nets to 0, I6 PASS.
+- **Production (from the 2026-09-29 record):** the opening is the QA entry `JV-2026-000003` (1 EGP), which the
+  owner explicitly decided to keep. It is not the real go-live opening (real balances "come later").
+- **Measured consequence of deleting it** (switch off, clone `oms_reset_alt`): 8 of 13 DB-backed suites / 73 tests
+  fail, 124 occurrences of the "no Opening Balance yet" refusal. With the opening kept: 12/13 suites pass (§6).
+- **Recommendation: keep it (default).** The system keeps posting immediately. When the real go-live balances are
+  ready, the owner reverses the QA opening and enters the real one in the Opening Balance wizard (allowed: no posted
+  non-reversed opening, no history before the opening date). Residual effect: the 1 EGP QA lines stay in the ledger
+  until then — if they touch an inventory account, I6 shows a 1 EGP WARN (the verifier prints the kept entries).
+
+## 4. Release procedure (owner + release worker)
+
+1. **Activity freeze** for the release window (no data entry, nobody presses Google-Sheets _Sync_). The old
+   deployment keeps serving while the build migrates; anything entered then survives the reset.
+2. **Backup (owner, before anything containing this migration is pushed anywhere):**
+   - Supabase Dashboard → Project → Database → Backups: confirm today's backup exists (or take a PITR point and
+     note the timestamp); **and**
+   - a logical dump the owner keeps:
+     `pg_dump "<Production direct connection string>" --schema=public --format=custom --no-owner --no-privileges --file=oms-prod-pre-reset-2026-10-0X.dump`
+     then `pg_restore --list oms-prod-pre-reset-2026-10-0X.dump | Select-Object -First 20` (PowerShell) to prove
+     it is readable. Use pg_dump ≥ the server's major version. We never see the connection string.
+3. **Preview-build risk — must be cleared first.** `scripts/vercel-build.sh` runs `prisma migrate deploy` with
+   `POSTGRES_URL_NON_POOLING` in every Vercel environment. If the Preview environment points at the Production
+   database, pushing any branch containing this migration runs the reset at preview-build time. Owner confirms in
+   Vercel → Project → Settings → Environment Variables that Preview's `POSTGRES_URL_NON_POOLING` is not Production's
+   (note: `origin/integration/r13-combined` was already pushed, so its own migrations may have reached whatever DB
+   Preview uses). If unsure: add the migration only in the release commit pushed straight to `main`.
+4. Set the three owner switches (§7) in the migration if any answer differs from the default; commit; release.
+5. **Verify** (read-only): `GET /inventory/integrity` → all PASS (I6 PASS, or WARN only for the 1 EGP opening);
+   lists of orders / invoices / payments / movements / journal entries empty except the opening; products, customers,
+   suppliers, agents, chart of accounts, warehouses, users unchanged. Optionally the owner runs
+   `r13-reset-verify.ts --expect=reset --allow-remote` (read-only session) with a snapshot taken before the release.
+6. **Google Sheets sources** (owner item R-O4): the Store-Orders / Shipping / Cash-flow sheets still contain the test
+   rows; the next _Sync_ re-imports them. Clear or replace those tabs (or disable the source in Settings) before syncing.
+7. **Go-live stock** (owner action, not part of the reset): products now have no stock and no cost. Post opening
+   stock (quantities + unit cost) before selling physical goods; keep the GL opening consistent with it (I6).
+
+## 5. Rollback
+
+Rollback = restore the backup (Supabase restore / PITR, or `pg_restore --clean --if-exists --no-owner --schema=public -d "<conn>" <dump>`).
+**Then, before the next deploy**, mark the migration as applied on the restored database, otherwise the next
+`prisma migrate deploy` runs the reset again (the restored `_prisma_migrations` does not contain it):
+`DATABASE_URL="<conn>" pnpm --dir apps/api exec prisma migrate resolve --applied 20261007130000_r13_reset_production_test_data`
+(or remove the migration folder in a follow-up release). Storage files are never touched by the reset.
+
+## 6. Rehearsal results (local clones only; never Production, never `oms`)
+
+| Run                                                                        | Database                                                                                                | Result                                                                                                                                                                                                                                                                                   |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reset body, guard forced true, default switches                            | `oms_reset_final` ← `oms_r13_combined` (r7_final data + all R13 migrations incl. the accounting branch) | 12.7 s idle (29.8 s under load); **83 654 rows in 108 DELETE tables → 0**; journal entries 5 694 → 2, lines 12 629 → 4, activities 4 741 → 3; attachments 145 → 0; activity logs 45 553 → 37 719; opportunities 10 → 0; products with cost 43 → 0; 114 754 rows deleted/cleared in total |
+| Verifier `--expect=reset`                                                  | same                                                                                                    | all PASS; KEEP + RESET-FIELD tables identical (93 tables, 51 286 rows, id fingerprints); number series (55) unchanged; triggers re-enabled; 1 WARN = 2 lead status-history rows orphaned **before** the reset (2 → 2)                                                                    |
+| `r13-integrity.ts`                                                         | same                                                                                                    | **I1–I7 all PASS** (I6 PASS, difference 0)                                                                                                                                                                                                                                               |
+| DB-backed serial suites (`jest --runInBand *.serial.spec.ts`)              | `oms_reset_rehearsal` (identical reset)                                                                 | **12/13 suites, 140/141 tests pass.** The one failure (`capital-return-correction.serial.spec.ts`) is fixture-only: it borrows an existing `investor_subscription` (`findFirstOrThrow`) instead of creating one; after inserting one test opportunity + subscription it passes (1/1)     |
+| All switches flipped (no opening, keep opportunities, delete leads)        | `oms_reset_alt`                                                                                         | reset OK; verifier PASS with 2 WARN (no opening; 10 opportunities kept); serial suites **8 failed / 73 tests** — posting refused without an opening (R-O1 evidence)                                                                                                                      |
+| **Real guarded migration file** via `psql` and via `prisma migrate deploy` | `oms_reset_guard` ← `oms_r13_drop` (main's migration head)                                              | **no-op** — NOTICE "Production markers absent"; all 218 tables identical (counts + id fingerprints)                                                                                                                                                                                      |
+| Guard cases in a rolled-back transaction                                   | `oms_reset_guard`                                                                                       | product marker only → no-op; product marker + `supabase_admin` role → reset runs (store orders 4 050 → 0); rolled back                                                                                                                                                                   |
+
+## 7. Owner decisions needed (yes / no)
+
+| #    | Question                                                                                                       | Recommendation                                                                                                                                                                                    |
+| ---- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R-O1 | Keep the fiscal year's QA Opening Balance entry (Production `JV-2026-000003`, 1 EGP) so posting keeps working? | **Yes** (default). Replace it with the real go-live opening later (reverse + re-enter). "No" blocks every posting until a new opening is posted                                                   |
+| R-O2 | Delete investment opportunities + their product links too (investor profiles / portal logins stay)?            | **Yes** (default): they are QA contracts whose money, sales allocations and settlements are deleted; ended/settled test opportunities would otherwise remain with no capital                      |
+| R-O3 | Keep CRM leads (671 locally) and their timeline?                                                               | **Yes** (default): pipeline records, not financial. Their status is not changed — leads that were converted keep their status although the test order is gone. "No" deletes leads + lead timeline |
+| R-O4 | Clear / replace the Google-Sheets tabs (or disable the sources) before the first Sync after the release?       | **Yes** — otherwise the test store orders, shipping updates and statement lines are re-imported                                                                                                   |
+| R-O5 | Supabase backup + `pg_dump` taken and Preview DB ≠ Production confirmed before the release?                    | Required                                                                                                                                                                                          |
+| R-O6 | Orphan storage files (receipts / payout proofs of deleted records) — clean the storage bucket later?           | Optional housekeeping; harmless if left                                                                                                                                                           |

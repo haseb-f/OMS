@@ -1,5 +1,9 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { Prisma, PurchaseLineTreatment } from '@prisma/client';
+import {
+  InventoryMovementType,
+  Prisma,
+  PurchaseLineTreatment,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PostingEngineService } from '../posting-engine/posting-engine.service';
 import { AccountMappingService } from '../account-mapping/account-mapping.service';
@@ -10,29 +14,41 @@ import {
   lineTaxIsCapitalized,
   recognizedLineAmount,
 } from '../../purchasing/invoices/purchase-line-treatment';
+import { movementIdempotencyKey } from '../../inventory/dto/movement-trace';
+import { round2 } from '../inventory-valuation/inventory-valuation.service';
 import type {
   PostingLine,
   PostingProvider,
   PostingResult,
 } from '../posting-engine/posting-provider.interface';
 
+const REFERENCE_TYPE = 'PURCHASE_RETURN';
+const D = (value: Prisma.Decimal | string | number) =>
+  new Prisma.Decimal(value);
+
 /**
- * Purchase Return Posting Provider (TASK-046/047) — decrease Inventory,
- * reverse VAT Input, reduce the Supplier balance. Every account id
- * resolved through `AccountMappingService`; Dr/Cr structure and amounts
- * unchanged from TASK-046.
+ * Purchase Return Posting Provider (TASK-046/047; valuation = owner decision
+ * O9, 2026-10-06) — reduce the Supplier balance, reverse VAT Input, and
+ * relieve Inventory at the MOVING AVERAGE (Odoo-style AVCO). Every account id
+ * is resolved through `AccountMappingService`.
  *
- * Dr Accounts Payable                                          grandTotal
- * Cr Inventory (inventory-tracked, per resolved account) /
- * Cr Purchase/Expense (non-inventory, per resolved account)     net amount
- * Cr Fixed Assets / Prepayments (R13b — a returned capitalized /
- *    deferred line mirrors its invoice line: same account, net + the
- *    non-recoverable tax that was capitalized)                   net amount
- * Cr VAT Input (per resolved account, recoverable tax only)     taxAmount
+ * Dr Accounts Payable                  grandTotal (document currency × rate)
+ * Cr Inventory (category account)      relief = round2(qty × average) — functional
+ * Cr / Dr COGS (category account)      round2(Σ net × rate) − Σ relief — functional
+ *                                      (positive → Cr, negative → Dr; none when 0)
+ * Cr Purchase/Expense (non-stock line) net amount (document currency × rate)
+ * Cr Fixed Assets / Prepayments        (R13b) a returned capitalized / deferred line mirrors its invoice
+ *                                      line: same account, net + the non-recoverable tax capitalized
+ * Cr VAT Input                         recoverable taxAmount only (document currency × rate)
  *
- * Does not touch the moving-average cost (returning goods to a supplier
- * doesn't change what remaining stock cost to acquire) — only the
- * inventory-received side (`PurchaseInvoicePostingProvider`) updates it.
+ * The average is the one the units left at: read under the product lock at
+ * confirm and recorded on the PURCHASE_RETURN movement (`unitCost`, 4 dp), so
+ * the GL relieves exactly what the stock ledger removed and a re-post (FX
+ * correction) replays that recorded cost, never today's average. A return
+ * never changes the average. A stocked line whose movement carries no
+ * recorded cost was confirmed before O9: it is re-built exactly as it was
+ * originally posted (Inventory credited at the net line amount) — history is
+ * not revalued.
  */
 @Injectable()
 export class PurchaseReturnPostingProvider
@@ -73,7 +89,13 @@ export class PurchaseReturnPostingProvider
         },
       },
     });
-    if (Number(purchaseReturn.grandTotal) === 0) return null;
+    const reliefCostOf = await this.recordedReliefCosts(tx, purchaseReturn.id);
+    const relievesStock = purchaseReturn.items.some(
+      (item) =>
+        item.product.isInventoryItem &&
+        reliefCostOf(item.id)?.isZero() === false,
+    );
+    if (Number(purchaseReturn.grandTotal) === 0 && !relievesStock) return null;
     const exchangeRate = await snapshotDocumentExchangeRate(
       this.exchangeRates,
       tx,
@@ -86,6 +108,7 @@ export class PurchaseReturnPostingProvider
       purchaseReturn.exchangeRate,
       purchaseReturn.confirmedAt ?? purchaseReturn.createdAt,
     );
+    const description = `Purchase Return ${purchaseReturn.returnNumber}`;
 
     const lines: PostingLine[] = [];
 
@@ -96,13 +119,24 @@ export class PurchaseReturnPostingProvider
     lines.push({
       accountId: apAccountId,
       debit: Number(purchaseReturn.grandTotal),
-      description: `Purchase Return ${purchaseReturn.returnNumber}`,
+      description,
       partnerId: purchaseReturn.partner.id,
     });
 
+    // Document-currency credits (non-stock lines, pre-O9 stocked lines) and,
+    // for stocked lines, the functional relief per Inventory account plus the
+    // net amount (document currency) and relief per COGS account.
     const creditByAccount = new Map<string, number>();
     const treatmentOf = (item: (typeof purchaseReturn.items)[number]) =>
       item.purchaseInvoiceItem?.treatment ?? PurchaseLineTreatment.STANDARD;
+    const reliefByAccount = new Map<string, Prisma.Decimal>();
+    const cogsNetByAccount = new Map<string, Prisma.Decimal>();
+    const cogsReliefByAccount = new Map<string, Prisma.Decimal>();
+    const add = (
+      map: Map<string, Prisma.Decimal>,
+      accountId: string,
+      amount: Prisma.Decimal,
+    ) => map.set(accountId, (map.get(accountId) ?? D(0)).add(amount));
     for (const item of purchaseReturn.items) {
       const treatment = treatmentOf(item);
       if (treatment !== PurchaseLineTreatment.STANDARD) {
@@ -128,6 +162,31 @@ export class PurchaseReturnPostingProvider
         continue;
       }
       const netAmount = Number(item.lineTotal) - Number(item.taxAmount);
+      const unitCost = item.product.isInventoryItem
+        ? reliefCostOf(item.id)
+        : undefined;
+      if (unitCost) {
+        const relief = round2(unitCost.mul(item.quantity));
+        add(
+          reliefByAccount,
+          await this.accountMapping.resolveInventoryAccount(
+            item.product.categoryId,
+            tx,
+          ),
+          relief,
+        );
+        const cogsAccountId = await this.accountMapping.resolveCogsAccount(
+          item.product.categoryId,
+          tx,
+        );
+        add(
+          cogsNetByAccount,
+          cogsAccountId,
+          D(item.lineTotal).sub(D(item.taxAmount)),
+        );
+        add(cogsReliefByAccount, cogsAccountId, relief);
+        continue;
+      }
       const accountId = item.product.isInventoryItem
         ? await this.accountMapping.resolveInventoryAccount(
             item.product.categoryId,
@@ -145,18 +204,35 @@ export class PurchaseReturnPostingProvider
     }
     for (const [accountId, amount] of creditByAccount) {
       if (amount === 0) continue;
+      lines.push({ accountId, credit: amount, description });
+    }
+    for (const [accountId, amount] of reliefByAccount) {
+      if (amount.isZero()) continue;
       lines.push({
         accountId,
-        credit: amount,
-        description: `Purchase Return ${purchaseReturn.returnNumber}`,
+        credit: amount.toNumber(),
+        description: `Inventory relieved at average cost — ${purchaseReturn.returnNumber}`,
+        functionalAmount: true,
+      });
+    }
+    for (const [accountId, net] of cogsNetByAccount) {
+      // What the supplier credits (functional) minus what left inventory.
+      const amount = round2(net.mul(exchangeRate)).sub(
+        cogsReliefByAccount.get(accountId) ?? D(0),
+      );
+      if (amount.isZero()) continue;
+      lines.push({
+        accountId,
+        ...(amount.isPositive()
+          ? { credit: amount.toNumber() }
+          : { debit: amount.neg().toNumber() }),
+        description: `Return price vs average cost — ${purchaseReturn.returnNumber}`,
+        functionalAmount: true,
       });
     }
 
     const taxAmounts = new Map<string, number>();
-    assertPostedTaxAmountsHaveTax(
-      purchaseReturn.items,
-      `Purchase Return ${purchaseReturn.returnNumber}`,
-    );
+    assertPostedTaxAmountsHaveTax(purchaseReturn.items, description);
     for (const item of purchaseReturn.items) {
       if (!item.tax || Number(item.taxAmount) === 0) continue;
       if (
@@ -191,7 +267,7 @@ export class PurchaseReturnPostingProvider
 
     return {
       lines,
-      description: `Purchase Return ${purchaseReturn.returnNumber}`,
+      description,
       referenceNumber: purchaseReturn.returnNumber,
       currencyId: purchaseReturn.currencyId,
       exchangeRate,
@@ -201,5 +277,40 @@ export class PurchaseReturnPostingProvider
       projectId: purchaseReturn.projectId,
       entryDate: purchaseReturn.confirmedAt ?? purchaseReturn.createdAt,
     };
+  }
+
+  /**
+   * The relief unit cost recorded on each return line's PURCHASE_RETURN
+   * movement (keyed per line at confirm). `undefined` = no recorded cost
+   * (a return confirmed before O9).
+   */
+  private async recordedReliefCosts(
+    tx: Prisma.TransactionClient,
+    purchaseReturnId: string,
+  ): Promise<(itemId: string) => Prisma.Decimal | undefined> {
+    const movements = await tx.inventoryMovement.findMany({
+      where: {
+        type: InventoryMovementType.PURCHASE_RETURN,
+        referenceType: REFERENCE_TYPE,
+        referenceId: purchaseReturnId,
+        unitCost: { not: null },
+      },
+      select: { idempotencyKey: true, unitCost: true },
+    });
+    const byKey = new Map<string, Prisma.Decimal>();
+    for (const movement of movements) {
+      if (movement.idempotencyKey && movement.unitCost != null) {
+        byKey.set(movement.idempotencyKey, D(movement.unitCost));
+      }
+    }
+    return (itemId) =>
+      byKey.get(
+        movementIdempotencyKey(
+          REFERENCE_TYPE,
+          purchaseReturnId,
+          itemId,
+          InventoryMovementType.PURCHASE_RETURN,
+        ),
+      );
   }
 }

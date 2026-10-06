@@ -38,3 +38,26 @@ Merge to `main` → push (Vercel production deploy runs `prisma migrate deploy`;
 ## Known limits (not hidden)
 
 Integer stock quantities (no fractional units), single-hop unit conversion, no lots/serials/bins, no FIFO/standard cost, no GRN, nested kits not supported, the activity log text stays English, a raced second invoice confirm answers 400 "changed by someone else" (data stays correct).
+
+## Combined release package (prepared, NOT pushed — 2026-10-06)
+
+Local branches only (never push the reset migration to any branch before the release commit — Vercel Preview builds
+also run `prisma migrate deploy`): `feat/r13-followups` (drop legacy table, purchase-return O9, guarded test-data reset)
+merged into local `integration/r13-combined` with the parallel R13 accounting & reporting branch. On a fresh clone all 7
+migrations apply in order and the reset is a no-op off Production; API 191/191 suites (2336), serial 14/14 (152),
+web 140/140 (999), typecheck clean.
+
+Before the combined release can ship, the owner must:
+
+1. Approve the R13 accounting & reporting workstream (its decisions O-1…O-10, visual review, pre-flight SQL).
+2. Confirm the reset switches (`reset-plan.md` §7): R-O1 keep the QA opening entry (posting needs a fiscal-year opening —
+   recommended yes), R-O2 delete investment opportunities + product links, keep investor profiles (recommended yes),
+   R-O3 keep CRM leads (recommended yes).
+3. R-O4: disable or clear the Google Sheets order sync sources first, or the next sync re-imports the deleted test orders.
+4. R-O5: take a Supabase backup (and `pg_dump`) immediately before the release; rollback = restore it, then
+   `prisma migrate resolve --applied 20261007130000_r13_reset_production_test_data` so it is not re-run.
+5. Confirm that Vercel Preview does NOT use the Production database (otherwise only push the final commit to `main`).
+
+Release steps: re-merge the accounting branch's latest commits into `integration/r13-combined`, re-run the gates, fast-forward
+`main`, push a NEW commit (branch-pushed SHAs do not trigger a Production deploy), then verify with
+`scripts/acceptance/r13/r13-prod-survey.mjs` (PHASE=post) and `GET /inventory/integrity` (expect I1–I7 PASS, I6 difference 0).

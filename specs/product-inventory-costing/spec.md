@@ -192,6 +192,20 @@ product · F investor-eligible product. Evidence in `verification.md`.
   the average pool. Needs the owner/accountant to choose; until then the purchase return + re-bill correction path named in
   §4 carries this known gap (visible in I6), and additional later charges use Landed Cost, which reconciles exactly.
 
+### Owner decisions received (2026-10-06)
+
+- `PRD-2026-000041` «كومبو بوكس» stays **ASSEMBLED** (already the migrated value — no change).
+- **O3** approved for the legacy table: `product_components` is dropped by migration `20261007120000_r13_drop_legacy_product_components`
+  (before/after proof `evidence/before-after-oms_r7_final-vs-oms_r13_drop.md` PASS). `products.type` (derived column) is kept.
+- **O6 permissions:** `inventory.assembly.create|reverse|direct_cost` and `products.recipes.manage` stay grantable in the Permission
+  Matrix only (not granted by migration); the owner grants them later to shipping, warehouse, accounting staff or admins.
+- **O9** decided (Odoo-style AVCO, no new account): a purchase return relieves Inventory at the moving average read under the
+  product lock at confirm (recorded on the PURCHASE_RETURN movement, average unchanged, no recorded cost → 422
+  `PURCHASE_RETURN_COST_MISSING`); round2(net × rate) − round2(qty × average) goes to the category COGS account (Cr if
+  positive, Dr if negative); a re-post replays the recorded cost; returns confirmed earlier are not revalued.
+- Historical test financial data and the purchase-return entries: owner says they are test data and may be deleted — the exact
+  deletion scope is being confirmed before anything is removed (see handoff).
+
 ### Decisions taken during implementation (recorded)
 
 - Assembly reversal removes the finished goods at **current** average (average unchanged); the GL mirror is completed by an

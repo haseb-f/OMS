@@ -11,6 +11,7 @@ import { NumberingModule } from '../../numbering/numbering.module';
 import { PostingEngineModule } from '../../accounting/posting-engine/posting-engine.module';
 import { FixedAssetsModule } from '../../fixed-assets/fixed-assets.module';
 import { PrepaidExpensesModule } from '../../prepaid-expenses/prepaid-expenses.module';
+import { InventoryValuationModule } from '../../accounting/inventory-valuation/inventory-valuation.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { PrepaidExpensesModule } from '../../prepaid-expenses/prepaid-expenses.m
     PostingEngineModule,
     FixedAssetsModule,
     PrepaidExpensesModule,
+    InventoryValuationModule,
   ],
   controllers: [PurchaseReturnsController, PurchaseReturnActivitiesController],
   providers: [PurchaseReturnsService, PurchaseReturnActivityService],
