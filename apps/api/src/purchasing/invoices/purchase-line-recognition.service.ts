@@ -1,28 +1,25 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
+  AccountingScheduleStatus,
   FixedAssetStatus,
   Prisma,
   PrepaidExpenseStatus,
   PurchaseLineTreatment,
 } from '@prisma/client';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
-import { buildDepreciationSchedule } from '../../fixed-assets/depreciation-schedule';
+import {
+  buildDepreciationSchedule,
+  respreadRemainingAmounts,
+} from '../../fixed-assets/depreciation-schedule';
 import { buildMonthlyRecognitionSchedule } from '../../prepaid-expenses/prepaid-schedule';
 import { businessDateOf } from '../../common/time/business-date';
 import { dateOnly } from '../../accounting/schedules/schedule-due';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MasterDataActivityLogService } from '../../master-data/master-data-activity-log.service';
+import { recognizedLineAmount } from './purchase-line-treatment';
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
-}
-
-/** Net (pre-tax) line amount — what the invoice JE debits for the line. */
-export function purchaseLineNetAmount(item: {
-  lineTotal: Prisma.Decimal | number;
-  taxAmount: Prisma.Decimal | number;
-}): number {
-  return round2(Number(item.lineTotal) - Number(item.taxAmount));
 }
 
 /**
@@ -85,6 +82,7 @@ export class PurchaseLineRecognitionService {
           },
           include: {
             product: { select: { name: true, displayName: true } },
+            tax: { select: { isRecoverable: true } },
             fixedAsset: true,
             prepaidExpense: { select: { id: true } },
           },
@@ -107,9 +105,30 @@ export class PurchaseLineRecognitionService {
         item.product.displayName ||
         item.product.name;
       // Base-currency amount — equals the invoice JE's own debit for this
-      // line (the provider posts one line per capitalized/deferred item).
-      const baseAmount = round2(purchaseLineNetAmount(item) * rate);
+      // line (the provider posts one line per capitalized/deferred item):
+      // net, plus the non-recoverable tax of a FIXED_ASSET line (IAS 16).
+      const baseAmount = round2(recognizedLineAmount(item) * rate);
       const start = item.scheduleStartDate ?? postedOn;
+
+      if (
+        item.treatment === PurchaseLineTreatment.FIXED_ASSET &&
+        item.linkedFixedAssetId
+      ) {
+        await this.addCostToAsset(
+          item.linkedFixedAssetId,
+          {
+            itemId: item.id,
+            invoiceId: invoice.id,
+            invoiceNumber: invoice.invoiceNumber,
+            baseAmount,
+            postedOn,
+          },
+          tx,
+          userId,
+        );
+        assetIds.push(item.linkedFixedAssetId);
+        continue;
+      }
 
       if (item.treatment === PurchaseLineTreatment.FIXED_ASSET) {
         if (item.fixedAsset) {
@@ -244,7 +263,14 @@ export class PurchaseLineRecognitionService {
       );
     }
     const salvage = Number(asset.salvageValue);
-    if (salvage > line.baseAmount) {
+    // Directly attributable costs already added to the draft by earlier
+    // invoices stay part of its cost (their own invoice JEs debited them).
+    const additions = await tx.fixedAssetCostAddition.aggregate({
+      where: { fixedAssetId: asset.id },
+      _sum: { amount: true },
+    });
+    const cost = round2(line.baseAmount + Number(additions._sum.amount ?? 0));
+    if (salvage > cost) {
       throw new BadRequestException(
         `${asset.code}: salvage value ${salvage} exceeds the invoice line amount ${line.baseAmount}.`,
       );
@@ -267,7 +293,7 @@ export class PurchaseLineRecognitionService {
     await tx.fixedAsset.update({
       where: { id: asset.id },
       data: {
-        cost: line.baseAmount,
+        cost,
         acquisitionDate: line.postedOn,
         status: FixedAssetStatus.CAPITALIZED,
         usefulLifeMonths: months,
@@ -286,7 +312,7 @@ export class PurchaseLineRecognitionService {
         depreciationPeriods: {
           create: buildDepreciationSchedule(
             method,
-            line.baseAmount,
+            cost,
             salvage,
             months,
             start,
@@ -303,5 +329,162 @@ export class PurchaseLineRecognitionService {
       undefined,
       tx,
     );
+  }
+
+  /**
+   * R13b (O-2, IAS 16) — a FIXED_ASSET line that references an existing
+   * asset adds a directly attributable cost to it instead of creating a
+   * second asset. The invoice JE already debited Fixed Assets for the line;
+   * here the asset cost grows by the same base amount and, for a
+   * capitalized asset, the remaining PENDING depreciation is re-spread
+   * prospectively over the remaining periods (change in estimate — posted
+   * periods are never touched). Keyed by the invoice line (unique): a
+   * re-run never adds the cost twice.
+   */
+  private async addCostToAsset(
+    assetId: string,
+    line: {
+      itemId: string;
+      invoiceId: string;
+      invoiceNumber: string;
+      baseAmount: number;
+      postedOn: Date;
+    },
+    tx: Prisma.TransactionClient,
+    userId?: string,
+  ) {
+    await tx.$queryRaw`SELECT id FROM fixed_assets WHERE id = ${assetId}::uuid FOR UPDATE`;
+    const existing = await tx.fixedAssetCostAddition.findUnique({
+      where: { purchaseInvoiceItemId: line.itemId },
+      select: { id: true },
+    });
+    if (existing) return;
+    const asset = await tx.fixedAsset.findUnique({
+      where: { id: assetId },
+      include: {
+        depreciationPeriods: {
+          where: { status: AccountingScheduleStatus.PENDING },
+          orderBy: { periodStart: 'asc' },
+        },
+      },
+    });
+    if (!asset || asset.deletedAt) {
+      throw new BadRequestException(
+        `The fixed asset a line of Purchase Invoice ${line.invoiceNumber} adds its cost to no longer exists.`,
+      );
+    }
+    if (
+      asset.status !== FixedAssetStatus.DRAFT &&
+      asset.status !== FixedAssetStatus.CAPITALIZED
+    ) {
+      throw new BadRequestException(
+        `${asset.code} is ${asset.status}; a cost can only be added to a Draft or Capitalized asset.`,
+      );
+    }
+    const pending = asset.depreciationPeriods;
+    if (asset.status === FixedAssetStatus.CAPITALIZED && pending.length === 0) {
+      throw new BadRequestException(
+        `${asset.code} has no remaining depreciation periods to absorb an added cost. Record the cost as a new asset instead.`,
+      );
+    }
+    const cost = round2(Number(asset.cost) + line.baseAmount);
+    if (asset.status === FixedAssetStatus.CAPITALIZED) {
+      const bookValue = round2(cost - Number(asset.accumulatedDepreciation));
+      const amounts = respreadRemainingAmounts(
+        asset.depreciationMethod,
+        bookValue,
+        Number(asset.salvageValue),
+        pending.length,
+        pending[0].periodStart,
+      );
+      for (const [index, period] of pending.entries()) {
+        await tx.fixedAssetDepreciationPeriod.update({
+          where: { id: period.id },
+          data: { amount: amounts[index] },
+        });
+      }
+    }
+    await tx.fixedAsset.update({
+      where: { id: assetId },
+      data: { cost, updatedBy: userId ?? null },
+    });
+    await tx.fixedAssetCostAddition.create({
+      data: {
+        fixedAssetId: assetId,
+        purchaseInvoiceItemId: line.itemId,
+        purchaseInvoiceId: line.invoiceId,
+        amount: line.baseAmount,
+        addedOn: line.postedOn,
+        respreadPeriods:
+          asset.status === FixedAssetStatus.CAPITALIZED ? pending.length : 0,
+        createdBy: userId ?? null,
+      },
+    });
+    await this.activityLog.log(
+      'FIXED_ASSET',
+      assetId,
+      'COST_ADDED',
+      `Cost ${line.baseAmount} added by Purchase Invoice ${line.invoiceNumber}` +
+        (asset.status === FixedAssetStatus.CAPITALIZED
+          ? ` — ${pending.length} remaining depreciation period(s) re-spread`
+          : ''),
+      userId,
+      {
+        purchaseInvoiceId: line.invoiceId,
+        itemId: line.itemId,
+        amount: line.baseAmount,
+      },
+      tx,
+    );
+  }
+
+  /**
+   * Save-time check of the assets FIXED_ASSET lines add their cost to: the
+   * asset exists, is Draft or Capitalized, and a capitalized one still has
+   * PENDING periods to absorb the cost. Re-checked under lock at confirm.
+   */
+  async assertCostAdditionTargets(assetIds: string[]): Promise<void> {
+    const ids = [...new Set(assetIds)];
+    if (ids.length === 0) return;
+    const assets = await this.prisma.fixedAsset.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        code: true,
+        status: true,
+        deletedAt: true,
+        _count: {
+          select: {
+            depreciationPeriods: {
+              where: { status: AccountingScheduleStatus.PENDING },
+            },
+          },
+        },
+      },
+    });
+    for (const id of ids) {
+      const asset = assets.find((row) => row.id === id);
+      if (!asset || asset.deletedAt) {
+        throw new BadRequestException(
+          'The fixed asset selected for "Add to existing asset" was not found.',
+        );
+      }
+      if (
+        asset.status !== FixedAssetStatus.DRAFT &&
+        asset.status !== FixedAssetStatus.CAPITALIZED
+      ) {
+        throw new BadRequestException(
+          `${asset.code} is ${asset.status}; a cost can only be added to a Draft or Capitalized asset.`,
+        );
+      }
+      if (
+        asset.status === FixedAssetStatus.CAPITALIZED &&
+        asset._count.depreciationPeriods === 0
+      ) {
+        throw new BadRequestException(
+          `${asset.code} has no remaining depreciation periods to absorb an added cost. Record the cost as a new asset instead.`,
+        );
+      }
+    }
   }
 }

@@ -8,8 +8,21 @@ export function lineTreatmentData(
 ): Partial<Prisma.PurchaseInvoiceItemUncheckedCreateWithoutPurchaseInvoiceInput> {
   const treatment = item.treatment ?? PurchaseLineTreatment.STANDARD;
   if (treatment === PurchaseLineTreatment.FIXED_ASSET) {
+    if (item.linkedFixedAssetId) {
+      // R13b (O-2) — a cost addition to an existing asset: no schedule of its own.
+      return {
+        treatment,
+        linkedFixedAssetId: item.linkedFixedAssetId,
+        assetUsefulLifeMonths: null,
+        assetDepreciationMethod: null,
+        scheduleStartDate: null,
+        prepaidMonths: null,
+        prepaidExpenseAccountId: null,
+      };
+    }
     return {
       treatment,
+      linkedFixedAssetId: null,
       assetUsefulLifeMonths: item.assetUsefulLifeMonths,
       assetDepreciationMethod: item.assetDepreciationMethod ?? 'STRAIGHT_LINE',
       scheduleStartDate: item.scheduleStartDate
@@ -22,6 +35,7 @@ export function lineTreatmentData(
   if (treatment === PurchaseLineTreatment.PREPAID_EXPENSE) {
     return {
       treatment,
+      linkedFixedAssetId: null,
       prepaidMonths: item.prepaidMonths,
       prepaidExpenseAccountId: item.prepaidExpenseAccountId,
       scheduleStartDate: item.scheduleStartDate
@@ -31,7 +45,10 @@ export function lineTreatmentData(
       assetDepreciationMethod: null,
     };
   }
-  return { treatment: PurchaseLineTreatment.STANDARD };
+  return {
+    treatment: PurchaseLineTreatment.STANDARD,
+    linkedFixedAssetId: null,
+  };
 }
 
 /**
@@ -46,15 +63,31 @@ export function assertLineTreatments(
 ): void {
   items.forEach((item, index) => {
     const treatment = item.treatment ?? PurchaseLineTreatment.STANDARD;
-    if (treatment === PurchaseLineTreatment.STANDARD) return;
     const line = `Line ${index + 1}`;
+    if (treatment === PurchaseLineTreatment.STANDARD) {
+      if (item.linkedFixedAssetId) {
+        throw new BadRequestException(
+          `${line}: only a line recorded as a fixed asset can add its cost to an existing asset.`,
+        );
+      }
+      return;
+    }
     if (isInventoryItem(item.productId)) {
       throw new BadRequestException(
         `${line}: a stocked product cannot be recorded as a fixed asset or prepaid expense — use a non-stock product for this purchase.`,
       );
     }
     if (
+      item.linkedFixedAssetId &&
+      treatment !== PurchaseLineTreatment.FIXED_ASSET
+    ) {
+      throw new BadRequestException(
+        `${line}: only a line recorded as a fixed asset can add its cost to an existing asset.`,
+      );
+    }
+    if (
       treatment === PurchaseLineTreatment.FIXED_ASSET &&
+      !item.linkedFixedAssetId &&
       !item.assetUsefulLifeMonths
     ) {
       throw new BadRequestException(
@@ -74,4 +107,42 @@ export function assertLineTreatments(
       }
     }
   });
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/** The tax fields a capitalization decision needs from a purchase line. */
+export interface CapitalizableLine {
+  treatment: PurchaseLineTreatment;
+  lineTotal: Prisma.Decimal | number;
+  taxAmount: Prisma.Decimal | number;
+  tax?: { isRecoverable: boolean } | null;
+}
+
+/**
+ * R13b (O-2, IAS 16) — tax on a FIXED_ASSET line that cannot be reclaimed is
+ * part of the asset's cost: it is debited to Fixed Assets with the net
+ * amount and never to VAT Input. Recoverable tax stays VAT Input.
+ */
+export function lineTaxIsCapitalized(item: CapitalizableLine): boolean {
+  return (
+    item.treatment === PurchaseLineTreatment.FIXED_ASSET &&
+    item.tax != null &&
+    !item.tax.isRecoverable &&
+    Number(item.taxAmount) !== 0
+  );
+}
+
+/**
+ * Document-currency amount a capitalized / deferred line debits (invoice) or
+ * credits (return) to Fixed Assets / Prepayments: the net amount, plus the
+ * non-recoverable tax of a FIXED_ASSET line.
+ */
+export function recognizedLineAmount(item: CapitalizableLine): number {
+  const net = round2(Number(item.lineTotal) - Number(item.taxAmount));
+  return lineTaxIsCapitalized(item)
+    ? round2(net + Number(item.taxAmount))
+    : net;
 }

@@ -47,7 +47,10 @@ export const RECORD_ROUTES: Record<
     labelKey: "docFlow.kinds.SUPPLIER_PAYMENT",
     href: (id) => `/purchasing/payments/${id}`,
   },
-  EXPENSE_PAYMENT: { labelKey: "docFlow.kinds.EXPENSE_PAYMENT" },
+  EXPENSE_PAYMENT: {
+    labelKey: "docFlow.kinds.EXPENSE_PAYMENT",
+    href: (id) => `/finance/expenses/${id}`,
+  },
   LANDED_COST: {
     labelKey: "docFlow.kinds.LANDED_COST",
     href: (id) => `/purchasing/landed-cost/${id}`,

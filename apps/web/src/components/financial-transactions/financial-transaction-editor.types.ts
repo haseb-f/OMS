@@ -73,6 +73,8 @@ export interface FinancialTransactionEditorConfig {
   toolbarExtra?: ReactNode;
   /** Allocation grid column header when the settled documents are not invoices (Customer Refund → Sales Returns). */
   allocationDocumentLabel?: string;
+  /** Voucher-specific wording of the shared fields (an expense is "paid from", by "payment method"). */
+  fieldLabels?: Partial<Record<"transactionDate" | "paymentSource" | "receivingAccount", string>>;
 }
 
 export interface FinancialTransactionEditorState {

@@ -59,6 +59,8 @@ const TRANSACTION_INCLUDE = {
   currency: true,
   paymentSource: true,
   receivingAccount: true,
+  costCenter: { select: { id: true, code: true, name: true } },
+  project: { select: { id: true, code: true, name: true } },
   allocations: {
     include: {
       salesInvoice: {
@@ -75,6 +77,7 @@ const TRANSACTION_INCLUDE = {
 } satisfies Prisma.FinancialTransactionInclude;
 
 export interface FinancialTransactionCreateInput {
+  /** Required party for receipts / payments / refunds; EXPENSE_PAYMENT: optional supplier counterparty (never posted to AP, never allocated). */
   partnerId?: string;
   /** EXPENSE_PAYMENT only — the account debited directly instead of resolving Accounts Payable. */
   expenseAccountId?: string;
@@ -96,10 +99,42 @@ export interface FinancialTransactionCreateInput {
   feeAmount?: number;
   feeAccountId?: string;
   referenceNumber?: string;
+  /** What was spent — expense vouchers (carried onto the journal line). */
+  description?: string;
   notes?: string;
   allocations?: AllocationInputDto[];
   /** R13 B2 — one key per opened form; see `findIdempotentReplay`. */
   idempotencyKey?: string;
+}
+
+/** Update input — the optional links may be cleared with `null`. */
+export type FinancialTransactionUpdateInput = Omit<
+  Partial<FinancialTransactionCreateInput>,
+  'partnerId' | 'costCenterId' | 'projectId'
+> & {
+  partnerId?: string | null;
+  costCenterId?: string | null;
+  projectId?: string | null;
+};
+
+/** List filters shared by every voucher list (expense lists add account filters). */
+export type FinancialTransactionListQuery =
+  FindFinancialTransactionsQueryDto & {
+    partnerId?: string | string[];
+    /** CUSTOMER_REFUND — only refunds paying back this Sales Return. */
+    salesReturnId?: string;
+    /** EXPENSE_PAYMENT — debited expense account(s). */
+    expenseAccountId?: string | string[];
+    /** Paid from / received into — the receiving (cash / bank) account(s). */
+    receivingAccountId?: string | string[];
+  };
+
+/** Per-currency total of a voucher list (reversed vouchers excluded). */
+export interface FinancialTransactionCurrencyTotal {
+  currencyId: string | null;
+  currencyCode: string | null;
+  count: number;
+  amount: number;
 }
 
 /**
@@ -179,6 +214,8 @@ export class FinancialTransactionsService {
       }
     }
     const allocations = dto.allocations ?? [];
+    if (type === 'EXPENSE_PAYMENT')
+      this.assertNoExpenseAllocations(allocations);
     let currencyId = dto.currencyId;
     if (type === 'CUSTOMER_REFUND') {
       this.assertRefundFullyAllocated(dto.amount, allocations);
@@ -207,7 +244,7 @@ export class FinancialTransactionsService {
           data: {
             transactionNumber,
             type,
-            partnerId: type !== 'EXPENSE_PAYMENT' ? dto.partnerId : undefined,
+            partnerId: dto.partnerId || undefined,
             expenseAccountId:
               type === 'EXPENSE_PAYMENT' ? dto.expenseAccountId : undefined,
             currencyId,
@@ -224,6 +261,7 @@ export class FinancialTransactionsService {
             feeAmount,
             feeAccountId: feeAmount > 0 ? dto.feeAccountId : undefined,
             referenceNumber: dto.referenceNumber,
+            description: dto.description,
             notes: dto.notes,
             createdBy: userId ?? null,
             updatedBy: userId ?? null,
@@ -348,10 +386,7 @@ export class FinancialTransactionsService {
         this.round2(dto.feeAmount ?? 0) &&
       sameDate &&
       requestedAllocations.join('|') === storedAllocations.join('|') &&
-      same(
-        type === 'EXPENSE_PAYMENT' ? undefined : dto.partnerId,
-        existing.partnerId,
-      ) &&
+      same(dto.partnerId || undefined, existing.partnerId) &&
       same(
         type === 'EXPENSE_PAYMENT' ? dto.expenseAccountId : undefined,
         existing.expenseAccountId,
@@ -387,19 +422,22 @@ export class FinancialTransactionsService {
     return JSON.stringify(error.meta ?? {}).includes('idempotency_key');
   }
 
-  async findAll(
+  /**
+   * One filter for a voucher list and its totals. Expense vouchers filter
+   * on their own transaction (expense) date and also search the
+   * description; every other list keeps filtering on the record date.
+   */
+  private buildListWhere(
     type: FinancialTransactionType,
-    query: FindFinancialTransactionsQueryDto & {
-      partnerId?: string | string[];
-      /** CUSTOMER_REFUND — only refunds paying back this Sales Return. */
-      salesReturnId?: string;
-    },
-  ) {
+    query: FinancialTransactionListQuery,
+  ): Prisma.FinancialTransactionWhereInput {
     const where: Prisma.FinancialTransactionWhereInput = {
       type,
       deletedAt: null,
       status: prismaEnumFilter(query.status),
       partnerId: prismaEnumFilter(query.partnerId),
+      expenseAccountId: prismaEnumFilter(query.expenseAccountId),
+      receivingAccountId: prismaEnumFilter(query.receivingAccountId),
       ...(query.salesReturnId
         ? { allocations: { some: { salesReturnId: query.salesReturnId } } }
         : {}),
@@ -408,11 +446,31 @@ export class FinancialTransactionsService {
       where.OR = [
         { transactionNumber: { contains: query.search, mode: 'insensitive' } },
         { referenceNumber: { contains: query.search, mode: 'insensitive' } },
+        ...(type === 'EXPENSE_PAYMENT'
+          ? [
+              {
+                description: {
+                  contains: query.search,
+                  mode: 'insensitive' as const,
+                },
+              },
+            ]
+          : []),
       ];
     }
     if (query.dateFrom || query.dateTo) {
-      where.createdAt = buildDateRangeFilter(query.dateFrom, query.dateTo);
+      const range = buildDateRangeFilter(query.dateFrom, query.dateTo);
+      if (type === 'EXPENSE_PAYMENT') where.transactionDate = range;
+      else where.createdAt = range;
     }
+    return where;
+  }
+
+  async findAll(
+    type: FinancialTransactionType,
+    query: FinancialTransactionListQuery,
+  ) {
+    const where = this.buildListWhere(type, query);
 
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
@@ -430,6 +488,69 @@ export class FinancialTransactionsService {
     return { items, total, page, pageSize };
   }
 
+  /**
+   * Totals of a filtered voucher list, one per currency — unlike currencies
+   * are never added together. Cancelled (reversed) vouchers are excluded:
+   * their entry was reversed, nothing was spent. A voucher without a
+   * currency is in the functional currency (Settings → Accounting).
+   */
+  async totalsByCurrency(
+    type: FinancialTransactionType,
+    query: FinancialTransactionListQuery,
+  ): Promise<FinancialTransactionCurrencyTotal[]> {
+    const where: Prisma.FinancialTransactionWhereInput = {
+      AND: [
+        this.buildListWhere(type, query),
+        { status: { not: FinancialTransactionStatus.CANCELLED } },
+      ],
+    };
+    const grouped = await this.prisma.financialTransaction.groupBy({
+      by: ['currencyId'],
+      where,
+      _sum: { amount: true },
+      _count: { _all: true },
+    });
+    if (grouped.length === 0) return [];
+    const settings = await this.prisma.postingSettings.findFirst({
+      select: { functionalCurrencyId: true },
+    });
+    const ids = [
+      ...new Set(
+        grouped
+          .map((row) => row.currencyId ?? settings?.functionalCurrencyId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const currencies = new Map(
+      (
+        await this.prisma.currency.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, code: true },
+        })
+      ).map((currency) => [currency.id, currency.code]),
+    );
+    const byCurrency = new Map<string, FinancialTransactionCurrencyTotal>();
+    for (const row of grouped) {
+      const currencyId =
+        row.currencyId ?? settings?.functionalCurrencyId ?? null;
+      const key = currencyId ?? '';
+      const current = byCurrency.get(key) ?? {
+        currencyId,
+        currencyCode: currencyId ? (currencies.get(currencyId) ?? null) : null,
+        count: 0,
+        amount: 0,
+      };
+      current.count += row._count._all;
+      current.amount = this.round2(
+        current.amount + Number(row._sum.amount ?? 0),
+      );
+      byCurrency.set(key, current);
+    }
+    return [...byCurrency.values()].sort((a, b) =>
+      (a.currencyCode ?? '').localeCompare(b.currencyCode ?? ''),
+    );
+  }
+
   async findOne(type: FinancialTransactionType, id: string) {
     const transaction = await this.prisma.financialTransaction.findFirst({
       where: { id, type, deletedAt: null },
@@ -443,7 +564,7 @@ export class FinancialTransactionsService {
 
   async update(
     id: string,
-    dto: Partial<FinancialTransactionCreateInput>,
+    dto: FinancialTransactionUpdateInput,
     userId?: string,
   ) {
     const existing = await this.findOneById(id);
@@ -454,8 +575,20 @@ export class FinancialTransactionsService {
     }
 
     const partyId = existing.partnerId ?? undefined;
-    if (existing.type === 'EXPENSE_PAYMENT' && dto.expenseAccountId) {
-      await this.assertExpenseAccount(dto.expenseAccountId);
+    const isExpense = existing.type === 'EXPENSE_PAYMENT';
+    if (isExpense) {
+      if (dto.allocations !== undefined) {
+        this.assertNoExpenseAllocations(dto.allocations);
+      }
+      if (dto.expenseAccountId) {
+        await this.assertExpenseAccount(dto.expenseAccountId);
+      }
+      if (dto.partnerId) {
+        await this.partnersService.assertActiveForRole(
+          dto.partnerId,
+          PartnerRoleType.SUPPLIER,
+        );
+      }
     }
     if (dto.amount !== undefined || dto.allocations !== undefined) {
       const amount = dto.amount ?? Number(existing.amount);
@@ -502,12 +635,15 @@ export class FinancialTransactionsService {
             : undefined,
           paymentSourceId: dto.paymentSourceId,
           receivingAccountId: dto.receivingAccountId,
-          expenseAccountId:
-            existing.type === 'EXPENSE_PAYMENT'
-              ? dto.expenseAccountId
-              : undefined,
+          expenseAccountId: isExpense ? dto.expenseAccountId : undefined,
+          // An expense voucher's counterparty is optional and may change or
+          // be cleared; a receipt / payment party is fixed at create.
+          partnerId: isExpense ? dto.partnerId : undefined,
+          costCenterId: dto.costCenterId,
+          projectId: dto.projectId,
           amount: dto.amount,
           referenceNumber: dto.referenceNumber,
+          description: dto.description,
           notes: dto.notes,
           updatedBy: userId ?? null,
           ...(resolvedAllocations
@@ -985,8 +1121,14 @@ export class FinancialTransactionsService {
         );
       }
       await this.assertExpenseAccount(dto.expenseAccountId);
-      // No party (customer/supplier) — allocations never apply to an
-      // Expense Payment Voucher, so the returned id is never used.
+      // Optional supplier counterparty — metadata only. Allocations never
+      // apply to an Expense Payment Voucher, so the returned id is unused.
+      if (dto.partnerId) {
+        await this.partnersService.assertActiveForRole(
+          dto.partnerId,
+          PartnerRoleType.SUPPLIER,
+        );
+      }
       return '';
     }
     if (!dto.partnerId) {
@@ -1037,6 +1179,21 @@ export class FinancialTransactionsService {
         fields: [{ field: 'expenseAccountId', constraints: ['group_account'] }],
       });
     }
+  }
+
+  /**
+   * R13 (owner decision 2) — an expense voucher recognizes an expense
+   * directly; it never settles a purchase invoice. Paying an invoice is a
+   * Supplier Payment (Dr AP), so an invoiced cost is never expensed twice.
+   */
+  private assertNoExpenseAllocations(allocations: readonly unknown[]) {
+    if (allocations.length === 0) return;
+    throw new BadRequestException({
+      code: 'EXPENSE_ALLOCATION_REFUSED',
+      message:
+        'An expense voucher never settles an invoice — pay a supplier invoice with a Supplier Payment instead.',
+      fields: [{ field: 'allocations', constraints: ['not_allowed'] }],
+    });
   }
 
   private assertAllocationsWithinAmount(
@@ -1412,6 +1569,9 @@ export class FinancialTransactionsService {
     type: FinancialTransactionType;
     transactionNumber: string;
   }) {
+    if (transaction.type === 'EXPENSE_PAYMENT') {
+      this.assertNoExpenseAllocations([{}]);
+    }
     if (transaction.type === 'CUSTOMER_REFUND') {
       throw new BadRequestException(
         `لا يمكن تعديل تخصيص رد مؤكد — The allocation of confirmed refund ${transaction.transactionNumber} is fixed. Cancel it and record a new refund instead.`,

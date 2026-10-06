@@ -97,6 +97,11 @@ export interface PurchaseReturnableSummaryItem {
   invoicedQuantity: number;
   returnedQuantity: number;
   remainingQuantity: number;
+  /** R13b — the line's recognition; a FIXED_ASSET line is returned whole. */
+  treatment?: "STANDARD" | "FIXED_ASSET" | "PREPAID_EXPENSE";
+  wholeLineOnly?: boolean;
+  /** R13b — why a capitalized / deferred line cannot be returned (null = it can). */
+  returnBlockedReason?: string | null;
 }
 
 export interface PurchaseReturnableSummary {

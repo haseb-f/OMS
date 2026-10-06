@@ -67,6 +67,17 @@ export class FixedAssetsController {
     return this.fixedAssetsService.linkableInvoiceLines(search);
   }
 
+  /**
+   * R13b (O-2) — Draft / Capitalized assets a purchase invoice FIXED_ASSET
+   * line may add its cost to (invoice line options → "Add to existing asset").
+   * Same visibility as the asset list (code, name, status, cost only).
+   */
+  @Get('cost-addition-targets')
+  @SkipPermissionCheck()
+  costAdditionTargets(@Query('search') search?: string) {
+    return this.fixedAssetsService.costAdditionTargets(search);
+  }
+
   @Get()
   @SkipPermissionCheck()
   findAll(@Query() query: MasterDataQueryDto) {

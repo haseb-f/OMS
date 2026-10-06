@@ -20,6 +20,9 @@ import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/business/status-badge";
+import { PartnerPicker } from "@/components/business/partner-picker";
+import { SegmentedRadioGroup } from "@/components/documents/segmented-radio-group";
+import type { PartnerPickerRow } from "@/services/partners-service";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import {
   AccountingScheduleTable,
@@ -64,6 +67,9 @@ function lineLabel(line: LinkableInvoiceLine) {
 
 type Dialog = "capitalize" | "dispose" | "process" | "link" | null;
 
+/** R13b (O-1) — where disposal proceeds go: cash into a receiving account, or a supplier credit (Dr AP). */
+type Settlement = "CASH" | "SUPPLIER_CREDIT";
+
 function FixedAssetDetailContent() {
   const params = useParams<{ id: string }>();
   const { t } = useLocale();
@@ -80,6 +86,8 @@ function FixedAssetDetailContent() {
   const [disposalAmount, setDisposalAmount] = useState("");
   const [disposalNotes, setDisposalNotes] = useState("");
   const [disposalAccountId, setDisposalAccountId] = useState("");
+  const [settlement, setSettlement] = useState<Settlement>("CASH");
+  const [creditSupplier, setCreditSupplier] = useState<PartnerPickerRow | null>(null);
   const [receivingAccounts, setReceivingAccounts] = useState<ReceivingAccountOption[]>([]);
   const [linkableLines, setLinkableLines] = useState<LinkableInvoiceLine[] | null>(null);
   const [lineId, setLineId] = useState("");
@@ -123,6 +131,8 @@ function FixedAssetDetailContent() {
     setDisposalAmount("");
     setDisposalNotes("");
     setDisposalAccountId(asset.receivingAccountId ?? "");
+    setSettlement("CASH");
+    setCreditSupplier(null);
     setDialog("dispose");
     receivingAccountsService
       .list()
@@ -172,6 +182,31 @@ function FixedAssetDetailContent() {
             status: asset.purchaseInvoice.status,
           },
         ],
+      });
+    }
+    if (asset.purchaseReturn) {
+      groups.push({
+        labelKey: "assetSchedules.links.purchaseReturn",
+        links: [
+          {
+            id: asset.purchaseReturn.id,
+            number: asset.purchaseReturn.returnNumber,
+            href: `/purchasing/purchase-returns/${asset.purchaseReturn.id}`,
+            kind: "PURCHASE_RETURN",
+            status: asset.purchaseReturn.status,
+          },
+        ],
+      });
+    }
+    if (asset.costAdditions.length > 0) {
+      groups.push({
+        labelKey: "assetSchedules.links.costAddedBy",
+        links: asset.costAdditions.map((addition) => ({
+          id: addition.purchaseInvoiceItem.purchaseInvoice.id,
+          number: `${addition.purchaseInvoiceItem.purchaseInvoice.invoiceNumber} · ${formatMoney(Number(addition.amount))}`,
+          href: `/purchasing/purchase-invoices/${addition.purchaseInvoiceItem.purchaseInvoice.id}`,
+          kind: "PURCHASE_INVOICE",
+        })),
       });
     }
     const { capitalization, disposal } = asset.journalEntries;
@@ -294,12 +329,25 @@ function FixedAssetDetailContent() {
           })}
         </p>
       ) : null}
+      {asset.purchaseReturn ? (
+        <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-caption text-muted-foreground">
+          {t("assetSchedules.dialogs.returnedNotice", {
+            return: asset.purchaseReturn.returnNumber,
+          })}
+        </p>
+      ) : null}
 
       <DetailSummaryBar>
         <DetailField
           label={t("masterData.fixedAssets.fields.cost")}
           value={<MoneyValue value={summary.cost} />}
         />
+        {summary.costAdditions > 0 ? (
+          <DetailField
+            label={t("assetSchedules.fields.costAdditions")}
+            value={<MoneyValue value={summary.costAdditions} />}
+          />
+        ) : null}
         <DetailField
           label={t("masterData.fixedAssets.fields.salvageValue")}
           value={<MoneyValue value={summary.salvageValue} />}
@@ -380,6 +428,16 @@ function FixedAssetDetailContent() {
             value={
               asset.status === "DISPOSED" ? <MoneyValue value={asset.disposalAmount ?? 0} /> : null
             }
+          />
+          {asset.disposalPartner ? (
+            <DetailField
+              label={t("assetSchedules.fields.supplierToCredit")}
+              value={asset.disposalPartner.name}
+            />
+          ) : null}
+          <DetailField
+            label={t("assetSchedules.fields.disposalNotes")}
+            value={asset.disposalNotes}
           />
           <DetailField
             label={t("masterData.fields.notes")}
@@ -467,6 +525,22 @@ function FixedAssetDetailContent() {
               />
             </label>
             {Number(disposalAmount) > 0 ? (
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <span className="text-caption text-muted-foreground">
+                  {t("assetSchedules.fields.settlement")}
+                </span>
+                <SegmentedRadioGroup<Settlement>
+                  value={settlement}
+                  onValueChange={setSettlement}
+                  options={(["CASH", "SUPPLIER_CREDIT"] as const).map((value) => ({
+                    value,
+                    label: t(`assetSchedules.settlement.${value}`),
+                  }))}
+                  aria-label={t("assetSchedules.fields.settlement")}
+                />
+              </div>
+            ) : null}
+            {Number(disposalAmount) > 0 && settlement === "CASH" ? (
               <label className="flex flex-col gap-1.5 sm:col-span-2">
                 <span className="text-caption text-muted-foreground">
                   {t("masterData.fixedAssets.fields.receivingAccount")}
@@ -482,6 +556,21 @@ function FixedAssetDetailContent() {
                 />
               </label>
             ) : null}
+            {Number(disposalAmount) > 0 && settlement === "SUPPLIER_CREDIT" ? (
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <span className="text-caption text-muted-foreground">
+                  {t("assetSchedules.fields.supplierToCredit")}
+                </span>
+                <PartnerPicker
+                  role="SUPPLIER"
+                  value={creditSupplier}
+                  onChange={setCreditSupplier}
+                />
+                <p className="text-caption text-muted-foreground">
+                  {t("assetSchedules.dialogs.disposeSupplierHint")}
+                </p>
+              </div>
+            ) : null}
             <label className="flex flex-col gap-1.5 sm:col-span-2">
               <span className="text-caption text-muted-foreground">
                 {t("assetSchedules.fields.disposalNotes")}
@@ -495,7 +584,11 @@ function FixedAssetDetailContent() {
           </div>
         }
         confirmLabel={t("masterData.fixedAssets.actions.dispose")}
-        confirmDisabled={!disposalDate || (Number(disposalAmount) > 0 && !disposalAccountId)}
+        confirmDisabled={
+          !disposalDate ||
+          (Number(disposalAmount) > 0 &&
+            (settlement === "CASH" ? !disposalAccountId : !creditSupplier))
+        }
         isConfirming={busy}
         onConfirm={() =>
           void act(
@@ -503,7 +596,9 @@ function FixedAssetDetailContent() {
               fixedAssetsService.dispose(asset.id, {
                 disposalDate: toIsoDate(disposalDate),
                 disposalAmount: Number(disposalAmount || 0),
-                receivingAccountId: disposalAccountId || undefined,
+                ...(Number(disposalAmount) > 0 && settlement === "SUPPLIER_CREDIT"
+                  ? { counterpartyPartnerId: creditSupplier?.id }
+                  : { receivingAccountId: disposalAccountId || undefined }),
                 disposalNotes: disposalNotes.trim() || undefined,
               }),
             "masterData.fixedAssets.toasts.disposed",

@@ -43,3 +43,31 @@ Behaviour is already implemented (see audit) — this spec makes it **visible an
 ## Permissions / migration
 
 Migration: `financial_transactions.idempotency_key` (nullable unique). No permission changes.
+
+## Expenses (owner decision 2)
+
+**Decision.** "The old Expenses screen must remain and become fully functional. Do not hide it." Supersedes O-4 and the B2 note above. Reference: Odoo 18 Expenses (draft → submitted → approved → post → paid), adapted to OMS.
+
+**One expense concept.** The Expenses screen (`/finance/expenses`, nav `finance-expenses`) is the UI of the posting expense voucher — `FinancialTransaction` type `EXPENSE_PAYMENT` (`/financial-transactions/expense-payments`). The legacy postless `Expense` model, module (`apps/api/src/expenses`) and table are removed by migration `20261007110000_r13b_expenses_consolidation`:
+
+- legacy rows → `EXPENSE_PAYMENT` **DRAFT** vouchers (same id, number `EP-LEGACY-nnnnnn`), expense account = Settings → Accounting default expense account when it is an active EXPENSE posting account; payment method → its channel (payment source) and the receiving account on its ledger account. Archived / zero-amount rows, or no resolvable account → dropped (test data). Never posted by the migration.
+- `opportunity_expenses.source_expense_id` now references the voucher (ON DELETE SET NULL); the Investor service accepts only an `EXPENSE_PAYMENT` id.
+- Permissions: `masterdata.expenses.{view,create,edit,archive}` → `accounting.expense-payments.{view,create,edit,archive}` for every holder; posting rights (`confirm`, `cancel`) are **not** granted by the mapping; the legacy names are deleted.
+
+**Form** (shared `FinancialTransactionEditor`, no allocation section): expense date · expense account (`AccountPicker`, EXPENSE posting accounts only; server `EXPENSE_ACCOUNT_INVALID`) · amount · payment method (payment source) · paid from (receiving account: cash / bank) · reference · description (new column `financial_transactions.description`, carried onto the journal line) · currency (empty = base; the rate on the expense date is shown, a missing rate is warned) · supplier counterparty (optional, metadata only — never AP, never a partner line) · cost center · project · notes.
+
+**Workflow.**
+
+| Step           | Who                                            | Effect                                                                                                                                                                                                                                      |
+| -------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Draft (Save)   | `accounting.expense-payments.create` / `.edit` | nothing posted                                                                                                                                                                                                                              |
+| Confirm & post | `accounting.expense-payments.confirm`          | Posting Engine: Dr expense account / Cr paid-from account (balanced; cost center + project on the entry); idempotent — repeated confirm returns the same entry; a new form uses `Create + Confirm` with one idempotency key per opened form |
+| Reverse        | `accounting.expense-payments.cancel`           | existing cancel path: reversal entry dated today; refused when that period is closed / locked                                                                                                                                               |
+
+One confirm step instead of Odoo's submit / approve: confirm is already a distinct permission from create / edit, so a preparer cannot post — the approve/post segregation Odoo models with two states is a permission boundary here. Expenses are paid by the company (paid-from account at posting); employee-paid reimbursements (an employee payable + later payment) are not part of this round.
+
+**Direct expense vs supplier invoice.** When the chosen supplier has open confirmed purchase invoices, the form lists them with **Pay invoice instead** → `/purchasing/payments/new?partnerId=…&invoiceId=…` (supplier payment, Dr AP). The expense voucher itself never allocates: create / update / allocate refuse with `EXPENSE_ALLOCATION_REFUSED`, and the request DTO rejects an `allocations` field — an invoiced cost is never recognized twice.
+
+**List.** Status badges; filters status / expense-date range / expense account / paid from; search number, reference, description; totals per currency in the table footer (reversed vouchers excluded, never a mixed-currency sum); Table / Grid (`ExpenseVoucherGridCard`); journal-entry column; print (portrait voucher layout).
+
+**Not supported by the voucher model (documented, not built):** per-line analytic distribution (the generic `AnalyticDistributionLine` is not carried by the Posting Engine) and attachments (no FinancialTransaction attachment table).

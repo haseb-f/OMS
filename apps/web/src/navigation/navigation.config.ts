@@ -758,6 +758,8 @@ export const navigationConfig: NavigationItem[] = [
     route: "/finance/expenses",
     icon: "receipt",
     order: 8,
+    // R13 owner decision 2 — the Expenses screen is the posting expense voucher.
+    permissions: ["accounting.expense-payments.view"],
   },
   {
     id: "finance-customer-receipts",

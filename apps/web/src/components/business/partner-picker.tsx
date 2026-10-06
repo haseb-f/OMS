@@ -95,6 +95,7 @@ export function PartnerPicker({
   "aria-label": ariaLabel,
   "aria-describedby": ariaDescribedBy,
   error,
+  onClear,
 }: {
   role: PartnerRoleValue;
   value: PartnerPickerRow | null | undefined;
@@ -108,6 +109,8 @@ export function PartnerPicker({
   "aria-describedby"?: string;
   /** Draws the invalid state on the trigger (`aria-invalid`). */
   error?: boolean;
+  /** Optional party (e.g. an expense's counterparty): shows the clear control and reports clearing. */
+  onClear?: () => void;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -158,7 +161,9 @@ export function PartnerPicker({
         value={value ?? null}
         onChange={(partner) => {
           if (partner) selectPartner(partner);
+          else onClear?.();
         }}
+        allowClear={Boolean(onClear)}
         onSearch={async (search) => {
           const params = { search: search || undefined, pageSize: 8, role: [role] };
           const result = await cachedLookup(`partners:${JSON.stringify(params)}`, () =>

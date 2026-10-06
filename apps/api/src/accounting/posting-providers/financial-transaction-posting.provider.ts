@@ -92,6 +92,16 @@ export class FinancialTransactionPostingProvider
         },
       },
     });
+    // An expense voucher is recognised on its expense date (accrual basis —
+    // R13b owner decision 2: the expense belongs to the period it was
+    // incurred, not the day it was approved); other vouchers keep the
+    // confirmation date. A frozen source date (declared-claim receipts)
+    // always wins — a closed period fails clearly, never silently re-dated.
+    const documentDate =
+      transaction.rateAsOf ??
+      (sourceType === 'EXPENSE_PAYMENT'
+        ? transaction.transactionDate
+        : (transaction.confirmedAt ?? transaction.transactionDate));
     const payRate = await snapshotDocumentExchangeRate(
       this.exchangeRates,
       tx,
@@ -102,16 +112,11 @@ export class FinancialTransactionPostingProvider
         }),
       transaction.currencyId,
       transaction.exchangeRate,
-      transaction.rateAsOf ??
-        transaction.confirmedAt ??
-        transaction.transactionDate,
+      documentDate,
     );
     // A frozen source date (declared-claim receipts) dates the entry on
     // that date — a closed period fails clearly, never silently re-dated.
-    const entryDate =
-      transaction.rateAsOf ??
-      transaction.confirmedAt ??
-      transaction.transactionDate;
+    const entryDate = documentDate;
     if (sourceType === 'EXPENSE_PAYMENT') {
       const amount = Number(transaction.amount);
       if (amount === 0) return null;
@@ -125,12 +130,16 @@ export class FinancialTransactionPostingProvider
           `Select an Expense account before confirming ${transaction.transactionNumber}.`,
         );
       }
+      // What was spent rides on the expense line, so the ledger reads it.
+      const expenseLabel = transaction.description
+        ? `Expense Payment Voucher ${transaction.transactionNumber} — ${transaction.description}`
+        : `Expense Payment Voucher ${transaction.transactionNumber}`;
       return {
         lines: [
           {
             accountId: transaction.expenseAccountId,
             debit: amount,
-            description: `Expense Payment Voucher ${transaction.transactionNumber}`,
+            description: expenseLabel,
           },
           {
             accountId: transaction.receivingAccount.chartOfAccountId,

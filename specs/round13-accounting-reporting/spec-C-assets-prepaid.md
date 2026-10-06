@@ -32,3 +32,28 @@ Audit: `audit/C-assets-prepaid.md`.
 ## Migration
 
 `AccountingScheduleStatus` += `CANCELLED`. No data rewrite.
+
+## Adopted rules (R13b — owner decisions O-1, O-2, O-3, O-7, O-8)
+
+All existing asset / prepaid rows are test data (owner): migration `20261007100000_r13b_asset_prepaid_corrections` corrects them (status / derived columns only, never a journal entry). Evidence: `evidence-C.md` § R13b.
+
+**O-1 Purchase return of a FIXED_ASSET line.**
+
+- Allowed only while the asset is CAPITALIZED with **no posted depreciation** and no added costs, and only for the **whole** invoice line at its invoiced price / discount / tax (an asset is one unit of account). The return JE credits **Fixed Assets** for the line amount (net + capitalized non-recoverable tax) — the mirror of the invoice debit — and is the derecognition: the asset becomes DISPOSED, linked to the return (`purchaseReturnId`, notes "Returned to supplier — Purchase Return …"), every PENDING period is CANCELLED, no disposal entry is posted. A return of a capitalized / deferred line is booked at the invoice's exchange rate.
+- Asset with posted depreciation → the return is refused (400: dispose the asset to the supplier instead). **Dispose → supplier credit** (`counterpartyPartnerId`): the disposal entry debits the supplier's payable (partner-tagged) instead of a receiving account; gain / loss is computed as for cash proceeds.
+- Re-checked under the asset row lock when the return is confirmed; the returnable summary tells the UI why a line cannot be returned.
+
+**O-2 Non-recoverable tax and directly attributable costs (IAS 16).**
+
+- `Tax.isRecoverable` (default true, tax master form). On a FIXED_ASSET line, non-recoverable tax is part of the asset cost (Dr Fixed Assets, never VAT Input); recoverable tax stays VAT Input. Other line treatments are unchanged.
+- **Cost addition**: a later FIXED_ASSET invoice line may reference an existing Draft / Capitalized asset (`linkedFixedAssetId`, line options → "Add to existing asset"). At confirm the invoice JE debits Fixed Assets (as for any asset line) and the asset cost grows (`fixed_asset_cost_additions`, one row per invoice line — never twice, never a second asset). For a capitalized asset the remaining PENDING periods are re-spread prospectively: (new cost − accumulated depreciation − salvage) over the same remaining periods with the asset's method, last period absorbs rounding; posted periods are never touched. A capitalized asset with no PENDING period cannot take an addition. A Draft asset's own capitalization entry excludes its added costs.
+
+**O-3 Early closing of an ACTIVE prepayment** (detail page actions, permission `prepaid-expenses.edit`). Both first post every recognition due by the action date (a locked month refuses the whole action), then remaining = amount − recognized, PENDING rows → CANCELLED (history kept); the action date may not precede the last posted period; a repeated identical action changes nothing.
+
+- **Cancel with refund** → CANCELLED: Dr supplier payable (partner) or Dr the receiving account (cash refund received) / Cr Prepayments (`PREPAID_REFUND`, sourceId = prepaid id).
+- **Recognize remaining now** → COMPLETED: Dr the prepayment's expense account / Cr Prepayments, dated the action date (`PREPAID_ACCELERATION`).
+- **Purchase return** of the deferring invoice line: the returned amount (≤ unrecognized balance, else refused) is reclaimed by the return JE (Cr Prepayments); any unrecognized excess is expensed (`PREPAID_ACCELERATION`); status CANCELLED, linked to the return.
+
+**O-7 Disposal month — full-month convention (adopted).** Catch-up depreciation stops at the last period whose end date is on or before the disposal date; no pro-rata days (disposed 20 March → depreciated through February; March CANCELLED).
+
+**O-8 Schedule rows that can never post** (PENDING periods of DISPOSED / archived assets, PENDING recognitions of CANCELLED / COMPLETED prepayments) are CANCELLED by the R13b migration; it also removes unposted rows left on Draft assets, derives prepaid end dates, completes ACTIVE prepayments whose rows are all posted and realigns accumulated / recognized totals with the POSTED rows. Read-only check: `proposals/asset-prepaid-corrections-check.sql`.

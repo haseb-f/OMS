@@ -95,4 +95,10 @@ export class PurchaseLineItemInputDto {
 
   @IsOptionalUuid()
   prepaidExpenseAccountId?: string;
+
+  /** Purchase Invoice FIXED_ASSET line only (R13b, O-2) — adds the line's
+   *  cost to this existing Draft / Capitalized asset instead of creating a
+   *  new one (delivery, installation…). */
+  @IsOptionalUuid()
+  linkedFixedAssetId?: string;
 }

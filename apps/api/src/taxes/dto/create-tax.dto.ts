@@ -27,6 +27,15 @@ export class CreateTaxDto {
   @IsOptional()
   inclusive?: boolean;
 
+  /**
+   * R13b (O-2) — false when the input tax cannot be reclaimed; on a fixed
+   * asset purchase line it is then capitalized into the asset cost.
+   * Defaults to true.
+   */
+  @IsBoolean()
+  @IsOptional()
+  isRecoverable?: boolean;
+
   @IsString()
   @IsOptional()
   description?: string;

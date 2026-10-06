@@ -66,8 +66,8 @@ const masterDataEntities = [
   // "masterdata.chart-of-accounts.*"; Journals is the new entity this task adds.
   'chart-of-accounts',
   'journals',
-  // System-Wide Data-Entry Standard pass — Expenses, Fixed Assets.
-  'expenses',
+  // System-Wide Data-Entry Standard pass — Fixed Assets. (Expenses are
+  // expense vouchers since R13 — `accounting.expense-payments.*`.)
   'fixed-assets',
   // Transaction Types Registry (Cash Transactions Foundation).
   'transaction-types',
@@ -1304,10 +1304,6 @@ async function main() {
     'masterdata.journals.create',
     'masterdata.journals.edit',
     'masterdata.journals.archive',
-    'masterdata.expenses.view',
-    'masterdata.expenses.create',
-    'masterdata.expenses.edit',
-    'masterdata.expenses.archive',
     'masterdata.fixed-assets.view',
     'masterdata.fixed-assets.create',
     'masterdata.fixed-assets.edit',

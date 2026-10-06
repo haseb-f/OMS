@@ -9,6 +9,8 @@ import { WarehousesModule } from '../../warehouses/warehouses.module';
 import { InventoryModule } from '../../inventory/inventory.module';
 import { NumberingModule } from '../../numbering/numbering.module';
 import { PostingEngineModule } from '../../accounting/posting-engine/posting-engine.module';
+import { FixedAssetsModule } from '../../fixed-assets/fixed-assets.module';
+import { PrepaidExpensesModule } from '../../prepaid-expenses/prepaid-expenses.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { PostingEngineModule } from '../../accounting/posting-engine/posting-eng
     InventoryModule,
     NumberingModule,
     PostingEngineModule,
+    FixedAssetsModule,
+    PrepaidExpensesModule,
   ],
   controllers: [PurchaseReturnsController, PurchaseReturnActivitiesController],
   providers: [PurchaseReturnsService, PurchaseReturnActivityService],

@@ -7,6 +7,7 @@ import {
   PartnerRoleType,
   Prisma,
   PurchaseDocumentStatus,
+  PurchaseLineTreatment,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
@@ -36,6 +37,61 @@ import { FindPurchaseReturnsQueryDto } from './dto/find-purchase-returns-query.d
 import type { PurchaseLineItemInputDto } from '../shared/purchase-line-item-input.dto';
 import { assertActiveProduct } from '../../products/assert-active-product.util';
 import { prismaEnumFilter } from '../../common/query/enum-list';
+import { FixedAssetsService } from '../../fixed-assets/fixed-assets.service';
+import { PrepaidExpensesService } from '../../prepaid-expenses/prepaid-expenses.service';
+import { todayBusinessDate } from '../../common/time/business-date';
+import { dateOnly } from '../../accounting/schedules/schedule-due';
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/** Invoice-line fields a return of a capitalized / deferred line is judged on. */
+const TREATED_LINE_SELECT = {
+  id: true,
+  treatment: true,
+  quantity: true,
+  unitPrice: true,
+  discountPercent: true,
+  discountValue: true,
+  taxId: true,
+  linkedFixedAssetId: true,
+  linkedFixedAsset: { select: { code: true } },
+  purchaseInvoice: {
+    select: { status: true, invoiceNumber: true, exchangeRate: true },
+  },
+  fixedAsset: {
+    select: { id: true, code: true, status: true, deletedAt: true },
+  },
+  prepaidExpense: {
+    select: {
+      id: true,
+      prepaidNumber: true,
+      status: true,
+      amount: true,
+      recognizedAmount: true,
+      deletedAt: true,
+    },
+  },
+} satisfies Prisma.PurchaseInvoiceItemSelect;
+
+type TreatedInvoiceLine = Prisma.PurchaseInvoiceItemGetPayload<{
+  select: typeof TREATED_LINE_SELECT;
+}>;
+
+type DecimalInput = Prisma.Decimal | Prisma.DecimalJsLike | number | string;
+
+/** A computed return line, as stored. */
+interface ReturnLineValues {
+  purchaseInvoiceItemId?: string | null;
+  quantity: number;
+  unitPrice: DecimalInput;
+  discountPercent?: DecimalInput | null;
+  discountValue?: DecimalInput | null;
+  taxId?: string | null;
+  lineTotal: DecimalInput;
+  taxAmount?: DecimalInput;
+}
 
 const REFERENCE_TYPE = 'PURCHASE_RETURN';
 
@@ -55,6 +111,8 @@ export class PurchaseReturnsService {
     private readonly activityService: PurchaseReturnActivityService,
     private readonly numberingEngine: NumberingEngineService,
     private readonly postingEngine: PostingEngineService,
+    private readonly fixedAssets: FixedAssetsService,
+    private readonly prepaidExpenses: PrepaidExpensesService,
   ) {}
 
   async create(dto: CreatePurchaseReturnDto) {
@@ -84,6 +142,7 @@ export class PurchaseReturnsService {
       );
     }
     const computed = await this.computeLines(dto.items);
+    await this.assertTreatedLinesReturnable(computed.lines);
     const returnNumber =
       await this.numberingEngine.generateNumber('PURCHASE_RETURN');
 
@@ -232,14 +291,54 @@ export class PurchaseReturnsService {
       ]),
     );
 
+    const treated = await this.prisma.purchaseInvoiceItem.findMany({
+      where: {
+        id: { in: invoice.items.map((item) => item.id) },
+        treatment: { not: PurchaseLineTreatment.STANDARD },
+      },
+      select: TREATED_LINE_SELECT,
+    });
+    const blockedById = new Map<string, string>();
+    for (const line of treated) {
+      const returnedQuantity = returnedById.get(line.id) ?? 0;
+      if (returnedQuantity >= line.quantity) continue;
+      try {
+        // A full return at the invoiced amounts — the most a user may ask.
+        await this.assertTreatedLine(line, {
+          purchaseInvoiceItemId: line.id,
+          quantity: line.quantity - returnedQuantity,
+          unitPrice: line.unitPrice,
+          discountPercent: line.discountPercent,
+          discountValue: line.discountValue,
+          taxId: line.taxId,
+          lineTotal: 0,
+          taxAmount: 0,
+        });
+      } catch (error) {
+        if (error instanceof BadRequestException) {
+          blockedById.set(line.id, error.message);
+        } else throw error;
+      }
+    }
+    const treatmentById = new Map(
+      treated.map((line) => [line.id, line.treatment]),
+    );
+
     return {
       items: invoice.items.map((item) => {
         const returnedQuantity = returnedById.get(item.id) ?? 0;
+        const treatment =
+          treatmentById.get(item.id) ?? PurchaseLineTreatment.STANDARD;
         return {
           purchaseInvoiceItemId: item.id,
           invoicedQuantity: item.quantity,
           returnedQuantity,
           remainingQuantity: item.quantity - returnedQuantity,
+          // R13b — capitalized / deferred lines: whether (and why not) the
+          // line can be returned; an asset line is returned whole only.
+          treatment,
+          wholeLineOnly: treatment === PurchaseLineTreatment.FIXED_ASSET,
+          returnBlockedReason: blockedById.get(item.id) ?? null,
         };
       }),
     };
@@ -285,6 +384,7 @@ export class PurchaseReturnsService {
         );
       }
       computed = await this.computeLines(dto.items);
+      await this.assertTreatedLinesReturnable(computed.lines);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -401,12 +501,20 @@ export class PurchaseReturnsService {
         );
       }
 
+      const treated = await this.settleTreatedLines(purchaseReturn, tx, userId);
+
       const updated = await tx.purchaseReturn.update({
         where: { id },
         data: {
           status: PurchaseDocumentStatus.CONFIRMED,
           confirmedAt: new Date(),
           confirmedBy: userId ?? null,
+          // A returned asset / prepayment line is derecognized at the rate it
+          // was capitalized / deferred at, so the credit to Fixed Assets /
+          // Prepayments equals exactly what the invoice debited.
+          ...(treated.invoiceRate != null && purchaseReturn.exchangeRate == null
+            ? { exchangeRate: treated.invoiceRate }
+            : {}),
         },
         include: {
           partner: true,
@@ -426,6 +534,157 @@ export class PurchaseReturnsService {
       await this.postingEngine.post('PURCHASE_RETURN', id, userId, tx);
       return updated;
     });
+  }
+
+  /**
+   * R13b — inside the confirm transaction: every returned FIXED_ASSET line
+   * derecognizes its asset (DISPOSED, linked to this return, PENDING periods
+   * CANCELLED; the return JE credits Fixed Assets — no disposal entry), and
+   * every returned PREPAID_EXPENSE line closes its prepayment (the return JE
+   * credits Prepayments for the returned amount; any unrecognized excess is
+   * expensed). Every rule is re-checked under the record's row lock.
+   */
+  private async settleTreatedLines(
+    purchaseReturn: {
+      id: string;
+      returnNumber: string;
+      items: ReturnLineValues[];
+    },
+    tx: Prisma.TransactionClient,
+    userId?: string,
+  ): Promise<{ invoiceRate: Prisma.Decimal | null }> {
+    const itemIds = purchaseReturn.items.flatMap((item) =>
+      item.purchaseInvoiceItemId ? [item.purchaseInvoiceItemId] : [],
+    );
+    const treated = await tx.purchaseInvoiceItem.findMany({
+      where: {
+        id: { in: itemIds },
+        treatment: { not: PurchaseLineTreatment.STANDARD },
+      },
+      select: TREATED_LINE_SELECT,
+    });
+    if (treated.length === 0) return { invoiceRate: null };
+    const today = todayBusinessDate();
+    for (const line of treated) {
+      const returnLine = purchaseReturn.items.find(
+        (item) => item.purchaseInvoiceItemId === line.id,
+      )!;
+      await this.assertTreatedLine(line, returnLine, tx);
+      if (line.treatment === PurchaseLineTreatment.FIXED_ASSET) {
+        await this.fixedAssets.derecognizeByPurchaseReturn(
+          line.fixedAsset!.id,
+          purchaseReturn,
+          {
+            invoicedQuantity: line.quantity,
+            returnedQuantity: returnLine.quantity,
+          },
+          dateOnly(today),
+          tx,
+          userId,
+        );
+      } else {
+        await this.prepaidExpenses.closeForPurchaseReturn(
+          line.prepaidExpense!.id,
+          {
+            id: purchaseReturn.id,
+            returnNumber: purchaseReturn.returnNumber,
+            amount: this.returnedBaseAmount(line, returnLine),
+          },
+          today,
+          tx,
+          userId,
+        );
+      }
+    }
+    return { invoiceRate: treated[0].purchaseInvoice.exchangeRate };
+  }
+
+  /** Save-time checks of every capitalized / deferred line of a return. */
+  private async assertTreatedLinesReturnable(lines: ReturnLineValues[]) {
+    const itemIds = lines.flatMap((line) =>
+      line.purchaseInvoiceItemId ? [line.purchaseInvoiceItemId] : [],
+    );
+    const treated = await this.prisma.purchaseInvoiceItem.findMany({
+      where: {
+        id: { in: itemIds },
+        treatment: { not: PurchaseLineTreatment.STANDARD },
+      },
+      select: TREATED_LINE_SELECT,
+    });
+    for (const line of treated) {
+      const returnLine = lines.find(
+        (item) => item.purchaseInvoiceItemId === line.id,
+      )!;
+      await this.assertTreatedLine(line, returnLine);
+    }
+  }
+
+  /**
+   * R13b (O-1 / O-3) — the rules for returning a capitalized / deferred line:
+   *  - the invoice must be confirmed (that is when the asset / prepayment exists);
+   *  - FIXED_ASSET: a cost-addition line cannot be returned; the asset line is
+   *    returned whole, at its invoiced price / discount / tax, and only while
+   *    the asset has no posted depreciation (otherwise: dispose it to the
+   *    supplier — Dispose → supplier credit);
+   *  - PREPAID_EXPENSE: the prepayment is ACTIVE and the returned base amount
+   *    does not exceed its unrecognized balance.
+   */
+  private async assertTreatedLine(
+    line: TreatedInvoiceLine,
+    returnLine: ReturnLineValues,
+    client: Prisma.TransactionClient = this.prisma,
+  ): Promise<void> {
+    if (line.purchaseInvoice.status !== PurchaseDocumentStatus.CONFIRMED) {
+      throw new BadRequestException(
+        `Purchase Invoice ${line.purchaseInvoice.invoiceNumber} is ${line.purchaseInvoice.status}; a line recorded as a fixed asset or prepaid expense can be returned only after the invoice is confirmed.`,
+      );
+    }
+    if (line.treatment === PurchaseLineTreatment.FIXED_ASSET) {
+      if (line.linkedFixedAssetId) {
+        throw new BadRequestException(
+          `This invoice line added its cost to fixed asset ${line.linkedFixedAsset?.code ?? ''} and cannot be returned on its own. Dispose the asset to the supplier instead (Fixed asset → Dispose → supplier credit).`,
+        );
+      }
+      const samePricing =
+        Number(returnLine.unitPrice) === Number(line.unitPrice) &&
+        Number(returnLine.discountPercent ?? 0) ===
+          Number(line.discountPercent) &&
+        Number(returnLine.discountValue ?? 0) === Number(line.discountValue) &&
+        (returnLine.taxId ?? null) === (line.taxId ?? null);
+      if (!samePricing) {
+        throw new BadRequestException(
+          `A fixed asset line is returned at its invoiced price, discount and tax — they cannot be changed on the return.`,
+        );
+      }
+      await this.fixedAssets.assertLineReturnable(
+        line.fixedAsset,
+        {
+          invoicedQuantity: line.quantity,
+          returnedQuantity: returnLine.quantity,
+        },
+        client,
+      );
+      return;
+    }
+    this.prepaidExpenses.assertReturnable(
+      line.prepaidExpense,
+      this.returnedBaseAmount(line, returnLine),
+    );
+  }
+
+  /** Base-currency amount a returned prepaid line reclaims (at the invoice's rate). */
+  private returnedBaseAmount(
+    line: TreatedInvoiceLine,
+    returnLine: ReturnLineValues,
+  ): number {
+    const rate =
+      line.purchaseInvoice.exchangeRate != null
+        ? Number(line.purchaseInvoice.exchangeRate)
+        : 1;
+    const net = round2(
+      Number(returnLine.lineTotal) - Number(returnLine.taxAmount ?? 0),
+    );
+    return round2(net * rate);
   }
 
   /**

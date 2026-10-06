@@ -924,11 +924,6 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     actions: masterData('journals'),
   },
   {
-    key: 'expenses',
-    labelKey: 'permissions.modules.expenses',
-    actions: masterData('expenses'),
-  },
-  {
     key: 'fixed-assets',
     labelKey: 'permissions.modules.fixedAssets',
     actions: masterData('fixed-assets'),
@@ -1631,7 +1626,6 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   'masterdata.payment-methods': 'finance.view',
   'masterdata.payment-terms': 'finance.view',
   'masterdata.journals': 'finance.view',
-  'masterdata.expenses': 'finance.view',
   'masterdata.fixed-assets': 'finance.view',
   'prepaid-expenses': 'finance.view',
   'accrued-expenses': 'finance.view',

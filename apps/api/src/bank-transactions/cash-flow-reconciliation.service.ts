@@ -871,6 +871,8 @@ export class CashFlowReconciliationService {
         amount: Math.abs(Number(transaction.amount)),
         referenceNumber:
           transaction.transactionId ?? transaction.reference ?? undefined,
+        // The Expenses screen lists what was spent by its description.
+        description: transaction.description?.slice(0, 500) ?? undefined,
         notes: transaction.description ?? undefined,
       },
       userId,

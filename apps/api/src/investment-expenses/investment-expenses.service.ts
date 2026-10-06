@@ -3,7 +3,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { OpportunityExpenseStatus, Prisma } from '@prisma/client';
+import {
+  FinancialTransactionType,
+  OpportunityExpenseStatus,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
 import { CreateOpportunityExpenseDto } from './dto/create-opportunity-expense.dto';
@@ -56,6 +60,7 @@ export class InvestmentExpensesService {
         `Investment Opportunity ${dto.opportunityId} not found`,
       );
     }
+    await this.assertSourceExpenseVoucher(dto.sourceExpenseId);
     const created = await this.prisma.opportunityExpense.create({
       data: {
         opportunityId: dto.opportunityId,
@@ -76,6 +81,27 @@ export class InvestmentExpensesService {
       userId,
     );
     return this.findOne(created.id);
+  }
+
+  /**
+   * R13 (owner decision 2) — the optional source is an expense voucher
+   * (FinancialTransaction EXPENSE_PAYMENT), never another voucher type.
+   */
+  private async assertSourceExpenseVoucher(sourceExpenseId?: string | null) {
+    if (!sourceExpenseId) return;
+    const voucher = await this.prisma.financialTransaction.findFirst({
+      where: {
+        id: sourceExpenseId,
+        type: FinancialTransactionType.EXPENSE_PAYMENT,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    if (!voucher) {
+      throw new BadRequestException(
+        `Source expense ${sourceExpenseId} is not an expense voucher.`,
+      );
+    }
   }
 
   async findAll(query: FindOpportunityExpensesQueryDto) {
@@ -120,6 +146,7 @@ export class InvestmentExpensesService {
         `Only a Draft expense can be edited (currently ${existing.status}).`,
       );
     }
+    await this.assertSourceExpenseVoucher(dto.sourceExpenseId);
     await this.prisma.opportunityExpense.update({
       where: { id },
       data: {

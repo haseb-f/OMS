@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
   HttpCode,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -24,16 +26,17 @@ import {
 import { FinancialTransactionsService } from '../financial-transactions.service';
 import { CreateExpensePaymentDto } from './dto/create-expense-payment.dto';
 import { UpdateExpensePaymentDto } from './dto/update-expense-payment.dto';
-import { FindFinancialTransactionsQueryDto } from '../shared/find-financial-transactions-query.dto';
+import { FindExpensePaymentsQueryDto } from './dto/find-expense-payments-query.dto';
 
 const TYPE = FinancialTransactionType.EXPENSE_PAYMENT;
 
 /**
- * "Payment Voucher" for a Cash Flow outgoing transaction classified as an
- * Expense (spec section 11) — reuses `FinancialTransactionsService`
- * unchanged (same Draft -> Confirm -> Cancel workflow, same Posting Engine
- * call on Confirm) with a party-less DTO (`expenseAccountId` instead of
- * `supplierId`). Never a second voucher/posting engine.
+ * Expense vouchers — the Expenses screen (R13 owner decision 2; the legacy
+ * postless `Expense` CRUD was consolidated into this). Reuses
+ * `FinancialTransactionsService` unchanged in shape: Draft (no posting) →
+ * Confirm & post (Posting Engine: Dr expense account / Cr paid-from
+ * account, idempotent) → Cancel (reversal entry, locked periods refused).
+ * Never a second voucher / posting engine.
  */
 @Controller('financial-transactions/expense-payments')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -50,9 +53,45 @@ export class ExpensePaymentsController {
     return this.transactions.create(TYPE, dto, user.sub, context);
   }
 
+  /** "Confirm & post" on a new form — create + confirm + post atomically, idempotent by key. */
+  @Post('confirmed')
+  @PermissionAction('confirm')
+  createConfirmed(
+    @Body() dto: CreateExpensePaymentDto,
+    @CurrentUser() user: JwtPayload,
+    @CurrentCompanyContext() context: CompanyContext,
+  ) {
+    return this.transactions.createConfirmed(TYPE, dto, user.sub, context);
+  }
+
   @Get()
-  findAll(@Query() query: FindFinancialTransactionsQueryDto) {
+  findAll(@Query() query: FindExpensePaymentsQueryDto) {
     return this.transactions.findAll(TYPE, query);
+  }
+
+  /** Per-currency totals of the same filtered list (reversed vouchers excluded). */
+  @Get('totals')
+  totals(@Query() query: FindExpensePaymentsQueryDto) {
+    return this.transactions.totalsByCurrency(TYPE, query);
+  }
+
+  /**
+   * Open (unpaid / partially paid) confirmed purchase invoices of the
+   * chosen counterparty — so the user pays the invoice with a Supplier
+   * Payment instead of expensing an invoiced cost a second time.
+   */
+  @Get('open-invoices')
+  openInvoices(
+    @Query('partnerId', new ParseUUIDPipe({ optional: true }))
+    partnerId?: string,
+  ) {
+    if (!partnerId) {
+      throw new BadRequestException('partnerId is required.');
+    }
+    return this.transactions.getOpenInvoices(
+      FinancialTransactionType.SUPPLIER_PAYMENT,
+      partnerId,
+    );
   }
 
   @Get(':id')
@@ -60,39 +99,50 @@ export class ExpensePaymentsController {
     return this.transactions.findOne(TYPE, id);
   }
 
+  @Get(':id/activities')
+  async activities(@Param('id') id: string) {
+    await this.transactions.findOne(TYPE, id);
+    return this.transactions.activityFor(id);
+  }
+
   @Patch(':id')
-  update(
+  async update(
     @Param('id') id: string,
     @Body() dto: UpdateExpensePaymentDto,
     @CurrentUser() user: JwtPayload,
   ) {
+    await this.transactions.findOne(TYPE, id);
     return this.transactions.update(id, dto, user.sub);
   }
 
   @Delete(':id')
   @HttpCode(200)
-  remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string) {
+    await this.transactions.findOne(TYPE, id);
     return this.transactions.remove(id);
   }
 
   @Post(':id/confirm')
   @HttpCode(200)
   @PermissionAction('confirm')
-  confirm(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+  async confirm(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    await this.transactions.findOne(TYPE, id);
     return this.transactions.confirm(id, user.sub);
   }
 
   @Post(':id/cancel')
   @HttpCode(200)
   @PermissionAction('cancel')
-  cancel(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+  async cancel(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    await this.transactions.findOne(TYPE, id);
     return this.transactions.cancel(id, user.sub);
   }
 
   @Post(':id/archive')
   @HttpCode(200)
   @PermissionAction('delete')
-  archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+  async archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    await this.transactions.findOne(TYPE, id);
     return this.transactions.archive(id, user.sub);
   }
 }

@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import {
   AccountingScheduleStatus,
+  PrepaidClosureType,
   PrepaidExpenseStatus,
   PrepaidRecognition,
   Prisma,
@@ -25,9 +27,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
 import { ExchangeRatesService } from '../accounting/fx/exchange-rates.service';
+import { todayBusinessDate } from '../common/time/business-date';
 import {
+  CancelPrepaidDto,
   CreatePrepaidExpenseDto,
   PrepaidPreviewDto,
+  RecognizeRemainingDto,
   RecognizePrepaidDto,
   UpdatePrepaidExpenseDto,
 } from './dto/prepaid-expense.dto';
@@ -41,7 +46,27 @@ const INCLUDE = {
   recognitions: { orderBy: { periodStart: 'asc' as const } },
 };
 
-const DETAIL_INCLUDE = { ...INCLUDE, ...SOURCE_INVOICE_SELECT };
+const DETAIL_INCLUDE = {
+  ...INCLUDE,
+  ...SOURCE_INVOICE_SELECT,
+  refundPartner: { select: { id: true, name: true, partnerNumber: true } },
+  refundReceivingAccount: { select: { id: true, name: true } },
+  purchaseReturn: { select: { id: true, returnNumber: true, status: true } },
+};
+
+/** R13b (O-3) — closing entries of an early-closed prepayment (sourceId = prepaid id). */
+export const PREPAID_REFUND_SOURCE = 'PREPAID_REFUND';
+export const PREPAID_ACCELERATION_SOURCE = 'PREPAID_ACCELERATION';
+
+interface CloseRequest {
+  type: PrepaidClosureType;
+  date?: string;
+  partnerId?: string;
+  receivingAccountId?: string;
+  notes?: string;
+  /** PURCHASE_RETURN: the return and the base amount its JE reclaims. */
+  purchaseReturn?: { id: string; returnNumber: string; amount: number };
+}
 
 const ENTITY_TYPE = 'PREPAID_EXPENSE';
 
@@ -183,6 +208,18 @@ export class PrepaidExpensesService {
         ).get(prepaid.id) ?? null);
     const amount = Number(prepaid.amount);
     const recognized = Number(prepaid.recognizedAmount);
+    const refunded = Number(prepaid.refundAmount ?? 0);
+    const closingEntry = async (sourceType: string, sourceId: string) =>
+      (await postedEntriesBySource(this.prisma, sourceType, [sourceId])).get(
+        sourceId,
+      ) ?? null;
+    const refundEntry = prepaid.purchaseReturnId
+      ? await closingEntry('PURCHASE_RETURN', prepaid.purchaseReturnId)
+      : await closingEntry(PREPAID_REFUND_SOURCE, prepaid.id);
+    const accelerationEntry = await closingEntry(
+      PREPAID_ACCELERATION_SOURCE,
+      prepaid.id,
+    );
     const count = (status: AccountingScheduleStatus) =>
       prepaid.recognitions.filter((row) => row.status === status).length;
     return {
@@ -196,11 +233,17 @@ export class PrepaidExpensesService {
         deferralSource: deferredByInvoice
           ? 'PURCHASE_INVOICE'
           : 'PREPAID_EXPENSE',
+        refund: refundEntry,
+        refundSource: prepaid.purchaseReturnId
+          ? 'PURCHASE_RETURN'
+          : PREPAID_REFUND_SOURCE,
+        acceleration: accelerationEntry,
       },
       summary: {
         amount,
         recognizedAmount: recognized,
-        remainingAmount: round2(amount - recognized),
+        refundedAmount: refunded,
+        remainingAmount: round2(amount - recognized - refunded),
         postedPeriods: count(AccountingScheduleStatus.POSTED),
         pendingPeriods: count(AccountingScheduleStatus.PENDING),
         cancelledPeriods: count(AccountingScheduleStatus.CANCELLED),
@@ -476,4 +519,320 @@ export class PrepaidExpensesService {
     );
     return archived;
   }
+
+  /**
+   * R13b (O-3) — Cancel with refund: the unrecognized balance (amount −
+   * recognized, after posting every recognition due by the date) is
+   * reclaimed from the supplier: Dr supplier payable (partner) or Dr the
+   * receiving account (cash refund) / Cr Prepayments. Remaining PENDING rows
+   * become CANCELLED (history kept); status CANCELLED.
+   */
+  async cancelWithRefund(id: string, dto: CancelPrepaidDto, userId?: string) {
+    if (Boolean(dto.partnerId) === Boolean(dto.receivingAccountId)) {
+      throw new BadRequestException(
+        'Choose where the refund goes: a supplier credit or a receiving account (cash refund) — exactly one.',
+      );
+    }
+    return this.prisma.$transaction(async (tx) => {
+      await this.closeEarly(
+        id,
+        {
+          type: PrepaidClosureType.REFUND,
+          date: dto.date,
+          partnerId: dto.partnerId,
+          receivingAccountId: dto.receivingAccountId,
+          notes: dto.notes,
+        },
+        tx,
+        userId,
+      );
+      return tx.prepaidExpense.findUniqueOrThrow({
+        where: { id },
+        include: INCLUDE,
+      });
+    });
+  }
+
+  /**
+   * R13b (O-3) — Recognize remaining now: Dr the prepayment's expense
+   * account / Cr Prepayments for the unrecognized balance, dated the action
+   * date. Remaining PENDING rows become CANCELLED (history kept); status
+   * COMPLETED.
+   */
+  async recognizeRemaining(
+    id: string,
+    dto: RecognizeRemainingDto,
+    userId?: string,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      await this.closeEarly(
+        id,
+        {
+          type: PrepaidClosureType.RECOGNIZED,
+          date: dto.date,
+          notes: dto.notes,
+        },
+        tx,
+        userId,
+      );
+      return tx.prepaidExpense.findUniqueOrThrow({
+        where: { id },
+        include: INCLUDE,
+      });
+    });
+  }
+
+  /**
+   * R13b (O-3) — save-time check of a purchase return of the invoice line
+   * that deferred `prepaidId`: the prepayment is still ACTIVE and the
+   * returned base amount does not exceed its unrecognized balance.
+   * Re-checked (after the due catch-up) when the return is confirmed.
+   */
+  assertReturnable(
+    prepaid: {
+      prepaidNumber: string;
+      status: PrepaidExpenseStatus;
+      amount: Prisma.Decimal | number;
+      recognizedAmount: Prisma.Decimal | number;
+      deletedAt: Date | null;
+    } | null,
+    returnedAmount: number,
+  ): void {
+    if (!prepaid || prepaid.deletedAt) {
+      throw new BadRequestException(
+        'This invoice line was deferred as a prepaid expense that no longer exists — it cannot be returned.',
+      );
+    }
+    if (prepaid.status !== PrepaidExpenseStatus.ACTIVE) {
+      throw new BadRequestException(
+        `Prepaid expense ${prepaid.prepaidNumber} is ${prepaid.status} — its invoice line cannot be returned.`,
+      );
+    }
+    const remaining = round2(
+      Number(prepaid.amount) - Number(prepaid.recognizedAmount),
+    );
+    if (returnedAmount > remaining) {
+      throw new BadRequestException(
+        `Cannot return ${returnedAmount} on prepaid expense ${prepaid.prepaidNumber}: only ${remaining} is still unrecognized (already expensed periods cannot be returned).`,
+      );
+    }
+  }
+
+  /**
+   * R13b (O-3) — inside a purchase return's confirm transaction: the return
+   * JE credits Prepayments for the returned amount; any unrecognized excess
+   * is expensed now (PREPAID_ACCELERATION); remaining PENDING rows are
+   * CANCELLED and the prepayment becomes CANCELLED, linked to the return.
+   */
+  closeForPurchaseReturn(
+    prepaidId: string,
+    purchaseReturn: { id: string; returnNumber: string; amount: number },
+    date: string,
+    tx: Prisma.TransactionClient,
+    userId?: string,
+  ) {
+    return this.closeEarly(
+      prepaidId,
+      { type: PrepaidClosureType.PURCHASE_RETURN, date, purchaseReturn },
+      tx,
+      userId,
+    );
+  }
+
+  /**
+   * Shared early closing, in the caller's transaction, under the prepayment
+   * row lock: (1) catch-up — every PENDING recognition ending on or before
+   * the date posts exactly like the scheduled run (a locked month refuses
+   * the whole action); (2) remaining = amount − recognized; (3) PENDING rows
+   * → CANCELLED; (4) the closing entries through the Posting Engine
+   * (idempotent: sourceType PREPAID_REFUND / PREPAID_ACCELERATION, sourceId =
+   * prepaid id — one closing per prepayment). Repeating the same action on
+   * an already-closed prepayment changes nothing.
+   */
+  private async closeEarly(
+    id: string,
+    request: CloseRequest,
+    tx: Prisma.TransactionClient,
+    userId?: string,
+  ): Promise<void> {
+    await tx.$queryRaw`SELECT id FROM prepaid_expenses WHERE id = ${id}::uuid FOR UPDATE`;
+    const prepaid = await tx.prepaidExpense.findFirst({
+      where: { id, deletedAt: null },
+      include: { recognitions: { orderBy: { periodStart: 'asc' } } },
+    });
+    if (!prepaid) {
+      throw new NotFoundException(`Prepaid expense ${id} not found`);
+    }
+    if (prepaid.status !== PrepaidExpenseStatus.ACTIVE) {
+      const sameAction =
+        prepaid.closureType === request.type &&
+        (request.type !== PrepaidClosureType.PURCHASE_RETURN ||
+          prepaid.purchaseReturnId === request.purchaseReturn?.id);
+      if (sameAction) return; // idempotent retry — already done
+      throw new ConflictException(
+        `Prepaid expense ${prepaid.prepaidNumber} is ${prepaid.status}; only an Active prepayment can be cancelled or recognized early.`,
+      );
+    }
+    const today = todayBusinessDate();
+    const date = request.date ? dateOnlyString(dateOnly(request.date)) : today;
+    if (date > today) {
+      throw new BadRequestException(`The date ${date} is in the future.`);
+    }
+    const lastPosted = prepaid.recognitions
+      .filter((row) => row.status === AccountingScheduleStatus.POSTED)
+      .at(-1);
+    if (lastPosted && dateOnlyString(lastPosted.periodEnd) > date) {
+      throw new BadRequestException(
+        `Recognition of ${prepaid.prepaidNumber} is already posted through ${dateOnlyString(lastPosted.periodEnd)}. Choose a date on or after that date.`,
+      );
+    }
+    if (request.partnerId) {
+      const partner = await tx.partner.findFirst({
+        where: { id: request.partnerId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!partner) {
+        throw new BadRequestException('The supplier to credit was not found.');
+      }
+    }
+    if (request.receivingAccountId) {
+      const account = await tx.receivingAccount.findFirst({
+        where: { id: request.receivingAccountId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!account) {
+        throw new BadRequestException('The receiving account was not found.');
+      }
+    }
+
+    // (1) catch-up of the periods already consumed by the date
+    const due = dueThrough(date);
+    const catchUp = prepaid.recognitions.filter(
+      (row) =>
+        row.status === AccountingScheduleStatus.PENDING &&
+        dateOnlyString(row.periodEnd) <= due.asOfDate,
+    );
+    for (const row of catchUp) {
+      try {
+        await this.postRecognition(row, tx, userId);
+      } catch (error) {
+        throw new BadRequestException(
+          `Cannot close ${prepaid.prepaidNumber}: the recognition for ${dateOnlyString(row.periodStart)} – ${dateOnlyString(row.periodEnd)} must be posted first and could not be: ${errorMessage(error)}`,
+        );
+      }
+    }
+
+    // (2) what is still unrecognized
+    const current = await tx.prepaidExpense.findUniqueOrThrow({
+      where: { id },
+      select: { amount: true, recognizedAmount: true },
+    });
+    const remaining = round2(
+      Number(current.amount) - Number(current.recognizedAmount),
+    );
+    if (remaining <= 0) {
+      throw new BadRequestException(
+        `${prepaid.prepaidNumber} is fully recognized through ${date} — nothing remains to ${request.type === PrepaidClosureType.RECOGNIZED ? 'recognize' : 'reclaim'}.`,
+      );
+    }
+    let refundAmount = 0;
+    let acceleratedAmount = 0;
+    if (request.type === PrepaidClosureType.RECOGNIZED) {
+      acceleratedAmount = remaining;
+    } else if (request.type === PrepaidClosureType.REFUND) {
+      refundAmount = remaining;
+    } else {
+      const returned = round2(request.purchaseReturn!.amount);
+      if (returned > remaining) {
+        throw new BadRequestException(
+          `Cannot return ${returned} on prepaid expense ${prepaid.prepaidNumber}: only ${remaining} is still unrecognized on ${date} (already expensed periods cannot be returned).`,
+        );
+      }
+      refundAmount = returned;
+      acceleratedAmount = round2(remaining - returned);
+    }
+
+    // (3) the rest of the schedule never posts
+    const cancelled = await tx.prepaidRecognition.updateMany({
+      where: {
+        prepaidExpenseId: id,
+        status: AccountingScheduleStatus.PENDING,
+      },
+      data: {
+        status: AccountingScheduleStatus.CANCELLED,
+        lastAttemptAt: new Date(),
+      },
+    });
+    await tx.prepaidExpense.update({
+      where: { id },
+      data: {
+        status:
+          request.type === PrepaidClosureType.RECOGNIZED
+            ? PrepaidExpenseStatus.COMPLETED
+            : PrepaidExpenseStatus.CANCELLED,
+        closureType: request.type,
+        closedOn: dateOnly(date),
+        closedBy: userId ?? null,
+        refundAmount: refundAmount || null,
+        acceleratedAmount: acceleratedAmount || null,
+        recognizedAmount: { increment: acceleratedAmount },
+        refundPartnerId: request.partnerId ?? null,
+        refundReceivingAccountId: request.receivingAccountId ?? null,
+        purchaseReturnId: request.purchaseReturn?.id ?? null,
+        notes: request.notes
+          ? [prepaid.notes, request.notes].filter(Boolean).join('\n')
+          : undefined,
+        updatedBy: userId ?? null,
+      },
+    });
+
+    // (4) closing entries — the purchase return posts its own refund JE
+    try {
+      if (refundAmount > 0 && request.type === PrepaidClosureType.REFUND) {
+        await this.postingEngine.post(PREPAID_REFUND_SOURCE, id, userId, tx);
+      }
+      if (acceleratedAmount > 0) {
+        await this.postingEngine.post(
+          PREPAID_ACCELERATION_SOURCE,
+          id,
+          userId,
+          tx,
+        );
+      }
+    } catch (error) {
+      throw new BadRequestException(
+        `Cannot close ${prepaid.prepaidNumber} on ${date}: ${errorMessage(error)}`,
+      );
+    }
+
+    const label =
+      request.type === PrepaidClosureType.RECOGNIZED
+        ? `remaining ${remaining} recognized now`
+        : request.type === PrepaidClosureType.REFUND
+          ? `cancelled — ${refundAmount} reclaimed from the supplier`
+          : `cancelled by Purchase Return ${request.purchaseReturn!.returnNumber} — ${refundAmount} returned${acceleratedAmount > 0 ? `, ${acceleratedAmount} expensed` : ''}`;
+    await this.activityLog.log(
+      ENTITY_TYPE,
+      id,
+      request.type === PrepaidClosureType.RECOGNIZED
+        ? 'RECOGNIZED_EARLY'
+        : 'CANCELLED',
+      `Prepaid expense ${prepaid.prepaidNumber} ${label} on ${date} — ${catchUp.length} due period(s) posted, ${cancelled.count} future period(s) cancelled`,
+      userId,
+      {
+        date,
+        closureType: request.type,
+        refundAmount,
+        acceleratedAmount,
+        catchUp: catchUp.length,
+        cancelled: cancelled.count,
+        purchaseReturnId: request.purchaseReturn?.id ?? null,
+      },
+      tx,
+    );
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

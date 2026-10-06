@@ -11,9 +11,11 @@ import {
 } from '@nestjs/common';
 import { PrepaidExpensesService } from './prepaid-expenses.service';
 import {
+  CancelPrepaidDto,
   CreatePrepaidExpenseDto,
   PrepaidPreviewDto,
   RecognizePrepaidDto,
+  RecognizeRemainingDto,
   UpdatePrepaidExpenseDto,
 } from './dto/prepaid-expense.dto';
 import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
@@ -81,6 +83,30 @@ export class PrepaidExpensesController {
   @PermissionAction('edit')
   activate(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.prepaidExpenses.activate(id, user.sub);
+  }
+
+  /** R13b (O-3) — reclaim the unrecognized balance from the supplier and cancel. */
+  @Post(':id/cancel')
+  @HttpCode(200)
+  @PermissionAction('edit')
+  cancel(
+    @Param('id') id: string,
+    @Body() dto: CancelPrepaidDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.prepaidExpenses.cancelWithRefund(id, dto, user.sub);
+  }
+
+  /** R13b (O-3) — expense the unrecognized balance now and complete. */
+  @Post(':id/recognize-remaining')
+  @HttpCode(200)
+  @PermissionAction('edit')
+  recognizeRemaining(
+    @Param('id') id: string,
+    @Body() dto: RecognizeRemainingDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.prepaidExpenses.recognizeRemaining(id, dto, user.sub);
   }
 
   @Post(':id/archive')

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { FileText, Play, PlayCircle } from "lucide-react";
+import { CheckCheck, FileText, Play, PlayCircle, Undo2 } from "lucide-react";
 import {
   DetailField,
   DetailFieldGrid,
@@ -16,6 +16,15 @@ import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { MoneyValue } from "@/components/shared/money-value";
 import { StatusBadge } from "@/components/business/status-badge";
+import { PartnerPicker } from "@/components/business/partner-picker";
+import { SegmentedRadioGroup } from "@/components/documents/segmented-radio-group";
+import { EnterpriseDatePicker } from "@/components/shared/date-picker";
+import { SearchableSelect } from "@/components/shared/searchable-select";
+import type { PartnerPickerRow } from "@/services/partners-service";
+import {
+  receivingAccountsService,
+  type ReceivingAccountOption,
+} from "@/services/receiving-accounts-service";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { AccountingScheduleTable } from "@/components/accounting/schedule-table";
 import {
@@ -32,6 +41,16 @@ import { formatMoney } from "@/lib/money";
 import { prepaidStatusTone } from "@/config/finance/schedule-status";
 import type { MessageKey } from "@/i18n/translate";
 
+type Dialog = "activate" | "process" | "cancel" | "recognizeRemaining" | null;
+
+/** R13b (O-3) — where a cancelled prepayment's unrecognized balance goes. */
+type RefundTo = "SUPPLIER_CREDIT" | "CASH";
+
+function toIsoDate(date: Date | null): string | null {
+  if (!date) return null;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 function PrepaidExpenseDetailContent() {
   const params = useParams<{ id: string }>();
   const { t } = useLocale();
@@ -40,8 +59,13 @@ function PrepaidExpenseDetailContent() {
 
   const [prepaid, setPrepaid] = useState<PrepaidExpenseDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [dialog, setDialog] = useState<"activate" | "process" | null>(null);
+  const [dialog, setDialog] = useState<Dialog>(null);
   const [busy, setBusy] = useState(false);
+  const [actionDate, setActionDate] = useState<Date | null>(new Date());
+  const [refundTo, setRefundTo] = useState<RefundTo>("SUPPLIER_CREDIT");
+  const [refundSupplier, setRefundSupplier] = useState<PartnerPickerRow | null>(null);
+  const [refundAccountId, setRefundAccountId] = useState("");
+  const [receivingAccounts, setReceivingAccounts] = useState<ReceivingAccountOption[]>([]);
 
   useBreadcrumbLabel(prepaid?.prepaidNumber ?? null);
 
@@ -68,6 +92,49 @@ function PrepaidExpenseDetailContent() {
     try {
       await prepaidExpensesService.activate(prepaid.id);
       toast.success(t("accounting.prepaid.toasts.activated"));
+      setDialog(null);
+      await load();
+    } catch (error) {
+      reportApiError(error, "errors.generic");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openClose = (kind: "cancel" | "recognizeRemaining") => {
+    if (!prepaid) return;
+    setActionDate(new Date());
+    // Smart default: a prepayment paid from a receiving account is refunded there.
+    setRefundTo(prepaid.receivingAccountId ? "CASH" : "SUPPLIER_CREDIT");
+    setRefundAccountId(prepaid.receivingAccountId ?? "");
+    setRefundSupplier(null);
+    setDialog(kind);
+    if (kind === "cancel") {
+      receivingAccountsService
+        .list()
+        .then(setReceivingAccounts)
+        .catch(() => setReceivingAccounts([]));
+    }
+  };
+
+  const closeEarly = async () => {
+    if (!prepaid) return;
+    const date = toIsoDate(actionDate);
+    if (!date) return;
+    setBusy(true);
+    try {
+      if (dialog === "cancel") {
+        await prepaidExpensesService.cancelWithRefund(prepaid.id, {
+          date,
+          ...(refundTo === "CASH"
+            ? { receivingAccountId: refundAccountId }
+            : { partnerId: refundSupplier?.id }),
+        });
+        toast.success(t("assetSchedules.toasts.cancelled"));
+      } else {
+        await prepaidExpensesService.recognizeRemaining(prepaid.id, { date });
+        toast.success(t("assetSchedules.toasts.recognizedRemaining"));
+      }
       setDialog(null);
       await load();
     } catch (error) {
@@ -110,6 +177,38 @@ function PrepaidExpenseDetailContent() {
       emptyLabel:
         prepaid.status !== "DRAFT" ? t("accounting.journalEntries.missingJournal") : undefined,
     });
+    if (prepaid.purchaseReturn) {
+      groups.push({
+        labelKey: "assetSchedules.links.purchaseReturn",
+        links: [
+          {
+            id: prepaid.purchaseReturn.id,
+            number: prepaid.purchaseReturn.returnNumber,
+            href: `/purchasing/purchase-returns/${prepaid.purchaseReturn.id}`,
+            kind: "PURCHASE_RETURN",
+            status: prepaid.purchaseReturn.status,
+          },
+        ],
+      });
+    }
+    const { refund, acceleration } = prepaid.journalEntries;
+    for (const [labelKey, entry] of [
+      ["assetSchedules.links.refundEntry", refund],
+      ["assetSchedules.links.accelerationEntry", acceleration],
+    ] as const) {
+      if (!entry) continue;
+      groups.push({
+        labelKey,
+        links: [
+          {
+            id: entry.id,
+            number: entry.entryNumber,
+            href: `/finance/journal-entries/${entry.id}`,
+            kind: "JOURNAL_ENTRY",
+          },
+        ],
+      });
+    }
     return groups;
   }, [prepaid, t]);
 
@@ -123,6 +222,8 @@ function PrepaidExpenseDetailContent() {
   const { summary } = prepaid;
   const currency = prepaid.currency?.code ?? null;
   const sourceLine = prepaid.purchaseInvoiceItem;
+  const isActive = prepaid.status === "ACTIVE";
+  const remainingLabel = formatMoney(summary.remainingAmount, currency);
 
   return (
     <DetailWorkspace
@@ -164,10 +265,36 @@ function PrepaidExpenseDetailContent() {
                   }
                 : undefined
           }
+          secondary={[
+            {
+              key: "recognize-remaining",
+              label: t("assetSchedules.actions.recognizeRemaining"),
+              icon: CheckCheck,
+              hidden: !canEdit || !isActive,
+              onSelect: () => openClose("recognizeRemaining"),
+            },
+          ]}
+          destructive={[
+            {
+              key: "cancel-refund",
+              label: t("assetSchedules.actions.cancelWithRefund"),
+              icon: Undo2,
+              hidden: !canEdit || !isActive,
+              onSelect: () => openClose("cancel"),
+            },
+          ]}
         />
       }
     >
       <RelatedDocuments groups={relatedGroups} />
+      {prepaid.closureType && prepaid.closedOn ? (
+        <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-caption text-muted-foreground">
+          {t("assetSchedules.dialogs.closedNotice", {
+            closure: t(`assetSchedules.closureTypes.${prepaid.closureType}`),
+            date: formatDate(prepaid.closedOn),
+          })}
+        </p>
+      ) : null}
 
       <DetailSummaryBar>
         <DetailField
@@ -178,6 +305,12 @@ function PrepaidExpenseDetailContent() {
           label={t("accounting.prepaid.fields.recognizedAmount")}
           value={<MoneyValue value={summary.recognizedAmount} currency={currency} />}
         />
+        {summary.refundedAmount > 0 ? (
+          <DetailField
+            label={t("assetSchedules.fields.refundedAmount")}
+            value={<MoneyValue value={summary.refundedAmount} currency={currency} />}
+          />
+        ) : null}
         <DetailField
           label={t("assetSchedules.fields.remainingAmount")}
           value={<MoneyValue value={summary.remainingAmount} currency={currency} />}
@@ -237,6 +370,12 @@ function PrepaidExpenseDetailContent() {
                 : null
             }
           />
+          {prepaid.refundPartner || prepaid.refundReceivingAccount ? (
+            <DetailField
+              label={t("assetSchedules.fields.refundTo")}
+              value={prepaid.refundPartner?.name ?? prepaid.refundReceivingAccount?.name}
+            />
+          ) : null}
           <DetailField
             label={t("masterData.fields.notes")}
             value={prepaid.notes}
@@ -273,6 +412,88 @@ function PrepaidExpenseDetailContent() {
         confirmLabel={t("accounting.prepaid.recognize")}
         isConfirming={processDue.busy}
         onConfirm={() => void processDue.run().then(() => setDialog(null))}
+      />
+
+      <ConfirmationDialog
+        open={dialog === "cancel" || dialog === "recognizeRemaining"}
+        onOpenChange={(open) => !open && setDialog(null)}
+        title={
+          dialog === "cancel"
+            ? t("assetSchedules.actions.cancelWithRefund")
+            : t("assetSchedules.actions.recognizeRemaining")
+        }
+        description={
+          dialog === "cancel"
+            ? t("assetSchedules.dialogs.cancelRefundDescription", { amount: remainingLabel })
+            : t("assetSchedules.dialogs.recognizeRemainingDescription", { amount: remainingLabel })
+        }
+        tone={dialog === "cancel" ? "warning" : undefined}
+        extra={
+          <div className="grid grid-cols-1 gap-3 px-6 sm:grid-cols-2">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-caption text-muted-foreground">
+                {t("assetSchedules.fields.actionDate")}
+              </span>
+              <EnterpriseDatePicker value={actionDate} onChange={setActionDate} />
+            </label>
+            {dialog === "cancel" ? (
+              <>
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <span className="text-caption text-muted-foreground">
+                    {t("assetSchedules.fields.refundTo")}
+                  </span>
+                  <SegmentedRadioGroup<RefundTo>
+                    value={refundTo}
+                    onValueChange={setRefundTo}
+                    options={(["SUPPLIER_CREDIT", "CASH"] as const).map((value) => ({
+                      value,
+                      label: t(`assetSchedules.settlement.${value}`),
+                    }))}
+                    aria-label={t("assetSchedules.fields.refundTo")}
+                  />
+                </div>
+                {refundTo === "CASH" ? (
+                  <label className="flex flex-col gap-1.5 sm:col-span-2">
+                    <span className="text-caption text-muted-foreground">
+                      {t("accounting.prepaid.fields.receivingAccount")}
+                    </span>
+                    <SearchableSelect
+                      value={refundAccountId}
+                      onValueChange={setRefundAccountId}
+                      options={receivingAccounts.map((account) => ({
+                        value: account.id,
+                        label: account.name,
+                      }))}
+                      aria-label={t("accounting.prepaid.fields.receivingAccount")}
+                    />
+                  </label>
+                ) : (
+                  <div className="flex flex-col gap-1.5 sm:col-span-2">
+                    <span className="text-caption text-muted-foreground">
+                      {t("assetSchedules.fields.supplierToCredit")}
+                    </span>
+                    <PartnerPicker
+                      role="SUPPLIER"
+                      value={refundSupplier}
+                      onChange={setRefundSupplier}
+                    />
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
+        }
+        confirmLabel={
+          dialog === "cancel"
+            ? t("assetSchedules.actions.cancelWithRefund")
+            : t("assetSchedules.actions.recognizeRemaining")
+        }
+        confirmDisabled={
+          !actionDate ||
+          (dialog === "cancel" && (refundTo === "CASH" ? !refundAccountId : !refundSupplier))
+        }
+        isConfirming={busy}
+        onConfirm={() => void closeEarly()}
       />
     </DetailWorkspace>
   );

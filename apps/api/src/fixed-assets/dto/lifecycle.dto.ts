@@ -75,6 +75,15 @@ export class DisposeFixedAssetDto {
   @IsOptionalUuid()
   receivingAccountId?: string;
 
+  /**
+   * R13b (O-1) — proceeds settled as a supplier credit (e.g. an asset with
+   * posted depreciation going back to its supplier): the disposal entry
+   * debits this partner's payable instead of a receiving account. Exclusive
+   * with `receivingAccountId`; requires `disposalAmount` > 0.
+   */
+  @IsOptionalUuid()
+  counterpartyPartnerId?: string;
+
   @IsString()
   @IsOptional()
   disposalNotes?: string;

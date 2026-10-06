@@ -55,6 +55,7 @@ export default function TaxesPage() {
         name: entity.name,
         rate: Number(entity.rate),
         inclusive: Boolean(entity.inclusive),
+        isRecoverable: entity.isRecoverable !== false,
         description: entity.description ?? "",
         outputAccountId: entity.outputAccountId ?? "",
         inputAccountId: entity.inputAccountId ?? "",

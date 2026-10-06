@@ -10,6 +10,10 @@ import { AccountMappingService } from '../account-mapping/account-mapping.servic
 import { ExchangeRatesService } from '../fx/exchange-rates.service';
 import { snapshotDocumentExchangeRate } from '../fx/snapshot-document-rate';
 import { assertPostedTaxAmountsHaveTax } from '../../taxes/document-tax';
+import {
+  lineTaxIsCapitalized,
+  recognizedLineAmount,
+} from '../../purchasing/invoices/purchase-line-treatment';
 import type {
   PostingLine,
   PostingProvider,
@@ -21,7 +25,9 @@ import type {
  *
  * Dr Inventory (inventory-tracked lines, per resolved account)   net amount
  * Dr Purchase/Expense (non-inventory lines, per resolved account) net amount
- * Dr VAT Input (per resolved account)                             taxAmount
+ * Dr Fixed Assets / Prepayments (capitalized / deferred lines)   net amount
+ *    (+ non-recoverable tax of a FIXED_ASSET line — IAS 16, R13b O-2)
+ * Dr VAT Input (per resolved account, recoverable tax only)       taxAmount
  * Cr Accounts Payable                                            grandTotal
  *
  * Every account id resolved through `AccountMappingService` (TASK-047);
@@ -63,7 +69,7 @@ export class PurchaseInvoicePostingProvider
         items: {
           include: {
             product: { select: { isInventoryItem: true, categoryId: true } },
-            tax: { select: { id: true } },
+            tax: { select: { id: true, isRecoverable: true } },
           },
         },
       },
@@ -100,9 +106,11 @@ export class PurchaseInvoicePostingProvider
       const netAmount = Number(item.lineTotal) - Number(item.taxAmount);
       const roundedNet = Math.round(netAmount * 100) / 100;
       if (item.treatment === PurchaseLineTreatment.FIXED_ASSET) {
+        // Net + non-recoverable tax (cost addition lines included) — the
+        // amount PurchaseLineRecognitionService puts on the asset.
         recognitionLines.push({
           accountId: await this.accountMapping.resolveFixedAssetsAccount(tx),
-          debit: roundedNet,
+          debit: recognizedLineAmount(item),
           description: `Fixed asset — ${invoice.invoiceNumber}`,
         });
         continue;
@@ -176,6 +184,8 @@ export class PurchaseInvoicePostingProvider
     );
     for (const item of invoice.items) {
       if (!item.tax || Number(item.taxAmount) === 0) continue;
+      // Capitalized into the asset above — never VAT Input as well.
+      if (lineTaxIsCapitalized(item)) continue;
       taxAmounts.set(
         item.tax.id,
         (taxAmounts.get(item.tax.id) ?? 0) + Number(item.taxAmount),

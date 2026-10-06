@@ -61,6 +61,7 @@ function itemToLine(item: PurchaseInvoiceItemRow): ProductLineItemsGridLine {
     scheduleStartDate: item.scheduleStartDate ? item.scheduleStartDate.slice(0, 10) : null,
     prepaidMonths: item.prepaidMonths ?? null,
     prepaidExpenseAccount: item.prepaidExpenseAccount ?? null,
+    linkedFixedAsset: item.linkedFixedAsset ?? null,
     // Saved non-standard lines show the asset / prepayment they are linked to.
     linkedRecord: item.fixedAsset
       ? {

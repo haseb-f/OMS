@@ -56,10 +56,35 @@ const INCLUDE = {
   costCenter: true,
   receivingAccount: true,
   partner: true,
+  disposalPartner: { select: { id: true, name: true, partnerNumber: true } },
   depreciationPeriods: { orderBy: { periodStart: 'asc' as const } },
 };
 
-const DETAIL_INCLUDE = { ...INCLUDE, ...SOURCE_INVOICE_SELECT };
+const DETAIL_INCLUDE = {
+  ...INCLUDE,
+  ...SOURCE_INVOICE_SELECT,
+  purchaseReturn: { select: { id: true, returnNumber: true, status: true } },
+  costAdditions: {
+    orderBy: { addedOn: 'asc' as const },
+    include: {
+      purchaseInvoiceItem: {
+        select: {
+          id: true,
+          description: true,
+          purchaseInvoice: { select: { id: true, invoiceNumber: true } },
+        },
+      },
+    },
+  },
+};
+
+/** Asset fields a purchase return of its invoice line is judged on. */
+export interface ReturnableAsset {
+  id: string;
+  code: string | null;
+  status: FixedAssetStatus;
+  deletedAt: Date | null;
+}
 
 @Injectable()
 export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
@@ -123,11 +148,15 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
       : await postedEntriesBySource(this.prisma, 'FIXED_ASSET_CAPITALIZATION', [
           asset.id,
         ]).then((map) => map.get(asset.id) ?? null);
-    const disposal = await postedEntriesBySource(
-      this.prisma,
-      'FIXED_ASSET_DISPOSAL',
-      [asset.id],
-    ).then((map) => map.get(asset.id) ?? null);
+    // An asset returned to its supplier is derecognized by the purchase
+    // return's own JE (it credits Fixed Assets) — never a disposal entry.
+    const disposalSource = asset.purchaseReturnId
+      ? 'PURCHASE_RETURN'
+      : 'FIXED_ASSET_DISPOSAL';
+    const disposalSourceId = asset.purchaseReturnId ?? asset.id;
+    const disposal = await postedEntriesBySource(this.prisma, disposalSource, [
+      disposalSourceId,
+    ]).then((map) => map.get(disposalSourceId) ?? null);
 
     const cost = Number(asset.cost);
     const salvage = Number(asset.salvageValue);
@@ -147,6 +176,7 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
           ? 'PURCHASE_INVOICE'
           : 'FIXED_ASSET_CAPITALIZATION',
         disposal,
+        disposalSource,
       },
       summary: {
         cost,
@@ -165,6 +195,9 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
             period.status === AccountingScheduleStatus.PENDING &&
             period.lastError,
         ).length,
+        costAdditions: round2(
+          asset.costAdditions.reduce((sum, row) => sum + Number(row.amount), 0),
+        ),
       },
     };
   }
@@ -296,6 +329,17 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
         `${asset.code} is linked to a purchase invoice line. Unlink it before archiving.`,
       );
     }
+    if (asset.status === FixedAssetStatus.DRAFT) {
+      // Its added costs are already in Fixed Assets (posted by their invoices).
+      const additions = await this.prisma.fixedAssetCostAddition.count({
+        where: { fixedAssetId: id },
+      });
+      if (additions > 0) {
+        throw new BadRequestException(
+          `${asset.code} carries costs added by purchase invoices (already in Fixed Assets). Capitalize it instead of archiving it.`,
+        );
+      }
+    }
     return super.archive(id, userId);
   }
 
@@ -350,6 +394,15 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
     );
     const salvage = dto.salvageValue ?? Number(asset.salvageValue);
     this.assertSalvage(Number(asset.cost), salvage);
+    const added = await this.prisma.fixedAssetCostAddition.aggregate({
+      where: { fixedAssetId: id },
+      _sum: { amount: true },
+    });
+    if (Number(asset.cost) < Number(added._sum.amount ?? 0)) {
+      throw new BadRequestException(
+        `The cost of ${asset.code} (${Number(asset.cost)}) is below the costs already added by purchase invoices (${Number(added._sum.amount)}).`,
+      );
+    }
     const method = dto.depreciationMethod ?? asset.depreciationMethod;
     const periods = buildDepreciationSchedule(
       method,
@@ -527,6 +580,16 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
    * accumulated depreciation includes the catch-up. A catch-up period that
    * cannot post (e.g. its month is locked) refuses the disposal — it never
    * skips depreciation silently.
+   *
+   * Full-month convention (owner decision O-7, adopted): only periods whose
+   * END date is on or before the disposal date are caught up — no pro-rata
+   * days. Disposed 20 March → depreciation through 28/29 February; March is
+   * CANCELLED. Simple and consistent with the monthly schedule.
+   *
+   * Proceeds (R13b, O-1) are received in a receiving account (cash) or, with
+   * `counterpartyPartnerId`, settled as a supplier credit (Dr the partner's
+   * payable) — e.g. an asset with posted depreciation returned to its
+   * supplier. Gain / loss is computed the same way either way.
    */
   async dispose(id: string, dto: DisposeFixedAssetDto, userId?: string) {
     const asset = await this.findOne(id);
@@ -534,6 +597,25 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
       throw new BadRequestException(
         `Cannot dispose ${asset.code} from ${asset.status}.`,
       );
+    }
+    if (dto.counterpartyPartnerId) {
+      if (dto.receivingAccountId) {
+        throw new BadRequestException(
+          'Choose either a receiving account (cash proceeds) or a supplier credit, not both.',
+        );
+      }
+      if (!dto.disposalAmount || dto.disposalAmount <= 0) {
+        throw new BadRequestException(
+          'Enter the amount the supplier credits for the asset.',
+        );
+      }
+      const partner = await this.prisma.partner.findFirst({
+        where: { id: dto.counterpartyPartnerId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!partner) {
+        throw new BadRequestException('The supplier to credit was not found.');
+      }
     }
     const today = todayBusinessDate();
     const disposalDate = dto.disposalDate
@@ -605,8 +687,12 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
           disposedBy: userId ?? null,
           disposalAmount: dto.disposalAmount ?? 0,
           disposalNotes: dto.disposalNotes,
-          receivingAccountId:
-            dto.receivingAccountId ?? asset.receivingAccountId,
+          // Proceeds go either to a receiving account (cash) or, as a
+          // supplier credit, to the partner's payable — never both.
+          disposalPartnerId: dto.counterpartyPartnerId ?? null,
+          receivingAccountId: dto.counterpartyPartnerId
+            ? asset.receivingAccountId
+            : (dto.receivingAccountId ?? asset.receivingAccountId),
           updatedBy: userId ?? null,
         },
       });
@@ -620,9 +706,14 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
         this.entityType,
         id,
         'DISPOSED',
-        `Fixed asset ${asset.code} disposed on ${disposalDate} — ${catchUp.length} catch-up depreciation period(s) posted, ${cancelled.count} future period(s) cancelled`,
+        `Fixed asset ${asset.code} disposed on ${disposalDate} — ${catchUp.length} catch-up depreciation period(s) posted, ${cancelled.count} future period(s) cancelled${dto.counterpartyPartnerId ? ' — proceeds credited by the supplier' : ''}`,
         userId,
-        { disposalDate, catchUp: catchUp.length, cancelled: cancelled.count },
+        {
+          disposalDate,
+          catchUp: catchUp.length,
+          cancelled: cancelled.count,
+          counterpartyPartnerId: dto.counterpartyPartnerId ?? null,
+        },
         tx,
       );
       return tx.fixedAsset.findUniqueOrThrow({
@@ -643,6 +734,7 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
         deletedAt: null,
         treatment: PurchaseLineTreatment.FIXED_ASSET,
         fixedAsset: { is: null },
+        linkedFixedAssetId: null,
         purchaseInvoice: {
           deletedAt: null,
           status: PurchaseDocumentStatus.DRAFT,
@@ -811,5 +903,156 @@ export class FixedAssetsService extends MasterDataCrudService<FixedAsset> {
         include: DETAIL_INCLUDE,
       });
     });
+  }
+
+  /**
+   * R13b (O-2) — assets a purchase invoice FIXED_ASSET line may add its cost
+   * to ("Add to existing asset"): Draft assets, and Capitalized assets that
+   * still have PENDING periods to absorb the cost.
+   */
+  async costAdditionTargets(search?: string) {
+    const term = search?.trim();
+    const assets = await this.prisma.fixedAsset.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          { status: FixedAssetStatus.DRAFT },
+          {
+            status: FixedAssetStatus.CAPITALIZED,
+            depreciationPeriods: {
+              some: { status: AccountingScheduleStatus.PENDING },
+            },
+          },
+        ],
+        ...(term
+          ? {
+              AND: [
+                {
+                  OR: [
+                    { code: { contains: term, mode: 'insensitive' as const } },
+                    { name: { contains: term, mode: 'insensitive' as const } },
+                  ],
+                },
+              ],
+            }
+          : {}),
+      },
+      select: { id: true, code: true, name: true, status: true, cost: true },
+      orderBy: { code: 'asc' },
+      take: 50,
+    });
+    return assets.map((asset) => ({ ...asset, cost: Number(asset.cost) }));
+  }
+
+  /**
+   * R13b (O-1) — may the invoice line that capitalized `asset` be returned to
+   * the supplier? Only a still-capitalized asset with NO posted depreciation
+   * and no added costs, and only as a whole (an asset is one unit of
+   * account). An asset already depreciated is disposed to the supplier
+   * instead (Dispose → supplier credit). Throws a 400 naming the reason.
+   */
+  async assertLineReturnable(
+    asset: ReturnableAsset | null,
+    line: { invoicedQuantity: number; returnedQuantity: number },
+    client: Prisma.TransactionClient = this.prisma,
+  ): Promise<void> {
+    if (!asset || asset.deletedAt) {
+      throw new BadRequestException(
+        'This invoice line was capitalized as a fixed asset that no longer exists — it cannot be returned.',
+      );
+    }
+    if (asset.status !== FixedAssetStatus.CAPITALIZED) {
+      throw new BadRequestException(
+        `Fixed asset ${asset.code} is ${asset.status} — its invoice line cannot be returned.`,
+      );
+    }
+    if (line.returnedQuantity !== line.invoicedQuantity) {
+      throw new BadRequestException(
+        `Fixed asset ${asset.code} is one unit of account — return the whole invoice line (${line.invoicedQuantity}), not part of it.`,
+      );
+    }
+    const [posted, additions] = await Promise.all([
+      client.fixedAssetDepreciationPeriod.count({
+        where: {
+          fixedAssetId: asset.id,
+          status: AccountingScheduleStatus.POSTED,
+        },
+      }),
+      client.fixedAssetCostAddition.count({
+        where: { fixedAssetId: asset.id },
+      }),
+    ]);
+    if (posted > 0) {
+      throw new BadRequestException(
+        `Fixed asset ${asset.code} already has ${posted} posted depreciation period(s), so its invoice line cannot be returned. Dispose the asset to the supplier instead (Fixed asset → Dispose → supplier credit).`,
+      );
+    }
+    if (additions > 0) {
+      throw new BadRequestException(
+        `Fixed asset ${asset.code} carries costs added by later purchase invoices, so its invoice line cannot be returned. Dispose the asset to the supplier instead (Fixed asset → Dispose → supplier credit).`,
+      );
+    }
+  }
+
+  /**
+   * R13b (O-1) — inside the purchase return's confirm transaction: the
+   * returned asset is derecognized by the return JE itself (it credits Fixed
+   * Assets for the line amount), so NO disposal entry is posted. The asset
+   * becomes DISPOSED, linked to the return, and every PENDING period is
+   * CANCELLED (history kept). Re-checked under the asset row lock.
+   */
+  async derecognizeByPurchaseReturn(
+    assetId: string,
+    purchaseReturn: { id: string; returnNumber: string },
+    line: { invoicedQuantity: number; returnedQuantity: number },
+    returnDate: Date,
+    tx: Prisma.TransactionClient,
+    userId?: string,
+  ): Promise<void> {
+    await this.lockAsset(tx, assetId);
+    const asset = await tx.fixedAsset.findUnique({
+      where: { id: assetId },
+      select: {
+        id: true,
+        code: true,
+        status: true,
+        deletedAt: true,
+        cost: true,
+      },
+    });
+    await this.assertLineReturnable(asset, line, tx);
+    const cancelled = await tx.fixedAssetDepreciationPeriod.updateMany({
+      where: {
+        fixedAssetId: assetId,
+        status: AccountingScheduleStatus.PENDING,
+      },
+      data: {
+        status: AccountingScheduleStatus.CANCELLED,
+        lastAttemptAt: new Date(),
+      },
+    });
+    await tx.fixedAsset.update({
+      where: { id: assetId },
+      data: {
+        status: FixedAssetStatus.DISPOSED,
+        disposedAt: returnDate,
+        disposedBy: userId ?? null,
+        // The supplier credits the full carrying amount (= cost: nothing was
+        // depreciated) — no gain or loss.
+        disposalAmount: asset!.cost,
+        disposalNotes: `Returned to supplier — Purchase Return ${purchaseReturn.returnNumber}`,
+        purchaseReturnId: purchaseReturn.id,
+        updatedBy: userId ?? null,
+      },
+    });
+    await this.activityLog.log(
+      this.entityType,
+      assetId,
+      'RETURNED',
+      `Fixed asset ${asset!.code} returned to the supplier by Purchase Return ${purchaseReturn.returnNumber} — ${cancelled.count} pending period(s) cancelled`,
+      userId,
+      { purchaseReturnId: purchaseReturn.id, cancelled: cancelled.count },
+      tx,
+    );
   }
 }

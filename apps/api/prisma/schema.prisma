@@ -636,7 +636,6 @@ model CostCenter {
   purchaseInvoices      PurchaseInvoice[]
   purchaseReturns       PurchaseReturn[]
   financialTransactions FinancialTransaction[]
-  expenses              Expense[]
   fixedAssets           FixedAsset[]
   bankTransactions      BankTransaction[]
 
@@ -678,7 +677,6 @@ model PaymentMethod {
   deletedAt DateTime? @map("deleted_at")
 
   salesOrders          SalesOrder[]
-  expenses             Expense[]
   capitalContributions CapitalContribution[]
   distributionPayments DistributionPayment[]
   payments             Payment[]
@@ -688,38 +686,6 @@ model PaymentMethod {
 
   @@index([paymentSourceId])
   @@map("payment_methods")
-}
-
-/// A simple recorded expense — date/amount/description, optionally
-/// attributed to a Cost Center and a Payment Method. No approval workflow,
-/// no journal-entry posting: same "architecture only, no accounting math
-/// yet" scoping the Cost Engine Foundation (ADR-0014) already applied to
-/// Purchasing — a future Accounting module can add posting on top of this.
-model Expense {
-  id          String   @id @default(uuid()) @db.Uuid
-  date        DateTime @db.Date
-  amount      Decimal  @db.Decimal(12, 2)
-  description String
-
-  costCenterId String?     @map("cost_center_id") @db.Uuid
-  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
-
-  paymentMethodId String?        @map("payment_method_id") @db.Uuid
-  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
-
-  notes String?
-
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  createdBy String?   @map("created_by") @db.Uuid
-  updatedBy String?   @map("updated_by") @db.Uuid
-  deletedAt DateTime? @map("deleted_at")
-
-  /// Investor Engine Milestone 2 — optional link from an OpportunityExpense
-  /// that references this canonical Expense record (never a silent duplicate).
-  opportunityExpenseLinks OpportunityExpense[]
-
-  @@map("expenses")
 }
 
 /// Depreciation method of a Fixed Asset (monthly schedule, see
@@ -760,6 +726,17 @@ enum PrepaidExpenseStatus {
   ACTIVE
   COMPLETED
   CANCELLED
+}
+
+/// R13b (O-3) — early closing of an ACTIVE prepayment.
+/// REFUND: remaining balance reclaimed from the supplier (CANCELLED);
+/// RECOGNIZED: remaining balance expensed at once (COMPLETED);
+/// PURCHASE_RETURN: the invoice line was returned — the return JE reclaims
+/// the returned amount, any unrecognized excess is expensed (CANCELLED).
+enum PrepaidClosureType {
+  REFUND
+  RECOGNIZED
+  PURCHASE_RETURN
 }
 
 enum AccruedExpenseStatus {
@@ -805,12 +782,21 @@ model FixedAsset {
   partnerId String?  @map("partner_id") @db.Uuid
   partner   Partner? @relation(fields: [partnerId], references: [id])
 
-  capitalizedAt  DateTime? @map("capitalized_at")
-  capitalizedBy  String?   @map("capitalized_by") @db.Uuid
-  disposedAt     DateTime? @map("disposed_at")
-  disposedBy     String?   @map("disposed_by") @db.Uuid
-  disposalAmount Decimal?  @map("disposal_amount") @db.Decimal(12, 2)
-  disposalNotes  String?   @map("disposal_notes")
+  capitalizedAt     DateTime?       @map("capitalized_at")
+  capitalizedBy     String?         @map("capitalized_by") @db.Uuid
+  disposedAt        DateTime?       @map("disposed_at")
+  disposedBy        String?         @map("disposed_by") @db.Uuid
+  disposalAmount    Decimal?        @map("disposal_amount") @db.Decimal(12, 2)
+  disposalNotes     String?         @map("disposal_notes")
+  /// R13b (O-1) — disposal proceeds settled as a supplier credit: the
+  /// disposal entry debits this partner's payable instead of a receiving account.
+  disposalPartnerId String?         @map("disposal_partner_id") @db.Uuid
+  disposalPartner   Partner?        @relation("FixedAssetDisposalPartner", fields: [disposalPartnerId], references: [id])
+  /// R13b (O-1) — set when the asset was derecognized by a confirmed purchase
+  /// return of its invoice line (the return JE credits Fixed Assets; no
+  /// separate disposal entry).
+  purchaseReturnId  String?         @map("purchase_return_id") @db.Uuid
+  purchaseReturn    PurchaseReturn? @relation(fields: [purchaseReturnId], references: [id])
 
   /// Set when the asset was capitalized by a Purchase Invoice line — the
   /// invoice JE already debited Fixed Assets, so no separate capitalization
@@ -828,8 +814,38 @@ model FixedAsset {
   deletedAt DateTime? @map("deleted_at")
 
   depreciationPeriods FixedAssetDepreciationPeriod[]
+  costAdditions       FixedAssetCostAddition[]
+  costAdditionLines   PurchaseInvoiceItem[]          @relation("PurchaseLineCostAddition")
 
   @@map("fixed_assets")
+}
+
+/// R13b (O-2, IAS 16) — a directly attributable cost (delivery,
+/// installation…) added to an existing asset by a later purchase invoice
+/// line. The invoice JE debits Fixed Assets; the asset cost grows and its
+/// remaining PENDING depreciation is re-spread prospectively. One row per
+/// invoice line (unique) — a re-run can never add the same cost twice.
+model FixedAssetCostAddition {
+  id String @id @default(uuid()) @db.Uuid
+
+  fixedAssetId String     @map("fixed_asset_id") @db.Uuid
+  fixedAsset   FixedAsset @relation(fields: [fixedAssetId], references: [id], onDelete: Cascade)
+
+  purchaseInvoiceItemId String              @unique @map("purchase_invoice_item_id") @db.Uuid
+  purchaseInvoiceItem   PurchaseInvoiceItem @relation(fields: [purchaseInvoiceItemId], references: [id])
+  purchaseInvoiceId     String              @map("purchase_invoice_id") @db.Uuid
+
+  /// Base-currency amount the invoice JE debited to Fixed Assets for the line.
+  amount          Decimal  @db.Decimal(12, 2)
+  addedOn         DateTime @map("added_on") @db.Date
+  /// PENDING periods re-spread by this addition (0 for a Draft asset).
+  respreadPeriods Int      @default(0) @map("respread_periods")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  @@index([fixedAssetId])
+  @@map("fixed_asset_cost_additions")
 }
 
 model FixedAssetDepreciationPeriod {
@@ -884,6 +900,23 @@ model PrepaidExpense {
 
   activatedAt DateTime? @map("activated_at")
   activatedBy String?   @map("activated_by") @db.Uuid
+
+  /// R13b (O-3) — how an ACTIVE prepayment was closed early, on which
+  /// business date, and the amounts each closing entry moved out of
+  /// Prepayments: `refundAmount` reclaimed from the supplier (Dr AP / Dr
+  /// receiving account, or the purchase return JE), `acceleratedAmount`
+  /// recognized at once (Dr expense).
+  closureType              PrepaidClosureType? @map("closure_type")
+  closedOn                 DateTime?           @map("closed_on") @db.Date
+  closedBy                 String?             @map("closed_by") @db.Uuid
+  refundAmount             Decimal?            @map("refund_amount") @db.Decimal(12, 2)
+  acceleratedAmount        Decimal?            @map("accelerated_amount") @db.Decimal(12, 2)
+  refundPartnerId          String?             @map("refund_partner_id") @db.Uuid
+  refundPartner            Partner?            @relation("PrepaidRefundPartner", fields: [refundPartnerId], references: [id])
+  refundReceivingAccountId String?             @map("refund_receiving_account_id") @db.Uuid
+  refundReceivingAccount   ReceivingAccount?   @relation("PrepaidRefundReceivingAccount", fields: [refundReceivingAccountId], references: [id])
+  purchaseReturnId         String?             @map("purchase_return_id") @db.Uuid
+  purchaseReturn           PurchaseReturn?     @relation(fields: [purchaseReturnId], references: [id])
 
   /// Set when deferred by a Purchase Invoice line — the invoice JE already
   /// debited Prepayments, so activation never posts a second entry.
@@ -2713,6 +2746,7 @@ model ReceivingAccount {
   bankTransactionsCashSource BankTransaction[]      @relation("BankTransactionCashSource")
   fixedAssets                FixedAsset[]
   prepaidExpenses            PrepaidExpense[]
+  prepaidRefunds             PrepaidExpense[]       @relation("PrepaidRefundReceivingAccount")
   accruedExpenses            AccruedExpense[]
 
   paymentSettlements PaymentSettlement[]
@@ -4846,6 +4880,8 @@ model Partner {
   landedCostDocuments LandedCostDocument[]
   fixedAssets         FixedAsset[]
   prepaidExpenses     PrepaidExpense[]
+  fixedAssetDisposals FixedAsset[]         @relation("FixedAssetDisposalPartner")
+  prepaidRefunds      PrepaidExpense[]     @relation("PrepaidRefundPartner")
   accruedExpenses     AccruedExpense[]
 
   /// Owner decision O3 — the normalized numbers this partner owns.
@@ -6454,6 +6490,10 @@ model PurchaseInvoiceItem {
   prepaidMonths           Int?                  @map("prepaid_months")
   prepaidExpenseAccountId String?               @map("prepaid_expense_account_id") @db.Uuid
   prepaidExpenseAccount   ChartOfAccount?       @relation("PurchaseLinePrepaidExpenseAccount", fields: [prepaidExpenseAccountId], references: [id])
+  /// R13b (O-2) — FIXED_ASSET line that adds a directly attributable cost to
+  /// this existing asset instead of creating a new one.
+  linkedFixedAssetId      String?               @map("linked_fixed_asset_id") @db.Uuid
+  linkedFixedAsset        FixedAsset?           @relation("PurchaseLineCostAddition", fields: [linkedFixedAssetId], references: [id])
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -6461,10 +6501,11 @@ model PurchaseInvoiceItem {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  returnLines           PurchaseReturnItem[]
-  landedCostAllocations LandedCostAllocation[]
-  fixedAsset            FixedAsset?
-  prepaidExpense        PrepaidExpense?
+  returnLines            PurchaseReturnItem[]
+  landedCostAllocations  LandedCostAllocation[]
+  fixedAsset             FixedAsset?
+  prepaidExpense         PrepaidExpense?
+  fixedAssetCostAddition FixedAssetCostAddition?
 
   @@map("purchase_invoice_items")
 }
@@ -6542,8 +6583,11 @@ model PurchaseReturn {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  items      PurchaseReturnItem[]
-  activities PurchaseReturnActivity[]
+  items            PurchaseReturnItem[]
+  activities       PurchaseReturnActivity[]
+  /// R13b — assets / prepayments derecognized by this return.
+  returnedAssets   FixedAsset[]
+  returnedPrepaids PrepaidExpense[]
 
   @@map("purchase_returns")
 }
@@ -6777,6 +6821,11 @@ model Tax {
 
   inputAccountId String?         @map("input_account_id") @db.Uuid
   inputAccount   ChartOfAccount? @relation("TaxInputAccount", fields: [inputAccountId], references: [id])
+
+  /// R13b (O-2, IAS 16) — false when input tax under this code cannot be
+  /// reclaimed: on a FIXED_ASSET purchase line it is part of the asset cost
+  /// (debited to Fixed Assets, never to VAT Input).
+  isRecoverable Boolean @default(true) @map("is_recoverable")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -7092,8 +7141,10 @@ model FinancialTransaction {
   transactionNumber String                   @unique @map("transaction_number")
   type              FinancialTransactionType
 
-  /// Required for CUSTOMER_RECEIPT/SUPPLIER_PAYMENT, always null for
-  /// EXPENSE_PAYMENT (no party — see expenseAccountId below). Formerly a
+  /// Required for CUSTOMER_RECEIPT/SUPPLIER_PAYMENT. Optional on
+  /// EXPENSE_PAYMENT (R13 owner decision 2): the supplier counterparty of a
+  /// direct expense — document metadata only, never posted to AP and never
+  /// allocated to an invoice (see expenseAccountId below). Formerly a
   /// split customerId/supplierId pair; unified since a Partner's role
   /// already disambiguates which side of the transaction this is.
   partnerId String?  @map("partner_id") @db.Uuid
@@ -7160,6 +7211,9 @@ model FinancialTransaction {
   feeAccount   ChartOfAccount? @relation("FinancialTransactionFeeAccount", fields: [feeAccountId], references: [id])
 
   referenceNumber String? @map("reference_number")
+  /// R13 (owner decision 2) — what was spent (expense vouchers); carried
+  /// onto the journal line description.
+  description     String?
   notes           String?
 
   status FinancialTransactionStatus @default(DRAFT)
@@ -7188,6 +7242,9 @@ model FinancialTransaction {
   matchedByBankTransactions BankTransaction[]
 
   paymentReceiptLink PaymentReceiptLink?
+
+  /// Investor Engine — opportunity costs that reference this expense voucher.
+  opportunityExpenseLinks OpportunityExpense[] @relation("OpportunityExpenseSourceVoucher")
 
   /// R13 B2 — client-generated key (one per opened form): a repeated create
   /// with the same key returns the first document instead of a second one.
@@ -8998,8 +9055,11 @@ model OpportunityExpense {
 
   status OpportunityExpenseStatus @default(DRAFT)
 
-  sourceExpenseId String?  @map("source_expense_id") @db.Uuid
-  sourceExpense   Expense? @relation(fields: [sourceExpenseId], references: [id])
+  /// R13 (owner decision 2) — the expense voucher (FinancialTransaction
+  /// EXPENSE_PAYMENT) this opportunity cost references; the legacy
+  /// `expenses` table was consolidated into expense vouchers.
+  sourceExpenseId String?               @map("source_expense_id") @db.Uuid
+  sourceExpense   FinancialTransaction? @relation("OpportunityExpenseSourceVoucher", fields: [sourceExpenseId], references: [id], onDelete: SetNull)
 
   createdBy    String?   @map("created_by") @db.Uuid
   approvedById String?   @map("approved_by_id") @db.Uuid

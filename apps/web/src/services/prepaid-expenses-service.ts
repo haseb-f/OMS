@@ -32,14 +32,26 @@ export interface PrepaidExpenseDetail extends PrepaidExpenseRow, SourceInvoiceRe
   purchaseInvoiceId: string | null;
   purchaseInvoiceItemId: string | null;
   activatedAt: string | null;
+  /** R13b (O-3) — early closing. */
+  closureType: PrepaidClosureType | null;
+  closedOn: string | null;
+  refundAmount: string | number | null;
+  acceleratedAmount: string | number | null;
+  refundPartner?: { id: string; name: string; partnerNumber?: string } | null;
+  refundReceivingAccount?: { id: string; name: string } | null;
+  purchaseReturn?: { id: string; returnNumber: string; status: string } | null;
   recognitions: ScheduleRow[];
   journalEntries: {
     deferral: ScheduleJournalRef | null;
     deferralSource: "PURCHASE_INVOICE" | "PREPAID_EXPENSE";
+    refund: ScheduleJournalRef | null;
+    refundSource: "PURCHASE_RETURN" | "PREPAID_REFUND";
+    acceleration: ScheduleJournalRef | null;
   };
   summary: {
     amount: number;
     recognizedAmount: number;
+    refundedAmount: number;
     remainingAmount: number;
     postedPeriods: number;
     pendingPeriods: number;
@@ -47,6 +59,8 @@ export interface PrepaidExpenseDetail extends PrepaidExpenseRow, SourceInvoiceRe
     failedPeriods: number;
   };
 }
+
+export type PrepaidClosureType = "REFUND" | "RECOGNIZED" | "PURCHASE_RETURN";
 
 export interface PrepaidRecognizeResult {
   asOf: string;
@@ -65,5 +79,13 @@ export const prepaidExpensesService = {
   activate: (id: string) =>
     apiClient.post<PrepaidExpenseRow>(`/prepaid-expenses/${id}/activate`, {}),
   /** Posts every recognition due today (Cairo) — the prepaid half of the scheduled run. */
+  /** R13b — reclaim the unrecognized balance (supplier credit or cash refund) and cancel. */
+  cancelWithRefund: (
+    id: string,
+    dto: { date: string; partnerId?: string; receivingAccountId?: string },
+  ) => apiClient.post<PrepaidExpenseRow>(`/prepaid-expenses/${id}/cancel`, compactPayload(dto)),
+  /** R13b — expense the unrecognized balance on the date and complete. */
+  recognizeRemaining: (id: string, dto: { date: string }) =>
+    apiClient.post<PrepaidExpenseRow>(`/prepaid-expenses/${id}/recognize-remaining`, dto),
   recognize: () => apiClient.post<PrepaidRecognizeResult>("/prepaid-expenses/recognize", {}),
 };

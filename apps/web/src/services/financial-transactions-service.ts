@@ -48,6 +48,17 @@ export interface FinancialTransactionRow {
   amount: string;
   referenceNumber: string | null;
   notes: string | null;
+  /** Expense vouchers — what was spent. */
+  description?: string | null;
+  /** Expense vouchers — the EXPENSE posting account debited. */
+  expenseAccountId?: string | null;
+  expenseAccount?: { id: string; code: string; name: string } | null;
+  costCenterId?: string | null;
+  costCenter?: { id: string; code: string; name: string } | null;
+  projectId?: string | null;
+  project?: { id: string; code: string; name: string } | null;
+  /** Frozen transaction → functional rate (set when posted). */
+  exchangeRate?: string | null;
   status: FinancialTransactionStatusValue;
   confirmedAt: string | null;
   confirmedBy: string | null;
@@ -68,8 +79,14 @@ export interface AllocationInputPayload {
 }
 
 export interface FinancialTransactionFormPayload {
-  partnerId?: string;
+  /** Expense vouchers: optional supplier counterparty; `null` clears it on edit. */
+  partnerId?: string | null;
   currencyId?: string;
+  /** Expense vouchers only. */
+  expenseAccountId?: string;
+  costCenterId?: string | null;
+  projectId?: string | null;
+  description?: string;
   transactionDate?: string;
   paymentSourceId?: string;
   receivingAccountId?: string;

@@ -43,6 +43,14 @@ const assetSchedulesAr = {
     remainingAmount: "الرصيد المتبقي",
     lineNet: "الصافي",
     endDateDerived: "تاريخ الانتهاء = البداية + عدد الفترات − يوم (يُحسب تلقائيًا).",
+    costAdditions: "تكاليف مضافة",
+    settlement: "تسوية المتحصلات",
+    supplierToCredit: "المورد الدائن",
+    refundTo: "الاسترداد إلى",
+    refundedAmount: "المسترد من المورد",
+    actionDate: "التاريخ",
+    closedOn: "أُغلق في",
+    closure: "طريقة الإغلاق",
   },
   links: {
     sourceInvoice: "فاتورة المشتريات",
@@ -53,6 +61,10 @@ const assetSchedulesAr = {
     prepaidExpenses: "المصروفات المدفوعة مقدمًا",
     linkedRecord: "السجل المرتبط",
     linkedRecordPending: "يُنشأ عند تأكيد الفاتورة",
+    purchaseReturn: "مرتجع المشتريات",
+    costAddedBy: "تكاليف مضافة من",
+    refundEntry: "قيد الاسترداد",
+    accelerationEntry: "قيد الاعتراف بالمتبقي",
   },
   actions: {
     open: "فتح",
@@ -60,6 +72,9 @@ const assetSchedulesAr = {
     linkInvoiceLine: "ربط بسطر فاتورة مشتريات",
     unlinkInvoiceLine: "إلغاء ربط سطر الفاتورة",
     viewList: "العودة إلى القائمة",
+    cancelWithRefund: "إلغاء مع استرداد",
+    recognizeRemaining: "الاعتراف بالمتبقي الآن",
+    addToExistingAsset: "إضافة إلى أصل قائم",
   },
   dialogs: {
     capitalizeDescription:
@@ -76,6 +91,19 @@ const assetSchedulesAr = {
     linkPlaceholder: "ابحث برقم الفاتورة أو المرجع أو المورد",
     noLinkableLines: "لا توجد أسطر أصول ثابتة غير مرتبطة في فواتير مشتريات مسودة.",
     linkedNotice: "مرتبط بـ {invoice}. يُرسمل هذا الأصل عند تأكيد تلك الفاتورة.",
+    disposeSupplierHint:
+      "إشعار دائن من المورد: تُخفِّض المتحصلات المستحق للمورد (مدين حسابات الدائنين) بدلًا من النقدية. يُحسب الربح أو الخسارة بالطريقة نفسها.",
+    cancelRefundDescription:
+      "تُرحَّل أولًا الاعترافات المستحقة حتى التاريخ. يُسترد الرصيد غير المعترف به ({amount}) من المورد وتُلغى الفترات المتبقية.",
+    recognizeRemainingDescription:
+      "تُرحَّل أولًا الاعترافات المستحقة حتى التاريخ. يُحمَّل الرصيد غير المعترف به ({amount}) على المصروف في ذلك التاريخ وتُلغى الفترات المتبقية.",
+    returnedNotice:
+      "أُعيد إلى المورد بموجب {return}. قيد المرتجع ألغى الاعتراف بالأصل — دون قيد استبعاد منفصل.",
+    closedNotice: "{closure} في {date}.",
+    addToAssetHint:
+      "يضيف تكلفة هذا السطر (توصيل، تركيب…) إلى أصل قائم بدلًا من إنشاء أصل جديد، ويُعاد احتساب إهلاكه المتبقي.",
+    addToAssetPlaceholder: "أصل جديد من هذا السطر",
+    noCostAdditionTargets: "لا يوجد أصل مسودة أو مرسمل له فترات متبقية.",
   },
   toasts: {
     processed: "تم ترحيل {posted} قيد.",
@@ -83,6 +111,21 @@ const assetSchedulesAr = {
     nothingDue: "لا يوجد مستحق — كل فترة انتهت مرحّلة بالفعل.",
     linked: "تم ربط سطر الفاتورة.",
     unlinked: "تم إلغاء ربط سطر الفاتورة.",
+    cancelled: "أُلغي المصروف المقدم — واستُرد الرصيد المتبقي.",
+    recognizedRemaining: "تم الاعتراف بالرصيد المتبقي.",
+  },
+  settlement: {
+    CASH: "نقدية مستلمة",
+    SUPPLIER_CREDIT: "إشعار دائن من المورد",
+  },
+  closureTypes: {
+    REFUND: "أُلغي مع استرداد",
+    RECOGNIZED: "اعتُرف بالمتبقي",
+    PURCHASE_RETURN: "أُلغي بمرتجع مشتريات",
+  },
+  returns: {
+    wholeLineOnly: "أصل ثابت — يُرتجع السطر كاملًا",
+    blocked: "لا يمكن إرجاعه",
   },
 } as const;
 

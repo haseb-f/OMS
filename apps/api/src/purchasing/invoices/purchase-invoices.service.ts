@@ -282,6 +282,10 @@ export class PurchaseInvoicesService {
             fixedAsset: {
               select: { id: true, code: true, name: true, status: true },
             },
+            // R13b — the existing asset a cost-addition line adds to.
+            linkedFixedAsset: {
+              select: { id: true, code: true, name: true, status: true },
+            },
             prepaidExpense: {
               select: {
                 id: true,
@@ -834,6 +838,11 @@ export class PurchaseInvoicesService {
         ).map((product) => product.id),
       );
       assertLineTreatments(items, (productId) => stocked.has(productId));
+      await this.lineRecognition.assertCostAdditionTargets(
+        items.flatMap((item) =>
+          item.linkedFixedAssetId ? [item.linkedFixedAssetId] : [],
+        ),
+      );
     }
     const { taxIds, taxById } = await resolveLineTaxes(this.prisma, items);
 

@@ -18,6 +18,7 @@ import salesReportsAr from "./modules/sales-reports.ar";
 import assetSchedulesAr from "./modules/asset-schedules.ar";
 import assemblyAr from "./modules/assembly.ar";
 import inventoryIntegrityAr from "./modules/inventory-integrity.ar";
+import expenseVouchersAr from "./modules/expense-vouchers.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
@@ -31,6 +32,7 @@ const ar = {
   assetSchedules: assetSchedulesAr,
   assembly: assemblyAr,
   inventoryIntegrity: inventoryIntegrityAr,
+  expenseVouchers: expenseVouchersAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
@@ -1075,6 +1077,7 @@ const ar = {
       symbol: "الرمز المختصر",
       rate: "النسبة (%)",
       inclusive: "شامل الضريبة",
+      taxRecoverable: "ضريبة مدخلات قابلة للاسترداد",
       company: "الشركة",
       country: "الدولة",
       isDefault: "مستودع افتراضي",
@@ -1153,7 +1156,7 @@ const ar = {
     },
     expenses: {
       title: "المصروفات",
-      description: "تسجيل المصروفات — بدون سير موافقة أو ترحيل محاسبي بعد.",
+      description: "تسميات حقول المصروفات المشتركة (شاشة المصروفات ضمن سندات المصروفات).",
       fields: {
         date: "التاريخ",
         amount: "المبلغ",
@@ -5318,6 +5321,8 @@ const ar = {
         FIXED_ASSET_DISPOSAL: "استبعاد أصل",
         PREPAID_EXPENSE: "مصروف مقدم",
         PREPAID_RECOGNITION: "اعتراف بمصروف مقدم",
+        PREPAID_REFUND: "استرداد مصروف مقدم",
+        PREPAID_ACCELERATION: "اعتراف بالرصيد المتبقي لمصروف مقدم",
         ACCRUED_EXPENSE: "مصروف مستحق",
         ACCRUED_EXPENSE_SETTLEMENT: "تسوية استحقاق",
         FX_REVALUATION: "إعادة تقييم عملة",

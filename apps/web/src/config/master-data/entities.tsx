@@ -86,19 +86,6 @@ export interface CostCenterRow {
   deletedAt: string | null;
 }
 
-export interface ExpenseRow {
-  id: string;
-  date: string;
-  amount: string | number;
-  description: string;
-  costCenterId: string | null;
-  costCenter?: { id: string; code: string; name: string } | null;
-  paymentMethodId: string | null;
-  paymentMethod?: { id: string; name: string } | null;
-  notes: string | null;
-  deletedAt: string | null;
-}
-
 export interface FixedAssetRow {
   id: string;
   name: string;
@@ -134,6 +121,8 @@ export interface TaxRow {
   rate: string | number;
   description: string | null;
   inclusive?: boolean;
+  /** R13b (O-2) — false: input tax cannot be reclaimed; on a fixed-asset purchase line it is capitalized. */
+  isRecoverable?: boolean;
   /// Accounting Configuration (TASK-047 backend / TASK-053 frontend) — VAT Output/Input account overrides, resolved by AccountMappingService.
   outputAccountId: string | null;
   inputAccountId: string | null;
@@ -421,74 +410,6 @@ export const costCentersDefaultValues = { code: "", name: "", description: "" };
 export const costCentersExportColumns = ["code", "name", "description"];
 export const costCenterRowLabel = (row: CostCenterRow) => `${row.code} — ${row.name}`;
 
-// ---------------------------------------------------------------------------
-// Expenses — no approval workflow, no journal-entry posting (architecture
-// only, same scoping precedent as the Cost Engine Foundation). costCenterId
-// and paymentMethodId options are resolved dynamically by the page, same
-// pattern as Categories' account-override selects.
-// ---------------------------------------------------------------------------
-
-export const expensesColumns: ColumnDef<ExpenseRow, unknown>[] = [
-  textColumn("date", "masterData.expenses.fields.date", (r) => formatDate(r.date), "date"),
-  // An expense is named by what it paid for — the Grid card's title.
-  textColumn("description", "masterData.fields.description", (r) => r.description, "name"),
-  {
-    ...textColumn("amount", "masterData.expenses.fields.amount", (r) => formatAmount(r.amount)),
-    meta: { titleKey: "masterData.expenses.fields.amount", type: "money" },
-  },
-  textColumn(
-    "costCenter",
-    "masterData.expenses.fields.costCenter",
-    (r) => r.costCenter?.name ?? null,
-    "default",
-  ),
-  textColumn(
-    "paymentMethod",
-    "masterData.expenses.fields.paymentMethod",
-    (r) => r.paymentMethod?.name ?? null,
-    "default",
-  ),
-  statusColumn<ExpenseRow>(),
-];
-
-export const expensesFormFields: MasterDataFormField[] = [
-  { name: "date", label: "masterData.expenses.fields.date", type: "date", required: true },
-  {
-    name: "amount",
-    label: "masterData.expenses.fields.amount",
-    type: "number",
-    money: true,
-    required: true,
-  },
-  {
-    name: "description",
-    label: "masterData.fields.description",
-    type: "text",
-    required: true,
-  },
-  { name: "notes", label: "masterData.fields.notes", type: "textarea" },
-];
-
-export const expensesSchema = z.object({
-  date: z.string().min(1),
-  amount: z.number().min(0),
-  description: z.string().min(1),
-  costCenterId: z.string().optional().or(z.literal("")),
-  paymentMethodId: z.string().optional().or(z.literal("")),
-  notes: z.string().optional().or(z.literal("")),
-});
-
-export const expensesDefaultValues = {
-  date: "",
-  amount: undefined as unknown as number, // new, unset → the field stays empty (placeholder "0.00"), never a 0 to delete
-  description: "",
-  costCenterId: "",
-  paymentMethodId: "",
-  notes: "",
-};
-export const expensesExportColumns = ["date", "description", "amount", "notes"];
-export const expenseRowLabel = (row: ExpenseRow) => `${formatDate(row.date)} — ${row.description}`;
-
 function FixedAssetStatusCell({ status }: { status: FixedAssetRow["status"] }) {
   const { t } = useLocale();
   const tone = fixedAssetStatusTone[status];
@@ -670,6 +591,7 @@ export const taxesFormFields: MasterDataFormField[] = [
   { name: "name", label: "masterData.fields.name", type: "text", required: true },
   { name: "rate", label: "masterData.fields.rate", type: "number", required: true },
   { name: "inclusive", label: "masterData.fields.inclusive", type: "boolean" },
+  { name: "isRecoverable", label: "masterData.fields.taxRecoverable", type: "boolean" },
   { name: "description", label: "masterData.fields.description", type: "textarea" },
 ];
 
@@ -678,6 +600,7 @@ export const taxesSchema = z.object({
   name: z.string().min(1),
   rate: z.number().min(0).max(100),
   inclusive: z.boolean().optional(),
+  isRecoverable: z.boolean().optional(),
   description: z.string().optional().or(z.literal("")),
   outputAccountId: z.string().optional().or(z.literal("")),
   inputAccountId: z.string().optional().or(z.literal("")),
@@ -688,6 +611,7 @@ export const taxesDefaultValues = {
   name: "",
   rate: 0,
   inclusive: false,
+  isRecoverable: true,
   description: "",
   outputAccountId: "",
   inputAccountId: "",

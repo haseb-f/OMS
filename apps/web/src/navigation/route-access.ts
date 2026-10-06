@@ -89,6 +89,7 @@ export function resolveRouteRequiredPermissions(
  * | /purchasing/payments/new              | purchasing.payments.create         | POST /financial-transactions/payments (supplier-payments) |
  * | /purchasing/landed-cost/new           | landed-cost.create                 | POST /landed-cost-documents (landed-cost; page gate matches) |
  * | /finance/journal-entries/new          | accounting.journal-entries.create  | POST /journal-entries (journal-entries)      |
+ * | /finance/expenses/new                 | accounting.expense-payments.create | POST /financial-transactions/expense-payments (expense-payments) |
  * | /hr/employees/new                     | hr.employees.create                | POST /employees (employees)                  |
  * | /hr/kpi-templates/new                 | hr.kpi-templates.create            | POST /kpi-templates (kpi-templates)          |
  * | /hr/commission-plans/new              | hr.commission-plans.create         | POST /commission-plans (commission-plans)    |
@@ -110,6 +111,7 @@ export const CREATE_ROUTE_PERMISSIONS: Readonly<Record<string, readonly string[]
   "/purchasing/payments/new": ["purchasing.payments.create"],
   "/purchasing/landed-cost/new": ["landed-cost.create"],
   "/finance/journal-entries/new": ["accounting.journal-entries.create"],
+  "/finance/expenses/new": ["accounting.expense-payments.create"],
   "/hr/employees/new": ["hr.employees.create"],
   "/hr/kpi-templates/new": ["hr.kpi-templates.create"],
   "/hr/commission-plans/new": ["hr.commission-plans.create"],

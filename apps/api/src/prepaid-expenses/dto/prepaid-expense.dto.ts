@@ -75,3 +75,37 @@ export class PrepaidPreviewDto {
   @IsDateString()
   startDate!: string;
 }
+
+/**
+ * R13b (O-3) — Cancel with refund: the unrecognized balance is reclaimed
+ * from the supplier — either as a supplier credit (`partnerId`: Dr the
+ * partner's payable) or as cash received (`receivingAccountId`). Exactly one.
+ */
+export class CancelPrepaidDto {
+  /** Business date of the cancellation ("YYYY-MM-DD"); defaults to today (Africa/Cairo). Never in the future. */
+  @IsDateString()
+  @IsOptional()
+  date?: string;
+
+  @IsOptionalUuid()
+  partnerId?: string;
+
+  @IsOptionalUuid()
+  receivingAccountId?: string;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}
+
+/** R13b (O-3) — Recognize remaining now: the unrecognized balance is expensed on `date`. */
+export class RecognizeRemainingDto {
+  /** Business date ("YYYY-MM-DD"); defaults to today (Africa/Cairo). Never in the future. */
+  @IsDateString()
+  @IsOptional()
+  date?: string;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}

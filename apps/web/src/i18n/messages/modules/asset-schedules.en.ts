@@ -43,6 +43,14 @@ const assetSchedulesEn = {
     remainingAmount: "Remaining balance",
     lineNet: "Net amount",
     endDateDerived: "End date = start + periods − 1 day (set automatically).",
+    costAdditions: "Costs added",
+    settlement: "Proceeds settled as",
+    supplierToCredit: "Supplier to credit",
+    refundTo: "Refund to",
+    refundedAmount: "Reclaimed from supplier",
+    actionDate: "Date",
+    closedOn: "Closed on",
+    closure: "Closed by",
   },
   links: {
     sourceInvoice: "Purchase invoice",
@@ -53,6 +61,10 @@ const assetSchedulesEn = {
     prepaidExpenses: "Prepaid expenses",
     linkedRecord: "Linked record",
     linkedRecordPending: "Created when the invoice is confirmed",
+    purchaseReturn: "Purchase return",
+    costAddedBy: "Costs added by",
+    refundEntry: "Refund entry",
+    accelerationEntry: "Remaining recognized entry",
   },
   actions: {
     open: "Open",
@@ -60,6 +72,9 @@ const assetSchedulesEn = {
     linkInvoiceLine: "Link purchase invoice line",
     unlinkInvoiceLine: "Unlink invoice line",
     viewList: "Back to list",
+    cancelWithRefund: "Cancel with refund",
+    recognizeRemaining: "Recognize remaining now",
+    addToExistingAsset: "Add to existing asset",
   },
   dialogs: {
     capitalizeDescription:
@@ -76,6 +91,19 @@ const assetSchedulesEn = {
     linkPlaceholder: "Search by invoice, reference or supplier",
     noLinkableLines: "No unlinked fixed-asset lines on draft purchase invoices.",
     linkedNotice: "Linked to {invoice}. This asset is capitalized when that invoice is confirmed.",
+    disposeSupplierHint:
+      "Supplier credit: the proceeds reduce what you owe the supplier (debit Accounts Payable) instead of cash. Gain or loss is calculated the same way.",
+    cancelRefundDescription:
+      "Recognitions due by the date are posted first. The unrecognized balance ({amount}) is reclaimed from the supplier and the remaining periods are cancelled.",
+    recognizeRemainingDescription:
+      "Recognitions due by the date are posted first. The unrecognized balance ({amount}) is expensed on that date and the remaining periods are cancelled.",
+    returnedNotice:
+      "Returned to the supplier by {return}. The return's journal entry derecognized the asset — no separate disposal entry.",
+    closedNotice: "{closure} on {date}.",
+    addToAssetHint:
+      "Adds this line's cost (delivery, installation…) to an existing asset instead of creating a new one. Its remaining depreciation is recalculated.",
+    addToAssetPlaceholder: "New asset from this line",
+    noCostAdditionTargets: "No draft or capitalized asset with remaining periods.",
   },
   toasts: {
     processed: "{posted} entr(ies) posted.",
@@ -84,6 +112,21 @@ const assetSchedulesEn = {
     nothingDue: "Nothing is due — every period that has ended is already posted.",
     linked: "Invoice line linked.",
     unlinked: "Invoice line unlinked.",
+    cancelled: "Prepaid expense cancelled — the remaining balance was reclaimed.",
+    recognizedRemaining: "Remaining balance recognized.",
+  },
+  settlement: {
+    CASH: "Cash received",
+    SUPPLIER_CREDIT: "Supplier credit",
+  },
+  closureTypes: {
+    REFUND: "Cancelled with refund",
+    RECOGNIZED: "Remaining recognized",
+    PURCHASE_RETURN: "Cancelled by purchase return",
+  },
+  returns: {
+    wholeLineOnly: "Fixed asset — returned as the whole line",
+    blocked: "Cannot be returned",
   },
 } as const;
 

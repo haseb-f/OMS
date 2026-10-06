@@ -120,3 +120,31 @@ export function withRunningTotals(
     };
   });
 }
+
+/**
+ * R13b (O-2, IAS 16 change in estimate) — new amounts for the remaining
+ * PENDING periods after the asset's cost changed: the new book value
+ * (cost − accumulated depreciation already posted) less salvage is spread
+ * over the same number of remaining periods with the asset's method; posted
+ * periods are never touched. The last period absorbs rounding, so the
+ * remaining amounts always sum to exactly book value − salvage.
+ */
+export function respreadRemainingAmounts(
+  method: 'STRAIGHT_LINE' | 'DECLINING_BALANCE',
+  bookValue: number,
+  salvage: number,
+  remainingPeriods: number,
+  firstStart: Date,
+): number[] {
+  if (remainingPeriods <= 0) return [];
+  const rebuilt = buildDepreciationSchedule(
+    method,
+    bookValue,
+    salvage,
+    remainingPeriods,
+    firstStart,
+  );
+  return rebuilt.length === remainingPeriods
+    ? rebuilt.map((period) => period.amount)
+    : Array.from({ length: remainingPeriods }, () => 0);
+}

@@ -53,11 +53,19 @@ export class FixedAssetPostingProvider
         receivingAccount: { select: { chartOfAccountId: true } },
       },
     });
-    const cost = Number(asset.cost);
-    if (cost === 0) return null;
     // Capitalized by a Purchase Invoice line: the invoice JE already debited
     // Fixed Assets against AP — never capitalize the same cost twice.
     if (asset.purchaseInvoiceItemId) return null;
+    // R13b — costs added by later purchase invoice lines (delivery,
+    // installation…) were debited to Fixed Assets by those invoices.
+    const added = await tx.fixedAssetCostAddition.aggregate({
+      where: { fixedAssetId: asset.id },
+      _sum: { amount: true },
+    });
+    const cost =
+      Math.round((Number(asset.cost) - Number(added._sum.amount ?? 0)) * 100) /
+      100;
+    if (cost <= 0) return null;
     const faAccount = await this.accountMapping.resolveFixedAssetsAccount(tx);
     const creditAccountId = asset.receivingAccount?.chartOfAccountId
       ? asset.receivingAccount.chartOfAccountId
@@ -144,7 +152,18 @@ export class FixedAssetPostingProvider
         description: `Dispose ${asset.code} — accumulated depreciation`,
       });
     }
-    if (proceeds > 0) {
+    if (proceeds > 0 && asset.disposalPartnerId) {
+      // R13b (O-1) — proceeds settled as a supplier credit.
+      lines.push({
+        accountId: await this.accountMapping.resolvePayableAccount(
+          asset.disposalPartnerId,
+          tx,
+        ),
+        debit: proceeds,
+        description: `Dispose ${asset.code} — supplier credit`,
+        partnerId: asset.disposalPartnerId,
+      });
+    } else if (proceeds > 0) {
       if (!asset.receivingAccount?.chartOfAccountId) {
         throw new Error(
           `Select a receiving account before disposing ${asset.code} with proceeds.`,

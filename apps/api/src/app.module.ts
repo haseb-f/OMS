@@ -12,7 +12,6 @@ import { CurrenciesModule } from './currencies/currencies.module';
 import { CountriesModule } from './countries/countries.module';
 import { ProjectsModule } from './projects/projects.module';
 import { CostCentersModule } from './cost-centers/cost-centers.module';
-import { ExpensesModule } from './expenses/expenses.module';
 import { FixedAssetsModule } from './fixed-assets/fixed-assets.module';
 import { PaymentMethodsModule } from './payment-methods/payment-methods.module';
 import { PaymentTermsModule } from './payment-terms/payment-terms.module';
@@ -132,7 +131,6 @@ import { StoreOrderAmendmentsModule } from './store-orders/amendments/store-orde
     CountriesModule,
     ProjectsModule,
     CostCentersModule,
-    ExpensesModule,
     FixedAssetsModule,
     PaymentMethodsModule,
     ShippingMethodsModule,

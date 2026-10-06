@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Undo2 } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { DocumentLineReviewTable } from "@/components/documents/document-line-review-table";
 import {
   purchaseReturnsService,
@@ -73,6 +74,13 @@ export function CreateReturnDialog({
     remainingById[itemId]?.remainingQuantity ?? fallback;
 
   const selectedLines = invoice.items.filter((item) => included[item.id]);
+  // R13b — capitalized / deferred lines that cannot be returned, with the reason.
+  const blockedLines = invoice.items.flatMap((item) => {
+    const reason = remainingById[item.id]?.returnBlockedReason;
+    return reason
+      ? [{ id: item.id, name: item.product?.displayName || item.product?.name || "—", reason }]
+      : [];
+  });
 
   const handleConfirm = async () => {
     if (selectedLines.length === 0) {
@@ -136,27 +144,49 @@ export function CreateReturnDialog({
           const remaining = remainingFor(item.id, item.quantity);
           const returned = remainingById[item.id]?.returnedQuantity ?? 0;
           const fullyReturned = remaining <= 0;
+          const blocked = Boolean(remainingById[item.id]?.returnBlockedReason);
+          // A fixed asset is one unit of account — its line is returned whole.
+          const wholeLine = Boolean(remainingById[item.id]?.wholeLineOnly);
           return {
             id: item.id,
             productName: item.product?.displayName || item.product?.name || "—",
             meta: fullyReturned
               ? t("purchasing.invoices.createReturn.fullyReturned")
-              : returned > 0
-                ? `${t("purchasing.invoices.createReturn.receivedQuantity")}: ${item.quantity} · ${t("purchasing.invoices.createReturn.alreadyReturned")}: ${returned}`
-                : `${t("purchasing.invoices.createReturn.receivedQuantity")}: ${item.quantity}`,
-            selected: !fullyReturned && (included[item.id] ?? false),
-            selectDisabled: fullyReturned || isLoadingSummary,
+              : blocked
+                ? t("assetSchedules.returns.blocked")
+                : wholeLine
+                  ? t("assetSchedules.returns.wholeLineOnly")
+                  : returned > 0
+                    ? `${t("purchasing.invoices.createReturn.receivedQuantity")}: ${item.quantity} · ${t("purchasing.invoices.createReturn.alreadyReturned")}: ${returned}`
+                    : `${t("purchasing.invoices.createReturn.receivedQuantity")}: ${item.quantity}`,
+            selected: !fullyReturned && !blocked && (included[item.id] ?? false),
+            selectDisabled: fullyReturned || blocked || isLoadingSummary,
             onSelectedChange: (selected) =>
               setIncluded((prev) => ({ ...prev, [item.id]: selected })),
-            quantity: quantities[item.id] ?? Math.max(1, remaining),
-            quantityMin: 1,
+            quantity: wholeLine ? remaining : (quantities[item.id] ?? Math.max(1, remaining)),
+            quantityMin: wholeLine ? remaining : 1,
             quantityMax: remaining,
-            quantityDisabled: !included[item.id] || fullyReturned || isLoadingSummary,
+            quantityDisabled:
+              !included[item.id] || fullyReturned || blocked || wholeLine || isLoadingSummary,
             onQuantityChange: (quantity) =>
               setQuantities((prev) => ({ ...prev, [item.id]: quantity })),
           };
         })}
       />
+      {blockedLines.length > 0 ? (
+        <Alert tone="warning" className="mt-3">
+          <AlertTitle>{t("assetSchedules.returns.blocked")}</AlertTitle>
+          <AlertDescription>
+            <ul className="flex flex-col gap-1">
+              {blockedLines.map((line) => (
+                <li key={line.id}>
+                  <span className="font-medium">{line.name}</span> — {line.reason}
+                </li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      ) : null}
     </EnterpriseModal>
   );
 }

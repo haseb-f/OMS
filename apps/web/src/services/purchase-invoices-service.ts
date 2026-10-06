@@ -52,6 +52,8 @@ export interface PurchaseInvoiceItemRow {
   prepaidExpenseAccount?: ChartOfAccountRow | null;
   /** The fixed asset / prepaid expense this line is linked to (R13 C1). */
   fixedAsset?: { id: string; code: string | null; name: string; status: string } | null;
+  /** R13b — the existing asset a cost-addition line adds its cost to. */
+  linkedFixedAsset?: { id: string; code: string | null; name: string; status: string } | null;
   prepaidExpense?: { id: string; prepaidNumber: string; name: string; status: string } | null;
 }
 

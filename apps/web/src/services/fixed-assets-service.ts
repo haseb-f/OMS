@@ -28,6 +28,12 @@ export interface FixedAssetDetail extends FixedAssetRow, SourceInvoiceRef {
   disposedAt: string | null;
   disposalAmount: string | number | null;
   disposalNotes: string | null;
+  /** R13b — proceeds settled as a supplier credit (Dr the partner's payable). */
+  disposalPartner?: { id: string; name: string; partnerNumber?: string } | null;
+  /** R13b — the purchase return that derecognized the asset (its JE is the disposal entry). */
+  purchaseReturn?: { id: string; returnNumber: string; status: string } | null;
+  /** R13b — directly attributable costs added by later purchase invoice lines. */
+  costAdditions: FixedAssetCostAddition[];
   receivingAccount?: { id: string; name: string; code?: string } | null;
   partner?: { id: string; name: string; partnerNumber?: string } | null;
   depreciationPeriods: ScheduleRow[];
@@ -35,6 +41,7 @@ export interface FixedAssetDetail extends FixedAssetRow, SourceInvoiceRef {
     capitalization: ScheduleJournalRef | null;
     capitalizationSource: "PURCHASE_INVOICE" | "FIXED_ASSET_CAPITALIZATION";
     disposal: ScheduleJournalRef | null;
+    disposalSource: "FIXED_ASSET_DISPOSAL" | "PURCHASE_RETURN";
   };
   summary: {
     cost: number;
@@ -46,7 +53,29 @@ export interface FixedAssetDetail extends FixedAssetRow, SourceInvoiceRef {
     pendingPeriods: number;
     cancelledPeriods: number;
     failedPeriods: number;
+    costAdditions: number;
   };
+}
+
+export interface FixedAssetCostAddition {
+  id: string;
+  amount: string | number;
+  addedOn: string;
+  respreadPeriods: number;
+  purchaseInvoiceItem: {
+    id: string;
+    description: string | null;
+    purchaseInvoice: { id: string; invoiceNumber: string };
+  };
+}
+
+/** `GET /fixed-assets/cost-addition-targets` — assets an invoice line may add its cost to. */
+export interface CostAdditionTarget {
+  id: string;
+  code: string | null;
+  name: string;
+  status: "DRAFT" | "CAPITALIZED";
+  cost: number;
 }
 
 /** A FIXED_ASSET line of a Draft purchase invoice, not linked to an asset yet. */
@@ -96,6 +125,10 @@ export const fixedAssetsService = {
     apiClient.post<FixedAssetDetail>(`/fixed-assets/${id}/invoice-line`, {
       purchaseInvoiceItemId,
     }),
+  costAdditionTargets: (search?: string) =>
+    apiClient.get<CostAdditionTarget[]>(
+      `/fixed-assets/cost-addition-targets${buildQueryString({ search })}`,
+    ),
   unlinkInvoiceLine: (id: string) =>
     apiClient.delete<FixedAssetDetail>(`/fixed-assets/${id}/invoice-line`),
 };

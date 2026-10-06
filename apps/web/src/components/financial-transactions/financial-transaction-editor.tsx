@@ -91,6 +91,9 @@ export function FinancialTransactionEditor({
   allocationSection,
   fieldErrors,
   currencyCode,
+  showAllocations = true,
+  extraFields,
+  afterMainForm,
 }: {
   config: FinancialTransactionEditorConfig;
   state: FinancialTransactionEditorState;
@@ -106,6 +109,12 @@ export function FinancialTransactionEditor({
   fieldErrors?: FinancialTransactionEditorFieldErrors;
   /** Currency code shown beside the amount totals. */
   currencyCode?: string | null;
+  /** False for a voucher that never settles documents (expense vouchers): no allocation grid / totals. */
+  showAllocations?: boolean;
+  /** Further main-form fields (each a grid cell), after Reference — e.g. an expense's currency and dimensions. */
+  extraFields?: ReactNode;
+  /** Shown right under the main form (notices such as open supplier invoices, posting status). */
+  afterMainForm?: ReactNode;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -179,6 +188,8 @@ export function FinancialTransactionEditor({
   );
 
   const canEdit = hasPermission(config.permissions.edit) && !disabled;
+  const receivingAccountLabel =
+    config.fieldLabels?.receivingAccount ?? t("financialTransactions.fields.receivingAccount");
 
   const activityEntries: TimelineEntry[] = (activity ?? []).map((entry) => ({
     id: entry.id,
@@ -206,7 +217,7 @@ export function FinancialTransactionEditor({
       fieldErrors?.receivingAccount
         ? {
             fieldId: "receivingAccount",
-            label: t("financialTransactions.fields.receivingAccount"),
+            label: receivingAccountLabel,
             message: fieldErrors.receivingAccount,
           }
         : null,
@@ -310,7 +321,8 @@ export function FinancialTransactionEditor({
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-caption text-muted-foreground">
-              {t("financialTransactions.fields.transactionDate")}
+              {config.fieldLabels?.transactionDate ??
+                t("financialTransactions.fields.transactionDate")}
             </label>
             <EnterpriseDatePicker
               value={state.transactionDate}
@@ -338,7 +350,7 @@ export function FinancialTransactionEditor({
           </div>
           <div className="flex flex-col gap-1">
             <label htmlFor={`${fieldId}-source`} className="text-caption text-muted-foreground">
-              {t("financialTransactions.fields.paymentSource")}
+              {config.fieldLabels?.paymentSource ?? t("financialTransactions.fields.paymentSource")}
             </label>
             <SearchableSelect
               id={`${fieldId}-source`}
@@ -355,7 +367,7 @@ export function FinancialTransactionEditor({
             className="flex min-w-0 flex-col gap-1"
           >
             <label htmlFor={`${fieldId}-receiving`} className="text-caption text-muted-foreground">
-              {t("financialTransactions.fields.receivingAccount")}
+              {receivingAccountLabel}
             </label>
             <SearchableSelect
               id={`${fieldId}-receiving`}
@@ -383,33 +395,40 @@ export function FinancialTransactionEditor({
               onChange={(event) => handlers.onReferenceNumberChange(event.target.value)}
             />
           </div>
+          {extraFields}
         </div>
 
-        {/* Allocation section — immediately below the main form, divided by a hairline */}
-        <div
-          data-field-name="allocations"
-          data-invalid={fieldErrors?.allocations ? "true" : undefined}
-          className="flex min-w-0 flex-col gap-2 border-t border-border pt-3"
-        >
-          <h2 className="text-card-title font-heading">
-            {t("financialTransactions.sections.allocations")}
-          </h2>
-          {allocationSection}
-          <AllocationGrid
-            lines={state.allocations}
-            onChange={handlers.onAllocationsChange}
-            disabled={!canEdit}
-            documentLabel={config.allocationDocumentLabel}
-          />
-          <FieldMessage>{fieldErrors?.allocations}</FieldMessage>
-        </div>
+        {afterMainForm}
 
-        {/* Totals — the shared document totals block, aligned to the numeric edge */}
-        <PaymentSummary
-          amount={state.amount}
-          allocations={state.allocations}
-          currency={currencyCode}
-        />
+        {showAllocations ? (
+          <>
+            {/* Allocation section — immediately below the main form, divided by a hairline */}
+            <div
+              data-field-name="allocations"
+              data-invalid={fieldErrors?.allocations ? "true" : undefined}
+              className="flex min-w-0 flex-col gap-2 border-t border-border pt-3"
+            >
+              <h2 className="text-card-title font-heading">
+                {t("financialTransactions.sections.allocations")}
+              </h2>
+              {allocationSection}
+              <AllocationGrid
+                lines={state.allocations}
+                onChange={handlers.onAllocationsChange}
+                disabled={!canEdit}
+                documentLabel={config.allocationDocumentLabel}
+              />
+              <FieldMessage>{fieldErrors?.allocations}</FieldMessage>
+            </div>
+
+            {/* Totals — the shared document totals block, aligned to the numeric edge */}
+            <PaymentSummary
+              amount={state.amount}
+              allocations={state.allocations}
+              currency={currencyCode}
+            />
+          </>
+        ) : null}
         <FieldMessage>{fieldErrors?.form}</FieldMessage>
 
         {/* Notes */}

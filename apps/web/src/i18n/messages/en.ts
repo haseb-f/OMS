@@ -18,6 +18,7 @@ import salesReportsEn from "./modules/sales-reports.en";
 import assetSchedulesEn from "./modules/asset-schedules.en";
 import assemblyEn from "./modules/assembly.en";
 import inventoryIntegrityEn from "./modules/inventory-integrity.en";
+import expenseVouchersEn from "./modules/expense-vouchers.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
@@ -31,6 +32,7 @@ const en = {
   assetSchedules: assetSchedulesEn,
   assembly: assemblyEn,
   inventoryIntegrity: inventoryIntegrityEn,
+  expenseVouchers: expenseVouchersEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
@@ -1078,6 +1080,7 @@ const en = {
       symbol: "Symbol",
       rate: "Rate (%)",
       inclusive: "Tax Inclusive",
+      taxRecoverable: "Recoverable input tax",
       company: "Company",
       country: "Country",
       isDefault: "Default Warehouse",
@@ -1156,7 +1159,7 @@ const en = {
     },
     expenses: {
       title: "Expenses",
-      description: "Record expenses — no approval workflow or accounting posting yet.",
+      description: "Shared expense field labels (the Expenses screen lives under expenseVouchers).",
       fields: {
         date: "Date",
         amount: "Amount",
@@ -5369,6 +5372,8 @@ const en = {
         FIXED_ASSET_DISPOSAL: "Asset Disposal",
         PREPAID_EXPENSE: "Prepaid Expense",
         PREPAID_RECOGNITION: "Prepaid Recognition",
+        PREPAID_REFUND: "Prepaid Refund",
+        PREPAID_ACCELERATION: "Prepaid Remaining Recognized",
         ACCRUED_EXPENSE: "Accrued Expense",
         ACCRUED_EXPENSE_SETTLEMENT: "Accrual Settlement",
         FX_REVALUATION: "FX Revaluation",

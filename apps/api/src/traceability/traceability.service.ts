@@ -73,6 +73,8 @@ const JOURNAL_SOURCE_KIND: Record<string, TraceKind> = {
   FIXED_ASSET_CAPITALIZATION: 'FIXED_ASSET',
   FIXED_ASSET_DISPOSAL: 'FIXED_ASSET',
   PREPAID_EXPENSE: 'PREPAID_EXPENSE',
+  PREPAID_REFUND: 'PREPAID_EXPENSE',
+  PREPAID_ACCELERATION: 'PREPAID_EXPENSE',
 };
 
 /** Inventory movement referenceType → owning document kind. */
@@ -1473,6 +1475,10 @@ export class TraceabilityService {
         purchaseInvoice: {
           select: { id: true, invoiceNumber: true, status: true },
         },
+        // R13b — returned to the supplier by this purchase return.
+        purchaseReturn: {
+          select: { id: true, returnNumber: true, status: true },
+        },
         depreciationPeriods: { select: { id: true } },
       },
     });
@@ -1493,9 +1499,8 @@ export class TraceabilityService {
         status: asset.status,
       },
       groups: [
-        this.group(
-          'DOCUMENTS',
-          asset.purchaseInvoice
+        this.group('DOCUMENTS', [
+          ...(asset.purchaseInvoice
             ? [
                 {
                   kind: 'PURCHASE_INVOICE' as const,
@@ -1504,8 +1509,18 @@ export class TraceabilityService {
                   status: asset.purchaseInvoice.status,
                 },
               ]
-            : [],
-        ),
+            : []),
+          ...(asset.purchaseReturn
+            ? [
+                {
+                  kind: 'PURCHASE_RETURN' as const,
+                  id: asset.purchaseReturn.id,
+                  number: asset.purchaseReturn.returnNumber,
+                  status: asset.purchaseReturn.status,
+                },
+              ]
+            : []),
+        ]),
         this.group(
           'JOURNAL_ENTRIES',
           entries,
@@ -1530,7 +1545,12 @@ export class TraceabilityService {
     });
     if (!prepaid) return null;
     const entries = await this.journalEntriesFor(
-      ['PREPAID_EXPENSE', 'PREPAID_RECOGNITION'],
+      [
+        'PREPAID_EXPENSE',
+        'PREPAID_RECOGNITION',
+        'PREPAID_REFUND',
+        'PREPAID_ACCELERATION',
+      ],
       [id, ...prepaid.recognitions.map((row) => row.id)],
     );
     return {

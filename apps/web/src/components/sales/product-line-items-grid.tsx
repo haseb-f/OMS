@@ -51,6 +51,10 @@ import type { ChartOfAccountRow, WarehouseRow } from "@/config/master-data/entit
 import { previewSalesLine } from "./sales-line-preview-math";
 import { useLocale } from "@/providers/locale-provider";
 import { RelatedRecordLink } from "@/components/shared/record-preview";
+import {
+  CostAdditionAssetSelect,
+  type LinkedFixedAssetRef,
+} from "@/components/accounting/cost-addition-asset-select";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
 
@@ -94,6 +98,8 @@ export interface ProductLineItemsGridLine {
   scheduleStartDate?: string | null;
   prepaidMonths?: number | null;
   prepaidExpenseAccount?: ChartOfAccountRow | null;
+  /** Purchase Invoice FIXED_ASSET line only (R13b) — adds the line's cost to this existing asset instead of creating one. */
+  linkedFixedAsset?: LinkedFixedAssetRef | null;
   /** Purchase Invoice only — the fixed asset / prepaid expense the saved line is linked to. */
   linkedRecord?: {
     kind: "FIXED_ASSET" | "PREPAID_EXPENSE";
@@ -182,6 +188,10 @@ function colStyle(token: string) {
 /** API payload fields for a line's fixed-asset / prepaid treatment. */
 export function lineTreatmentPayload(line: ProductLineItemsGridLine) {
   const treatment = line.treatment ?? "STANDARD";
+  if (treatment === "FIXED_ASSET" && line.linkedFixedAsset) {
+    // A cost addition carries no schedule of its own.
+    return { treatment, linkedFixedAssetId: line.linkedFixedAsset.id };
+  }
   if (treatment === "FIXED_ASSET") {
     return {
       treatment,
@@ -296,6 +306,24 @@ function LineOptions({
               </SelectContent>
             </Select>
             {treatment === "FIXED_ASSET" ? (
+              <div className="flex flex-col gap-1">
+                <label htmlFor={`${fieldId}-asset`} className="text-caption text-muted-foreground">
+                  {t("assetSchedules.actions.addToExistingAsset")}
+                </label>
+                <CostAdditionAssetSelect
+                  id={`${fieldId}-asset`}
+                  value={line.linkedFixedAsset ?? null}
+                  disabled={disabled}
+                  onChange={(asset) => onChange({ linkedFixedAsset: asset })}
+                />
+                {line.linkedFixedAsset ? (
+                  <p className="text-caption text-muted-foreground">
+                    {t("assetSchedules.dialogs.addToAssetHint")}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            {treatment === "FIXED_ASSET" && !line.linkedFixedAsset ? (
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex flex-col gap-1">
                   <label className="text-caption text-muted-foreground">
@@ -378,7 +406,7 @@ function LineOptions({
                 </div>
               </div>
             ) : null}
-            {treatment !== "STANDARD" ? (
+            {treatment !== "STANDARD" && !(treatment === "FIXED_ASSET" && line.linkedFixedAsset) ? (
               <div className="flex flex-col gap-1">
                 <label className="text-caption text-muted-foreground">
                   {t("docFlow.lines.startDate")}
@@ -397,7 +425,9 @@ function LineOptions({
                 </p>
               </div>
             ) : null}
-            {treatment !== "STANDARD" && line.linkedRecord !== undefined ? (
+            {treatment !== "STANDARD" &&
+            line.linkedRecord !== undefined &&
+            !(treatment === "FIXED_ASSET" && line.linkedFixedAsset) ? (
               <div className="flex flex-wrap items-center gap-1.5 border-t border-border pt-2 text-caption">
                 <span className="text-muted-foreground">
                   {t("assetSchedules.links.linkedRecord")}:

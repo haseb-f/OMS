@@ -1,11 +1,15 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, PurchaseLineTreatment } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PostingEngineService } from '../posting-engine/posting-engine.service';
 import { AccountMappingService } from '../account-mapping/account-mapping.service';
 import { ExchangeRatesService } from '../fx/exchange-rates.service';
 import { snapshotDocumentExchangeRate } from '../fx/snapshot-document-rate';
 import { assertPostedTaxAmountsHaveTax } from '../../taxes/document-tax';
+import {
+  lineTaxIsCapitalized,
+  recognizedLineAmount,
+} from '../../purchasing/invoices/purchase-line-treatment';
 import type {
   PostingLine,
   PostingProvider,
@@ -21,7 +25,10 @@ import type {
  * Dr Accounts Payable                                          grandTotal
  * Cr Inventory (inventory-tracked, per resolved account) /
  * Cr Purchase/Expense (non-inventory, per resolved account)     net amount
- * Cr VAT Input (per resolved account)                           taxAmount
+ * Cr Fixed Assets / Prepayments (R13b — a returned capitalized /
+ *    deferred line mirrors its invoice line: same account, net + the
+ *    non-recoverable tax that was capitalized)                   net amount
+ * Cr VAT Input (per resolved account, recoverable tax only)     taxAmount
  *
  * Does not touch the moving-average cost (returning goods to a supplier
  * doesn't change what remaining stock cost to acquire) — only the
@@ -56,7 +63,8 @@ export class PurchaseReturnPostingProvider
         items: {
           include: {
             product: { select: { isInventoryItem: true, categoryId: true } },
-            tax: { select: { id: true } },
+            tax: { select: { id: true, isRecoverable: true } },
+            purchaseInvoiceItem: { select: { treatment: true } },
           },
         },
       },
@@ -89,7 +97,28 @@ export class PurchaseReturnPostingProvider
     });
 
     const creditByAccount = new Map<string, number>();
+    const treatmentOf = (item: (typeof purchaseReturn.items)[number]) =>
+      item.purchaseInvoiceItem?.treatment ?? PurchaseLineTreatment.STANDARD;
     for (const item of purchaseReturn.items) {
+      const treatment = treatmentOf(item);
+      if (treatment !== PurchaseLineTreatment.STANDARD) {
+        // One credit line per returned asset / prepayment line (never merged),
+        // the exact mirror of the invoice's debit for it.
+        const amount = recognizedLineAmount({ ...item, treatment });
+        if (amount === 0) continue;
+        lines.push({
+          accountId:
+            treatment === PurchaseLineTreatment.FIXED_ASSET
+              ? await this.accountMapping.resolveFixedAssetsAccount(tx)
+              : await this.accountMapping.resolvePrepaymentsAccount(tx),
+          credit: amount,
+          description:
+            treatment === PurchaseLineTreatment.FIXED_ASSET
+              ? `Fixed asset returned — ${purchaseReturn.returnNumber}`
+              : `Prepaid expense returned — ${purchaseReturn.returnNumber}`,
+        });
+        continue;
+      }
       const netAmount = Number(item.lineTotal) - Number(item.taxAmount);
       const accountId = item.product.isInventoryItem
         ? await this.accountMapping.resolveInventoryAccount(
@@ -122,6 +151,9 @@ export class PurchaseReturnPostingProvider
     );
     for (const item of purchaseReturn.items) {
       if (!item.tax || Number(item.taxAmount) === 0) continue;
+      if (lineTaxIsCapitalized({ ...item, treatment: treatmentOf(item) })) {
+        continue;
+      }
       taxAmounts.set(
         item.tax.id,
         (taxAmounts.get(item.tax.id) ?? 0) + Number(item.taxAmount),

@@ -68,6 +68,7 @@ export const JOURNAL_SOURCE_DEFINITIONS: Record<string, JournalSourceDefinition>
   },
   EXPENSE_PAYMENT: {
     sourceType: "EXPENSE_PAYMENT",
+    href: (id) => `/finance/expenses/${id}`,
     labelKey: "accounting.journalEntries.sourceTypes.EXPENSE_PAYMENT",
     generated: true,
   },
@@ -147,6 +148,18 @@ export const JOURNAL_SOURCE_DEFINITIONS: Record<string, JournalSourceDefinition>
     sourceType: "PREPAID_RECOGNITION",
     href: () => `/finance/prepaid-expenses`,
     labelKey: "accounting.journalEntries.sourceTypes.PREPAID_RECOGNITION",
+    generated: true,
+  },
+  PREPAID_REFUND: {
+    sourceType: "PREPAID_REFUND",
+    href: (id) => `/finance/prepaid-expenses/${id}`,
+    labelKey: "accounting.journalEntries.sourceTypes.PREPAID_REFUND",
+    generated: true,
+  },
+  PREPAID_ACCELERATION: {
+    sourceType: "PREPAID_ACCELERATION",
+    href: (id) => `/finance/prepaid-expenses/${id}`,
+    labelKey: "accounting.journalEntries.sourceTypes.PREPAID_ACCELERATION",
     generated: true,
   },
   ACCRUED_EXPENSE: {
