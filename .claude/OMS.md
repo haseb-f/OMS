@@ -199,6 +199,18 @@ Icons · Motion · next-themes.
   open owner decisions (`specs/round7-grid-scope-fx/fx-policy-gap.md`); no new revaluation
   postings until answered.
 
+### Round 13 adopted accounting rules (owner, 2026-10-06 — `specs/round13-accounting-reporting/decisions.md`)
+
+- Chart of accounts: every account is Group (aggregates, never posted) or Posting (leaf); posting accounts have no
+  children; kind / type / parent / code / currency freeze once the account has lines; accounts referenced by settings
+  cannot become Group or be archived; the postable check runs at post time for every entry.
+- Expenses = expense vouchers (FinancialTransaction EXPENSE_PAYMENT) on the Expenses screen: EXPENSE account chosen on
+  the form, entry dated on the expense date, idempotent, reversal for corrections, never settles an invoice.
+- Fixed assets / prepaid: schedules post only due periods (Cairo day), idempotently; full-month disposal convention;
+  returns credit what the invoice debited; non-recoverable tax and attributable costs are capitalised; prepaid
+  "cancel with refund" ≠ "recognise remaining now".
+- Sales reports: valid orders by `orderDate` (Cairo), amounts per currency only, ranking within one currency.
+
 ## Development Workflow
 
 ### Environment Policy — Local-First

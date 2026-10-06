@@ -10,16 +10,19 @@
 - **D-D1** Payment Source becomes the method's _channel_ (internal vocabulary); one Payment Methods area.
 - **D-E** Sales = valid orders by `orderDate` (Cairo); amounts per currency only; ranking by count, or amount within one currency.
 
-## Open owner decisions (recommendation first)
+## Adopted by the owner (2026-10-06) — binding rules
 
-- **O-1 Purchase return of a capitalized / deferred line.** Today a return leaves the asset and its schedule intact. Example: laptop 30,000 capitalized, returned in month 2 → asset still depreciates. _Recommend:_ block returning a line whose asset is CAPITALIZED with posted depreciation; require disposal first.
-- **O-2 Non-recoverable VAT / freight on asset acquisition.** Example: 10,000 + 1,400 non-recoverable VAT + 500 delivery. _Recommend:_ capitalize non-recoverable tax and directly attributable costs (IAS 16) via the landed-cost path; recoverable VAT stays in VAT input.
-- **O-3 Cancelling an ACTIVE prepaid.** _Recommend:_ allow cancel → remaining balance expensed (or credited back with a supplier credit note), rows CANCELLED.
-- **O-4 Legacy `Expense` screen** (no posting) duplicates expense vouchers. _Recommend:_ hide from navigation, keep data read-only.
-- **O-5 Employee ranking in a reporting currency.** _Recommend:_ keep per-currency ranking (no conversion) until a reporting-currency policy with dated rates is approved.
-- **O-6 Production grant of `reports.sales.view`.** Migration grants it to roles already holding `reports.view`; confirm before deploying.
-- **O-7 Depreciation for the disposal month.** Catch-up stops at the last full month ending on/before the disposal date. Example: asset disposed 20 March → depreciation through 28/29 Feb only. _Recommend:_ keep full-month convention (simple, consistent with the monthly schedule) unless auditors require pro-rata days.
-- **O-8 Assets disposed before R13 that still hold PENDING periods.** They are never posted (the run skips disposed assets), but they show as pending. _Recommend:_ a separate, reviewable SQL proposal that marks them CANCELLED (status only, no journal impact) — not executed in this round.
-- **O-9 Phone without a calling code that is valid in several markets** (e.g. bare `05xxxxxxxx`: valid SA, AE, EG) is now refused with "choose the calling code" instead of being guessed (R11 rule "never silently pick"). The UI always sends the selected code, so only API / import callers without a country are affected. _Recommend:_ keep.
-- **O-10 Stricter account protection.** Posting → Group and archive are refused while the account is referenced by any mapping/default (≈40 link types now counted). _Recommend:_ keep; it prevents postings failing later.
-- **Lock races (documented, not changed):** a Posting → Group conversion at the same instant as a posting to that account; bank-side engine guard without row lock. Low probability; fix requires row locks in the posting hot path — propose for a performance-reviewed round.
+All existing data is test data; affected test records were corrected by migration (scoped to these workflows).
+
+- **O-1 Purchase return of an asset line.** Returns credit the account the invoice debited (Fixed Assets / Prepayments / capitalised non-recoverable tax) at the invoice rate. An asset with no posted depreciation can be returned (whole line) → asset DISPOSED, linked to the return, pending periods CANCELLED, no second derecognition entry. An asset with posted depreciation cannot be returned — dispose it to the supplier (disposal proceeds as supplier credit: Dr supplier AP).
+- **O-2 Acquisition cost (IAS 16).** Non-recoverable tax (`Tax.isRecoverable = false`) on an asset line is capitalised; recoverable tax stays VAT input. Directly attributable later costs (delivery, installation) are invoice lines linked to the existing asset: cost increases, remaining depreciation re-spread prospectively; posted periods unchanged; never a second asset.
+- **O-3 Prepaid expenses.** Two distinct actions: **Cancel with refund** (unrecognised balance reclaimed: Dr supplier AP or cash / Cr Prepayments, status CANCELLED) and **Recognise remaining now** (Dr expense / Cr Prepayments, status COMPLETED). A purchase return of a prepaid line reclaims at most the unrecognised balance.
+- **O-4 Expenses screen** stays and is the expense-voucher UI (FinancialTransaction EXPENSE_PAYMENT): account chosen on the form (EXPENSE posting accounts only), paid-from bank/cash + payment method, optional supplier counterparty (never posted to AP), cost centre / project. Draft never posts; Confirm & post (separate permission) posts Dr expense / Cr bank **dated on the expense date**; idempotent create/confirm; corrections by reversal (cancel), locked periods refused. An expense never settles an invoice — open supplier invoices are offered as "Pay invoice instead" (supplier payment, Dr AP). Legacy `Expense` table migrated and removed (one concept).
+- **O-5** Employee ranking per currency (no conversion).
+- **O-6** `reports.sales.view` granted to users who already hold `reports.view`; data scope unchanged.
+- **O-7** Disposal month: full-month convention (depreciation through the last full month ending on/before the disposal date).
+- **O-8** Schedule test data corrected by migration `20261007100000` (pending rows of disposed/archived assets and finished prepaids CANCELLED, derived totals = Σ posted rows); no journal entry changed.
+- **O-9** A phone without calling code valid in several markets is refused ("choose the calling code").
+- **O-10** Accounts referenced by settings / mappings cannot become Group or be archived.
+- **Payment matches**: duplicate ACTIVE (line, claim) test rows consolidated into the oldest row (others REVERSED with reason, totals unchanged), unique index always enforced (migration `20261006120000`).
+- **Documented, not changed:** lock races (Posting → Group conversion vs a simultaneous posting; bank-side engine guard without row lock) — low probability, propose for a performance-reviewed round.
