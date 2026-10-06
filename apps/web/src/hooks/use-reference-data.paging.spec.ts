@@ -10,7 +10,12 @@ vi.mock("@/services/master-data-service", () => ({
   },
 }));
 
-import { fetchAllCurrencies, fetchAllPaymentMethods } from "./use-reference-data";
+import {
+  fetchAllCurrencies,
+  fetchAllPaymentMethods,
+  fetchAllProductCategories,
+  fetchAllUnits,
+} from "./use-reference-data";
 
 /** A paged fake list endpoint holding `count` rows. */
 const pagedRows = (count: number, row: (i: number) => Record<string, unknown>) => {
@@ -46,6 +51,15 @@ describe("reference-data pickers load every row", () => {
     expect(rows).toHaveLength(229);
     expect(rows.some((row) => row.id === "m229")).toBe(true);
     expect(rows.some((row) => row.id === "m210")).toBe(false);
+  });
+
+  it("product categories and units page past the first 200 rows (R13: later categories were unselectable)", async () => {
+    lists.get("/product-categories")!.mockImplementation(pagedRows(421, (i) => ({ id: `k${i}` })));
+    lists.get("/units")!.mockImplementation(pagedRows(422, (i) => ({ id: `u${i}` })));
+    const [categories, units] = await Promise.all([fetchAllProductCategories(), fetchAllUnits()]);
+    expect(categories).toHaveLength(421);
+    expect(categories.at(-1)).toMatchObject({ id: "k420" });
+    expect(units).toHaveLength(422);
   });
 
   it("a short list is a single request", async () => {
