@@ -949,7 +949,8 @@ export class InventoryIntegrityService {
       JOIN products p ON p.id = im.product_id
       JOIN journal_entries j ON j.deleted_at IS NULL AND j.status IN ('POSTED', 'REVERSED') AND (
            (j.source_type = 'INVENTORY_ADJUSTMENT' AND j.source_id = im.id)
-        OR (j.source_type = 'ASSEMBLY_ORDER' AND im.reference_type = 'ASSEMBLY_ORDER' AND j.source_id = im.reference_id))
+        OR (j.source_type IN ('ASSEMBLY_ORDER', 'ASSEMBLY_REVERSAL_VARIANCE')
+            AND im.reference_type = 'ASSEMBLY_ORDER' AND j.source_id = im.reference_id))
       WHERE im.owner_agent_id IS NOT NULL ${scope.product('im.product_id')} ${scope.warehouse('im.warehouse_id')}
       UNION ALL
       SELECT 'AGENT_STOCK_ON_COMPANY_DOCUMENT_JOURNAL', j.entry_number, j.source_type, im.movement_number, p.sku,

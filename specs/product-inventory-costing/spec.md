@@ -180,6 +180,23 @@ product · F investor-eligible product. Evidence in `verification.md`.
 - **O4** Posting landed-cost reversal — default: not in scope (cancel before posting only).
 - **O5** Service-only company orders still enter the shipping queue (existing behaviour) — default: unchanged.
 - **O6** Production rollout of: widened cost columns, barcode unique index, new permissions grants — default: after local approval.
+- **O7** A line sold while the product was a plain stocked item, after the product was later switched to KIT (allowed only at
+  zero stock): the invoice re-posts as a plain line, but a _return_ of it is refused (`SALES_RETURN_PRODUCT_NOT_STOCKED`) because a
+  kit holds no stock — default: refuse; owner to decide whether such returns go to a component or a write-off.
+- **O8** Physical count confirm applies the counted − snapshot difference to the locked current on-hand (sales made after the
+  count was opened are preserved) — default kept from the existing behaviour.
+
+### Decisions taken during implementation (recorded)
+
+- Assembly reversal removes the finished goods at **current** average (average unchanged); the GL mirror is completed by an
+  `ASSEMBLY_REVERSAL_VARIANCE` entry (Dr/Cr FG inventory vs FG COGS by recorded total − qty × average), so GL = sub-ledger.
+- Assembly refuses a component with **no recorded cost** (`ASSEMBLY_COMPONENT_COST_MISSING`); a recorded cost of 0 is allowed.
+- Every decreasing writer except the physical count (damage, expired, negative adjustment, purchase return, **transfer out**)
+  needs available = on-hand − reserved.
+- Landed-cost posting locks the allocated products; its capitalized/variance split is stored in functional currency.
+- Cost redaction: `currentCost`/`lastCostUpdate`, invoice `unitCost`, kit snapshot costs, recipe/assembly direct-cost estimates and
+  assembly costs are returned only with the existing cost-visibility right; `purchasePrice` (catalog/expected price) is not cost.
+- Assembly idempotency keys are scoped to the user who created the order.
 
 ## 11. Out of scope (stated, not hidden)
 

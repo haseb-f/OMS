@@ -304,6 +304,13 @@ export class InventoryService {
             `Insufficient stock of ${product.sku} at source warehouse for transfer.`,
           );
         }
+        await this.assertUnreservedStock(tx, {
+          product,
+          warehouse: sourceWarehouse,
+          onHand: sourceQuantityBefore,
+          quantity: line.quantity,
+          operation: 'Transfer',
+        });
 
         const destinationQuantityBefore = await this.getOnHandQuantity(
           tx,

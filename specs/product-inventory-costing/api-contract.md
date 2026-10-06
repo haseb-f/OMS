@@ -33,7 +33,7 @@ All new routes sit behind the standard `JwtAuthGuard` + `PermissionsGuard`. Mone
 
 ## 2. Recipes — owner: Workstream B (`src/recipes`)
 
-- `GET /products/:productId/recipes` → versions desc, each `{ id, version, status, effectiveFrom, outputQuantity, directCostEstimate, notes, lines:[{ id, componentProductId, componentName, componentSku, quantity, unitId, unitName, sortOrder }] }` (perm `products.view`)
+- `GET /products/:productId/recipes` → versions desc (plain array), each `{ id, version, status, effectiveFrom, outputQuantity, directCostEstimate (null without the cost-visibility right / `inventory.assembly.direct_cost`), notes, lines:[{ id, componentProductId, componentName, componentSku, quantity, unitId, unitName, sortOrder }] }` (perm `products.view`)
 - `POST /products/:productId/recipes` `{ outputQuantity?, directCostEstimate?, notes?, copyFromRecipeId?, lines:[{componentProductId, quantity, unitId}] }` → DRAFT, next version. (perm `products.recipes.manage`)
 - `PATCH /recipes/:id` (DRAFT only; `lines` replaces all) · `DELETE /recipes/:id` (DRAFT only) · `POST /recipes/:id/activate` · `POST /recipes/:id/retire`.
   Activation retires the previous ACTIVE in the same transaction and validates (422 `code`): `RECIPE_PRODUCT_NOT_ASSEMBLABLE`

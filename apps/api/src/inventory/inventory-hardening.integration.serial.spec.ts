@@ -515,6 +515,18 @@ describe('Inventory hardening (integration)', () => {
       }
       expect(await stock(productId)).toBe(5);
 
+      // A transfer out of the warehouse is a decrease there too: reserved units stay put.
+      const transferError = await rejection(
+        inventory.transfer({
+          sourceWarehouseId: warehouseId,
+          destinationWarehouseId: otherWarehouseId,
+          lines: [{ productId, quantity: 2 }],
+        }),
+      );
+      expect(codeOf(transferError)).toBe('INVENTORY_RESERVED_STOCK');
+      expect(await stock(productId)).toBe(5);
+      expect(await stock(productId, otherWarehouseId)).toBe(0);
+
       // The one unreserved unit may still go; a positive adjustment is never blocked.
       await inventory.damage({ productId, warehouseId, quantity: 1 });
       await inventory.adjustment({

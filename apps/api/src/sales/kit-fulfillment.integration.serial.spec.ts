@@ -102,8 +102,6 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
   const productIds: string[] = [];
   const accountIds: string[] = [];
   const categoryIds: string[] = [];
-  const sources: { type: string; id: string }[] = [];
-  const storeOrderIds: string[] = [];
   let skuSeq = 0;
   let orderSeq = 0;
 
@@ -260,7 +258,6 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
       partnerId: customerId,
       items: [saleLine(productId, quantity, unitPrice)],
     });
-    sources.push({ type: 'SALES_INVOICE', id: invoice.id });
     await invoices.confirm(invoice.id, actorId);
     return invoice;
   };
@@ -272,7 +269,6 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
       partnerId: supplierId,
       items: lines.map((line) => ({ ...line, warehouseId, unitId })),
     });
-    sources.push({ type: 'PURCHASE_INVOICE', id: invoice.id });
     await purchases.confirm(invoice.id, actorId);
     return invoice;
   };
@@ -292,7 +288,6 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
       },
       actorId,
     );
-    sources.push({ type: 'LANDED_COST', id: document.id });
     await landedCosts.approve(document.id, actorId);
     return landedCosts.post(document.id, actorId);
   };
@@ -449,113 +444,10 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
   });
 
   afterAll(async () => {
-    const attempt = async (step: () => Promise<unknown>) => {
-      try {
-        await step();
-      } catch {
-        /* left tagged */
-      }
-    };
-    if (prisma) {
-      const byType = (type: string) =>
-        sources.filter((s) => s.type === type).map((s) => s.id);
-      await attempt(async () => {
-        const entries = await prisma.journalEntry.findMany({
-          where: {
-            OR: [
-              ...sources.map((s) => ({ sourceType: s.type, sourceId: s.id })),
-              ...storeOrderIds.map((id) => ({ sourceId: id })),
-            ],
-          },
-          select: { id: true },
-        });
-        const ids = entries.map((entry) => entry.id);
-        await prisma.journalEntryActivity.deleteMany({
-          where: { journalEntryId: { in: ids } },
-        });
-        await prisma.journalEntryLine.deleteMany({
-          where: { journalEntryId: { in: ids } },
-        });
-        await prisma.journalEntry.deleteMany({ where: { id: { in: ids } } });
-      });
-      const landed = byType('LANDED_COST');
-      await attempt(() =>
-        prisma.landedCostActivity.deleteMany({
-          where: { landedCostDocumentId: { in: landed } },
-        }),
-      );
-      await attempt(() =>
-        prisma.landedCostAllocation.deleteMany({
-          where: { landedCostDocumentId: { in: landed } },
-        }),
-      );
-      await attempt(() =>
-        prisma.landedCostLine.deleteMany({
-          where: { landedCostDocumentId: { in: landed } },
-        }),
-      );
-      await attempt(() =>
-        prisma.landedCostDocument.deleteMany({ where: { id: { in: landed } } }),
-      );
-      await attempt(async () => {
-        const orders = await prisma.assemblyOrder.findMany({
-          where: { productId: { in: productIds } },
-          select: { id: true },
-        });
-        const ids = orders.map((order) => order.id);
-        await prisma.assemblyOrderLine.deleteMany({
-          where: { assemblyOrderId: { in: ids } },
-        });
-        await prisma.assemblyOrder.deleteMany({ where: { id: { in: ids } } });
-      });
-      const movements = await prisma.inventoryMovement.findMany({
-        where: { productId: { in: productIds } },
-        select: { id: true },
-      });
-      await attempt(() =>
-        prisma.inventoryMovementActivity.deleteMany({
-          where: { inventoryMovementId: { in: movements.map((m) => m.id) } },
-        }),
-      );
-      await attempt(() =>
-        prisma.inventoryMovement.deleteMany({
-          where: { productId: { in: productIds } },
-        }),
-      );
-      await attempt(() =>
-        prisma.productCostHistory.deleteMany({
-          where: { productId: { in: productIds } },
-        }),
-      );
-      await attempt(() =>
-        prisma.productCostSnapshot.deleteMany({
-          where: { productId: { in: productIds } },
-        }),
-      );
-      await attempt(() =>
-        prisma.productRecipe.deleteMany({
-          where: { productId: { in: productIds } },
-        }),
-      );
-      await attempt(() =>
-        prisma.productActivity.deleteMany({
-          where: { productId: { in: productIds } },
-        }),
-      );
-      await attempt(() =>
-        prisma.costComponent.deleteMany({
-          where: { id: { in: [componentCostId, fulfillmentCostId] } },
-        }),
-      );
-      await attempt(() =>
-        prisma.exchangeRateOverride.deleteMany({
-          where: { fromCurrencyId: foreignCurrencyId },
-        }),
-      );
-      await attempt(() =>
-        prisma.currency.delete({ where: { id: foreignCurrencyId } }),
-      );
-    }
+    // Fixtures are deliberately kept whole (tagged R13C-<tag>, local test DBs only): these scenarios create sales/
+    // purchase documents that cannot be removed without cascading through their audit tables, and deleting only their
+    // movements and journals would leave documents without the stock/GL effects the integrity invariants (I1-I7)
+    // reconcile against. A consistent leftover is harmless; a half-deleted one is not.
     await moduleRef?.close();
   });
 
@@ -588,7 +480,6 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
         { items: [{ salesOrderItemId: order.items[0].id, quantity: 2 }] },
         actorId,
       );
-      sources.push({ type: 'SALES_INVOICE', id: invoice.id });
       await invoices.confirm(invoice.id, actorId);
 
       expect(await onHand(a)).toBe(0);
@@ -657,7 +548,6 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
         salesInvoiceId: invoice.id,
         items: [{ ...saleLine(kit, 1), salesInvoiceItemId: item.id }],
       });
-      sources.push({ type: 'SALES_RETURN', id: salesReturn.id });
       await returns.submit(salesReturn.id);
       await returns.approve(salesReturn.id);
       await returns.confirm(salesReturn.id, actorId);
@@ -738,7 +628,6 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
         { items: [{ salesOrderItemId: order.items[0].id, quantity: 1 }] },
         actorId,
       );
-      sources.push({ type: 'SALES_INVOICE', id: invoice.id });
       await invoices.confirm(invoice.id, actorId);
       expect(await reservedUnder(order.id, a)).toBe(4);
       expect(await reservedUnder(order.id, b)).toBe(2);
@@ -777,9 +666,7 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
           },
         },
       });
-      storeOrderIds.push(storeOrder.id);
       const invoice = await storeOrders.generateInvoice(storeOrder.id, actorId);
-      sources.push({ type: 'SALES_INVOICE', id: invoice.id });
 
       expect(await onHand(a)).toBe(1);
       expect(await onHand(b)).toBe(3);
@@ -839,7 +726,6 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
         },
         include: { items: true },
       });
-      storeOrderIds.push(storeOrder.id);
       await prisma.$transaction(async (tx) => {
         const loaded = await agentFulfillment.loadOrder(tx, storeOrder.id);
         await agentFulfillment.dispatch(tx, loaded!, actorId);
@@ -904,7 +790,6 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
         salesInvoiceId: invoice.id,
         items: [{ ...saleLine(service, 1, 80), salesInvoiceItemId: item.id }],
       });
-      sources.push({ type: 'SALES_RETURN', id: salesReturn.id });
       await returns.submit(salesReturn.id);
       await returns.approve(salesReturn.id);
       await returns.confirm(salesReturn.id, actorId);
@@ -923,7 +808,6 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
         partnerId: customerId,
         items: [saleLine(product, 3, 20)],
       });
-      sources.push({ type: 'SALES_INVOICE', id: invoice.id });
 
       const results = await Promise.allSettled([
         invoices.confirm(invoice.id, actorId),
@@ -1083,7 +967,6 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
         },
         actorId,
       );
-      sources.push({ type: 'LANDED_COST', id: document.id });
       await landedCosts.approve(document.id, actorId);
       const second = await purchases.create({
         partnerId: supplierId,
@@ -1097,7 +980,6 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
           },
         ],
       });
-      sources.push({ type: 'PURCHASE_INVOICE', id: second.id });
 
       // Hold the product row so both writers queue behind it: the purchase
       // first, then the landed cost — released together.
@@ -1147,7 +1029,6 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
           },
         ],
       });
-      sources.push({ type: 'PURCHASE_INVOICE', id: invoice.id });
       await purchases.confirm(invoice.id, actorId);
       const journal = await journalOf('PURCHASE_INVOICE', invoice.id);
       expect(journal.debit(cat.inventoryAccountId).toString()).toBe('59.99');
@@ -1172,7 +1053,6 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
         salesInvoiceId: sale.id,
         items: [{ ...saleLine(product, 2, 50), salesInvoiceItemId: item.id }],
       });
-      sources.push({ type: 'SALES_RETURN', id: salesReturn.id });
       await returns.submit(salesReturn.id);
       await returns.approve(salesReturn.id);
       await returns.confirm(salesReturn.id, actorId);
@@ -1208,7 +1088,6 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
         salesInvoiceId: sale.id,
         items: [{ ...saleLine(product, 1, 50), salesInvoiceItemId: item.id }],
       });
-      sources.push({ type: 'SALES_RETURN', id: salesReturn.id });
       await returns.submit(salesReturn.id);
       await returns.approve(salesReturn.id);
       expect(
@@ -1234,8 +1113,6 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
         actorId,
         { includeCosts: true },
       );
-      sources.push({ type: 'ASSEMBLY_ORDER', id: order.id });
-      sources.push({ type: 'ASSEMBLY_REVERSAL_VARIANCE', id: order.id });
       expect(order.totalCost).toBe('80');
       await purchase([{ productId: fg, quantity: 2, unitPrice: 60 }]);
       expect((await avgCost(fg)).toString()).toBe('50');
@@ -1279,7 +1156,6 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
         { items: [{ salesOrderItemId: billedOrderItem.id, quantity: 2 }] },
         actorId,
       );
-      sources.push({ type: 'SALES_INVOICE', id: invoice.id });
 
       // Edit: keep the order line (it names itself) and add, by hand, 8 of the
       // product the order still holds for its other line.
