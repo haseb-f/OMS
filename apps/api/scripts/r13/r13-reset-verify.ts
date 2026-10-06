@@ -97,7 +97,6 @@ export const KEEP = [
   'product_attachments',
   'product_brands',
   'product_categories',
-  'product_components',
   'product_recipe_lines',
   'product_recipes',
   'product_variants',
@@ -179,10 +178,10 @@ export const DELETE = [
   'cost_allocation_runs',
   'distribution_payment_attachments',
   'distribution_payments',
-  'expenses',
   'financial_transaction_activities',
   'financial_transaction_allocations',
   'financial_transactions',
+  'fixed_asset_cost_additions',
   'fixed_asset_depreciation_periods',
   'fixed_assets',
   'fx_revaluation_runs',
@@ -469,14 +468,21 @@ async function resetInvariants(
     `${now.productsWithCost} products still carry a cost`,
   );
 
+  // Link tables are read from the FK catalog, like the migration does.
+  const links = await q<{ t: string; c: string }>(
+    db,
+    `SELECT c.conrelid::regclass::text AS t, att.attname AS c FROM pg_constraint c
+       JOIN pg_attribute att ON att.attrelid = c.conrelid AND att.attnum = c.conkey[1]
+      WHERE c.contype = 'f' AND c.confrelid = 'public.attachments'::regclass AND c.conrelid <> c.confrelid`,
+  );
   const orphanAttachments = await one(
-    `SELECT count(*) AS n FROM attachments a WHERE NOT EXISTS (SELECT 1 FROM payment_attachments x WHERE x.attachment_id = a.id)
-       AND NOT EXISTS (SELECT 1 FROM shipment_attachments x WHERE x.attachment_id = a.id)
-       AND NOT EXISTS (SELECT 1 FROM store_order_receipts x WHERE x.attachment_id = a.id)
-       AND NOT EXISTS (SELECT 1 FROM agent_payout_attachments x WHERE x.attachment_id = a.id)
-       AND NOT EXISTS (SELECT 1 FROM capital_contribution_attachments x WHERE x.attachment_id = a.id)
-       AND NOT EXISTS (SELECT 1 FROM distribution_payment_attachments x WHERE x.attachment_id = a.id)
-       AND NOT EXISTS (SELECT 1 FROM opportunity_expense_attachments x WHERE x.attachment_id = a.id)`,
+    `SELECT count(*) AS n FROM attachments a WHERE ${
+      links
+        .map(
+          (l) => `NOT EXISTS (SELECT 1 FROM ${l.t} x WHERE x."${l.c}" = a.id)`,
+        )
+        .join(' AND ') || 'TRUE'
+    }`,
   );
   add(
     orphanAttachments ? 'FAIL' : 'PASS',
@@ -486,7 +492,7 @@ async function resetInvariants(
 
   const orphanLogs = await one(
     `SELECT count(*) AS n FROM master_data_activity_logs l WHERE l.entity_type IN
-       ('CAPITAL_CONTRIBUTION','CAPITAL_RETURN','CARRIER_CHARGE','DISTRIBUTION_PAYMENT','EXPENSE','FIXED_ASSET',
+       ('CAPITAL_CONTRIBUTION','CAPITAL_RETURN','CARRIER_CHARGE','DISTRIBUTION_PAYMENT','EXPENSE','FIXED_ASSET','PREPAID_EXPENSE',
         'INVESTOR_SUBSCRIPTION','OPPORTUNITY_EXPENSE','OPPORTUNITY_REALLOCATION','OPPORTUNITY_SALE_ALLOCATION',
         'OPPORTUNITY_SETTLEMENT','PROFIT_CALCULATION','PROFIT_DISTRIBUTION')
        OR (l.entity_type = 'INVESTMENT_OPPORTUNITY' AND NOT EXISTS (SELECT 1 FROM investment_opportunities e WHERE e.id = l.entity_id))

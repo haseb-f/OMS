@@ -9,6 +9,13 @@
 -- permissions and settings. It never DROPs or ALTERs a table definition (the two agent append-only guard
 -- triggers are disabled for the deletes and re-enabled inside the same transaction).
 --
+-- Written against the schema after 20261007100000_r13b_asset_prepaid_corrections and
+-- 20261007110000_r13b_expenses_consolidation (legacy `expenses` dropped → expense vouchers are
+-- financial_transactions; fixed_asset_cost_additions; assets / prepayments linked to purchase returns).
+-- Schema-drift safe: every statement names its table and is skipped (NOTICE) when that table no longer exists
+-- (to_regclass); the attachment cleanup derives its link tables from the FK catalog; the activity-log cleanup only
+-- reads entity tables that exist. A NEW table holding a RESTRICT link to deleted rows still fails closed (rollback).
+--
 -- GUARD — runs ONLY on Production. Both markers must hold; on every other database the block is a no-op:
 --   1. Production product PRD-2026-000041 «كومبو بوكس اهم 5000 كلمة» (random UUID 6ba85694-…-8de7263d0774,
 --      seen by the R13 Production survey; it exists in no local / seed / CI database), same id AND same SKU;
@@ -26,9 +33,28 @@ DECLARE
 
   is_production boolean;
   stmt  text;
+  tbl   text;
+  cond  text;
+  pair  text;
   n     bigint;
   total bigint := 0;
   stmts text[];
+  guard_triggers constant text[] := ARRAY[
+    'agent_ledger_entries:agent_ledger_entries_guard_trg',
+    'agent_commission_lines:agent_commission_lines_guard_trg'
+  ];
+  -- activity-log entity type : table holding that entity (all deleted here, or conditionally deleted)
+  logged_entities constant text[] := ARRAY[
+    'CAPITAL_CONTRIBUTION:capital_contributions', 'CAPITAL_RETURN:capital_returns',
+    'CARRIER_CHARGE:carrier_charges', 'DISTRIBUTION_PAYMENT:distribution_payments',
+    'EXPENSE:financial_transactions',  -- legacy expense rows became EXPENSE_PAYMENT vouchers with the same id (r13b)
+    'FIXED_ASSET:fixed_assets', 'PREPAID_EXPENSE:prepaid_expenses',
+    'INVESTOR_SUBSCRIPTION:investor_subscriptions', 'OPPORTUNITY_EXPENSE:opportunity_expenses',
+    'OPPORTUNITY_REALLOCATION:opportunity_reallocations', 'OPPORTUNITY_SALE_ALLOCATION:opportunity_sale_allocations',
+    'OPPORTUNITY_SETTLEMENT:opportunity_settlements', 'PROFIT_CALCULATION:profit_calculations',
+    'PROFIT_DISTRIBUTION:profit_distributions', 'INVESTMENT_OPPORTUNITY:investment_opportunities',
+    'LEAD:leads'
+  ];
 BEGIN
   is_production :=
         EXISTS (SELECT 1 FROM "products"
@@ -51,8 +77,12 @@ BEGIN
            OR je."reversal_of_entry_id" IN (SELECT o."id" FROM "journal_entries" o WHERE o."source_type" = 'OPENING_BALANCE'));
 
   -- The agent ledger and its commission lines are append-only by trigger; lifted for this transaction only.
-  ALTER TABLE "agent_ledger_entries"   DISABLE TRIGGER "agent_ledger_entries_guard_trg";
-  ALTER TABLE "agent_commission_lines" DISABLE TRIGGER "agent_commission_lines_guard_trg";
+  FOREACH pair IN ARRAY guard_triggers LOOP
+    IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = to_regclass(format('public.%I', split_part(pair, ':', 1)))
+                                          AND tgname = split_part(pair, ':', 2)) THEN
+      EXECUTE format('ALTER TABLE %I DISABLE TRIGGER %I', split_part(pair, ':', 1), split_part(pair, ':', 2));
+    END IF;
+  END LOOP;
 
   -- Children before parents (FK-safe). Nullable links in KEPT tables are ON DELETE SET NULL; the only one that
   -- points at deleted rows (sync_source_configs.import_job_id = "latest sync run" pointer) is cleared explicitly.
@@ -94,7 +124,7 @@ BEGIN
     'DELETE FROM "payments"',
     'DELETE FROM "payment_statement_lines"',
     'DELETE FROM "payment_statement_imports"',
-    -- Financial transactions (receipts / vouchers / refunds / supplier payments)
+    -- Financial transactions (receipts / vouchers / refunds / supplier payments / expense vouchers)
     'DELETE FROM "financial_transaction_activities"',
     'DELETE FROM "financial_transaction_allocations"',
     'DELETE FROM "financial_transactions"',
@@ -129,7 +159,16 @@ BEGIN
     'DELETE FROM "store_order_fulfillment_costs"',
     'DELETE FROM "store_order_items"',
     'DELETE FROM "store_orders"',
-    -- Purchasing documents and the schedules they created
+    -- Schedules created by documents — before the purchase returns / invoices they link to (r13b:
+    -- fixed_assets.purchase_return_id, prepaid_expenses.purchase_return_id, fixed_asset_cost_additions →
+    -- purchase_invoice_items RESTRICT, purchase_invoice_items.linked_fixed_asset_id)
+    'DELETE FROM "fixed_asset_cost_additions"',
+    'DELETE FROM "fixed_asset_depreciation_periods"',
+    'DELETE FROM "fixed_assets"',
+    'DELETE FROM "prepaid_recognitions"',
+    'DELETE FROM "prepaid_expenses"',
+    'DELETE FROM "accrued_expenses"',
+    -- Purchasing documents
     'DELETE FROM "landed_cost_activities"',
     'DELETE FROM "landed_cost_allocations"',
     'DELETE FROM "landed_cost_lines"',
@@ -137,11 +176,6 @@ BEGIN
     'DELETE FROM "purchase_return_activities"',
     'DELETE FROM "purchase_return_items"',
     'DELETE FROM "purchase_returns"',
-    'DELETE FROM "fixed_asset_depreciation_periods"',
-    'DELETE FROM "fixed_assets"',
-    'DELETE FROM "prepaid_recognitions"',
-    'DELETE FROM "prepaid_expenses"',
-    'DELETE FROM "accrued_expenses"',
     'DELETE FROM "purchase_invoice_activities"',
     'DELETE FROM "purchase_invoice_items"',
     'DELETE FROM "purchase_invoices"',
@@ -175,7 +209,6 @@ BEGIN
     -- Accounting
     'DELETE FROM "analytic_distribution_lines"',
     'DELETE FROM "fx_revaluation_runs"',
-    'DELETE FROM "expenses"',
     'DELETE FROM "journal_entry_activities" WHERE "journal_entry_id" NOT IN (SELECT "id" FROM r13_kept_journal_entries)',
     'DELETE FROM "journal_entry_lines" WHERE "journal_entry_id" NOT IN (SELECT "id" FROM r13_kept_journal_entries)',
     'DELETE FROM "journal_entries" WHERE "id" NOT IN (SELECT "id" FROM r13_kept_journal_entries)',
@@ -205,49 +238,65 @@ BEGIN
     ];
   END IF;
 
-  stmts := stmts || ARRAY[
-    -- Derived cost on the kept product master
-    'UPDATE "products" SET "current_cost" = NULL, "last_cost_update" = NULL WHERE "current_cost" IS NOT NULL OR "last_cost_update" IS NOT NULL',
-    -- File records that no kept row references any more (the storage objects themselves are left in place)
-    'DELETE FROM "attachments" a WHERE NOT EXISTS (SELECT 1 FROM "agent_payout_attachments" x WHERE x."attachment_id" = a."id")
-       AND NOT EXISTS (SELECT 1 FROM "capital_contribution_attachments" x WHERE x."attachment_id" = a."id")
-       AND NOT EXISTS (SELECT 1 FROM "distribution_payment_attachments" x WHERE x."attachment_id" = a."id")
-       AND NOT EXISTS (SELECT 1 FROM "opportunity_expense_attachments" x WHERE x."attachment_id" = a."id")
-       AND NOT EXISTS (SELECT 1 FROM "payment_attachments" x WHERE x."attachment_id" = a."id")
-       AND NOT EXISTS (SELECT 1 FROM "shipment_attachments" x WHERE x."attachment_id" = a."id")
-       AND NOT EXISTS (SELECT 1 FROM "store_order_receipts" x WHERE x."attachment_id" = a."id")',
-    -- Timeline rows of deleted entities (polymorphic log; rows of kept master data stay)
-    'DELETE FROM "master_data_activity_logs" l WHERE
-          (l."entity_type" = ''CAPITAL_CONTRIBUTION''        AND NOT EXISTS (SELECT 1 FROM "capital_contributions" e WHERE e."id" = l."entity_id"))
-       OR (l."entity_type" = ''CAPITAL_RETURN''              AND NOT EXISTS (SELECT 1 FROM "capital_returns" e WHERE e."id" = l."entity_id"))
-       OR (l."entity_type" = ''CARRIER_CHARGE''              AND NOT EXISTS (SELECT 1 FROM "carrier_charges" e WHERE e."id" = l."entity_id"))
-       OR (l."entity_type" = ''DISTRIBUTION_PAYMENT''        AND NOT EXISTS (SELECT 1 FROM "distribution_payments" e WHERE e."id" = l."entity_id"))
-       OR (l."entity_type" = ''EXPENSE''                     AND NOT EXISTS (SELECT 1 FROM "expenses" e WHERE e."id" = l."entity_id"))
-       OR (l."entity_type" = ''FIXED_ASSET''                 AND NOT EXISTS (SELECT 1 FROM "fixed_assets" e WHERE e."id" = l."entity_id"))
-       OR (l."entity_type" = ''INVESTOR_SUBSCRIPTION''       AND NOT EXISTS (SELECT 1 FROM "investor_subscriptions" e WHERE e."id" = l."entity_id"))
-       OR (l."entity_type" = ''OPPORTUNITY_EXPENSE''         AND NOT EXISTS (SELECT 1 FROM "opportunity_expenses" e WHERE e."id" = l."entity_id"))
-       OR (l."entity_type" = ''OPPORTUNITY_REALLOCATION''    AND NOT EXISTS (SELECT 1 FROM "opportunity_reallocations" e WHERE e."id" = l."entity_id"))
-       OR (l."entity_type" = ''OPPORTUNITY_SALE_ALLOCATION'' AND NOT EXISTS (SELECT 1 FROM "opportunity_sale_allocations" e WHERE e."id" = l."entity_id"))
-       OR (l."entity_type" = ''OPPORTUNITY_SETTLEMENT''      AND NOT EXISTS (SELECT 1 FROM "opportunity_settlements" e WHERE e."id" = l."entity_id"))
-       OR (l."entity_type" = ''PROFIT_CALCULATION''          AND NOT EXISTS (SELECT 1 FROM "profit_calculations" e WHERE e."id" = l."entity_id"))
-       OR (l."entity_type" = ''PROFIT_DISTRIBUTION''         AND NOT EXISTS (SELECT 1 FROM "profit_distributions" e WHERE e."id" = l."entity_id"))
-       OR (l."entity_type" = ''INVESTMENT_OPPORTUNITY''      AND NOT EXISTS (SELECT 1 FROM "investment_opportunities" e WHERE e."id" = l."entity_id"))
-       OR (l."entity_type" = ''LEAD''                        AND NOT EXISTS (SELECT 1 FROM "leads" e WHERE e."id" = l."entity_id"))'
-  ];
+  -- Derived cost on the kept product master
+  stmts := array_append(stmts, 'UPDATE "products" SET "current_cost" = NULL, "last_cost_update" = NULL WHERE "current_cost" IS NOT NULL OR "last_cost_update" IS NOT NULL'::text);
 
   FOREACH stmt IN ARRAY stmts LOOP
+    tbl := substring(stmt FROM '^(?:DELETE FROM|UPDATE) "([a-z_]+)"');
+    IF to_regclass(format('public.%I', tbl)) IS NULL THEN
+      RAISE NOTICE 'r13 reset: skipped — table "%" does not exist', tbl;
+      CONTINUE;
+    END IF;
     EXECUTE stmt;
     GET DIAGNOSTICS n = ROW_COUNT;
     total := total + n;
-    RAISE NOTICE 'r13 reset: % rows — %', lpad(n::text, 7), left(regexp_replace(stmt, '\s+', ' ', 'g'), 110);
+    RAISE NOTICE 'r13 reset: % rows — %', lpad(n::text, 7), left(stmt, 110);
   END LOOP;
 
-  ALTER TABLE "agent_ledger_entries"   ENABLE TRIGGER "agent_ledger_entries_guard_trg";
-  ALTER TABLE "agent_commission_lines" ENABLE TRIGGER "agent_commission_lines_guard_trg";
+  -- File records that no row references any more — link tables read from the FK catalog (storage objects stay).
+  IF to_regclass('public.attachments') IS NOT NULL THEN
+    SELECT string_agg(format('NOT EXISTS (SELECT 1 FROM %s x WHERE x.%I = a."id")', c.conrelid::regclass, att.attname), ' AND ')
+      INTO cond
+      FROM pg_constraint c
+      JOIN pg_attribute att ON att.attrelid = c.conrelid AND att.attnum = c.conkey[1]
+     WHERE c.contype = 'f' AND c.confrelid = 'public.attachments'::regclass AND c.conrelid <> c.confrelid;
+    EXECUTE 'DELETE FROM "attachments" a WHERE ' || coalesce(cond, 'TRUE');
+    GET DIAGNOSTICS n = ROW_COUNT;
+    total := total + n;
+    RAISE NOTICE 'r13 reset: % rows — DELETE FROM "attachments" (unreferenced)', lpad(n::text, 7);
+  END IF;
+
+  -- Timeline rows of deleted entities (polymorphic log; rows of kept master data stay). An entity table that no
+  -- longer exists means no row of that type can still exist.
+  IF to_regclass('public.master_data_activity_logs') IS NOT NULL THEN
+    cond := NULL;
+    FOREACH pair IN ARRAY logged_entities LOOP
+      tbl := split_part(pair, ':', 2);
+      cond := coalesce(cond || ' OR ', '') || CASE
+        WHEN to_regclass(format('public.%I', tbl)) IS NULL
+          THEN format('(l."entity_type" = %L)', split_part(pair, ':', 1))
+        ELSE format('(l."entity_type" = %L AND NOT EXISTS (SELECT 1 FROM %I e WHERE e."id" = l."entity_id"))',
+                    split_part(pair, ':', 1), tbl)
+      END;
+    END LOOP;
+    EXECUTE 'DELETE FROM "master_data_activity_logs" l WHERE ' || cond;
+    GET DIAGNOSTICS n = ROW_COUNT;
+    total := total + n;
+    RAISE NOTICE 'r13 reset: % rows — DELETE FROM "master_data_activity_logs" (deleted entities)', lpad(n::text, 7);
+  END IF;
+
+  FOREACH pair IN ARRAY guard_triggers LOOP
+    IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = to_regclass(format('public.%I', split_part(pair, ':', 1)))
+                                          AND tgname = split_part(pair, ':', 2)) THEN
+      EXECUTE format('ALTER TABLE %I ENABLE TRIGGER %I', split_part(pair, ':', 1), split_part(pair, ':', 2));
+    END IF;
+  END LOOP;
 
   -- Post-conditions: fail (and roll back) rather than leave a half-reset ledger.
   IF EXISTS (SELECT 1 FROM "inventory_movements") OR EXISTS (SELECT 1 FROM "store_orders")
      OR EXISTS (SELECT 1 FROM "payments") OR EXISTS (SELECT 1 FROM "agent_ledger_entries")
+     OR EXISTS (SELECT 1 FROM "financial_transactions") OR EXISTS (SELECT 1 FROM "purchase_returns")
+     OR EXISTS (SELECT 1 FROM "fixed_assets") OR EXISTS (SELECT 1 FROM "prepaid_expenses")
      OR EXISTS (SELECT 1 FROM "journal_entries" WHERE "id" NOT IN (SELECT "id" FROM r13_kept_journal_entries))
      OR EXISTS (SELECT 1 FROM "products" WHERE "current_cost" IS NOT NULL) THEN
     RAISE EXCEPTION 'r13 reset: post-condition failed — rolled back';
