@@ -129,6 +129,7 @@ export function StoreOrderCreateDialog({
   prefillCustomer?: StoreOrderCreatePrefillCustomer | null;
 }) {
   const { t, locale } = useLocale();
+  const listSeparator = locale === "ar" ? "، " : ", ";
   const { hasPermission } = useUserContext();
   // Same any-of rule the API applies to payment declarations.
   const canDeclarePayment =
@@ -756,7 +757,7 @@ export function StoreOrderCreateDialog({
       ]
         .map((part) => part?.trim())
         .filter(Boolean)
-        .join("، ")
+        .join(listSeparator)
     : fulfillmentMethod === "PICKUP"
       ? t("storeOrders.createDialog.entry.pickupNote")
       : t("storeOrders.createDialog.entry.nonPhysicalNote");
@@ -854,7 +855,7 @@ export function StoreOrderCreateDialog({
                       phone={existingCustomer.phone || existingCustomer.mobile}
                       location={[existingCustomer.address, existingCustomer.city]
                         .filter(Boolean)
-                        .join("، ")}
+                        .join(listSeparator)}
                       changeLabel={t("storeOrders.createDialog.entry.changeCustomer")}
                       onChange={clearExistingCustomer}
                     />
@@ -1020,7 +1021,7 @@ export function StoreOrderCreateDialog({
                             <span className="text-foreground">
                               {[existingCustomer.address, existingCustomer.city]
                                 .filter(Boolean)
-                                .join("، ")}
+                                .join(listSeparator)}
                             </span>
                           </p>
                         ) : null}

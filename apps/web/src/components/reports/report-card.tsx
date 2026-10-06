@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   InsightSurface,
@@ -11,6 +11,10 @@ import { MoneyValue } from "@/components/shared/money-value";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/format-number";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/providers/locale-provider";
+
+/** Currencies listed before the rest fold behind "Show N more". */
+const VISIBLE_AMOUNTS = 4;
 
 export interface ReportCardAmount {
   currencyCode: string;
@@ -69,10 +73,15 @@ export function ReportCard({
   selected?: boolean;
   className?: string;
 }) {
+  const { t } = useLocale();
+  const [showAllAmounts, setShowAllAmounts] = useState(false);
   const resolvedTone = resolveInsightTone(tone, figure, figure);
+  const hiddenAmounts =
+    amounts && !showAllAmounts ? Math.max(0, amounts.length - VISIBLE_AMOUNTS) : 0;
+  const visibleAmounts = amounts && hiddenAmounts > 0 ? amounts.slice(0, VISIBLE_AMOUNTS) : amounts;
   const body = (
     <>
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         {Icon ? (
           <span
             data-slot="insight-icon"
@@ -84,11 +93,11 @@ export function ReportCard({
         ) : null}
         <span
           data-slot="insight-label"
-          className="min-w-0 flex-1 text-metric-label text-pretty break-words text-muted-foreground"
+          className="min-w-0 flex-1 basis-24 text-metric-label text-pretty text-muted-foreground"
         >
           {title}
         </span>
-        {meta ? <span className="shrink-0 self-start">{meta}</span> : null}
+        {meta ? <span className="max-w-full min-w-0">{meta}</span> : null}
       </div>
       <div className="mt-1.5 flex min-w-0 items-baseline gap-1.5">
         <span data-slot="insight-value" className="num text-metric-lg tracking-tight">
@@ -105,12 +114,34 @@ export function ReportCard({
           {amounts.length === 0 ? (
             <li className="text-caption text-muted-foreground">{noAmountsLabel}</li>
           ) : (
-            amounts.map((line) => (
+            visibleAmounts?.map((line) => (
               <li key={line.currencyCode} className="flex min-w-0 justify-start text-body">
                 <MoneyValue value={line.amount} currency={line.currencyCode} />
               </li>
             ))
           )}
+          {hiddenAmounts > 0 ? (
+            <li>
+              {/* A span, not a button: the card itself may be a button. */}
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setShowAllAmounts(true);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setShowAllAmounts(true);
+                }}
+                className="cursor-pointer text-caption font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+              >
+                {t("table.showMore", { count: hiddenAmounts })}
+              </span>
+            </li>
+          ) : null}
         </ul>
       ) : null}
       {stats?.length ? (

@@ -1,0 +1,395 @@
+{
+  "tag": "R13UI426625",
+  "base": "http://localhost:3001",
+  "ranAt": "2026-10-06T09:40:08.555Z",
+  "passed": 74,
+  "failed": 0,
+  "screenshots": [
+    "r13-customer-edit-egypt-address-966-phone.png",
+    "r13-user-create-password-and-phone.png",
+    "r13-order-mobile-dropdown-scrolled.png",
+    "r13-order-mobile-review.png",
+    "r13-toolbar-tones-ar-rtl.png",
+    "r13-coa-create-group-posting.png",
+    "r13-fx-automation-state.png",
+    "r13-fixed-asset-detail.png",
+    "r13-fixed-asset-schedule-preview.png",
+    "r13-prepaid-detail.png",
+    "r13-payment-methods-channels.png",
+    "r13-sales-live-ar-light.png",
+    "r13-sales-live-en-dark.png",
+    "r13-sales-live-mobile-390.png"
+  ],
+  "results": [
+    {
+      "name": "setup: a sellable active product exists",
+      "ok": true,
+      "detail": "TEST-INV-PROD-A"
+    },
+    {
+      "name": "setup: tagged fixed asset created via API",
+      "ok": true,
+      "detail": "201 FA-2026-000022"
+    },
+    {
+      "name": "setup: tagged prepaid expense created via API",
+      "ok": true,
+      "detail": "201 {\"id\":\"98523964-ea1b-4d82-a92b-7195299775f9\",\"prepaidNumber\":\"PE-2026-000007\",\"name\":\"R13UI426625 Annual licence\",\"amount\":\"1200\",\"startDate\":\"2026-10-06T00:00:00.000Z\",\"endDate\":\"2027-10-05T00:00:00."
+    },
+    {
+      "name": "1. customer: address country Egypt proposes +20 to the empty phone",
+      "ok": true,
+      "detail": "+20"
+    },
+    {
+      "name": "1. customer: +966 chosen in the picker sticks after typing (address stays Egypt)",
+      "ok": true,
+      "detail": "+966"
+    },
+    {
+      "name": "1. customer: saved with Egypt address and a +966 mobile",
+      "ok": true,
+      "detail": "+966554386650 country=EG"
+    },
+    {
+      "name": "1. customer: reopened edit shows +966 and the same number",
+      "ok": true,
+      "detail": "+966 55 438 6650"
+    },
+    {
+      "name": "1. customer: changing the address country afterwards (→ Kuwait) leaves +966 unchanged",
+      "ok": true,
+      "detail": "🇰🇼 Kuwait / +966"
+    },
+    {
+      "name": "1. supplier: address country Egypt proposes +20 to the empty phone",
+      "ok": true,
+      "detail": "+20"
+    },
+    {
+      "name": "1. supplier: +966 chosen in the picker sticks after typing (address stays Egypt)",
+      "ok": true,
+      "detail": "+966"
+    },
+    {
+      "name": "1. supplier: saved with Egypt address and a +966 mobile",
+      "ok": true,
+      "detail": "+966558772126 country=EG"
+    },
+    {
+      "name": "1. supplier: reopened edit shows +966 and the same number",
+      "ok": true,
+      "detail": "+966 55 877 2126"
+    },
+    {
+      "name": "1. supplier: changing the address country afterwards (→ Kuwait) leaves +966 unchanged",
+      "ok": true,
+      "detail": "🇰🇼 Kuwait / +966"
+    },
+    {
+      "name": "1. users: the mobile field has the in-field calling-code picker",
+      "ok": true,
+      "detail": "1"
+    },
+    {
+      "name": "1. users: a picked code (+20, default would be +966) sticks after typing",
+      "ok": true,
+      "detail": "+20"
+    },
+    {
+      "name": "2. password: a generated password is present on open and meets the policy (≥8, upper/lower/digit/symbol)",
+      "ok": true,
+      "detail": "length=14"
+    },
+    {
+      "name": "2. password: reveal / hide toggles the input type",
+      "ok": true,
+      "detail": "text → password → text"
+    },
+    {
+      "name": "2. password: Regenerate changes the value and still meets the policy",
+      "ok": true,
+      "detail": "changed=true length=14"
+    },
+    {
+      "name": "2. password: Copy shows the 'Password copied' toast and the clipboard holds the field's value",
+      "ok": true,
+      "detail": "toast=true clipboardMatches=true"
+    },
+    {
+      "name": "3. mobile: dialog opens on step 1 of 4 (compact step header)",
+      "ok": true,
+      "detail": "Step 1 of 4 · Customer"
+    },
+    {
+      "name": "10. 390 px: order dialog — no horizontal page scroll",
+      "ok": true,
+      "detail": "{\"scrollW\":390,\"vw\":390,\"ok\":true}"
+    },
+    {
+      "name": "3. Next validates step 1: empty name shows an error and stays on step 1",
+      "ok": true,
+      "detail": "invalid=1 Step 1 of 4 · Customer"
+    },
+    {
+      "name": "3. calling-code dropdown is a long scrollable list",
+      "ok": true,
+      "detail": "{\"list\":0,\"listMax\":9458,\"rect\":{\"x\":171,\"y\":491,\"h\":270},\"dialog\":\"\",\"win\":0}"
+    },
+    {
+      "name": "3. wheel over the open dropdown scrolls the list (dialog/page stay put)",
+      "ok": true,
+      "detail": "list 0→400 dialog →"
+    },
+    {
+      "name": "3. touch swipe over the open dropdown scrolls the list (dialog/page stay put)",
+      "ok": true,
+      "detail": "list 400→573 dialog →"
+    },
+    {
+      "name": "3. Escape closes only the dropdown, the order dialog stays open",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "3. step 1 complete → step 2 (products)",
+      "ok": true,
+      "detail": "Step 2 of 4 · Products"
+    },
+    {
+      "name": "3. step 2 complete → step 3 (delivery & payment)",
+      "ok": true,
+      "detail": "Step 3 of 4 · Delivery & payment"
+    },
+    {
+      "name": "3. step 3 complete → step 4 (review)",
+      "ok": true,
+      "detail": "Step 4 of 4 · Review"
+    },
+    {
+      "name": "3. Back keeps values (step 3 city, step 2 product line, step 1 name)",
+      "ok": true,
+      "detail": "city=Riyadh line=true name=true"
+    },
+    {
+      "name": "3. Review shows the totals (2 × 150 = 300) with the order currency",
+      "ok": true,
+      "detail": "Check the order before creating it. Use Back or a completed step to change anything. Customer Customer Name R13UI426625 Mobile Customer Phone +966551168487 Country Saudi Arabia Line Items 1. Test Product A 2 × 150.00 SAR = 300.00 SAR Delivery & payment Deliver"
+    },
+    {
+      "name": "3. double-click Create → exactly one order created",
+      "ok": true,
+      "detail": "1 order(s) STO-2026-000715"
+    },
+    {
+      "name": "3. success feedback toast after Create",
+      "ok": true,
+      "detail": "Store order created. Open record"
+    },
+    {
+      "name": "4. [ar/RTL] tone-1 control sits on the RIGHT of the highest tone",
+      "ok": true,
+      "detail": "{\"dir\":\"rtl\",\"row\":[[1,837,\"0.155\"],[2,688,\"0.120\"],[3,540,\"0.091\"],[4,392,\"0.067\"],[5,244,\"0.047\"],[1,104,\"0.155\"]]}"
+    },
+    {
+      "name": "4. [ar/RTL] tone-1 is lighter than the highest tone",
+      "ok": true,
+      "detail": "{\"dir\":\"rtl\",\"row\":[[1,837,\"0.155\"],[2,688,\"0.120\"],[3,540,\"0.091\"],[4,392,\"0.067\"],[5,244,\"0.047\"],[1,104,\"0.155\"]]}"
+    },
+    {
+      "name": "4. [en/LTR] tone-1 control sits on the LEFT of the highest tone",
+      "ok": true,
+      "detail": "{\"dir\":\"ltr\",\"row\":[[1,651,\"0.155\"],[2,841,\"0.120\"],[3,1031,\"0.091\"],[4,1179,\"0.067\"],[5,1327,\"0.047\"]]}"
+    },
+    {
+      "name": "4. [en/LTR] tone-1 is lighter than the highest tone",
+      "ok": true,
+      "detail": "{\"dir\":\"ltr\",\"row\":[[1,651,\"0.155\"],[2,841,\"0.120\"],[3,1031,\"0.091\"],[4,1179,\"0.067\"],[5,1327,\"0.047\"]]}"
+    },
+    {
+      "name": "5. create dialog offers the Group / Posting choice",
+      "ok": true,
+      "detail": "Group Account | Posting Account"
+    },
+    {
+      "name": "5. Posting is the default and explains it cannot have sub-accounts",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "5. UI: a Posting account has no 'Add Sub-Account' action; a Group account has it",
+      "ok": true,
+      "detail": "posting 111: [Edit,Delete] group 1: [Edit,Add Sub-Account]"
+    },
+    {
+      "name": "5. API: creating a child under a Posting account is refused with the explanatory message",
+      "ok": true,
+      "detail": "400 Account 111 الصندوق is a Posting account and cannot have sub-accounts. Convert it to a Group account first (allowed only while it has no journal lines), or choose a Group parent."
+    },
+    {
+      "name": "6. automation state shown as text + icon",
+      "ok": true,
+      "detail": "Automatic updates Last update failed The newest import attempt fetched nothing. Error: CBE blocked the request (HTTP 403). The site's bot protection rejected th"
+    },
+    {
+      "name": "6. 'Enable automatic updates' switch and a separate 'Refresh now' button",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "6. last successful update and next run are shown",
+      "ok": true,
+      "detail": "Last successful update: 06 Oct 2026 — 12:16 | Next scheduled run 06 Oct 2026 — 17:00 (Cairo) · 14:00 UTC Daily import"
+    },
+    {
+      "name": "7. fixed asset detail loads (name + code)",
+      "ok": true,
+      "detail": "FA-2026-000022"
+    },
+    {
+      "name": "7. depreciation schedule section visible",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "7. schedule preview (before capitalization) lists the 24 monthly periods",
+      "ok": true,
+      "detail": "24 rows"
+    },
+    {
+      "name": "7. prepaid detail loads with its recognition schedule",
+      "ok": true,
+      "detail": "12 rows"
+    },
+    {
+      "name": "10. 390 px: fixed asset detail — no horizontal page scroll",
+      "ok": true,
+      "detail": "{\"scrollW\":390,\"vw\":390,\"ok\":true}"
+    },
+    {
+      "name": "10. 390 px: payment methods — no horizontal page scroll",
+      "ok": true,
+      "detail": "{\"scrollW\":390,\"vw\":390,\"ok\":true}"
+    },
+    {
+      "name": "8. tabs Methods / Channels / Receiving accounts",
+      "ok": true,
+      "detail": "Methods | Channels | Receiving accounts"
+    },
+    {
+      "name": "8. /finance/payment-sources redirects to the Channels tab",
+      "ok": true,
+      "detail": "/master-data/payment-methods?tab=channels selected=Channels"
+    },
+    {
+      "name": "9. [ar/light] direction and theme applied",
+      "ok": true,
+      "detail": "{\"dir\":\"rtl\",\"dark\":false}"
+    },
+    {
+      "name": "9. [ar/light] Live: 5 period cards with currency-labelled amounts",
+      "ok": true,
+      "detail": "5 cards; 375.50 A0C9741320.00 A34B227375.50 A74EA | لا مبيعات | 375.50 A0C9741320.00 A34B227375.50 A74EA | 375.50 A0C9741320.00 A34B227375.50 A74EA | لا مبيعات"
+    },
+    {
+      "name": "9. [ar/light] Live: last refresh time shown",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "9. [ar/light] الموظفون tab renders",
+      "ok": true,
+      "detail": "01 Oct 2026 – 06 Oct 2026 الطلبات الصالحة جميع الموظفين · آخر تحديث 06 Oct 2026 — 12:39 تحديث غير مسندة #1 224 طلب صالح 1,254.00 B3EA14E 1,2"
+    },
+    {
+      "name": "9. [ar/light] المقارنة tab renders",
+      "ok": true,
+      "detail": "01 Oct 2026 – 06 Oct 2026 الطلبات الصالحة جميع الموظفين · آخر تحديث 06 Oct 2026 — 12:39 تحديث الطلبات الصالحة الترتيب — الطلبات الصالحة #1 غ"
+    },
+    {
+      "name": "9. [ar/dark] direction and theme applied",
+      "ok": true,
+      "detail": "{\"dir\":\"rtl\",\"dark\":true}"
+    },
+    {
+      "name": "9. [ar/dark] Live: 5 period cards with currency-labelled amounts",
+      "ok": true,
+      "detail": "5 cards; 375.50 A0C9741320.00 A34B227375.50 A74EA | لا مبيعات | 375.50 A0C9741320.00 A34B227375.50 A74EA | 375.50 A0C9741320.00 A34B227375.50 A74EA | لا مبيعات"
+    },
+    {
+      "name": "9. [ar/dark] Live: last refresh time shown",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "9. [ar/dark] الموظفون tab renders",
+      "ok": true,
+      "detail": "01 Oct 2026 – 06 Oct 2026 الطلبات الصالحة جميع الموظفين · آخر تحديث 06 Oct 2026 — 12:39 تحديث غير مسندة #1 224 طلب صالح 1,254.00 B3EA14E 1,2"
+    },
+    {
+      "name": "9. [ar/dark] المقارنة tab renders",
+      "ok": true,
+      "detail": "01 Oct 2026 – 06 Oct 2026 الطلبات الصالحة جميع الموظفين · آخر تحديث 06 Oct 2026 — 12:39 تحديث الطلبات الصالحة الترتيب — الطلبات الصالحة #1 غ"
+    },
+    {
+      "name": "9. [en/light] direction and theme applied",
+      "ok": true,
+      "detail": "{\"dir\":\"ltr\",\"dark\":false}"
+    },
+    {
+      "name": "9. [en/light] Live: 5 period cards with currency-labelled amounts",
+      "ok": true,
+      "detail": "5 cards; 375.50 A0C9741320.00 A34B227375.50 A74EA | No sales | 375.50 A0C9741320.00 A34B227375.50 A74EA | 375.50 A0C9741320.00 A34B227375.50 A74EA | No sales"
+    },
+    {
+      "name": "9. [en/light] Live: last refresh time shown",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "9. [en/light] Employees tab renders",
+      "ok": true,
+      "detail": "01 Oct 2026 – 06 Oct 2026 Valid orders All employees · Updated 06 Oct 2026 — 12:39 Refresh Unassigned #1 224 valid orders 1,254.00 B3EA14E 1"
+    },
+    {
+      "name": "9. [en/light] Comparison tab renders",
+      "ok": true,
+      "detail": "01 Oct 2026 – 06 Oct 2026 Valid orders All employees · Updated 06 Oct 2026 — 12:39 Refresh Valid orders Ranking — Valid orders #1 Unassigned"
+    },
+    {
+      "name": "9. [en/dark] direction and theme applied",
+      "ok": true,
+      "detail": "{\"dir\":\"ltr\",\"dark\":true}"
+    },
+    {
+      "name": "9. [en/dark] Live: 5 period cards with currency-labelled amounts",
+      "ok": true,
+      "detail": "5 cards; 375.50 A0C9741320.00 A34B227375.50 A74EA | No sales | 375.50 A0C9741320.00 A34B227375.50 A74EA | 375.50 A0C9741320.00 A34B227375.50 A74EA | No sales"
+    },
+    {
+      "name": "9. [en/dark] Live: last refresh time shown",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "9. [en/dark] Employees tab renders",
+      "ok": true,
+      "detail": "01 Oct 2026 – 06 Oct 2026 Valid orders All employees · Updated 06 Oct 2026 — 12:39 Refresh Unassigned #1 224 valid orders 1,254.00 B3EA14E 1"
+    },
+    {
+      "name": "9. [en/dark] Comparison tab renders",
+      "ok": true,
+      "detail": "01 Oct 2026 – 06 Oct 2026 Valid orders All employees · Updated 06 Oct 2026 — 12:39 Refresh Valid orders Ranking — Valid orders #1 Unassigned"
+    },
+    {
+      "name": "9. 390 px: sales reports Live — no horizontal page scroll",
+      "ok": true,
+      "detail": "{\"scrollW\":390,\"vw\":390,\"ok\":true}"
+    },
+    {
+      "name": "9. 390 px: sales reports Comparison — no horizontal page scroll",
+      "ok": true,
+      "detail": "{\"scrollW\":390,\"vw\":390,\"ok\":true}"
+    }
+  ]
+}
