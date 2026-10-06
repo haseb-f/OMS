@@ -643,30 +643,21 @@ describeDb('R13 payment methods + statements (local DB)', () => {
     });
   });
 
-  it('D2 migration: the ACTIVE index is skipped (WARNING) when duplicates exist, created otherwise; top-up picks the oldest', async () => {
+  it('D2 migration: duplicate ACTIVE matches are consolidated into the oldest row, then the index is always created', async () => {
     const doBlock = /DO \$\$[\s\S]*?END \$\$;/.exec(MIGRATION_SQL)?.[0];
+    const createIndex =
+      /CREATE UNIQUE INDEX "payment_matches_active_line_payment_key"[^;]*;/.exec(
+        MIGRATION_SQL,
+      )?.[0];
     expect(doBlock).toBeDefined();
+    expect(createIndex).toBeDefined();
     const { payment } = await makeClaim(40);
     const line = await lineByKey(`ref:F1-${tag}`);
     const rolledBack = new Error('rollback');
     const outcome: Record<string, unknown> = {};
-    const indexCount = async (tx: Prisma.TransactionClient) =>
-      Number(
-        (
-          await tx.$queryRaw<
-            { n: bigint }[]
-          >`SELECT count(*) AS n FROM pg_indexes WHERE indexname = 'payment_matches_active_line_payment_key'`
-        )[0].n,
-      );
     await prisma
       .$transaction(async (tx) => {
-        // No duplicates → the block (re)creates the index.
-        await tx.$executeRawUnsafe(
-          'DROP INDEX "payment_matches_active_line_payment_key"',
-        );
-        await tx.$executeRawUnsafe(doBlock!);
-        outcome.createdWhenClean = await indexCount(tx);
-        // Pre-R13 shape: two ACTIVE rows for one (line, claim) → the block skips the index.
+        // Pre-R13 shape: two ACTIVE rows for one (line, claim).
         await tx.$executeRawUnsafe(
           'DROP INDEX "payment_matches_active_line_payment_key"',
         );
@@ -678,33 +669,47 @@ describeDb('R13 payment methods + statements (local DB)', () => {
             confirmedAt: new Date(Date.now() - 60_000),
           },
         });
-        await tx.paymentMatch.create({
+        const younger = await tx.paymentMatch.create({
           data: { statementLineId: line.id, paymentId: payment.id, amount: 6 },
         });
         await tx.$executeRawUnsafe(doBlock!);
-        outcome.createdWithDuplicates = await indexCount(tx);
-        // The top-up lookup (same where / orderBy as confirm) is deterministic: the oldest row.
-        const topUp = await tx.paymentMatch.findFirst({
-          where: {
-            statementLineId: line.id,
-            paymentId: payment.id,
-            status: PaymentMatchStatus.ACTIVE,
+        await tx.$executeRawUnsafe(createIndex!);
+        const rows = await tx.paymentMatch.findMany({
+          where: { id: { in: [older.id, younger.id] } },
+          select: {
+            id: true,
+            amount: true,
+            status: true,
+            reversalReason: true,
           },
-          orderBy: [{ confirmedAt: 'asc' }, { id: 'asc' }],
-          select: { id: true },
         });
-        outcome.topUpIsOldest = topUp?.id === older.id;
+        const kept = rows.find((row) => row.id === older.id);
+        const merged = rows.find((row) => row.id === younger.id);
+        outcome.keptAmount = Number(kept?.amount);
+        outcome.keptStatus = kept?.status;
+        outcome.mergedStatus = merged?.status;
+        outcome.mergedHasReason = Boolean(
+          merged?.reversalReason?.includes('R13 consolidation'),
+        );
+        outcome.index = Number(
+          (
+            await tx.$queryRaw<
+              { n: bigint }[]
+            >`SELECT count(*) AS n FROM pg_indexes WHERE indexname = 'payment_matches_active_line_payment_key'`
+          )[0].n,
+        );
         throw rolledBack;
       })
       .catch((error: unknown) => {
         if (error !== rolledBack) throw error;
       });
     expect(outcome).toEqual({
-      createdWhenClean: 1,
-      createdWithDuplicates: 0,
-      topUpIsOldest: true,
+      keptAmount: 11,
+      keptStatus: PaymentMatchStatus.ACTIVE,
+      mergedStatus: PaymentMatchStatus.REVERSED,
+      mergedHasReason: true,
+      index: 1,
     });
-    expect(await indexCount(prisma)).toBe(1);
   });
 
   it('D2 cross-engine: a provider-matched claim is refused by bank reconciliation (adopt + confirm)', async () => {

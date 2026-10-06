@@ -1,15 +1,13 @@
 -- R13 — payment_matches duplicate ACTIVE (statement_line_id, payment_id) groups
 --
--- Context: migration 20261006120000_r13_payment_method_channel creates the partial unique index
--- "payment_matches_active_line_payment_key" ON payment_matches(statement_line_id, payment_id)
--- WHERE status = 'ACTIVE' ONLY when no duplicate ACTIVE groups exist. Pre-R13, two partial
--- confirms of the same statement line against the same claim produced two ACTIVE rows; on such
--- a database the migration logs a WARNING and skips the index. The application tolerates
--- duplicates (the top-up path picks the oldest ACTIVE row; reversal works per match id).
+-- ADOPTED (owner decision 2026-10-06, all data is test data): migration
+-- 20261006120000_r13_payment_method_channel consolidates every duplicate group — the oldest ACTIVE
+-- row keeps the summed amount, younger rows become REVERSED with reason "R13 consolidation: ..."
+-- — and then ALWAYS creates the partial unique index "payment_matches_active_line_payment_key".
+-- Totals per (line, claim) are unchanged; no journal entry is created or reversed.
 --
--- Nothing in this file is executed by any migration. Section 1 is read-only. Section 2 is a
--- PROPOSAL that rewrites historical match rows and therefore needs explicit owner approval
--- (Chief Accountant + DBA) and a backup before it is run by hand.
+-- Section 1 below is the read-only pre-flight / post-check. Section 2 documents the same merge
+-- the migration performs (kept for audit; do not run it again).
 
 -- ============================================================================================
 -- 1. PRE-FLIGHT (read-only) — run before/after `prisma migrate deploy`

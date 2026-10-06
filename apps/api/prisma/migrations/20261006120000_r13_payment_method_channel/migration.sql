@@ -51,28 +51,51 @@ ALTER TABLE "payment_statement_lines"
   ADD CONSTRAINT "payment_statement_lines_kind_unmatched" CHECK ("kind" = 'PAYMENT' OR "matched_amount" = 0);
 
 -- D2: one ACTIVE allocation per (statement line, claim).
--- Pre-R13 data may already hold two ACTIVE rows for the same (line, claim) — two partial
--- confirms. Historical matches are never merged or rewritten here: when such groups exist the
--- index is skipped with a WARNING and the application (findFirst top-up) keeps tolerating them.
--- Pre-flight query + a reviewable merge proposal:
+-- Pre-R13 data may hold two ACTIVE rows for one (line, claim) — two partial confirms. Owner
+-- decision (2026-10-06, test data): consolidate them, then ALWAYS enforce the index. The oldest
+-- ACTIVE row of each group (the row the application tops up) receives the sum of the group; the
+-- younger rows become REVERSED with an explicit reason. Totals per (line, claim) are unchanged,
+-- so payment_statement_lines.matched_amount, claims, receipts and journals stay consistent — no
+-- journal entry is created or reversed. Pre-flight / audit queries:
 -- specs/round13-accounting-reporting/proposals/payment-matches-duplicates.sql
 DO $$
 DECLARE
-  dup_groups integer;
+  merged_groups integer;
+  reversed_rows integer;
 BEGIN
-  SELECT count(*) INTO dup_groups
-  FROM (
-    SELECT 1 FROM "payment_matches"
-    WHERE "status" = 'ACTIVE'
-    GROUP BY "statement_line_id", "payment_id"
-    HAVING count(*) > 1
-  ) d;
+  CREATE TEMP TABLE r13_match_ranked ON COMMIT DROP AS
+  SELECT "id", "statement_line_id", "payment_id", "amount",
+         row_number() OVER (PARTITION BY "statement_line_id", "payment_id" ORDER BY "confirmed_at", "id") AS rn,
+         count(*)     OVER (PARTITION BY "statement_line_id", "payment_id") AS n
+  FROM "payment_matches"
+  WHERE "status" = 'ACTIVE';
 
-  IF dup_groups = 0 THEN
-    CREATE UNIQUE INDEX "payment_matches_active_line_payment_key"
-      ON "payment_matches"("statement_line_id", "payment_id")
-      WHERE "status" = 'ACTIVE';
-  ELSE
-    RAISE WARNING 'payment_matches_active_line_payment_key NOT created: % duplicate ACTIVE (statement_line_id, payment_id) group(s) exist. Review specs/round13-accounting-reporting/proposals/payment-matches-duplicates.sql, then create the index manually.', dup_groups;
-  END IF;
+  UPDATE "payment_matches" pm
+  SET "amount" = g.total
+  FROM (
+    SELECT r."id", sum(all_rows."amount") AS total
+    FROM r13_match_ranked r
+    JOIN r13_match_ranked all_rows
+      ON all_rows."statement_line_id" = r."statement_line_id" AND all_rows."payment_id" = r."payment_id"
+    WHERE r.n > 1 AND r.rn = 1
+    GROUP BY r."id"
+  ) g
+  WHERE pm."id" = g."id";
+  GET DIAGNOSTICS merged_groups = ROW_COUNT;
+
+  UPDATE "payment_matches" pm
+  SET "status" = 'REVERSED',
+      "reversed_at" = CURRENT_TIMESTAMP,
+      "reversal_reason" = 'R13 consolidation: amount merged into the oldest ACTIVE match of the same statement line and claim'
+  FROM r13_match_ranked r
+  WHERE pm."id" = r."id" AND r.n > 1 AND r.rn > 1;
+  GET DIAGNOSTICS reversed_rows = ROW_COUNT;
+
+  RAISE NOTICE 'payment_matches consolidation: % group(s) merged, % row(s) marked REVERSED', merged_groups, reversed_rows;
+
+  DROP TABLE r13_match_ranked;
 END $$;
+
+CREATE UNIQUE INDEX "payment_matches_active_line_payment_key"
+  ON "payment_matches"("statement_line_id", "payment_id")
+  WHERE "status" = 'ACTIVE';
