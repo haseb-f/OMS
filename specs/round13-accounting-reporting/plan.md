@@ -34,6 +34,6 @@ Databases: each agent tests against its own clone (`oms_a`, `oms_b`, …) via `D
 - [x] D implemented + verified (payment suites 169/169, new integration 8/8; minor: channel not clearable in form)
 - [x] E implemented + verified (API metrics 10 + integration 8; web 87)
 - [x] Integration: migrate, typecheck, lint, build, vitest 905, jest 2113, serial 69 (5a2b911)
-- [ ] Independent review (accounting, permissions, integration) + fixes
-- [ ] Browser journeys (one pass) + evidence
-- [ ] Arabic handoff
+- [x] Independent review (accounting, permissions, integration) + fixes (`review.md`, `0212f2b`)
+- [x] Browser journeys + evidence (74/74)
+- [x] Arabic handoff (final message)
