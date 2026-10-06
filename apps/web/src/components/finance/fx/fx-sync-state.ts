@@ -124,3 +124,72 @@ export function runCounts(run: FxSyncRunRow) {
     warnings: run.details?.warnings?.length ?? 0,
   };
 }
+
+export type FxOverallStateKey =
+  "RUNNING" | "FAILED" | "PARTIAL" | "NOT_UPDATED" | "STALE" | "DISABLED" | "ENABLED";
+
+export interface FxOverallState {
+  key: FxOverallStateKey;
+  tone: StatusTone;
+  icon: LucideIcon;
+  /** The failing / partial run whose error summary the panel shows. */
+  run: FxSyncRunRow | null;
+}
+
+/**
+ * The ONE headline state of automatic FX updates (R13 B3), always shown with
+ * icon + text, never colour alone. Ordered by what the user must act on:
+ * a run in progress, then a failed or partial last fetch (a later SKIPPED row
+ * never hides it), then no official rate at all, then a stale rate (older
+ * than `staleAlertDays`), then paused, else enabled and current. The detailed
+ * tiles keep showing each fact separately.
+ */
+export function deriveFxOverallState(
+  status: Pick<FxSyncStatus, "running" | "lastRun" | "freshness" | "settings"> & {
+    lastAttempt?: FxSyncRunRow | null;
+  },
+): FxOverallState {
+  if (status.running) {
+    return { key: "RUNNING", tone: "info", icon: Loader2, run: null };
+  }
+  const attempt =
+    status.lastAttempt !== undefined
+      ? status.lastAttempt
+      : status.lastRun && status.lastRun.status !== "SKIPPED"
+        ? status.lastRun
+        : null;
+  if (attempt?.status === "FAILED") {
+    return { key: "FAILED", tone: "destructive", icon: XCircle, run: attempt };
+  }
+  if (attempt?.status === "PARTIAL") {
+    return { key: "PARTIAL", tone: "warning", icon: AlertTriangle, run: attempt };
+  }
+  if (status.freshness === "NONE") {
+    return { key: "NOT_UPDATED", tone: "warning", icon: CircleSlash, run: null };
+  }
+  if (status.freshness === "STALE") {
+    return { key: "STALE", tone: "destructive", icon: Hourglass, run: null };
+  }
+  if (!status.settings.enabled) {
+    return { key: "DISABLED", tone: "neutral", icon: PauseCircle, run: null };
+  }
+  return { key: "ENABLED", tone: "success", icon: CheckCircle2, run: null };
+}
+
+/** A short, single-line reason for a FAILED / PARTIAL run (error first, then the first warnings). */
+export function runErrorSummary(run: FxSyncRunRow | null, maxWarnings = 2): string | null {
+  if (!run) return null;
+  const parts: string[] = [];
+  if (run.error) parts.push(run.error.trim());
+  const warnings = run.details?.warnings ?? [];
+  parts.push(...warnings.slice(0, maxWarnings));
+  if (warnings.length > maxWarnings) parts.push(`+${warnings.length - maxWarnings}`);
+  const text = parts.filter(Boolean).join(" · ");
+  return text || null;
+}
+
+/** "14:00" — the UTC wall-clock time of an ISO instant (the cron schedule is in UTC). */
+export function utcTimeLabel(iso: string): string {
+  const date = new Date(iso);
+  return Number.isFinite(date.getTime()) ? date.toISOString().slice(11, 16) : "—";
+}

@@ -24,6 +24,13 @@ import {
   type PhoneErrorReason,
 } from "@/services/phone-service";
 import type { MessageKey } from "@/i18n/translate";
+import {
+  commitPhoneValue,
+  initialOwnedCallingCodeState,
+  pickCallingCode,
+  resolveOwnedCallingCode,
+  syncPhoneValue,
+} from "@/lib/phone-calling-code";
 
 /**
  * The ONE phone number field for every OMS form — a locked "+CC" prefix
@@ -42,13 +49,24 @@ import type { MessageKey } from "@/i18n/translate";
  *   never silently rewritten or re-homed: the conflict is explained, and when
  *   the form owns the country an explicit "Switch country to …" action is
  *   offered.
+ *
+ * Calling code ownership — two modes:
+ * - Form-owned (`countryCode` + `onCountryChange`): the form keeps the code in
+ *   its own state (order entry, R12).
+ * - Field-owned (`countries` without `onCountryChange`, R13 A1): the code is
+ *   the phone's own state — read back from the stored E.164 on edit, changed
+ *   only in the in-field selector. `proposedCountryCode` (e.g. the address
+ *   country) applies only while the user has not picked a code and has not
+ *   entered a number, so an address in Egypt with a +966 phone saves and
+ *   reopens as +966.
  */
 export function OMSPhoneInput({
   value,
   onChange,
   onBlur,
-  countryCode: selectedCountryCode,
-  onCountryChange,
+  countryCode: controlledCountryCode,
+  proposedCountryCode,
+  onCountryChange: controlledOnCountryChange,
   availableCountryCodes,
   countries,
   forceValidation,
@@ -62,8 +80,10 @@ export function OMSPhoneInput({
   value: string | null | undefined;
   onChange: (value: string) => void;
   onBlur?: () => void;
-  /** ISO2 region code of the phone's country — determines the "+CC" prefix and every validation/format rule. `null` while no country is selected yet → Saudi Arabia (O2 default). */
-  countryCode: string | null | undefined;
+  /** ISO2 region code of the phone's country — determines the "+CC" prefix and every validation/format rule. `null` while no country is selected yet → Saudi Arabia (O2 default). Ignored in field-owned mode. */
+  countryCode?: string | null | undefined;
+  /** Field-owned mode only: the country the form proposes (address / customer country) — applied only while no code was picked and no number entered. */
+  proposedCountryCode?: string | null;
   /** When the form owns the country: offered as an explicit "Switch country to …" action on a calling-code conflict. Never called automatically. */
   onCountryChange?: (iso2: CountryCode) => void;
   /** ISO2 codes `onCountryChange` can actually switch to (the form's own country list). Omit to allow any. */
@@ -84,9 +104,27 @@ export function OMSPhoneInput({
   id?: string;
 }) {
   const { t } = useLocale();
+  const ownsCallingCode = !!countries && !controlledOnCountryChange;
+  const [owned, setOwned] = useState(() => initialOwnedCallingCodeState(value));
+  // An outside change of the value (form reset, another record) starts the
+  // field-owned code over from that value; our own commits keep it.
+  const syncedOwned = syncPhoneValue(owned, value);
+  if (syncedOwned !== owned) setOwned(syncedOwned);
+  const selectedCountryCode = ownsCallingCode
+    ? resolveOwnedCallingCode(syncedOwned, value, proposedCountryCode)
+    : controlledCountryCode;
   // O2 — no selected country means the platform default (Saudi Arabia).
   // A legacy value stored without "+" keeps the market it is valid for.
   const countryCode = phoneCountryOrDefault(selectedCountryCode, value);
+  const onCountryChange: ((iso2: CountryCode) => void) | undefined = ownsCallingCode
+    ? (iso2) => setOwned((current) => pickCallingCode(current, iso2))
+    : controlledOnCountryChange;
+  // Every commit of the number goes through here so the field-owned code
+  // knows it is no longer a proposal.
+  const commit = (next: string) => {
+    if (ownsCallingCode) setOwned((current) => commitPhoneValue(current, next, countryCode));
+    onChange(next);
+  };
   const [draft, setDraft] = useState(() => phoneInputDisplayValue(value, countryCode));
   const [isFocused, setIsFocused] = useState(false);
   const [touched, setTouched] = useState(false);
@@ -117,7 +155,7 @@ export function OMSPhoneInput({
     // just because the field was focused — it's normalized only when edited.
     const untouched = draft === phoneInputDisplayValue(value, countryCode);
     if (!untouched) {
-      onChange(!hasDraft ? "" : result.isValid && result.e164 ? result.e164 : draft);
+      commit(!hasDraft ? "" : result.isValid && result.e164 ? result.e164 : draft);
     }
     onBlur?.();
   };
@@ -130,13 +168,13 @@ export function OMSPhoneInput({
     if (resolution.kind === "raw") return;
     event.preventDefault();
     setDraft(resolution.display);
-    onChange(resolution.e164);
+    commit(resolution.e164);
   };
 
   const handleClear = () => {
     setDraft("");
     setTouched(false);
-    onChange("");
+    commit("");
     inputRef.current?.focus();
   };
 
@@ -303,4 +341,19 @@ export function isPhoneValidForCountry(
 ): boolean {
   if (!value?.trim()) return false;
   return parsePhone(value, phoneCountryOrDefault(countryCode, value)).isValid;
+}
+
+/**
+ * Form-schema check of an optional phone whose calling code is field-owned
+ * (no country elsewhere on the form): `null` when empty or valid, otherwise
+ * the same actionable message the field shows. A valid entry is already a
+ * full E.164, so it validates on its own code.
+ */
+export function optionalPhoneIssue(
+  value: string | null | undefined,
+  t: (key: MessageKey, params?: Record<string, string | number>) => string,
+): string | null {
+  if (!value?.trim() || isPhoneValidForCountry(value, null)) return null;
+  const countryCode = phoneCountryOrDefault(null, value);
+  return phoneErrorMessage(parsePhone(value, countryCode).errorReason, countryCode, t);
 }

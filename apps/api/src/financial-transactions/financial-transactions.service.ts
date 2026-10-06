@@ -98,6 +98,8 @@ export interface FinancialTransactionCreateInput {
   referenceNumber?: string;
   notes?: string;
   allocations?: AllocationInputDto[];
+  /** R13 B2 — one key per opened form; see `findIdempotentReplay`. */
+  idempotencyKey?: string;
 }
 
 /**
@@ -160,6 +162,8 @@ export class FinancialTransactionsService {
     /** Joins the caller's transaction (e.g. Payment Confirm & Post) instead of opening its own. */
     outerTx?: Prisma.TransactionClient,
   ) {
+    const replay = await this.findIdempotentReplay(type, dto, outerTx);
+    if (replay) return replay;
     const partyId = await this.assertActiveParty(type, dto);
     const feeAmount = dto.feeAmount ?? 0;
     if (feeAmount > 0) {
@@ -224,6 +228,7 @@ export class FinancialTransactionsService {
             createdBy: userId ?? null,
             updatedBy: userId ?? null,
             allocations: { create: resolvedAllocations },
+            idempotencyKey: dto.idempotencyKey || undefined,
           },
           include: TRANSACTION_INCLUDE,
         });
@@ -237,6 +242,13 @@ export class FinancialTransactionsService {
         return transaction;
       });
     } catch (error) {
+      // Lost a concurrent race on the same key (double click): the winner's
+      // document is the answer. Inside a caller's transaction the error must
+      // propagate so that transaction aborts; the caller replays then.
+      if (!outerTx && this.isIdempotencyKeyClash(error)) {
+        const winner = await this.findIdempotentReplay(type, dto);
+        if (winner) return winner;
+      }
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2003'
@@ -249,20 +261,130 @@ export class FinancialTransactionsService {
     }
   }
 
-  /** Create + Confirm (+ Posting Engine) atomically — all or nothing. */
-  createConfirmed(
+  /**
+   * Create + Confirm (+ Posting Engine) atomically — all or nothing. With an
+   * idempotency key, a repeated call returns the first document (already
+   * confirmed and posted once) — never a second document or journal entry.
+   */
+  async createConfirmed(
     type: FinancialTransactionType,
     dto: FinancialTransactionCreateInput,
     userId?: string,
     context: CompanyContext = { companyId: null, branchId: null },
   ) {
-    return this.prisma.$transaction(
-      async (tx) => {
-        const created = await this.create(type, dto, userId, context, tx);
-        return this.confirm(created.id, userId, tx);
-      },
-      { maxWait: 10_000, timeout: 30_000 },
-    );
+    const replay = await this.findIdempotentReplay(type, dto, this.prisma, {
+      requireConfirmed: true,
+    });
+    if (replay) return replay;
+    try {
+      return await this.prisma.$transaction(
+        async (tx) => {
+          const created = await this.create(type, dto, userId, context, tx);
+          return this.confirm(created.id, userId, tx);
+        },
+        { maxWait: 10_000, timeout: 30_000 },
+      );
+    } catch (error) {
+      if (this.isIdempotencyKeyClash(error)) {
+        const winner = await this.findIdempotentReplay(type, dto, this.prisma, {
+          requireConfirmed: true,
+        });
+        if (winner) return winner;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * R13 B2 — the document an earlier request with the same idempotency key
+   * created, or null. The key is only a retry token: reusing it for a
+   * different document (type, party, account, amount, currency, money
+   * route, date, fee, allocations) is a 409, never a silent return of an
+   * unrelated document. A deleted original, or (for Create + Confirm) an
+   * original that is still a DRAFT, is a distinct 409 — never returned as
+   * if it were the confirmed answer.
+   */
+  private async findIdempotentReplay(
+    type: FinancialTransactionType,
+    dto: FinancialTransactionCreateInput,
+    client: DbClient = this.prisma,
+    options: { requireConfirmed?: boolean } = {},
+  ) {
+    if (!dto.idempotencyKey) return null;
+    const existing = await client.financialTransaction.findUnique({
+      where: { idempotencyKey: dto.idempotencyKey },
+      include: TRANSACTION_INCLUDE,
+    });
+    if (!existing) return null;
+    if (existing.deletedAt !== null) {
+      throw new ConflictException({
+        code: 'IDEMPOTENCY_KEY_DELETED',
+        message: `This form was already submitted as ${existing.transactionNumber}, which has since been deleted — reopen the form to record a new document.`,
+      });
+    }
+    const same = (requested: string | undefined, stored: string | null) =>
+      requested === undefined || requested === (stored ?? undefined);
+    const allocationKey = (invoiceId: string | null, amount: number) =>
+      `${invoiceId ?? ''}:${this.round2(amount).toFixed(2)}`;
+    const requestedAllocations = (dto.allocations ?? [])
+      .map((a) => allocationKey(a.invoiceId, a.allocatedAmount))
+      .sort();
+    const storedAllocations = existing.allocations
+      .map((a) =>
+        allocationKey(
+          a.salesInvoiceId ?? a.purchaseInvoiceId ?? a.salesReturnId,
+          Number(a.allocatedAmount),
+        ),
+      )
+      .sort();
+    const sameDate =
+      dto.transactionDate === undefined ||
+      new Date(dto.transactionDate).getTime() ===
+        existing.transactionDate.getTime();
+    const matches =
+      existing.type === type &&
+      this.round2(Number(existing.amount)) === this.round2(dto.amount) &&
+      this.round2(Number(existing.feeAmount ?? 0)) ===
+        this.round2(dto.feeAmount ?? 0) &&
+      sameDate &&
+      requestedAllocations.join('|') === storedAllocations.join('|') &&
+      same(
+        type === 'EXPENSE_PAYMENT' ? undefined : dto.partnerId,
+        existing.partnerId,
+      ) &&
+      same(
+        type === 'EXPENSE_PAYMENT' ? dto.expenseAccountId : undefined,
+        existing.expenseAccountId,
+      ) &&
+      same(dto.currencyId, existing.currencyId) &&
+      same(dto.receivingAccountId, existing.receivingAccountId) &&
+      same(dto.paymentSourceId, existing.paymentSourceId);
+    if (!matches) {
+      throw new ConflictException({
+        code: 'IDEMPOTENCY_KEY_REUSED',
+        message: `This form was already submitted as ${existing.transactionNumber} with different details — reopen the form to record a new document.`,
+      });
+    }
+    if (
+      options.requireConfirmed &&
+      existing.status === FinancialTransactionStatus.DRAFT
+    ) {
+      throw new ConflictException({
+        code: 'IDEMPOTENCY_KEY_DRAFT',
+        message: `The earlier request saved ${existing.transactionNumber} as a draft — open it and confirm it explicitly.`,
+      });
+    }
+    return existing;
+  }
+
+  private isIdempotencyKeyClash(error: unknown): boolean {
+    if (
+      !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+      error.code !== 'P2002'
+    ) {
+      return false;
+    }
+    return JSON.stringify(error.meta ?? {}).includes('idempotency_key');
   }
 
   async findAll(
@@ -332,6 +454,9 @@ export class FinancialTransactionsService {
     }
 
     const partyId = existing.partnerId ?? undefined;
+    if (existing.type === 'EXPENSE_PAYMENT' && dto.expenseAccountId) {
+      await this.assertExpenseAccount(dto.expenseAccountId);
+    }
     if (dto.amount !== undefined || dto.allocations !== undefined) {
       const amount = dto.amount ?? Number(existing.amount);
       if (existing.type === 'CUSTOMER_REFUND') {
@@ -859,17 +984,7 @@ export class FinancialTransactionsService {
           'expenseAccountId is required for an Expense Payment Voucher.',
         );
       }
-      const account = await this.prisma.chartOfAccount.findFirst({
-        where: { id: dto.expenseAccountId, deletedAt: null },
-      });
-      if (!account) {
-        throw new BadRequestException('Expense account not found.');
-      }
-      if (!account.allowsPosting) {
-        throw new BadRequestException(
-          `"${account.name}" is a header account and cannot be posted to directly — choose a leaf expense account.`,
-        );
-      }
+      await this.assertExpenseAccount(dto.expenseAccountId);
       // No party (customer/supplier) — allocations never apply to an
       // Expense Payment Voucher, so the returned id is never used.
       return '';
@@ -884,6 +999,44 @@ export class FinancialTransactionsService {
       PartnerRoleType.SUPPLIER,
     );
     return dto.partnerId;
+  }
+
+  /**
+   * R13 B2 — an Expense Payment Voucher debits an EXPENSE-type Posting
+   * account that is not archived (Cleaning supplies → "Cleaning supplies
+   * expense"), never a bank, payable or Group account.
+   */
+  private async assertExpenseAccount(expenseAccountId: string) {
+    const account = await this.prisma.chartOfAccount.findFirst({
+      where: { id: expenseAccountId, deletedAt: null },
+      select: {
+        code: true,
+        name: true,
+        accountType: true,
+        allowsPosting: true,
+      },
+    });
+    if (!account) {
+      throw new BadRequestException({
+        code: 'EXPENSE_ACCOUNT_INVALID',
+        message: 'Expense account not found or archived.',
+        fields: [{ field: 'expenseAccountId', constraints: ['not_found'] }],
+      });
+    }
+    if (account.accountType !== 'EXPENSE') {
+      throw new BadRequestException({
+        code: 'EXPENSE_ACCOUNT_INVALID',
+        message: `"${account.code} ${account.name}" is a ${account.accountType} account — an expense voucher must debit an Expense account.`,
+        fields: [{ field: 'expenseAccountId', constraints: ['not_expense'] }],
+      });
+    }
+    if (!account.allowsPosting) {
+      throw new BadRequestException({
+        code: 'EXPENSE_ACCOUNT_INVALID',
+        message: `"${account.code} ${account.name}" is a Group account and cannot be posted to directly — choose a Posting expense account under it.`,
+        fields: [{ field: 'expenseAccountId', constraints: ['group_account'] }],
+      });
+    }
   }
 
   private assertAllocationsWithinAmount(

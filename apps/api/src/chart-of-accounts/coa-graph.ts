@@ -21,6 +21,10 @@ export interface CoaExistingAccount {
   accountType: string;
   parentCode: string | null;
   level: number;
+  /** Current kind in the database (true = Posting). */
+  allowsPosting?: boolean;
+  /** Archived rows still own their code (global unique index). */
+  archived?: boolean;
 }
 
 export interface CoaGraphError {
@@ -48,7 +52,11 @@ export function validateCoaImportGraph(
 ): CoaGraphError[] {
   const errors: CoaGraphError[] = [];
   const fileByCode = new Map<string, CoaImportFileRow>();
-  const existingByCode = new Map(existing.map((row) => [row.code, row]));
+  const archivedCodes = new Set(
+    existing.filter((row) => row.archived).map((row) => row.code),
+  );
+  const activeExisting = existing.filter((row) => !row.archived);
+  const existingByCode = new Map(activeExisting.map((row) => [row.code, row]));
 
   for (const row of rows) {
     const code = row.code.trim();
@@ -71,13 +79,26 @@ export function validateCoaImportGraph(
   const parentByCode = new Map<string, string | null>();
   const nameByCode = new Map<string, string>();
 
-  for (const row of existing) {
+  for (const row of activeExisting) {
     typeByCode.set(row.code, row.accountType);
     parentByCode.set(row.code, row.parentCode);
     nameByCode.set(row.code, row.name);
+    if (row.allowsPosting !== undefined) {
+      kindByCode.set(
+        row.code,
+        row.allowsPosting ? ACCOUNT_KIND.POSTING : ACCOUNT_KIND.AGGREGATION,
+      );
+    }
   }
 
   for (const row of fileByCode.values()) {
+    if (archivedCodes.has(row.code)) {
+      errors.push({
+        code: row.code,
+        message: `Account Code "${row.code}" belongs to an archived account — restore it from the Chart of Accounts or use another code.`,
+      });
+      continue;
+    }
     const accountType = row.accountType.trim().toUpperCase();
     if (!ACCOUNT_TYPES.has(accountType)) {
       errors.push({
@@ -112,6 +133,11 @@ export function validateCoaImportGraph(
           message: `Parent Account Code is required unless the row is a system root (codes 1–5).`,
         });
       }
+    } else if (archivedCodes.has(parentCode) && !fileByCode.has(parentCode)) {
+      errors.push({
+        code: row.code,
+        message: `Parent Account Code "${parentCode}" is archived — restore it before importing accounts under it.`,
+      });
     } else if (!fileByCode.has(parentCode) && !existingByCode.has(parentCode)) {
       errors.push({
         code: row.code,
@@ -133,17 +159,28 @@ export function validateCoaImportGraph(
     childrenByParent.set(parentCode, list);
   }
 
+  // R13 B1: a Posting account never has children — whether the parent's
+  // kind comes from this file or from the database. The parent is never
+  // converted implicitly; the file must mark it AGGREGATION (Group).
   for (const [parentCode, children] of childrenByParent) {
     const parentKind = kindByCode.get(parentCode);
-    if (parentKind === ACCOUNT_KIND.POSTING) {
-      for (const childCode of children) {
-        if (fileByCode.has(childCode)) {
-          errors.push({
-            code: childCode,
-            message: `Parent Account Code "${parentCode}" is a POSTING account and cannot have children.`,
-          });
-        }
+    if (parentKind !== ACCOUNT_KIND.POSTING) continue;
+    const parentInFile = fileByCode.has(parentCode);
+    for (const childCode of children) {
+      if (fileByCode.has(childCode)) {
+        errors.push({
+          code: childCode,
+          message: parentInFile
+            ? `Parent Account Code "${parentCode}" is a POSTING account in this file and cannot have children — mark it ${ACCOUNT_KIND.AGGREGATION}.`
+            : `Parent Account Code "${parentCode}" is a POSTING account and cannot have children — convert it to a Group (${ACCOUNT_KIND.AGGREGATION}) first.`,
+        });
       }
+    }
+    if (parentInFile && children.some((child) => !fileByCode.has(child))) {
+      errors.push({
+        code: parentCode,
+        message: `Account "${parentCode}" has sub-accounts and cannot be a POSTING account — mark it ${ACCOUNT_KIND.AGGREGATION}.`,
+      });
     }
   }
 

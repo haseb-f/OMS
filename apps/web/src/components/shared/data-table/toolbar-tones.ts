@@ -9,9 +9,10 @@ import { useLayoutEffect, useRef } from "react";
  * carry that number as `data-toolbar-tone`. `theme/recipes.css` maps each
  * number to one step of the blue ramp (`--toolbar-tone-*` in globals.css).
  *
- * DOM order is logical order, so in RTL the deepest step sits on the right
- * and the ramp runs leftward; in LTR it is mirrored — no direction logic
- * here. Numbering counts every eligible control, including ones a
+ * DOM order is logical order and the ramp is ordered light → deep (tone 1 =
+ * lightest, Round 13 D-A3), so in RTL the lightest step sits on the right and
+ * the row darkens leftward; in LTR it is mirrored (lightest on the left) — no
+ * direction logic here. Numbering counts every eligible control, including ones a
  * responsive class currently hides (the phone "Filters" button, the inline
  * filter group): hiding, wrapping or overflowing therefore never recolours
  * the controls that remain, and a control keeps its shade at every width.

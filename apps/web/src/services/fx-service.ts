@@ -119,6 +119,8 @@ export interface FxSyncStatus {
   freshness: FxRateFreshness;
   lastRun: FxSyncRunRow | null;
   lastSuccess: FxSyncRunRow | null;
+  /** Newest SUCCESS / PARTIAL / FAILED run — a later SKIPPED row never hides a failure. */
+  lastAttempt?: FxSyncRunRow | null;
   newestEffectiveDate: string | null;
   newestAgeDays: number | null;
   staleAlert: boolean;

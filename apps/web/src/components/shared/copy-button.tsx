@@ -38,6 +38,7 @@ export function CopyButton({
   size = "xs",
   disabled,
   preserveFocus = false,
+  successToast,
   className,
 }: {
   /** The full value, or a getter read at click time (e.g. what is typed in a field right now). */
@@ -51,10 +52,12 @@ export function CopyButton({
   disabled?: boolean;
   /** Keep focus (and the caret) in the field the button sits in. */
   preserveFocus?: boolean;
+  /** Also confirm with a success toast (e.g. "Password copied") — for values the user must be sure they have. */
+  successToast?: string;
   className?: string;
 }) {
   const { t } = useLocale();
-  const { copy, copied } = useCopyToClipboard();
+  const { copy, copied } = useCopyToClipboard({ successToast });
   // Controlled tooltip: hover/focus opens it; a successful copy keeps it open
   // to show «Copied» for as long as the check is shown.
   const [tooltipOpen, setTooltipOpen] = useState(false);

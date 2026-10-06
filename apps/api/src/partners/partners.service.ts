@@ -19,6 +19,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import {
   PhoneNumberService,
+  ambiguousPhoneMessage,
   phoneErrorMessage,
 } from '../common/phone/phone-number.service';
 import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
@@ -158,9 +159,19 @@ export class PartnersService extends MasterDataCrudService<
     >;
   }
 
-  private async normalizePartnerPhone(
+  /**
+   * The stored form of a partner phone — always a full E.164 (R13 A1).
+   * With a country: read in that country (strict, unchanged). Without one:
+   * read through the R11 one path (`PhoneNumberService.lookupCandidates`:
+   * the number on its own, else the first valid reading in SA / EG / AE)
+   * and rejected with a 400 when no valid reading exists — never stored as
+   * raw text. `keepAsIs` lists the values already stored on the record, so
+   * re-saving an untouched legacy value never blocks an unrelated edit.
+   */
+  async normalizePartnerPhone(
     value: string | undefined | null,
     countryId: string | undefined | null,
+    keepAsIs: readonly (string | null | undefined)[] = [],
   ): Promise<string | undefined> {
     if (!value?.trim()) return undefined;
     const country = countryId
@@ -175,7 +186,21 @@ export class PartnersService extends MasterDataCrudService<
       }
       return result.e164;
     }
-    return result.e164 ?? value.trim();
+    const { e164, ambiguous } =
+      this.phoneNumberService.resolveWithoutCountry(value);
+    if (e164) return e164;
+    if (keepAsIs.includes(value)) return value;
+    if (ambiguous.length > 0) {
+      throw new BadRequestException({
+        code: 'PHONE_AMBIGUOUS',
+        message: ambiguousPhoneMessage(ambiguous),
+      });
+    }
+    throw new BadRequestException(
+      result.errorReason === 'NOT_A_NUMBER'
+        ? phoneErrorMessage('NOT_A_NUMBER')
+        : 'Phone number is not valid: choose its calling code or enter it with the country code (+…).',
+    );
   }
 
   /** Partner Number is never typed by hand (spec section 42) — minted the same way Customer/Supplier's own numbers were. */
@@ -300,12 +325,18 @@ export class PartnersService extends MasterDataCrudService<
       if (countryId === undefined) countryId = existing.countryId ?? undefined;
       if (dto.phone !== undefined) {
         data.phone = dto.phone
-          ? await this.normalizePartnerPhone(dto.phone, countryId)
+          ? await this.normalizePartnerPhone(dto.phone, countryId, [
+              existing.phone,
+              existing.mobile,
+            ])
           : dto.phone;
       }
       if (dto.mobile !== undefined) {
         data.mobile = dto.mobile
-          ? await this.normalizePartnerPhone(dto.mobile, countryId)
+          ? await this.normalizePartnerPhone(dto.mobile, countryId, [
+              existing.phone,
+              existing.mobile,
+            ])
           : dto.mobile;
       }
     }

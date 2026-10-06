@@ -20,6 +20,7 @@ import { UpdateJournalEntryDto } from './dto/update-journal-entry.dto';
 import { FindJournalEntriesQueryDto } from './dto/find-journal-entries-query.dto';
 import { JournalEntryLineInputDto } from './dto/journal-entry-line-input.dto';
 import { prismaEnumFilter } from '../common/query/enum-list';
+import { assertPostableAccounts } from '../accounting/posting-engine/postable-accounts';
 
 const ENTRY_INCLUDE = {
   lines: {
@@ -287,6 +288,16 @@ export class JournalEntriesService {
         existing.entryDate,
         existing.sourceType ?? undefined,
         tx,
+      );
+      // R13 B1 invariant 6 — a draft saved earlier may point at an account
+      // that has since become a Group or been archived; re-check at post.
+      const draftLines = await tx.journalEntryLine.findMany({
+        where: { journalEntryId: id },
+        select: { accountId: true },
+      });
+      await assertPostableAccounts(
+        tx,
+        draftLines.map((line) => line.accountId),
       );
       const fiscalYearId = await this.fiscalYears.resolveFiscalYearId(
         existing.entryDate,
@@ -571,11 +582,13 @@ export class JournalEntriesService {
       throw new BadRequestException('A journal entry needs at least 2 lines.');
     }
     const accountIds = [...new Set(lines.map((l) => l.accountId))];
+    // Group / archived accounts never receive a line — the same rule the
+    // Posting Engine applies, re-checked again in `post()`.
+    await assertPostableAccounts(this.prisma, accountIds);
     const accounts = await this.prisma.chartOfAccount.findMany({
       where: { id: { in: accountIds }, deletedAt: null },
       select: {
         id: true,
-        allowsPosting: true,
         code: true,
         partnerControlType: true,
       },
@@ -586,18 +599,6 @@ export class JournalEntriesService {
       const account = accountById.get(line.accountId);
       if (!account) {
         throw new BadRequestException(`Account ${line.accountId} not found.`);
-      }
-      // A header/parent account (has children) never accepts a direct
-      // posting — only leaf accounts do, set the moment an account gets its
-      // first child (see ChartOfAccountsService.create()).
-      if (!account.allowsPosting) {
-        throw new BadRequestException({
-          code: 'VALIDATION_ERROR',
-          message: `Account ${account.code} is a header account and cannot receive direct postings.`,
-          fields: [
-            { field: 'accountId', constraints: ['header_account_no_posting'] },
-          ],
-        });
       }
       const debit = line.debit ?? 0;
       const credit = line.credit ?? 0;

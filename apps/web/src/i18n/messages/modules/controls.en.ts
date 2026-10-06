@@ -14,6 +14,13 @@ const controlsEn = {
   },
   password: {
     label: "password",
+    generate: "Generate a strong password",
+    regenerate: "Generate another password",
+    copied: "Password copied",
+    newPassword: "New password",
+    resetHint:
+      "Enter or generate a password ({min}–{max} characters), or leave it empty to have the system generate one. The user must change it at the next sign-in.",
+    tooShort: "Password must be {min}–{max} characters.",
   },
   table: {
     resetColumnWidths: "Reset column widths",

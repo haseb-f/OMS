@@ -28,6 +28,10 @@ import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/business/status-badge";
 import { GeneratedPasswordDialog } from "@/components/settings/generated-password-dialog";
 import {
+  ResetPasswordField,
+  isResetPasswordAcceptable,
+} from "@/components/settings/reset-password-field";
+import {
   AGENT_PORTAL_PERMISSIONS,
   AGENT_ROLE_PRESETS,
   agentPermissionLabelKey,
@@ -83,6 +87,8 @@ export function AgentTeamTab({ agentId, agentActive }: { agentId: string; agentA
   const [deactivateTarget, setDeactivateTarget] = useState<AgentUserRow | null>(null);
   const [resetTarget, setResetTarget] = useState<AgentUserRow | null>(null);
   const [password, setPassword] = useState<string | null>(null);
+  // Optional admin-entered / generated password of the reset (empty → the server generates one).
+  const [resetPasswordValue, setResetPasswordValue] = useState("");
   const [isBusy, setIsBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -119,8 +125,13 @@ export function AgentTeamTab({ agentId, agentActive }: { agentId: string; agentA
     if (!resetTarget) return;
     setIsBusy(true);
     try {
-      const result = await agentsService.users.resetPassword(agentId, resetTarget.id);
+      const result = await agentsService.users.resetPassword(
+        agentId,
+        resetTarget.id,
+        resetPasswordValue || undefined,
+      );
       setResetTarget(null);
+      setResetPasswordValue("");
       if (result.temporaryPassword) setPassword(result.temporaryPassword);
       await load();
     } catch (error) {
@@ -285,10 +296,22 @@ export function AgentTeamTab({ agentId, agentActive }: { agentId: string; agentA
 
       <ConfirmationDialog
         open={!!resetTarget}
-        onOpenChange={(open) => !open && setResetTarget(null)}
+        onOpenChange={(open) => {
+          if (open) return;
+          setResetTarget(null);
+          setResetPasswordValue("");
+        }}
         tone="warning"
         title={t("agents.team.confirm.resetTitle", { name: resetTarget?.fullName ?? "" })}
         description={t("agents.team.confirm.resetDescription")}
+        extra={
+          <ResetPasswordField
+            value={resetPasswordValue}
+            onChange={setResetPasswordValue}
+            disabled={isBusy}
+          />
+        }
+        confirmDisabled={!isResetPasswordAcceptable(resetPasswordValue)}
         confirmLabel={t("agents.team.actions.resetPassword")}
         isConfirming={isBusy}
         onConfirm={() => void resetPassword()}

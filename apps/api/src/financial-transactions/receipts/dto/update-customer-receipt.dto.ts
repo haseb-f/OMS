@@ -1,6 +1,6 @@
-import { PartialType } from '@nestjs/mapped-types';
+import { OmitType, PartialType } from '@nestjs/mapped-types';
 import { CreateCustomerReceiptDto } from './create-customer-receipt.dto';
 
 export class UpdateCustomerReceiptDto extends PartialType(
-  CreateCustomerReceiptDto,
+  OmitType(CreateCustomerReceiptDto, ['idempotencyKey'] as const),
 ) {}

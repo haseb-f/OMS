@@ -24,12 +24,15 @@ import {
   useJobTitles,
   useSalesTeams,
   useEmployees,
+  useCountries,
 } from "@/hooks/use-reference-data";
+import { optionalPhoneIssue } from "@/components/shared/phone-input";
+import type { MessageKey } from "@/i18n/translate";
 import { useLocale } from "@/providers/locale-provider";
 import { toast, reportApiError } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
-const wizardSchema = z.object({
+const wizardObject = z.object({
   name: z.string().min(1),
   mobile: z.string().optional().or(z.literal("")),
   email: z.string().email().optional().or(z.literal("")),
@@ -48,7 +51,17 @@ const wizardSchema = z.object({
   username: z.string().optional().or(z.literal("")),
 });
 
-type WizardValues = z.infer<typeof wizardSchema>;
+/** The mobile carries its own calling code (R13 A1) and must be a valid number when given. */
+function buildWizardSchema(
+  t: (key: MessageKey, params?: Record<string, string | number>) => string,
+) {
+  return wizardObject.superRefine((values, ctx) => {
+    const issue = optionalPhoneIssue(values.mobile, t);
+    if (issue) ctx.addIssue({ code: "custom", path: ["mobile"], message: issue });
+  });
+}
+
+type WizardValues = z.infer<typeof wizardObject>;
 
 const STEP_KEYS = ["basic", "work", "compensation", "account"] as const;
 const STEP_FIELDS: Record<(typeof STEP_KEYS)[number], (keyof WizardValues)[]> = {
@@ -65,6 +78,8 @@ export default function NewEmployeePage() {
   const jobTitles = useJobTitles();
   const salesTeams = useSalesTeams();
   const employees = useEmployees();
+  const countries = useCountries();
+  const wizardSchema = useMemo(() => buildWizardSchema(t), [t]);
 
   const [stepIndex, setStepIndex] = useState(0);
   const [lines, setLines] = useState<CompensationLineDraft[]>([]);
@@ -98,7 +113,7 @@ export default function NewEmployeePage() {
     () => ({
       basic: [
         { name: "name", label: "hr.employees.fields.name", type: "text", required: true },
-        { name: "mobile", label: "hr.employees.fields.mobile", type: "text" },
+        { name: "mobile", label: "hr.employees.fields.mobile", type: "phone" },
         { name: "email", label: "hr.employees.fields.email", type: "text" },
         { name: "hireDate", label: "hr.employees.fields.hireDate", type: "date" },
       ],
@@ -264,7 +279,13 @@ export default function NewEmployeePage() {
           ))}
         </div>
 
-        <MasterDataForm form={form} fields={stepFieldsConfig[step]} sectionTitle="" columns={2} />
+        <MasterDataForm
+          form={form}
+          fields={stepFieldsConfig[step]}
+          sectionTitle=""
+          columns={2}
+          countries={countries}
+        />
 
         {step === "compensation" && (
           <div className="flex flex-col gap-2">

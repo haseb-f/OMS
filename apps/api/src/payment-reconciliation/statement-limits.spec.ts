@@ -28,6 +28,7 @@ const service = new PaymentStatementsService(
   null as never,
   null as never,
   null as never,
+  null as never,
 );
 
 describe('statement upload limits', () => {

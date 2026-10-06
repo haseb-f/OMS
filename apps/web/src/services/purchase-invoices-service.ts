@@ -50,6 +50,9 @@ export interface PurchaseInvoiceItemRow {
   scheduleStartDate?: string | null;
   prepaidMonths?: number | null;
   prepaidExpenseAccount?: ChartOfAccountRow | null;
+  /** The fixed asset / prepaid expense this line is linked to (R13 C1). */
+  fixedAsset?: { id: string; code: string | null; name: string; status: string } | null;
+  prepaidExpense?: { id: string; prepaidNumber: string; name: string; status: string } | null;
 }
 
 export interface PurchaseInvoiceRow {

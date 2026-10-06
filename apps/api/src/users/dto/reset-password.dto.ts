@@ -1,4 +1,5 @@
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { PASSWORD_POLICY } from '../../auth/password-policy';
 
 /**
  * Admin password reset. Omit `newPassword` to let the server generate a
@@ -8,6 +9,7 @@ import { IsOptional, IsString, MinLength } from 'class-validator';
 export class ResetPasswordDto {
   @IsOptional()
   @IsString()
-  @MinLength(8)
+  @MinLength(PASSWORD_POLICY.minLength)
+  @MaxLength(PASSWORD_POLICY.maxLength)
   newPassword?: string;
 }

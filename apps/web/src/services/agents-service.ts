@@ -895,9 +895,10 @@ export const agentsService = {
       apiClient.post<AgentUserRow>(
         `${base}/${agentId}/users/${userId}/${active ? "activate" : "deactivate"}`,
       ),
-    resetPassword: (agentId: string, userId: string) =>
+    resetPassword: (agentId: string, userId: string, newPassword?: string) =>
       apiClient.post<{ temporaryPassword?: string }>(
         `${base}/${agentId}/users/${userId}/reset-password`,
+        newPassword ? { newPassword } : {},
       ),
   },
 };

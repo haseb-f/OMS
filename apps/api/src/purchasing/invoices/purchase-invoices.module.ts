@@ -10,6 +10,7 @@ import { WarehousesModule } from '../../warehouses/warehouses.module';
 import { InventoryModule } from '../../inventory/inventory.module';
 import { NumberingModule } from '../../numbering/numbering.module';
 import { PostingEngineModule } from '../../accounting/posting-engine/posting-engine.module';
+import { MasterDataModule } from '../../master-data/master-data.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { PostingEngineModule } from '../../accounting/posting-engine/posting-eng
     InventoryModule,
     NumberingModule,
     PostingEngineModule,
+    MasterDataModule,
   ],
   controllers: [
     PurchaseInvoicesController,

@@ -16,6 +16,8 @@ import customerLookupAr from "./modules/customer-lookup.ar";
 import tableViewsAr from "./modules/table-views.ar";
 import assemblyAr from "./modules/assembly.ar";
 import inventoryIntegrityAr from "./modules/inventory-integrity.ar";
+import salesReportsAr from "./modules/sales-reports.ar";
+import assetSchedulesAr from "./modules/asset-schedules.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
@@ -27,6 +29,8 @@ const ar = {
   tableViews: tableViewsAr,
   assembly: assemblyAr,
   inventoryIntegrity: inventoryIntegrityAr,
+  salesReports: salesReportsAr,
+  assetSchedules: assetSchedulesAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
@@ -142,6 +146,11 @@ const ar = {
     more: "المزيد",
     previous: "السابق",
     next: "التالي",
+    stepFlow: {
+      label: "الخطوات",
+      progress: "الخطوة {current} من {total}",
+      completed: "مكتملة",
+    },
   },
   accessDenied: {
     title: "الوصول مرفوض",
@@ -337,6 +346,7 @@ const ar = {
       openingBalances: "الأرصدة الافتتاحية",
       openingInventory: "المخزون الافتتاحي",
       financialReports: "التقارير المالية",
+      salesReports: "تقارير المبيعات",
       inventoryReports: "تقارير المخزون",
       importCenter: "مركز الاستيراد",
       settings: "المستخدمون وإدارة النظام",
@@ -467,11 +477,9 @@ const ar = {
     financeChartOfAccounts: "دليل الحسابات",
     financeBankTransactions: "مطابقة العمليات",
     financeJournals: "دفاتر اليومية",
-    financePaymentSources: "مصادر الدفع",
     financeFulfillmentCostRules: "قواعد تكلفة التجهيز",
     financeCostAllocationRules: "قواعد توزيع التكاليف",
     financeCarrierReconciliation: "مطابقة تكلفة شركة الشحن",
-    financeReceivingAccounts: "الحسابات",
     financeProjects: "المشاريع",
     financeCostCenters: "مراكز التكلفة",
     financeExpenses: "المصروفات",
@@ -1280,10 +1288,20 @@ const ar = {
       natureMain: "حساب رئيسي",
       natureSub: "حساب فرعي",
       selectParent: "اختر الحساب الأب...",
-      parentHint: "اختر الحساب الذي سيظهر هذا الحساب تحته.",
+      parentHint:
+        "اختر الحساب التجميعي الذي سيظهر هذا الحساب تحته — الحسابات التجميعية وحدها يمكن أن تحتوي على حسابات فرعية.",
       parentRequired: "الحساب الفرعي يحتاج حسابًا أب.",
       postingAccount: "حساب قابل للترحيل",
       groupAccount: "حساب تجميعي",
+      kindLabel: "تجميعي أم قابل للترحيل",
+      kindGroupHint: "الحساب التجميعي يجمع أرصدة حساباته الفرعية ولا تُسجَّل عليه سطور قيود.",
+      kindPostingHint:
+        "الحساب القابل للترحيل تُسجَّل عليه سطور القيود ولا يمكن أن تكون له حسابات فرعية.",
+      kindLockedSystem: "الحسابات الرئيسية للنظام تبقى دائمًا حسابات تجميعية.",
+      kindLockedLines: "لهذا الحساب سطور قيود، لذلك يبقى حسابًا قابلًا للترحيل.",
+      kindLockedChildren: "لهذا الحساب حسابات فرعية، لذلك يبقى حسابًا تجميعيًا.",
+      usedLockedHint:
+        "لهذا الحساب سطور قيود — نوعه والحساب الأب والعملة مجمّدة. يمكن تعديل الاسم والوصف والتسوية فقط.",
       expandAll: "توسيع الكل",
       collapseAll: "طي الكل",
       deleteAction: "حذف",
@@ -2155,10 +2173,11 @@ const ar = {
         selectUser: "اختر مستخدماً",
         loadPermissions: "تحميل الصلاحيات",
         permissionsLoaded: "تم تحميل الصلاحيات — راجع واحفظ.",
-        generatePassword: "توليد كلمة المرور تلقائياً",
+        generatedPasswordHint:
+          "كلمة مرور مُنشأة — انسخها الآن. يجب على المستخدم تغييرها عند أول تسجيل دخول.",
         validationRequired: "الاسم الكامل واسم المستخدم والبريد الإلكتروني مطلوبة.",
         validationDepartment: "القسم مطلوب.",
-        validationPassword: "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل.",
+        validationPassword: "يجب أن تتكون كلمة المرور من {min} إلى {max} حرفًا.",
       },
     },
   },
@@ -3990,6 +4009,18 @@ const ar = {
         lastOrder: "آخر طلب",
         useData: "استخدام بيانات هذا العميل",
         applied: "تم تعبئة بيانات العميل الحالي.",
+      },
+      steps: {
+        customer: "العميل",
+        products: "المنتجات",
+        deliveryPayment: "التوصيل والدفع",
+        review: "المراجعة",
+        chooseCustomer: "اختر العميل، أو انتقل إلى عميل جديد.",
+        reviewDescription: "راجع الطلب قبل إنشائه. استخدم رجوع أو خطوة مكتملة لتعديل أي شيء.",
+        pricingNote:
+          "قيمة كل سطر = الكمية × سعر الوحدة المتفق عليه، وإجمالي الطلب هو مجموع الأسطر بعملة {currency}.",
+        pricingPaidNote: "يُخصم الدفع المُعلن من الإجمالي ويبقى الرصيد مستحقًا.",
+        attachmentsCount: "{count} مرفق",
       },
     },
     globalLookup: {

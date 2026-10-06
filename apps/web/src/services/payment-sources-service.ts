@@ -1,10 +1,12 @@
 import { apiClient } from "./api-client";
-import { cachedLookup } from "@/lib/lookup-cache";
+import { cachedLookup, invalidateLookups } from "@/lib/lookup-cache";
 
 export interface PaymentSourceOption {
   id: string;
   name: string;
   isActive?: boolean;
+  feePercentage?: number | string | null;
+  feeFixedAmount?: number | string | null;
 }
 
 /** `/payment-sources` is a Master Data endpoint (paginated `{ items, ... }`); older builds returned a bare array — both shapes are accepted. */
@@ -24,4 +26,6 @@ export const paymentSourcesService = {
       const rows = Array.isArray(response) ? response : (response?.items ?? []);
       return rows.filter((row) => row.isActive !== false);
     }),
+  /** After a channel is created / edited / archived, so every picker re-reads the list. */
+  invalidate: () => invalidateLookups("payment-sources:"),
 };

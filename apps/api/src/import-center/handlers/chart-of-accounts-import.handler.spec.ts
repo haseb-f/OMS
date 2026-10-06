@@ -77,6 +77,12 @@ describe('ChartOfAccountsImportHandler — Parent Account Code hierarchy', () =>
   });
 
   afterAll(async () => {
+    await prisma.journalEntry.deleteMany({
+      where: { entryNumber: { startsWith: prefix } },
+    });
+    await prisma.chartOfAccount.deleteMany({
+      where: { code: { startsWith: prefix }, parentAccountId: { not: null } },
+    });
     await prisma.chartOfAccount.deleteMany({
       where: { code: { startsWith: prefix } },
     });
@@ -328,5 +334,72 @@ describe('ChartOfAccountsImportHandler — Parent Account Code hierarchy', () =>
     const root = await accountByCode('1');
     expect(root!.isSystemAccount).toBe(true);
     expect(root!.allowsPosting).toBe(false);
+  });
+
+  // ---- R13 B1 — explicit Group / Posting kind on import -----------------
+
+  it('R13 B1 — rejects a child under an existing POSTING account (no implicit flip)', async () => {
+    const c = (suffix: string) => `${prefix}H${suffix}`;
+    const seed = await importFile([
+      row({ code: c('1'), name: 'Leaf', accountKind: 'POSTING' }),
+    ]);
+    expect(seed[0].error).toBeUndefined();
+    const results = await importFile([
+      row({
+        code: c('11'),
+        name: 'Child of leaf',
+        parentAccountCode: c('1'),
+      }),
+    ]);
+    expect(results[0].error).toMatch(
+      /POSTING account and cannot have children/,
+    );
+    expect(await accountByCode(c('11'))).toBeNull();
+    expect((await accountByCode(c('1')))!.allowsPosting).toBe(true);
+  });
+
+  it('R13 B1 — converts an unused POSTING parent to Group when the same file marks it AGGREGATION', async () => {
+    const c = (suffix: string) => `${prefix}I${suffix}`;
+    await importFile([row({ code: c('1'), name: 'Was leaf' })]);
+    const results = await importFile([
+      row({ code: c('11'), name: 'New child', parentAccountCode: c('1') }),
+      row({ code: c('1'), name: 'Now group', accountKind: 'AGGREGATION' }),
+    ]);
+    expect(results.every((r) => !r.error)).toBe(true);
+    const parent = await accountByCode(c('1'));
+    expect(parent!.allowsPosting).toBe(false);
+    expect((await accountByCode(c('11')))!.parentAccountId).toBe(parent!.id);
+  });
+
+  it('R13 B1 — an archived code is a clear row error, never a unique-index crash', async () => {
+    const c = (suffix: string) => `${prefix}J${suffix}`;
+    await importFile([row({ code: c('1'), name: 'To archive' })]);
+    await prisma.chartOfAccount.update({
+      where: { code: c('1') },
+      data: { deletedAt: new Date() },
+    });
+    const results = await importFile([
+      row({ code: c('1'), name: 'Same code again' }),
+    ]);
+    expect(results[0].error).toMatch(/belongs to an archived account/);
+  });
+
+  it('R13 B1 — re-importing a used account with its unchanged parent renames it', async () => {
+    const c = (suffix: string) => `${prefix}K${suffix}`;
+    await importFile([row({ code: c('1'), name: 'Used cash' })]);
+    const account = await accountByCode(c('1'));
+    const entry = await prisma.journalEntry.create({
+      data: { entryNumber: `${prefix}-JE-K` },
+    });
+    await prisma.journalEntryLine.create({
+      data: { journalEntryId: entry.id, accountId: account!.id, debit: 1 },
+    });
+    const results = await importFile([
+      row({ code: c('1'), name: 'Used cash renamed' }),
+    ]);
+    expect(results[0].error).toBeUndefined();
+    const after = await accountByCode(c('1'));
+    expect(after!.name).toBe('Used cash renamed');
+    expect(after!.parentAccountId).toBe(account!.parentAccountId);
   });
 });

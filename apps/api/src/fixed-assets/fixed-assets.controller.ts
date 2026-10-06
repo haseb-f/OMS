@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -13,7 +15,10 @@ import { CreateFixedAssetDto } from './dto/create-fixed-asset.dto';
 import { UpdateFixedAssetDto } from './dto/update-fixed-asset.dto';
 import {
   CapitalizeFixedAssetDto,
+  DepreciationPreviewDto,
+  DepreciationPreviewParamsDto,
   DisposeFixedAssetDto,
+  LinkInvoiceLineDto,
   RunDepreciationDto,
 } from './dto/lifecycle.dto';
 import { MasterDataQueryDto } from '../master-data/dto/master-data-query.dto';
@@ -47,6 +52,21 @@ export class FixedAssetsController {
     return this.fixedAssetsService.runDepreciation(dto, user.sub);
   }
 
+  /** Depreciation schedule of an unsaved asset form (no side effects). */
+  @Post('schedule-preview')
+  @HttpCode(200)
+  @PermissionAction('view')
+  previewSchedule(@Body() dto: DepreciationPreviewDto) {
+    return this.fixedAssetsService.previewSchedule(dto);
+  }
+
+  /** FIXED_ASSET lines of Draft purchase invoices not linked to an asset yet. */
+  @Get('linkable-invoice-lines')
+  @PermissionAction('edit')
+  linkableInvoiceLines(@Query('search') search?: string) {
+    return this.fixedAssetsService.linkableInvoiceLines(search);
+  }
+
   @Get()
   @SkipPermissionCheck()
   findAll(@Query() query: MasterDataQueryDto) {
@@ -55,7 +75,34 @@ export class FixedAssetsController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.fixedAssetsService.findOne(id);
+    return this.fixedAssetsService.detail(id);
+  }
+
+  /** Stored schedule once capitalized; otherwise what capitalizing would create (query = overrides). */
+  @Get(':id/schedule-preview')
+  @PermissionAction('view')
+  previewScheduleFor(
+    @Param('id') id: string,
+    @Query() overrides: DepreciationPreviewParamsDto,
+  ) {
+    return this.fixedAssetsService.previewScheduleFor(id, overrides);
+  }
+
+  @Post(':id/invoice-line')
+  @HttpCode(200)
+  @PermissionAction('edit')
+  linkInvoiceLine(
+    @Param('id') id: string,
+    @Body() dto: LinkInvoiceLineDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.fixedAssetsService.linkInvoiceLine(id, dto, user.sub);
+  }
+
+  @Delete(':id/invoice-line')
+  @PermissionAction('edit')
+  unlinkInvoiceLine(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.fixedAssetsService.unlinkInvoiceLine(id, user.sub);
   }
 
   @Get(':id/activity')

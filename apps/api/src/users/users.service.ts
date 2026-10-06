@@ -10,6 +10,7 @@ import { uniqueFieldFromPrismaError } from '../common/errors/prisma-unique-field
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
 import {
   PhoneNumberService,
+  ambiguousPhoneMessage,
   phoneErrorMessage,
 } from '../common/phone/phone-number.service';
 import {
@@ -25,6 +26,10 @@ import {
 } from '../auth/password.util';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import {
+  PASSWORD_LENGTH_MESSAGE,
+  meetsPasswordPolicy,
+} from '../auth/password-policy';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SetUserPermissionsDto } from './dto/set-user-permissions.dto';
 import { DepartmentsService } from '../departments/departments.service';
@@ -124,22 +129,31 @@ export class UsersService {
 
   /**
    * `User` has no `countryId` (unlike Lead/Customer/Supplier) — the
-   * frontend's `OMSPhoneInput` always resolves a local number against the
-   * user's chosen country to a full E.164 value before it ever reaches this
-   * DTO, so this is a defense-in-depth check against a direct API call: it
-   * accepts anything that parses as a genuine international number
-   * (leading "+", or a recognizable "00..." prefix) and normalizes it, but
-   * can't validate a bare local-format number with no country context at all.
+   * frontend's `OMSPhoneInput` resolves the number against the field's own
+   * calling code to a full E.164 value before it reaches this DTO. As a
+   * defense in depth against a direct API call the value is read through the
+   * R11 one path (`lookupCandidates`: the number on its own, else the first
+   * valid reading in SA / EG / AE) and rejected when no valid reading exists.
    */
   private normalizeUserMobile(
     value: string | undefined | null,
   ): string | undefined {
     if (!value?.trim()) return undefined;
-    const result = this.phoneNumberService.parse(value);
-    if (!result.isValid || !result.e164) {
-      throw new BadRequestException(phoneErrorMessage(result.errorReason));
+    const { e164, ambiguous } =
+      this.phoneNumberService.resolveWithoutCountry(value);
+    if (ambiguous.length > 0) {
+      throw new BadRequestException({
+        code: 'PHONE_AMBIGUOUS',
+        message: ambiguousPhoneMessage(ambiguous),
+        fields: [{ field: 'mobile', constraints: ['ambiguous_country'] }],
+      });
     }
-    return result.e164;
+    if (!e164) {
+      throw new BadRequestException(
+        phoneErrorMessage(this.phoneNumberService.parse(value).errorReason),
+      );
+    }
+    return e164;
   }
 
   async create(
@@ -151,10 +165,10 @@ export class UsersService {
       ? generateTemporaryPassword()
       : undefined;
     const plainPassword = shouldGenerate ? temporaryPassword : password;
-    if (!plainPassword || plainPassword.length < 8) {
+    if (!plainPassword || !meetsPasswordPolicy(plainPassword)) {
       throw new BadRequestException({
         code: 'VALIDATION_ERROR',
-        message: 'Password must be at least 8 characters.',
+        message: PASSWORD_LENGTH_MESSAGE,
         fields: [{ field: 'password', constraints: ['minLength'] }],
       });
     }
@@ -173,7 +187,9 @@ export class UsersService {
           branchId: dto.branchId,
           isActive: dto.isActive,
           salesDistributionEligible: dto.salesDistributionEligible ?? false,
-          mustChangePassword: shouldGenerate,
+          // A generated password (by the server, or in the form and flagged
+          // by the admin) is temporary: changed at first sign-in.
+          mustChangePassword: shouldGenerate || dto.mustChangePassword === true,
         },
         select: PUBLIC_USER_SELECT,
       });
@@ -374,7 +390,7 @@ export class UsersService {
   ): Promise<UserWithTemporaryPassword> {
     await this.findOne(id);
     const temporaryPassword =
-      dto.newPassword && dto.newPassword.length >= 8
+      dto.newPassword && meetsPasswordPolicy(dto.newPassword)
         ? dto.newPassword
         : generateTemporaryPassword();
     const passwordHash = await hashPassword(temporaryPassword);

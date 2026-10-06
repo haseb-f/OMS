@@ -30,6 +30,7 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { formatMoney } from "@/lib/money";
 import { toast, reportApiError } from "@/lib/toast";
+import { createIdempotencyKey } from "@/hooks/use-idempotency-key";
 
 /**
  * "Refund" on a posted Sales Return — pays the customer back against the
@@ -66,10 +67,13 @@ export function CustomerRefundDialog({
   const [paymentSources, setPaymentSources] = useState<PaymentSourceOption[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  /** One idempotency key per opening of the dialog (R13 B2) — a retried submit returns the first refund. */
+  const idempotencyKeyRef = useRef<string | null>(null);
   const fieldId = useId();
 
   useEffect(() => {
     if (!open) return;
+    idempotencyKeyRef.current = createIdempotencyKey();
     let cancelled = false;
     customerRefundsService
       .refundable(salesReturnId)
@@ -132,6 +136,7 @@ export function CustomerRefundDialog({
         amount,
         referenceNumber: referenceNumber || undefined,
         allocations: [{ invoiceId: salesReturnId, allocatedAmount: amount }],
+        idempotencyKey: idempotencyKeyRef.current ?? undefined,
       });
       toast.success(t("sales.returns.toasts.refunded", { number: refund.transactionNumber }));
       onOpenChange(false);

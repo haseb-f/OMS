@@ -15,6 +15,7 @@ import {
   buildPartnerQuickCreateSchema,
   partnerQuickCreateDefaultValues,
 } from "@/config/partners/partner-form";
+import { useCountries } from "@/hooks/use-reference-data";
 import { useLocale } from "@/providers/locale-provider";
 import { reportApiError, toast } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
@@ -90,6 +91,8 @@ export function PartnerQuickCreateDialog({
 }) {
   const { t } = useLocale();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // The phone's in-field calling-code selector (R13 A1) — no address country here, so Saudi Arabia (O2) is the default.
+  const countries = useCountries();
   const quickCreateSchema = useMemo(() => buildPartnerQuickCreateSchema(t), [t]);
   const labels = LABELS[role];
 
@@ -145,6 +148,7 @@ export function PartnerQuickCreateDialog({
         form={form}
         sectionTitle={t(labels.title)}
         columns={2}
+        countries={countries}
         fields={[
           { name: "name", label: labels.nameLabel, type: "text", required: true },
           { name: "phone", label: "partners.fields.phone", type: "phone" },

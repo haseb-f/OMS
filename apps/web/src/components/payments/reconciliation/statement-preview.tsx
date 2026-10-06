@@ -8,6 +8,7 @@ import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
 import type { RowOutcome, StatementPreview } from "@/services/payment-reconciliation-service";
+import { StatementLineKindBadge } from "./line-kind-badge";
 
 const OUTCOME_TONE: Record<RowOutcome, StatusTone> = {
   CREATE: "success",
@@ -66,6 +67,7 @@ export function StatementPreviewPanel({ preview }: { preview: StatementPreview }
                       label={t(`paymentReconciliation.import.outcome.${row.outcome}`)}
                       tone={OUTCOME_TONE[row.outcome]}
                     />
+                    <StatementLineKindBadge kind={row.row?.kind} />
                     {row.errors.map((error) => (
                       <span key={error} className="text-caption text-destructive">
                         {error}

@@ -13,4 +13,10 @@ export class FindChartOfAccountsQueryDto extends MasterDataQueryDto {
   @IsBoolean()
   @IsOptional()
   postingOnly?: boolean;
+
+  /** R13 B1 — parent pickers list Group accounts only. */
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  @IsOptional()
+  groupOnly?: boolean;
 }

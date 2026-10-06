@@ -42,6 +42,8 @@ export interface UserFormPayload {
   fullName?: string;
   password?: string;
   generatePassword?: boolean;
+  /** R13 A2 — the password was generated in the form: temporary, changed at first sign-in. */
+  mustChangePassword?: boolean;
   mobile?: string;
   departmentId?: string;
   jobTitleId?: string;
@@ -73,8 +75,12 @@ export const usersService = {
   remove: (id: string) => apiClient.delete<UserRow>(`/users/${id}`),
   lock: (id: string) => apiClient.post<UserRow>(`/users/${id}/lock`),
   unlock: (id: string) => apiClient.post<UserRow>(`/users/${id}/unlock`),
-  resetPassword: (id: string) =>
-    apiClient.post<UserMutationResult>(`/users/${id}/reset-password`, {}),
+  /** Admin reset: an entered / generated `newPassword`, or none → the server generates one. */
+  resetPassword: (id: string, newPassword?: string) =>
+    apiClient.post<UserMutationResult>(
+      `/users/${id}/reset-password`,
+      newPassword ? { newPassword } : {},
+    ),
   forcePasswordChange: (id: string) =>
     apiClient.post<UserRow>(`/users/${id}/force-password-change`),
   getPermissions: (id: string) => apiClient.get<UserPermissionsResult>(`/users/${id}/permissions`),

@@ -106,6 +106,8 @@ export function MatchingTab({
     try {
       const result = await paymentReconciliationService.listLines(methodId, {
         status: "UNMATCHED",
+        // Refund / chargeback lines are reviewed on the Statement tab, never matched.
+        kind: "PAYMENT",
         search: search || undefined,
         pageSize: 100,
       });

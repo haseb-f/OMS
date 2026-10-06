@@ -197,6 +197,49 @@ describe('PaymentMethodsService — account link', () => {
     }
   });
 
+  it('R13 D1: links an active channel (returned with its fee estimate), refuses an inactive one and clears it with null', async () => {
+    const suffix = randomUUID().slice(0, 8);
+    const channel = await prisma.paymentSource.create({
+      data: { name: `PM Channel ${suffix}`, feePercentage: 2.5 },
+    });
+    const inactive = await prisma.paymentSource.create({
+      data: { name: `PM Channel Off ${suffix}`, isActive: false },
+    });
+    try {
+      const created = await service.create({
+        name: `Channel Payment Method ${suffix}`,
+        accountId: postingAccountId,
+        paymentSourceId: channel.id,
+      });
+      createdPaymentMethodIds.push(created.id);
+      const withChannel = created as {
+        paymentSource?: { id: string; feePercentage: unknown } | null;
+      };
+      expect(withChannel.paymentSource?.id).toBe(channel.id);
+      expect(Number(withChannel.paymentSource?.feePercentage)).toBe(2.5);
+
+      await expect(
+        service.update(created.id, { paymentSourceId: inactive.id }),
+      ).rejects.toThrow(/inactive/);
+      await expect(
+        service.update(created.id, { paymentSourceId: randomUUID() }),
+      ).rejects.toThrow(BadRequestException);
+
+      const cleared = await service.update(created.id, {
+        paymentSourceId: null,
+      });
+      expect(cleared.paymentSourceId).toBeNull();
+    } finally {
+      await prisma.paymentMethod.updateMany({
+        where: { paymentSourceId: { in: [channel.id, inactive.id] } },
+        data: { paymentSourceId: null },
+      });
+      await prisma.paymentSource.deleteMany({
+        where: { id: { in: [channel.id, inactive.id] } },
+      });
+    }
+  });
+
   it('never forces Currency or Country onto a Payment Method — the model has no such fields', async () => {
     const created = await service.create({
       name: `Cash Flow Test Payment Method ${randomUUID().slice(0, 8)}`,

@@ -64,6 +64,11 @@ describe('PartnersService.findOrCreateWithRole — sensitive identity guard', ()
       {} as NumberingEngineService,
       {
         parse: (value: string) => ({ isValid: true, e164: value }),
+        lookupCandidates: (value: string) => [value],
+        resolveWithoutCountry: (value: string) => ({
+          e164: value,
+          ambiguous: [],
+        }),
       } as unknown as PhoneNumberService,
     );
     const internals = service as unknown as {

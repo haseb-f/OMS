@@ -23,8 +23,13 @@ export class CreatePrepaidExpenseDto {
   @IsDateString()
   startDate!: string;
 
+  /**
+   * Optional — always derived as the last day of the final monthly period
+   * (start + totalPeriods months − 1 day). When sent it must equal that date.
+   */
   @IsDateString()
-  endDate!: string;
+  @IsOptional()
+  endDate?: string;
 
   @IsInt()
   @Min(1)
@@ -55,4 +60,18 @@ export class RecognizePrepaidDto {
   @IsDateString()
   @IsOptional()
   asOf?: string;
+}
+
+/** Recognition schedule an unsaved prepaid form would get. */
+export class PrepaidPreviewDto {
+  @IsNumber()
+  @Min(0.01)
+  amount!: number;
+
+  @IsInt()
+  @Min(1)
+  totalPeriods!: number;
+
+  @IsDateString()
+  startDate!: string;
 }

@@ -666,6 +666,11 @@ model PaymentMethod {
   requiresReconciliation Boolean @default(false) @map("requires_reconciliation")
   isActive               Boolean @default(true) @map("is_active")
 
+  /// R13 (D-D1) — the method's channel (internal PaymentSource vocabulary + fee estimate). A declared
+  /// Payment derives its paymentSourceId from this, falling back to the default source.
+  paymentSourceId String?        @map("payment_source_id") @db.Uuid
+  paymentSource   PaymentSource? @relation(fields: [paymentSourceId], references: [id], onDelete: SetNull)
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by") @db.Uuid
@@ -681,6 +686,7 @@ model PaymentMethod {
   statementLines       PaymentStatementLine[]
   settlements          PaymentSettlement[]
 
+  @@index([paymentSourceId])
   @@map("payment_methods")
 }
 
@@ -716,10 +722,8 @@ model Expense {
   @@map("expenses")
 }
 
-/// A simple fixed-asset register entry — name/acquisition date/cost,
-/// optionally attributed to a Cost Center. No depreciation calculation, no
-/// journal-entry posting: same "architecture only" scoping as Expense —
-/// a future Accounting module can add depreciation schedules on top.
+/// Depreciation method of a Fixed Asset (monthly schedule, see
+/// `fixed-assets/depreciation-schedule.ts`).
 enum DepreciationMethod {
   STRAIGHT_LINE
   DECLINING_BALANCE
@@ -742,9 +746,13 @@ enum FixedAssetStatus {
   DISPOSED
 }
 
+/// PENDING — not yet due / not yet posted (a failed attempt keeps lastError);
+/// POSTED — journal entry created by the Posting Engine (sourceId = row id);
+/// CANCELLED — never posted because the asset was disposed first (history kept).
 enum AccountingScheduleStatus {
   PENDING
   POSTED
+  CANCELLED
 }
 
 enum PrepaidExpenseStatus {
@@ -767,6 +775,11 @@ enum FxRevaluationStatus {
   REVERSED
 }
 
+/// Fixed-asset register entry: cost, depreciation parameters and a monthly
+/// depreciation schedule (`FixedAssetDepreciationPeriod`). Lifecycle
+/// DRAFT → CAPITALIZED (capitalization JE, or the purchase invoice JE when
+/// invoice-linked) → DISPOSED (catch-up depreciation, then derecognition JE;
+/// remaining periods CANCELLED). Every entry goes through the Posting Engine.
 model FixedAsset {
   id              String   @id @default(uuid()) @db.Uuid
   name            String
@@ -2331,6 +2344,14 @@ enum PaymentMatchStatus {
   REVERSED
 }
 
+/// R13 (D2) — a provider statement row is a payment, or a refund / chargeback imported for review
+/// (amount stored positive; never matched to a claim).
+enum PaymentStatementLineKind {
+  PAYMENT
+  REFUND
+  CHARGEBACK
+}
+
 enum PaymentSettlementDocStatus {
   POSTED
   REVERSED
@@ -2644,6 +2665,7 @@ model PaymentSource {
 
   payments              Payment[]
   financialTransactions FinancialTransaction[]
+  paymentMethods        PaymentMethod[]
 
   @@map("payment_sources")
 }
@@ -2867,6 +2889,7 @@ model PaymentStatementLine {
   rawRow            Json?                      @map("raw_row")
   rowHash           String?                    @map("row_hash")
   status            PaymentStatementLineStatus @default(UNMATCHED)
+  kind              PaymentStatementLineKind   @default(PAYMENT)
   exceptionReason   String?                    @map("exception_reason")
   matchedAmount     Decimal                    @default(0) @map("matched_amount") @db.Decimal(12, 2)
   createdAt         DateTime                   @default(now()) @map("created_at")
@@ -7165,6 +7188,10 @@ model FinancialTransaction {
   matchedByBankTransactions BankTransaction[]
 
   paymentReceiptLink PaymentReceiptLink?
+
+  /// R13 B2 — client-generated key (one per opened form): a repeated create
+  /// with the same key returns the first document instead of a second one.
+  idempotencyKey String? @unique @map("idempotency_key")
 
   @@map("financial_transactions")
 }

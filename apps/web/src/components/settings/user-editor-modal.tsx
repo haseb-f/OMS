@@ -16,12 +16,13 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { OMSPhoneInput, isPhoneValidForCountry } from "@/components/shared/phone-input";
+import { PASSWORD_POLICY, generateSecurePassword } from "@/lib/password-generator";
 import { PermissionMatrix } from "./permission-matrix";
 import { usersService, type UserRow, type UserFormPayload } from "@/services/users-service";
 import { DepartmentPicker } from "@/components/business/department-picker";
 import { UserPicker } from "@/components/business/user-picker";
 import { SearchableSelect } from "@/components/shared/searchable-select";
-import { useJobTitles } from "@/hooks/use-reference-data";
+import { useCountries, useJobTitles } from "@/hooks/use-reference-data";
 import type { DepartmentRow } from "@/config/master-data/entities";
 import { useCompany } from "@/providers/company-provider";
 import { useLocale } from "@/providers/locale-provider";
@@ -35,7 +36,8 @@ interface FormState {
   email: string;
   mobile: string;
   password: string;
-  generatePassword: boolean;
+  /** The password is the one the form generated (unchanged) — temporary, changed at first sign-in. */
+  passwordGenerated: boolean;
   jobTitleId: string;
   departmentId: string;
   branchId: string;
@@ -49,7 +51,7 @@ const emptyForm: FormState = {
   email: "",
   mobile: "",
   password: "",
-  generatePassword: false,
+  passwordGenerated: false,
   jobTitleId: "",
   departmentId: "",
   branchId: "",
@@ -64,7 +66,7 @@ function formFromUser(user: UserRow): FormState {
     email: user.email,
     mobile: user.mobile ?? "",
     password: "",
-    generatePassword: false,
+    passwordGenerated: false,
     jobTitleId: user.jobTitleId ?? "",
     departmentId: user.departmentId ?? "",
     branchId: user.branchId ?? "",
@@ -96,6 +98,7 @@ export function UserEditorModal({
   const { t } = useLocale();
   const { companies } = useCompany();
   const jobTitles = useJobTitles();
+  const countries = useCountries();
   const fieldId = useId();
   const [selectedDepartment, setSelectedDepartment] = useState<DepartmentRow | null>(null);
   const [archivedDepartment, setArchivedDepartment] = useState<DepartmentRow | null>(null);
@@ -126,7 +129,9 @@ export function UserEditorModal({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCopySourceId("");
     if (!user) {
-      setForm(emptyForm);
+      // Smart default (R13 A2): a strong password is already suggested, visible
+      // and copyable; the admin may keep it, regenerate it or type their own.
+      setForm({ ...emptyForm, password: generateSecurePassword(), passwordGenerated: true });
       setPermissions([]);
       setSelectedDepartment(null);
       setArchivedDepartment(null);
@@ -200,8 +205,17 @@ export function UserEditorModal({
       toast.error(t("settings.users.editor.validationDepartment"));
       return;
     }
-    if (!user && !form.generatePassword && form.password.trim().length < 8) {
-      toast.error(t("settings.users.editor.validationPassword"));
+    if (
+      !user &&
+      (form.password.trim().length < PASSWORD_POLICY.minLength ||
+        form.password.length > PASSWORD_POLICY.maxLength)
+    ) {
+      toast.error(
+        t("settings.users.editor.validationPassword", {
+          min: PASSWORD_POLICY.minLength,
+          max: PASSWORD_POLICY.maxLength,
+        }),
+      );
       return;
     }
     if (form.mobile.trim() && !isPhoneValidForCountry(form.mobile, null)) {
@@ -231,7 +245,8 @@ export function UserEditorModal({
       } else {
         const created = await usersService.create({
           ...payload,
-          ...(form.generatePassword ? { generatePassword: true } : { password: form.password }),
+          password: form.password,
+          ...(form.passwordGenerated ? { mustChangePassword: true } : {}),
         });
         saved = created;
         temporaryPassword = created.temporaryPassword;
@@ -330,41 +345,44 @@ export function UserEditorModal({
               <label className="text-caption text-muted-foreground">
                 {t("settings.users.fields.mobile")}
               </label>
+              {/* The calling code is the phone's own (R13 A1): picked in the field, read back from the stored number. */}
               <OMSPhoneInput
                 value={form.mobile}
                 onChange={(value) => setForm((c) => ({ ...c, mobile: value }))}
-                countryCode={null}
+                countries={countries}
               />
             </div>
             {!user && (
               <div className="flex flex-col gap-1 sm:col-span-2">
-                <label className="text-caption text-muted-foreground">
+                <label
+                  htmlFor={`${fieldId}-password`}
+                  className="text-caption text-muted-foreground"
+                >
                   {t("settings.users.fields.password")}
-                  {!form.generatePassword && <span className="text-destructive"> *</span>}
+                  <span className="text-destructive"> *</span>
                 </label>
-                {!form.generatePassword && (
-                  <PasswordInput
-                    inputSize="sm"
-                    autoComplete="new-password"
-                    value={form.password}
-                    onChange={(event) => setForm((c) => ({ ...c, password: event.target.value }))}
-                  />
-                )}
-                <label className="flex items-center gap-2 pt-1">
-                  <Checkbox
-                    checked={form.generatePassword}
-                    onCheckedChange={(checked) =>
-                      setForm((c) => ({
-                        ...c,
-                        generatePassword: !!checked,
-                        password: checked ? "" : c.password,
-                      }))
-                    }
-                  />
-                  <span className="text-caption font-medium">
-                    {t("settings.users.editor.generatePassword")}
-                  </span>
-                </label>
+                <PasswordInput
+                  id={`${fieldId}-password`}
+                  inputSize="sm"
+                  autoComplete="new-password"
+                  generatable
+                  defaultVisible
+                  maxLength={PASSWORD_POLICY.maxLength}
+                  value={form.password}
+                  onChange={(event) =>
+                    setForm((c) => ({
+                      ...c,
+                      password: event.target.value,
+                      passwordGenerated: false,
+                    }))
+                  }
+                  onGenerated={() => setForm((c) => ({ ...c, passwordGenerated: true }))}
+                />
+                {form.passwordGenerated ? (
+                  <p className="text-caption text-muted-foreground">
+                    {t("settings.users.editor.generatedPasswordHint")}
+                  </p>
+                ) : null}
               </div>
             )}
             <div className="flex flex-col gap-1">

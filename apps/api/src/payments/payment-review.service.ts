@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   PaymentMatchStatus,
   PaymentSettlementStatus,
+  PaymentStatementLineKind,
   PaymentStatementLineStatus,
   PaymentStatus,
 } from '@prisma/client';
@@ -158,6 +159,9 @@ export class PaymentReviewService {
       const lineGroups = await this.prisma.paymentStatementLine.groupBy({
         by: ['paymentMethodId', 'status', 'currencyId'],
         where: {
+          // Refund / chargeback rows are never matched to a claim — they are reviewed on the
+          // statement page (refund lines), not counted as unmatched receipts here.
+          kind: PaymentStatementLineKind.PAYMENT,
           status: {
             in: [
               PaymentStatementLineStatus.UNMATCHED,

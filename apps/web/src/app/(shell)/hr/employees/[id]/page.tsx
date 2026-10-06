@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -40,6 +40,7 @@ import {
   useJobTitles,
   useSalesTeams,
   useEmployees,
+  useCountries,
 } from "@/hooks/use-reference-data";
 import { HR_ROLE_PRESET_KEYS } from "@/config/hr/role-presets";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
@@ -49,8 +50,9 @@ import { formatDate, formatDateTime } from "@/lib/date";
 import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 import { formatAmount } from "@/lib/money";
+import { optionalPhoneIssue } from "@/components/shared/phone-input";
 
-const employeeEditSchema = z.object({
+const employeeEditObject = z.object({
   name: z.string().min(1),
   mobile: z.string().optional().or(z.literal("")),
   email: z.string().email().optional().or(z.literal("")),
@@ -61,7 +63,17 @@ const employeeEditSchema = z.object({
   salesTeamId: z.string().optional().or(z.literal("")),
   managerEmployeeId: z.string().optional().or(z.literal("")),
 });
-type EmployeeEditValues = z.infer<typeof employeeEditSchema>;
+type EmployeeEditValues = z.infer<typeof employeeEditObject>;
+
+/** The mobile carries its own calling code (R13 A1) and must be a valid number when given. */
+function buildEmployeeEditSchema(
+  t: (key: MessageKey, params?: Record<string, string | number>) => string,
+) {
+  return employeeEditObject.superRefine((values, ctx) => {
+    const issue = optionalPhoneIssue(values.mobile, t);
+    if (issue) ctx.addIssue({ code: "custom", path: ["mobile"], message: issue });
+  });
+}
 
 const compensationSchema = z.object({
   effectiveFrom: z.string().min(1),
@@ -88,6 +100,7 @@ export default function EmployeeProfilePage() {
   const { hasPermission } = useUserContext();
 
   const departments = useDepartments();
+  const countries = useCountries();
   const jobTitles = useJobTitles();
   const salesTeams = useSalesTeams();
   const allEmployees = useEmployees();
@@ -146,6 +159,7 @@ export default function EmployeeProfilePage() {
       .catch(() => setCompensationHistory([]));
   }, [params.id, canViewCompensation, compensationOpen]);
 
+  const employeeEditSchema = useMemo(() => buildEmployeeEditSchema(t), [t]);
   const editForm = useForm<EmployeeEditValues>({
     resolver: zodResolver(employeeEditSchema),
     defaultValues: {
@@ -213,7 +227,7 @@ export default function EmployeeProfilePage() {
 
   const editFields: MasterDataFormField[] = [
     { name: "name", label: "hr.employees.fields.name", type: "text", required: true },
-    { name: "mobile", label: "hr.employees.fields.mobile", type: "text" },
+    { name: "mobile", label: "hr.employees.fields.mobile", type: "phone" },
     { name: "email", label: "hr.employees.fields.email", type: "text" },
     { name: "hireDate", label: "hr.employees.fields.hireDate", type: "date" },
     {
@@ -651,6 +665,7 @@ export default function EmployeeProfilePage() {
           form={editForm}
           fields={editFields}
           sectionTitle={t("common.generalInformation")}
+          countries={countries}
         />
       </EnterpriseModal>
 

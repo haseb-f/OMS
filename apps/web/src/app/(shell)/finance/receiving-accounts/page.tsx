@@ -1,8 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { Landmark } from "lucide-react";
-import { ComingSoonPage } from "@/components/shared/coming-soon-page";
-
+/** R13 D1 — receiving accounts are a tab of the Payment Methods area (bookmarks keep working). */
 export default function FinanceReceivingAccountsPage() {
-  return <ComingSoonPage titleKey="nav.financeReceivingAccounts" icon={Landmark} />;
+  redirect("/master-data/payment-methods?tab=receiving-accounts");
 }

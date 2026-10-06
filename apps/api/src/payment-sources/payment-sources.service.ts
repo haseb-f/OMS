@@ -34,12 +34,24 @@ export class PaymentSourcesService extends MasterDataCrudService<PaymentSource> 
       .paymentSource as unknown as MasterDataDelegate<PaymentSource>;
   }
 
-  create(dto: CreatePaymentSourceDto, userId?: string) {
-    return super.create(dto, userId);
+  async create(dto: CreatePaymentSourceDto, userId?: string) {
+    const created = await super.create(dto, userId);
+    if (dto.isDefault) await this.clearOtherDefaults(created.id);
+    return created;
   }
 
-  update(id: string, dto: UpdatePaymentSourceDto, userId?: string) {
-    return super.update(id, dto, userId);
+  async update(id: string, dto: UpdatePaymentSourceDto, userId?: string) {
+    const updated = await super.update(id, dto, userId);
+    if (dto.isDefault) await this.clearOtherDefaults(id);
+    return updated;
+  }
+
+  /** One default channel at a time — the declaration fallback must be unambiguous. */
+  private async clearOtherDefaults(id: string) {
+    await this.prisma.paymentSource.updateMany({
+      where: { isDefault: true, id: { not: id } },
+      data: { isDefault: false },
+    });
   }
 
   /** "Deactivate" — distinct from "Archive": hides the source from new use without removing it. Reactivate via the generic update(). */

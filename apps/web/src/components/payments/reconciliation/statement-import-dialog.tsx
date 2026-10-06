@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { FileSpreadsheet, RefreshCw, UploadCloud } from "lucide-react";
+import { BookmarkCheck, FileSpreadsheet, RefreshCw, UploadCloud } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ModalFieldFullWidth, ModalSection } from "@/components/shared/modal-section";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import type { MessageKey } from "@/i18n/translate";
 import {
   paymentReconciliationService,
   type StatementMapping,
+  type StatementMappingSource,
   type StatementPreview,
 } from "@/services/payment-reconciliation-service";
 import { MappingEditor } from "./mapping-editor";
@@ -34,12 +35,15 @@ export function StatementImportDialog({
   const [file, setFile] = useState<File | null>(null);
   const [mapping, setMapping] = useState<StatementMapping | null>(null);
   const [preview, setPreview] = useState<StatementPreview | null>(null);
+  /** Where the file's first mapping came from — the method's saved mapping or a header guess. */
+  const [mappingOrigin, setMappingOrigin] = useState<StatementMappingSource | null>(null);
   const [busy, setBusy] = useState(false);
 
   const reset = () => {
     setFile(null);
     setMapping(null);
     setPreview(null);
+    setMappingOrigin(null);
   };
 
   const runPreview = async (nextFile: File, nextMapping: StatementMapping | null) => {
@@ -52,6 +56,7 @@ export function StatementImportDialog({
       );
       setPreview(result);
       setMapping(result.mapping);
+      if (!nextMapping) setMappingOrigin(result.mappingSource ?? null);
     } catch (error) {
       reportApiError(error, t("common.loadFailed"));
     } finally {
@@ -162,6 +167,16 @@ export function StatementImportDialog({
           <>
             <ModalSection title={t("paymentReconciliation.import.mappingTitle")}>
               <ModalFieldFullWidth className="flex flex-col gap-3">
+                {mappingOrigin === "SAVED" || mappingOrigin === "SUGGESTED" ? (
+                  <p className="flex items-start gap-1.5 text-caption text-muted-foreground">
+                    {mappingOrigin === "SAVED" ? (
+                      <BookmarkCheck className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                    ) : null}
+                    {mappingOrigin === "SAVED"
+                      ? t("paymentReconciliation.import.mappingSaved")
+                      : t("paymentReconciliation.import.mappingSuggested")}
+                  </p>
+                ) : null}
                 <MappingEditor
                   headers={preview.headers}
                   mapping={mapping}

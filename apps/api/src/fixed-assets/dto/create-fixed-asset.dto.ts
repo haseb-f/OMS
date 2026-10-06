@@ -1,5 +1,7 @@
+import { DepreciationMethod } from '@prisma/client';
 import {
   IsDateString,
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -32,6 +34,10 @@ export class CreateFixedAssetDto {
   @Min(1)
   @IsOptional()
   usefulLifeMonths?: number;
+
+  @IsEnum(DepreciationMethod)
+  @IsOptional()
+  depreciationMethod?: DepreciationMethod;
 
   @IsNumber()
   @Min(0)

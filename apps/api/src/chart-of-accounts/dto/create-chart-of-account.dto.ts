@@ -1,12 +1,14 @@
 import {
   IsBoolean,
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
 } from 'class-validator';
 import { AccountType } from '@prisma/client';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
+import { CHART_ACCOUNT_KINDS, type ChartAccountKind } from '../coa.constants';
 
 /**
  * A real Chart of Accounts reference list — code/name/type/hierarchy — but
@@ -55,8 +57,17 @@ export class CreateChartOfAccountDto {
   allowReconciliation?: boolean;
 
   /**
-   * Import-only: AGGREGATION rows with no children yet. Manual creates omit
-   * this and default to a posting leaf (true until a child is added).
+   * R13 B1 — the explicit account kind. GROUP aggregates children and never
+   * receives a journal line; POSTING is a leaf that receives lines and may
+   * never have children. Default POSTING. Never flipped implicitly.
+   */
+  @IsIn(CHART_ACCOUNT_KINDS)
+  @IsOptional()
+  accountKind?: ChartAccountKind;
+
+  /**
+   * Legacy boolean form of `accountKind` (false = GROUP), still accepted from
+   * older callers; `accountKind` wins when both are sent.
    */
   @IsBoolean()
   @IsOptional()

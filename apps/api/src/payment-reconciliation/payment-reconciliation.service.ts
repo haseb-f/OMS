@@ -3,6 +3,7 @@ import {
   FinancialTransactionStatus,
   PaymentMatchStatus,
   PaymentSettlementStatus,
+  PaymentStatementLineKind,
   PaymentStatementLineStatus,
   PaymentStatus,
   Prisma,
@@ -43,7 +44,7 @@ export class PaymentReconciliationService {
     const codes = await this.currencyCodes();
     const [lineGroups, claimGroups, settlementGroups] = await Promise.all([
       this.prisma.paymentStatementLine.groupBy({
-        by: ['paymentMethodId', 'status', 'currencyId'],
+        by: ['paymentMethodId', 'status', 'kind', 'currencyId'],
         where: { paymentMethodId: { in: methodIds } },
         _count: { _all: true },
         _sum: { amount: true, matchedAmount: true },
@@ -87,8 +88,15 @@ export class PaymentReconciliationService {
     const result = new Map<
       string,
       {
+        /** Payment lines per status (refund / chargeback lines are counted in `refundLines`). */
         lines: Record<PaymentStatementLineStatus, number>;
+        /** Refund / chargeback lines awaiting review (never matched to a claim). */
+        refundLines: number;
         unmatchedByCurrency: CurrencyTotals;
+        /** Statement totals (ignored lines excluded): payments, refunds / chargebacks, and net = payments − refunds. */
+        statementPaymentsByCurrency: CurrencyTotals;
+        statementRefundsByCurrency: CurrencyTotals;
+        statementNetByCurrency: CurrencyTotals;
         claimsAwaitingReconciliation: CurrencyTotals;
         disputedClaims: CurrencyTotals;
         awaitingSettlement: CurrencyTotals;
@@ -99,7 +107,11 @@ export class PaymentReconciliationService {
       if (!value) {
         value = {
           lines: { UNMATCHED: 0, MATCHED: 0, EXCEPTION: 0, IGNORED: 0 },
+          refundLines: 0,
           unmatchedByCurrency: {},
+          statementPaymentsByCurrency: {},
+          statementRefundsByCurrency: {},
+          statementNetByCurrency: {},
           claimsAwaitingReconciliation: {},
           disputedClaims: {},
           awaitingSettlement: {},
@@ -112,6 +124,31 @@ export class PaymentReconciliationService {
 
     for (const group of lineGroups) {
       const target = entry(group.paymentMethodId);
+      const code = codes.get(group.currencyId) ?? '?';
+      const amount = Number(group._sum.amount ?? 0);
+      const isPayment = group.kind === PaymentStatementLineKind.PAYMENT;
+      if (group.status !== PaymentStatementLineStatus.IGNORED) {
+        addTotal(
+          isPayment
+            ? target.statementPaymentsByCurrency
+            : target.statementRefundsByCurrency,
+          code,
+          group._count._all,
+          amount,
+        );
+        addTotal(
+          target.statementNetByCurrency,
+          code,
+          group._count._all,
+          isPayment ? amount : -amount,
+        );
+      }
+      if (!isPayment) {
+        if (group.status !== PaymentStatementLineStatus.IGNORED) {
+          target.refundLines += group._count._all;
+        }
+        continue;
+      }
       target.lines[group.status] += group._count._all;
       if (group.status === PaymentStatementLineStatus.UNMATCHED) {
         addTotal(
@@ -190,6 +227,7 @@ export class PaymentReconciliationService {
     const where: Prisma.PaymentStatementLineWhereInput = {
       paymentMethodId: methodId,
       ...(query.status ? { status: query.status } : {}),
+      ...(query.kind ? { kind: query.kind } : {}),
       ...(query.importId ? { importId: query.importId } : {}),
       ...(search
         ? {
@@ -382,6 +420,7 @@ export class PaymentReconciliationService {
         feeAmount: line.feeAmount === null ? null : Number(line.feeAmount),
         netAmount: line.netAmount === null ? null : Number(line.netAmount),
         status: line.status,
+        kind: line.kind,
         exceptionReason: line.exceptionReason,
         sourceType: line.sourceType,
         provenance: {

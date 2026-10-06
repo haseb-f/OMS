@@ -8,6 +8,7 @@ import {
   PaymentMatchStatus,
   PaymentSettlementDocStatus,
   PaymentSettlementStatus,
+  PaymentStatementLineKind,
   PaymentStatementLineStatus,
   PaymentStatus,
   Prisma,
@@ -20,6 +21,10 @@ import { lockStoreOrderRow } from '../store-orders/store-order-payment-settlemen
 import { recomputeDeclaredPaymentStatus } from '../store-orders/payment-declaration/payment-declaration.core';
 import { ClaimPostingAdapter } from './claim-posting.adapter';
 import { COMPANY_CASH_CLAIM } from '../agents/finance/agent-payment-scope';
+import {
+  NOT_BANK_MATCHED_CLAIM,
+  assertNotBankMatched,
+} from './engine-guard.util';
 import { AgentCollectionHooksService } from '../agents/finance/agent-collection-hooks.service';
 import {
   classifyProviderStatus,
@@ -152,6 +157,7 @@ function describeStatementLine(line: StatementLineRow) {
     feeAmount: line.feeAmount === null ? null : Number(line.feeAmount),
     netAmount: line.netAmount === null ? null : Number(line.netAmount),
     status: line.status,
+    kind: line.kind,
     technical: {
       importId: line.importId,
       sourceType: line.statementImport?.sourceType ?? line.sourceType,
@@ -170,13 +176,21 @@ export type StatementLineView = ReturnType<typeof describeStatementLine>;
 
 /** Why a statement line takes no suggestions (translated by the client). */
 export type SuggestionBlockedCode =
-  'PROVIDER_STATUS_FAILED' | 'LINE_NOT_UNMATCHED' | 'LINE_FULLY_ALLOCATED';
+  | 'NOT_A_PAYMENT'
+  | 'PROVIDER_STATUS_FAILED'
+  | 'LINE_NOT_UNMATCHED'
+  | 'LINE_FULLY_ALLOCATED';
+
+const NOT_A_PAYMENT_MESSAGE =
+  'Refund / chargeback lines are reviewed, never matched to a claim.';
 
 function describeBlocked(
   code: SuggestionBlockedCode,
   line: { status: PaymentStatementLineStatus; providerStatus: string | null },
 ): string {
   switch (code) {
+    case 'NOT_A_PAYMENT':
+      return NOT_A_PAYMENT_MESSAGE;
     case 'PROVIDER_STATUS_FAILED':
       return `Provider status "${line.providerStatus ?? ''}" is not a successful payment — it cannot be matched.`;
     case 'LINE_NOT_UNMATCHED':
@@ -320,7 +334,7 @@ export class PaymentMatchingService {
       status: { in: ELIGIBLE_CLAIM_STATUSES },
       storeOrderId: { not: null },
       storeOrder: { deletedAt: null },
-      AND: [COMPANY_CASH_CLAIM],
+      AND: [COMPANY_CASH_CLAIM, NOT_BANK_MATCHED_CLAIM],
     };
   }
 
@@ -351,16 +365,20 @@ export class PaymentMatchingService {
         remaining: target.remaining,
         currency: line.currency,
         status: line.status,
+        kind: line.kind,
         providerStatusClass: statusClass,
       },
     };
+    const notAPayment = line.kind !== PaymentStatementLineKind.PAYMENT;
     if (
+      notAPayment ||
       line.status !== PaymentStatementLineStatus.UNMATCHED ||
       target.remaining <= 0 ||
       statusClass === 'FAILED'
     ) {
-      const blockedCode: SuggestionBlockedCode =
-        statusClass === 'FAILED'
+      const blockedCode: SuggestionBlockedCode = notAPayment
+        ? 'NOT_A_PAYMENT'
+        : statusClass === 'FAILED'
           ? 'PROVIDER_STATUS_FAILED'
           : line.status !== PaymentStatementLineStatus.UNMATCHED
             ? 'LINE_NOT_UNMATCHED'
@@ -444,7 +462,7 @@ export class PaymentMatchingService {
         status: { in: MATCHABLE_CLAIM_STATUSES },
         storeOrderId: { not: null },
         storeOrder: { deletedAt: null },
-        AND: [COMPANY_CASH_CLAIM],
+        AND: [COMPANY_CASH_CLAIM, NOT_BANK_MATCHED_CLAIM],
         ...(query.currencyId ? { currencyId: query.currencyId } : {}),
         ...(search
           ? {
@@ -733,6 +751,9 @@ export class PaymentMatchingService {
         }
 
         const line = await this.findLine(tx, methodId, dto.statementLineId);
+        if (line.kind !== PaymentStatementLineKind.PAYMENT) {
+          throw new BadRequestException(NOT_A_PAYMENT_MESSAGE);
+        }
         if (line.status !== PaymentStatementLineStatus.UNMATCHED) {
           throw new ConflictException(
             `Statement line is ${line.status}${line.exceptionReason ? ` (${line.exceptionReason})` : ''} — only an unmatched line can be matched.`,
@@ -775,6 +796,8 @@ export class PaymentMatchingService {
           where: { id: { in: paymentIds } },
           include: CLAIM_INCLUDE,
         });
+        // One claim, one engine: a claim a bank transaction already matched stays there.
+        await assertNotBankMatched(tx, claimRows);
         const byId = new Map(claimRows.map((claim) => [claim.id, claim]));
         const matched = await this.activeMatchedByPayment(tx, paymentIds);
         const target = this.suggestionLine(line);
@@ -829,19 +852,41 @@ export class PaymentMatchingService {
           return { claim, allocation, reasons, fullyMatched };
         });
 
-        // 3. Allocations.
+        // 3. Allocations — one ACTIVE allocation per (line, claim) (partial unique index): a
+        // further allocation of the same line to the same claim tops the existing one up.
+        // Pre-R13 data may still hold several ACTIVE rows for one pair (the migration then skips
+        // the index): the oldest one is topped up deterministically, the others stay untouched.
         const matches: ConfirmMatchResult['matches'] = [];
         for (const plan of plans) {
-          const match = await tx.paymentMatch.create({
-            data: {
+          const existing = await tx.paymentMatch.findFirst({
+            where: {
               statementLineId: line.id,
               paymentId: plan.claim.id,
-              amount: new Prisma.Decimal(plan.allocation.amount.toFixed(2)),
-              reasons: plan.reasons as unknown as Prisma.InputJsonValue,
-              confirmedBy: userId,
+              status: PaymentMatchStatus.ACTIVE,
             },
+            orderBy: [{ confirmedAt: 'asc' }, { id: 'asc' }],
             select: { id: true },
           });
+          const amount = new Prisma.Decimal(plan.allocation.amount.toFixed(2));
+          const match = existing
+            ? await tx.paymentMatch.update({
+                where: { id: existing.id },
+                data: {
+                  amount: { increment: amount },
+                  reasons: plan.reasons as unknown as Prisma.InputJsonValue,
+                },
+                select: { id: true },
+              })
+            : await tx.paymentMatch.create({
+                data: {
+                  statementLineId: line.id,
+                  paymentId: plan.claim.id,
+                  amount,
+                  reasons: plan.reasons as unknown as Prisma.InputJsonValue,
+                  confirmedBy: userId,
+                },
+                select: { id: true },
+              });
           matches.push({
             id: match.id,
             paymentId: plan.claim.id,

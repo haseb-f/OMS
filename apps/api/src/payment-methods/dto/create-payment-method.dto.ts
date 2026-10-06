@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsNotEmpty,
@@ -27,6 +28,18 @@ export class CreatePaymentMethodDto {
   @IsBoolean()
   @IsOptional()
   requiresReconciliation?: boolean;
+
+  /**
+   * The method's channel (an active Payment Source): the internal "how paid" vocabulary and fee
+   * estimate a declared payment inherits. Optional — declarations fall back to the default source.
+   * `null` (or the empty selector value `""`) on update clears it.
+   */
+  @Transform(({ value }: { value: unknown }): unknown =>
+    value === '' ? null : value,
+  )
+  @IsUUID()
+  @IsOptional()
+  paymentSourceId?: string | null;
 
   /** Inactive methods cannot be chosen for new payment declarations. */
   @IsBoolean()

@@ -1,5 +1,5 @@
 import { apiClient } from "./api-client";
-import { cachedLookup } from "@/lib/lookup-cache";
+import { cachedLookup, invalidateLookups } from "@/lib/lookup-cache";
 
 export interface ReceivingAccountOption {
   id: string;
@@ -15,8 +15,12 @@ type ReceivingAccountListResponse = ReceivingAccountOption[] | { items: Receivin
 export const receivingAccountsService = {
   list: () =>
     cachedLookup("receiving-accounts:active", async () => {
-      const response = await apiClient.get<ReceivingAccountListResponse>("/receiving-accounts");
+      const response = await apiClient.get<ReceivingAccountListResponse>(
+        "/receiving-accounts?pageSize=1000&sortBy=name",
+      );
       const rows = Array.isArray(response) ? response : (response?.items ?? []);
       return rows.filter((row) => row.isActive !== false);
     }),
+  /** After a create / edit / archive in the Payment Methods area, so every picker re-reads the list. */
+  invalidate: () => invalidateLookups("receiving-accounts:"),
 };

@@ -710,7 +710,10 @@ export const agentPortalService = {
     activate: (userId: string) => apiClient.post<PortalTeamUser>(`${BASE}/team/${userId}/activate`),
     deactivate: (userId: string) =>
       apiClient.post<PortalTeamUser>(`${BASE}/team/${userId}/deactivate`),
-    resetPassword: (userId: string) =>
-      apiClient.post<PortalTeamUser>(`${BASE}/team/${userId}/reset-password`),
+    resetPassword: (userId: string, newPassword?: string) =>
+      apiClient.post<PortalTeamUser>(
+        `${BASE}/team/${userId}/reset-password`,
+        newPassword ? { newPassword } : {},
+      ),
   },
 };

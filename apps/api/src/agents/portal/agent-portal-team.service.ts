@@ -6,6 +6,7 @@ import {
   AgentUsersService,
 } from '../admin/agent-users.service';
 import type { CreateAgentSalesUserDto } from '../admin/dto/agent-user.dto';
+import type { ResetPasswordDto } from '../../users/dto/reset-password.dto';
 
 /**
  * Agent Admin team management in the portal (spec §3). Delegation rules
@@ -43,8 +44,12 @@ export class AgentPortalTeamService {
     return this.team.setSalesUserActive(agent, userId, isActive);
   }
 
-  async resetPassword(agent: AgentRequestContext, userId: string) {
-    const reset = await this.team.resetSalesUserPassword(agent, userId);
+  async resetPassword(
+    agent: AgentRequestContext,
+    userId: string,
+    dto: ResetPasswordDto = {},
+  ) {
+    const reset = await this.team.resetSalesUserPassword(agent, userId, dto);
     return {
       ...(await this.agentUsers.findOne(agent.agentId, userId)),
       temporaryPassword: reset.temporaryPassword,

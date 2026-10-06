@@ -43,7 +43,7 @@ const fxSettingsEn = {
     nextRuns: "Next scheduled runs",
     never: "Never",
     none: "None yet",
-    runNow: "Run now",
+    runNow: "Refresh now",
     backfill: "Repair last 7 days",
     editSettings: "Settings",
     settingsTitle: "Automatic import settings",
@@ -64,7 +64,7 @@ const fxSettingsEn = {
   },
   runTrigger: {
     CRON: "Scheduled",
-    MANUAL: "Run now",
+    MANUAL: "Refresh now",
     BACKFILL: "Repair",
   },
   runReason: {
@@ -73,12 +73,35 @@ const fxSettingsEn = {
     ALREADY_CURRENT: "Today's official rate was already imported",
   },
   state: {
+    overall: {
+      label: "Automatic updates",
+      RUNNING: "Updating now",
+      FAILED: "Last update failed",
+      PARTIAL: "Last update incomplete",
+      NOT_UPDATED: "Not yet updated",
+      STALE: "Rates are stale",
+      DISABLED: "Disabled (paused)",
+      ENABLED: "Enabled — rates current",
+      hint: {
+        RUNNING: "An import is fetching the official rates right now.",
+        FAILED: "The newest import attempt fetched nothing. Error: {error}",
+        PARTIAL: "The newest import finished with problems. Details: {error}",
+        NOT_UPDATED:
+          "No official rate has been imported yet. Use Refresh now or record a manual rate.",
+        STALE: "The newest official rate ({date}) is older than {days} days.",
+        DISABLED: "Scheduled updates are off. Refresh now still imports on demand.",
+        ENABLED: "Scheduled updates are on and the newest official rate is recent.",
+      },
+      noDetails: "no details recorded",
+      lastSuccess: "Last successful update: {at}",
+      effectiveDate: "Latest stored rate date: {date}",
+    },
     autoImport: {
-      label: "Automatic import",
+      label: "Enable automatic updates",
       on: "On",
       paused: "Paused",
       onHint: "Scheduled runs fetch the official rates.",
-      pausedHint: "Scheduled runs are skipped. Run now still works.",
+      pausedHint: "Scheduled runs are skipped. Refresh now still works.",
     },
     running: {
       label: "Current run",
@@ -117,6 +140,7 @@ const fxSettingsEn = {
     next: {
       label: "Next scheduled run",
       at: "{at} (Cairo)",
+      atUtc: "{at} (Cairo) · {utc} UTC",
       slotPrimary: "Daily import",
       slotLate: "Evening catch-up — fetches only if today's rate is missing",
       paused: "Paused — the scheduler skips its runs",
@@ -126,6 +150,22 @@ const fxSettingsEn = {
       running: "A run is in progress",
       noPermission: "You can view the status but not run imports.",
     },
+  },
+  howItWorks: {
+    toggle: "How it works",
+    schedule:
+      "Runs every day at 14:00 and 20:00 UTC (Cairo: 16:00 and 22:00 in winter, 17:00 and 23:00 in summer). The 20:00 run only fetches when today's rate is still missing.",
+    source: "Source: the official rates page of the Central Bank of Egypt (CBE).",
+    basis: "Rate basis: {basis}. Mid = (buy + sell) ÷ 2, calculated by OMS.",
+    manual:
+      "A rate already stored for a date — manual or imported — is never overwritten by an import.",
+    weekends:
+      "Weekends and holidays have no new CBE rate: a document uses the latest published rate on or before its date.",
+    stale:
+      "If the latest rate is more than {days} days old, posting a foreign-currency document is blocked until a rate is recorded.",
+    frozen:
+      "Posted documents keep the rate frozen at posting; a correction is an explicit reverse and re-post, never a silent change.",
+    refresh: "Refresh now works even while automatic updates are disabled.",
   },
   runColumns: {
     started: "Started",

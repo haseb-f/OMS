@@ -86,3 +86,37 @@ export function buildDepreciationSchedule(
     ? buildDecliningBalanceSchedule(cost, salvage, months, start)
     : buildStraightLineSchedule(cost, salvage, months, start);
 }
+
+export interface SchedulePreviewRow {
+  index: number;
+  periodStart: string;
+  periodEnd: string;
+  amount: number;
+  /** Running total recognized through this period. */
+  cumulative: number;
+  /** `base` minus the running total — book value (asset) / unrecognized balance (prepaid). */
+  remaining: number;
+}
+
+/**
+ * Display rows for a schedule preview — the SAME period list capitalization /
+ * activation would store, with running totals. Dates are business dates.
+ */
+export function withRunningTotals(
+  periods: DepreciationPeriodInput[],
+  base: number,
+): SchedulePreviewRow[] {
+  const round2 = (value: number) => Math.round(value * 100) / 100;
+  let cumulative = 0;
+  return periods.map((period, index) => {
+    cumulative = round2(cumulative + period.amount);
+    return {
+      index: index + 1,
+      periodStart: period.periodStart.toISOString().slice(0, 10),
+      periodEnd: period.periodEnd.toISOString().slice(0, 10),
+      amount: period.amount,
+      cumulative,
+      remaining: round2(base - cumulative),
+    };
+  });
+}

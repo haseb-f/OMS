@@ -232,15 +232,19 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
 
   const [items, setItems] = useState<TEntity[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = usePathRestorableState("page", 1);
-  const [pageSize, setPageSize] = usePathRestorableState("pageSize", 20);
-  const [search, setSearch] = usePathRestorableState("search", "");
-  const [sortBy, setSortBy] = usePathRestorableState("sortBy", defaultSortBy);
+  // Keyed by tableId too, so sibling tables on one route (tabbed areas) never share list state.
+  const [page, setPage] = usePathRestorableState(`${tableId}:page`, 1);
+  const [pageSize, setPageSize] = usePathRestorableState(`${tableId}:pageSize`, 20);
+  const [search, setSearch] = usePathRestorableState(`${tableId}:search`, "");
+  const [sortBy, setSortBy] = usePathRestorableState(`${tableId}:sortBy`, defaultSortBy);
   const [sortOrder, setSortOrder] = usePathRestorableState<"asc" | "desc">(
-    "sortOrder",
+    `${tableId}:sortOrder`,
     defaultSortOrder,
   );
-  const [includeArchived, setIncludeArchived] = usePathRestorableState("includeArchived", false);
+  const [includeArchived, setIncludeArchived] = usePathRestorableState(
+    `${tableId}:includeArchived`,
+    false,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [isSelectingCustomCount, setIsSelectingCustomCount] = useState(false);
@@ -446,8 +450,12 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
           // Only after the request resolved — never optimistic. A new record
           // gets a link that reopens it (the page honours `?edit=<id>`).
           setSubmitAttempted(false);
+          // The reopen link keeps the page's other query params (e.g. a tabbed area's `?tab=`).
+          const reopenParams = new URLSearchParams(searchParams.toString());
+          if (saved?.id) reopenParams.set("edit", saved.id);
           reportSuccess(t("common.saved"), {
-            href: !editingEntity && saved?.id ? `${pathname}?edit=${saved.id}` : undefined,
+            href:
+              !editingEntity && saved?.id ? `${pathname}?${reopenParams.toString()}` : undefined,
             navigate: (href) => router.push(href, { scroll: false }),
           });
           onRecordsChanged?.();

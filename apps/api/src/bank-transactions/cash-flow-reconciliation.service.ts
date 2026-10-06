@@ -1,3 +1,7 @@
+import {
+  assertNotProviderMatched,
+  providerMatchedPaymentIds,
+} from '../payment-reconciliation/engine-guard.util';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   BankTransactionMatchStatus,
@@ -489,7 +493,9 @@ export class CashFlowReconciliationService {
   }
 
   /** An open (PENDING/MATCHED, not yet verified) claim on the order for exactly this amount that no
-   *  other bank transaction has already matched. */
+   *  other bank transaction has already matched. A claim allocated on a provider statement (ACTIVE
+   *  PaymentMatch) is never adopted — one claim, one engine (R13 D2): when that is the only
+   *  candidate the reconciliation is refused rather than creating a second Payment for the money. */
   private async findAdoptableClaim(storeOrderId: string, amount: number) {
     const claims = await this.prisma.payment.findMany({
       where: {
@@ -501,15 +507,25 @@ export class CashFlowReconciliationService {
         AND: [COMPANY_CASH_CLAIM],
       },
       orderBy: { createdAt: 'asc' },
-      select: { id: true, status: true },
+      select: { id: true, status: true, paymentNumber: true },
     });
+    const providerMatched = await providerMatchedPaymentIds(
+      this.prisma,
+      claims.map((claim) => claim.id),
+    );
+    let refused: (typeof claims)[number] | null = null;
     for (const claim of claims) {
+      if (providerMatched.has(claim.id)) {
+        refused ??= claim;
+        continue;
+      }
       const linked = await this.prisma.bankTransaction.findFirst({
         where: { matchedPaymentId: claim.id, deletedAt: null },
         select: { id: true },
       });
       if (!linked) return claim;
     }
+    if (refused) await assertNotProviderMatched(this.prisma, refused);
     return null;
   }
 

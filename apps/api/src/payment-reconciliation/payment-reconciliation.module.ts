@@ -3,6 +3,7 @@ import { PaymentsModule } from '../payments/payments.module';
 import { StoreOrdersModule } from '../store-orders/store-orders.module';
 import { FinancialTransactionsModule } from '../financial-transactions/financial-transactions.module';
 import { GoogleSheetsService } from '../import-center/google-sheets.service';
+import { ImportMappingTemplatesService } from '../import-center/import-mapping-templates.service';
 import { PaymentReconciliationController } from './payment-reconciliation.controller';
 import { PaymentReconciliationWorkbenchController } from './payment-reconciliation-workbench.controller';
 import { PaymentBulkAcceptService } from './payment-bulk-accept.service';
@@ -18,7 +19,8 @@ import { AgentLedgerModule } from '../agents/finance/agent-ledger.module';
  * module (`ClaimPostingAdapter` → `PaymentsService.confirmInTx`); settlement
  * lives in its own module. `GoogleSheetsService` is stateless (it only reads
  * the service-account key from the environment), so it is provided here
- * directly rather than importing the whole Import Center graph.
+ * directly rather than importing the whole Import Center graph — and so is
+ * `ImportMappingTemplatesService` (Prisma only), which keeps each method's saved file mapping.
  */
 @Module({
   imports: [
@@ -37,6 +39,7 @@ import { AgentLedgerModule } from '../agents/finance/agent-ledger.module';
     PaymentMatchingService,
     ClaimPostingAdapter,
     GoogleSheetsService,
+    ImportMappingTemplatesService,
     PaymentBulkAcceptService,
   ],
   exports: [PaymentMatchingService],

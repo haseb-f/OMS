@@ -76,10 +76,9 @@ export interface MasterDataFormField {
   description?: string;
   /**
    * `type: "phone"` only — the sibling field holding the selected
-   * `Country.id`, resolved against the form's `countries` list to the ISO2
-   * code `OMSPhoneInput` needs. Required for a "phone" field to do
-   * country-aware validation instead of falling back to
-   * international-format-only.
+   * `Country.id` (e.g. the address country). It only PROPOSES the phone's
+   * calling code while the user has not picked one and has not entered a
+   * number; the code itself is the phone's own state (R13 A1).
    */
   countryFieldName?: string;
   /**
@@ -106,7 +105,13 @@ export interface MasterDataFormSection {
   fields: MasterDataFormField[];
 }
 
-/** Resolves `field.countryFieldName`'s current value (a `Country.id`) to its ISO2 code via the shared `countries` list, and re-renders whenever that sibling field changes — a `"phone"` field's country context always tracks the form's own `"country"` field live. */
+/**
+ * A `"phone"` field with the in-field calling-code selector. The code is the
+ * phone's own state (R13 A1): read back from the stored E.164 on edit and
+ * changed only in the selector; the sibling `countryFieldName` (address
+ * country) only proposes it while no code was picked and no number entered —
+ * the address and phone countries may differ.
+ */
 function PhoneFormField<TFieldValues extends FieldValues>({
   rhfField,
   form,
@@ -121,34 +126,18 @@ function PhoneFormField<TFieldValues extends FieldValues>({
   const countryId = field.countryFieldName
     ? (form.watch(field.countryFieldName as never) as unknown as string | undefined)
     : undefined;
-  const countryCode = countries.find((c) => c.id === countryId)?.code ?? null;
-  const countryFieldName = field.countryFieldName;
+  const proposedCountryCode = countries.find((c) => c.id === countryId)?.code ?? null;
 
   return (
     <OMSPhoneInput
       value={rhfField.value}
       onChange={rhfField.onChange}
       onBlur={rhfField.onBlur}
-      countryCode={countryCode}
+      proposedCountryCode={proposedCountryCode}
       placeholder={field.placeholder}
       forceValidation={form.formState.isSubmitted}
-      // The form owns the country: a calling-code conflict offers an explicit
-      // switch to the number's own country (never an automatic one).
       availableCountryCodes={countries.map((c) => c.code)}
-      // The compact calling-code selector lives inside the field (linked to the sibling country field).
-      countries={countryFieldName ? countries : undefined}
-      onCountryChange={
-        countryFieldName
-          ? (iso2) => {
-              const match = countries.find((c) => c.code === iso2);
-              if (!match) return;
-              form.setValue(countryFieldName as never, match.id as never, {
-                shouldDirty: true,
-                shouldValidate: form.formState.isSubmitted,
-              });
-            }
-          : undefined
-      }
+      countries={countries}
     />
   );
 }

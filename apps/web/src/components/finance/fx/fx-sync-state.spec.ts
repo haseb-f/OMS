@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 import type { FxSyncRunRow } from "@/services/fx-service";
 import {
   cooldownSeconds,
+  deriveFxOverallState,
   elapsedSeconds,
   formatCountdown,
   runCounts,
   runVisual,
   schedulerPaused,
+  runErrorSummary,
   serverOffsetMs,
+  utcTimeLabel,
 } from "./fx-sync-state";
 
 const run = (over: Partial<FxSyncRunRow>): FxSyncRunRow => ({
@@ -95,5 +98,120 @@ describe("paused scheduler and counts", () => {
     expect(
       runCounts(run({ insertedCount: 2, skippedCount: 1, details: { warnings: ["moved > 15%"] } })),
     ).toEqual({ inserted: 2, skipped: 1, warnings: 1 });
+  });
+});
+
+describe("deriveFxOverallState — one explicit headline state (R13 B3)", () => {
+  const settings = (enabled: boolean) => ({
+    id: "s",
+    enabled,
+    provider: "CBE",
+    currencyCodes: [],
+    rateBasis: "MID" as const,
+    maxStaleDays: 10,
+    staleAlertDays: 4,
+    updatedAt: null,
+  });
+  const base = {
+    running: null,
+    lastRun: run({ status: "SUCCESS" }),
+    lastAttempt: run({ status: "SUCCESS" }),
+    freshness: "FRESH" as const,
+    settings: settings(true),
+  };
+
+  it("enabled and current", () => {
+    expect(deriveFxOverallState(base)).toMatchObject({ key: "ENABLED", tone: "success" });
+  });
+
+  it("disabled (paused) when the switch is off and rates are still fresh", () => {
+    expect(deriveFxOverallState({ ...base, settings: settings(false) })).toMatchObject({
+      key: "DISABLED",
+      tone: "neutral",
+    });
+  });
+
+  it("running beats every other state", () => {
+    expect(
+      deriveFxOverallState({
+        ...base,
+        running: { id: "r", trigger: "MANUAL", startedAt: "2026-10-06T14:00:00.000Z" },
+        lastAttempt: run({ status: "FAILED" }),
+        freshness: "STALE",
+      }),
+    ).toMatchObject({ key: "RUNNING", tone: "info" });
+  });
+
+  it("failed when the newest attempt failed — a later SKIPPED row never hides it", () => {
+    const failed = run({ status: "FAILED", error: "CBE timeout" });
+    const state = deriveFxOverallState({
+      ...base,
+      lastRun: run({ status: "SKIPPED", details: { reason: "ALREADY_CURRENT" } }),
+      lastAttempt: failed,
+    });
+    expect(state).toMatchObject({ key: "FAILED", tone: "destructive", run: failed });
+  });
+
+  it("partial is its own warning state with the run attached", () => {
+    expect(
+      deriveFxOverallState({ ...base, lastAttempt: run({ status: "PARTIAL" }) }),
+    ).toMatchObject({ key: "PARTIAL", tone: "warning" });
+  });
+
+  it("falls back to the last run when the server sends no lastAttempt", () => {
+    const { lastAttempt: _omit, ...legacy } = base;
+    void _omit;
+    expect(deriveFxOverallState({ ...legacy, lastRun: run({ status: "FAILED" }) }).key).toBe(
+      "FAILED",
+    );
+    expect(
+      deriveFxOverallState({
+        ...legacy,
+        lastRun: run({ status: "SKIPPED", details: { reason: "DISABLED" } }),
+        settings: settings(false),
+      }).key,
+    ).toBe("DISABLED");
+  });
+
+  it("not yet updated when no official rate exists", () => {
+    expect(
+      deriveFxOverallState({ ...base, lastAttempt: null, lastRun: null, freshness: "NONE" }),
+    ).toMatchObject({ key: "NOT_UPDATED" });
+  });
+
+  it("stale beats disabled — an old rate matters even while paused", () => {
+    expect(
+      deriveFxOverallState({ ...base, freshness: "STALE", settings: settings(false) }),
+    ).toMatchObject({ key: "STALE", tone: "destructive" });
+  });
+
+  it("every state carries an icon (never colour alone)", () => {
+    for (const state of [
+      deriveFxOverallState(base),
+      deriveFxOverallState({ ...base, freshness: "NONE" }),
+    ]) {
+      expect(state.icon).toBeTruthy();
+    }
+  });
+});
+
+describe("runErrorSummary / utcTimeLabel", () => {
+  it("joins the error and the first warnings", () => {
+    expect(runErrorSummary(null)).toBeNull();
+    expect(runErrorSummary(run({ status: "SUCCESS" }))).toBeNull();
+    expect(
+      runErrorSummary(
+        run({
+          status: "PARTIAL",
+          error: " page changed ",
+          details: { warnings: ["USD missing", "SAR missing", "EUR missing"] },
+        }),
+      ),
+    ).toBe("page changed · USD missing · SAR missing · +1");
+  });
+
+  it("prints the UTC wall clock of the cron instant", () => {
+    expect(utcTimeLabel("2026-10-06T14:00:00.000Z")).toBe("14:00");
+    expect(utcTimeLabel("not a date")).toBe("—");
   });
 });

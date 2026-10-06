@@ -23,6 +23,7 @@ import { LeadFollowUpTypesModule } from './lead-follow-up-types/lead-follow-up-t
 import { SalesTeamsModule } from './sales-teams/sales-teams.module';
 import { SalesScopeModule } from './sales-scope/sales-scope.module';
 import { SalesPerformanceModule } from './sales-performance/sales-performance.module';
+import { SalesReportsModule } from './sales-reports/sales-reports.module';
 import { ShippingMethodsModule } from './shipping-methods/shipping-methods.module';
 import { ProductCategoriesModule } from './product-categories/product-categories.module';
 import { ProductBrandsModule } from './product-brands/product-brands.module';
@@ -216,6 +217,7 @@ import { StoreOrderAmendmentsModule } from './store-orders/amendments/store-orde
     CommissionsModule,
     PayrollModule,
     SalesPerformanceModule,
+    SalesReportsModule,
     InvestorsModule,
     InvestmentOpportunitiesModule,
     InvestorSubscriptionsModule,

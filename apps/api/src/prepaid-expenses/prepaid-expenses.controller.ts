@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -11,6 +12,7 @@ import {
 import { PrepaidExpensesService } from './prepaid-expenses.service';
 import {
   CreatePrepaidExpenseDto,
+  PrepaidPreviewDto,
   RecognizePrepaidDto,
   UpdatePrepaidExpenseDto,
 } from './dto/prepaid-expense.dto';
@@ -42,6 +44,14 @@ export class PrepaidExpensesController {
     return this.prepaidExpenses.recognize(dto, user.sub);
   }
 
+  /** Recognition schedule of an unsaved form (no side effects). */
+  @Post('schedule-preview')
+  @HttpCode(200)
+  @PermissionAction('view')
+  previewSchedule(@Body() dto: PrepaidPreviewDto) {
+    return this.prepaidExpenses.previewSchedule(dto);
+  }
+
   @Get()
   findAll(@Query() query: MasterDataQueryDto) {
     return this.prepaidExpenses.findAll(query);
@@ -49,12 +59,12 @@ export class PrepaidExpensesController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.prepaidExpenses.findOne(id);
+    return this.prepaidExpenses.detail(id);
   }
 
   @Get(':id/activity')
-  activity() {
-    return [];
+  activity(@Param('id') id: string) {
+    return this.prepaidExpenses.activityFor(id);
   }
 
   @Patch(':id')

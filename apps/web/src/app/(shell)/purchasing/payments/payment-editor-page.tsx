@@ -36,6 +36,7 @@ import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { reportApiError, reportSuccess } from "@/lib/toast";
+import { useIdempotencyKey } from "@/hooks/use-idempotency-key";
 
 let nextLineId = 1;
 
@@ -60,6 +61,8 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
   const { printDocument } = usePrintEngine();
   const printCompany = usePrintCompany();
   const { user, hasPermission } = useUserContext();
+  /** One key per opened form — a double submit returns the first document (R13 B2). */
+  const { key: idempotencyKey } = useIdempotencyKey();
 
   const [payment, setPayment] = useState<FinancialTransactionRow | null>(null);
   const [isLoading, setIsLoading] = useState(!!id);
@@ -202,7 +205,10 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
         applyPayment(updated);
         reportSuccess(t("common.saved"));
       } else {
-        const created = await supplierPaymentsService.create(buildPayload());
+        const created = await supplierPaymentsService.create({
+          ...buildPayload(),
+          idempotencyKey,
+        });
         reportSuccess(t("common.saved"));
         router.replace(`/purchasing/payments/${created.id}`);
       }
@@ -254,7 +260,10 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
     confirmingRef.current = true;
     setIsTransitioning(true);
     try {
-      const confirmed = await supplierPaymentsService.createConfirmed(buildPayload());
+      const confirmed = await supplierPaymentsService.createConfirmed({
+        ...buildPayload(),
+        idempotencyKey,
+      });
       reportSuccess(t("financialTransactions.toasts.confirmed"));
       router.replace(`/purchasing/payments/${confirmed.id}`);
     } catch (error) {

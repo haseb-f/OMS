@@ -204,7 +204,11 @@ export async function flagDiscrepancyIfFulfilled(
   return true;
 }
 
-/** PaymentMethod name → PaymentSource (the required "how paid" FK), with the default source as fallback. */
+/**
+ * The required Payment → PaymentSource FK: an explicit source when given, otherwise the payment
+ * method's channel (`PaymentMethod.paymentSourceId`, R13 D-D1), otherwise the default source.
+ * No name matching — the channel is configured on the method in the Payment Methods area.
+ */
 export async function resolvePaymentSourceId(
   tx: Prisma.TransactionClient,
   input: { paymentSourceId?: string; paymentMethodId?: string },
@@ -223,20 +227,19 @@ export async function resolvePaymentSourceId(
   if (input.paymentMethodId) {
     const method = await tx.paymentMethod.findFirst({
       where: { id: input.paymentMethodId, deletedAt: null },
+      select: {
+        paymentSource: {
+          select: { id: true, isActive: true, deletedAt: true },
+        },
+      },
     });
     if (!method) {
       throw new BadRequestException(
         'طريقة الدفع غير موجودة — Payment method not found.',
       );
     }
-    const byName = await tx.paymentSource.findFirst({
-      where: {
-        deletedAt: null,
-        isActive: true,
-        name: { equals: method.name, mode: 'insensitive' },
-      },
-    });
-    if (byName) return byName.id;
+    const channel = method.paymentSource;
+    if (channel && channel.isActive && !channel.deletedAt) return channel.id;
   }
   const fallback = await tx.paymentSource.findFirst({
     where: { deletedAt: null, isActive: true },

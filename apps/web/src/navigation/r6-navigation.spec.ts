@@ -47,13 +47,21 @@ describe("R6 A.1 — Finance", () => {
     expect(byId.get("finance-fx")?.group).toBe("finance-ledger");
   });
 
-  it("has no duplicate General Ledger link and hides the ComingSoon receiving accounts", () => {
+  it("has no duplicate General Ledger link; receiving accounts and channels live in the Payment Methods area", () => {
     expect(byId.has("finance-general-ledger")).toBe(false);
-    expect(byId.get("finance-receiving-accounts")?.visible).toBe(false);
-    // The route itself still resolves (bookmarks keep working).
+    // R13 D1 — tabs of /master-data/payment-methods; the old routes only redirect there.
+    expect(byId.has("finance-receiving-accounts")).toBe(false);
+    expect(byId.has("finance-payment-sources")).toBe(false);
     expect(resolveRouteAccess(navigationConfig, "/finance/receiving-accounts").source).toBe(
       "ungated",
     );
+    const area = resolveRouteAccess(navigationConfig, "/master-data/payment-methods");
+    expect(area.match).toBe("any");
+    expect(area.permissions).toEqual([
+      "masterdata.payment-methods.view",
+      "masterdata.payment-sources.view",
+      "masterdata.receiving-accounts.view",
+    ]);
   });
 
   it("labels incoming vs outgoing payments by their real purpose", () => {

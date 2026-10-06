@@ -677,15 +677,6 @@ export const navigationConfig: NavigationItem[] = [
     permissions: ["finance.view"],
   },
   {
-    id: "finance-receiving-accounts",
-    titleKey: "nav.financeReceivingAccounts",
-    parent: "finance",
-    route: "/finance/receiving-accounts",
-    icon: "landmark",
-    order: 0,
-    visible: false,
-  },
-  {
     id: "finance-journal-entries",
     titleKey: "nav.financeJournalEntries",
     parent: "finance",
@@ -740,7 +731,14 @@ export const navigationConfig: NavigationItem[] = [
     route: "/master-data/payment-methods",
     icon: "banknote",
     order: 2,
-    permissions: ["masterdata.payment-methods.view"],
+    // R13 D1 — one area: Methods, Channels (former Payment Sources) and Receiving accounts tabs;
+    // each tab is shown by its own view permission.
+    permissions: [
+      "masterdata.payment-methods.view",
+      "masterdata.payment-sources.view",
+      "masterdata.receiving-accounts.view",
+    ],
+    permissionMatch: "any",
   },
   {
     id: "master-data-payment-terms",
@@ -820,16 +818,6 @@ export const navigationConfig: NavigationItem[] = [
     icon: "library",
     order: 1,
     permissions: ["masterdata.journals.view"],
-  },
-  {
-    id: "finance-payment-sources",
-    titleKey: "nav.financePaymentSources",
-    parent: "settings",
-    group: "settings-finance",
-    route: "/finance/payment-sources",
-    icon: "credit-card",
-    order: 4,
-    permissions: ["masterdata.payment-sources.view"],
   },
   {
     id: "finance-fulfillment-cost-rules",
@@ -1097,6 +1085,7 @@ export const navigationConfig: NavigationItem[] = [
     route: "/reports/sales",
     icon: "shopping-cart",
     order: 1,
+    permissions: ["reports.sales.view"],
   },
   {
     id: "reports-crm",
@@ -1421,5 +1410,15 @@ export const navigationConfig: NavigationItem[] = [
     order: 6,
     audience: "agent",
     permissions: ["agent.team.view"],
+  },
+  {
+    id: "agent-portal-reports",
+    homeTone: "blue",
+    titleKey: "agentPortal.nav.reports",
+    icon: "bar-chart",
+    route: "/agent/reports",
+    order: 7,
+    audience: "agent",
+    permissions: ["agent.dashboard.view"],
   },
 ];

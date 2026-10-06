@@ -26,6 +26,10 @@ import {
 } from "@/components/shared/data-table/compact-detail-table";
 import { StatusBadge } from "@/components/business/status-badge";
 import { GeneratedPasswordDialog } from "@/components/settings/generated-password-dialog";
+import {
+  ResetPasswordField,
+  isResetPasswordAcceptable,
+} from "@/components/settings/reset-password-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { FieldMessage } from "@/components/ui/form";
@@ -102,6 +106,8 @@ export default function AgentTeamPage() {
   const [deactivateTarget, setDeactivateTarget] = useState<PortalTeamUser | null>(null);
   const [resetTarget, setResetTarget] = useState<PortalTeamUser | null>(null);
   const [password, setPassword] = useState<string | null>(null);
+  // Optional manager-entered / generated password of the reset (empty → the server generates one).
+  const [resetPasswordValue, setResetPasswordValue] = useState("");
   const [isBusy, setIsBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -139,8 +145,12 @@ export default function AgentTeamPage() {
     if (!resetTarget) return;
     setIsBusy(true);
     try {
-      const result = await agentPortalService.team.resetPassword(resetTarget.id);
+      const result = await agentPortalService.team.resetPassword(
+        resetTarget.id,
+        resetPasswordValue || undefined,
+      );
       setResetTarget(null);
+      setResetPasswordValue("");
       toast.success(t("agentPortal.team.toasts.passwordReset"));
       if (result.temporaryPassword) setPassword(result.temporaryPassword);
     } catch (error) {
@@ -320,10 +330,22 @@ export default function AgentTeamPage() {
 
       <ConfirmationDialog
         open={!!resetTarget}
-        onOpenChange={(open) => !open && setResetTarget(null)}
+        onOpenChange={(open) => {
+          if (open) return;
+          setResetTarget(null);
+          setResetPasswordValue("");
+        }}
         tone="warning"
         title={t("agentPortal.team.confirm.resetTitle", { name: resetTarget?.fullName ?? "" })}
         description={t("agentPortal.team.confirm.resetDescription")}
+        extra={
+          <ResetPasswordField
+            value={resetPasswordValue}
+            onChange={setResetPasswordValue}
+            disabled={isBusy}
+          />
+        }
+        confirmDisabled={!isResetPasswordAcceptable(resetPasswordValue)}
         confirmLabel={t("agentPortal.team.actions.resetPassword")}
         isConfirming={isBusy}
         onConfirm={() => void resetPassword()}
