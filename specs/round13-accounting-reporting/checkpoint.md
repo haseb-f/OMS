@@ -1,6 +1,6 @@
 # Round 13 — recovery checkpoint
 
-**Last update:** 2026-10-06 — specs written, agents about to start.
+**Last update:** 2026-10-06 — specs committed (f3e1c52); six implementation agents running (A-ui, A-order, B, C, D, E). Per-agent DBs oms_a…oms_e cloned from `oms` after the fixture.
 
 ## Environment (recreate after a container restart)
 
@@ -11,7 +11,7 @@
 
 ## Baseline (before Round 13 changes)
 
-- typecheck: pass. vitest: 118 files pass. jest: see `evidence.md` baseline line.
+- typecheck: pass. vitest: 118 files pass. jest: 165 suites / 2040 tests pass (with the go-live fixture).
 
 ## Status
 
@@ -19,4 +19,4 @@ See `plan.md` checklist. Agents are not durable across a restart: after interrup
 
 ## Next action
 
-Dispatch agents A-ui, A-order, B, C, D, E per `plan.md`.
+Wait for agent reports; review each diff centrally (ownership table in plan.md); then integration gates on DB `oms`. If agents were lost to a restart: `git status` shows their partial work — re-dispatch only the unfinished scope with the same prompt section from plan.md.
