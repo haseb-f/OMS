@@ -1,0 +1,139 @@
+{
+  "checks": [
+    {
+      "name": "API login (QA admin)",
+      "ok": true,
+      "detail": "qa-admin@oms.haseb.org"
+    },
+    {
+      "name": "products readable",
+      "ok": true,
+      "detail": "41 products"
+    },
+    {
+      "name": "stock cards readable",
+      "ok": true,
+      "detail": "35 cards"
+    },
+    {
+      "name": "no duplicate barcodes (unique index will be created)",
+      "ok": true,
+      "detail": "0 duplicate groups"
+    },
+    {
+      "name": "products expose supplyMethod",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "GET /assembly?pageSize=5",
+      "ok": true,
+      "detail": "status 200"
+    },
+    {
+      "name": "GET /inventory/integrity",
+      "ok": true,
+      "detail": "status 200"
+    },
+    {
+      "name": "integrity: no FAIL invariants",
+      "ok": false,
+      "detail": "I1:FAIL I2:PASS I3:PASS I4:PASS I5:PASS I6:WARN I7:PASS"
+    },
+    {
+      "name": "GET /products/:id/effective-defaults",
+      "ok": true,
+      "detail": "status 200"
+    },
+    {
+      "name": "GET /products/:id/investment-links",
+      "ok": true,
+      "detail": "status 200"
+    },
+    {
+      "name": "GET /products/similar-names?name=%D9%85%D9%86%D8%AA%D8%AC%20%D8%A7%D8%AE%D8%AA%D8%A8%D8%A7%D8%B1",
+      "ok": true,
+      "detail": "status 200"
+    }
+  ],
+  "review": {
+    "phase": "post",
+    "at": "2026-10-06T12:12:03.448Z",
+    "totals": {
+      "products": 41,
+      "byLegacyType": {
+        "PURCHASE_AND_SALE": 29,
+        "SALES_ONLY": 3,
+        "SERVICE": 6,
+        "PURCHASE_ONLY": 2,
+        "MANUFACTURED": 1
+      },
+      "byItemType": {
+        "PRODUCT": 35,
+        "SERVICE": 6
+      },
+      "bySupplyMethod": {
+        "PURCHASED": 40,
+        "ASSEMBLED": 1
+      },
+      "agentOwned": 5,
+      "stockCards": 35
+    },
+    "unclassifiedItemType": [],
+    "serviceButStockTracked": [],
+    "manufacturedWithBom": [
+      {
+        "id": "6ba85694-5fac-48ae-b501-8de7263d0774",
+        "sku": "PRD-2026-000041",
+        "name": "كومبو بوكس اهم 5000 كلمة",
+        "type": "MANUFACTURED",
+        "itemType": "PRODUCT",
+        "status": "ACTIVE",
+        "supplyMethod": "ASSEMBLED",
+        "route": "/products/6ba85694-5fac-48ae-b501-8de7263d0774/recipes",
+        "httpStatus": 200,
+        "lines": 0
+      }
+    ],
+    "barcodeDuplicates": [],
+    "stockWithoutCost": [],
+    "investmentFlagWouldBeBlocked": [],
+    "integrity": [
+      {
+        "id": "I1",
+        "status": "FAIL",
+        "violations": 12
+      },
+      {
+        "id": "I2",
+        "status": "PASS",
+        "violations": 0
+      },
+      {
+        "id": "I3",
+        "status": "PASS",
+        "violations": 0
+      },
+      {
+        "id": "I4",
+        "status": "PASS",
+        "violations": 0
+      },
+      {
+        "id": "I5",
+        "status": "PASS",
+        "violations": 0
+      },
+      {
+        "id": "I6",
+        "status": "WARN",
+        "violations": 1
+      },
+      {
+        "id": "I7",
+        "status": "PASS",
+        "violations": 0
+      }
+    ]
+  }
+}
