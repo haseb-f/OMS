@@ -5313,6 +5313,15 @@ model StoreOrder {
   /// `expectedVersion` on an amendment is a 409 ORDER_VERSION_CONFLICT.
   version Int @default(0)
 
+  /// R14 W3 (spec-3 §3) — revenue / stock / COGS recognition state of a company
+  /// order, written by `FulfillmentRecognitionService` after every delivery,
+  /// shipping or pickup transition (post-commit — never blocks the courier
+  /// status). Agent orders stay NOT_DUE (their stock is issued at dispatch).
+  recognitionStatus      StoreOrderRecognitionStatus @default(NOT_DUE) @map("recognition_status")
+  /// Last failure `{ code, stage, messageAr, messageEn, productSku? }`; null once recognised.
+  recognitionError       Json?                       @map("recognition_error")
+  recognitionAttemptedAt DateTime?                   @map("recognition_attempted_at")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by") @db.Uuid
@@ -5349,7 +5358,17 @@ model StoreOrder {
   @@index([employeeId])
   @@index([agentId, createdAt])
   @@index([duplicateReviewStatus, createdAt])
+  @@index([recognitionStatus])
   @@map("store_orders")
+}
+
+/// R14 W3 — see `StoreOrder.recognitionStatus`.
+enum StoreOrderRecognitionStatus {
+  NOT_DUE
+  RESERVED
+  RECOGNIZED
+  FAILED
+  RETURN_PENDING
 }
 
 /// Pricing snapshot per line — same rationale as the legacy OrderItem model
