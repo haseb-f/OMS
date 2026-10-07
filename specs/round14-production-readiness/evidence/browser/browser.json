@@ -1,0 +1,171 @@
+{
+  "at": "2026-10-07T09:17:07.471Z",
+  "base": "http://localhost:3001",
+  "results": [
+    {
+      "name": "1. company login lands on Home (/)",
+      "ok": true,
+      "detail": "http://localhost:3001/"
+    },
+    {
+      "name": "1. every sidebar group starts collapsed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "1. a second tab shares the live session",
+      "ok": true,
+      "detail": "http://localhost:3001/store-orders"
+    },
+    {
+      "name": "1. reload keeps the session",
+      "ok": true,
+      "detail": "http://localhost:3001/"
+    },
+    {
+      "name": "1. restored cookie without a live tab → sign in again",
+      "ok": true,
+      "detail": "http://localhost:3001/login"
+    },
+    {
+      "name": "1. restart sign-out carries no next",
+      "ok": true,
+      "detail": "http://localhost:3001/login"
+    },
+    {
+      "name": "1. the revoked session no longer works in the old tab",
+      "ok": true,
+      "detail": "http://localhost:3001/login?next=%2Fstore-orders"
+    },
+    {
+      "name": "2. agent login lands on the agent Home (/agent)",
+      "ok": true,
+      "detail": "http://localhost:3001/agent"
+    },
+    {
+      "name": "2. agent sidebar groups start collapsed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "3. signed-out deep link → /login?next=",
+      "ok": true,
+      "detail": "http://localhost:3001/login?next=%2Fstore-orders%3Fpage%3D1"
+    },
+    {
+      "name": "3. authorized deep link is preserved after sign-in",
+      "ok": true,
+      "detail": "http://localhost:3001/store-orders?page=1"
+    },
+    {
+      "name": "3. remember-me checkbox is gone",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "3. logout lands on /login without next",
+      "ok": true,
+      "detail": "http://localhost:3001/login"
+    },
+    {
+      "name": "4. row-action menu items carry semantic tones",
+      "ok": true,
+      "detail": "[{\"tone\":\"neutral\",\"color\":\"rgb(23, 23, 23)\"},{\"tone\":\"neutral\",\"color\":\"rgb(23, 23, 23)\"},{\"tone\":\"destructive\",\"color\":\"rgb(180, 35, 42)\"}]"
+    },
+    {
+      "name": "4. tones render as distinct colours",
+      "ok": true,
+      "detail": "rgb(23, 23, 23) | rgb(180, 35, 42)"
+    },
+    {
+      "name": "4. user dialog is compact (≤ 720 px)",
+      "ok": true,
+      "detail": "520 px"
+    },
+    {
+      "name": "4. required fields show an asterisk",
+      "ok": true,
+      "detail": "6 marks"
+    },
+    {
+      "name": "4. required controls expose aria-required",
+      "ok": true,
+      "detail": "4"
+    },
+    {
+      "name": "4. employee account tab offers a password reset",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "4. reset offers password generation",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "4. generated password meets the length policy (≥ 8)",
+      "ok": true,
+      "detail": "length 14"
+    },
+    {
+      "name": "4. reveal control exists",
+      "ok": true,
+      "detail": "إنشاء كلمة مرور أخرى | نسخ كلمة المرور | إخفاء كلمة المرور | إلغاء | إعادة تعيين كلمة المرور"
+    },
+    {
+      "name": "4. copy control exists",
+      "ok": true,
+      "detail": "إنشاء كلمة مرور أخرى | نسخ كلمة المرور | إخفاء كلمة المرور | إلغاء | إعادة تعيين كلمة المرور"
+    },
+    {
+      "name": "5. ar-light-desktop order detail shows its recognition state (FAILED)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "5. ar-light-desktop customer page shows the repeat-customer label",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "5. ar-light-desktop customer orders tab lists orders",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "5. ar-light-desktop partners area renders",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "5. ar-light-desktop partners page has no horizontal scroll",
+      "ok": true,
+      "detail": "0px"
+    },
+    {
+      "name": "5. en-dark-mobile order detail shows its recognition state (FAILED)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "5. en-dark-mobile customer page shows the repeat-customer label",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "5. en-dark-mobile customer orders tab lists orders",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "5. en-dark-mobile partners area renders",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "5. en-dark-mobile partners page has no horizontal scroll",
+      "ok": true,
+      "detail": "0px"
+    }
+  ]
+}

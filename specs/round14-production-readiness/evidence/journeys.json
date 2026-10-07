@@ -1,0 +1,840 @@
+{
+  "tag": "R14J534092",
+  "api": "http://localhost:3005",
+  "db": "oms_r14_e2e",
+  "startedAt": "2026-10-07T09:15:34.092Z",
+  "products": {
+    "stocked": "PRD-2026-000002",
+    "noCost": "AGT-B-0293F2",
+    "service": "AGT-S-0293F2",
+    "kit": null
+  },
+  "customerPhoneSuffix": "6380",
+  "throwawayUser": "r14-tmp-r14j534092@oms.local",
+  "partnerId": "85b7db46-9f54-4e54-8508-beaf8e187e11",
+  "orders": {
+    "main": "STO-2026-027279",
+    "noCost": "STO-2026-027280",
+    "other": "STO-2026-027281"
+  },
+  "jobTitle": "R14J534092 قالب صلاحيات",
+  "invoice": "INV-2026-000300",
+  "invoiceTotals": {
+    "subtotal": 340,
+    "tax_total": 45,
+    "grand_total": 385
+  },
+  "salesJournal": "JV-2026-008930",
+  "partners": ["f165c48d-7849-4aeb-bb3a-edd4bb703051", "b46f0def-4db8-40c7-b873-2528f73b2c98"],
+  "september": {
+    "netProfit": -4935842.86,
+    "entitlementA": 0,
+    "entitlementB": 0
+  },
+  "december": {
+    "netProfit": 10000,
+    "entitlementA": 3000,
+    "entitlementB": 2000
+  },
+  "finishedAt": "2026-10-07T09:16:00.629Z",
+  "summary": {
+    "pass": 128,
+    "fail": 0,
+    "bySection": {
+      "A": {
+        "pass": 12,
+        "fail": 0
+      },
+      "B": {
+        "pass": 19,
+        "fail": 0
+      },
+      "C": {
+        "pass": 22,
+        "fail": 0
+      },
+      "D": {
+        "pass": 33,
+        "fail": 0
+      },
+      "E": {
+        "pass": 15,
+        "fail": 0
+      },
+      "F": {
+        "pass": 27,
+        "fail": 0
+      }
+    }
+  },
+  "results": [
+    {
+      "section": "A",
+      "name": "token carries a server session id (sid)",
+      "ok": true,
+      "detail": "sid=true"
+    },
+    {
+      "section": "A",
+      "name": "token lifetime exp-iat = 12 h even with rememberMe:true",
+      "ok": true,
+      "detail": "43200s"
+    },
+    {
+      "section": "A",
+      "name": "user_sessions row exists, expires 12 h after creation, UA hashed",
+      "ok": true,
+      "detail": "2026-10-07T09:15:37.457 → 2026-10-07T21:15:37"
+    },
+    {
+      "section": "A",
+      "name": "login → GET /auth/me 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "section": "A",
+      "name": "POST /auth/logout 200",
+      "ok": true,
+      "detail": "200 {\"message\":\"Logged out.\"}"
+    },
+    {
+      "section": "A",
+      "name": "the same token after logout → 401",
+      "ok": true,
+      "detail": "401 {\"code\":\"SESSION_REVOKED\",\"message\":\"This session has ended.\"}"
+    },
+    {
+      "section": "A",
+      "name": "session revoked with reason LOGOUT",
+      "ok": true,
+      "detail": "LOGOUT"
+    },
+    {
+      "section": "A",
+      "name": "another session of the same user is unaffected by that logout",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "section": "A",
+      "name": "throwaway persona: /auth/me 200 while active",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "section": "A",
+      "name": "deactivated user's live token → 401 (≤ 15 s session cache)",
+      "ok": true,
+      "detail": "401 after 0s"
+    },
+    {
+      "section": "A",
+      "name": "deactivated user cannot sign in",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "section": "A",
+      "name": "throwaway persona restored (is_active=true) and retired (deleted_at set)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "B",
+      "name": "setup: a stocked company product with cost exists",
+      "ok": true,
+      "detail": "PRD-2026-000002 cost=739.64 on_hand=498"
+    },
+    {
+      "section": "B",
+      "name": "setup: a service product exists",
+      "ok": true,
+      "detail": "AGT-S-0293F2"
+    },
+    {
+      "section": "B",
+      "name": "setup: r14-sales creates a COD company store order (stocked ×2 + service)",
+      "ok": true,
+      "detail": "201 {\"id\":\"dcd7e331-55e3-42f7-9e8a-01a856fee0a1\",\"internalOrderId\":\"STO-2026-027279\",\"externalOrderId\":null,\"partnerId\":\"85b7db46-9f54-4e54-8508-beaf8e187e11\",\"leadId\":null,\"orderDate\":\"2026-10-07T09:15:39.905Z\",\"source\":\"MA"
+    },
+    {
+      "section": "B",
+      "name": "setup: the order is assigned to r14-sales",
+      "ok": true,
+      "detail": "by creation"
+    },
+    {
+      "section": "B",
+      "name": "setup: second order of the same customer (missing-cost product), INTENTIONAL_NEW_ORDER",
+      "ok": true,
+      "detail": "201 {\"id\":\"353d8507-57e4-46dc-9dc7-ee0ad04d921f\",\"internalOrderId\":\"STO-2026-027280\",\"externalOrderId\":null,\"partnerId\":\"85b7db46-9f54-4e54-8508-beaf8e187e11\",\"leadId\":null,\"orderDate\":\"2026-10-07T09:15:40.777Z\",\"source\":\"MA"
+    },
+    {
+      "section": "B",
+      "name": "setup: third order of the same customer, re-assigned to r14-sales2 via SQL",
+      "ok": true,
+      "detail": "201 {\"id\":\"0a34a8df-b532-4251-b5ab-59ea523045fe\",\"internalOrderId\":\"STO-2026-027281\",\"externalOrderId\":null,\"partnerId\":\"85b7db46-9f54-4e54-8508-beaf8e187e11\",\"leadId\":null,\"orderDate\":\"2026-10-07T09:15:41.225Z\",\"source\":\"MA"
+    },
+    {
+      "section": "B",
+      "name": "r14-sales can open its own order",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "B",
+      "name": "r14-sales (store-orders.edit, no assign_carrier) → store-order shipping-company 403",
+      "ok": true,
+      "detail": "403 {\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"shipping.assign_carrier\\\".\"}"
+    },
+    {
+      "section": "B",
+      "name": "r14-sales → store-order tracking-number 403",
+      "ok": true,
+      "detail": "403 {\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"shipping.assign_carrier\\\".\"}"
+    },
+    {
+      "section": "B",
+      "name": "DB unchanged after the refused calls (no carrier, no tracking)",
+      "ok": true,
+      "detail": "{\"n\":1,\"company\":null,\"tracking\":null}"
+    },
+    {
+      "section": "B",
+      "name": "r14-sales → legacy /sales-orders/:id/shipping-company 403 (no legacy order in DB — random id, guard runs first)",
+      "ok": true,
+      "detail": "403 {\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"shipping.assign_carrier\\\".\"}"
+    },
+    {
+      "section": "B",
+      "name": "r14-sales → legacy /sales-orders/:id/tracking-number 403 (random id)",
+      "ok": true,
+      "detail": "403 {\"code\":\"PERMISSION_ERROR\",\"message\":\"Missing permission \\\"shipping.assign_carrier\\\".\"}"
+    },
+    {
+      "section": "B",
+      "name": "r14-shipping passes the legacy guard (reaches the service → 404 for the random id, not 403)",
+      "ok": true,
+      "detail": "404 {\"code\":\"NOT_FOUND\",\"message\":\"Sales Order not found\"}"
+    },
+    {
+      "section": "B",
+      "name": "r14-agent → company order shipping-company refused",
+      "ok": true,
+      "detail": "403 {\"code\":\"AGENT_ACCESS_DENIED\",\"message\":\"This action is not available to agent users.\"}"
+    },
+    {
+      "section": "B",
+      "name": "r14-agent → company order tracking-number refused",
+      "ok": true,
+      "detail": "403 {\"code\":\"AGENT_ACCESS_DENIED\",\"message\":\"This action is not available to agent users.\"}"
+    },
+    {
+      "section": "B",
+      "name": "DB still unchanged after agent attempts",
+      "ok": true,
+      "detail": "{\"n\":1,\"company\":null,\"tracking\":null}"
+    },
+    {
+      "section": "B",
+      "name": "r14-shipping → shipping-company 200",
+      "ok": true,
+      "detail": "200 {\"id\":\"5c35a666-be73-480c-9525-a8fa74d65f6c\",\"salesOrderId\":null,\"storeOrderId\":\"dcd7e331-55e3-42f7-9e8a-01a856fee0a1\",\"attemptNumber\":1,\"shippingCompanyId\":\"ee8e8da2-894c-44c9-a339-6d4e084916d9\",\"shippingStatusId\":null,"
+    },
+    {
+      "section": "B",
+      "name": "r14-shipping → tracking-number 200",
+      "ok": true,
+      "detail": "200 {\"id\":\"5c35a666-be73-480c-9525-a8fa74d65f6c\",\"salesOrderId\":null,\"storeOrderId\":\"dcd7e331-55e3-42f7-9e8a-01a856fee0a1\",\"attemptNumber\":1,\"shippingCompanyId\":\"ee8e8da2-894c-44c9-a339-6d4e084916d9\",\"shippingStatusId\":null,"
+    },
+    {
+      "section": "B",
+      "name": "DB shows the shipping persona's carrier + tracking",
+      "ok": true,
+      "detail": "{\"n\":1,\"company\":\"ee8e8da2-894c-44c9-a339-6d4e084916d9\",\"tracking\":\"R14J534092-TRK\"}"
+    },
+    {
+      "section": "C",
+      "name": "admin reads r14-sales2's permission panel",
+      "ok": true,
+      "detail": "{\"userId\":\"628e0ece-f8fa-4fb3-af79-13f531c12a2d\",\"jobTitle\":null,\"permissionsReviewRequired\":false,\"inherited\":[],\"grants\":[\"partners.view\",\"store-orders.create\",\"store-orders.edit\",\"store-orders.view"
+    },
+    {
+      "section": "C",
+      "name": "r14-sales2 does not hold customers.lookup_advanced before",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "C",
+      "name": "admin creates a job title",
+      "ok": true,
+      "detail": "201 {\"id\":\"d3a90745-5fe3-417a-accd-e27f90725134\",\"code\":\"JT-000624\",\"name\":\"R14J534092 قالب صلاحيات\",\"nameEn\":\"R14J534092 template\",\"description\":null,\"departmentId\":null,\"sortOrder\":0,\"isActive\":true,\"createdAt\":\"2026-10-07"
+    },
+    {
+      "section": "C",
+      "name": "template impact preview lists the added permission (writes nothing)",
+      "ok": true,
+      "detail": "200 {\"jobTitleId\":\"d3a90745-5fe3-417a-accd-e27f90725134\",\"added\":[\"customers.lookup_advanced\"],\"removed\":[],\"holderCount\":0,\"users\":[]}"
+    },
+    {
+      "section": "C",
+      "name": "template saved",
+      "ok": true,
+      "detail": "200 {\"jobTitle\":{\"id\":\"d3a90745-5fe3-417a-accd-e27f90725134\",\"code\":\"JT-000624\",\"name\":\"R14J534092 قالب صلاحيات\",\"nameEn\":\"R14J534092 template\"},\"permissions\":[\"customers.lookup_advanced\"],\"holderCount\":0,\"impact\":{\"jobTitle"
+    },
+    {
+      "section": "C",
+      "name": "title assigned to r14-sales2",
+      "ok": true,
+      "detail": "200 {\"id\":\"628e0ece-f8fa-4fb3-af79-13f531c12a2d\",\"email\":\"r14-sales2@oms.local\",\"username\":\"r14-sales2\",\"fullName\":\"موظف مبيعات ثاني\",\"mobile\":null,\"departmentId\":null,\"department\":null,\"isActive\":true,\"isLocked\":false,\"must"
+    },
+    {
+      "section": "C",
+      "name": "review flag set after the title change",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "C",
+      "name": "/auth/me of r14-sales2 now includes customers.lookup_advanced",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "C",
+      "name": "panel: source = inherited (template), not an individual grant",
+      "ok": true,
+      "detail": "{\"inherited\":[\"customers.lookup_advanced\"],\"grants\":[\"partners.view\",\"store-orders.create\",\"store-orders.edit\",\"store-orders.view\"]}"
+    },
+    {
+      "section": "C",
+      "name": "inherited permission is enforced by the API (lookup no longer 403)",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "section": "C",
+      "name": "individual DENY saved",
+      "ok": true,
+      "detail": "200 {\"userId\":\"628e0ece-f8fa-4fb3-af79-13f531c12a2d\",\"jobTitle\":{\"id\":\"d3a90745-5fe3-417a-accd-e27f90725134\",\"name\":\"R14J534092 قالب صلاحيات\"},\"permissionsReviewRequired\":false,\"inherited\":[\"customers.lookup_advanced\"],\"gran"
+    },
+    {
+      "section": "C",
+      "name": "DENY beats the inherited grant (/auth/me excludes customers.lookup_advanced)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "C",
+      "name": "…and the API refuses the lookup again (403)",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "section": "C",
+      "name": "DENY removed → inherited again",
+      "ok": true,
+      "detail": "200 {\"userId\":\"628e0ece-f8fa-4fb3-af79-13f531c12a2d\",\"jobTitle\":{\"id\":\"d3a90745-5fe3-417a-accd-e27f90725134\",\"name\":\"R14J534092 قالب صلاحيات\"},\"permissionsReviewRequired\":false,\"inherited\":[\"customers.lookup_advanced\"],\"gran"
+    },
+    {
+      "section": "C",
+      "name": "saving the panel cleared the review flag",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "C",
+      "name": "admin grants users.manage_permissions to r14-sales2 individually",
+      "ok": true,
+      "detail": "200 {\"userId\":\"628e0ece-f8fa-4fb3-af79-13f531c12a2d\",\"jobTitle\":{\"id\":\"d3a90745-5fe3-417a-accd-e27f90725134\",\"name\":\"R14J534092 قالب صلاحيات\"},\"permissionsReviewRequired\":false,\"inherited\":[\"customers.lookup_advanced\"],\"gran"
+    },
+    {
+      "section": "C",
+      "name": "r14-sales2 granting shipping.edit (not held) to r14-sales → 403 PERMISSION_ESCALATION",
+      "ok": true,
+      "detail": "403 {\"code\":\"PERMISSION_ESCALATION\",\"reason\":\"NOT_HELD\",\"message\":\"لا يمكنك منح صلاحيات لا تملكها — You cannot grant permissions you do not hold yourself.\",\"permissions\":[\"shipping.edit\"]}"
+    },
+    {
+      "section": "C",
+      "name": "r14-sales's rows unchanged",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "C",
+      "name": "legacy full-list save by r14-sales2 (adds shipping.edit) → 403 PERMISSION_ESCALATION",
+      "ok": true,
+      "detail": "403 {\"code\":\"PERMISSION_ESCALATION\",\"reason\":\"NOT_HELD\",\"message\":\"لا يمكنك منح صلاحيات لا تملكها — You cannot grant permissions you do not hold yourself.\",\"permissions\":[\"shipping.edit\"]}"
+    },
+    {
+      "section": "C",
+      "name": "self-edit → 403 PERMISSION_ESCALATION",
+      "ok": true,
+      "detail": "403 {\"code\":\"PERMISSION_ESCALATION\",\"reason\":\"SELF_EDIT\",\"message\":\"لا يمكنك تعديل صلاحياتك الفردية — You cannot edit your own permission overrides.\"}"
+    },
+    {
+      "section": "C",
+      "name": "audit rows: JOB_TITLE_PERMISSIONS, USER_JOB_TITLE, USER_PERMISSIONS",
+      "ok": true,
+      "detail": "[\"USER_JOB_TITLE\",\"USER_PERMISSIONS\",\"JOB_TITLE_PERMISSIONS\"]"
+    },
+    {
+      "section": "C",
+      "name": "state restored (r14-sales2 grants/denies/title as before, no review flag)",
+      "ok": true,
+      "detail": "{\"grants\":[\"partners.view\",\"store-orders.create\",\"store-orders.edit\",\"store-orders.view\"],\"denies\":[],\"review\":false}"
+    },
+    {
+      "section": "D",
+      "name": "stock API readable (on-hand before)",
+      "ok": true,
+      "detail": "{\"productId\":\"96fc73be-a4b5-49c5-aee1-9a6794a60d9c\",\"warehouseId\":\"bce10b3e-6022-4a2e-a5f4-1e44985b43f2\",\"onHand\":498,\"reserved\":0,\"available\":498,\"ownerAgentId\":null,\"ownerAgentName\":null}"
+    },
+    {
+      "section": "D",
+      "name": "r14-shipping marks the order shipped",
+      "ok": true,
+      "detail": "200 {\"id\":\"5c35a666-be73-480c-9525-a8fa74d65f6c\",\"salesOrderId\":null,\"storeOrderId\":\"dcd7e331-55e3-42f7-9e8a-01a856fee0a1\",\"attemptNumber\":1,\"shippingCompanyId\":\"ee8e8da2-894c-44c9-a339-6d4e084916d9\",\"shippingStatusId\":\"a1cc"
+    },
+    {
+      "section": "D",
+      "name": "shipped → RESERVATION movement for the stocked line (qty 2)",
+      "ok": true,
+      "detail": "[{\"type\":\"RESERVATION\",\"quantity\":2,\"product_id\":\"96fc73be-a4b5-49c5-aee1-9a6794a60d9c\"}]"
+    },
+    {
+      "section": "D",
+      "name": "no reservation for the service line",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "D",
+      "name": "recognitionStatus RESERVED after shipping",
+      "ok": true,
+      "detail": "{\"recognition_status\":\"RESERVED\",\"recognition_error\":null}"
+    },
+    {
+      "section": "D",
+      "name": "on-hand unchanged by the reservation; reserved +qty",
+      "ok": true,
+      "detail": "{\"productId\":\"96fc73be-a4b5-49c5-aee1-9a6794a60d9c\",\"warehouseId\":\"bce10b3e-6022-4a2e-a5f4-1e44985b43f2\",\"onHand\":498,\"reserved\":2,\"available\":496,\"ownerAgentId\":null,\"ownerAgentName\":null}"
+    },
+    {
+      "section": "D",
+      "name": "r14-shipping marks the order delivered",
+      "ok": true,
+      "detail": "200 {\"id\":\"5c35a666-be73-480c-9525-a8fa74d65f6c\",\"salesOrderId\":null,\"storeOrderId\":\"dcd7e331-55e3-42f7-9e8a-01a856fee0a1\",\"attemptNumber\":1,\"shippingCompanyId\":\"ee8e8da2-894c-44c9-a339-6d4e084916d9\",\"shippingStatusId\":\"aa8b"
+    },
+    {
+      "section": "D",
+      "name": "exactly one sales invoice, CONFIRMED",
+      "ok": true,
+      "detail": "[{\"id\":\"8aa96331-42c0-4b36-bc6b-d116236766bc\",\"invoice_number\":\"INV-2026-000300\",\"status\":\"CONFIRMED\",\"grand_total\":385}]"
+    },
+    {
+      "section": "D",
+      "name": "invoice subtotal = order lines (2×150 + 40 = 340); grand = subtotal + product tax",
+      "ok": true,
+      "detail": "{\"subtotal\":340,\"tax_total\":45,\"grand_total\":385}"
+    },
+    {
+      "section": "D",
+      "name": "SALES_DELIVERY movement for the stocked line only (−2 in its warehouse)",
+      "ok": true,
+      "detail": "[{\"product_id\":\"96fc73be-a4b5-49c5-aee1-9a6794a60d9c\",\"quantity\":-2,\"warehouse_id\":\"bce10b3e-6022-4a2e-a5f4-1e44985b43f2\"}]"
+    },
+    {
+      "section": "D",
+      "name": "on-hand reduced by 2; reservation released",
+      "ok": true,
+      "detail": "{\"before\":{\"productId\":\"96fc73be-a4b5-49c5-aee1-9a6794a60d9c\",\"warehouseId\":\"bce10b3e-6022-4a2e-a5f4-1e44985b43f2\",\"onHand\":498,\"reserved\":0,\"available\":498,\"ownerAgentId\":null,\"ownerAgentName\":null},\"after\":{\"productId\":\"96fc73be-a4b5-49c5-aee1-9a6794a60d9c\",\"warehouseId\":\"bce10b3e-6022-4a2e-a5f4-1e44985b43f2\",\"onHand\":496,\"reserved\":0,\"available\":496,\"ownerAgentId\":null,\"ownerAgentName\":null}}"
+    },
+    {
+      "section": "D",
+      "name": "one posted SALES_INVOICE journal entry",
+      "ok": true,
+      "detail": "[{\"id\":\"7eeeebac-1a72-4bc1-8a56-885a6c005127\",\"entry_number\":\"JV-2026-008930\",\"total_debit\":1864.28,\"total_credit\":1864.28}]"
+    },
+    {
+      "section": "D",
+      "name": "journal balanced",
+      "ok": true,
+      "detail": "Dr 1864.28 / Cr 1864.28"
+    },
+    {
+      "section": "D",
+      "name": "COGS debit = qty × cost = 2 × 739.64 = 1479.28",
+      "ok": true,
+      "detail": "COGS Dr 1479.28"
+    },
+    {
+      "section": "D",
+      "name": "inventory credited by the same amount",
+      "ok": true,
+      "detail": "ASSET Cr 1479.28"
+    },
+    {
+      "section": "D",
+      "name": "revenue credited 340 (Dr AR / Cr revenue)",
+      "ok": true,
+      "detail": "revenue Cr 340"
+    },
+    {
+      "section": "D",
+      "name": "recognitionStatus RECOGNIZED",
+      "ok": true,
+      "detail": "{\"recognition_status\":\"RECOGNIZED\",\"recognition_error\":null}"
+    },
+    {
+      "section": "D",
+      "name": "repeated delivered calls → no duplicate invoice / movement / journal",
+      "ok": true,
+      "detail": "deliver again 200, status DELIVERED 200; invoices 1, movements 1, JEs 1"
+    },
+    {
+      "section": "D",
+      "name": "manual retry (generate-invoice) on a recognised order does not duplicate",
+      "ok": true,
+      "detail": "400 DUPLICATE"
+    },
+    {
+      "section": "D",
+      "name": "traceability: order → invoice (DOCUMENTS)",
+      "ok": true,
+      "detail": "200 {\"record\":{\"kind\":\"STORE_ORDER\",\"id\":\"dcd7e331-55e3-42f7-9e8a-01a856fee0a1\",\"number\":\"STO-2026-027279\",\"status\":\"PAYMENT_PENDING\"},\"groups\":[{\"key\":\"DOCUMENTS\",\"state\":\"FOUND\",\"items\":[{\"kind\":\"SALES_INVOICE\",\"id\":\"8aa96"
+    },
+    {
+      "section": "D",
+      "name": "traceability: stock movements FOUND (delivery + reservation)",
+      "ok": true,
+      "detail": "{\"key\":\"STOCK_MOVEMENTS\",\"state\":\"FOUND\",\"items\":[{\"kind\":\"INVENTORY_MOVEMENT\",\"id\":\"eb95bf26-fdf0-401c-aaa8-c26ce3570c13\",\"number\":\"MV/10/2026/000128\",\"status\":\"RESERVATION\"},{\"kind\":\"INVENTORY_MOVEMENT\",\"id\":\"33eefb58-bb65-4850-bfa4-08de40b65bb4\",\"number\":\"MV/10/2026/000129\",\"status\":\"RESERVATION_"
+    },
+    {
+      "section": "D",
+      "name": "traceability: journal entries include the SALES_INVOICE JE",
+      "ok": true,
+      "detail": "[\"SALES_INVOICE\"]"
+    },
+    {
+      "section": "D",
+      "name": "kit line: no KIT product with a recipe in this DB — skipped (data)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "D",
+      "name": "missing-cost order shipped",
+      "ok": true,
+      "detail": "200 {\"id\":\"c84bd70c-3c58-4868-8e15-31a9ef22b82d\",\"salesOrderId\":null,\"storeOrderId\":\"353d8507-57e4-46dc-9dc7-ee0ad04d921f\",\"attemptNumber\":1,\"shippingCompanyId\":null,\"shippingStatusId\":\"a1ccebc9-3eb8-4c18-afbe-6b67331f9cd9\","
+    },
+    {
+      "section": "D",
+      "name": "missing-cost order: delivery call succeeds (status never lost)",
+      "ok": true,
+      "detail": "200 {\"id\":\"c84bd70c-3c58-4868-8e15-31a9ef22b82d\",\"salesOrderId\":null,\"storeOrderId\":\"353d8507-57e4-46dc-9dc7-ee0ad04d921f\",\"attemptNumber\":1,\"shippingCompanyId\":null,\"shippingStatusId\":\"aa8b1f63-e894-4c45-ad6d-08f97b134486\","
+    },
+    {
+      "section": "D",
+      "name": "shipment saved as DELIVERED",
+      "ok": true,
+      "detail": "{\"status\":\"DELIVERED\"}"
+    },
+    {
+      "section": "D",
+      "name": "recognitionStatus FAILED with code MISSING_COST",
+      "ok": true,
+      "detail": "{\"recognition_status\":\"FAILED\",\"recognition_error\":{\"at\":\"2026-10-07T09:15:51.508Z\",\"code\":\"MISSING_COST\",\"stage\":\"RECOGNITION\",\"issues\":[{\"code\":\"MISSING_COST\",\"messageAr\":\"المنتج AGT-B-0293F2 ليس له تكلفة مسجّلة، ولا تُرحَّل تكلفة البضاعة المباعة بصفر. سجّل تكلفة المنتج أو رصيداً افتتاحياً (المخزون ← تكلفة المنتج) ثم أعد المحاولة.\",\"messageEn\":\"Product AGT-B-0293F2 has no recorded cost — COGS is never posted as zero. Record a product cost or an opening balance (Inventory → Product cost), then retry.\",\"productId\":\"f485dd76-25b7-486b-b658-d436eb30c99c\",\"productSku\":\"AGT-B-0293F2\"}],\"messageAr\""
+    },
+    {
+      "section": "D",
+      "name": "no invoice created for the missing-cost order",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "D",
+      "name": "traceability shows a FAILED group with the reason",
+      "ok": true,
+      "detail": "[[\"JOURNAL_ENTRIES\",\"MISSING_COST\"],[\"STOCK_MOVEMENTS\",\"MISSING_COST\"]]"
+    },
+    {
+      "section": "D",
+      "name": "repair dry run (admin) returns a list",
+      "ok": true,
+      "detail": "200 keys=generatedAt,dryRun,summary,orders,agentOrdersNotDispatched,reconciliation n=37"
+    },
+    {
+      "section": "D",
+      "name": "dry run lists the missing-cost order with a blocker",
+      "ok": true,
+      "detail": "{\"orderId\":\"353d8507-57e4-46dc-9dc7-ee0ad04d921f\",\"internalOrderId\":\"STO-2026-027280\",\"lines\":[{\"productId\":\"f485dd76-25b7-486b-b658-d436eb30c99c\",\"sku\":\"AGT-B-0293F2\",\"quantity\":1}],\"stock\":[{\"productId\":\"f485dd76-25b7-486b-b658-d436eb30c99c\",\"sku\":\"AGT-B-0293F2\",\"warehouseId\":\"135cf466-5e3a-499c-b"
+    },
+    {
+      "section": "D",
+      "name": "repair dry run allowed to r14-sales (generate_invoice implied by store-orders.edit)",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "section": "D",
+      "name": "repair APPLY refused to r14-sales (super admin only)",
+      "ok": true,
+      "detail": "403 {\"code\":\"RECOGNITION_REPAIR_SUPER_ADMIN_ONLY\",\"message\":\"تطبيق الإصلاح يغيّر السجلات المالية ويقتصر على مدير النظام — Applying the repair changes financial records and is limited to a super admin. Run the dry run instead"
+    },
+    {
+      "section": "E",
+      "name": "r14-sales advanced lookup by phone → 200, match found",
+      "ok": true,
+      "detail": "200 {\"exists\":true,\"matches\":[{\"kind\":\"CUSTOMER\",\"maskedPhone\":\"+201••••••380\",\"partialName\":\"R1••• عم••• اخ•••\",\"reference\":{\"type\":\"ORDER\",\"number\":\"STO-2026-027281\",\"status\":\"IN_PROGRESS\"},\"previousOrders\":[{\"id\":\"0a34a8d"
+    },
+    {
+      "section": "E",
+      "name": "disclosure: full E.164 phone + full name",
+      "ok": true,
+      "detail": "{\"phone\":\"6380\",\"name\":true}"
+    },
+    {
+      "section": "E",
+      "name": "disclosure: latest order number, date, product summary, coarse status",
+      "ok": true,
+      "detail": "{\"number\":\"STO-2026-027281\",\"orderDate\":\"2026-10-07\",\"productSummary\":\"AGT-S 0293F2\",\"status\":\"IN_PROGRESS\"}"
+    },
+    {
+      "section": "E",
+      "name": "disclosure: placed-order count (3 orders, none cancelled)",
+      "ok": true,
+      "detail": "3"
+    },
+    {
+      "section": "E",
+      "name": "lookup audited with FULL_DISCLOSURE",
+      "ok": true,
+      "detail": "{\"outcome_detail\":\"FULL_DISCLOSURE\"}"
+    },
+    {
+      "section": "E",
+      "name": "r14-sales2 (no lookup_advanced) → 403",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "section": "E",
+      "name": "r14-agent → refused",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "section": "E",
+      "name": "history (r14-sales) 200",
+      "ok": true,
+      "detail": "200 {\"partner\":{\"id\":\"85b7db46-9f54-4e54-8508-beaf8e187e11\",\"name\":\"R14J534092 عميل اختبار\",\"partnerNumber\":\"PT-2026-020392\"},\"summary\":{\"placedOrders\":3,\"completedPurchases\":2,\"lastOrderDate\":\"2026-10-07T09:15:41.225Z\"},\"or"
+    },
+    {
+      "section": "E",
+      "name": "history lists the in-scope orders",
+      "ok": true,
+      "detail": "[\"STO-2026-027281\",\"STO-2026-027280\",\"STO-2026-027279\"]"
+    },
+    {
+      "section": "E",
+      "name": "r14-sales: r14-sales2's order is listed only because shipping.view opens shipping-queue orders (else counted)",
+      "ok": true,
+      "detail": "otherHasShipment=true otherOrdersCount=0"
+    },
+    {
+      "section": "E",
+      "name": "history (r14-sales2, own scope only): lists only its own order, counts the 2 others",
+      "ok": true,
+      "detail": "200 listed=[\"STO-2026-027281\"] other=2"
+    },
+    {
+      "section": "E",
+      "name": "history summary placed = 3",
+      "ok": true,
+      "detail": "{\"placedOrders\":3,\"completedPurchases\":2,\"lastOrderDate\":\"2026-10-07T09:15:41.225Z\"}"
+    },
+    {
+      "section": "E",
+      "name": "no financial section for r14-sales",
+      "ok": true,
+      "detail": "null"
+    },
+    {
+      "section": "E",
+      "name": "r14-finance history 200 with the financial section",
+      "ok": true,
+      "detail": "200 {\"partner\":{\"id\":\"85b7db46-9f54-4e54-8508-beaf8e187e11\",\"name\":\"R14J534092 عميل اختبار\",\"partnerNumber\":\"PT-2026-020392\"},\"summary\":{\"placedOrders\":3,\"completedPurchases\":2,\"lastOrderDate\":\"2026-10-07T09:15:41.225Z\"},\"or"
+    },
+    {
+      "section": "E",
+      "name": "r14-agent → history refused",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "section": "F",
+      "name": "partner posting accounts already configured",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "F",
+      "name": "distribution = EQUITY, payable = LIABILITY",
+      "ok": true,
+      "detail": "[{\"id\":\"2f76b58d-f29c-4e22-b254-ca8bdd950b3d\",\"account_type\":\"EQUITY\"},{\"id\":\"397c2766-4a76-4e11-908d-7b7697c51bc6\",\"account_type\":\"LIABILITY\"}]"
+    },
+    {
+      "section": "F",
+      "name": "reusing the two partner profiles of a previous run",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "F",
+      "name": "agreement already active for partner (30%)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "F",
+      "name": "agreement already active for partner (20%)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "F",
+      "name": "September 2026: preview → 200",
+      "ok": true,
+      "detail": "200 {\"version\":1,\"from\":\"2026-09-01\",\"to\":\"2026-09-30\",\"computedAt\":\"2026-10-07T09:15:55.504Z\",\"frequency\":\"MONTHLY\",\"currency\":{\"id\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\",\"code\":\"SAR\"},\"figures\":{\"netRevenue\":28925,\"costOf"
+    },
+    {
+      "section": "F",
+      "name": "September 2026: entitlement A = 30% × max(net, 0), B = 20% (net -4935842.86)",
+      "ok": true,
+      "detail": "A 0/0 B 0/0"
+    },
+    {
+      "section": "F",
+      "name": "September 2026: already closed by a previous run — reusing it",
+      "ok": true,
+      "detail": "de8f4ccc-9aaa-4ac7-8940-887cfb678fb6"
+    },
+    {
+      "section": "F",
+      "name": "September 2026: close again → refused (409)",
+      "ok": true,
+      "detail": "409 {\"code\":\"PARTNER_PERIOD_ALREADY_CLOSED\",\"message\":\"The period 2026-09-01 → 2026-09-30 is already closed.\"}"
+    },
+    {
+      "section": "F",
+      "name": "setup: December seed revenue journal already posted (previous run)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "F",
+      "name": "December 2026 (seeded profit): preview → 200",
+      "ok": true,
+      "detail": "200 {\"version\":1,\"from\":\"2026-12-01\",\"to\":\"2026-12-31\",\"computedAt\":\"2026-10-07T09:15:56.956Z\",\"frequency\":\"MONTHLY\",\"currency\":{\"id\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\",\"code\":\"SAR\"},\"figures\":{\"netRevenue\":10000,\"costOf"
+    },
+    {
+      "section": "F",
+      "name": "December 2026 (seeded profit): entitlement A = 30% × max(net, 0), B = 20% (net 10000)",
+      "ok": true,
+      "detail": "A 3000/3000 B 2000/2000"
+    },
+    {
+      "section": "F",
+      "name": "December 2026 (seeded profit): already closed by a previous run — reusing it",
+      "ok": true,
+      "detail": "cdf1dc93-6cc8-41c4-9e38-3f597a428e41"
+    },
+    {
+      "section": "F",
+      "name": "December 2026 (seeded profit): close JE balanced, only on the two partner accounts",
+      "ok": true,
+      "detail": "Dr 5000 Cr 5000 accounts=EQ,LIAB"
+    },
+    {
+      "section": "F",
+      "name": "December 2026 (seeded profit): Dr distribution (equity) 5000 / Cr payable per partner (A 3000, B 2000) with the partner dimension",
+      "ok": true,
+      "detail": "{\"drEq\":5000,\"crA\":3000,\"crB\":2000}"
+    },
+    {
+      "section": "F",
+      "name": "December 2026 (seeded profit): JE POSTED, dated the period end",
+      "ok": true,
+      "detail": "{\"status\":\"POSTED\",\"d\":\"2026-12-31\"}"
+    },
+    {
+      "section": "F",
+      "name": "December 2026 (seeded profit): close again → refused (409)",
+      "ok": true,
+      "detail": "409 {\"code\":\"PARTNER_PERIOD_ALREADY_CLOSED\",\"message\":\"The period 2026-12-01 → 2026-12-31 is already closed.\"}"
+    },
+    {
+      "section": "F",
+      "name": "statement A: approved = Σ closed entitlements in range; payable = approved − paid (advance 0)",
+      "ok": true,
+      "detail": "{\"approved\":3000,\"balance\":{\"approved\":3000,\"paid\":1500,\"payable\":1500,\"advance\":0}}"
+    },
+    {
+      "section": "F",
+      "name": "payment 750 to A (< payable 1500) recorded with a JE",
+      "ok": true,
+      "detail": "201 {\"id\":\"c3cb5cd7-a3b4-47f7-ab84-85ff07bf93a9\",\"paymentNumber\":\"PPY-2026-000005\",\"partnerId\":\"f165c48d-7849-4aeb-bb3a-edd4bb703051\",\"partnerName\":\"Accept A\",\"amount\":750,\"date\":\"2026-12-31\",\"financialAccount\":{\"id\":\"c269ac"
+    },
+    {
+      "section": "F",
+      "name": "A: remaining payable = before − payment, no advance",
+      "ok": true,
+      "detail": "{\"approved\":3000,\"paid\":2250,\"payable\":750,\"advance\":0}"
+    },
+    {
+      "section": "F",
+      "name": "payment JE: Dr payable (partner A) / Cr bank, balanced",
+      "ok": true,
+      "detail": "[{\"account_id\":\"397c2766-4a76-4e11-908d-7b7697c51bc6\",\"debit\":750,\"credit\":0,\"partner_id\":\"f165c48d-7849-4aeb-bb3a-edd4bb703051\"},{\"account_id\":\"c269ac67-9c95-40ea-a01a-249691b5f456\",\"debit\":0,\"credit\":750,\"partner_id\":null}]"
+    },
+    {
+      "section": "F",
+      "name": "overpayment 500 to B (payable 0) recorded",
+      "ok": true,
+      "detail": "201 {\"id\":\"4bdf0293-816f-4e3e-9c46-73154fb12716\",\"paymentNumber\":\"PPY-2026-000006\",\"partnerId\":\"b46f0def-4db8-40c7-b873-2528f73b2c98\",\"partnerName\":\"Accept A\",\"amount\":500,\"date\":\"2026-12-31\",\"financialAccount\":{\"id\":\"c269ac"
+    },
+    {
+      "section": "F",
+      "name": "B: overpayment → advance grows by 500, payable 0",
+      "ok": true,
+      "detail": "{\"approved\":2000,\"paid\":3000,\"payable\":0,\"advance\":1000}"
+    },
+    {
+      "section": "F",
+      "name": "B statement consistent: approved − paid = payable − advance",
+      "ok": true,
+      "detail": "{\"approved\":2000,\"paid\":3000,\"payable\":0,\"advance\":1000}"
+    },
+    {
+      "section": "F",
+      "name": "payable GL balance of partner A = statement payable − advance",
+      "ok": true,
+      "detail": "GL 750 vs {\"approved\":3000,\"paid\":2250,\"payable\":750,\"advance\":0}"
+    },
+    {
+      "section": "F",
+      "name": "payable GL balance of partner B = statement payable − advance",
+      "ok": true,
+      "detail": "GL -1000 vs {\"approved\":2000,\"paid\":3000,\"payable\":0,\"advance\":1000}"
+    },
+    {
+      "section": "F",
+      "name": "r14-sales (no company-partners.*) → 403",
+      "ok": true,
+      "detail": "403"
+    }
+  ]
+}

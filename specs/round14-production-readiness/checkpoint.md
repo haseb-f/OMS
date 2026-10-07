@@ -20,3 +20,8 @@ Newest first. Each entry: time (UTC+3 local), stream, verified state, next step.
   serial 15/16 under load, agent-finance 18/18 alone (rerun pending); web tsc ✓, eslint 0 errors,
   vitest 1085 ✓, next build ✓.
 - Next: full serial rerun (alone), journeys script + one browser pass on `oms_r14_e2e`, release.
+
+## 2026-10-07 — lead, verification complete
+
+- Serial 16/16 alone; journeys 128/128; browser 33/33 after the logout fix (86ceaf58).
+- Next: fast-forward `main`, push (Production deploy), smoke `scripts/acceptance/r14/r14-prod-smoke.mjs`, then manual (W7).
