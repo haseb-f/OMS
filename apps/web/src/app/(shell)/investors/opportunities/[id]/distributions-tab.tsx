@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredMark } from "@/components/ui/form";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { CircleDollarSign, Wallet } from "lucide-react";
 import { DetailSection } from "@/components/shared/detail-workspace";
@@ -605,8 +606,7 @@ function RecordPaymentDialog({
         <ModalSection title={t("investors.distributions.paymentDialog.title")} columns={2}>
           <div className="flex flex-col gap-1">
             <Label>
-              {t("investors.distributions.fields.amount")}{" "}
-              <span className="text-destructive">*</span>
+              {t("investors.distributions.fields.amount")} <RequiredMark className="ms-0.5" />
             </Label>
             <Input
               dir="ltr"
@@ -619,7 +619,8 @@ function RecordPaymentDialog({
           </div>
           <div className="flex flex-col gap-1">
             <Label>
-              {t("investors.distributions.fields.date")} <span className="text-destructive">*</span>
+              {t("investors.distributions.fields.date")}
+              <RequiredMark className="ms-0.5" />
             </Label>
             <EnterpriseDatePicker
               value={fromISODate(paymentDate)}
@@ -629,7 +630,7 @@ function RecordPaymentDialog({
           <div className="flex flex-col gap-1">
             <Label>
               {t("investors.distributions.fields.financialAccount")}{" "}
-              <span className="text-destructive">*</span>
+              <RequiredMark className="ms-0.5" />
             </Label>
             <AccountPicker value={financialAccount} onChange={setFinancialAccount} />
           </div>

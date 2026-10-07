@@ -421,7 +421,7 @@ export function AgentOrderForm({
                   <Field size="md" data-invalid={has("customerName") ? "true" : undefined}>
                     <Label htmlFor={`${fieldId}-name`}>
                       {t("agentPortal.orderForm.fields.customerName")}{" "}
-                      <span className="text-destructive">*</span>
+                      <RequiredMark className="ms-0.5" />
                     </Label>
                     <Input
                       id={`${fieldId}-name`}
@@ -474,8 +474,7 @@ export function AgentOrderForm({
                 <div className="@md:col-span-2 @xl:col-span-1">
                   <Field size="md" data-invalid={has("mobile") ? "true" : undefined}>
                     <Label htmlFor={`${fieldId}-mobile`}>
-                      {t("agentPortal.orderForm.fields.mobile")}{" "}
-                      <span className="text-destructive">*</span>
+                      {t("agentPortal.orderForm.fields.mobile")} <RequiredMark className="ms-0.5" />
                     </Label>
                     <OMSPhoneInput
                       id={`${fieldId}-mobile`}
@@ -584,7 +583,7 @@ export function AgentOrderForm({
               <Field size="sm" data-invalid={has("agreedTotal") ? "true" : undefined}>
                 <Label htmlFor={`${fieldId}-total`}>
                   {t("agentPortal.orderForm.fields.agreedTotal")}{" "}
-                  <span className="text-destructive">*</span>
+                  <RequiredMark className="ms-0.5" />
                 </Label>
                 <MoneyInput
                   id={`${fieldId}-total`}
@@ -788,7 +787,7 @@ export function AgentOrderForm({
                   <Field size="full" data-invalid={has("overrideReason") ? "true" : undefined}>
                     <Label htmlFor={`${fieldId}-ship-reason`}>
                       {t("agentPortal.orderForm.fields.shippingOverrideReason")}{" "}
-                      <span className="text-destructive">*</span>
+                      <RequiredMark className="ms-0.5" />
                     </Label>
                     <Input
                       id={`${fieldId}-ship-reason`}

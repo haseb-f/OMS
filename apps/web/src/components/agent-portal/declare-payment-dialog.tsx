@@ -241,8 +241,7 @@ export function DeclarePaymentDialog({
                   data-invalid={fieldError("declarationMethod") ? "true" : undefined}
                 >
                   <Label htmlFor={`${fieldId}-destination`}>
-                    {t("agentPortal.declare.destination")}{" "}
-                    <span className="text-destructive">*</span>
+                    {t("agentPortal.declare.destination")} <RequiredMark className="ms-0.5" />
                   </Label>
                   <SearchableSelect
                     id={`${fieldId}-destination`}
@@ -263,8 +262,7 @@ export function DeclarePaymentDialog({
                   data-invalid={fieldError("declarationDate") ? "true" : undefined}
                 >
                   <Label htmlFor={`${fieldId}-date`}>
-                    {t("agentPortal.declare.paymentDate")}{" "}
-                    <span className="text-destructive">*</span>
+                    {t("agentPortal.declare.paymentDate")} <RequiredMark className="ms-0.5" />
                   </Label>
                   <EnterpriseDatePicker
                     id={`${fieldId}-date`}

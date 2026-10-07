@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useWatch } from "react-hook-form";
-import { Form } from "@/components/ui/form";
+import { Form, RequiredMark } from "@/components/ui/form";
 import { EnterpriseButton } from "@/components/ui/button";
 import { StatusBadge } from "@/components/business/status-badge";
 import { ModalSection, ModalFieldFullWidth } from "@/components/shared/modal-section";
@@ -315,8 +315,7 @@ export function ProductCommissionDraftSection({
       {value.source === "OVERRIDE" ? (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={rateId}>
-            {t("agentPricing.commissionDraft.ratePercent")}{" "}
-            <span className="text-destructive">*</span>
+            {t("agentPricing.commissionDraft.ratePercent")} <RequiredMark className="ms-0.5" />
           </Label>
           <Input
             id={rateId}

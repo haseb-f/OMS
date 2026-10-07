@@ -11,3 +11,5 @@ Durable log for spec-1 (entry, sessions, menu tones, required fields, password r
 | Menu tones                                                                                               | pending |                                                                                     |
 | Required fields                                                                                          | pending |                                                                                     |
 | Employee account tab reset UI, compact user dialog                                                       | pending |                                                                                     |
+
+| Session policy doc `session-policy.md` | done | incl. limitations + JWT_ACCESS_TTL release note |

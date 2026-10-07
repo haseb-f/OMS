@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredMark } from "@/components/ui/form";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { Check, ListChecks, X } from "lucide-react";
@@ -58,8 +59,7 @@ function RejectReasonPicker({
     <div className="flex flex-col gap-3 pt-2 text-start">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={reasonFieldId}>
-          {t("storeOrders.needsReview.rejectReason.label")}{" "}
-          <span className="text-destructive">*</span>
+          {t("storeOrders.needsReview.rejectReason.label")} <RequiredMark className="ms-0.5" />
         </Label>
         <Select value={code} onValueChange={(v) => onCodeChange(v as ImportRowRejectionReasonCode)}>
           <SelectTrigger id={reasonFieldId} className="w-full">
@@ -78,7 +78,7 @@ function RejectReasonPicker({
         <div className="flex flex-col gap-1.5">
           <Label>
             {t("storeOrders.needsReview.rejectReason.noteLabel")}{" "}
-            <span className="text-destructive">*</span>
+            <RequiredMark className="ms-0.5" />
           </Label>
           <Textarea
             value={note}

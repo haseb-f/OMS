@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredMark } from "@/components/ui/form";
 import { useId, useState } from "react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -162,7 +163,8 @@ export function AdjustmentDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${fieldId}-reason`}>
-              {t("inventory.adjustment.reason")} <span className="text-destructive">*</span>
+              {t("inventory.adjustment.reason")}
+              <RequiredMark className="ms-0.5" />
             </Label>
             <Select
               value={reason || undefined}

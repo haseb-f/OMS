@@ -39,7 +39,7 @@ import type { MessageKey } from "@/i18n/translate";
 import type { PartnerRoleValue, PartnerPickerRow } from "@/services/partners-service";
 import type { CurrencyRow } from "@/config/master-data/entities";
 import type { TraceKind } from "@/services/traceability-service";
-import { FieldMessage } from "@/components/ui/form";
+import { FieldMessage, RequiredMark } from "@/components/ui/form";
 import { DocumentActionBar, type DocumentAction } from "./document-action-bar";
 import { DocumentEditorLayout } from "./document-editor-layout";
 import { Field, FieldGrid } from "@/components/shared/form-card/form-card";
@@ -296,6 +296,7 @@ export function CommercialDocumentEditor<TContext>(props: CommercialDocumentEdit
     <>
       <label htmlFor={partyFieldId} className="text-caption text-muted-foreground">
         {t(props.party.labelKey)}
+        <RequiredMark className="ms-0.5" />
       </label>
       <PartnerPicker
         id={partyFieldId}
