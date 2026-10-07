@@ -5,7 +5,7 @@
  * (ADR-0022) so every request is scoped correctly without each caller
  * having to remember to do it.
  */
-import { getAuthToken, clearAuthToken } from "@/lib/auth-token";
+import { getAuthToken, clearAuthToken, isSigningOut } from "@/lib/auth-token";
 import { messages } from "@/i18n/messages";
 import { translate, type MessageKey } from "@/i18n/translate";
 import { defaultLocale, type Locale } from "@/i18n/locales";
@@ -254,7 +254,7 @@ async function requestRaw(path: string, init?: RequestInit): Promise<Response> {
     throw new ApiError(0, translate(messages[locale], "errors.NETWORK_ERROR"), "NETWORK_ERROR");
   }
 
-  if (response.status === 401 && typeof window !== "undefined") {
+  if (response.status === 401 && typeof window !== "undefined" && !isSigningOut()) {
     clearAuthToken();
     if (!window.location.pathname.startsWith("/login")) {
       // R6 (spec A.4) — come back to the same page (incl. its query) after

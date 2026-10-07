@@ -9,10 +9,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
 import { authService, type AuthUser, type CurrentUser } from "@/services/auth-service";
 import { ApiError } from "@/services/api-client";
-import { getAuthToken, setAuthToken, clearAuthToken } from "@/lib/auth-token";
+import { getAuthToken, setAuthToken, clearAuthToken, markSigningOut } from "@/lib/auth-token";
 import {
   ANONYMOUS_FINGERPRINT,
   clearPerUserBrowserStorage,
@@ -67,7 +66,6 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const router = useRouter();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [status, setStatus] = useState<AuthStatus>("loading");
 
@@ -172,6 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    markSigningOut();
     try {
       await authService.logout();
     } catch {
@@ -187,8 +186,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus("unauthenticated");
     announceSessionChange();
     // Never `?next=` after a deliberate sign-out (D1-2).
-    router.push(LOGOUT_REDIRECT_PATH);
-  }, [router]);
+    // A full page load, not router.push: with the cookie already cleared, a
+    // client transition (or a refresh of the current route) reaches the proxy
+    // first and comes back as /login?next=<page>. A hard navigation also drops
+    // every in-memory cache of the signed-out identity.
+    window.location.assign(LOGOUT_REDIRECT_PATH);
+  }, []);
 
   return (
     <AuthContext.Provider

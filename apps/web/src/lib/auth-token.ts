@@ -17,7 +17,22 @@ export function authCookieValue(token: string): string {
  * token lifetime) ends it regardless.
  */
 export function setAuthToken(token: string) {
+  signingOut = false;
   document.cookie = authCookieValue(token);
+}
+
+/**
+ * R14 — set while a deliberate sign-out runs in this tab. Revoking the server
+ * session makes requests still in flight answer 401; without this flag the
+ * session-expiry redirect (`/login?next=<page>`) would win over the sign-out's
+ * own `/login` (no `next`, decision D1-2).
+ */
+let signingOut = false;
+export function markSigningOut() {
+  signingOut = true;
+}
+export function isSigningOut(): boolean {
+  return signingOut;
 }
 
 export function getAuthToken(): string | null {
