@@ -6,7 +6,7 @@ import {
   type INestApplication,
   ValidationPipe,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { UserSessionsService } from '../../auth/sessions/user-sessions.service';
 import type { Server } from 'http';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
@@ -39,7 +39,7 @@ describe('R6 SHIP — Sales → Shipping queue handoff (HTTP integration)', () =
   let app: INestApplication;
   let http: Server;
   let prisma: PrismaService;
-  let jwt: JwtService;
+  let sessionTokens: UserSessionsService;
 
   const tag = randomUUID().slice(0, 6).toUpperCase();
   const lower = tag.toLowerCase();
@@ -186,7 +186,7 @@ describe('R6 SHIP — Sales → Shipping queue handoff (HTTP integration)', () =
     await app.init();
     http = app.getHttpServer() as Server;
     prisma = moduleRef.get(PrismaService);
-    jwt = moduleRef.get(JwtService);
+    sessionTokens = moduleRef.get(UserSessionsService, { strict: false });
 
     const user = await prisma.user.create({
       data: {
@@ -199,7 +199,10 @@ describe('R6 SHIP — Sales → Shipping queue handoff (HTTP integration)', () =
     });
     internal = {
       id: user.id,
-      token: jwt.sign({ sub: user.id, email: user.email }),
+      token: await sessionTokens.issueAccessToken({
+        sub: user.id,
+        email: user.email,
+      }),
     };
 
     const eg = await prisma.country.findFirst({ where: { code: 'EG' } });
@@ -369,7 +372,7 @@ describe('R6 SHIP — Sales → Shipping queue handoff (HTTP integration)', () =
     });
     agentSales = {
       id: sales.id,
-      token: jwt.sign({
+      token: await sessionTokens.issueAccessToken({
         sub: sales.id,
         email: sales.email,
         typ: 'agent',

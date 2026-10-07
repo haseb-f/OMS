@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { UserSessionsService } from '../auth/sessions/user-sessions.service';
 import type { Server } from 'http';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
@@ -57,7 +57,7 @@ describe('Lead viewed marker (per-employee read state)', () => {
     await app.init();
     httpServer = app.getHttpServer() as Server;
     prisma = moduleRef.get(PrismaService);
-    const jwt = moduleRef.get(JwtService);
+    const sessionTokens = moduleRef.get(UserSessionsService, { strict: false });
 
     const country = await prisma.country.findFirstOrThrow({
       where: { deletedAt: null },
@@ -94,8 +94,14 @@ describe('Lead viewed marker (per-employee read state)', () => {
         data: { userId, permissionId: viewPerm.id },
       });
     }
-    ahmedToken = jwt.sign({ sub: ahmedId, email: ahmed.email });
-    saraToken = jwt.sign({ sub: saraId, email: sara.email });
+    ahmedToken = await sessionTokens.issueAccessToken({
+      sub: ahmedId,
+      email: ahmed.email,
+    });
+    saraToken = await sessionTokens.issueAccessToken({
+      sub: saraId,
+      email: sara.email,
+    });
 
     const makeLead = (name: string, ownerId: string) =>
       prisma.lead.create({

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -14,6 +15,7 @@ import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { RecordCompensationDto } from './dto/record-compensation.dto';
 import { CreateEmployeeAccountDto } from './dto/create-employee-account.dto';
 import { EmployeesQueryDto } from './dto/employees-query.dto';
+import { ResetPasswordDto } from '../users/dto/reset-password.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PermissionModule } from '../auth/decorators/permission-module.decorator';
@@ -85,6 +87,23 @@ export class EmployeesController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.employeesService.createAccountForEmployee(id, dto, user.sub);
+  }
+
+  /**
+   * R14 W1 — reset the linked login account's password from the HR employee
+   * page. The catalog has no employee-account permission, so this takes the
+   * exact authority of Settings → Users → Reset password: `settings.manage`.
+   */
+  @Post(':id/reset-password')
+  @HttpCode(200)
+  @PermissionModule('settings')
+  @PermissionAction('manage')
+  resetAccountPassword(
+    @Param('id') id: string,
+    @Body() dto: ResetPasswordDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.employeesService.resetAccountPassword(id, dto ?? {}, user.sub);
   }
 
   // -- Compensation (Part G) — its own permission module (hr.compensation). --

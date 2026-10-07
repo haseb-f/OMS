@@ -3,9 +3,11 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { SessionsModule } from './sessions/sessions.module';
 
 @Module({
   imports: [
+    SessionsModule,
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET,

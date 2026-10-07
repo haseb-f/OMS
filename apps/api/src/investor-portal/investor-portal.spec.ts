@@ -38,6 +38,7 @@ import {
   InvestorPortalJwtPayload,
 } from './investor-portal-jwt.provider';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { UserSessionsService } from '../auth/sessions/user-sessions.service';
 import { hashPassword } from '../auth/password.util';
 
 function hashToken(raw: string): string {
@@ -712,6 +713,7 @@ describe('Investor Portal — dashboard/investments/profits/statement/documents 
         internalJwt,
         new Reflector(),
         prisma,
+        new UserSessionsService(prisma, internalJwt),
       );
       const ctx = makeHttpContext(portalToken);
       await expect(internalGuard.canActivate(ctx)).rejects.toThrow(

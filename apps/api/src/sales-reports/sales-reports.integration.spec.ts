@@ -5,7 +5,7 @@ import {
   INestApplication,
   ValidationPipe,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { UserSessionsService } from '../auth/sessions/user-sessions.service';
 import type { Server } from 'http';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
@@ -42,7 +42,7 @@ describe('Sales reports (HTTP + DB)', () => {
   let app: INestApplication;
   let http: Server;
   let prisma: PrismaService;
-  let jwt: JwtService;
+  let sessionTokens: UserSessionsService;
   let resolver: PermissionsResolverService;
   let reports: SalesReportsService;
 
@@ -109,13 +109,16 @@ describe('Sales reports (HTTP + DB)', () => {
     userIds.push(user.id);
     ids[key] = user.id;
     tokens[key] = agent
-      ? jwt.sign({
+      ? await sessionTokens.issueAccessToken({
           sub: user.id,
           email: user.email,
           typ: 'agent',
           agentId: agent.agentId,
         })
-      : jwt.sign({ sub: user.id, email: user.email });
+      : await sessionTokens.issueAccessToken({
+          sub: user.id,
+          email: user.email,
+        });
     await grant(user.id, permissions);
     return user.id;
   }
@@ -206,7 +209,7 @@ describe('Sales reports (HTTP + DB)', () => {
     await app.init();
     http = app.getHttpServer() as Server;
     prisma = moduleRef.get(PrismaService);
-    jwt = moduleRef.get(JwtService);
+    sessionTokens = moduleRef.get(UserSessionsService, { strict: false });
     resolver = moduleRef.get(PermissionsResolverService);
     reports = moduleRef.get(SalesReportsService);
 

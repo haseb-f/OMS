@@ -9,6 +9,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
+import { UserSessionsService } from '../sessions/user-sessions.service';
 import {
   AGENT_ACCESS_KEY,
   ALLOW_PENDING_PASSWORD_CHANGE_KEY,
@@ -18,6 +19,8 @@ import {
 export interface JwtPayload {
   sub: string;
   email: string;
+  /** R14 — the server-side session (`user_sessions.id`) this token belongs to. */
+  sid?: string;
   /** Present only on tokens issued to external agent users. */
   typ?: 'agent';
   agentId?: string;
@@ -44,6 +47,7 @@ export class JwtAuthGuard implements CanActivate {
     private readonly jwtService: JwtService,
     private readonly reflector: Reflector,
     private readonly prisma: PrismaService,
+    private readonly sessions: UserSessionsService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -59,6 +63,11 @@ export class JwtAuthGuard implements CanActivate {
     } catch {
       throw new UnauthorizedException('Invalid or expired token');
     }
+
+    // R14 — every token (internal and agent) is bound to a live server-side
+    // session: logout / password reset / idle timeout end it immediately, and
+    // a deleted, inactive or locked user is refused on the next request.
+    await this.sessions.assertActive(payload.sid, payload.sub);
 
     const mode = this.reflector.getAllAndOverride<AgentAccessMode | undefined>(
       AGENT_ACCESS_KEY,
@@ -110,7 +119,7 @@ export class JwtAuthGuard implements CanActivate {
   /**
    * Live affiliation check on every agent request: a deactivated, locked or
    * re-affiliated user, or an inactive agent, loses access immediately
-   * (internal tokens keep the existing stateless behavior).
+   * (internal users get the user-level part through the session check).
    */
   private async verifyAgentUser(
     payload: JwtPayload,

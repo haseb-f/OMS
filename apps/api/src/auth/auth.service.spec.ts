@@ -1,9 +1,10 @@
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { hashPassword } from './password.util';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { PermissionsResolverService } from '../permissions/permissions-resolver.service';
+import { JwtService } from '@nestjs/jwt';
+import { UserSessionsService } from './sessions/user-sessions.service';
 
 describe('AuthService.login', () => {
   const prisma = {
@@ -12,12 +13,14 @@ describe('AuthService.login', () => {
       update: jest.fn(),
     },
   };
-  const jwtService = { sign: jest.fn().mockReturnValue('token') };
   const permissionsResolver = { getPermissions: jest.fn() };
+  const sessions = {
+    issueAccessToken: jest.fn().mockResolvedValue('token'),
+  };
   const service = new AuthService(
     prisma as unknown as PrismaService,
-    jwtService as unknown as JwtService,
     permissionsResolver as unknown as PermissionsResolverService,
+    sessions as unknown as UserSessionsService,
   );
 
   const baseUser = {
@@ -32,7 +35,7 @@ describe('AuthService.login', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jwtService.sign.mockReturnValue('token');
+    sessions.issueAccessToken.mockResolvedValue('token');
     prisma.user.update.mockResolvedValue({});
   });
 
@@ -109,7 +112,7 @@ describe('AuthService.login', () => {
       email: 'admin@example.com',
       password,
     });
-    expect(jwtService.sign).toHaveBeenCalledWith(
+    expect(sessions.issueAccessToken).toHaveBeenCalledWith(
       {
         sub: 'user-1',
         email: 'admin@example.com',
@@ -131,9 +134,22 @@ describe('AuthService.login', () => {
       passwordHash: await hashPassword(password),
     });
     await service.login({ email: 'admin@example.com', password });
-    expect(jwtService.sign).toHaveBeenCalledWith(
+    expect(sessions.issueAccessToken).toHaveBeenCalledWith(
       { sub: 'user-1', email: 'admin@example.com' },
       undefined,
+    );
+  });
+
+  it('opens the session with the login request user agent', async () => {
+    const password = 'Secret123!';
+    prisma.user.findFirst.mockResolvedValue({
+      ...baseUser,
+      passwordHash: await hashPassword(password),
+    });
+    await service.login({ email: 'admin@example.com', password }, 'UA/1.0');
+    expect(sessions.issueAccessToken).toHaveBeenCalledWith(
+      { sub: 'user-1', email: 'admin@example.com' },
+      'UA/1.0',
     );
   });
 
@@ -149,6 +165,75 @@ describe('AuthService.login', () => {
     await expect(
       service.login({ email: 'admin@example.com', password }),
     ).rejects.toBeInstanceOf(ForbiddenException);
-    expect(jwtService.sign).not.toHaveBeenCalled();
+    expect(sessions.issueAccessToken).not.toHaveBeenCalled();
+  });
+});
+
+describe('UserSessionsService.issueAccessToken', () => {
+  it('ignores rememberMe: the token lives JWT_ACCESS_TTL and the session ends at its exp', async () => {
+    const jwt = new JwtService({
+      secret: 's',
+      signOptions: { expiresIn: '15m' },
+    });
+    const create = jest.fn();
+    const sessions = new UserSessionsService(
+      { userSession: { create } } as unknown as PrismaService,
+      jwt,
+    );
+    const before = Math.floor(Date.now() / 1000);
+    const token = await sessions.issueAccessToken(
+      { sub: 'user-1', email: 'a@x.test' },
+      'UA/1.0',
+    );
+    const payload = jwt.decode<{ sid: string; exp: number; iat: number }>(
+      token,
+    );
+    expect(payload.exp - payload.iat).toBe(15 * 60);
+    expect(payload.exp).toBeGreaterThanOrEqual(before + 15 * 60);
+    const [[{ data: row }]] = create.mock.calls as [
+      [{ data: { id: string; expiresAt: Date; userAgentHash: string } }],
+    ];
+    expect(row.id).toBe(payload.sid);
+    expect(row.expiresAt).toEqual(new Date(payload.exp * 1000));
+    expect(row.userAgentHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+describe('AuthService session lifecycle', () => {
+  const prisma = {
+    user: { findFirst: jest.fn(), update: jest.fn() },
+  };
+  const sessions = {
+    revoke: jest.fn(),
+    revokeAllForUser: jest.fn(),
+  };
+  const service = new AuthService(
+    prisma as unknown as PrismaService,
+    {} as PermissionsResolverService,
+    sessions as unknown as UserSessionsService,
+  );
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('logout revokes the caller session server-side', async () => {
+    await service.logout('sid-9');
+    expect(sessions.revoke).toHaveBeenCalledWith('sid-9', 'LOGOUT');
+  });
+
+  it('own password change ends every OTHER session of the user', async () => {
+    prisma.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      passwordHash: await hashPassword('OldPassw0rd!'),
+    });
+    await service.changePassword(
+      'user-1',
+      { currentPassword: 'OldPassw0rd!', newPassword: 'NewPassw0rd!' },
+      'sid-current',
+    );
+    expect(sessions.revokeAllForUser).toHaveBeenCalledWith(
+      'user-1',
+      'PASSWORD_CHANGED',
+      'sid-current',
+    );
   });
 });

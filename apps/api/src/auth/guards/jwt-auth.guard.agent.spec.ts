@@ -9,6 +9,7 @@ import type { Request } from 'express';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { AGENT_ACCESS_KEY } from '../decorators/agent-access.decorator';
 import type { PrismaService } from '../../prisma/prisma.service';
+import type { UserSessionsService } from '../sessions/user-sessions.service';
 
 /**
  * Agents milestone (specs/agents-fulfillment-partners §3) — shared login,
@@ -50,14 +51,27 @@ describe('JwtAuthGuard — agent separation', () => {
 
   beforeEach(() => {
     findFirst = jest.fn().mockResolvedValue(liveAgentUser);
-    guard = new JwtAuthGuard(jwt, new Reflector(), {
-      user: { findFirst },
-    } as unknown as PrismaService);
+    guard = new JwtAuthGuard(
+      jwt,
+      new Reflector(),
+      { user: { findFirst } } as unknown as PrismaService,
+      // Session liveness has its own spec (jwt-auth.guard.session.spec.ts).
+      {
+        assertActive: jest.fn().mockResolvedValue(undefined),
+      } as unknown as UserSessionsService,
+    );
   });
 
   const agentToken = () =>
-    jwt.sign({ sub: userId, email: 'a@x.test', typ: 'agent', agentId });
-  const internalToken = () => jwt.sign({ sub: userId, email: 'i@x.test' });
+    jwt.sign({
+      sub: userId,
+      email: 'a@x.test',
+      sid: 'sid-a',
+      typ: 'agent',
+      agentId,
+    });
+  const internalToken = () =>
+    jwt.sign({ sub: userId, email: 'i@x.test', sid: 'sid-i' });
 
   it('rejects an agent token on any handler that did not opt in (deny-by-default)', async () => {
     const { context } = ctx(agentToken());
@@ -89,7 +103,7 @@ describe('JwtAuthGuard — agent separation', () => {
     );
   });
 
-  it('keeps internal tokens stateless on internal handlers', async () => {
+  it('runs no agent affiliation query for internal tokens', async () => {
     const { context, request } = ctx(internalToken());
     await expect(guard.canActivate(context)).resolves.toBe(true);
     expect(request.agentContext).toBeUndefined();
