@@ -14,12 +14,18 @@ import {
 } from "@/components/ui/command";
 import { FilterTrigger } from "@/components/shared/data-table/filter-popover";
 import { useLocale } from "@/providers/locale-provider";
+import type { StatusTone } from "@/components/business/status-tone";
 import { filterByArabicSearch } from "@/lib/arabic-search";
 import { cn } from "@/lib/utils";
 
 export interface SelectFilterOption {
   value: string;
   label: string;
+  /**
+   * Status filters only (R14 spec-1 §3): the option's `StatusTone`, so each
+   * status reads in its own colour. Never set for catalogue values.
+   */
+  tone?: StatusTone;
   searchText?: string;
 }
 
@@ -129,6 +135,7 @@ export function SelectFilter({
                   key={option.value}
                   value={option.value}
                   data-checked={value === option.value}
+                  tone={option.tone}
                   onSelect={() => select(option.value)}
                 >
                   <span className="min-w-0 flex-1 truncate">{option.label}</span>

@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { IconActionButton } from "@/components/shared/icon-action-button";
+import { actionTone, type MenuTone } from "@/components/ui/menu-tone";
 
 export interface RowAction {
   key: string;
@@ -24,8 +25,19 @@ export interface RowAction {
   /** Keep the item visible but non-actionable — used when the row's current state doesn't allow it. */
   disabled?: boolean;
   destructive?: boolean;
+  /**
+   * Semantic colour of the item (R14 spec-1 §3). Omitted → `destructive`
+   * when flagged, else the shared `actionTone(key)` verb map (approve →
+   * success, cancel → destructive, edit → neutral …).
+   */
+  tone?: MenuTone;
   /** Renders a separator above this item — groups destructive actions apart from the rest. */
   separatorBefore?: boolean;
+}
+
+/** The tone an action renders with: explicit `tone`, else `destructive`, else the verb map. */
+export function rowActionTone(action: Pick<RowAction, "key" | "tone" | "destructive">): MenuTone {
+  return action.tone ?? (action.destructive ? "destructive" : actionTone(action.key));
 }
 
 /**
@@ -56,6 +68,7 @@ export function RowActionsMenu({ actions, label }: { actions: RowAction[]; label
               data-checked={action.checked || undefined}
               className={action.checked ? "bg-muted" : undefined}
               variant={action.destructive ? "destructive" : "default"}
+              tone={rowActionTone(action)}
               onSelect={(event) => {
                 // Closing the menu and opening a Dialog/AlertDialog on the same
                 // pointer event dismisses the dialog immediately. Defer the

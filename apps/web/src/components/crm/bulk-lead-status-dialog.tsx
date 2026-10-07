@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveStatusColor } from "@/components/business/status-tone";
 import { useEffect, useId, useState } from "react";
 import { Workflow } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -140,7 +141,11 @@ export function BulkLeadStatusDialog({
             </SelectTrigger>
             <SelectContent>
               {statuses.map((status) => (
-                <SelectItem key={status.id} value={status.code}>
+                <SelectItem
+                  key={status.id}
+                  value={status.code}
+                  tone={resolveStatusColor(status.color).tone}
+                >
                   {status.name}
                 </SelectItem>
               ))}

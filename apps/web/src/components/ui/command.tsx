@@ -5,6 +5,11 @@ import { Command as CommandPrimitive } from "cmdk";
 
 import { cn } from "@/lib/utils";
 import {
+  COMMAND_ITEM_TONE_CLASS,
+  menuToneAttribute,
+  type MenuTone,
+} from "@/components/ui/menu-tone";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -133,7 +138,7 @@ function CommandList({ className, ...props }: React.ComponentProps<typeof Comman
     <CommandPrimitive.List
       data-slot="command-list"
       className={cn(
-        "max-h-[min(270px,calc(var(--radix-popover-content-available-height,100dvh)-3.5rem))] scroll-py-1 overflow-x-hidden overflow-y-auto overscroll-contain outline-none",
+        "max-h-[min(var(--menu-max-height),calc(var(--radix-popover-content-available-height,100dvh)-3.5rem))] scroll-py-1 overflow-x-hidden overflow-y-auto overscroll-contain outline-none",
         className,
       )}
       {...props}
@@ -183,16 +188,24 @@ function CommandSeparator({
   );
 }
 
+/**
+ * A command/list option. `tone` (R14, spec-1 §3) is for STATUS options
+ * (status filters, status-change lists) only — catalogue pickers (products,
+ * customers, countries, suppliers …) never pass one and stay neutral.
+ */
 function CommandItem({
   className,
   children,
+  tone,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Item>) {
+}: React.ComponentProps<typeof CommandPrimitive.Item> & { tone?: MenuTone }) {
   return (
     <CommandPrimitive.Item
       data-slot="command-item"
+      data-menu-tone={menuToneAttribute(tone)}
       className={cn(
-        "group/command-item relative flex min-h-8 shrink-0 pointer-coarse:min-h-10 cursor-default items-center gap-2 rounded-xs px-2.5 py-1 text-body outline-hidden select-none transition-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-accent data-selected:text-accent-foreground data-[checked=true]:bg-primary-soft data-[checked=true]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-selected:*:[svg]:text-accent-foreground",
+        "group/command-item relative flex min-h-8 shrink-0 pointer-coarse:min-h-10 cursor-default items-center gap-2 rounded-xs px-2.5 py-1 text-body outline-hidden select-none transition-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-accent data-selected:text-accent-foreground data-[checked=true]:bg-primary-soft data-[checked=true]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 not-data-menu-tone:data-selected:*:[svg]:text-accent-foreground",
+        COMMAND_ITEM_TONE_CLASS,
         className,
       )}
       {...props}

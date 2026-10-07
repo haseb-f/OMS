@@ -118,11 +118,13 @@ export function AppSidebar() {
   const { setOpenMobile, isMobile } = useSidebar();
 
   // The active route's parent module becomes the (only) expanded one
-  // whenever the route changes.
+  // whenever the route changes; a top-level page with no group (Home `/`,
+  // the agent portal home `/agent`, Dashboard) leaves every group collapsed
+  // (R14 spec-1 §1).
   useEffect(() => {
     if (!current) return;
     const activeParentId = current.parent ?? (current.children ? current.id : undefined);
-    if (activeParentId) setExpandedId(activeParentId);
+    setExpandedId(activeParentId ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.id]);
 

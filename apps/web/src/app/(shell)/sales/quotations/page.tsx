@@ -45,6 +45,7 @@ import {
   QUOTATION_ARCHIVABLE_STATUSES,
   QUOTATION_FILTERABLE_STATUSES,
   QUOTATION_STATUS_LABEL_KEY,
+  QUOTATION_STATUS_TONE,
 } from "@/config/sales/quotation-status";
 import { buildQuotationPrintPayload } from "@/config/sales/quotation-print";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
@@ -309,6 +310,7 @@ function QuotationsPageContent() {
               options={QUOTATION_FILTERABLE_STATUSES.map((status) => ({
                 value: status,
                 label: t(QUOTATION_STATUS_LABEL_KEY[status]),
+                tone: QUOTATION_STATUS_TONE[status],
               }))}
             />
             <MultiEntityFilter

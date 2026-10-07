@@ -46,6 +46,7 @@ import {
   ORDER_ARCHIVABLE_STATUSES,
   ORDER_FILTERABLE_STATUSES,
   ORDER_STATUS_LABEL_KEY,
+  ORDER_STATUS_TONE,
 } from "@/config/sales/order-status";
 import { buildOrderPrintPayload } from "@/config/sales/order-print";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
@@ -319,6 +320,7 @@ function SalesOrdersPageContent() {
               options={ORDER_FILTERABLE_STATUSES.map((status) => ({
                 value: status,
                 label: t(ORDER_STATUS_LABEL_KEY[status]),
+                tone: ORDER_STATUS_TONE[status],
               }))}
             />
             <MultiEntityFilter

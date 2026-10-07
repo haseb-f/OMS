@@ -16,6 +16,7 @@ import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
+import { actionTone, type MenuTone } from "@/components/ui/menu-tone";
 
 /**
  * One header action. Exactly one of `onSelect` / `href` drives it. When the
@@ -35,6 +36,12 @@ export interface ActionSpec {
   testId?: string;
   /** Button variant when shown inline. Primary defaults to `default`, secondary to `outline`. */
   variant?: "default" | "outline" | "success" | "warning";
+  /**
+   * Colour of the action as an OVERFLOW MENU ITEM (R14 spec-1 §3); inline
+   * buttons keep `variant`. Omitted → the shared `actionTone(key)` verb map
+   * (destructive actions are always destructive).
+   */
+  tone?: MenuTone;
 }
 
 export interface DestructiveActionSpec extends ActionSpec {
@@ -169,6 +176,9 @@ export function HeaderActions({
 
   const menuItem = (action: ActionSpec, opts?: { phoneOnly?: boolean; destructive?: boolean }) => {
     const Icon = action.icon;
+    const tone: MenuTone = opts?.destructive
+      ? "destructive"
+      : (action.tone ?? actionTone(action.key));
     const itemClass = cn("min-h-9 gap-2", opts?.phoneOnly && "sm:hidden");
     const body = (
       <>
@@ -181,6 +191,7 @@ export function HeaderActions({
         <DropdownMenuItem
           key={action.key}
           asChild
+          tone={tone}
           className={itemClass}
           data-testid={action.testId}
           data-phone-only={opts?.phoneOnly || undefined}
@@ -195,6 +206,7 @@ export function HeaderActions({
         className={itemClass}
         disabled={action.disabled || action.loading}
         variant={opts?.destructive ? "destructive" : "default"}
+        tone={tone}
         data-testid={action.testId}
         data-phone-only={opts?.phoneOnly || undefined}
         onSelect={(event) => {

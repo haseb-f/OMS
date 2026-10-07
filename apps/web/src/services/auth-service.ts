@@ -48,8 +48,8 @@ export interface LoginResponse {
 }
 
 export const authService = {
-  login: (email: string, password: string, rememberMe: boolean) =>
-    apiClient.post<LoginResponse>("/auth/login", { email, password, rememberMe }),
+  login: (email: string, password: string) =>
+    apiClient.post<LoginResponse>("/auth/login", { email, password }),
   logout: () => apiClient.post<{ message: string }>("/auth/logout"),
   forgotPassword: (email: string) =>
     apiClient.post<{ message: string }>("/auth/forgot-password", { email }),

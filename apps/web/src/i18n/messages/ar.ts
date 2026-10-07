@@ -972,7 +972,7 @@ const ar = {
     passwordPlaceholder: "••••••••",
     showPassword: "إظهار كلمة المرور",
     hidePassword: "إخفاء كلمة المرور",
-    rememberMe: "تذكرني",
+    sessionNote: "تنتهي الجلسة عند إغلاق المتصفح أو بعد ساعتين دون نشاط.",
     forgotPassword: "هل نسيت كلمة المرور؟",
     signIn: "تسجيل الدخول",
     signingIn: "جارٍ تسجيل الدخول…",

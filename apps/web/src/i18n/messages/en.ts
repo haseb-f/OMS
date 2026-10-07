@@ -975,7 +975,7 @@ const en = {
     passwordPlaceholder: "••••••••",
     showPassword: "Show password",
     hidePassword: "Hide password",
-    rememberMe: "Remember me",
+    sessionNote: "Your session ends when the browser closes or after 2 hours of inactivity.",
     forgotPassword: "Forgot password?",
     signIn: "Sign in",
     signingIn: "Signing in…",

@@ -39,6 +39,7 @@ import {
   RETURN_ARCHIVABLE_STATUSES,
   RETURN_FILTERABLE_STATUSES,
   RETURN_STATUS_LABEL_KEY,
+  RETURN_STATUS_TONE,
 } from "@/config/purchasing/return-status";
 import { buildReturnPrintPayload } from "@/config/purchasing/return-print";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
@@ -263,6 +264,7 @@ function PurchaseReturnsPageContent() {
               options={RETURN_FILTERABLE_STATUSES.map((status) => ({
                 value: status,
                 label: t(RETURN_STATUS_LABEL_KEY[status]),
+                tone: RETURN_STATUS_TONE[status],
               }))}
             />
             <MultiEntityFilter
