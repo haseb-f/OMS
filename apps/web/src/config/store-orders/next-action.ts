@@ -10,7 +10,8 @@ import type { MessageKey } from "@/i18n/translate";
  * amounts (0.00 order) → reissue a label an amendment invalidated → payment
  * gate (declare, or awaiting Finance) → fulfillment (assign shipping / mark
  * handed over / update shipment, or pickup ready / collected) → after
- * delivery: declare the collected payment → generate the invoice.
+ * delivery: retry a failed recognition (R14 — the invoice is issued
+ * automatically at delivery) → declare the collected payment.
  */
 export type NextActionKind =
   | "RESOLVE_DUPLICATE"
@@ -80,7 +81,9 @@ const LABEL: Record<Exclude<NextActionKind, "NONE">, MessageKey> = {
   UPDATE_SHIPMENT: "orderAmendments.nextAction.UPDATE_SHIPMENT",
   MARK_READY_FOR_PICKUP: "orderAmendments.nextAction.MARK_READY_FOR_PICKUP",
   MARK_COLLECTED: "orderAmendments.nextAction.MARK_COLLECTED",
-  GENERATE_INVOICE: "orderAmendments.nextAction.GENERATE_INVOICE",
+  // R14 W3 — the invoice is issued automatically at delivery; the step only
+  // remains when that recognition failed, so it reads as a retry.
+  GENERATE_INVOICE: "storeOrderRecognition.retry",
 };
 
 const action = (kind: NextActionKind, actionable = true): NextAction => ({
@@ -146,17 +149,14 @@ export function computeNextAction(input: NextActionInput): NextAction {
     return action("NONE");
   }
 
+  // R14 W3 — revenue, stock and COGS are recognised at delivery whatever the
+  // payment status; a delivered company order without its invoice means that
+  // recognition failed, so retrying it comes before collecting the payment.
+  if (!input.isAgentOrder && !input.hasActiveInvoice && can.generateInvoice) {
+    return action("GENERATE_INVOICE");
+  }
   if (!financePaid && input.canDeclareMore && can.declarePayment) {
     return action("DECLARE_PAYMENT");
-  }
-  // The invoice needs exactly fully paid & reconciled (server rule).
-  if (
-    input.paymentStatus === "FULLY_PAID_RECONCILED" &&
-    !input.isAgentOrder &&
-    !input.hasActiveInvoice &&
-    can.generateInvoice
-  ) {
-    return action("GENERATE_INVOICE");
   }
   return action("NONE");
 }

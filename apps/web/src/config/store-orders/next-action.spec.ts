@@ -71,6 +71,7 @@ describe("computeNextAction (spec 1C — one next action)", () => {
         paymentType: "CASH_ON_DELIVERY",
         fulfillmentCode: "DELIVERED",
         latestShipment: { status: "DELIVERED", hasCompany: true, labelReissueRequired: false },
+        hasActiveInvoice: true,
       }),
     ).toBe("DECLARE_PAYMENT");
   });
@@ -102,7 +103,7 @@ describe("computeNextAction (spec 1C — one next action)", () => {
     expect(kind({ ...pickup, fulfillmentCode: "READY_FOR_PICKUP" })).toBe("MARK_COLLECTED");
   });
 
-  it("after delivery: generate the invoice once fully paid; agent orders never get one", () => {
+  it("after delivery: a company order without its invoice retries recognition, whatever the payment; agent orders never get one", () => {
     const delivered = {
       fulfillmentCode: "DELIVERED",
       paymentStatus: "FULLY_PAID_RECONCILED",
@@ -110,6 +111,17 @@ describe("computeNextAction (spec 1C — one next action)", () => {
       canDeclareMore: false,
     };
     expect(kind(delivered)).toBe("GENERATE_INVOICE");
+    expect(computeNextAction(base(delivered)).labelKey).toBe("storeOrderRecognition.retry");
+    // R14 — never gated on payment: an unpaid COD delivery retries first.
+    expect(
+      kind({
+        ...delivered,
+        paymentType: "CASH_ON_DELIVERY",
+        paymentStatus: "PAYMENT_PENDING",
+        declaredPaymentStatus: "UNPAID",
+        canDeclareMore: true,
+      }),
+    ).toBe("GENERATE_INVOICE");
     expect(kind({ ...delivered, hasActiveInvoice: true })).toBe("NONE");
     expect(kind({ ...delivered, isAgentOrder: true })).toBe("NONE");
   });

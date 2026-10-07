@@ -27,6 +27,7 @@ import { StoreOrderLineAmountsDialog } from "@/components/store-orders/store-ord
 import { DuplicateReviewDialog } from "@/components/store-orders/duplicate-review-dialog";
 import { OrderAmendDialog } from "@/components/store-orders/order-amend-dialog";
 import { OrderAmendmentHistory } from "@/components/store-orders/order-amendment-history";
+import { StoreOrderRecognitionNotice } from "@/components/store-orders/store-order-recognition-notice";
 import {
   OrderCardNotice,
   StoreOrderCompactCard,
@@ -92,6 +93,7 @@ import {
   shippingStatusName,
 } from "@/config/shipping/shipment-status";
 import { computeNextAction, type NextActionKind } from "@/config/store-orders/next-action";
+import { recognitionStatusBadge } from "@/config/store-orders/recognition-status";
 import { NEXT_ACTION_ICON } from "@/config/store-orders/next-action-icons";
 import {
   orderFulfillmentBadge,
@@ -339,7 +341,8 @@ function StoreOrderDetailContent() {
     setIsGeneratingInvoice(true);
     try {
       await storeOrdersService.generateInvoice(order.id);
-      toast.success(t("storeOrders.detail.invoice.generated"));
+      // R14 W3 — the button is the retry of the delivery-time recognition.
+      toast.success(t("storeOrderRecognition.retried"));
       await refreshOrder();
     } catch (error) {
       reportApiError(error, "common.failedToSave");
@@ -640,6 +643,7 @@ function StoreOrderDetailContent() {
     order.invoices?.map((row) => row.status).join(),
     order.payments?.map((row) => row.status).join(),
     order.shipments?.map((row) => row.status).join(),
+    order.recognitionStatus,
   ].join("|");
 
   const editButton = (label: string, onClick: () => void, show = canEdit) =>
@@ -649,8 +653,18 @@ function StoreOrderDetailContent() {
       </IconActionButton>
     ) : null;
 
+  // R14 W3 — recognition failure / reservation failure / returned after delivery.
+  const recognitionNotice =
+    !order.agentId &&
+    (order.recognitionStatus === "FAILED" ||
+      order.recognitionStatus === "RETURN_PENDING" ||
+      order.recognitionError?.stage === "RESERVATION");
+  const recognitionBadge = order.agentId ? null : recognitionStatusBadge(order.recognitionStatus);
   const hasNotices =
-    duplicatePending || latestShipment?.labelReissueRequired === true || order.paymentDiscrepancy;
+    duplicatePending ||
+    latestShipment?.labelReissueRequired === true ||
+    order.paymentDiscrepancy ||
+    recognitionNotice;
   const notices = hasNotices ? (
     <>
       {duplicatePending ? (
@@ -677,6 +691,17 @@ function StoreOrderDetailContent() {
       ) : null}
       {order.paymentDiscrepancy ? (
         <PaymentDiscrepancyAlert reason={order.paymentDiscrepancyReason} />
+      ) : null}
+      {recognitionNotice ? (
+        <StoreOrderRecognitionNotice
+          status={order.recognitionStatus}
+          error={order.recognitionError}
+          attemptedAt={order.recognitionAttemptedAt}
+          invoiceNumber={invoice?.invoiceNumber}
+          canRetry={canGenerateInvoiceAction}
+          retrying={isGeneratingInvoice}
+          onRetry={() => void handleGenerateInvoice()}
+        />
       ) : null}
     </>
   ) : undefined;
@@ -1148,6 +1173,12 @@ function StoreOrderDetailContent() {
               tone={fulfillmentBadge.tone}
             />
             {order.agent ? <AgentBadge agent={order.agent} /> : null}
+            {recognitionBadge ? (
+              <StatusBadge
+                label={`${t("storeOrderRecognition.label")}: ${t(recognitionBadge.labelKey)}`}
+                tone={recognitionBadge.tone}
+              />
+            ) : null}
             {!next.actionable && next.labelKey ? (
               <StatusBadge label={t(next.labelKey)} tone="neutral" />
             ) : null}
@@ -1198,11 +1229,11 @@ function StoreOrderDetailContent() {
               },
               {
                 key: "generate-invoice",
-                label: t("storeOrders.detail.invoice.generate"),
+                label: t("storeOrderRecognition.retry"),
                 icon: FileText,
                 hidden:
                   !canGenerateInvoiceAction ||
-                  order.paymentStatus !== "FULLY_PAID_RECONCILED" ||
+                  order.recognitionStatus !== "FAILED" ||
                   Boolean(invoice) ||
                   Boolean(order.agentId) ||
                   next.kind === "GENERATE_INVOICE",

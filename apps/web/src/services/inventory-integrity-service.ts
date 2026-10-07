@@ -3,7 +3,7 @@ import { buildQueryString } from "@/lib/query-string";
 
 /** R13 `GET /inventory/integrity` (api-contract.md §5) — invariants I1–I7. Read-only. */
 export type IntegrityStatus = "PASS" | "WARN" | "FAIL";
-export type InvariantId = "I1" | "I2" | "I3" | "I4" | "I5" | "I6" | "I7";
+export type InvariantId = "I1" | "I2" | "I3" | "I4" | "I5" | "I6" | "I7" | "I8";
 
 export interface IntegrityViolation {
   rule: string;

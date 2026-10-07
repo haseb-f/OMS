@@ -241,6 +241,21 @@ export interface StoreOrderActivityEntry {
   createdAt: string;
 }
 
+/** R14 W3 — revenue / stock / COGS recognition state of a company order (recognised at delivery). */
+export type StoreOrderRecognitionStatus =
+  "NOT_DUE" | "RESERVED" | "RECOGNIZED" | "FAILED" | "RETURN_PENDING";
+
+/** The last recognition / reservation failure, with an actionable bilingual message. */
+export interface StoreOrderRecognitionError {
+  code: string;
+  stage: "RESERVATION" | "RECOGNITION";
+  messageAr: string;
+  messageEn: string;
+  productSku?: string;
+  issues?: { code: string; messageAr: string; messageEn: string; productSku?: string }[];
+  at?: string;
+}
+
 export interface StoreOrderRow {
   id: string;
   internalOrderId: string;
@@ -302,6 +317,10 @@ export interface StoreOrderRow {
   duplicateReviewStatus?: DuplicateReviewStatus;
   /** Spec 1A — optimistic concurrency version (amendments). */
   version?: number;
+  /** R14 W3 — recognition at delivery (company orders; agent orders stay NOT_DUE). */
+  recognitionStatus?: StoreOrderRecognitionStatus;
+  recognitionError?: StoreOrderRecognitionError | null;
+  recognitionAttemptedAt?: string | null;
   /** Spec 2 — agent shipping tariff state and customer-total agreement. */
   shippingPricingStatus?: "NOT_APPLICABLE" | "PENDING_METHOD" | "CONFIRMED";
   customerTotalStatus?: "NONE" | "CONFIRMATION_REQUIRED" | "CONFIRMED";
