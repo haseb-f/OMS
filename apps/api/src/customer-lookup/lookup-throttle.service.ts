@@ -126,6 +126,8 @@ export class LookupThrottleService {
     reservationId: string,
     result: {
       outcome: LookupOutcome;
+      /** R14 — e.g. `FULL_DISCLOSURE` when full customer details were shown. */
+      outcomeDetail?: string | null;
       resultCount: number;
       queryValue?: string;
       matchedPartnerId?: string | null;
@@ -136,6 +138,7 @@ export class LookupThrottleService {
       where: { id: reservationId },
       data: {
         outcome: result.outcome,
+        outcomeDetail: result.outcomeDetail ?? null,
         resultCount: result.resultCount,
         ...(result.queryValue !== undefined
           ? { queryValue: result.queryValue }

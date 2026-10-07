@@ -363,6 +363,10 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       // Never implied by another permission and never grants open/edit/
       // reassign/ship/finance rights over what it finds.
       { action: 'lookup_advanced', name: 'customers.lookup_advanced' },
+      // Round 14 (W4) — the payments / outstanding-balance section of the
+      // customer history. Granted by migration to holders of `finance.view`
+      // (which also shows the section on its own).
+      { action: 'view_financials', name: 'customers.view_financials' },
     ],
   },
   {
