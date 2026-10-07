@@ -15,6 +15,7 @@ export type RecognitionErrorCode =
   | 'INACTIVE_PRODUCT'
   | 'KIT_RECIPE'
   | 'AGENT_OWNED_PRODUCT'
+  | 'EMPTY_ORDER'
   | 'RECOGNITION_ERROR';
 
 /** Which step failed: the shipment-time reservation or the delivery-time recognition. */
@@ -108,6 +109,15 @@ export const recognitionIssue = {
       productId,
       messageAr: `المنتج ${sku(productSku)} مملوك لوكيل ولا يُباع على طلب للشركة. صحّح بنود الطلب ثم أعد المحاولة.`,
       messageEn: `Product ${sku(productSku)} is agent-owned and cannot be sold on a company order. Correct the order lines, then retry.`,
+    };
+  },
+  emptyOrder(): RecognitionIssue {
+    return {
+      code: 'EMPTY_ORDER',
+      messageAr:
+        'الطلب لا يحتوي على بنود، فلا تصدر له فاتورة. أضف بنود الطلب (تعديل الطلب) ثم أعد المحاولة.',
+      messageEn:
+        'The order has no lines, so no invoice is issued. Add its lines (amend the order), then retry.',
     };
   },
   unexpected(detail: string): RecognitionIssue {

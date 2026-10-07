@@ -743,6 +743,7 @@ export class FulfillmentRecognitionService {
     client: Client = this.prisma,
   ): Promise<RecognitionPreflight> {
     const issues: RecognitionIssue[] = [];
+    if (order.items.length === 0) issues.push(recognitionIssue.emptyOrder());
     for (const item of order.items) {
       const product = item.product;
       if (product.ownerAgentId) {
