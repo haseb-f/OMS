@@ -2593,6 +2593,11 @@ model ChartOfAccount {
   /// activity. Never written to by the allocation engine.
   costAllocationRuns CostAllocationRun[]
 
+  /// R14 W5 — company partner profit sharing (spec-5).
+  postingSettingsPartnerProfitDist    PostingSettings[] @relation("PostingPartnerProfitDistribution")
+  postingSettingsPartnerProfitPayable PostingSettings[] @relation("PostingPartnerProfitPayable")
+  companyPartnerPayments              PartnerPayment[]
+
   financialTransactionDebits FinancialTransaction[] @relation("FinancialTransactionDebitAccount")
 
   @@map("chart_of_accounts")
@@ -4858,6 +4863,12 @@ model Partner {
   /// Dedup lookup (spec section 14: phone/email/tax number/CR) that
   /// PartnersService.create() runs on every write — same indexing rationale
   /// the former CustomersService.create() used.
+  /// R14 W5 — company partner (OWNER role) profit sharing (spec-5).
+  companyPartnerProfile CompanyPartnerProfile?
+  partnerAgreements     PartnerAgreement[]
+  partnerEntitlements   PartnerEntitlement[]
+  partnerPayments       PartnerPayment[]
+
   @@index([phone])
   @@index([email])
   @@index([taxNumber])
@@ -7767,6 +7778,15 @@ model PostingSettings {
   functionalCurrencyId String?   @map("functional_currency_id") @db.Uuid
   functionalCurrency   Currency? @relation("PostingFunctionalCurrency", fields: [functionalCurrencyId], references: [id])
 
+  /// R14 W5 (spec-5, decision D5-3) — company partner profit distribution:
+  /// Dr distribution (EQUITY) / Cr payable (LIABILITY, Partner-dimensioned).
+  /// Chosen in Settings → Accounting; nothing is created automatically.
+  partnerProfitDistributionAccountId String?         @map("partner_profit_distribution_account_id") @db.Uuid
+  partnerProfitDistributionAccount   ChartOfAccount? @relation("PostingPartnerProfitDistribution", fields: [partnerProfitDistributionAccountId], references: [id])
+
+  partnerProfitPayableAccountId String?         @map("partner_profit_payable_account_id") @db.Uuid
+  partnerProfitPayableAccount   ChartOfAccount? @relation("PostingPartnerProfitPayable", fields: [partnerProfitPayableAccountId], references: [id])
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   updatedBy String?  @map("updated_by") @db.Uuid
@@ -10164,4 +10184,234 @@ model AgentOrderReturn {
 
   @@index([storeOrderId])
   @@map("agent_order_returns")
+}
+
+// ============================================================================
+// R14 W5 — Company partners and profit sharing ("الشركاء", spec-5)
+// ============================================================================
+
+enum CompanyPartnerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PartnerProfitBasis {
+  GROSS_PROFIT
+  NET_PROFIT
+}
+
+enum PartnerAgreementFrequency {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+/// Activity scope of an agreement — one company pool in R14 (decision D5-2).
+enum PartnerAgreementScope {
+  ALL
+}
+
+enum PartnerAgreementStatus {
+  DRAFT
+  ACTIVE
+  ENDED
+}
+
+enum PartnerProfitPeriodStatus {
+  PREVIEW
+  CLOSED
+}
+
+enum PartnerEntitlementKind {
+  ORIGINAL
+  ADJUSTMENT
+}
+
+/// A company partner is a `Partner` holding the OWNER role. Legal ownership is
+/// informational only — the profit share lives on `PartnerAgreement`.
+model CompanyPartnerProfile {
+  id String @id @default(uuid()) @db.Uuid
+
+  partnerId String  @unique @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
+
+  ownershipPercent Decimal?             @map("ownership_percent") @db.Decimal(7, 4)
+  notes            String?
+  status           CompanyPartnerStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  @@index([status])
+  @@map("company_partner_profiles")
+}
+
+/// Profit-sharing agreement. History is kept: an ACTIVE agreement is never
+/// edited — changing the share ends it and starts a new one (`supersedesId`).
+/// ACTIVE and ENDED agreements are both "in force" over [effectiveFrom, effectiveTo].
+model PartnerAgreement {
+  id String @id @default(uuid()) @db.Uuid
+
+  partnerId String  @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
+
+  profitSharePercent Decimal                   @map("profit_share_percent") @db.Decimal(7, 4)
+  basis              PartnerProfitBasis
+  /// Business (Africa/Cairo) dates, inclusive.
+  effectiveFrom      DateTime                  @map("effective_from") @db.Date
+  effectiveTo        DateTime?                 @map("effective_to") @db.Date
+  frequency          PartnerAgreementFrequency
+  scope              PartnerAgreementScope     @default(ALL)
+  status             PartnerAgreementStatus    @default(DRAFT)
+
+  supersedesId String?           @unique @map("supersedes_id") @db.Uuid
+  supersedes   PartnerAgreement? @relation("PartnerAgreementSupersedes", fields: [supersedesId], references: [id])
+  supersededBy PartnerAgreement? @relation("PartnerAgreementSupersedes")
+
+  notes String?
+
+  activatedAt DateTime? @map("activated_at")
+  activatedBy String?   @map("activated_by") @db.Uuid
+  endedAt     DateTime? @map("ended_at")
+  endedBy     String?   @map("ended_by") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  entitlements PartnerEntitlement[]
+
+  @@index([partnerId, status])
+  @@index([status, effectiveFrom])
+  @@map("partner_agreements")
+}
+
+/// One profit-sharing period of the company pool. PREVIEW = saved review
+/// (re-savable); CLOSED = approved and posted, its snapshot never changes.
+model PartnerProfitPeriod {
+  id String @id @default(uuid()) @db.Uuid
+
+  periodFrom DateTime                  @map("period_from") @db.Date
+  periodTo   DateTime                  @map("period_to") @db.Date
+  frequency  PartnerAgreementFrequency
+  status     PartnerProfitPeriodStatus @default(PREVIEW)
+
+  /// The full calculation (segments, income-statement figures, entitlements) as reviewed / closed.
+  snapshot Json
+
+  reviewedAt DateTime? @map("reviewed_at")
+  reviewedBy String?   @map("reviewed_by") @db.Uuid
+  closedAt   DateTime? @map("closed_at")
+  closedBy   String?   @map("closed_by") @db.Uuid
+
+  /// The PARTNER_PROFIT_DISTRIBUTION entry (sourceId = this id).
+  journalEntryId String? @map("journal_entry_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  entitlements PartnerEntitlement[]
+  adjustments  PartnerProfitAdjustment[]
+
+  @@unique([periodFrom, periodTo])
+  @@index([status])
+  @@map("partner_profit_periods")
+}
+
+/// A correction to a CLOSED period: the period is recomputed and only the
+/// per-partner difference is posted (PARTNER_PROFIT_ADJUSTMENT, sourceId = this id).
+model PartnerProfitAdjustment {
+  id String @id @default(uuid()) @db.Uuid
+
+  periodId String              @map("period_id") @db.Uuid
+  period   PartnerProfitPeriod @relation(fields: [periodId], references: [id])
+
+  reason   String
+  snapshot Json
+
+  entryDate      DateTime @map("entry_date") @db.Date
+  journalEntryId String?  @map("journal_entry_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  entitlements PartnerEntitlement[]
+
+  @@index([periodId])
+  @@map("partner_profit_adjustments")
+}
+
+/// Entitlement of one partner in one period segment (ORIGINAL) or the delta
+/// of an adjustment (ADJUSTMENT). Amounts are functional currency, 2 dp half-up.
+model PartnerEntitlement {
+  id String @id @default(uuid()) @db.Uuid
+
+  periodId String              @map("period_id") @db.Uuid
+  period   PartnerProfitPeriod @relation(fields: [periodId], references: [id])
+
+  adjustmentId String?                  @map("adjustment_id") @db.Uuid
+  adjustment   PartnerProfitAdjustment? @relation(fields: [adjustmentId], references: [id])
+
+  partnerId String  @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
+
+  agreementId String           @map("agreement_id") @db.Uuid
+  agreement   PartnerAgreement @relation(fields: [agreementId], references: [id])
+
+  basis       PartnerProfitBasis
+  segmentFrom DateTime               @map("segment_from") @db.Date
+  segmentTo   DateTime               @map("segment_to") @db.Date
+  baseAmount  Decimal                @map("base_amount") @db.Decimal(16, 2)
+  percent     Decimal                @db.Decimal(7, 4)
+  days        Int
+  amount      Decimal                @db.Decimal(16, 2)
+  kind        PartnerEntitlementKind @default(ORIGINAL)
+
+  journalEntryId String? @map("journal_entry_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  @@index([periodId, partnerId])
+  @@index([partnerId, kind])
+  @@index([adjustmentId])
+  @@map("partner_entitlements")
+}
+
+/// Payment (withdrawal) of partner profit: Dr payable (Partner) / Cr financial
+/// account. A payment above the payable leaves a debit balance = advance.
+model PartnerPayment {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Numbering Engine ("PPY-2026-000001") — never typed by hand.
+  paymentNumber String @unique @map("payment_number")
+
+  partnerId String  @map("partner_id") @db.Uuid
+  partner   Partner @relation(fields: [partnerId], references: [id])
+
+  amount Decimal  @db.Decimal(16, 2)
+  date   DateTime @db.Date
+
+  financialAccountId String         @map("financial_account_id") @db.Uuid
+  financialAccount   ChartOfAccount @relation(fields: [financialAccountId], references: [id])
+
+  reference String?
+  notes     String?
+
+  journalEntryId String? @map("journal_entry_id") @db.Uuid
+
+  reversedAt             DateTime? @map("reversed_at")
+  reversedBy             String?   @map("reversed_by") @db.Uuid
+  reversalReason         String?   @map("reversal_reason")
+  reversalJournalEntryId String?   @map("reversal_journal_entry_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  @@index([partnerId, date])
+  @@map("partner_payments")
 }
