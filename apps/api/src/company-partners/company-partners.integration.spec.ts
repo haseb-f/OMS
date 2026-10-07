@@ -36,6 +36,11 @@ import { PARTNER_PROFIT_DISTRIBUTION } from './company-partner-accounts';
  * invoice 10 000 [+ its receipt, which is not revenue] in 1–15; 50 000 in
  * 16–31), cost of sales 55 000, expenses 25 000 → net 20 000; 1–15 net
  * 8 000, 16–31 net 12 000. Partner A 30 % → 40 % on 16 March, B 20 %.
+ *
+ * A period closes only after its last Cairo day (PERIOD_NOT_ENDED). The 2035
+ * fixtures are first refused on the real clock; from then on only `Date` is
+ * moved past them (timers stay real) so the closing journeys keep their own
+ * isolated ledger instead of colliding with real past data.
  */
 describe('Company partners — profit sharing (integration)', () => {
   jest.setTimeout(240_000);
@@ -77,6 +82,29 @@ describe('Company partners — profit sharing (integration)', () => {
   let marchId: string;
 
   const d = (value: string) => new Date(`${value}T00:00:00.000Z`);
+
+  /** Business "now" after every 2035 fixture period — only `Date` is faked. */
+  function clockAfterFixturePeriods() {
+    jest.useFakeTimers({
+      now: new Date('2035-06-01T10:00:00.000Z'),
+      doNotFake: [
+        'hrtime',
+        'nextTick',
+        'performance',
+        'queueMicrotask',
+        'requestAnimationFrame',
+        'cancelAnimationFrame',
+        'requestIdleCallback',
+        'cancelIdleCallback',
+        'setImmediate',
+        'clearImmediate',
+        'setInterval',
+        'clearInterval',
+        'setTimeout',
+        'clearTimeout',
+      ],
+    });
+  }
 
   async function fixture(
     date: string,
@@ -245,6 +273,7 @@ describe('Company partners — profit sharing (integration)', () => {
   });
 
   afterAll(async () => {
+    jest.useRealTimers();
     if (!prisma) return;
     const partnerIds = created.partners;
     const periods = await prisma.partnerProfitPeriod.findMany({
@@ -465,9 +494,30 @@ describe('Company partners — profit sharing (integration)', () => {
     ).toBe(true);
   });
 
-  it('close refuses with an actionable message until both accounts are set (equity / liability only)', async () => {
+  it('a period that has not ended (Cairo day) is refused; its estimate and review stay available', async () => {
+    // Real clock: 31 March 2035 is still ahead.
+    const estimate = await profit.calculate('2035-03-01', '2035-03-31');
+    expect(estimate.totalEntitlement).toBe(11_200);
     const review = await profit.saveReview('2035-03-01', '2035-03-31');
     marchId = review.id;
+    expect(review.status).toBe('PREVIEW');
+    await expectError(
+      profit.close(marchId),
+      BadRequestException,
+      'PERIOD_NOT_ENDED',
+    );
+    expect((await profit.findPeriod(marchId)).status).toBe('PREVIEW');
+    expect(
+      await prisma.journalEntry.count({
+        where: { sourceType: PARTNER_PROFIT_DISTRIBUTION, sourceId: marchId },
+      }),
+    ).toBe(0);
+  });
+
+  it('close refuses with an actionable message until both accounts are set (equity / liability only)', async () => {
+    clockAfterFixturePeriods();
+    const review = await profit.saveReview('2035-03-01', '2035-03-31');
+    expect(review.id).toBe(marchId);
     expect(review.status).toBe('PREVIEW');
     await expectError(
       profit.close(marchId),

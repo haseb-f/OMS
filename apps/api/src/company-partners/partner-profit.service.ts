@@ -14,7 +14,11 @@ import { AccountingReportsService } from '../accounting/reports/accounting-repor
 import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
 import { AccountMappingService } from '../accounting/account-mapping/account-mapping.service';
 import { MasterDataActivityLogService } from '../master-data/master-data-activity-log.service';
-import { businessDateOf } from '../common/time/business-date';
+import {
+  addCalendarDays,
+  businessDateOf,
+  todayBusinessDate,
+} from '../common/time/business-date';
 import {
   PARTNER_PROFIT_ADJUSTMENT,
   PARTNER_PROFIT_DISTRIBUTION,
@@ -447,6 +451,7 @@ export class PartnerProfitService {
     if (period.status === PartnerProfitPeriodStatus.CLOSED) {
       throw this.alreadyClosed(period);
     }
+    PartnerProfitService.requirePeriodEnded(isoDate(period.periodTo));
     await this.requireFunctionalCurrency();
     await resolvePartnerProfitAccounts(this.accountMapping, this.prisma);
     const fresh = await this.calculate(
@@ -502,6 +507,23 @@ export class PartnerProfitService {
       userId,
     );
     return this.findPeriod(id);
+  }
+
+  /**
+   * Only a finished period is approved: its last day must be over in the
+   * business time zone (Africa/Cairo) — today's business date must be after
+   * `periodTo`. The preview and the saved review stay available as a live
+   * estimate while the period runs.
+   */
+  static requirePeriodEnded(periodTo: string, now: Date = new Date()) {
+    const today = todayBusinessDate(now);
+    if (today <= periodTo) {
+      throw new BadRequestException({
+        code: 'PERIOD_NOT_ENDED',
+        // Bilingual «عربي — English»: the web shows the half in the UI language.
+        message: `لم تنتهِ الفترة بعد: آخر يوم فيها ${periodTo} واليوم ${today} بتوقيت القاهرة، ويمكن إقفالها اعتبارًا من ${addCalendarDays(periodTo, 1)}. — The period has not ended yet: its last day is ${periodTo} and today is ${today} (Cairo time); it can be closed from ${addCalendarDays(periodTo, 1)}.`,
+      });
+    }
   }
 
   private alreadyClosed(period: { periodFrom: Date; periodTo: Date }) {

@@ -154,6 +154,9 @@ const companyPartnersEn = {
     adjustDescription:
       "Recomputes the period from the ledger and posts only the difference per partner. The closed snapshot is kept.",
     windowHint: "A period is a whole month, quarter or year matching the agreements' frequency.",
+    notEnded:
+      "This period has not ended yet (last day {to}) — it can be closed from {from}, Cairo time. The live estimate and saving the review are available now.",
+    closeAfterEnd: "Close and post — after the period ends",
     segments: "Segments",
   },
   toasts: {

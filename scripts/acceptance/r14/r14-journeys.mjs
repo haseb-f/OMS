@@ -9,7 +9,7 @@
  *   D Stock / cost      — ship → RESERVED, deliver → invoice + SALES_DELIVERY + COGS JE, idempotent,
  *                         traceability, missing cost → FAILED (delivery kept), repair dry run
  *   E Customers         — full-disclosure advanced lookup, scoped history, financial section gate
- *   F Company partners  — accounts, profile, agreement, preview / review / close, payments, statement
+ *   F Company partners  — accounts, profile, agreement, preview / review / close (past month only), payments, statement
  *
  *   MSYS_NO_PATHCONV=1 API=http://localhost:3005 node scripts/acceptance/r14/r14-journeys.mjs
  *   ONLY=A,B  runs only those sections (C/D/E/F depend only on the shared setup, not on each other,
@@ -1217,20 +1217,19 @@ await run("F", "Company partners and profit sharing", async () => {
     return { period, net, expA, expB };
   }
 
-  // As specified: September 2026 (on this DB a loss month → zero entitlement, nothing posted).
-  const sep = await closeMonth("September 2026", "2026-09-01", "2026-09-30");
-  context.september = { netProfit: sep.net, entitlementA: sep.expA, entitlementB: sep.expB };
-
-  // A profitable window for the posting / payment checks: December 2026 (empty month) with a tagged
-  // revenue journal (Dr bank / Cr sales revenue 10 000) posted by admin through the journal-entries API.
-  // (November 2026 was closed at zero by an earlier run of this script whose seed journal stayed DRAFT.)
-  const SEED_REF = "R14J-PARTNER-SEED";
+  // A period closes only after its last Cairo day (PERIOD_NOT_ENDED), so the profitable window for the
+  // posting / payment checks is a PAST month inside the agreements (from 2026-09-01): September 2026,
+  // seeded with a tagged revenue journal (Dr bank / Cr sales revenue 10 000) posted by admin through the
+  // journal-entries API BEFORE the month is reviewed and closed. (Earlier runs closed a then-unfinished
+  // December 2026 under the old rule; that seed — reference R14J-PARTNER-SEED — is left untouched.)
+  const SEED_REF = "R14J-PARTNER-SEED-SEP";
+  const SEED_MONTH = "2026-09";
   const bank = settings.bank_account_id;
   const gj = one(
     `select id from journals where type = 'GENERAL' and is_active and deleted_at is null order by created_at limit 1`,
   );
   const seedSpec = {
-    entryDate: "2026-12-10",
+    entryDate: `${SEED_MONTH}-10`,
     journalId: gj?.id,
     description: "R14 acceptance — partner profit seed revenue (test data)",
     referenceNumber: SEED_REF,
@@ -1251,30 +1250,57 @@ await run("F", "Company partners and profit sharing", async () => {
     if (seed) {
       const up = await call(T.admin, "PATCH", `/journal-entries/${seed.id}`, seedSpec);
       check(
-        "setup: draft seed journal re-dated to December with the general journal",
+        "setup: draft seed journal re-dated to September with the general journal",
         up.s === 200,
         brief(up),
       );
     } else {
       const je = await call(T.admin, "POST", "/journal-entries", seedSpec);
-      check("setup: admin creates the December seed revenue journal", je.s === 201, brief(je));
+      check("setup: admin creates the September seed revenue journal", je.s === 201, brief(je));
       seed = { id: je.j?.id };
     }
     const po = await call(T.admin, "POST", `/journal-entries/${seed.id}/post`);
     check("setup: seed journal posted", po.s === 200 || po.s === 201, brief(po));
-  } else check("setup: December seed revenue journal already posted (previous run)", true, "");
+  } else check("setup: September seed revenue journal already posted (previous run)", true, "");
   const seeded = one(
     `select to_char(entry_date, 'YYYY-MM') m, status from journal_entries where reference_number = ${lit(SEED_REF)} and deleted_at is null order by created_at desc limit 1`,
   );
-  if (seeded?.status === "POSTED" && seeded.m === "2026-12") {
-    const dec = await closeMonth("December 2026 (seeded profit)", "2026-12-01", "2026-12-31");
-    context.december = { netProfit: dec.net, entitlementA: dec.expA, entitlementB: dec.expB };
+  if (seeded?.status === "POSTED" && seeded.m === SEED_MONTH) {
+    const sep = await closeMonth("September 2026 (seeded profit)", "2026-09-01", "2026-09-30");
+    context.september = { netProfit: sep.net, entitlementA: sep.expA, entitlementB: sep.expB };
   } else
     check(
-      "December 2026 not closed: the seed journal is not posted",
+      "September 2026 not closed: the seed journal is not posted",
       false,
       JSON.stringify(seeded),
     );
+
+  // A period that has not ended yet (the current month, Cairo) is refused with PERIOD_NOT_ENDED;
+  // its live estimate and saved review stay available.
+  const today = one(`select to_char((now() at time zone 'Africa/Cairo')::date, 'YYYY-MM-DD') d`)?.d;
+  const curFrom = `${today.slice(0, 7)}-01`;
+  const curTo = one(
+    `select to_char((date_trunc('month', ${lit(curFrom)}::date) + interval '1 month - 1 day')::date, 'YYYY-MM-DD') d`,
+  )?.d;
+  const curReview = await call(T.finance, "POST", "/company-partners/periods", {
+    periodFrom: curFrom,
+    periodTo: curTo,
+  });
+  check(
+    `current month ${curFrom} → ${curTo}: review saved while it runs (PREVIEW)`,
+    (curReview.s === 201 || curReview.s === 200) && curReview.j?.status === "PREVIEW",
+    brief(curReview),
+  );
+  const curClose = await call(
+    T.finance,
+    "POST",
+    `/company-partners/periods/${curReview.j?.id}/close`,
+  );
+  check(
+    "current month: close refused (400 PERIOD_NOT_ENDED), nothing posted",
+    curClose.s === 400 && errCode(curClose.j) === "PERIOD_NOT_ENDED",
+    brief(curClose),
+  );
 
   // Payments and statement (all-time balances; statement range Sep → Dec).
   const stmt = async (pid) =>

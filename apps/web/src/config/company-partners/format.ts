@@ -1,4 +1,6 @@
 import type { StatusTone } from "@/components/business/status-tone";
+import { businessDateOf } from "@/lib/business-date";
+import { addDays, fromISODate, toISODate } from "@/lib/date";
 import type {
   PartnerAgreementStatus,
   PartnerProfitPeriodStatus,
@@ -32,4 +34,18 @@ export function previousMonth(today = new Date()): { from: Date; to: Date } {
   const from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
   const to = new Date(today.getFullYear(), today.getMonth(), 0);
   return { from, to };
+}
+
+/**
+ * A profit period is closed only once its last day is over in Cairo (the API
+ * refuses earlier with PERIOD_NOT_ENDED); the estimate and review stay open.
+ */
+export function periodHasEnded(periodTo: string, now: Date = new Date()): boolean {
+  return businessDateOf(now) > periodTo;
+}
+
+/** First Cairo business day on which a period ending on `periodTo` ("YYYY-MM-DD") can be closed. */
+export function periodClosableFrom(periodTo: string): string {
+  const last = fromISODate(periodTo);
+  return last ? toISODate(addDays(last, 1)) : periodTo;
 }
