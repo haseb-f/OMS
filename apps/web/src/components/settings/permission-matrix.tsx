@@ -38,6 +38,7 @@ const ACTION_LABEL_KEY: Record<string, MessageKey> = {
   view_all: "permissions.actions.viewAll",
   amend: "permissions.actions.amend",
   direct_cost: "permissions.actions.directCost",
+  view_financials: "permissions.actions.viewFinancials",
 };
 
 /**

@@ -19,6 +19,7 @@ import assetSchedulesAr from "./modules/asset-schedules.ar";
 import assemblyAr from "./modules/assembly.ar";
 import inventoryIntegrityAr from "./modules/inventory-integrity.ar";
 import expenseVouchersAr from "./modules/expense-vouchers.ar";
+import customerHistoryAr from "./modules/customer-history.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
@@ -33,6 +34,7 @@ const ar = {
   assembly: assemblyAr,
   inventoryIntegrity: inventoryIntegrityAr,
   expenseVouchers: expenseVouchersAr,
+  customerHistory: customerHistoryAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
@@ -319,6 +321,7 @@ const ar = {
       viewAll: "عرض كل السجلات (كل الموظفين)",
       amend: "تعديل الطلب بعد الإنشاء",
       directCost: "إدخال تكلفة تجميع مباشرة",
+      viewFinancials: "عرض مدفوعات ورصيد العميل",
     },
     modules: {
       dashboard: "لوحة التحكم",

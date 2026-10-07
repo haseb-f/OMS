@@ -3,14 +3,13 @@ const customerLookupEn = {
   trigger: "Advanced customer lookup",
   title: "Advanced customer lookup",
   description:
-    "Check whether a customer already exists and who it belongs to. Results are limited, masked and logged — this does not give you access to the customer's records.",
+    "Check whether a customer already exists and who it belongs to. Every search is logged — this does not let you open or edit the customer's records.",
   queryLabel: "Phone number, customer name or order number",
   placeholder: "Phone (any format), first and last name, or STO-2026-000123",
   search: "Search",
   hintMinimum:
     "Enter a phone number of at least 7 digits, the customer's first and last name, or an order number.",
-  notice:
-    "Every search is recorded. Repeated searches are rate-limited. Details are masked on purpose.",
+  notice: "Every search is recorded. Repeated searches are rate-limited.",
   loading: "Searching…",
   idle: "Search by phone number, name or order number to see whether the customer exists.",
   empty: "No matching customer was found.",

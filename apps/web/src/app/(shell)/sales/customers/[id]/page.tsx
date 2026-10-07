@@ -23,6 +23,14 @@ import {
   type OpenInvoiceRow,
 } from "@/services/customer-receipts-service";
 import { leadsService, type LeadRow } from "@/services/leads-service";
+import { customerHistoryService, type CustomerHistory } from "@/services/customer-history-service";
+import {
+  CustomerHistorySummary,
+  CustomerHistoryTimeline,
+  CustomerOrderCollections,
+  CustomerOrdersSection,
+} from "@/components/sales/customer-history";
+import { RepeatCustomerBadge } from "@/components/business/repeat-customer-badge";
 import type { MasterDataActivityEntry } from "@/services/master-data-service";
 import { StatusBadge } from "@/components/business/status-badge";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -49,8 +57,11 @@ export default function CustomerProfilePage() {
   const [isLoadingReceipts, setIsLoadingReceipts] = useState(true);
   const [openInvoices, setOpenInvoices] = useState<OpenInvoiceRow[]>([]);
   const [isLoadingOpenInvoices, setIsLoadingOpenInvoices] = useState(true);
-  const [orders, setOrders] = useState<LeadRow[]>([]);
-  const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+  const [leads, setLeads] = useState<LeadRow[]>([]);
+  const [isLoadingLeads, setIsLoadingLeads] = useState(true);
+  const [history, setHistory] = useState<CustomerHistory | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [historyFailed, setHistoryFailed] = useState(false);
 
   const canEdit = hasPermission("partners.edit");
   const canArchive = hasPermission("partners.archive");
@@ -97,12 +108,27 @@ export default function CustomerProfilePage() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsLoadingOrders(true);
+    setIsLoadingLeads(true);
     leadsService
       .list({ partnerId: params.id, pageSize: 100 })
-      .then((result) => setOrders(result.items))
-      .catch(() => setOrders([]))
-      .finally(() => setIsLoadingOrders(false));
+      .then((result) => setLeads(result.items))
+      .catch(() => setLeads([]))
+      .finally(() => setIsLoadingLeads(false));
+  }, [params.id]);
+
+  // R14 — store + B2B orders in the viewer's scope, counts, timeline (and money with permission).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsLoadingHistory(true);
+    setHistoryFailed(false);
+    customerHistoryService
+      .history(params.id)
+      .then(setHistory)
+      .catch(() => {
+        setHistory(null);
+        setHistoryFailed(true);
+      })
+      .finally(() => setIsLoadingHistory(false));
   }, [params.id]);
 
   if (isLoading) {
@@ -151,10 +177,15 @@ export default function CustomerProfilePage() {
       title={customer.name}
       reference={customer.partnerNumber}
       status={
-        <StatusBadge
-          label={t(`common.${customer.status === "ACTIVE" ? "active" : "archived"}` as MessageKey)}
-          tone={customer.status === "ACTIVE" ? "success" : "neutral"}
-        />
+        <>
+          <StatusBadge
+            label={t(
+              `common.${customer.status === "ACTIVE" ? "active" : "archived"}` as MessageKey,
+            )}
+            tone={customer.status === "ACTIVE" ? "success" : "neutral"}
+          />
+          {history ? <RepeatCustomerBadge {...history.summary} /> : null}
+        </>
       }
       actions={
         <HeaderActions
@@ -202,6 +233,7 @@ export default function CustomerProfilePage() {
         />
       }
     >
+      {history ? <CustomerHistorySummary history={history} /> : null}
       <EntityTabs
         tabs={[
           {
@@ -367,40 +399,51 @@ export default function CustomerProfilePage() {
           },
           {
             value: "orders",
-            label: t("sales.customers.profile.sectionsTab.orders"),
+            label: t("customerHistory.tabs.orders"),
+            content: (
+              <CustomerOrdersSection
+                history={history}
+                isLoading={isLoadingHistory}
+                failed={historyFailed}
+              />
+            ),
+          },
+          {
+            value: "leads",
+            label: t("customerHistory.tabs.leads"),
             content: (
               <DetailSection>
-                {isLoadingOrders ? (
+                {isLoadingLeads ? (
                   <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
-                ) : orders.length === 0 ? (
+                ) : leads.length === 0 ? (
                   <p className="text-caption text-muted-foreground">
-                    {t("crm.leads.customerOrders.empty")}
+                    {t("customerHistory.leads.empty")}
                   </p>
                 ) : (
                   <div className="flex flex-col">
-                    {orders.map((order) => (
+                    {leads.map((lead) => (
                       <EnterpriseButton
-                        key={order.id}
+                        key={lead.id}
                         type="button"
                         variant="ghost"
-                        onClick={() => router.push(`/crm/leads/${order.id}`)}
+                        onClick={() => router.push(`/crm/leads/${lead.id}`)}
                         className="h-auto w-full justify-between gap-4 rounded-none border-b border-border py-3 font-normal last:border-b-0"
                       >
                         <div className="flex flex-col gap-0.5 text-start">
-                          <span className="text-sm font-medium">{order.leadNumber}</span>
+                          <span className="text-sm font-medium">{lead.leadNumber}</span>
                           <span className="text-caption text-muted-foreground">
-                            {formatDate(order.createdAt)} · {order.quantity}
+                            {formatDate(lead.createdAt)} · {lead.quantity}
                           </span>
                         </div>
                         <div className="flex items-center gap-3">
-                          {order.salesEmployee?.fullName ? (
+                          {lead.salesEmployee?.fullName ? (
                             <span className="text-caption text-muted-foreground">
-                              {order.salesEmployee.fullName}
+                              {lead.salesEmployee.fullName}
                             </span>
                           ) : null}
                           <StatusBadge
-                            label={order.status?.name ?? "—"}
-                            colorKey={order.status?.color}
+                            label={lead.status?.name ?? "—"}
+                            colorKey={lead.status?.color}
                           />
                         </div>
                       </EnterpriseButton>
@@ -408,6 +451,19 @@ export default function CustomerProfilePage() {
                   </div>
                 )}
               </DetailSection>
+            ),
+          },
+          {
+            value: "history",
+            label: t("customerHistory.tabs.history"),
+            content: isLoadingHistory ? (
+              <p className="text-caption text-muted-foreground">{t("common.loading")}</p>
+            ) : history ? (
+              <CustomerHistoryTimeline history={history} />
+            ) : (
+              <p className="text-caption text-destructive" role="alert">
+                {t("customerHistory.orders.loadFailed")}
+              </p>
             ),
           },
           {
@@ -424,22 +480,27 @@ export default function CustomerProfilePage() {
             value: "payments",
             label: t("sales.customers.profile.sectionsTab.payments"),
             content: (
-              <PartyPaymentsPanel
-                transactions={receipts}
-                isLoadingTransactions={isLoadingReceipts}
-                openInvoices={openInvoices}
-                isLoadingOpenInvoices={isLoadingOpenInvoices}
-                historyTitle={t("sales.receipts.title")}
-                outstandingLabel={t("sales.customers.profile.statistics.balance")}
-                paidLabel={t("sales.customers.profile.payments.paidAmount")}
-                documentHref={(id) => `/sales/payments/${id}`}
-                onCreateNew={
-                  hasPermission("sales.receipts.create")
-                    ? () => router.push(`/sales/payments/new?partnerId=${customer.id}`)
-                    : undefined
-                }
-                createLabel={t("sales.receipts.addNew")}
-              />
+              <div className="flex flex-col gap-2">
+                {history?.financials ? (
+                  <CustomerOrderCollections financials={history.financials} />
+                ) : null}
+                <PartyPaymentsPanel
+                  transactions={receipts}
+                  isLoadingTransactions={isLoadingReceipts}
+                  openInvoices={openInvoices}
+                  isLoadingOpenInvoices={isLoadingOpenInvoices}
+                  historyTitle={t("sales.receipts.title")}
+                  outstandingLabel={t("sales.customers.profile.statistics.balance")}
+                  paidLabel={t("sales.customers.profile.payments.paidAmount")}
+                  documentHref={(id) => `/sales/payments/${id}`}
+                  onCreateNew={
+                    hasPermission("sales.receipts.create")
+                      ? () => router.push(`/sales/payments/new?partnerId=${customer.id}`)
+                      : undefined
+                  }
+                  createLabel={t("sales.receipts.addNew")}
+                />
+              </div>
             ),
           },
         ]}

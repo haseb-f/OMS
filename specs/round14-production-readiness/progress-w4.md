@@ -16,6 +16,16 @@ Branch `feat/r14-customers` (worktree `D:/Systems/OMS-r14-w4`, DB `oms_r14_w4`).
 - Tests: customer-history (8 integration + 5 unit), customer-lookup (31), duplicates (36) green; mutation: dropping
   `storeOrderAccessWhere` from the history query fails "only counted".
 
-## Checkpoint 2 — Web (next)
+## Checkpoint 2 — Web (done)
 
-Shared `CustomerMatchCard` + `RepeatCustomerBadge`, lookup dialog, duplicate panel buttons, customer page tabs.
+- Shared `components/business/customer-match-card.tsx` (full card) + `repeat-customer-badge.tsx`
+  (`RepeatCustomerBadge`, `PartnerRepeatBadge`), `components/sales/customer-history.tsx` (summary bar, orders table,
+  order collections, timeline), `services/customer-history-service.ts`, i18n module `customer-history.{ar,en}.ts`.
+- Lookup dialog shows the card; duplicate panel shows the card + "إنشاء طلب جديد لنفس العميل" / "إلغاء وعدم التكرار"
+  (`onCancel` passed by store-order create, lead convert, agent order form — one prop line each).
+- Customer page: summary strip, repeat badge, orders tab = store + B2B history, leads tab, timeline tab, order
+  collections in payments tab (financials only when the server sends them). Store-order detail: one import + one
+  render line (`PartnerRepeatBadge`, company orders only).
+- Shared-file touches (append-only): `permission-matrix.tsx` label for `view_financials`, `permissions.actions.viewFinancials`
+  in ar/en, module registration in ar/en.
+- Web: tsc clean, eslint clean (1 pre-existing warning in agent-order-form), vitest 142 files / 1010 tests green.

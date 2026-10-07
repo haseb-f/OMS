@@ -23,6 +23,7 @@ vi.mock("@/services/customer-lookup-service", () => ({
 vi.mock("@/lib/toast", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 import { ApiError } from "@/services/api-client";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   AdvancedCustomerLookupButton,
   AdvancedCustomerLookupDialog,
@@ -83,7 +84,7 @@ describe("AdvancedCustomerLookupDialog", () => {
     expect(advanced).not.toHaveBeenCalled();
   });
 
-  it("renders only the minimal disclosed fields, and a link only when openable", async () => {
+  it("renders the full disclosure card (R14), and a link only when openable", async () => {
     advanced.mockResolvedValue({
       exists: true,
       capped: false,
@@ -97,6 +98,18 @@ describe("AdvancedCustomerLookupDialog", () => {
           previousOrders: [],
           notAssignedToYou: true,
           openable: null,
+          disclosure: {
+            name: "Ahmed Salem",
+            phone: "+966501234567",
+            latestOrder: {
+              number: "SO-1",
+              orderDate: "2026-10-02",
+              productSummary: "Desk · Chair +1",
+              status: "IN_PROGRESS",
+            },
+            placedOrders: 1,
+            completedPurchases: 0,
+          },
         },
         {
           kind: "CUSTOMER",
@@ -109,15 +122,35 @@ describe("AdvancedCustomerLookupDialog", () => {
           ],
           notAssignedToYou: false,
           openable: { type: "ORDER", id: "abc" },
+          disclosure: {
+            name: "Mona Ali",
+            phone: "+966501234999",
+            latestOrder: {
+              number: "SO-2",
+              orderDate: "2026-10-01",
+              productSummary: "Lamp",
+              status: "COMPLETED",
+            },
+            placedOrders: 3,
+            completedPurchases: 2,
+          },
         },
       ],
     });
-    render(<AdvancedCustomerLookupDialog open onOpenChange={() => {}} />);
+    render(
+      <TooltipProvider>
+        <AdvancedCustomerLookupDialog open onOpenChange={() => {}} />
+      </TooltipProvider>,
+    );
     type("0501234567");
     fireEvent.click(screen.getByText("customerLookup.search"));
     await waitFor(() => expect(screen.getByText("SO-1")).toBeTruthy());
     expect(advanced).toHaveBeenCalledWith("0501234567");
-    expect(screen.getByText("+966••••••567")).toBeTruthy();
+    // Full name, product summary and the repeat badge (only for 2+ placed orders).
+    expect(screen.getByText("Ahmed Salem")).toBeTruthy();
+    expect(screen.getByText("Desk · Chair +1")).toBeTruthy();
+    expect(screen.queryByText("+966••••••567")).toBeNull();
+    expect(screen.getAllByTestId("repeat-customer-badge")).toHaveLength(1);
     expect(screen.getByText("customerLookup.notAssignedToYou")).toBeTruthy();
     expect(screen.getByText("customerLookup.assignedToYou")).toBeTruthy();
     // Links only where the caller already has scope: the open link and their own earlier order.

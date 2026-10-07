@@ -10,6 +10,7 @@ import { ListPager } from "@/components/shared/list-pager";
 import { FieldLabel } from "@/components/ui/form";
 import { StatusBadge } from "@/components/business/status-badge";
 import type { StatusTone } from "@/components/business/status-tone";
+import { CustomerMatchCard } from "@/components/business/customer-match-card";
 import {
   Table,
   TableBody,
@@ -64,10 +65,11 @@ const STATUS_TONE: Record<string, StatusTone> = {
 /**
  * R7 — "Advanced customer lookup" (AR: بحث متقدم عن عميل). A separate,
  * permission-gated tool (`customers.lookup_advanced`) that tells a salesperson
- * whether a customer already exists and that it is not theirs — nothing more.
- * Everything shown is what the server chose to disclose (masked phone, partial
- * name, order/lead reference, coarse status, assignment flag). A record link
- * appears only when the caller already has scope over it.
+ * whether a customer already exists and whether it is theirs. Everything shown
+ * is what the server chose to disclose — since R14 (owner decision D4-1) the
+ * full name and phone, the latest order and the repeat-customer count
+ * (`CustomerMatchCard`), plus the matched reference and assignment flag. A
+ * record link appears only when the caller already has scope over it.
  */
 export function AdvancedCustomerLookupDialog({
   open,
@@ -278,17 +280,12 @@ export function AdvancedCustomerLookupDialog({
   );
 }
 
-/** Masked identity only: two letters per name word, masked phone, kind. */
+/** The shared full-disclosure card (R14) and the record kind. */
 function MatchCustomer({ match }: { match: AdvancedLookupMatch }) {
   const { t } = useLocale();
   return (
-    <div className="flex min-w-0 flex-col">
-      <span className="font-medium" dir="auto">
-        {match.partialName}
-      </span>
-      <span dir="ltr" className="text-caption text-muted-foreground">
-        {match.maskedPhone ?? "—"}
-      </span>
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <CustomerMatchCard disclosure={match.disclosure} />
       <span className="text-caption text-muted-foreground">
         {t(`customerLookup.kind.${match.kind}`)}
       </span>
@@ -303,22 +300,31 @@ function MatchRecords({ match }: { match: AdvancedLookupMatch }) {
     (order) => order.number !== match.reference?.number,
   );
   const shown = earlier.slice(0, PREVIOUS_ORDERS_SHOWN);
+  // The card already shows the latest order; repeat the reference only when it is another record.
+  const reference =
+    match.reference?.type === "ORDER" &&
+    match.reference.number === match.disclosure.latestOrder?.number
+      ? null
+      : match.reference;
+  if (!reference && shown.length === 0 && match.reference) {
+    return <span className="text-muted-foreground">—</span>;
+  }
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
-      {match.reference ? (
+      {reference ? (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span dir="ltr" className="font-medium">
-            {match.reference.number}
+            {reference.number}
           </span>
           <StatusBadge
-            tone={STATUS_TONE[match.reference.status] ?? "neutral"}
-            label={t(`customerLookup.status.${match.reference.status}`)}
+            tone={STATUS_TONE[reference.status] ?? "neutral"}
+            label={t(`customerLookup.status.${reference.status}`)}
           />
           <span className="text-caption text-muted-foreground">
-            {t(`customerLookup.referenceType.${match.reference.type}`)}
+            {t(`customerLookup.referenceType.${reference.type}`)}
           </span>
         </div>
-      ) : (
+      ) : match.reference ? null : (
         <span className="text-muted-foreground">{t("customerLookup.noReference")}</span>
       )}
       {shown.length > 0 ? (

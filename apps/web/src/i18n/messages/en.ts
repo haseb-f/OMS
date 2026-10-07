@@ -19,6 +19,7 @@ import assetSchedulesEn from "./modules/asset-schedules.en";
 import assemblyEn from "./modules/assembly.en";
 import inventoryIntegrityEn from "./modules/inventory-integrity.en";
 import expenseVouchersEn from "./modules/expense-vouchers.en";
+import customerHistoryEn from "./modules/customer-history.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
@@ -33,6 +34,7 @@ const en = {
   assembly: assemblyEn,
   inventoryIntegrity: inventoryIntegrityEn,
   expenseVouchers: expenseVouchersEn,
+  customerHistory: customerHistoryEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
@@ -319,6 +321,7 @@ const en = {
       viewAll: "View all records (every owner)",
       amend: "Amend order",
       directCost: "Enter direct assembly cost",
+      viewFinancials: "View customer payments and balance",
     },
     modules: {
       dashboard: "Dashboard",

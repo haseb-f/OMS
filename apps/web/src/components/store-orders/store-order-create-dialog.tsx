@@ -928,6 +928,7 @@ export function StoreOrderCreateDialog({
                         onChoose={chooseDuplicate}
                         orderHref={(id) => `/store-orders/${id}`}
                         onEditDetails={() => form.setFocus("customerPhone")}
+                        onCancel={() => onOpenChange(false)}
                       />
                       <FieldMessage>{duplicateGateMessage}</FieldMessage>
                     </div>

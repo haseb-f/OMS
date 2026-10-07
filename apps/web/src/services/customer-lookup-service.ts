@@ -3,7 +3,27 @@ import { apiClient } from "./api-client";
 export type LookupOrderStatus = "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "RETURNED";
 export type LookupLeadStatus = "OPEN" | "CONVERTED" | "CLOSED";
 
-/** One match — the fixed, minimal shape of `POST /customer-lookup/advanced`. */
+/**
+ * R14 — what a `customers.lookup_advanced` holder is shown about a found
+ * customer (advanced lookup and order-entry duplicate panel): full name and
+ * phone, the latest company order and the company-wide order counts.
+ */
+export interface CustomerDisclosure {
+  name: string;
+  /** E.164 when known. */
+  phone: string | null;
+  latestOrder: {
+    number: string;
+    /** YYYY-MM-DD (Cairo day). */
+    orderDate: string;
+    productSummary: string;
+    status: LookupOrderStatus;
+  } | null;
+  placedOrders: number;
+  completedPurchases: number;
+}
+
+/** One match — the fixed shape of `POST /customer-lookup/advanced`. */
 export interface AdvancedLookupMatch {
   kind: "CUSTOMER" | "LEAD";
   maskedPhone: string | null;
@@ -23,6 +43,8 @@ export interface AdvancedLookupMatch {
   notAssignedToYou: boolean;
   /** Present only when the caller already has scope over that exact record. */
   openable: { type: "ORDER" | "LEAD"; id: string } | null;
+  /** R14 — full identity, latest order and counts. */
+  disclosure: CustomerDisclosure;
 }
 
 export interface AdvancedLookupResult {
