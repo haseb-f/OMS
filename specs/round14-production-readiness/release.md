@@ -33,3 +33,23 @@ sales-order carrier route with a real order (permission refusal verified with a 
 ## Post-deploy verification
 
 (filled after the smoke run)
+
+## Polish release (from the manual's capture pass) — Production `0db15e41`
+
+Deployment 6908789325 (2026-10-07 11:33 UTC) → success; Production smoke rerun 19/19.
+
+- Arabic labels: actions column, missing permission action labels (lookup_global, generate_invoice, match,
+  sync, settle, correct, run, reallocate, profitability_*, pay, close), impact-preview labels, movement-type
+  chip, inventory-integrity metrics, document-numbering series.
+- Job-titles subtitle describes default (inherited) permissions.
+- Shipping import entry requires `import-center.view` like its page.
+- Partner summary cards responsive (`InsightGroup fit`).
+- A partner period closes only after its last Cairo day (`PERIOD_NOT_ENDED`); preview / review stay open.
+  Final tree gates: api tsc ✓, web tsc ✓, jest 205 suites / 2469 tests on a fresh clone (one load-sensitive
+  suite re-run alone 16/16), web vitest 1097 ✓, both builds ✓.
+
+## User manual (W7)
+
+`docs/user-manual/OMS-دليل-المستخدم-R14.pdf` (84 pages) and `.docx` built from the same Markdown source,
+65 annotated screenshots of the final release on a clean fictitious demo database, QA in
+`docs/user-manual/QA.md` (every PDF page rendered and reviewed; DOCX RTL / bookmark checks pass).

@@ -31,3 +31,9 @@ Newest first. Each entry: time (UTC+3 local), stream, verified state, next step.
 - Production = `02368c18` (deployment 6906315769 success); smoke 19/19 (`evidence/prod-smoke.json`).
 - Repair dry run on Production: 1 order (STO-2026-000156) recognizable — NOT applied (D3-2, owner).
 - Next: W7 manual (agent, branch `docs/r14-user-manual`), worktree cleanup, handoff.
+
+## 2026-10-07 — lead, final
+
+- Polish release `0db15e41` live (smoke 19/19). Manual refreshed to `0db15e41` (84 pages) and merged to main.
+- Round complete. Open owner items: D3-2 (apply recognition repair to STO-2026-000156), D5-1 (loss carry-forward),
+  partner posting accounts in Settings → Accounting, D2-3 store-orders import visibility, B2B "completed" incl. CLOSED.
