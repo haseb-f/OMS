@@ -412,6 +412,7 @@ export function AgentOrderForm({
                 state={duplicates.state}
                 onChoose={duplicates.choose}
                 orderHref={(id) => `/agent/orders/${id}`}
+                onCancel={() => router.back()}
               />
             </FormSection>
           ) : (
@@ -526,6 +527,7 @@ export function AgentOrderForm({
                 onChoose={duplicates.choose}
                 orderHref={(id) => `/agent/orders/${id}`}
                 onEditDetails={() => document.getElementById(`${fieldId}-mobile`)?.focus()}
+                onCancel={() => router.back()}
               />
             </FormSection>
           )}

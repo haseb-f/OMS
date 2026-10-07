@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { ConflictException } from '@nestjs/common';
 import { StoreOrderDuplicateReviewStatus, type Prisma } from '@prisma/client';
+import type { CustomerDisclosure } from '../../customer-lookup/customer-lookup.service';
 
 /**
  * Round 5 Spec 1B — duplicate warning on order creation: the shared
@@ -57,6 +58,13 @@ export interface DuplicateNameCandidate extends DuplicateCustomerSummary {
  */
 export type DuplicateCheckResult =
   | { kind: 'NONE' }
+  /*
+   * R14 — every phone variant below may carry `disclosure` (full name, phone,
+   * latest order, order counts): ONLY for an internal company-order caller
+   * holding `customers.lookup_advanced`, inside the shared audited lookup
+   * budget. Without the permission (or once the budget is spent) the result
+   * stays exactly as masked as before.
+   */
   /**
    * The number belongs to an existing customer with no order in the caller's
    * customer scope (a lead-only or not-yet-ordered customer). Informational and
@@ -66,8 +74,9 @@ export type DuplicateCheckResult =
   | {
       kind: 'KNOWN';
       customer: { nameMasked: string; phoneMasked: string | null };
+      disclosure?: CustomerDisclosure;
     }
-  | { kind: 'PHONE'; crossScope: true }
+  | { kind: 'PHONE'; crossScope: true; disclosure?: CustomerDisclosure }
   | {
       kind: 'PHONE';
       crossScope: false;
@@ -82,6 +91,7 @@ export type DuplicateCheckResult =
        * order belongs to — nothing is chosen or merged silently.
        */
       alternatives?: DuplicateCustomerSummary[];
+      disclosure?: CustomerDisclosure;
     }
   | { kind: 'NAME'; candidates: DuplicateNameCandidate[] };
 

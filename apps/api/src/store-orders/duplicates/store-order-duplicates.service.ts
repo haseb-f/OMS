@@ -1,4 +1,9 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+} from '@nestjs/common';
 import {
   GlobalLookupAction,
   GlobalLookupMethod,
@@ -13,6 +18,8 @@ import { PermissionsResolverService } from '../../permissions/permissions-resolv
 import { personNameKey, personNameKeySql } from '../../common/text/person-name';
 import { storeOrderPayableTotal } from '../store-order-line-amount';
 import { maskName } from '../../customer-lookup/customer-lookup.util';
+import { CustomerLookupService } from '../../customer-lookup/customer-lookup.service';
+import { LookupThrottleService } from '../../customer-lookup/lookup-throttle.service';
 import { agentCustomerScopeWhere } from '../../agents/orders/agent-customer';
 import { readAgentCustomerSnapshot } from '../../agents/common/agent-terms';
 import {
@@ -103,6 +110,8 @@ interface Evaluation {
   audit?: { phone: string; partnerId: string };
   /** O3 — the customer a cross-scope order is attached to (server-side only). */
   crossScopePartnerId?: string;
+  /** R14 — the existing customer the result is about (KNOWN / PHONE), for the authorized full-disclosure card. */
+  matchedPartnerId?: string;
 }
 
 /**
@@ -121,6 +130,8 @@ export class StoreOrderDuplicatesService {
     private readonly phones: PhoneNumberService,
     private readonly salesScope: SalesScopeService,
     private readonly permissions: PermissionsResolverService,
+    private readonly lookup: CustomerLookupService,
+    private readonly throttle: LookupThrottleService,
   ) {}
 
   // ── Scopes ──────────────────────────────────────────────────────────────
@@ -187,7 +198,10 @@ export class StoreOrderDuplicatesService {
     input: DuplicateCheckInput,
     scope: DuplicateScope,
   ): Promise<DuplicateCheckResult> {
-    const { result, audit } = await this.evaluate(input, scope);
+    const evaluation = await this.evaluate(input, scope);
+    const { result, audit } = evaluation;
+    const disclosed = await this.withDisclosure(evaluation, scope);
+    if (disclosed) return disclosed;
     if (audit) {
       await this.prisma.globalLookupAudit.create({
         data: {
@@ -315,6 +329,66 @@ export class StoreOrderDuplicatesService {
     };
   }
 
+  /**
+   * R14 (owner decision D4-1) — an internal company-order caller holding
+   * `customers.lookup_advanced` sees the same full card as the advanced
+   * lookup. A disclosure that reaches beyond the caller's own records (the
+   * cases the check already audited) is reserved from the shared lookup
+   * budget and audited as `FULL_DISCLOSURE`; once the budget is spent the
+   * masked result is returned unchanged (order entry is never blocked).
+   * Returns null when nothing is disclosed.
+   */
+  private async withDisclosure(
+    evaluation: Evaluation,
+    scope: DuplicateScope,
+  ): Promise<DuplicateCheckResult | null> {
+    const { result, audit } = evaluation;
+    if (scope.kind !== 'COMPANY') return null;
+    if (result.kind !== 'KNOWN' && result.kind !== 'PHONE') return null;
+    const partnerId =
+      evaluation.matchedPartnerId ?? evaluation.crossScopePartnerId;
+    if (!partnerId) return null;
+    if (
+      !(await this.permissions.hasPermission(
+        scope.userId,
+        'customers.lookup_advanced',
+      ))
+    ) {
+      return null;
+    }
+    let reservationId: string | null = null;
+    if (audit) {
+      try {
+        reservationId = (
+          await this.throttle.reserve(
+            scope.userId,
+            GlobalLookupAction.ADVANCED_CUSTOMER_LOOKUP,
+            GlobalLookupMethod.PHONE,
+            audit.phone,
+          )
+        ).reservationId;
+      } catch (error) {
+        if (
+          error instanceof HttpException &&
+          error.getStatus() === Number(HttpStatus.TOO_MANY_REQUESTS)
+        ) {
+          return null;
+        }
+        throw error;
+      }
+    }
+    const disclosure = (await this.lookup.disclose([partnerId])).get(partnerId);
+    if (reservationId) {
+      await this.throttle.finalise(reservationId, {
+        outcome: disclosure ? 'MATCH' : 'NO_MATCH',
+        outcomeDetail: disclosure ? 'FULL_DISCLOSURE' : null,
+        resultCount: disclosure ? 1 : 0,
+        matchedPartnerId: partnerId,
+      });
+    }
+    return disclosure ? { ...result, disclosure } : result;
+  }
+
   // ── Internals ───────────────────────────────────────────────────────────
 
   private async evaluate(
@@ -408,6 +482,7 @@ export class StoreOrderDuplicatesService {
               // Every recognition of a customer outside the caller's records is
               // written to the shared lookup ledger (audit + budget evidence).
               audit: { phone, partnerId: known.id },
+              matchedPartnerId: known.id,
               result: {
                 kind: 'KNOWN',
                 customer: {
@@ -495,6 +570,7 @@ export class StoreOrderDuplicatesService {
       );
     }
     return {
+      matchedPartnerId: customer.id,
       partnerNumber: customer.partnerNumber,
       orderNumbers: latest.map((row) => row.internalOrderId),
       ...(others.length > 0

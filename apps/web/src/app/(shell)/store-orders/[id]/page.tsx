@@ -113,6 +113,7 @@ import { formatMoney } from "@/lib/money";
 import { formatFileSize } from "@/lib/format-file-size";
 import { isImageAttachmentMime } from "@/lib/order-attachments";
 import type { MessageKey } from "@/i18n/translate";
+import { PartnerRepeatBadge } from "@/components/business/repeat-customer-badge";
 
 const ACTIVITY_PREVIEW = 8;
 /** Remembered per user (per-user browser storage): which detail sections stay open (spec 1C). */
@@ -1182,6 +1183,7 @@ function StoreOrderDetailContent() {
                 tone={recognitionBadge.tone}
               />
             ) : null}
+            {order.agentId ? null : <PartnerRepeatBadge partnerId={order.partner?.id} />}
             {!next.actionable && next.labelKey ? (
               <StatusBadge label={t(next.labelKey)} tone="neutral" />
             ) : null}

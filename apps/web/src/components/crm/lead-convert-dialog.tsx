@@ -483,6 +483,7 @@ export function LeadConvertDialog({
                   setServerError(null);
                 }}
                 orderHref={(id) => `/store-orders/${id}`}
+                onCancel={() => onOpenChange(false)}
               />
             </div>
           </FormSection>

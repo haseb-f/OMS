@@ -23,9 +23,41 @@ import {
   type LeadStatusBucket,
   type OrderStatusBucket,
 } from './customer-lookup.util';
+import {
+  customerOrderStats,
+  productSummary,
+} from '../customer-history/customer-order-stats';
 
 /** Candidate rows read before the visibility filter and the response cap. */
 const CANDIDATE_LIMIT = 25;
+
+/**
+ * Round 14 (owner decision D4-1) — what an AUTHORIZED caller
+ * (`customers.lookup_advanced`) is shown about a found customer: the full
+ * name and phone, the latest order with a short product summary and coarse
+ * status, and the company-wide order counts (numbers only). Shared by the
+ * advanced lookup and the order-entry duplicate panel. Never an address,
+ * balance, payment, owner or agent identity; opening a record still needs
+ * the caller's own scope.
+ */
+export interface CustomerDisclosure {
+  name: string;
+  /** E.164 when the customer has a phone key, else the stored number. */
+  phone: string | null;
+  latestOrder: {
+    number: string;
+    /** Cairo calendar day, YYYY-MM-DD. */
+    orderDate: string;
+    /** First two product names + "+N". */
+    productSummary: string;
+    status: OrderStatusBucket;
+  } | null;
+  placedOrders: number;
+  completedPurchases: number;
+}
+
+const cairoDay = (date: Date) =>
+  date.toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
 
 export interface AdvancedLookupMatch {
   kind: 'CUSTOMER' | 'LEAD';
@@ -57,6 +89,8 @@ export interface AdvancedLookupMatch {
    * is then the same record their own lists show). Discovery is never a link.
    */
   openable: { type: 'ORDER' | 'LEAD'; id: string } | null;
+  /** R14 — full identity + latest order + counts (the caller holds the permission). */
+  disclosure: CustomerDisclosure;
 }
 
 export interface AdvancedLookupResult {
@@ -133,6 +167,7 @@ export class CustomerLookupService {
 
     await this.throttle.finalise(reservationId, {
       outcome: matches.length > 0 ? 'MATCH' : 'NO_MATCH',
+      outcomeDetail: matches.length > 0 ? 'FULL_DISCLOSURE' : null,
       resultCount: matches.length,
       queryValue:
         query.kind === 'PHONE'
@@ -409,6 +444,7 @@ export class CustomerLookupService {
       [...agentOrders, ...agentLeads].map((row) => row.partnerId),
     );
     const matches: AdvancedLookupMatch[] = [];
+    const disclosures = await this.disclose(partners.map((p) => p.id));
 
     for (const partner of partners) {
       const partnerOrders = orders.filter((o) => o.partnerId === partner.id);
@@ -472,13 +508,18 @@ export class CustomerLookupService {
           .map((o) => ({
             id: o.id,
             number: o.internalOrderId,
-            orderDate: o.orderDate.toLocaleDateString('en-CA', {
-              timeZone: 'Africa/Cairo',
-            }),
+            orderDate: cairoDay(o.orderDate),
             status: orderStatusBucket(o.fulfillmentStatus?.code),
           })),
         notAssignedToYou: !assignedToYou,
         openable,
+        disclosure: disclosures.get(partner.id) ?? {
+          name: partner.name,
+          phone: partner.mobile ?? partner.phone,
+          latestOrder: null,
+          placedOrders: 0,
+          completedPurchases: 0,
+        },
       });
     }
 
@@ -504,12 +545,128 @@ export class CustomerLookupService {
         openable: this.salesScope.canAccessLead(scope, lead)
           ? { type: 'LEAD', id: lead.id }
           : null,
+        disclosure: {
+          name: lead.customerName,
+          phone: lead.mobileNumber,
+          latestOrder: null,
+          placedOrders: 0,
+          completedPurchases: 0,
+        },
       });
     }
 
     return {
       matches: matches.slice(0, limit),
       capped: matches.length > limit,
+    };
+  }
+
+  /**
+   * R14 — the full-disclosure card of each customer (see `CustomerDisclosure`).
+   * Company data only: the latest order is the latest INTERNAL order, the
+   * counts come from the shared `customerOrderStats` definition, and a
+   * customer whose only footprint is an agent's is never disclosed (no entry
+   * in the map). Callers must already have established that the viewer holds
+   * `customers.lookup_advanced`.
+   */
+  async disclose(
+    partnerIds: string[],
+  ): Promise<Map<string, CustomerDisclosure>> {
+    const ids = [...new Set(partnerIds)];
+    const result = new Map<string, CustomerDisclosure>();
+    if (ids.length === 0) return result;
+    const [partners, keys, latest, stats, footprint] = await Promise.all([
+      this.prisma.partner.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, name: true, phone: true, mobile: true },
+      }),
+      this.prisma.partnerPhoneKey.findMany({
+        where: { partnerId: { in: ids } },
+        select: { partnerId: true, phoneE164: true, kind: true },
+      }),
+      this.prisma.storeOrder.findMany({
+        where: { partnerId: { in: ids }, agentId: null, deletedAt: null },
+        orderBy: [{ orderDate: 'desc' }, { id: 'desc' }],
+        distinct: ['partnerId'],
+        select: {
+          partnerId: true,
+          internalOrderId: true,
+          orderDate: true,
+          fulfillmentStatus: { select: { code: true } },
+          items: {
+            where: { deletedAt: null },
+            orderBy: { createdAt: 'asc' },
+            select: { product: { select: { displayName: true, name: true } } },
+          },
+        },
+      }),
+      customerOrderStats(this.prisma, ids),
+      this.footprints(ids),
+    ]);
+    for (const partner of partners) {
+      if (
+        !footprint.internal.has(partner.id) &&
+        footprint.agent.has(partner.id)
+      ) {
+        continue;
+      }
+      const partnerKeys = keys.filter((key) => key.partnerId === partner.id);
+      const key =
+        partnerKeys.find((row) => row.kind === 'MOBILE') ?? partnerKeys[0];
+      const order = latest.find((row) => row.partnerId === partner.id);
+      const counts = stats.get(partner.id);
+      result.set(partner.id, {
+        name: partner.name,
+        phone: key?.phoneE164 ?? partner.mobile ?? partner.phone,
+        latestOrder: order
+          ? {
+              number: order.internalOrderId,
+              orderDate: cairoDay(order.orderDate),
+              productSummary: productSummary(
+                order.items.map(
+                  (item) => item.product.displayName || item.product.name,
+                ),
+              ),
+              status: orderStatusBucket(order.fulfillmentStatus?.code),
+            }
+          : null,
+        placedOrders: counts?.placedOrders ?? 0,
+        completedPurchases: counts?.completedPurchases ?? 0,
+      });
+    }
+    return result;
+  }
+
+  /** Partners with an internal (company) order or lead, and with an agent's. */
+  private async footprints(ids: string[]) {
+    const [internalOrders, internalLeads, agentOrders, agentLeads] =
+      await Promise.all([
+        this.prisma.storeOrder.findMany({
+          where: { partnerId: { in: ids }, agentId: null, deletedAt: null },
+          select: { partnerId: true },
+          distinct: ['partnerId'],
+        }),
+        this.prisma.lead.findMany({
+          where: { partnerId: { in: ids }, agentId: null, deletedAt: null },
+          select: { partnerId: true },
+          distinct: ['partnerId'],
+        }),
+        this.prisma.storeOrder.findMany({
+          where: { partnerId: { in: ids }, agentId: { not: null } },
+          select: { partnerId: true },
+          distinct: ['partnerId'],
+        }),
+        this.prisma.lead.findMany({
+          where: { partnerId: { in: ids }, agentId: { not: null } },
+          select: { partnerId: true },
+          distinct: ['partnerId'],
+        }),
+      ]);
+    const set = (rows: { partnerId: string | null }[]) =>
+      new Set(rows.flatMap((row) => (row.partnerId ? [row.partnerId] : [])));
+    return {
+      internal: set([...internalOrders, ...internalLeads]),
+      agent: set([...agentOrders, ...agentLeads]),
     };
   }
 

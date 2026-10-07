@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { CheckCircle2, ExternalLink, Loader2, ShieldAlert, UserCheck, Users } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { CustomerMatchCard } from "@/components/business/customer-match-card";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
@@ -33,12 +34,19 @@ const MAX_ORDERS_SHOWN = 5;
  * question; a match outside the user's scope says only that. The parent
  * keeps submit disabled until `choice` answers the result
  * (`useDuplicateCheck().blocked`).
+ *
+ * R14 — for a `customers.lookup_advanced` holder the server adds the full
+ * `CustomerMatchCard` (same card as the advanced lookup), and an existing
+ * customer is answered with two explicit buttons: "إنشاء طلب جديد لنفس
+ * العميل" (a new order for that same customer — never a second customer) and
+ * "إلغاء وعدم التكرار" (`onCancel`: close, nothing created).
  */
 export function DuplicateCustomerPanel({
   state,
   onChoose,
   orderHref,
   onEditDetails,
+  onCancel,
 }: {
   state: DuplicatePanelState;
   onChoose: (choice: DuplicateChoice | null) => void;
@@ -46,6 +54,8 @@ export function DuplicateCustomerPanel({
   orderHref: (orderId: string) => string;
   /** Omitted where the customer details are not editable here (lead conversion). */
   onEditDetails?: () => void;
+  /** "Cancel — do not duplicate": closes the form, nothing is created. */
+  onCancel?: () => void;
 }) {
   const { t } = useLocale();
   const { result, choice } = state;
@@ -73,6 +83,21 @@ export function DuplicateCustomerPanel({
       {t("orderDuplicates.phone.editDetails")}
     </EnterpriseButton>
   ) : null;
+  const cancelButton = onCancel ? (
+    <EnterpriseButton
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={onCancel}
+      data-testid="duplicate-cancel"
+    >
+      {t("orderDuplicates.cancel")}
+    </EnterpriseButton>
+  ) : null;
+  const card =
+    result && "disclosure" in result && result.disclosure ? (
+      <CustomerMatchCard disclosure={result.disclosure} />
+    ) : null;
 
   if (mode === "known" && result?.kind === "KNOWN") {
     return (
@@ -80,18 +105,21 @@ export function DuplicateCustomerPanel({
         <UserCheck aria-hidden />
         <AlertDescription className="flex flex-col gap-1">
           <AlertTitle>{t("orderDuplicates.known.title")}</AlertTitle>
-          <p>
-            <bdi className="font-medium">{result.customer.nameMasked}</bdi>
-            {result.customer.phoneMasked ? (
-              <>
-                {" · "}
-                <bdi dir="ltr" className="num">
-                  {result.customer.phoneMasked}
-                </bdi>
-              </>
-            ) : null}
-          </p>
+          {card ?? (
+            <p>
+              <bdi className="font-medium">{result.customer.nameMasked}</bdi>
+              {result.customer.phoneMasked ? (
+                <>
+                  {" · "}
+                  <bdi dir="ltr" className="num">
+                    {result.customer.phoneMasked}
+                  </bdi>
+                </>
+              ) : null}
+            </p>
+          )}
           <p>{t("orderDuplicates.known.description")}</p>
+          {cancelButton ? <div className="flex flex-wrap gap-2">{cancelButton}</div> : null}
         </AlertDescription>
       </Alert>
     );
@@ -103,6 +131,7 @@ export function DuplicateCustomerPanel({
         <ShieldAlert aria-hidden />
         <AlertDescription className="flex flex-col gap-2">
           <AlertTitle>{t("orderDuplicates.crossScope.title")}</AlertTitle>
+          {card}
           <p>{t("orderDuplicates.crossScope.description")}</p>
           {answered ? (
             <ChosenLine
@@ -117,8 +146,9 @@ export function DuplicateCustomerPanel({
                 size="sm"
                 onClick={() => onChoose({ kind: "CONTINUE_WITH_REVIEW" })}
               >
-                {t("orderDuplicates.crossScope.continue")}
+                {t("orderDuplicates.phone.newOrder")}
               </EnterpriseButton>
+              {cancelButton}
               {editButton}
             </div>
           )}
@@ -214,17 +244,19 @@ export function DuplicateCustomerPanel({
       <UserCheck aria-hidden />
       <AlertDescription className="flex flex-col gap-2">
         <AlertTitle>{t("orderDuplicates.phone.title")}</AlertTitle>
-        <p>
-          <bdi className="font-medium">{match.customer.name}</bdi>
-          {match.customer.phoneMasked ? (
-            <>
-              {" · "}
-              <bdi dir="ltr" className="num">
-                {match.customer.phoneMasked}
-              </bdi>
-            </>
-          ) : null}
-        </p>
+        {card ?? (
+          <p>
+            <bdi className="font-medium">{match.customer.name}</bdi>
+            {match.customer.phoneMasked ? (
+              <>
+                {" · "}
+                <bdi dir="ltr" className="num">
+                  {match.customer.phoneMasked}
+                </bdi>
+              </>
+            ) : null}
+          </p>
+        )}
         {orders.length > 0 ? (
           <p className="font-medium">
             {t("orderDuplicates.phone.hasOrders", { count: match.orders.length })}
@@ -288,6 +320,7 @@ export function DuplicateCustomerPanel({
                   </Link>
                 </EnterpriseButton>
               ) : null}
+              {cancelButton}
               {editButton}
             </div>
           </div>
@@ -309,6 +342,7 @@ export function DuplicateCustomerPanel({
             >
               {t("orderDuplicates.phone.newOrder")}
             </EnterpriseButton>
+            {cancelButton}
             {editButton}
           </div>
         )}

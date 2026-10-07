@@ -1421,4 +1421,143 @@ describe('Spec 1B — order duplicates + idempotent create (HTTP integration)', 
       expect(two.status).toBe(201);
     });
   });
+
+  // ── Round 14 (W4) — authorized full-disclosure card + explicit decisions ──
+
+  describe('R14 full-disclosure card (customers.lookup_advanced)', () => {
+    const p = phone();
+    const customer = { name: `R14 Card Customer ${tag}`, phone: p };
+    let first: { id: string; internalOrderId: string; partnerId: string };
+    let discloser: Actor;
+    let exhausted: Actor;
+
+    beforeAll(async () => {
+      const sales = [
+        'store-orders.view',
+        'store-orders.create',
+        'crm.leads.view',
+        'crm.leads.convert',
+      ];
+      discloser = await internalUser('r14disc', [
+        ...sales,
+        'customers.lookup_advanced',
+      ]);
+      exhausted = await internalUser('r14limit', [
+        ...sales,
+        'customers.lookup_advanced',
+      ]);
+      const res = await post(users.empA, '/store-orders', orderBody(customer));
+      expect(res.status).toBe(201);
+      first = res.body;
+    });
+
+    it('shows the full card to a permission holder and audits it as FULL_DISCLOSURE', async () => {
+      const before = new Date();
+      const res = await post(discloser, '/store-orders/duplicate-check', {
+        phone: p,
+        countryId: egId,
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.kind).toBe('PHONE');
+      expect(res.body.disclosure).toEqual({
+        name: customer.name,
+        phone: p,
+        latestOrder: expect.objectContaining({
+          number: first.internalOrderId,
+          productSummary: 'Dup Product CO',
+          status: 'IN_PROGRESS',
+        }),
+        placedOrders: 1,
+        completedPurchases: 0,
+      });
+      const audit = await prisma.globalLookupAudit.findFirst({
+        where: { userId: discloser.id, createdAt: { gte: before } },
+      });
+      expect(audit).toMatchObject({
+        action: 'ADVANCED_CUSTOMER_LOOKUP',
+        outcome: 'MATCH',
+        outcomeDetail: 'FULL_DISCLOSURE',
+        matchedPartnerId: first.partnerId,
+      });
+    });
+
+    it('stays masked without the permission', async () => {
+      const res = await post(users.empB, '/store-orders/duplicate-check', {
+        phone: p,
+        countryId: egId,
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.kind).toBe('PHONE');
+      expect(res.body).not.toHaveProperty('disclosure');
+      expect(JSON.stringify(res.body)).not.toContain(p);
+    });
+
+    it('falls back to the masked result once the lookup budget is spent (never blocks entry)', async () => {
+      await prisma.globalLookupAudit.createMany({
+        data: Array.from({ length: 15 }, () => ({
+          userId: exhausted.id,
+          action: 'ADVANCED_CUSTOMER_LOOKUP' as const,
+          method: 'PHONE' as const,
+          queryValue: '+201000000000',
+          outcome: 'NO_MATCH',
+          resultCount: 0,
+        })),
+      });
+      const res = await post(exhausted, '/store-orders/duplicate-check', {
+        phone: p,
+        countryId: egId,
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.kind).toBe('PHONE');
+      expect(res.body).not.toHaveProperty('disclosure');
+      expect(JSON.stringify(res.body)).not.toContain(p);
+    });
+
+    it('never discloses to an agent', async () => {
+      const res = await post(
+        users.agentA,
+        '/agent-portal/orders/duplicate-check',
+        { phone: p, countryId: egId },
+      );
+      expect(res.status).toBe(200);
+      expect(res.body).not.toHaveProperty('disclosure');
+      expect(JSON.stringify(res.body)).not.toContain(customer.name);
+    });
+
+    it('"new order for the same customer" (INTENTIONAL_NEW_ORDER) reuses the one customer of the number', async () => {
+      const res = await post(
+        discloser,
+        '/store-orders',
+        orderBody(
+          { name: 'Typed Another Way', phone: p },
+          {
+            duplicateResolution: {
+              decision: 'INTENTIONAL_NEW_ORDER',
+              customerId: first.partnerId,
+            },
+          },
+        ),
+      );
+      expect(res.status).toBe(201);
+      expect(res.body.partnerId).toBe(first.partnerId);
+      const keyOwners = await prisma.partnerPhoneKey.findMany({
+        where: { phoneE164: p },
+        select: { partnerId: true },
+      });
+      expect(new Set(keyOwners.map((row) => row.partnerId))).toEqual(
+        new Set([first.partnerId]),
+      );
+      expect(
+        await prisma.partner.count({
+          where: { deletedAt: null, OR: [{ phone: p }, { mobile: p }] },
+        }),
+      ).toBe(1);
+      // The card now counts two placed orders — a repeat customer.
+      const card = await post(discloser, '/store-orders/duplicate-check', {
+        phone: p,
+        countryId: egId,
+      });
+      expect(card.body.disclosure.placedOrders).toBe(2);
+    });
+  });
 });

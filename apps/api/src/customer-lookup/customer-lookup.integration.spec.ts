@@ -347,8 +347,8 @@ describe('Advanced customer lookup (HTTP)', () => {
     });
   });
 
-  describe('minimal disclosure', () => {
-    it('returns masked phone, partial name, order reference + coarse status, notAssignedToYou — and nothing else', async () => {
+  describe('authorized disclosure (R14, owner decision D4-1)', () => {
+    it('returns full name + phone, latest order, product summary and counts — and nothing else', async () => {
       const res = await lookup('searcher', phones.internal.national);
       expect(res.status).toBe(200);
       const body = res.body as {
@@ -368,6 +368,7 @@ describe('Advanced customer lookup (HTTP)', () => {
       const match = body.matches[0];
       // Fixed shape — adding a field is a deliberate, reviewed change.
       expect(Object.keys(match).sort()).toEqual([
+        'disclosure',
         'kind',
         'maskedPhone',
         'notAssignedToYou',
@@ -390,11 +391,22 @@ describe('Advanced customer lookup (HTTP)', () => {
       expect(match.notAssignedToYou).toBe(true);
       // Discovery is not a link: the searcher has no scope over that order.
       expect(match.openable).toBeNull();
+      // R14 — the permission holder sees the full identity and latest order.
+      expect(match.disclosure).toEqual({
+        name: customer.internal,
+        phone: phones.internal.e164,
+        latestOrder: {
+          number: orderNumber.internal,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- asymmetric matcher
+          orderDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+          productSummary: `R7 Lookup Product ${suffix}`,
+          status: 'IN_PROGRESS',
+        },
+        placedOrders: 1,
+        completedPurchases: 0,
+      });
 
       const raw = JSON.stringify(res.body);
-      expect(raw).not.toContain(phones.internal.e164);
-      expect(raw).not.toContain(phones.internal.national);
-      expect(raw).not.toContain(customer.internal);
       expect(raw).not.toContain(ids.owner);
       expect(raw).not.toContain(order.internal);
       for (const forbidden of [
@@ -428,12 +440,27 @@ describe('Advanced customer lookup (HTTP)', () => {
       expect([403, 404]).toContain(denied.status);
     });
 
-    it('finds by a name fragment (>= 3 letters) with the same minimal shape', async () => {
+    it('finds by a name fragment (>= 3 letters) with the same shape', async () => {
       const res = await lookup('searcher', `Lookup Internal ${suffix}`);
       expect(res.status).toBe(200);
-      const body = res.body as { matches: Record<string, unknown>[] };
+      const body = res.body as {
+        matches: { disclosure: { name: string } }[];
+      };
       expect(body.matches.length).toBeGreaterThanOrEqual(1);
-      expect(JSON.stringify(res.body)).not.toContain(customer.internal);
+      expect(body.matches[0].disclosure.name).toBe(customer.internal);
+    });
+
+    it('audits every disclosing lookup as FULL_DISCLOSURE', async () => {
+      const before = new Date();
+      await lookup('searcher', phones.internal.national);
+      const row = await prisma.globalLookupAudit.findFirst({
+        where: {
+          userId: ids.searcher,
+          outcome: 'MATCH',
+          createdAt: { gte: before },
+        },
+      });
+      expect(row?.outcomeDetail).toBe('FULL_DISCLOSURE');
     });
   });
 
@@ -473,7 +500,6 @@ describe('Advanced customer lookup (HTTP)', () => {
       expect(body.matches[0].reference?.number).toBe(orderNumber.internal);
       expect(body.matches[0].openable).toBeNull();
       expect(body.matches[0].notAssignedToYou).toBe(true);
-      expect(JSON.stringify(res.body)).not.toContain(customer.internal);
 
       const owner = await lookup('owner', orderNumber.internal);
       expect(
@@ -506,6 +532,19 @@ describe('Advanced customer lookup (HTTP)', () => {
       expect(matches).toHaveLength(1);
       expect(matches[0].reference.number).toBe(orderNumber.mixedInternal);
       expect(JSON.stringify(res.body)).not.toContain(orderNumber.mixedAgent);
+      // The agent's order is neither the latest order nor counted.
+      const disclosure = (
+        res.body as {
+          matches: {
+            disclosure: {
+              latestOrder: { number: string };
+              placedOrders: number;
+            };
+          }[];
+        }
+      ).matches[0].disclosure;
+      expect(disclosure.latestOrder.number).toBe(orderNumber.mixedInternal);
+      expect(disclosure.placedOrders).toBe(1);
     });
   });
 
@@ -543,6 +582,7 @@ describe('Advanced customer lookup (HTTP)', () => {
       expect(rows.some((row) => row.outcome === 'MATCH')).toBe(true);
       const missRow = rows.find((row) => row.outcome === 'NO_MATCH')!;
       expect(missRow.resultCount).toBe(0);
+      expect(missRow.outcomeDetail).toBeNull();
       expect(missRow.method).toBe('PHONE');
       const hitRow = rows.find((row) => row.outcome === 'MATCH')!;
       expect(hitRow.resultCount).toBeGreaterThan(0);

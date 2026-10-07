@@ -6,6 +6,7 @@ const orderDuplicatesEn = {
   required: "Choose how to handle the existing customer before saving.",
   conflictToast: "This customer already exists — choose how to continue.",
   change: "Change",
+  cancel: "Cancel — do not duplicate",
   phone: {
     title: "This customer already exists",
     hasOrders: "{count} previous order(s) you can open",
@@ -14,7 +15,7 @@ const orderDuplicatesEn = {
     otherOrders: "{count} more order(s) owned by other team members",
     noOpenable: "Their orders belong to other team members.",
     openExisting: "Open existing order",
-    newOrder: "New order for this customer",
+    newOrder: "Create a new order for this customer",
     editDetails: "Edit details",
     chosen: "A new order will be created for the existing customer {name}.",
     active: "Active",
@@ -29,7 +30,6 @@ const orderDuplicatesEn = {
     title: "This phone number belongs to a customer outside your access",
     description:
       "You can still create the order. It stays with your own customer and is sent to an internal reviewer to check for a duplicate.",
-    continue: "Continue and send for review",
     chosen: "The order will be created and sent for duplicate review.",
   },
   name: {

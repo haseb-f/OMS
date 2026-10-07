@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PartnersModule } from '../../partners/partners.module';
+import { CustomerLookupModule } from '../../customer-lookup/customer-lookup.module';
 import { StoreOrderDuplicatesService } from './store-order-duplicates.service';
 import { StoreOrderDuplicateReviewService } from './store-order-duplicate-review.service';
 import { StoreOrderDuplicatesController } from './store-order-duplicates.controller';
@@ -9,7 +10,7 @@ import { StoreOrderDuplicatesController } from './store-order-duplicates.control
  * Agent orders / portal can all run the same check without a module cycle.
  */
 @Module({
-  imports: [PartnersModule],
+  imports: [PartnersModule, CustomerLookupModule],
   controllers: [StoreOrderDuplicatesController],
   providers: [StoreOrderDuplicatesService, StoreOrderDuplicateReviewService],
   exports: [StoreOrderDuplicatesService],

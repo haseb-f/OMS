@@ -1,4 +1,5 @@
 import { apiClient, ApiError } from "./api-client";
+import type { CustomerDisclosure } from "./customer-lookup-service";
 
 /**
  * Round 5 Spec 1B — duplicate warning on order creation. Mirrors
@@ -44,8 +45,13 @@ export interface DuplicateNameCandidate extends DuplicateCustomerSummary {
 export type DuplicateCheckResult =
   | { kind: "NONE" }
   /** An existing customer with no order in the caller's scope: informational, masked, nothing to answer. */
-  | { kind: "KNOWN"; customer: { nameMasked: string; phoneMasked: string | null } }
-  | { kind: "PHONE"; crossScope: true }
+  | {
+      kind: "KNOWN";
+      customer: { nameMasked: string; phoneMasked: string | null };
+      /** R14 — only for `customers.lookup_advanced` holders. */
+      disclosure?: CustomerDisclosure;
+    }
+  | { kind: "PHONE"; crossScope: true; disclosure?: CustomerDisclosure }
   | {
       kind: "PHONE";
       crossScope: false;
@@ -54,6 +60,7 @@ export type DuplicateCheckResult =
       otherOrdersCount: number;
       /** Other customer records holding the same number — the user must say which one. */
       alternatives?: DuplicateCustomerSummary[];
+      disclosure?: CustomerDisclosure;
     }
   | { kind: "NAME"; candidates: DuplicateNameCandidate[] };
 

@@ -21,6 +21,7 @@ import inventoryIntegrityAr from "./modules/inventory-integrity.ar";
 import expenseVouchersAr from "./modules/expense-vouchers.ar";
 import storeOrderRecognitionAr from "./modules/store-order-recognition.ar";
 import permissionTemplatesAr from "./modules/permission-templates.ar";
+import customerHistoryAr from "./modules/customer-history.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
@@ -37,6 +38,7 @@ const ar = {
   expenseVouchers: expenseVouchersAr,
   storeOrderRecognition: storeOrderRecognitionAr,
   permissionTemplates: permissionTemplatesAr,
+  customerHistory: customerHistoryAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
@@ -323,6 +325,7 @@ const ar = {
       viewAll: "عرض كل السجلات (كل الموظفين)",
       amend: "تعديل الطلب بعد الإنشاء",
       directCost: "إدخال تكلفة تجميع مباشرة",
+      viewFinancials: "عرض مدفوعات ورصيد العميل",
     },
     modules: {
       dashboard: "لوحة التحكم",

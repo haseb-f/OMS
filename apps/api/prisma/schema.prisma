@@ -9710,6 +9710,9 @@ model GlobalLookupAudit {
   /// (MATCH / NO_MATCH / RATE_LIMITED). Null for the older exact lookups.
   resultCount Int?    @map("result_count")
   outcome     String? @map("outcome")
+  /// Round 14 (W4) — what the caller was shown: `FULL_DISCLOSURE` (full name,
+  /// phone, latest order) for an authorized `customers.lookup_advanced` hit.
+  outcomeDetail String? @map("outcome_detail")
 
   createdAt DateTime @default(now()) @map("created_at")
 

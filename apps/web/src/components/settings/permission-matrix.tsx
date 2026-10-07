@@ -42,6 +42,7 @@ const ACTION_LABEL_KEY: Record<string, MessageKey> = {
   direct_cost: "permissions.actions.directCost",
   assign_carrier: "permissionTemplates.actions.assignCarrier",
   manage_permissions: "permissionTemplates.actions.managePermissions",
+  view_financials: "permissions.actions.viewFinancials",
 };
 
 const EMPTY: string[] = [];
