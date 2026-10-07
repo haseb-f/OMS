@@ -1867,23 +1867,26 @@ export class StoreOrderAmendmentsService {
     };
   }
 
-  /** Posted invoice re-issue after a cancelled draft: only once the order is fully paid (the normal rule). */
+  /**
+   * Posted invoice re-issue after a cancelled draft. R14 (spec-3 §2): the
+   * invoice follows delivery, never payment — a delivered / collected order is
+   * re-recognised now; an undelivered one is recognised automatically at delivery.
+   */
   private async regenerateInvoice(orderId: string, userId: string) {
-    const order = await this.prisma.storeOrder.findUniqueOrThrow({
-      where: { id: orderId },
-      select: { paymentStatus: true },
-    });
-    if (order.paymentStatus !== 'FULLY_PAID_RECONCILED') {
-      return {
-        regenerated: false,
-        message:
-          'The draft invoice was cancelled. Generate the new invoice once the order is fully paid.',
-      };
-    }
     try {
       const invoice = await this.storeOrders.generateInvoice(orderId, userId);
       return { regenerated: true, invoiceNumber: invoice.invoiceNumber };
     } catch (error) {
+      const code = (
+        error as { getResponse?: () => unknown }
+      ).getResponse?.() as { code?: string } | undefined;
+      if (code?.code === 'RECOGNITION_NOT_DUE') {
+        return {
+          regenerated: false,
+          message:
+            'The draft invoice was cancelled. The new invoice is issued automatically when the order is delivered.',
+        };
+      }
       return {
         regenerated: false,
         message: `The draft invoice was cancelled; the new invoice could not be generated automatically (${error instanceof Error ? error.message : 'error'}). Use Generate invoice on the order.`,

@@ -5,7 +5,7 @@ import {
   INestApplication,
   ValidationPipe,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { UserSessionsService } from '../../auth/sessions/user-sessions.service';
 import type { Server } from 'http';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
@@ -49,7 +49,7 @@ describe('R14 shipping carrier / tracking authorization', () => {
   let app: INestApplication;
   let http: Server;
   let prisma: PrismaService;
-  let jwt: JwtService;
+  let sessions: UserSessionsService;
   let resolver: PermissionsResolverService;
   let importHandler: ShippingUpdatesImportHandler;
 
@@ -79,7 +79,10 @@ describe('R14 shipping carrier / tracking authorization', () => {
     });
     userIds.push(user.id);
     ids[key] = user.id;
-    tokens[key] = jwt.sign({ sub: user.id, email: user.email });
+    tokens[key] = await sessions.issueAccessToken({
+      sub: user.id,
+      email: user.email,
+    });
     for (const name of names) {
       const permission = await prisma.permission.upsert({
         where: { name },
@@ -137,7 +140,7 @@ describe('R14 shipping carrier / tracking authorization', () => {
     await app.init();
     http = app.getHttpServer() as Server;
     prisma = moduleRef.get(PrismaService);
-    jwt = moduleRef.get(JwtService);
+    sessions = moduleRef.get(UserSessionsService, { strict: false });
     resolver = moduleRef.get(PermissionsResolverService);
     importHandler = moduleRef.get(ShippingUpdatesImportHandler);
 
@@ -381,7 +384,10 @@ describe('R14 shipping carrier / tracking authorization', () => {
       select: { id: true, email: true },
     });
     if (!agentUser) return; // no agent user in this database
-    const token = jwt.sign({ sub: agentUser.id, email: agentUser.email });
+    const token = await sessions.issueAccessToken({
+      sub: agentUser.id,
+      email: agentUser.email,
+    });
     const res = await request(http)
       .post(`/store-orders/${orderId}/shipments/shipping-company`)
       .set({ Authorization: `Bearer ${token}` })

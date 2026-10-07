@@ -770,6 +770,7 @@ describe('Store order recognition at delivery (integration)', () => {
       { resolveOptional: () => Promise.resolve(undefined) } as never,
       moduleRef.get(AgentFulfillmentService, { strict: false }),
       recognition,
+      { hasPermission: () => Promise.resolve(true) } as never,
     );
     await handler.importRow(
       {

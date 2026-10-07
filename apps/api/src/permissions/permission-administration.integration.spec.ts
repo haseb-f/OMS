@@ -5,7 +5,7 @@ import {
   INestApplication,
   ValidationPipe,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { UserSessionsService } from '../auth/sessions/user-sessions.service';
 import type { Server } from 'http';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
@@ -52,7 +52,7 @@ describe('R14 permission administration (HTTP)', () => {
   let app: INestApplication;
   let http: Server;
   let prisma: PrismaService;
-  let jwt: JwtService;
+  let sessions: UserSessionsService;
   let resolver: PermissionsResolverService;
 
   const suffix = randomUUID().slice(0, 8);
@@ -109,7 +109,10 @@ describe('R14 permission administration (HTTP)', () => {
     });
     userIds.push(user.id);
     ids[key] = user.id;
-    tokens[key] = jwt.sign({ sub: user.id, email: user.email });
+    tokens[key] = await sessions.issueAccessToken({
+      sub: user.id,
+      email: user.email,
+    });
     await grant(user.id, names);
     return user.id;
   }
@@ -173,7 +176,7 @@ describe('R14 permission administration (HTTP)', () => {
     await app.init();
     http = app.getHttpServer() as Server;
     prisma = moduleRef.get(PrismaService);
-    jwt = moduleRef.get(JwtService);
+    sessions = moduleRef.get(UserSessionsService, { strict: false });
     resolver = moduleRef.get(PermissionsResolverService);
 
     await makeTitle('T1');
