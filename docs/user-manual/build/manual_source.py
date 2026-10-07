@@ -19,6 +19,14 @@ from pathlib import Path
 BOX_TITLES = {"note": "ملاحظة", "tip": "نصيحة", "warn": "تنبيه"}
 
 
+ESCAPED = re.compile(r"\\([\\`*_{}\[\]()#+\-.!>|])")
+
+
+def unescape(text):
+    """Markdown backslash escapes (Prettier writes e.g. \\* for a literal asterisk)."""
+    return ESCAPED.sub(r"\1", text)
+
+
 def parse_inline(text):
     """Split text into runs: [{"t": str, "b": bool, "code": bool}]."""
     runs = []
@@ -26,7 +34,7 @@ def parse_inline(text):
     pos = 0
     for m in pattern.finditer(text):
         if m.start() > pos:
-            runs.append({"t": text[pos:m.start()], "b": False, "code": False})
+            runs.append({"t": unescape(text[pos:m.start()]), "b": False, "code": False})
         tok = m.group(0)
         if tok.startswith("**"):
             inner = tok[2:-2]
@@ -38,7 +46,7 @@ def parse_inline(text):
             runs.append({"t": tok[1:-1], "b": False, "code": True})
         pos = m.end()
     if pos < len(text):
-        runs.append({"t": text[pos:], "b": False, "code": False})
+        runs.append({"t": unescape(text[pos:]), "b": False, "code": False})
     return runs
 
 
