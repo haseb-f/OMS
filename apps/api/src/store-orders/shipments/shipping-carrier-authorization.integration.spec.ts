@@ -9,7 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { Server } from 'http';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
-import { plainToInstance } from 'class-transformer';
+import { plainToInstance, type ClassConstructor } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { ProductType } from '@prisma/client';
 import { PrismaModule } from '../../prisma/prisma.module';
@@ -359,11 +359,11 @@ describe('R14 shipping carrier / tracking authorization', () => {
         { storeOrderIds: [randomUUID()], shippingStatusId: 'x' },
       ],
     ] as const) {
-      const instance = plainToInstance(dto as never, {
+      const instance = plainToInstance(dto as ClassConstructor<object>, {
         ...body,
         shippingCompanyId: otherCompanyId,
         trackingNumber: 'INJECTED',
-      }) as object;
+      });
       const errors = validateSync(instance, {
         whitelist: true,
         forbidNonWhitelisted: true,

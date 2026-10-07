@@ -146,9 +146,18 @@ function compare(before: Snapshot, after: Snapshot): number {
   let failures = 0;
   let identical = 0;
   let changed = 0;
+  let changedFailing = 0;
   const gainedCounts: Record<string, number> = {};
-  const userIds = new Set([...Object.keys(before), ...Object.keys(after)]);
+  // Users created after the "before" snapshot (e.g. by test suites) are not
+  // part of the migration; they are counted, never compared.
+  const userIds = new Set(Object.keys(before));
+  const createdSince = Object.keys(after).filter((id) => !userIds.has(id));
   for (const id of userIds) {
+    if (!(id in after)) {
+      failures += 1;
+      console.error(`FAIL ${id}: user missing after the migration`);
+      continue;
+    }
     const b = new Set(before[id] ?? []);
     const a = new Set(after[id] ?? []);
     const lost = [...b].filter((name) => !a.has(name));
@@ -158,6 +167,7 @@ function compare(before: Snapshot, after: Snapshot): number {
       continue;
     }
     changed += 1;
+    const failuresBefore = failures;
     if (lost.length > 0) {
       failures += 1;
       console.error(`FAIL ${id}: lost ${lost.join(', ')}`);
@@ -173,6 +183,7 @@ function compare(before: Snapshot, after: Snapshot): number {
         console.error(`FAIL ${id}: unexpected gain ${name}`);
       }
     }
+    if (failures > failuresBefore) changedFailing += 1;
   }
   // Every qualifying holder must have received each new grant.
   for (const [name, sources] of Object.entries(NEW_GRANTS)) {
@@ -188,8 +199,9 @@ function compare(before: Snapshot, after: Snapshot): number {
     JSON.stringify(
       {
         users: userIds.size,
+        createdSinceBefore: createdSince.length,
         identical,
-        changedOnlyByNewGrants: changed - failures,
+        changedOnlyByNewGrants: changed - changedFailing,
         gainedCounts,
         failures,
       },

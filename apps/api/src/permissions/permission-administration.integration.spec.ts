@@ -28,6 +28,23 @@ import { PERMISSION_AUDIT } from './permission-administration.service';
  * inherited + implied permissions, review flag, audit rows, and the
  * anti-escalation rules (403 PERMISSION_ESCALATION).
  */
+interface ResponseBody {
+  code?: string;
+  reason?: string;
+  permissions?: string[];
+  holderCount?: number;
+  added?: string[];
+  users?: {
+    userId: string;
+    gained: string[];
+    ineffective: { permission: string; reason: string }[];
+  }[];
+  inherited?: string[];
+  denies?: string[];
+  permissionsReviewRequired?: boolean;
+}
+const body = (res: { body: unknown }) => res.body as ResponseBody;
+
 describe('R14 permission administration (HTTP)', () => {
   jest.setTimeout(120_000);
 
@@ -200,7 +217,7 @@ describe('R14 permission administration (HTTP)', () => {
       .set(auth('admin'))
       .send({ permissionNames: ['products.create'] });
     expect(res.status).toBe(200);
-    expect(res.body.permissions).toEqual(['products.create']);
+    expect(body(res).permissions).toEqual(['products.create']);
 
     const targetSet = await effective(ids.target);
     expect(targetSet.has('products.create')).toBe(true);
@@ -217,7 +234,7 @@ describe('R14 permission administration (HTTP)', () => {
       .get(`/job-titles/${ids.T1}/permissions`)
       .set(auth('admin'));
     expect(read.status).toBe(200);
-    expect(read.body.holderCount).toBe(2);
+    expect(body(read).holderCount).toBe(2);
   });
 
   it('previews the impact per holder without writing anything', async () => {
@@ -226,15 +243,9 @@ describe('R14 permission administration (HTTP)', () => {
       .set(auth('admin'))
       .send({ permissionNames: ['products.create', 'products.edit'] });
     expect(res.status).toBe(200);
-    expect(res.body.added).toEqual(['products.edit']);
+    expect(body(res).added).toEqual(['products.edit']);
     const byUser = Object.fromEntries(
-      (
-        res.body.users as {
-          userId: string;
-          gained: string[];
-          ineffective: { permission: string; reason: string }[];
-        }[]
-      ).map((u) => [u.userId, u]),
+      (body(res).users ?? []).map((u) => [u.userId, u]),
     );
     expect(byUser[ids.target].gained).toEqual(['products.edit']);
     expect(byUser[ids.peer].gained).toEqual([]);
@@ -252,7 +263,7 @@ describe('R14 permission administration (HTTP)', () => {
         permissionNames: ['products.create', 'accounting.journal-entries.post'],
       });
     expect(res.status).toBe(403);
-    expect(res.body.code).toBe('PERMISSION_ESCALATION');
+    expect(body(res).code).toBe('PERMISSION_ESCALATION');
     expect(await templateOf(ids.T1)).toEqual(['products.create']);
   });
 
@@ -263,7 +274,7 @@ describe('R14 permission administration (HTTP)', () => {
       .set(auth('admin'))
       .send({ grants: ['accounting.journal-entries.post'], denies: [] });
     expect(res.status).toBe(403);
-    expect(res.body.code).toBe('PERMISSION_ESCALATION');
+    expect(body(res).code).toBe('PERMISSION_ESCALATION');
     expect(await overridesOf(ids.target)).toEqual(before);
   });
 
@@ -285,8 +296,8 @@ describe('R14 permission administration (HTTP)', () => {
       .set(auth('admin'))
       .send({ grants: [], denies: ['products.create'] });
     expect(res.status).toBe(200);
-    expect(res.body.inherited).toEqual(['products.create']);
-    expect(res.body.denies).toEqual(['products.create']);
+    expect(body(res).inherited).toEqual(['products.create']);
+    expect(body(res).denies).toEqual(['products.create']);
 
     const targetSet = await effective(ids.target);
     expect(targetSet.has('products.create')).toBe(false);
@@ -317,7 +328,7 @@ describe('R14 permission administration (HTTP)', () => {
       .set(auth('admin'))
       .send({ grants: [], denies: ['products.create'] });
     expect(res.status).toBe(403);
-    expect(res.body.permissions).toContain('reports.sales.view');
+    expect(body(res).permissions).toContain('reports.sales.view');
     expect(await overridesOf(ids.target)).toEqual([
       'DENY:products.create',
       'DENY:reports.sales.view',
@@ -330,7 +341,7 @@ describe('R14 permission administration (HTTP)', () => {
       .set(auth('admin'))
       .send({ jobTitleId: ids.T2 });
     expect(res.status).toBe(200);
-    expect(res.body.permissionsReviewRequired).toBe(true);
+    expect(body(res).permissionsReviewRequired).toBe(true);
     expect(await overridesOf(ids.target)).toEqual([
       'DENY:products.create',
       'DENY:reports.sales.view',
@@ -346,7 +357,7 @@ describe('R14 permission administration (HTTP)', () => {
       .set(auth('admin'))
       .send({ grants: [], denies: ['products.create', 'reports.sales.view'] });
     expect(save.status).toBe(200);
-    expect(save.body.permissionsReviewRequired).toBe(false);
+    expect(body(save).permissionsReviewRequired).toBe(false);
   });
 
   it('settings.manage alone cannot change permissions (users.manage_permissions required)', async () => {
@@ -374,7 +385,7 @@ describe('R14 permission administration (HTTP)', () => {
       .set(auth('admin'))
       .send({ permissionNames: ['accounting.journal-entries.post'] });
     expect(denied.status).toBe(403);
-    expect(denied.body.code).toBe('PERMISSION_ESCALATION');
+    expect(body(denied).code).toBe('PERMISSION_ESCALATION');
 
     const res = await request(http)
       .post(`/users/${ids.peer}/permissions`)
