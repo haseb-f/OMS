@@ -51,7 +51,9 @@ async function newContext({ locale = "ar", scheme = "light", viewport = VIEW } =
   await context.addInitScript((value) => {
     try {
       if (!localStorage.getItem("oms.locale")) localStorage.setItem("oms.locale", JSON.stringify(value));
-    } catch {}
+    } catch {
+      // storage unavailable (private mode) — the default locale applies
+    }
   }, locale);
   return context;
 }
