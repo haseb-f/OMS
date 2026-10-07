@@ -4,6 +4,7 @@ import {
   AgentFulfillmentService,
   shipmentFulfillmentCode,
 } from '../../agents/finance/agent-fulfillment.service';
+import { FulfillmentRecognitionService } from '../../store-orders/fulfillment-recognition/fulfillment-recognition.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StoreOrderShipmentsService } from '../../store-orders/shipments/store-order-shipments.service';
 import {
@@ -208,6 +209,8 @@ export class ShippingUpdatesImportHandler
     private readonly registry: ImportTypeRegistryService,
     private readonly referenceData: ReferenceDataRegistryService,
     private readonly agentFulfillment: AgentFulfillmentService,
+    /** R14 W3 — the same SHIPMENT_COST accrual + post-commit recognition hook as a manual status change. */
+    private readonly recognition: FulfillmentRecognitionService,
   ) {}
 
   onModuleInit() {
@@ -640,6 +643,7 @@ export class ShippingUpdatesImportHandler
           shipmentFulfillmentCode(updated.status),
           userId,
         );
+        await this.recognition.postDeliveredShipmentCost(tx, updated, userId);
 
         await this.activityService.log(
           order.id,
@@ -652,6 +656,14 @@ export class ShippingUpdatesImportHandler
 
         return updated;
       },
+    );
+
+    // R14 W3 — post-commit (never throws): reserve on SHIPPED, recognise a
+    // company order on DELIVERED, unwind on failed / returned.
+    await this.recognition.afterShipmentStatus(
+      order.id,
+      { status: shipment.status, catalogCode: catalogStatus.code },
+      userId,
     );
 
     return { id: shipment.id };

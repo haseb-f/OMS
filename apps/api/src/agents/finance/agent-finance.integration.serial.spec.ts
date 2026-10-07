@@ -1,3 +1,4 @@
+import { FulfillmentRecognitionService } from '../../store-orders/fulfillment-recognition/fulfillment-recognition.service';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'crypto';
 import {
@@ -1147,6 +1148,7 @@ describeDb('Agent finance (local DB)', () => {
       { register: () => undefined } as never,
       { resolveOptional: () => Promise.resolve(undefined) } as never,
       fulfillment,
+      moduleRef.get(FulfillmentRecognitionService, { strict: false }),
     );
     const before = await onHand(productA);
     await handler.importRow(
