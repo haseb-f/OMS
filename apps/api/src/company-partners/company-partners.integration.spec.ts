@@ -349,7 +349,11 @@ describe('Company partners — profit sharing (integration)', () => {
     });
     partnerC = existing.id;
     created.partners.push(partnerC);
+    expect(
+      (await partners.candidates(`Partner C ${tag}`)).map((c) => c.id),
+    ).toEqual([partnerC]);
     await partners.create({ partnerId: partnerC, ownershipPercent: 10 });
+    expect(await partners.candidates(`Partner C ${tag}`)).toEqual([]);
     const roles = await prisma.partnerRoleAssignment.findMany({
       where: { partnerId: { in: [partnerA, partnerC] } },
     });

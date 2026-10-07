@@ -55,6 +55,13 @@ export class CompanyPartnerProfilesController {
     return this.partners.list();
   }
 
+  /** Existing partners that can be added (the "add partner" picker). */
+  @Get('candidates')
+  @PermissionAction('manage')
+  candidates(@Query('search') search?: string) {
+    return this.partners.candidates(search);
+  }
+
   @Get(':partnerId')
   findOne(@Param('partnerId', ParseUUIDPipe) partnerId: string) {
     return this.partners.findOne(partnerId);

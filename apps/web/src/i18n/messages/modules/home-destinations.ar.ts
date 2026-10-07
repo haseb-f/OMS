@@ -116,6 +116,7 @@ const destinations = {
   "settings-integrations": "الربط مع الخدمات الخارجية.",
   "settings-security": "سياسات الدخول والأمان.",
   "settings-backup": "النسخ الاحتياطي والاستعادة.",
+  "finance-company-partners": "نسب أرباح الشركاء وفترات الأرباح والمدفوعات.",
 } as const;
 
 export default destinations;

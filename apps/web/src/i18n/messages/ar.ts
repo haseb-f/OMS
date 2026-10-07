@@ -19,6 +19,7 @@ import assetSchedulesAr from "./modules/asset-schedules.ar";
 import assemblyAr from "./modules/assembly.ar";
 import inventoryIntegrityAr from "./modules/inventory-integrity.ar";
 import expenseVouchersAr from "./modules/expense-vouchers.ar";
+import companyPartnersAr from "./modules/company-partners.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
@@ -33,6 +34,7 @@ const ar = {
   assembly: assemblyAr,
   inventoryIntegrity: inventoryIntegrityAr,
   expenseVouchers: expenseVouchersAr,
+  companyPartners: companyPartnersAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
@@ -404,6 +406,7 @@ const ar = {
       accruedExpenses: "المصروفات المستحقة",
       exchangeRates: "أسعار الصرف",
       fxRevaluations: "إعادة تقييم العملات",
+      companyPartners: "الشركاء",
       paymentReconciliation: "مطابقة وتسوية المدفوعات",
       workflowTransitions: "انتقالات سير العمل",
       analyticDistributions: "التوزيعات التحليلية",

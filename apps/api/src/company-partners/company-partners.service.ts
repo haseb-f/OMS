@@ -186,6 +186,39 @@ export class CompanyPartnersService {
     };
   }
 
+  /**
+   * Existing partners that can become company partners (picker of the
+   * "add partner" dialog): name / number / phone match, not already a
+   * company partner, not archived. Picker fields only.
+   */
+  async candidates(search?: string) {
+    const term = search?.trim();
+    const rows = await this.prisma.partner.findMany({
+      where: {
+        deletedAt: null,
+        companyPartnerProfile: { is: null },
+        ...(term && {
+          OR: [
+            { name: { contains: term, mode: 'insensitive' } },
+            { partnerNumber: { contains: term, mode: 'insensitive' } },
+            { phone: { contains: term } },
+            { mobile: { contains: term } },
+          ],
+        }),
+      },
+      select: {
+        id: true,
+        name: true,
+        partnerNumber: true,
+        phone: true,
+        mobile: true,
+      },
+      orderBy: { name: 'asc' },
+      take: 10,
+    });
+    return rows;
+  }
+
   async requireProfile(partnerId: string) {
     const profile = await this.prisma.companyPartnerProfile.findUnique({
       where: { partnerId },

@@ -19,6 +19,7 @@ import assetSchedulesEn from "./modules/asset-schedules.en";
 import assemblyEn from "./modules/assembly.en";
 import inventoryIntegrityEn from "./modules/inventory-integrity.en";
 import expenseVouchersEn from "./modules/expense-vouchers.en";
+import companyPartnersEn from "./modules/company-partners.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
@@ -33,6 +34,7 @@ const en = {
   assembly: assemblyEn,
   inventoryIntegrity: inventoryIntegrityEn,
   expenseVouchers: expenseVouchersEn,
+  companyPartners: companyPartnersEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
@@ -404,6 +406,7 @@ const en = {
       accruedExpenses: "Accrued Expenses",
       exchangeRates: "Exchange Rates",
       fxRevaluations: "FX Revaluation",
+      companyPartners: "Partners",
       paymentReconciliation: "Payment Reconciliation & Settlement",
       workflowTransitions: "Workflow Transitions",
       analyticDistributions: "Analytic Distributions",
