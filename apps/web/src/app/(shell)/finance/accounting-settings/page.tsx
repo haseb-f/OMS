@@ -253,6 +253,23 @@ const SECTIONS: SectionConfig[] = [
       },
     ],
   },
+  {
+    // R14 W5 (D5-3) — required before the first company-partner profit period is closed.
+    titleKey: "companyPartners.settings.sectionTitle",
+    hintKey: "companyPartners.settings.hint",
+    fields: [
+      {
+        key: "partnerProfitDistributionAccountId",
+        labelKey: "companyPartners.settings.distribution",
+        accountType: "EQUITY",
+      },
+      {
+        key: "partnerProfitPayableAccountId",
+        labelKey: "companyPartners.settings.payable",
+        accountType: "LIABILITY",
+      },
+    ],
+  },
 ];
 
 interface InvestorFieldConfig {

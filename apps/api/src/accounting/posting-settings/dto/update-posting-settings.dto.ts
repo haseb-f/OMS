@@ -151,4 +151,12 @@ export class UpdatePostingSettingsDto {
 
   @IsOptionalUuid()
   functionalCurrencyId?: string;
+
+  /** R14 W5 — Dr side when a company-partner profit period is closed (postable EQUITY). */
+  @IsOptionalUuid()
+  partnerProfitDistributionAccountId?: string;
+
+  /** R14 W5 — partner profit owed to company partners (postable LIABILITY, Partner subledger). */
+  @IsOptionalUuid()
+  partnerProfitPayableAccountId?: string;
 }

@@ -22,6 +22,7 @@ import expenseVouchersEn from "./modules/expense-vouchers.en";
 import storeOrderRecognitionEn from "./modules/store-order-recognition.en";
 import permissionTemplatesEn from "./modules/permission-templates.en";
 import customerHistoryEn from "./modules/customer-history.en";
+import companyPartnersEn from "./modules/company-partners.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
@@ -39,6 +40,7 @@ const en = {
   storeOrderRecognition: storeOrderRecognitionEn,
   permissionTemplates: permissionTemplatesEn,
   customerHistory: customerHistoryEn,
+  companyPartners: companyPartnersEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
@@ -412,6 +414,7 @@ const en = {
       accruedExpenses: "Accrued Expenses",
       exchangeRates: "Exchange Rates",
       fxRevaluations: "FX Revaluation",
+      companyPartners: "Partners",
       paymentReconciliation: "Payment Reconciliation & Settlement",
       workflowTransitions: "Workflow Transitions",
       analyticDistributions: "Analytic Distributions",

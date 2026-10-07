@@ -71,6 +71,10 @@ const SOURCE_TYPE_JOURNAL: Record<string, JournalType> = {
   ACCRUED_EXPENSE_SETTLEMENT: JournalType.CASH,
   FX_REVALUATION: JournalType.GENERAL,
   YEAR_CLOSING: JournalType.GENERAL,
+  // R14 W5 — company partner profit sharing.
+  PARTNER_PROFIT_DISTRIBUTION: JournalType.GENERAL,
+  PARTNER_PROFIT_ADJUSTMENT: JournalType.GENERAL,
+  PARTNER_PROFIT_PAYMENT: JournalType.CASH,
 };
 
 /**

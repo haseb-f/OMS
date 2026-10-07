@@ -118,6 +118,7 @@ import { AgentsModule } from './agents/agents.module';
 import { StoreOrderAmendmentsModule } from './store-orders/amendments/store-order-amendments.module';
 // R14 W4 — customer history + repeat-customer numbers.
 import { CustomerHistoryModule } from './customer-history/customer-history.module';
+import { CompanyPartnersModule } from './company-partners/company-partners.module';
 @Module({
   imports: [
     PrismaModule,
@@ -237,6 +238,8 @@ import { CustomerHistoryModule } from './customer-history/customer-history.modul
     StoreOrderAmendmentsModule,
     // R14 W4
     CustomerHistoryModule,
+    // R14 W5 — company partners and profit sharing.
+    CompanyPartnersModule,
   ],
   controllers: [HealthController],
   providers: [],

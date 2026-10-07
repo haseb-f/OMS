@@ -57,6 +57,8 @@ const INCLUDE = {
   agentCommissionRevenueAccount: true,
   agentServiceRevenueAccount: true,
   functionalCurrency: true,
+  partnerProfitDistributionAccount: true,
+  partnerProfitPayableAccount: true,
 } as const;
 
 /**
@@ -86,6 +88,7 @@ export class PostingSettingsService {
     );
     await this.assertAgentAccounts(dto, existing);
     await this.assertAssemblyCostAccount(dto, existing);
+    await this.assertPartnerProfitAccounts(dto, existing);
     return this.prisma.postingSettings.update({
       where: { id: existing.id },
       data: { ...dto, updatedBy: userId ?? null },
@@ -233,6 +236,93 @@ export class PostingSettingsService {
         code: 'ASSEMBLY_COST_ACCOUNT_INVALID',
         message: `Assembly cost account: ${account.code} ${account.name} is locked to a currency other than the functional currency — choose an account without a currency lock or in the functional currency.`,
       });
+    }
+  }
+
+  /**
+   * R14 W5 (spec-5, D5-3) — partner profit distribution must be a postable
+   * EQUITY account and partner profit payable a postable LIABILITY account
+   * (a distribution is never an expense). Both are frozen once a partner
+   * profit entry is posted — re-pointing them would split the partners'
+   * payable balance across two accounts.
+   */
+  private async assertPartnerProfitAccounts(
+    dto: UpdatePostingSettingsDto,
+    existing: {
+      partnerProfitDistributionAccountId: string | null;
+      partnerProfitPayableAccountId: string | null;
+    },
+  ) {
+    const checks: Array<[string | undefined | null, AccountType, string]> = [
+      [
+        dto.partnerProfitDistributionAccountId,
+        AccountType.EQUITY,
+        'Partner profit distribution',
+      ],
+      [
+        dto.partnerProfitPayableAccountId,
+        AccountType.LIABILITY,
+        'Partner profit payable',
+      ],
+    ];
+    for (const [accountId, expected, label] of checks) {
+      if (!accountId) continue;
+      const account = await this.prisma.chartOfAccount.findFirst({
+        where: { id: accountId, deletedAt: null },
+        select: {
+          code: true,
+          name: true,
+          accountType: true,
+          allowsPosting: true,
+        },
+      });
+      if (
+        !account ||
+        account.accountType !== expected ||
+        !account.allowsPosting
+      ) {
+        throw new BadRequestException({
+          code: 'PARTNER_ACCOUNT_INVALID',
+          message: account
+            ? `${label} must be a postable ${expected} account — ${account.code} ${account.name} is ${account.allowsPosting ? account.accountType : 'a group account'}.`
+            : `${label}: account not found.`,
+        });
+      }
+    }
+    const fields = [
+      'partnerProfitDistributionAccountId',
+      'partnerProfitPayableAccountId',
+    ] as const;
+    const changing = fields.filter(
+      (field) =>
+        dto[field] !== undefined &&
+        existing[field] != null &&
+        (dto[field] ?? null) !== existing[field],
+    );
+    if (changing.length > 0) {
+      const posted = await this.prisma.journalEntry.count({
+        where: {
+          deletedAt: null,
+          sourceType: {
+            in: [
+              'PARTNER_PROFIT_DISTRIBUTION',
+              'PARTNER_PROFIT_ADJUSTMENT',
+              'PARTNER_PROFIT_PAYMENT',
+            ],
+          },
+        },
+      });
+      if (posted > 0) {
+        throw new ConflictException({
+          code: 'PARTNER_ACCOUNTS_LOCKED',
+          message:
+            'لا يمكن تغيير حسابات أرباح الشركاء بعد ترحيل قيود عليها — The partner profit accounts cannot change once partner profit entries have been posted to them.',
+          fields: changing.map((field) => ({
+            field,
+            constraints: ['lockedAfterPosting'],
+          })),
+        });
+      }
     }
   }
 

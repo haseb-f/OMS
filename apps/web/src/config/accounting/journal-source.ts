@@ -204,6 +204,25 @@ export const JOURNAL_SOURCE_DEFINITIONS: Record<string, JournalSourceDefinition>
     labelKey: "accounting.journalEntries.sourceTypes.CAPITAL_RETURN",
     generated: true,
   },
+  // R14 W5 — company partner profit sharing.
+  PARTNER_PROFIT_DISTRIBUTION: {
+    sourceType: "PARTNER_PROFIT_DISTRIBUTION",
+    href: () => `/company-partners/periods`,
+    labelKey: "companyPartners.sourceTypes.PARTNER_PROFIT_DISTRIBUTION",
+    generated: true,
+  },
+  PARTNER_PROFIT_ADJUSTMENT: {
+    sourceType: "PARTNER_PROFIT_ADJUSTMENT",
+    href: () => `/company-partners/periods`,
+    labelKey: "companyPartners.sourceTypes.PARTNER_PROFIT_ADJUSTMENT",
+    generated: true,
+  },
+  PARTNER_PROFIT_PAYMENT: {
+    sourceType: "PARTNER_PROFIT_PAYMENT",
+    href: () => `/company-partners`,
+    labelKey: "companyPartners.sourceTypes.PARTNER_PROFIT_PAYMENT",
+    generated: true,
+  },
 };
 
 export function isManualJournalSource(sourceType: string | null | undefined): boolean {

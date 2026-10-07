@@ -102,6 +102,11 @@ export interface AccountingSettingsRow {
   agentServiceRevenueAccount: AccountRef | null;
   functionalCurrencyId: string | null;
   functionalCurrency: AccountRef | null;
+  /** R14 W5 — company partner profit sharing. */
+  partnerProfitDistributionAccountId: string | null;
+  partnerProfitDistributionAccount: AccountRef | null;
+  partnerProfitPayableAccountId: string | null;
+  partnerProfitPayableAccount: AccountRef | null;
 }
 
 export type AccountingSettingsField = Extract<keyof AccountingSettingsRow, `${string}Id`>;

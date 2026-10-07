@@ -116,6 +116,7 @@ const destinations = {
   "settings-integrations": "Connections to external services.",
   "settings-security": "Sign-in and security policies.",
   "settings-backup": "Backup and restore.",
+  "finance-company-partners": "Partners' profit shares, profit periods and payments.",
 } as const;
 
 export default destinations;

@@ -901,6 +901,17 @@ export const navigationConfig: NavigationItem[] = [
     permissions: ["exchange-rates.view"],
   },
   {
+    // R14 W5 — company partners and profit sharing ("الشركاء").
+    id: "finance-company-partners",
+    titleKey: "companyPartners.nav.title",
+    parent: "finance",
+    group: "finance-operations",
+    route: "/company-partners",
+    icon: "handshake",
+    order: 13.9,
+    permissions: ["company-partners.view"],
+  },
+  {
     id: "finance-fiscal-periods",
     titleKey: "nav.financeFiscalPeriods",
     parent: "settings",

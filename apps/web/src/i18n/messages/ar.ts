@@ -22,6 +22,7 @@ import expenseVouchersAr from "./modules/expense-vouchers.ar";
 import storeOrderRecognitionAr from "./modules/store-order-recognition.ar";
 import permissionTemplatesAr from "./modules/permission-templates.ar";
 import customerHistoryAr from "./modules/customer-history.ar";
+import companyPartnersAr from "./modules/company-partners.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
@@ -39,6 +40,7 @@ const ar = {
   storeOrderRecognition: storeOrderRecognitionAr,
   permissionTemplates: permissionTemplatesAr,
   customerHistory: customerHistoryAr,
+  companyPartners: companyPartnersAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
@@ -412,6 +414,7 @@ const ar = {
       accruedExpenses: "المصروفات المستحقة",
       exchangeRates: "أسعار الصرف",
       fxRevaluations: "إعادة تقييم العملات",
+      companyPartners: "الشركاء",
       paymentReconciliation: "مطابقة وتسوية المدفوعات",
       workflowTransitions: "انتقالات سير العمل",
       analyticDistributions: "التوزيعات التحليلية",
