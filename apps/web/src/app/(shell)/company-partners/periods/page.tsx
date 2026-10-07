@@ -38,6 +38,8 @@ import {
   PERIOD_TONE,
   incomeStatementHref,
   percentText,
+  periodClosableFrom,
+  periodHasEnded,
   previousMonth,
 } from "@/config/company-partners/format";
 import {
@@ -129,6 +131,7 @@ function PeriodsContent() {
   }, [loadPeriods]);
 
   const existing = periods.find((p) => p.periodFrom === from && p.periodTo === to) ?? null;
+  const existingEnded = existing ? periodHasEnded(existing.periodTo) : false;
   const currency = preview?.currency?.code ?? null;
 
   const saveReview = async () => {
@@ -359,7 +362,7 @@ function PeriodsContent() {
       },
       {
         id: "actions",
-        meta: { type: "actions" },
+        meta: { titleKey: "common.actions", type: "actions" },
         cell: ({ row }) => (
           <RowActionsMenu
             label={t("common.actions")}
@@ -383,9 +386,12 @@ function PeriodsContent() {
               },
               {
                 key: "close",
-                label: t("companyPartners.periods.close"),
+                label: periodHasEnded(row.original.periodTo)
+                  ? t("companyPartners.periods.close")
+                  : t("companyPartners.periods.closeAfterEnd"),
                 icon: Lock,
                 hidden: !canClose || row.original.status !== "PREVIEW",
+                disabled: !periodHasEnded(row.original.periodTo),
                 onSelect: () => setClosing(row.original),
               },
               {
@@ -433,6 +439,7 @@ function PeriodsContent() {
               label: t("companyPartners.periods.close"),
               icon: Lock,
               hidden: !canClose || existing?.status !== "PREVIEW",
+              disabled: !existingEnded,
               onSelect: () => {
                 if (existing) setClosing(existing);
               },
@@ -453,6 +460,19 @@ function PeriodsContent() {
         {t("companyPartners.estimateNote")} {t("companyPartners.periods.windowHint")}
       </p>
 
+      {canClose && existing?.status === "PREVIEW" && !existingEnded ? (
+        <p
+          data-testid="partner-period-not-ended"
+          className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-caption text-warning-foreground"
+        >
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          {t("companyPartners.periods.notEnded", {
+            to: formatDate(existing.periodTo),
+            from: formatDate(periodClosableFrom(existing.periodTo)),
+          })}
+        </p>
+      ) : null}
+
       {preview?.warnings.length ? (
         <ul className="flex flex-col gap-1 rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-caption text-warning-foreground">
           {preview.warnings.map((code) => (
@@ -468,7 +488,7 @@ function PeriodsContent() {
         title={`${t("companyPartners.periods.preview")} — ${t("companyPartners.estimateTag")}`}
       >
         {preview ? (
-          <InsightGroup className="grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+          <InsightGroup fit>
             <InsightCard
               icon={TrendingUp}
               tone="revenue"

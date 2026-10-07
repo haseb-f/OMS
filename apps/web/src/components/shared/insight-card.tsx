@@ -224,15 +224,30 @@ export function InsightCardSkeleton({ className }: { className?: string }) {
   );
 }
 
+/** Container-driven columns: one per phone row, otherwise as many ≥ 12rem tiles as the content area fits. */
+export const INSIGHT_GROUP_FIT_CLASS =
+  "grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(12rem,1fr))]";
+
 /**
  * Related `InsightCard`s as one metric row (design-system §12.8 / §12.13).
  * Round 6: each tile is its own soft, tone-tinted card with an 8px gap — the
  * group itself draws nothing. The caller sets the columns (`grid-cols-*`)
- * and, inside a panel, the inset padding.
+ * and, inside a panel, the inset padding — or passes `fit`: the columns
+ * follow the width the group actually gets (sidebar open or not), so long
+ * figures never squeeze into vertical text and nothing scrolls sideways.
  */
-export function InsightGroup({ children, className, ...props }: ComponentProps<"div">) {
+export function InsightGroup({
+  children,
+  className,
+  fit = false,
+  ...props
+}: ComponentProps<"div"> & { fit?: boolean }) {
   return (
-    <div data-slot="insight-group" className={cn("grid min-w-0 gap-2", className)} {...props}>
+    <div
+      data-slot="insight-group"
+      className={cn("grid min-w-0 gap-2", fit && INSIGHT_GROUP_FIT_CLASS, className)}
+      {...props}
+    >
       {children}
     </div>
   );

@@ -186,7 +186,7 @@ function CompanyPartnersContent() {
       },
       {
         id: "actions",
-        meta: { type: "actions" },
+        meta: { titleKey: "common.actions", type: "actions" },
         cell: ({ row }) => (
           <RowActionsMenu
             label={t("common.actions")}
@@ -237,7 +237,7 @@ function CompanyPartnersContent() {
         />
       }
     >
-      <InsightGroup className="grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+      <InsightGroup fit>
         <InsightCard
           icon={Users}
           label={t("companyPartners.summary.partners")}

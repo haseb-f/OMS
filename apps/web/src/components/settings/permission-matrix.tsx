@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, FoldVertical, UnfoldVertical } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -43,9 +43,71 @@ const ACTION_LABEL_KEY: Record<string, MessageKey> = {
   assign_carrier: "permissionTemplates.actions.assignCarrier",
   manage_permissions: "permissionTemplates.actions.managePermissions",
   view_financials: "permissions.actions.viewFinancials",
+  lookup_global: "permissions.actions.lookupGlobal",
+  generate_invoice: "permissions.actions.generateInvoice",
+  match: "permissions.actions.match",
+  sync: "permissions.actions.sync",
+  settle: "permissions.actions.settle",
+  correct: "permissions.actions.correct",
+  run: "permissions.actions.run",
+  reallocate: "permissions.actions.reallocate",
+  profitability_view: "permissions.actions.profitabilityView",
+  profitability_edit_costs: "permissions.actions.profitabilityEditCosts",
+  pay: "permissions.actions.pay",
+  close: "permissions.actions.close",
 };
 
 const EMPTY: string[] = [];
+
+type Translate = ReturnType<typeof useLocale>["t"];
+
+/** Translated label of one catalog action (agent portal actions use their own vocabulary). */
+export function permissionActionLabel(t: Translate, action: { name: string; action: string }) {
+  return t(
+    action.name.startsWith("agent.")
+      ? agentPermissionLabelKey(action.name)
+      : (ACTION_LABEL_KEY[action.action] ?? (action.action as MessageKey)),
+  );
+}
+
+/**
+ * "Module — Action" for a stored permission name (e.g. `reports.sales.view`),
+ * resolved through the same catalog the matrix renders; a name the catalog
+ * does not know stays as-is.
+ */
+export function permissionNameLabel(
+  t: Translate,
+  catalog: readonly PermissionCatalogGroup[],
+  name: string,
+) {
+  for (const group of catalog) {
+    for (const catalogModule of group.modules) {
+      const action = catalogModule.actions.find((candidate) => candidate.name === name);
+      if (action)
+        return `${t(catalogModule.labelKey as MessageKey)} — ${permissionActionLabel(t, action)}`;
+    }
+  }
+  return name;
+}
+
+/** Loads the catalog once and returns `permissionNameLabel` bound to it (raw names until loaded). */
+export function usePermissionNameLabel() {
+  const { t } = useLocale();
+  const [catalog, setCatalog] = useState<PermissionCatalogGroup[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    permissionsService
+      .getCatalog()
+      .then((groups) => {
+        if (!cancelled) setCatalog(groups);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return useCallback((name: string) => permissionNameLabel(t, catalog, name), [t, catalog]);
+}
 
 /** R14 W2 — tri-state source of one permission for one user. */
 type OverrideState = "inherit" | "grant" | "deny";
@@ -219,11 +281,7 @@ export function PermissionMatrix({
   const totalGrantedCount = granted.size;
 
   const actionLabel = (action: { name: string; action: string }) =>
-    t(
-      action.name.startsWith("agent.")
-        ? agentPermissionLabelKey(action.name)
-        : (ACTION_LABEL_KEY[action.action] ?? (action.action as MessageKey)),
-    );
+    permissionActionLabel(t, action);
 
   return (
     <div className="flex flex-col gap-2">

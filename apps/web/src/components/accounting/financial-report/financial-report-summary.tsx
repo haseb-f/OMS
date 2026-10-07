@@ -264,7 +264,7 @@ export function FinancialReportSummary({
         </div>
       ) : null}
       {hasFigures ? (
-        <InsightGroup className="flex-1 grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(12rem,1fr))]">
+        <InsightGroup fit className="flex-1">
           {summary.items.map((item) => (
             <ItemCard key={item.id} item={item} currency={currency} />
           ))}

@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { UserPlus } from "lucide-react";
-import { InsightCard, InsightScope, resolveInsightTone } from "./insight-card";
+import { InsightCard, InsightGroup, InsightScope, resolveInsightTone } from "./insight-card";
 
 afterEach(cleanup);
 
@@ -106,5 +108,31 @@ describe("InsightCard interactivity (Round 8)", () => {
     const label = container.querySelector('[data-slot="insight-label"]');
     expect(label?.className).toMatch(/text-metric-label/);
     expect(label?.className).not.toMatch(/truncate/);
+  });
+});
+
+describe("InsightGroup fit (R14 fix — partner statement summary)", () => {
+  it("sizes columns from the space it gets, never from viewport breakpoints", () => {
+    const { container } = render(
+      <InsightGroup fit>
+        <InsightCard label="A" value="1" tone="info" />
+      </InsightGroup>,
+    );
+    const group = container.querySelector('[data-slot="insight-group"]')!;
+    expect(group.className).toContain("grid-cols-1");
+    expect(group.className).toContain("sm:grid-cols-[repeat(auto-fit,minmax(12rem,1fr))]");
+    expect(group.className).not.toMatch(/\b(md|lg|xl):grid-cols-\d/);
+  });
+
+  it("company partner summaries use the fit layout (no fixed 5–6 column rows)", () => {
+    for (const file of [
+      "src/app/(shell)/company-partners/page.tsx",
+      "src/app/(shell)/company-partners/[partnerId]/page.tsx",
+      "src/app/(shell)/company-partners/periods/page.tsx",
+    ]) {
+      const source = readFileSync(join(process.cwd(), file), "utf8");
+      expect(source).toContain("<InsightGroup fit>");
+      expect(source).not.toMatch(/<InsightGroup className="[^"]*grid-cols-/);
+    }
   });
 });

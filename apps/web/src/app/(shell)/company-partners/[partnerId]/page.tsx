@@ -304,7 +304,7 @@ function PartnerStatementContent() {
       },
       {
         id: "actions",
-        meta: { type: "actions" },
+        meta: { titleKey: "common.actions", type: "actions" },
         cell: ({ row }) => (
           <RowActionsMenu
             label={t("common.actions")}
@@ -398,7 +398,7 @@ function PartnerStatementContent() {
       },
       {
         id: "actions",
-        meta: { type: "actions" },
+        meta: { titleKey: "common.actions", type: "actions" },
         cell: ({ row }) => (
           <RowActionsMenu
             label={t("common.actions")}
@@ -495,7 +495,7 @@ function PartnerStatementContent() {
 
       {statement && estimate && balance ? (
         <>
-          <InsightGroup className="grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+          <InsightGroup fit>
             <InsightCard
               icon={Percent}
               tone="info"

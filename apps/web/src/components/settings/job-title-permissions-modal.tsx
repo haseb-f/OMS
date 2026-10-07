@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { UserPicker } from "@/components/business/user-picker";
-import { PermissionMatrix } from "./permission-matrix";
+import { PermissionMatrix, usePermissionNameLabel } from "./permission-matrix";
 import { jobTitlesService, type JobTitleTemplateImpact } from "@/services/job-titles-service";
 import { usersService } from "@/services/users-service";
 import { useUserContext } from "@/providers/user-context";
@@ -42,6 +42,7 @@ export function JobTitlePermissionsModal({
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
+  const permissionLabel = usePermissionNameLabel();
   const canEdit = hasPermission("job-titles.manage_permissions");
   const [saved, setSaved] = useState<string[] | null>(null);
   const [holderCount, setHolderCount] = useState(0);
@@ -205,11 +206,11 @@ export function JobTitlePermissionsModal({
                     .map((u) => (
                       <TableRow key={u.userId}>
                         <TableCell className="font-medium">{u.fullName}</TableCell>
-                        <TableCell className="text-caption break-all whitespace-normal">
-                          {u.gained.join("، ") || "—"}
+                        <TableCell className="text-caption whitespace-normal">
+                          {u.gained.map(permissionLabel).join("، ") || "—"}
                         </TableCell>
-                        <TableCell className="text-caption break-all whitespace-normal">
-                          {u.lost.join("، ") || "—"}
+                        <TableCell className="text-caption whitespace-normal">
+                          {u.lost.map(permissionLabel).join("، ") || "—"}
                         </TableCell>
                         <TableCell className="text-caption whitespace-normal">
                           {u.ineffective.length === 0
@@ -220,7 +221,7 @@ export function JobTitlePermissionsModal({
                                     item.reason === "DENIED_INDIVIDUALLY"
                                       ? "permissionTemplates.jobTitle.ineffectiveDenied"
                                       : "permissionTemplates.jobTitle.ineffectiveGranted",
-                                    { permission: item.permission },
+                                    { permission: permissionLabel(item.permission) },
                                   ),
                                 )
                                 .join("، ")}

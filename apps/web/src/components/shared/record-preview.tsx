@@ -15,6 +15,7 @@ import {
 } from "@/config/traceability/record-previews";
 import { pushOrigin } from "@/lib/navigation-origin";
 import { claimTerm, paymentTerm } from "@/config/payments/payment-vocabulary";
+import { movementTypeTone } from "@/config/inventory/movement-type";
 import { formatAmount, formatMoney } from "@/lib/money";
 import {
   Table,
@@ -75,9 +76,13 @@ export const RECORD_STATUS_TONE: Record<string, StatusTone> = {
 export function recordStatusLabel(
   t: (key: MessageKey) => string,
   status: string | null | undefined,
+  kind?: TraceKind,
 ): string | null {
   if (!status) return null;
-  const key = `docFlow.status.${status}` as MessageKey;
+  // A stock movement's "status" is its movement type (SALES_RETURN, …).
+  const key = (
+    kind === "INVENTORY_MOVEMENT" ? `inventory.movementType.${status}` : `docFlow.status.${status}`
+  ) as MessageKey;
   const translated = t(key);
   return translated === key ? status.replaceAll("_", " ").toLowerCase() : translated;
 }
@@ -98,10 +103,12 @@ function RecordStatus({
     const definition = paymentTerm(term);
     return <StatusBadge label={t(definition.labelKey)} tone={definition.tone} />;
   }
-  const label = recordStatusLabel(t, status);
-  return label ? (
-    <StatusBadge label={label} tone={RECORD_STATUS_TONE[status ?? ""] ?? "neutral"} />
-  ) : null;
+  const label = recordStatusLabel(t, status, kind);
+  const tone =
+    kind === "INVENTORY_MOVEMENT" && status
+      ? movementTypeTone(status)
+      : (RECORD_STATUS_TONE[status ?? ""] ?? "neutral");
+  return label ? <StatusBadge label={label} tone={tone} /> : null;
 }
 
 export function recordTitle(t: (key: MessageKey) => string, kind: TraceKind, number: string) {

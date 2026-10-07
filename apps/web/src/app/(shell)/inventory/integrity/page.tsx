@@ -24,7 +24,7 @@ import {
   INTEGRITY_STATUSES,
   INTEGRITY_STATUS_TONE,
   INTEGRITY_VIEW_PERMISSION,
-  humanizeMetricKey,
+  integrityMetricLabel,
   integrityExportFileName,
 } from "@/config/inventory/integrity";
 import { useWarehouses } from "@/hooks/use-reference-data";
@@ -69,8 +69,8 @@ function InvariantCard({ invariant }: { invariant: InvariantResult }) {
           </div>
           {metrics.map(([key, value]) => (
             <div key={key} className="flex min-w-0 justify-between gap-3">
-              <dt className="min-w-0 break-words text-muted-foreground" dir="ltr">
-                {humanizeMetricKey(key)}
+              <dt className="min-w-0 break-words text-muted-foreground">
+                {integrityMetricLabel(t, key)}
               </dt>
               <dd className="num shrink-0" dir="ltr">
                 {value ?? "—"}

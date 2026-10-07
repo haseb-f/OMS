@@ -40,6 +40,7 @@ import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { toast, reportApiError } from "@/lib/toast";
 import { filterByArabicSearch } from "@/lib/arabic-search";
+import type { MessageKey } from "@/i18n/translate";
 
 const seriesSchema = z.object({
   documentType: z
@@ -72,6 +73,16 @@ const defaultValues: SeriesFormValues = {
   dayReset: false,
   active: true,
 };
+
+/**
+ * The series name in the reader's language: the dictionary name of a known
+ * document type, otherwise the stored label (a series added later by an admin).
+ */
+function seriesLabel(t: (key: MessageKey) => string, row: NumberSeriesRow): string {
+  const key = `settings.documentNumbering.documentTypes.${row.documentType}` as MessageKey;
+  const label = t(key);
+  return label === key ? row.label : label;
+}
 
 function resetRuleTone(row: NumberSeriesRow): "day" | "month" | "year" | "none" {
   if (row.dayReset) return "day";
@@ -225,7 +236,7 @@ export default function SettingsDocumentNumberingPage() {
 
   const filteredSorted = useMemo(() => {
     const filtered = filterByArabicSearch(items, search, (row) =>
-      [row.label, row.documentType, row.docCode, row.template].join(" "),
+      [seriesLabel(t, row), row.label, row.documentType, row.docCode, row.template].join(" "),
     );
     const sorted = [...filtered].sort((a, b) => {
       const av = a[sortBy as keyof NumberSeriesRow];
@@ -237,7 +248,7 @@ export default function SettingsDocumentNumberingPage() {
       return sortOrder === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [items, search, sortBy, sortOrder]);
+  }, [items, search, sortBy, sortOrder, t]);
 
   const paged = filteredSorted.slice((page - 1) * pageSize, page * pageSize);
 
@@ -246,10 +257,10 @@ export default function SettingsDocumentNumberingPage() {
       {
         id: "label",
         meta: { titleKey: "settings.documentNumbering.table.label", type: "name" },
-        accessorFn: (row) => row.label,
+        accessorFn: (row) => seriesLabel(t, row),
         cell: ({ row }) => (
           <StackedCell
-            primary={row.original.label}
+            primary={seriesLabel(t, row.original)}
             secondary={<SemanticValue kind="id">{row.original.documentType}</SemanticValue>}
           />
         ),
@@ -671,7 +682,7 @@ export default function SettingsDocumentNumberingPage() {
         title={t("settings.documentNumbering.confirmDisableTitle")}
         description={
           disableTarget &&
-          `${disableTarget.label} — ${t("settings.documentNumbering.confirmDisableDescription")}`
+          `${seriesLabel(t, disableTarget)} — ${t("settings.documentNumbering.confirmDisableDescription")}`
         }
         onConfirm={confirmDisable}
         confirmLabel={t("settings.documentNumbering.actions.disable")}
@@ -684,7 +695,7 @@ export default function SettingsDocumentNumberingPage() {
         title={t("settings.documentNumbering.confirmResetTitle")}
         description={
           resetTarget &&
-          `${resetTarget.label} — ${t("settings.documentNumbering.confirmResetDescription")}`
+          `${seriesLabel(t, resetTarget)} — ${t("settings.documentNumbering.confirmResetDescription")}`
         }
         onConfirm={confirmReset}
         confirmLabel={t("settings.documentNumbering.actions.resetNext")}
