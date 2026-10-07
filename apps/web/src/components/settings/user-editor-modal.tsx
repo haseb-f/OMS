@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredMark } from "@/components/ui/form";
 import { useEffect, useId, useMemo, useState } from "react";
 import { UserCog } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
@@ -274,7 +275,10 @@ export function UserEditorModal({
     <EnterpriseModal
       open={open}
       onOpenChange={onOpenChange}
-      size="xl"
+      // R14 spec-1 §5 — a compact narrow form card: one column on phones,
+      // two columns from the container's md width.
+      layout="form-card"
+      size="md"
       icon={UserCog}
       title={user ? user.fullName : t("settings.users.editor.newTitle")}
       description={user ? user.email : undefined}
@@ -305,36 +309,42 @@ export function UserEditorModal({
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          <ModalSection title={t("settings.users.editor.sectionDetails")} columns={3}>
+          <ModalSection title={t("settings.users.editor.sectionDetails")} columns={2}>
             <div className="flex flex-col gap-1">
               <label className="text-caption text-muted-foreground">
-                {t("settings.users.fields.fullName")} <span className="text-destructive">*</span>
+                {t("settings.users.fields.fullName")}
+                <RequiredMark className="ms-0.5" />
               </label>
               <Input
                 inputSize="sm"
+                aria-required
                 value={form.fullName}
                 onChange={(event) => setForm((c) => ({ ...c, fullName: event.target.value }))}
               />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-caption text-muted-foreground">
-                {t("settings.users.fields.username")} <span className="text-destructive">*</span>
+                {t("settings.users.fields.username")}
+                <RequiredMark className="ms-0.5" />
               </label>
               <Input
                 inputSize="sm"
                 dir="ltr"
+                aria-required
                 value={form.username}
                 onChange={(event) => setForm((c) => ({ ...c, username: event.target.value }))}
               />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-caption text-muted-foreground">
-                {t("settings.users.fields.email")} <span className="text-destructive">*</span>
+                {t("settings.users.fields.email")}
+                <RequiredMark className="ms-0.5" />
               </label>
               <Input
                 inputSize="sm"
                 dir="ltr"
                 type="email"
+                aria-required
                 autoCapitalize="none"
                 autoCorrect="off"
                 value={form.email}
@@ -353,17 +363,18 @@ export function UserEditorModal({
               />
             </div>
             {!user && (
-              <div className="flex flex-col gap-1 sm:col-span-2">
+              <div className="col-span-full flex flex-col gap-1">
                 <label
                   htmlFor={`${fieldId}-password`}
                   className="text-caption text-muted-foreground"
                 >
                   {t("settings.users.fields.password")}
-                  <span className="text-destructive"> *</span>
+                  <RequiredMark className="ms-0.5" />
                 </label>
                 <PasswordInput
                   id={`${fieldId}-password`}
                   inputSize="sm"
+                  aria-required
                   autoComplete="new-password"
                   generatable
                   defaultVisible
@@ -407,7 +418,8 @@ export function UserEditorModal({
                 htmlFor={`${fieldId}-department`}
                 className="text-caption text-muted-foreground"
               >
-                {t("settings.users.fields.department")} <span className="text-destructive">*</span>
+                {t("settings.users.fields.department")}
+                <RequiredMark className="ms-0.5" />
               </label>
               <DepartmentPicker
                 id={`${fieldId}-department`}
@@ -452,7 +464,7 @@ export function UserEditorModal({
               </label>
             </div>
             {isAgentUser ? null : (
-              <div className="flex flex-col gap-0.5 sm:col-span-2">
+              <div className="col-span-full flex flex-col gap-0.5">
                 <label className="flex items-center gap-2">
                   <Checkbox
                     checked={form.salesDistributionEligible}

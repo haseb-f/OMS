@@ -28,7 +28,7 @@ export function DateFormField<
       control={control}
       name={name}
       render={({ field, fieldState }) => (
-        <FormItem>
+        <FormItem required={required}>
           <FormLabel required={required} optional={optional}>
             {label}
           </FormLabel>

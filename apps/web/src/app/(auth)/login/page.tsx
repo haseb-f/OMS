@@ -84,6 +84,7 @@ function LoginForm() {
             control={form.control}
             name="email"
             label={t("auth.email")}
+            required
             type="email"
             placeholder={t("auth.emailPlaceholder")}
             autoComplete="email"
@@ -96,6 +97,7 @@ function LoginForm() {
             control={form.control}
             name="password"
             label={t("auth.password")}
+            required
             placeholder={t("auth.passwordPlaceholder")}
             autoComplete="current-password"
           />

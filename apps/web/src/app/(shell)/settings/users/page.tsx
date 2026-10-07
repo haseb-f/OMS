@@ -275,6 +275,7 @@ function UsersPageContent() {
             setResetPasswordTarget(null);
             setResetPasswordValue("");
             load();
+            toast.success(t("settings.users.toasts.passwordReset"));
             if (result.temporaryPassword) {
               setGeneratedPassword(result.temporaryPassword);
             }

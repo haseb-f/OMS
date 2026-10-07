@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredMark } from "@/components/ui/form";
 import { useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { LayoutList, SlidersHorizontal, StickyNote, Trash2 } from "lucide-react";
 import {
@@ -840,7 +841,7 @@ export function ProductLineItemsGrid({
                     <label className="flex flex-col gap-1">
                       <span className="text-caption text-muted-foreground">
                         {priceLabel}
-                        {requirePrice ? <span className="text-destructive"> *</span> : null}
+                        {requirePrice ? <RequiredMark className="ms-0.5" /> : null}
                       </span>
                       <MoneyInput
                         className={cn("h-10", priceInvalid(line) && "border-destructive")}
@@ -992,7 +993,7 @@ export function ProductLineItemsGrid({
             )}
             <DocumentLineTableHead className={cn(documentLineNumericHeadClass, PRICE_WIDTH)}>
               {priceLabel}
-              {requirePrice ? <span className="text-destructive"> *</span> : null}
+              {requirePrice ? <RequiredMark className="ms-0.5" /> : null}
             </DocumentLineTableHead>
             {showDiscount && (
               <DocumentLineTableHead

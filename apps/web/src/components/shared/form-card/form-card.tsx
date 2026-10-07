@@ -2,6 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 import { Label } from "@/components/ui/label";
+import { RequiredMark } from "@/components/ui/form";
 import { cn } from "@/lib/utils";
 
 /**
@@ -159,7 +160,7 @@ export function FormCardField({
     <Field size={size} className={className}>
       <Label htmlFor={htmlFor}>
         {label}
-        {required ? <span className="text-destructive"> *</span> : null}
+        {required ? <RequiredMark /> : null}
       </Label>
       {children}
       {message}

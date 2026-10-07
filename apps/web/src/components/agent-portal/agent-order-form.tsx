@@ -22,7 +22,7 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { FieldMessage } from "@/components/ui/form";
+import { FieldMessage, RequiredMark } from "@/components/ui/form";
 import { FormSection } from "@/components/documents/form-section";
 import { SegmentedRadioGroup } from "@/components/documents/segmented-radio-group";
 import { Field, FieldGrid, FormCardField } from "@/components/shared/form-card/form-card";
@@ -439,7 +439,7 @@ export function AgentOrderForm({
                     <Label htmlFor={`${fieldId}-country`}>
                       {t("agentPortal.orderForm.fields.country")}
                       {state.fulfillmentMethod === "SHIPPING" ? (
-                        <span className="text-destructive"> *</span>
+                        <RequiredMark className="ms-0.5" />
                       ) : null}
                     </Label>
                     <SearchableSelect

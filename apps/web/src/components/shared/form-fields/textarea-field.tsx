@@ -35,7 +35,7 @@ export function TextareaFormField<
       control={control}
       name={name}
       render={({ field }) => (
-        <FormItem>
+        <FormItem required={required}>
           <FormLabel required={required} optional={optional}>
             {label}
           </FormLabel>

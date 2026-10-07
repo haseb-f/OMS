@@ -39,7 +39,7 @@ export function PhoneFormField<
       control={control}
       name={name}
       render={({ field, fieldState, formState }) => (
-        <FormItem>
+        <FormItem required={required}>
           <FormLabel required={required} optional={optional}>
             {label}
           </FormLabel>
