@@ -9,6 +9,7 @@ import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { useLocale } from "@/providers/locale-provider";
 import { FormCardProvider } from "@/components/shared/form-card/form-card";
+import { RequiredFieldsLegend } from "@/components/ui/form";
 import { cn } from "@/lib/utils";
 
 export type EnterpriseModalSize = "sm" | "md" | "lg" | "xl";
@@ -193,7 +194,7 @@ export function EnterpriseModal({
 
           <div
             className={cn(
-              "min-h-0 flex-1 overflow-y-auto",
+              "group/required-scope min-h-0 flex-1 overflow-y-auto",
               // Compact form: tighter body; focused fields scroll clear of the
               // header/footer (the body is the only scroller, nothing overlays it).
               formCard ? "scroll-py-4 px-4 py-3 max-sm:px-3" : "px-5 py-4",
@@ -203,6 +204,8 @@ export function EnterpriseModal({
             <FormCardProvider active={formCard}>
               {errorSummary}
               {children}
+              {/* R14 — "* Required field", only when the form has a required field. */}
+              <RequiredFieldsLegend className="mt-3" />
             </FormCardProvider>
           </div>
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredMark } from "@/components/ui/form";
 import { useEffect, useId, useRef, useState } from "react";
 import { Undo2 } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
@@ -196,7 +197,8 @@ export function CustomerRefundDialog({
           <ModalSection title={t("sales.refunds.editorTitle")} columns={2}>
             <div className="flex flex-col gap-1">
               <Label>
-                {t("sales.refunds.dialog.amount")} <span className="text-destructive">*</span>
+                {t("sales.refunds.dialog.amount")}
+                <RequiredMark className="ms-0.5" />
               </Label>
               <MoneyInput
                 value={amount || ""}
@@ -215,7 +217,8 @@ export function CustomerRefundDialog({
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor={`${fieldId}-receiving`}>
-                {t("sales.refunds.dialog.paidFrom")} <span className="text-destructive">*</span>
+                {t("sales.refunds.dialog.paidFrom")}
+                <RequiredMark className="ms-0.5" />
               </Label>
               <SearchableSelect
                 id={`${fieldId}-receiving`}

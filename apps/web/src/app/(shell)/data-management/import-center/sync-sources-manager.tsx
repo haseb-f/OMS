@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredMark } from "@/components/ui/form";
 import { useEffect, useId, useState } from "react";
 import { Plus, RefreshCw, UploadCloud } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -307,7 +308,7 @@ function CreateSourceDialog({
               <div key={field.key} className="flex items-center gap-2">
                 <span className="w-40 shrink-0 truncate text-caption">
                   {field.label}
-                  {field.required && <span className="text-destructive"> *</span>}
+                  {field.required && <RequiredMark className="ms-0.5" />}
                 </span>
                 {field.referenceType && (
                   <EnterpriseBadge variant="secondary" className="shrink-0">

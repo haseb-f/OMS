@@ -354,6 +354,7 @@ export default function CommissionsPage() {
               options={STATUSES.map((status) => ({
                 value: status,
                 label: t(`hr.commissions.status.${status}` as MessageKey),
+                tone: commissionStatusTone[status],
               }))}
             />
             <ClearFiltersButton activeCount={activeFilterCount} onClear={clearFilters} />

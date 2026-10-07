@@ -4,7 +4,7 @@ import {
   ValidationPipe,
   type INestApplication,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { UserSessionsService } from '../../auth/sessions/user-sessions.service';
 import type { Server } from 'http';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
@@ -1513,7 +1513,9 @@ describe('Agents B1 — admin + orders (integration)', () => {
       );
       await app.init();
       server = app.getHttpServer() as Server;
-      const jwt = moduleRef.get(JwtService, { strict: false });
+      const sessionTokens = moduleRef.get(UserSessionsService, {
+        strict: false,
+      });
       const mkUser = async (key: string, perms: string[]) => {
         const user = await prisma.user.create({
           data: {
@@ -1526,7 +1528,10 @@ describe('Agents B1 — admin + orders (integration)', () => {
         await grant(user.id, perms);
         return {
           id: user.id,
-          token: jwt.sign({ sub: user.id, email: user.email }),
+          token: await sessionTokens.issueAccessToken({
+            sub: user.id,
+            email: user.email,
+          }),
         };
       };
       // Finance-like: agents.view + store-orders.view but no sales scope

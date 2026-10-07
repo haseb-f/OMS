@@ -70,7 +70,7 @@ export function ComboboxFormField<
         const selected = items.find((item) => getId(item) === field.value) ?? null;
 
         return (
-          <FormItem>
+          <FormItem required={required}>
             <FormLabel required={required} optional={optional}>
               {label}
             </FormLabel>

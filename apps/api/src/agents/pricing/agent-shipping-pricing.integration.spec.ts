@@ -7,7 +7,7 @@ import {
   type INestApplication,
   ValidationPipe,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { UserSessionsService } from '../../auth/sessions/user-sessions.service';
 import type { Server } from 'http';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
@@ -54,7 +54,7 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
   let app: INestApplication;
   let http: Server;
   let prisma: PrismaService;
-  let jwt: JwtService;
+  let sessionTokens: UserSessionsService;
   let orders: AgentOrdersService;
   let shipments: StoreOrderShipmentOperationsService;
   let carrier: CarrierReconciliationService;
@@ -215,7 +215,7 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
     await app.init();
     http = app.getHttpServer() as Server;
     prisma = moduleRef.get(PrismaService);
-    jwt = moduleRef.get(JwtService);
+    sessionTokens = moduleRef.get(UserSessionsService, { strict: false });
     orders = moduleRef.get(AgentOrdersService, { strict: false });
     shipments = moduleRef.get(StoreOrderShipmentOperationsService, {
       strict: false,
@@ -236,7 +236,10 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
       },
     });
     internalId = internal.id;
-    internalToken = jwt.sign({ sub: internal.id, email: internal.email });
+    internalToken = await sessionTokens.issueAccessToken({
+      sub: internal.id,
+      email: internal.email,
+    });
 
     // The functional currency: agent postings need no FX rate.
     currencyId = await moduleRef
@@ -342,7 +345,7 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
       where: { id: admin.id },
       data: { mustChangePassword: false },
     });
-    adminToken = jwt.sign({
+    adminToken = await sessionTokens.issueAccessToken({
       sub: admin.id,
       email: admin.email,
       typ: 'agent',
@@ -822,7 +825,10 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
     await prisma.userPermission.create({
       data: { userId: clerk.id, permissionId: permission.id },
     });
-    const clerkToken = jwt.sign({ sub: clerk.id, email: clerk.email });
+    const clerkToken = await sessionTokens.issueAccessToken({
+      sub: clerk.id,
+      email: clerk.email,
+    });
     const product = await makeProduct(null, false);
     const denied = await post(
       clerkToken,

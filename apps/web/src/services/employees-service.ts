@@ -120,6 +120,16 @@ export const employeesService = {
   activity: (id: string) => apiClient.get<MasterDataActivityEntry[]>(`${basePath}/${id}/activity`),
   createAccount: (id: string, dto: CreateEmployeeAccountPayload) =>
     apiClient.post<EmployeeRow>(`${basePath}/${id}/account`, dto),
+  /**
+   * R14 — reset the linked login account's password (`settings.manage`).
+   * Omit `newPassword` to let the server generate one (returned once); a
+   * supplied password is never echoed back.
+   */
+  resetAccountPassword: (id: string, newPassword?: string) =>
+    apiClient.post<{ message: string; temporaryPassword?: string }>(
+      `${basePath}/${id}/reset-password`,
+      newPassword ? { newPassword } : {},
+    ),
   compensationHistory: (id: string) =>
     apiClient.get<CompensationRevisionRow[]>(`${basePath}/${id}/compensation`),
   recordCompensation: (id: string, dto: RecordCompensationPayload) =>

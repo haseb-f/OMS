@@ -141,6 +141,7 @@ function LandedCostPageContent() {
             options={LANDED_COST_FILTERABLE_STATUSES.map((status) => ({
               value: status,
               label: t(LANDED_COST_STATUS_LABEL_KEY[status]),
+              tone: LANDED_COST_STATUS_TONE[status],
             }))}
           />
         }

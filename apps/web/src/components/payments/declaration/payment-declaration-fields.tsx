@@ -8,7 +8,7 @@ import type { FormErrorItem } from "@/components/shared/form-error-summary";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { MoneyValue } from "@/components/shared/money-value";
-import { FieldMessage } from "@/components/ui/form";
+import { FieldMessage, RequiredMark } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -164,8 +164,7 @@ export function PaymentDeclarationFields({
                 data-invalid={fieldError("declarationAmount") ? "true" : undefined}
               >
                 <Label htmlFor={`${fieldId}-amount`}>
-                  {t("paymentDeclaration.dialog.amount")}{" "}
-                  <span className="text-destructive">*</span>
+                  {t("paymentDeclaration.dialog.amount")} <RequiredMark className="ms-0.5" />
                 </Label>
                 <Input
                   id={`${fieldId}-amount`}
@@ -190,7 +189,8 @@ export function PaymentDeclarationFields({
               data-invalid={fieldError("declarationMethod") ? "true" : undefined}
             >
               <Label htmlFor={`${fieldId}-method`}>
-                {t("paymentDeclaration.dialog.method")} <span className="text-destructive">*</span>
+                {t("paymentDeclaration.dialog.method")}
+                <RequiredMark className="ms-0.5" />
               </Label>
               <SearchableSelect
                 id={`${fieldId}-method`}
@@ -210,8 +210,7 @@ export function PaymentDeclarationFields({
               data-invalid={fieldError("declarationDate") ? "true" : undefined}
             >
               <Label htmlFor={`${fieldId}-date`}>
-                {t("paymentDeclaration.dialog.paymentDate")}{" "}
-                <span className="text-destructive">*</span>
+                {t("paymentDeclaration.dialog.paymentDate")} <RequiredMark className="ms-0.5" />
               </Label>
               <EnterpriseDatePicker
                 id={`${fieldId}-date`}

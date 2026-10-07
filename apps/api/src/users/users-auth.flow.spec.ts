@@ -186,6 +186,9 @@ describe('Users + Auth password flow', () => {
       storeCreated(created.id);
 
       const reset = await users.resetPassword(created.id, {});
+      if (!('temporaryPassword' in reset)) {
+        throw new Error('a generated reset must return the password once');
+      }
       expect(reset.temporaryPassword).toBeTruthy();
       expect(reset.temporaryPassword).not.toBe(oldPassword);
 
@@ -198,6 +201,38 @@ describe('Users + Auth password flow', () => {
         password: reset.temporaryPassword,
       });
       expect(login.accessToken).toBeTruthy();
+    },
+  );
+
+  liveIt(
+    'R14: an admin reset never echoes a supplied password and ends every live session',
+    async () => {
+      const tag = suffix();
+      const oldPassword = 'OldPassw0rd!';
+      const created = await createUser({
+        email: `auth-flow-revoke-${tag}@example.com`,
+        username: `revoke_${tag}`,
+        fullName: 'Reset Revokes Sessions',
+        password: oldPassword,
+      });
+      storeCreated(created.id);
+      await auth.login({ email: created.email, password: oldPassword });
+      await auth.login({ email: created.email, password: oldPassword });
+
+      const reset = await users.resetPassword(created.id, {
+        newPassword: 'Supplied-Passw0rd!',
+      });
+      expect(reset).not.toHaveProperty('temporaryPassword');
+      expect(JSON.stringify(reset)).not.toContain('Supplied-Passw0rd!');
+
+      const sessions = await prisma.userSession.findMany({
+        where: { userId: created.id },
+      });
+      expect(sessions).toHaveLength(2);
+      for (const session of sessions) {
+        expect(session.revokedAt).not.toBeNull();
+        expect(session.revokedReason).toBe('PASSWORD_RESET');
+      }
     },
   );
 

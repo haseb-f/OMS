@@ -475,6 +475,7 @@ function CarrierReconciliationContent() {
             options={CARRIER_RECONCILIATION_STATES.map((state) => ({
               value: state,
               label: t(`carrierReconciliation.state.${state}`),
+              tone: STATE_TONE[state],
             }))}
           />
         }

@@ -17,6 +17,10 @@ export class LoginDto {
   @MinLength(1)
   password!: string;
 
+  /**
+   * R14 — retired: accepted so older clients still validate, but ignored
+   * (sessions are never extended; see session-policy.md).
+   */
   @IsOptional()
   @IsBoolean()
   rememberMe?: boolean;

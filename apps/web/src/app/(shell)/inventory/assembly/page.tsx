@@ -301,6 +301,7 @@ function AssemblyListPageContent() {
               options={ASSEMBLY_STATUSES.map((status) => ({
                 value: status,
                 label: t(`assembly.status.${status}`),
+                tone: ASSEMBLY_STATUS_TONE[status],
               }))}
             />
             <EnterpriseDateRangePicker

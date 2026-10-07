@@ -4,8 +4,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { z } from "zod";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Form, FormField, FormItem, FormControl, FormLabel } from "@/components/ui/form";
+import { Form } from "@/components/ui/form";
 import {
   TextFormField,
   PasswordFormField,
@@ -41,15 +40,14 @@ function LoginForm() {
       .min(1, t("auth.emailRequired"))
       .email(t("auth.emailRequired")),
     password: z.string().min(1, t("auth.passwordRequired")),
-    rememberMe: z.boolean(),
   });
 
-  const form = useZodForm(schema, { defaultValues: { email: "", password: "", rememberMe: true } });
+  const form = useZodForm(schema, { defaultValues: { email: "", password: "" } });
 
   const onSubmit = form.handleSubmit(async (values) => {
     setFormError(null);
     try {
-      const signedIn = await login(values.email, values.password, values.rememberMe);
+      const signedIn = await login(values.email, values.password);
       startFreshNavigationSession();
       // A validated deep link (incl. its query), else the user's own
       // dashboard directly — agents never bounce through "/".
@@ -86,6 +84,7 @@ function LoginForm() {
             control={form.control}
             name="email"
             label={t("auth.email")}
+            required
             type="email"
             placeholder={t("auth.emailPlaceholder")}
             autoComplete="email"
@@ -98,26 +97,16 @@ function LoginForm() {
             control={form.control}
             name="password"
             label={t("auth.password")}
+            required
             placeholder={t("auth.passwordPlaceholder")}
             autoComplete="current-password"
           />
 
-          <div className="flex items-center justify-between gap-3">
-            <FormField
-              control={form.control}
-              name="rememberMe"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <FormLabel className="text-sm font-normal">{t("auth.rememberMe")}</FormLabel>
-                </FormItem>
-              )}
-            />
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-caption text-muted-foreground">{t("auth.sessionNote")}</p>
             <Link
               href="/forgot-password"
-              className="text-caption font-medium text-brand-navy hover:underline dark:text-brand-teal"
+              className="shrink-0 text-caption font-medium text-brand-navy hover:underline dark:text-brand-teal"
             >
               {t("auth.forgotPassword")}
             </Link>

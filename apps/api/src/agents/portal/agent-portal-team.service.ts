@@ -52,7 +52,9 @@ export class AgentPortalTeamService {
     const reset = await this.team.resetSalesUserPassword(agent, userId, dto);
     return {
       ...(await this.agentUsers.findOne(agent.agentId, userId)),
-      temporaryPassword: reset.temporaryPassword,
+      // Only a server-generated password is ever returned (never a supplied one).
+      temporaryPassword:
+        'temporaryPassword' in reset ? reset.temporaryPassword : undefined,
     };
   }
 }

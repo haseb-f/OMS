@@ -26,7 +26,7 @@ import {
 import { StatusBadge } from "@/components/business/status-badge";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { DocumentActionBar, type DocumentAction } from "@/components/documents/document-action-bar";
-import { FieldMessage } from "@/components/ui/form";
+import { FieldMessage, RequiredMark } from "@/components/ui/form";
 import { AllocationGrid } from "./allocation-grid";
 import { PaymentSummary } from "./payment-summary";
 import { useUserContext } from "@/providers/user-context";
@@ -316,6 +316,7 @@ export function FinancialTransactionEditor({
           >
             <label htmlFor={`${fieldId}-party`} className="text-caption text-muted-foreground">
               {config.partyLabel}
+              <RequiredMark className="ms-0.5" />
             </label>
             {renderPartyPicker({ disabled: !canEdit, id: `${fieldId}-party` })}
             <FieldMessage>{fieldErrors?.party}</FieldMessage>
@@ -339,6 +340,7 @@ export function FinancialTransactionEditor({
           >
             <label htmlFor={`${fieldId}-amount`} className="text-caption text-muted-foreground">
               {t("financialTransactions.fields.amount")}
+              <RequiredMark className="ms-0.5" />
             </label>
             <MoneyInput
               id={`${fieldId}-amount`}

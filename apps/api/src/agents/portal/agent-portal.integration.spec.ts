@@ -6,7 +6,7 @@ import {
   type INestApplication,
   ValidationPipe,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { UserSessionsService } from '../../auth/sessions/user-sessions.service';
 import type { Server } from 'http';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
@@ -35,7 +35,7 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
   let app: INestApplication;
   let http: Server;
   let prisma: PrismaService;
-  let jwt: JwtService;
+  let sessionTokens: UserSessionsService;
   let resolver: PermissionsResolverService;
 
   const tag = randomUUID().slice(0, 6).toUpperCase();
@@ -90,7 +90,7 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
     request(http).put(path).set('Authorization', `Bearer ${token}`).send(body);
 
   const agentToken = (user: { id: string; email: string; agentId: string }) =>
-    jwt.sign({
+    sessionTokens.issueAccessToken({
       sub: user.id,
       email: user.email,
       typ: 'agent',
@@ -118,7 +118,7 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
     await app.init();
     http = app.getHttpServer() as Server;
     prisma = moduleRef.get(PrismaService);
-    jwt = moduleRef.get(JwtService);
+    sessionTokens = moduleRef.get(UserSessionsService, { strict: false });
     resolver = moduleRef.get(PermissionsResolverService);
     const agents = moduleRef.get(AgentsService, { strict: false });
     const agreements = moduleRef.get(AgentAgreementsService, { strict: false });
@@ -139,7 +139,10 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
     });
     users.internal = {
       id: internal.id,
-      token: jwt.sign({ sub: internal.id, email: internal.email }),
+      token: await sessionTokens.issueAccessToken({
+        sub: internal.id,
+        email: internal.email,
+      }),
     };
 
     const currencyId = (
@@ -241,7 +244,11 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
       });
       return {
         id: created.id,
-        token: agentToken({ id: created.id, email: created.email, agentId }),
+        token: await agentToken({
+          id: created.id,
+          email: created.email,
+          agentId,
+        }),
       };
     };
     users.adminA = await makeUser(agentAId, 'admina', 'ADMIN', [
@@ -424,7 +431,7 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
 
     it('agent token without a bearer or with a forged agentId is refused', async () => {
       expect((await request(http).get('/agent-portal/me')).status).toBe(401);
-      const forged = agentToken({
+      const forged = await agentToken({
         id: users.salesA1.id,
         email: 'x@test.local',
         agentId: agentBId,
@@ -1352,7 +1359,7 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
         fullName: `Portal Temp ${tag}`,
       });
       expect(created.status).toBe(201);
-      const token = agentToken({
+      const token = await agentToken({
         id: created.body.id,
         email: created.body.email,
         agentId: agentAId,
@@ -1378,7 +1385,17 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
         `/agent-portal/team/${created.body.id}/reset-password`,
       );
       expect(reset.status).toBe(200);
-      expect((await get(token, '/agent-portal/me')).body.code).toBe(
+      // R14: the reset ends every session of that user at once…
+      const revoked = await get(token, '/agent-portal/me');
+      expect(revoked.status).toBe(401);
+      expect(revoked.body.code).toBe('SESSION_REVOKED');
+      // …and a fresh sign-in is blocked again until the password is changed.
+      const fresh = await agentToken({
+        id: created.body.id,
+        email: created.body.email,
+        agentId: agentAId,
+      });
+      expect((await get(fresh, '/agent-portal/me')).body.code).toBe(
         'MUST_CHANGE_PASSWORD',
       );
     });

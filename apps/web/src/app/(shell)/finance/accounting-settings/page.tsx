@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredMark } from "@/components/ui/form";
 import { useEffect, useId, useMemo, useState } from "react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { ControlSurface } from "@/components/ui/control-surface";
@@ -506,7 +507,7 @@ export default function AccountingSettingsPage() {
                     <div key={field.key} className="flex flex-col gap-1">
                       <label className="text-caption text-muted-foreground">
                         {t(field.labelKey)}
-                        {field.required && <span className="text-destructive"> *</span>}
+                        {field.required && <RequiredMark className="ms-0.5" />}
                       </label>
                       <AccountPicker
                         value={values[field.key]}

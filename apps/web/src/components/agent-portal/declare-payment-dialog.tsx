@@ -12,7 +12,7 @@ import { SearchableSelect } from "@/components/shared/searchable-select";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { MoneyValue } from "@/components/shared/money-value";
 import { MoneyInput } from "@/components/shared/money-input";
-import { FieldMessage } from "@/components/ui/form";
+import { FieldMessage, RequiredMark } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -223,7 +223,7 @@ export function DeclarePaymentDialog({
                     {state.kind === "FULL"
                       ? t("agentPortal.declare.fullAmount")
                       : t("agentPortal.declare.amount")}
-                    {state.kind === "PARTIAL" ? <span className="text-destructive"> *</span> : null}
+                    {state.kind === "PARTIAL" ? <RequiredMark className="ms-0.5" /> : null}
                   </Label>
                   <MoneyInput
                     id={`${fieldId}-amount`}
@@ -241,8 +241,7 @@ export function DeclarePaymentDialog({
                   data-invalid={fieldError("declarationMethod") ? "true" : undefined}
                 >
                   <Label htmlFor={`${fieldId}-destination`}>
-                    {t("agentPortal.declare.destination")}{" "}
-                    <span className="text-destructive">*</span>
+                    {t("agentPortal.declare.destination")} <RequiredMark className="ms-0.5" />
                   </Label>
                   <SearchableSelect
                     id={`${fieldId}-destination`}
@@ -263,8 +262,7 @@ export function DeclarePaymentDialog({
                   data-invalid={fieldError("declarationDate") ? "true" : undefined}
                 >
                   <Label htmlFor={`${fieldId}-date`}>
-                    {t("agentPortal.declare.paymentDate")}{" "}
-                    <span className="text-destructive">*</span>
+                    {t("agentPortal.declare.paymentDate")} <RequiredMark className="ms-0.5" />
                   </Label>
                   <EnterpriseDatePicker
                     id={`${fieldId}-date`}

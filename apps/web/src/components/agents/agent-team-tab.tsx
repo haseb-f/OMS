@@ -132,6 +132,7 @@ export function AgentTeamTab({ agentId, agentActive }: { agentId: string; agentA
       );
       setResetTarget(null);
       setResetPasswordValue("");
+      toast.success(t("settings.users.toasts.passwordReset"));
       if (result.temporaryPassword) setPassword(result.temporaryPassword);
       await load();
     } catch (error) {

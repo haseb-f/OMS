@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredMark } from "@/components/ui/form";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   Archive,
@@ -802,7 +803,8 @@ function ChartOfAccountsPageContent() {
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <label className="text-sm font-medium">
-              {t("masterData.fields.name")} <span className="text-destructive">*</span>
+              {t("masterData.fields.name")}
+              <RequiredMark className="ms-0.5" />
             </label>
             <Input
               value={form.name}
@@ -822,7 +824,8 @@ function ChartOfAccountsPageContent() {
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor={`${fieldId}-type`} className="text-sm font-medium">
-              {t("masterData.fields.accountType")} <span className="text-destructive">*</span>
+              {t("masterData.fields.accountType")}
+              <RequiredMark className="ms-0.5" />
             </label>
             <Select
               value={form.accountType}
@@ -849,8 +852,7 @@ function ChartOfAccountsPageContent() {
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor={`${fieldId}-nature`} className="text-sm font-medium">
-              {t("masterData.chartOfAccounts.natureLabel")}{" "}
-              <span className="text-destructive">*</span>
+              {t("masterData.chartOfAccounts.natureLabel")} <RequiredMark className="ms-0.5" />
             </label>
             <Select
               value={form.nature}
@@ -873,8 +875,7 @@ function ChartOfAccountsPageContent() {
 
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <label id={`${fieldId}-kind`} className="text-sm font-medium">
-              {t("masterData.chartOfAccounts.kindLabel")}{" "}
-              <span className="text-destructive">*</span>
+              {t("masterData.chartOfAccounts.kindLabel")} <RequiredMark className="ms-0.5" />
             </label>
             <SegmentedRadioGroup<AccountKind>
               aria-labelledby={`${fieldId}-kind`}
@@ -920,7 +921,8 @@ function ChartOfAccountsPageContent() {
           {form.nature === "SUB" && (
             <div className="flex flex-col gap-1.5 sm:col-span-2">
               <label htmlFor={`${fieldId}-parent`} className="text-sm font-medium">
-                {t("masterData.fields.parentAccount")} <span className="text-destructive">*</span>
+                {t("masterData.fields.parentAccount")}
+                <RequiredMark className="ms-0.5" />
               </label>
               <AccountPicker
                 id={`${fieldId}-parent`}

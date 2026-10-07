@@ -26,6 +26,7 @@ export function PasswordFormField<
   label,
   description,
   disabled,
+  required,
   ...inputProps
 }: {
   control: Control<TFieldValues>;
@@ -33,14 +34,16 @@ export function PasswordFormField<
   label: string;
   description?: string;
   disabled?: boolean;
+  /** Visible asterisk + `aria-required`; may be computed from watched values. */
+  required?: boolean;
 } & Omit<ComponentProps<typeof PasswordInput>, "name" | "disabled">) {
   return (
     <FormField
       control={control}
       name={name}
       render={({ field }) => (
-        <FormItem>
-          <FormLabel>{label}</FormLabel>
+        <FormItem required={required}>
+          <FormLabel required={required}>{label}</FormLabel>
           <FormControl>
             <PasswordInput {...field} {...inputProps} disabled={disabled} />
           </FormControl>

@@ -5,7 +5,7 @@ import {
   INestApplication,
   ValidationPipe,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { UserSessionsService } from '../auth/sessions/user-sessions.service';
 import type { Server } from 'http';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
@@ -42,7 +42,7 @@ describe('R7 sales scope isolation (HTTP)', () => {
   let app: INestApplication;
   let http: Server;
   let prisma: PrismaService;
-  let jwt: JwtService;
+  let sessionTokens: UserSessionsService;
   let resolver: PermissionsResolverService;
   let storeOrders: StoreOrdersService;
 
@@ -97,7 +97,10 @@ describe('R7 sales scope isolation (HTTP)', () => {
     });
     userIds.push(user.id);
     ids[key] = user.id;
-    tokens[key] = jwt.sign({ sub: user.id, email: user.email });
+    tokens[key] = await sessionTokens.issueAccessToken({
+      sub: user.id,
+      email: user.email,
+    });
     await grant(user.id, permissionNames);
     return user.id;
   }
@@ -189,7 +192,7 @@ describe('R7 sales scope isolation (HTTP)', () => {
     await app.init();
     http = app.getHttpServer() as Server;
     prisma = moduleRef.get(PrismaService);
-    jwt = moduleRef.get(JwtService);
+    sessionTokens = moduleRef.get(UserSessionsService, { strict: false });
     resolver = moduleRef.get(PermissionsResolverService);
     storeOrders = moduleRef.get(StoreOrdersService);
 
@@ -493,7 +496,7 @@ describe('R7 sales scope isolation (HTTP)', () => {
     });
 
     it('an Agent token never reaches internal lead routes (deny-by-default)', async () => {
-      const agentToken = jwt.sign({
+      const agentToken = await sessionTokens.issueAccessToken({
         sub: ids.A,
         email: 'agent@example.test',
         typ: 'agent',

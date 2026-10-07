@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   Post,
   UseGuards,
@@ -25,8 +26,8 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(200)
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Headers('user-agent') userAgent?: string) {
+    return this.authService.login(dto, userAgent);
   }
 
   @Post('forgot-password')
@@ -46,11 +47,10 @@ export class AuthController {
   @AgentShared()
   @AllowPendingPasswordChange()
   @UseGuards(JwtAuthGuard)
-  logout() {
-    // Stateless JWT — logout is a client-side token discard. This endpoint
-    // exists for symmetry and so a future refresh-token/session store has a
-    // place to revoke from without changing the frontend contract.
-    return { message: 'Logged out.' };
+  logout(@CurrentUser() user: JwtPayload) {
+    // R14 — revokes this token's server-side session; the token is refused
+    // from the next request on, even if a copy of it survives somewhere.
+    return this.authService.logout(user.sid);
   }
 
   @Get('me')
@@ -71,6 +71,6 @@ export class AuthController {
     @CurrentUser() user: JwtPayload,
     @Body() dto: ChangePasswordDto,
   ) {
-    return this.authService.changePassword(user.sub, dto);
+    return this.authService.changePassword(user.sub, dto, user.sid);
   }
 }

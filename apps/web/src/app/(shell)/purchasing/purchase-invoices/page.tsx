@@ -41,6 +41,7 @@ import {
   INVOICE_ARCHIVABLE_STATUSES,
   INVOICE_FILTERABLE_STATUSES,
   INVOICE_STATUS_LABEL_KEY,
+  INVOICE_STATUS_TONE,
 } from "@/config/purchasing/invoice-status";
 import { buildInvoicePrintPayload } from "@/config/purchasing/invoice-print";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
@@ -312,6 +313,7 @@ function PurchaseInvoicesPageContent() {
               options={INVOICE_FILTERABLE_STATUSES.map((status) => ({
                 value: status,
                 label: t(INVOICE_STATUS_LABEL_KEY[status]),
+                tone: INVOICE_STATUS_TONE[status],
               }))}
             />
             <MultiEntityFilter

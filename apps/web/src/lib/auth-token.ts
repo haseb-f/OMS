@@ -6,9 +6,18 @@
  */
 const COOKIE_NAME = "oms_token";
 
-export function setAuthToken(token: string, persistent: boolean) {
-  const maxAge = persistent ? 60 * 60 * 24 * 30 : undefined; // 30 days, or session-only
-  document.cookie = `${COOKIE_NAME}=${token}; path=/; SameSite=Lax${maxAge ? `; max-age=${maxAge}` : ""}`;
+/** The cookie attributes of a stored token — R14: a session cookie only (no max-age / expires). */
+export function authCookieValue(token: string): string {
+  return `${COOKIE_NAME}=${token}; path=/; SameSite=Lax`;
+}
+
+/**
+ * R14 (spec-1 §2) — always a SESSION cookie: "remember me" is gone, the
+ * browser drops it on exit, and the server session (idle 2 h, absolute =
+ * token lifetime) ends it regardless.
+ */
+export function setAuthToken(token: string) {
+  document.cookie = authCookieValue(token);
 }
 
 export function getAuthToken(): string | null {

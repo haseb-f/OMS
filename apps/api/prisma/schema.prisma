@@ -67,6 +67,8 @@ model User {
   userPermissions     UserPermission[]
   companyMemberships  CompanyMembership[]
   passwordResetTokens PasswordResetToken[]
+  /// R14 W1 — server-side sign-in sessions (one per login); see `UserSession`.
+  sessions            UserSession[]
 
   leadsAsSalesEmployee Lead[]
   leadAssignments      LeadAssignment[]
@@ -10230,4 +10232,28 @@ model JobTitlePermission {
   @@unique([jobTitleId, permissionId])
   @@index([permissionId])
   @@map("job_title_permissions")
+// R14 W1 — server-side sessions (specs/round14-production-readiness/spec-1 §2,
+// session-policy.md). Every access token carries `sid`; JwtAuthGuard admits it
+// only while its row is live: not revoked, not idle longer than
+// SESSION_IDLE_MINUTES, not past `expiresAt` (= the JWT's own `exp`).
+// ---------------------------------------------------------------------------
+
+model UserSession {
+  /// The token's `sid` claim.
+  id            String    @id @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  /// Last authenticated request — written at most once a minute per session.
+  lastSeenAt    DateTime  @default(now()) @map("last_seen_at")
+  /// Absolute end of the session: the access token's `exp`.
+  expiresAt     DateTime  @map("expires_at")
+  revokedAt     DateTime? @map("revoked_at")
+  /// LOGOUT | IDLE | PASSWORD_RESET | PASSWORD_CHANGED | BROWSER_RESTART
+  revokedReason String?   @map("revoked_reason")
+  /// SHA-256 of the login request's User-Agent (never the raw header).
+  userAgentHash String?   @map("user_agent_hash")
+
+  @@index([userId, revokedAt])
+  @@map("user_sessions")
 }

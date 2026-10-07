@@ -5,7 +5,7 @@ import {
   INestApplication,
   ValidationPipe,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { UserSessionsService } from '../auth/sessions/user-sessions.service';
 import type { Server } from 'http';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
@@ -48,7 +48,7 @@ describe('Lead ownership scope (Ahmed/Sara regression)', () => {
   let app: INestApplication;
   let httpServer: Server;
   let prisma: PrismaService;
-  let jwt: JwtService;
+  let sessionTokens: UserSessionsService;
   let leadsService: LeadsService;
 
   const suffix = randomUUID().slice(0, 8);
@@ -99,7 +99,7 @@ describe('Lead ownership scope (Ahmed/Sara regression)', () => {
     httpServer = app.getHttpServer() as Server;
 
     prisma = moduleRef.get(PrismaService);
-    jwt = moduleRef.get(JwtService);
+    sessionTokens = moduleRef.get(UserSessionsService, { strict: false });
     leadsService = moduleRef.get(LeadsService);
 
     const country = await prisma.country.findFirstOrThrow({
@@ -158,8 +158,14 @@ describe('Lead ownership scope (Ahmed/Sara regression)', () => {
       }
     }
 
-    ahmedToken = jwt.sign({ sub: ahmedId, email: ahmed.email });
-    saraToken = jwt.sign({ sub: saraId, email: sara.email });
+    ahmedToken = await sessionTokens.issueAccessToken({
+      sub: ahmedId,
+      email: ahmed.email,
+    });
+    saraToken = await sessionTokens.issueAccessToken({
+      sub: saraId,
+      email: sara.email,
+    });
 
     const makeLead = (customerName: string, ownerId: string | null) =>
       prisma.lead.create({

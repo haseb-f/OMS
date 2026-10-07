@@ -6,6 +6,11 @@ import { Select as SelectPrimitive } from "radix-ui";
 import { useControlSurface, type ControlSurfaceName } from "@/components/ui/control-surface";
 import { TriggerChevron } from "@/components/ui/trigger-chevron";
 import { cn } from "@/lib/utils";
+import {
+  DROPDOWN_ITEM_TONE_CLASS,
+  menuToneAttribute,
+  type MenuTone,
+} from "@/components/ui/menu-tone";
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react";
 
 function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
@@ -130,16 +135,23 @@ function SelectLabel({ className, ...props }: React.ComponentProps<typeof Select
   );
 }
 
+/**
+ * `tone` (R14 spec-1 §3) — status-change options only (e.g. a new lead /
+ * shipping status coloured by its `StatusTone`); catalogue selects never pass one.
+ */
 function SelectItem({
   className,
   children,
+  tone,
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Item>) {
+}: React.ComponentProps<typeof SelectPrimitive.Item> & { tone?: MenuTone }) {
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
+      data-menu-tone={menuToneAttribute(tone)}
       className={cn(
-        "relative flex w-full cursor-default items-center gap-2 min-h-8 rounded-xs py-1 pe-7 ps-2.5 text-body outline-hidden pointer-coarse:min-h-10 select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        "relative flex w-full cursor-default items-center gap-2 min-h-8 rounded-xs py-1 pe-7 ps-2.5 text-body outline-hidden pointer-coarse:min-h-10 select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:not-data-menu-tone:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        DROPDOWN_ITEM_TONE_CLASS,
         className,
       )}
       {...props}

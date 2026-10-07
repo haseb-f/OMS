@@ -5,7 +5,6 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
@@ -13,6 +12,7 @@ import { hashPassword, normalizeEmail, verifyPassword } from './password.util';
 import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import type { ChangePasswordDto } from './dto/change-password.dto';
+import { UserSessionsService } from './sessions/user-sessions.service';
 
 const RESET_TOKEN_TTL_MINUTES = 30;
 
@@ -22,11 +22,17 @@ export class AuthService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly jwtService: JwtService,
     private readonly permissionsResolver: PermissionsResolverService,
+    private readonly sessions: UserSessionsService,
   ) {}
 
-  async login(dto: LoginDto) {
+  /**
+   * R14 — every login opens a server-side session whose id travels in the
+   * token as `sid`; its absolute end is the token's own `exp`
+   * (`JWT_ACCESS_TTL`). `dto.rememberMe` is accepted from older clients but
+   * ignored: the lifetime is never extended.
+   */
+  async login(dto: LoginDto, userAgent?: string | null) {
     const email = normalizeEmail(dto.email);
     const user = await this.prisma.user.findFirst({
       where: {
@@ -79,8 +85,7 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
-    const expiresIn = dto.rememberMe ? '30d' : undefined;
-    const accessToken = this.jwtService.sign(
+    const accessToken = await this.sessions.issueAccessToken(
       isAgentUser
         ? {
             sub: user.id,
@@ -89,7 +94,7 @@ export class AuthService {
             agentId: user.agentId,
           }
         : { sub: user.id, email: user.email },
-      expiresIn ? { expiresIn } : undefined,
+      userAgent,
     );
 
     return {
@@ -102,6 +107,12 @@ export class AuthService {
         userType: user.userType,
       },
     };
+  }
+
+  /** Ends the caller's own session server-side (the token stops working at once). */
+  async logout(sessionId: string | undefined) {
+    if (sessionId) await this.sessions.revoke(sessionId, 'LOGOUT');
+    return { message: 'Logged out.' };
   }
 
   /** Always returns a generic response — never reveals whether the email exists. */
@@ -146,7 +157,11 @@ export class AuthService {
    * one must differ. Clears `mustChangePassword`, which is what unblocks an
    * agent user after a temporary password was issued.
    */
-  async changePassword(userId: string, dto: ChangePasswordDto) {
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+    currentSessionId?: string,
+  ) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
       select: { id: true, passwordHash: true },
@@ -175,6 +190,12 @@ export class AuthService {
         mustChangePassword: false,
       },
     });
+    // Every other sign-in of this user ends; the session that changed it stays.
+    await this.sessions.revokeAllForUser(
+      user.id,
+      'PASSWORD_CHANGED',
+      currentSessionId,
+    );
     return { message: 'Password changed.' };
   }
 
@@ -204,6 +225,7 @@ export class AuthService {
         data: { usedAt: new Date() },
       }),
     ]);
+    await this.sessions.revokeAllForUser(resetToken.userId, 'PASSWORD_RESET');
 
     return { message: 'Password has been reset successfully.' };
   }

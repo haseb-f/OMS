@@ -52,6 +52,14 @@ export function safeNextPath(next: string | null | undefined, userType: UserType
   return `${pathname}${url.search}${url.hash}`;
 }
 
+/**
+ * R14 (spec-1 §1, D1-2) — where a deliberate sign-out (and a sign-out forced
+ * by a restored-browser session) goes: the bare login page, never with
+ * `?next=`. Only the proxy's signed-out deep-link redirect and the in-app
+ * session-expiry redirect (`api-client` 401) carry `next`.
+ */
+export const LOGOUT_REDIRECT_PATH = "/login";
+
 /** Where a successful login lands: a valid `next`, else the user's authorized dashboard directly (no bounce). */
 export function resolvePostLoginPath(next: string | null | undefined, userType: UserType): string {
   return safeNextPath(next, userType) ?? homePathFor(userType);

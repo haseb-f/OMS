@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredMark } from "@/components/ui/form";
 import { useCallback, useEffect, useId, useState } from "react";
 import { Banknote } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -266,8 +267,7 @@ function CreateCapitalReturnDialog({
         <ModalSection title={t("investors.capitalReturns.actions.create")} columns={2}>
           <div className="flex flex-col gap-1">
             <Label htmlFor={subscriptionFieldId}>
-              {t("investors.capitalReturns.fields.opportunity")}{" "}
-              <span className="text-destructive">*</span>
+              {t("investors.capitalReturns.fields.opportunity")} <RequiredMark className="ms-0.5" />
             </Label>
             <EntityCombobox
               id={subscriptionFieldId}
@@ -280,8 +280,7 @@ function CreateCapitalReturnDialog({
           </div>
           <div className="flex flex-col gap-1">
             <Label>
-              {t("investors.capitalReturns.fields.amount")}{" "}
-              <span className="text-destructive">*</span>
+              {t("investors.capitalReturns.fields.amount")} <RequiredMark className="ms-0.5" />
             </Label>
             <Input
               dir="ltr"
@@ -294,8 +293,7 @@ function CreateCapitalReturnDialog({
           </div>
           <div className="flex flex-col gap-1">
             <Label>
-              {t("investors.capitalReturns.fields.date")}{" "}
-              <span className="text-destructive">*</span>
+              {t("investors.capitalReturns.fields.date")} <RequiredMark className="ms-0.5" />
             </Label>
             <EnterpriseDatePicker
               value={fromISODate(date)}

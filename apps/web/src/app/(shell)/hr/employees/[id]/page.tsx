@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Archive, FileText, Pencil, Plus, RotateCcw, UserPlus } from "lucide-react";
+import { Archive, FileText, KeyRound, Pencil, Plus, RotateCcw, UserPlus } from "lucide-react";
 import {
   DetailField,
   DetailFieldGrid,
@@ -15,6 +15,11 @@ import {
 import { HeaderActions } from "@/components/shared/header-actions";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
+import {
+  isResetPasswordAcceptable,
+  ResetPasswordField,
+} from "@/components/settings/reset-password-field";
+import { GeneratedPasswordDialog } from "@/components/settings/generated-password-dialog";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
   MasterDataForm,
@@ -109,6 +114,8 @@ export default function EmployeeProfilePage() {
   const canArchive = hasPermission("hr.employees.archive");
   const canViewCompensation = hasPermission("hr.compensation.view");
   const canRecordCompensation = hasPermission("hr.compensation.create");
+  // R14 — resetting the login password takes the Settings → Users authority.
+  const canResetPassword = hasPermission("settings.manage");
 
   const [employee, setEmployee] = useState<EmployeeRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -125,6 +132,10 @@ export default function EmployeeProfilePage() {
   const [compensationOpen, setCompensationOpen] = useState(false);
   const [compensationLines, setCompensationLines] = useState<CompensationLineDraft[]>([]);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetValue, setResetValue] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
+  const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
 
   useBreadcrumbLabel(employee?.name ?? null);
 
@@ -384,6 +395,25 @@ export default function EmployeeProfilePage() {
     }
   };
 
+  const confirmResetPassword = async () => {
+    if (!employee) return;
+    setIsResetting(true);
+    try {
+      const result = await employeesService.resetAccountPassword(
+        employee.id,
+        resetValue || undefined,
+      );
+      setResetOpen(false);
+      setResetValue("");
+      toast.success(t("hr.employees.profile.account.passwordReset"));
+      if (result.temporaryPassword) setGeneratedPassword(result.temporaryPassword);
+    } catch (error) {
+      reportApiError(error, "errors.generic");
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const confirmRestore = async () => {
     setIsMutating(true);
     try {
@@ -596,12 +626,26 @@ export default function EmployeeProfilePage() {
             content: (
               <DetailSection>
                 {employee.userId ? (
-                  <DetailFieldGrid>
-                    <DetailField
-                      label={t("hr.employees.profile.account.hasAccount")}
-                      value={employee.userEmail}
-                    />
-                  </DetailFieldGrid>
+                  <div className="flex flex-col gap-3">
+                    <DetailFieldGrid>
+                      <DetailField
+                        label={t("hr.employees.profile.account.hasAccount")}
+                        value={employee.userEmail}
+                      />
+                    </DetailFieldGrid>
+                    {canResetPassword && (
+                      <EnterpriseButton
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="self-start"
+                        onClick={() => setResetOpen(true)}
+                      >
+                        <KeyRound />
+                        {t("hr.employees.profile.account.resetPassword")}
+                      </EnterpriseButton>
+                    )}
+                  </div>
                 ) : (
                   <div className="flex flex-col gap-3">
                     <p className="text-caption text-muted-foreground">
@@ -761,6 +805,29 @@ export default function EmployeeProfilePage() {
         cancelLabel={t("common.cancel")}
         isConfirming={isMutating}
         onConfirm={() => void confirmRestore()}
+      />
+      <ConfirmationDialog
+        open={resetOpen}
+        onOpenChange={(next) => {
+          if (next) return;
+          setResetOpen(false);
+          setResetValue("");
+        }}
+        tone="destructive"
+        title={t("hr.employees.profile.account.confirmResetTitle")}
+        description={t("hr.employees.profile.account.confirmResetDescription")}
+        extra={
+          <ResetPasswordField value={resetValue} onChange={setResetValue} disabled={isResetting} />
+        }
+        confirmDisabled={!isResetPasswordAcceptable(resetValue)}
+        confirmLabel={t("hr.employees.profile.account.resetPassword")}
+        cancelLabel={t("common.cancel")}
+        isConfirming={isResetting}
+        onConfirm={() => void confirmResetPassword()}
+      />
+      <GeneratedPasswordDialog
+        password={generatedPassword}
+        onOpenChange={(next) => !next && setGeneratedPassword(null)}
       />
     </DetailWorkspace>
   );

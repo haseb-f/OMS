@@ -400,6 +400,7 @@ function AgentCollectionsContent() {
               options={STATUS_FILTERS.map((value) => ({
                 value,
                 label: t(`agents.collections.statusValues.${value}`),
+                tone: value === "AWAITING" ? STATUS_TONE.PENDING : STATUS_TONE[value],
               }))}
             />
           </>

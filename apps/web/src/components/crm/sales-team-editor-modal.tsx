@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredMark } from "@/components/ui/form";
 import { useEffect, useMemo, useState } from "react";
 import { Users } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
@@ -198,13 +199,15 @@ export function SalesTeamEditorModal({
         <ModalSection title={t("crm.salesTeams.editor.sectionDetails")} columns={2}>
           <div className="flex flex-col gap-1">
             <label className="text-caption text-muted-foreground">
-              {t("crm.salesTeams.fields.name")} <span className="text-destructive">*</span>
+              {t("crm.salesTeams.fields.name")}
+              <RequiredMark className="ms-0.5" />
             </label>
             <Input inputSize="sm" value={name} onChange={(event) => setName(event.target.value)} />
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-caption text-muted-foreground">
-              {t("crm.salesTeams.fields.department")} <span className="text-destructive">*</span>
+              {t("crm.salesTeams.fields.department")}
+              <RequiredMark className="ms-0.5" />
             </label>
             <DepartmentPicker
               value={department}
@@ -218,7 +221,8 @@ export function SalesTeamEditorModal({
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-caption text-muted-foreground">
-              {t("crm.salesTeams.fields.manager")} <span className="text-destructive">*</span>
+              {t("crm.salesTeams.fields.manager")}
+              <RequiredMark className="ms-0.5" />
             </label>
             <EntityCombobox
               items={eligibleUsers}

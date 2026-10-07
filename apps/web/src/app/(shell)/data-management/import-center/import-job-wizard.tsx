@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredMark } from "@/components/ui/form";
 import { useEffect, useId, useMemo, useState } from "react";
 import { Download, FileSpreadsheet, RefreshCw, Sheet, Upload } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
@@ -591,7 +592,8 @@ export function ImportJobWizard({
               {requiredFields.map((field) => (
                 <div key={field.key} className="grid grid-cols-1 items-center gap-2 sm:grid-cols-2">
                   <Label htmlFor={`${fieldId}-${field.key}`}>
-                    {t(field.labelKey as MessageKey)} <span className="text-destructive">*</span>
+                    {t(field.labelKey as MessageKey)}
+                    <RequiredMark className="ms-0.5" />
                   </Label>
                   <SearchableSelect
                     id={`${fieldId}-${field.key}`}

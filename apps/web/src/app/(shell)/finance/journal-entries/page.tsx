@@ -482,6 +482,7 @@ function JournalEntriesPageContent() {
               options={JOURNAL_ENTRY_FILTERABLE_STATUSES.map((status) => ({
                 value: status,
                 label: t(JOURNAL_ENTRY_STATUS_LABEL_KEY[status]),
+                tone: JOURNAL_ENTRY_STATUS_TONE[status],
               }))}
             />
             <MultiSelectFilter

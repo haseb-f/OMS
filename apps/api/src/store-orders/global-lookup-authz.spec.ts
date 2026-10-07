@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { UserSessionsService } from '../auth/sessions/user-sessions.service';
 import type { Server } from 'http';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
@@ -37,7 +37,7 @@ describe('Global Lookup — permission denial (HTTP)', () => {
   let app: INestApplication;
   let httpServer: Server;
   let prisma: PrismaService;
-  let jwt: JwtService;
+  let sessionTokens: UserSessionsService;
   let storeOrders: StoreOrdersService;
 
   const suffix = randomUUID().slice(0, 8);
@@ -74,7 +74,7 @@ describe('Global Lookup — permission denial (HTTP)', () => {
     httpServer = app.getHttpServer() as Server;
 
     prisma = moduleRef.get(PrismaService);
-    jwt = moduleRef.get(JwtService);
+    sessionTokens = moduleRef.get(UserSessionsService, { strict: false });
     storeOrders = moduleRef.get(StoreOrdersService);
 
     // A real, freshly-created user with ZERO UserPermission rows and
@@ -90,7 +90,7 @@ describe('Global Lookup — permission denial (HTTP)', () => {
       },
     });
     unauthorizedUserId = unauthorizedUser.id;
-    unauthorizedToken = jwt.sign({
+    unauthorizedToken = await sessionTokens.issueAccessToken({
       sub: unauthorizedUserId,
       email: unauthorizedUser.email,
     });

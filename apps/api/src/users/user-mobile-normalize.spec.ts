@@ -5,6 +5,7 @@ import type { DepartmentsService } from '../departments/departments.service';
 import type { PermissionAdministrationService } from '../permissions/permission-administration.service';
 import { PhoneNumberService } from '../common/phone/phone-number.service';
 import { UsersService } from './users.service';
+import type { UserSessionsService } from '../auth/sessions/user-sessions.service';
 
 /**
  * A user's mobile has no country selector: a number with one valid reading is
@@ -18,6 +19,7 @@ describe('UsersService mobile normalization', () => {
     new PhoneNumberService(),
     {} as DepartmentsService,
     {} as PermissionAdministrationService,
+    {} as UserSessionsService,
   );
   const normalize = (value: string) =>
     (

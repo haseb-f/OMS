@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredMark } from "@/components/ui/form";
 import { useEffect, useState } from "react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -87,7 +88,8 @@ export function LeadCloseWithoutPurchaseDialog({
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
           <Label>
-            {t("crm.leads.closeWithoutPurchase.reason")} <span className="text-destructive">*</span>
+            {t("crm.leads.closeWithoutPurchase.reason")}
+            <RequiredMark className="ms-0.5" />
           </Label>
           <EntityCombobox
             value={reason}

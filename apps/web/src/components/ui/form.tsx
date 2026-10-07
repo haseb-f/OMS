@@ -81,17 +81,78 @@ function useFormField() {
 
 type FormItemContextValue = {
   id: string;
+  /** R14 — whether the field is required (from `FormItem required` or its `FormLabel required`). */
+  required?: boolean;
+  setLabelRequired?: (required: boolean) => void;
 };
 
 const FormItemContext = React.createContext<FormItemContextValue>({} as FormItemContextValue);
 
-function FormItem({ className, ...props }: React.ComponentProps<"div">) {
+/**
+ * One field. `required` (R14 spec-1 §4) may be a boolean computed from watched
+ * values (conditional requirement); a `FormLabel required` inside marks the
+ * item as well, so the control gets `aria-required` either way.
+ */
+function FormItem({
+  className,
+  required,
+  ...props
+}: React.ComponentProps<"div"> & { required?: boolean }) {
   const id = React.useId();
+  const [labelRequired, setLabelRequired] = React.useState(false);
+  const isRequired = required ?? labelRequired;
+  const value = React.useMemo(
+    () => ({ id, required: isRequired, setLabelRequired }),
+    [id, isRequired],
+  );
 
   return (
-    <FormItemContext.Provider value={{ id }}>
-      <div data-slot="form-item" className={cn("grid gap-1", className)} {...props} />
+    <FormItemContext.Provider value={value}>
+      <div
+        data-slot="form-item"
+        data-required={isRequired || undefined}
+        className={cn("grid gap-1", className)}
+        {...props}
+      />
     </FormItemContext.Provider>
+  );
+}
+
+/**
+ * The required-field marker (R14 spec-1 §4): a visible asterisk in the
+ * destructive colour, hidden from assistive tech (the control carries
+ * `aria-required` instead). The one marker every label uses.
+ */
+function RequiredMark({ className }: { className?: string }) {
+  return (
+    <span
+      data-slot="required-mark"
+      className={cn("text-destructive", className)}
+      aria-hidden="true"
+    >
+      *
+    </span>
+  );
+}
+
+/**
+ * "* Required field" — shown at the bottom of a form surface only when the
+ * surface actually contains a required field (CSS `:has`, no wiring). Place
+ * it inside an element with the `group/required-scope` class.
+ */
+function RequiredFieldsLegend({ className }: { className?: string }) {
+  const { t } = useLocale();
+  return (
+    <p
+      data-slot="required-legend"
+      className={cn(
+        "hidden items-center gap-1 text-caption text-muted-foreground group-has-[[data-slot=required-mark]]/required-scope:flex",
+        className,
+      )}
+    >
+      <RequiredMark />
+      {t("common.requiredFieldLegend")}
+    </p>
   );
 }
 
@@ -118,9 +179,7 @@ function FieldLabel({
     >
       {children}
       {required ? (
-        <span className="text-muted-foreground" aria-hidden="true">
-          *
-        </span>
+        <RequiredMark />
       ) : optional ? (
         <span className="font-normal text-muted-foreground">{t("common.optional")}</span>
       ) : null}
@@ -136,13 +195,18 @@ function FormLabel({
   ...props
 }: React.ComponentProps<typeof Label> & { required?: boolean; optional?: boolean }) {
   const { error, formItemId } = useFormField();
+  const item = React.useContext(FormItemContext);
+  const setLabelRequired = item.setLabelRequired;
+  React.useEffect(() => {
+    setLabelRequired?.(!!required);
+  }, [required, setLabelRequired]);
 
   return (
     <FieldLabel
       data-slot="form-label"
       htmlFor={formItemId}
       error={!!error}
-      required={required}
+      required={required ?? item.required}
       optional={optional}
       className={className}
       {...props}
@@ -154,6 +218,7 @@ function FormLabel({
 
 function FormControl({ ...props }: React.ComponentProps<typeof Slot.Root>) {
   const { error, formItemId, formDescriptionId, formMessageId } = useFormField();
+  const { required } = React.useContext(FormItemContext);
 
   return (
     <Slot.Root
@@ -161,6 +226,7 @@ function FormControl({ ...props }: React.ComponentProps<typeof Slot.Root>) {
       id={formItemId}
       aria-describedby={!error ? `${formDescriptionId}` : `${formDescriptionId} ${formMessageId}`}
       aria-invalid={!!error}
+      aria-required={required || undefined}
       {...props}
     />
   );
@@ -254,6 +320,8 @@ export {
   Form,
   FormItem,
   FieldLabel,
+  RequiredMark,
+  RequiredFieldsLegend,
   FormLabel,
   FormControl,
   FormDescription,

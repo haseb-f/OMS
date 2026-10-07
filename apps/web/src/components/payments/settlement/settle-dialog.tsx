@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredMark } from "@/components/ui/form";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { HandCoins } from "lucide-react";
@@ -69,7 +70,7 @@ function Field({
     <div className="flex min-w-0 flex-col gap-1.5">
       <Label htmlFor={id}>
         {label}
-        {required ? <span className="text-destructive">*</span> : null}
+        {required ? <RequiredMark className="ms-0.5" /> : null}
       </Label>
       {children}
     </div>

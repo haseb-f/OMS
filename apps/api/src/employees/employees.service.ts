@@ -20,6 +20,7 @@ import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { RecordCompensationDto } from './dto/record-compensation.dto';
 import { EmployeesQueryDto } from './dto/employees-query.dto';
 import { HR_ROLE_PRESETS } from './hr-role-presets';
+import type { ResetPasswordDto } from '../users/dto/reset-password.dto';
 
 const EMPLOYEE_INCLUDE = {
   partner: {
@@ -272,6 +273,42 @@ export class EmployeesService {
     }
     await this.createAccount(employeeId, account, userId);
     return this.findOne(employeeId);
+  }
+
+  /**
+   * R14 W1 — HR "Reset password" for the employee's linked login account.
+   * Same authority and rules as Settings → Users (`UsersService.resetPassword`):
+   * temporary password, forced change at next sign-in, every live session
+   * ended; a supplied password is never echoed and never logged.
+   */
+  async resetAccountPassword(
+    employeeId: string,
+    dto: ResetPasswordDto = {},
+    actorId?: string,
+  ): Promise<{ message: string; temporaryPassword?: string }> {
+    const employee = await this.findRaw(employeeId);
+    if (employee.deletedAt || !employee.userId) {
+      throw new BadRequestException({
+        code: 'EMPLOYEE_HAS_NO_ACCOUNT',
+        message:
+          'لا يوجد حساب دخول لهذا الموظف — This employee has no login account.',
+      });
+    }
+    await this.usersService.assertInternallyManaged(employee.userId);
+    const reset = await this.usersService.resetPassword(employee.userId, dto);
+    await this.activityLog.log(
+      'EMPLOYEE',
+      employeeId,
+      'PASSWORD_RESET',
+      `Login password reset for ${employee.partner.name}`,
+      actorId,
+    );
+    return {
+      message: 'Password reset.',
+      ...('temporaryPassword' in reset
+        ? { temporaryPassword: reset.temporaryPassword }
+        : {}),
+    };
   }
 
   async findAll(query: EmployeesQueryDto) {

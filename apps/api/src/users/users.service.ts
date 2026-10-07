@@ -34,6 +34,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SetUserPermissionsDto } from './dto/set-user-permissions.dto';
 import { DepartmentsService } from '../departments/departments.service';
 import { PermissionAdministrationService } from '../permissions/permission-administration.service';
+import { UserSessionsService } from '../auth/sessions/user-sessions.service';
 
 // Never select passwordHash into an API response.
 const PUBLIC_USER_SELECT = {
@@ -116,6 +117,7 @@ export class UsersService {
     private readonly phoneNumberService: PhoneNumberService,
     private readonly departments: DepartmentsService,
     private readonly permissionAdministration: PermissionAdministrationService,
+    private readonly sessions: UserSessionsService,
   ) {}
 
   /**
@@ -405,22 +407,32 @@ export class UsersService {
    * cannot be revoked without a schema change; the new hash is used on the
    * next login.
    */
+  /**
+   * Authorized admin reset (Settings → Users, HR employee account, agent
+   * team). A supplied password is used as is and NEVER echoed back; only a
+   * server-generated one is returned (once). R14: every live session of the
+   * user ends — the old credential's sign-ins stop working at once.
+   */
   async resetPassword(
     id: string,
     dto: ResetPasswordDto = {},
-  ): Promise<UserWithTemporaryPassword> {
+  ): Promise<PublicUser | UserWithTemporaryPassword> {
     await this.findOne(id);
-    const temporaryPassword =
+    const supplied =
       dto.newPassword && meetsPasswordPolicy(dto.newPassword)
         ? dto.newPassword
-        : generateTemporaryPassword();
-    const passwordHash = await hashPassword(temporaryPassword);
+        : undefined;
+    const temporaryPassword = supplied
+      ? undefined
+      : generateTemporaryPassword();
+    const passwordHash = await hashPassword(supplied ?? temporaryPassword!);
     const user = await this.prisma.user.update({
       where: { id },
       data: { passwordHash, mustChangePassword: true },
       select: PUBLIC_USER_SELECT,
     });
-    return { ...user, temporaryPassword };
+    await this.sessions.revokeAllForUser(id, 'PASSWORD_RESET');
+    return temporaryPassword ? { ...user, temporaryPassword } : user;
   }
 
   /** "Force Password Change" — flags the account without touching the current password (distinct from Reset Password, which sets a new one). */

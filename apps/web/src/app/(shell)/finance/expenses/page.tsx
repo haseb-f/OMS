@@ -429,6 +429,7 @@ function ExpensesPageContent() {
               options={TRANSACTION_FILTERABLE_STATUSES.map((status) => ({
                 value: status,
                 label: t(TRANSACTION_STATUS_LABEL_KEY[status]),
+                tone: TRANSACTION_STATUS_TONE[status],
               }))}
             />
             <MultiEntityFilter

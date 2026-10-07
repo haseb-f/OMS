@@ -6,7 +6,7 @@ import {
   type INestApplication,
   ValidationPipe,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { UserSessionsService } from '../../auth/sessions/user-sessions.service';
 import type { Server } from 'http';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
@@ -43,7 +43,7 @@ describe('Spec 1A — order amendments (HTTP integration)', () => {
   let app: INestApplication;
   let http: Server;
   let prisma: PrismaService;
-  let jwt: JwtService;
+  let sessionTokens: UserSessionsService;
   let resolver: PermissionsResolverService;
 
   const tag = randomUUID().slice(0, 6).toUpperCase();
@@ -113,7 +113,10 @@ describe('Spec 1A — order amendments (HTTP integration)', () => {
     await grant(user.id, permissions);
     return {
       id: user.id,
-      token: jwt.sign({ sub: user.id, email: user.email }),
+      token: await sessionTokens.issueAccessToken({
+        sub: user.id,
+        email: user.email,
+      }),
     };
   };
 
@@ -241,7 +244,7 @@ describe('Spec 1A — order amendments (HTTP integration)', () => {
     await app.init();
     http = app.getHttpServer() as Server;
     prisma = moduleRef.get(PrismaService);
-    jwt = moduleRef.get(JwtService);
+    sessionTokens = moduleRef.get(UserSessionsService, { strict: false });
     resolver = moduleRef.get(PermissionsResolverService);
     const agents = moduleRef.get(AgentsService, { strict: false });
     const agreements = moduleRef.get(AgentAgreementsService, { strict: false });
@@ -388,7 +391,7 @@ describe('Spec 1A — order amendments (HTTP integration)', () => {
         agentId: agent.id,
         actor: {
           id: created.id,
-          token: jwt.sign({
+          token: await sessionTokens.issueAccessToken({
             sub: created.id,
             email: created.email,
             typ: 'agent',

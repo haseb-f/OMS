@@ -3,9 +3,10 @@ import { act, render, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 
 const me = vi.fn();
+const logout = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/services/auth-service", () => ({
-  authService: { me: () => me(), login: vi.fn(), logout: vi.fn() },
+  authService: { me: () => me(), login: vi.fn(), logout: () => logout() },
 }));
 
 import { AuthProvider, useAuth } from "./auth-provider";
@@ -13,6 +14,12 @@ import { CompanyProvider } from "./company-provider";
 import { __resetSessionChannelForTests } from "@/lib/session-sync";
 import { clientCacheStats } from "@/lib/client-data-scope";
 import * as apiClient from "@/services/api-client";
+import { TAB_SESSION_MARKER_KEY } from "@/lib/browser-session";
+
+// These tabs signed in themselves (R14: a tab carries its own session marker;
+// a cookie without one is a restored browser session — covered below).
+beforeEach(() => window.sessionStorage.setItem(TAB_SESSION_MARKER_KEY, "this-tab"));
+afterEach(() => window.sessionStorage.clear());
 
 function setCookieToken(token: string | null) {
   document.cookie = token ? `oms_token=${token}; path=/` : "oms_token=; path=/; max-age=0";
@@ -157,5 +164,50 @@ describe("SEC-03 L3 — company headers switch before child fetch effects", () =
     expect(seenAtEffect.every((entry) => entry.split(":")[0] === entry.split(":")[1])).toBe(true);
     spy.mockRestore();
     setCookieToken(null);
+  });
+});
+
+describe("R14 — a cookie that outlived the browser (spec-1 §2)", () => {
+  const replace = vi.fn();
+  const originalLocation = window.location;
+
+  beforeEach(() => {
+    replace.mockReset();
+    logout.mockReset().mockResolvedValue({ message: "Logged out." });
+    me.mockReset().mockResolvedValue(userFor("admin"));
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...originalLocation, replace, pathname: "/sales/orders" },
+    });
+  });
+  afterEach(() => {
+    Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+    setCookieToken(null);
+  });
+
+  it("no tab marker and no live tab → server logout and the bare login page", async () => {
+    window.sessionStorage.clear();
+    setCookieToken("t-restored");
+    render(
+      <AuthProvider>
+        <span />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
+    expect(logout).toHaveBeenCalledTimes(1);
+    expect(me).not.toHaveBeenCalled();
+    expect(document.cookie).not.toContain("t-restored");
+  });
+
+  it("a reloaded tab (marker present) keeps its session", async () => {
+    setCookieToken("t-admin");
+    render(
+      <AuthProvider>
+        <span />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(me).toHaveBeenCalled());
+    expect(logout).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
   });
 });

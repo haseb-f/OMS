@@ -20,6 +20,13 @@ import {
   setIdentityFingerprint,
 } from "@/lib/client-data-scope";
 import {
+  answerPresencePings,
+  clearTabSession,
+  detectRestoredSession,
+  markTabSession,
+} from "@/lib/browser-session";
+import { LOGOUT_REDIRECT_PATH } from "@/navigation/post-login";
+import {
   announceSessionChange,
   createSessionIdentityGuard,
   resetAndReload,
@@ -52,7 +59,7 @@ interface AuthContextValue {
   /** Convenience — always `status === "loading"`. */
   isLoading: boolean;
   /** Resolves with the signed-in user (incl. `userType`) once `/auth/me` has loaded. */
-  login: (email: string, password: string, rememberMe: boolean) => Promise<AuthUser>;
+  login: (email: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -95,10 +102,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void refreshUser();
+    let cancelled = false;
+    void (async () => {
+      // R14 (spec-1 §2) — a cookie that outlived the browser (no tab marker,
+      // no other live tab answering within 400 ms) is signed out server-side
+      // and sent to the bare login page instead of resuming the session.
+      if (getAuthToken() && (await detectRestoredSession()) === "restored") {
+        try {
+          await authService.logout();
+        } catch {
+          // Best-effort revoke — the session also ends by idle/absolute expiry.
+        }
+        clearAuthToken();
+        clearPerUserBrowserStorage();
+        if (!cancelled) window.location.replace(LOGOUT_REDIRECT_PATH);
+        return;
+      }
+      if (!cancelled) await refreshUser();
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Answer other tabs' "is the session still open?" handshake while signed in.
+  useEffect(() => answerPresencePings(() => Boolean(getAuthToken())), []);
 
   // SEC-03 M1 — this tab renders for exactly one identity. When another tab
   // logs out or signs in as someone else (the token cookie is shared), drop
@@ -128,12 +157,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => subscribeSessionSignals(() => void identityGuard.verify()), [identityGuard]);
 
   const login = useCallback(
-    async (email: string, password: string, rememberMe: boolean) => {
-      const { accessToken, user: signedIn } = await authService.login(email, password, rememberMe);
+    async (email: string, password: string) => {
+      const { accessToken, user: signedIn } = await authService.login(email, password);
       // SEC-02: nothing cached before this login (another user's session in
       // this tab, or the anonymous login page) survives into the new one.
       resetClientDataCaches();
-      setAuthToken(accessToken, rememberMe);
+      setAuthToken(accessToken);
+      markTabSession();
       await refreshUser();
       announceSessionChange();
       return signedIn;
@@ -148,6 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Best-effort — the token is discarded locally regardless.
     }
     clearAuthToken();
+    clearTabSession();
     // SEC-02: drop every per-identity client cache and the per-user browser
     // storage BEFORE the next user can sign in in this same tab.
     clearPerUserBrowserStorage();
@@ -155,7 +186,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setStatus("unauthenticated");
     announceSessionChange();
-    router.push("/login");
+    // Never `?next=` after a deliberate sign-out (D1-2).
+    router.push(LOGOUT_REDIRECT_PATH);
   }, [router]);
 
   return (

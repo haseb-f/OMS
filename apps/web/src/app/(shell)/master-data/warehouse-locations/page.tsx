@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredMark } from "@/components/ui/form";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Archive, MapPin, Pencil, Plus, RotateCcw } from "lucide-react";
 import { TreeToggleButton } from "@/components/shared/tree-toggle-button";
@@ -367,7 +368,8 @@ function WarehouseLocationsPageContent() {
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium">
-              {t("masterData.fields.name")} <span className="text-destructive">*</span>
+              {t("masterData.fields.name")}
+              <RequiredMark className="ms-0.5" />
             </label>
             <Input
               value={form.name}
