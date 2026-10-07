@@ -54,6 +54,14 @@ export interface TraceGroup {
   truncated?: boolean;
   total?: number;
   referenceIds?: string[];
+  /** R14 — why a FAILED group failed, when the source records it (bilingual). */
+  reason?: TraceFailureReason;
+}
+
+export interface TraceFailureReason {
+  code: string;
+  messageAr: string;
+  messageEn: string;
 }
 
 export interface TraceResult {

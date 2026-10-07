@@ -50,13 +50,7 @@ describe('StoreOrdersService.findAll — profitability summary', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
       orderEconomicsService as never,
-      {} as never,
     );
     return { service, prisma, orderEconomicsService };
   }
@@ -128,13 +122,7 @@ describe('StoreOrdersService.findAllIds — profitability filters', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
       orderEconomicsService as never,
-      {} as never,
     );
     return { service, prisma, orderEconomicsService };
   }

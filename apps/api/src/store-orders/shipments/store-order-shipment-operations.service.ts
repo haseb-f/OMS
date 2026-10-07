@@ -23,6 +23,7 @@ import {
   AgentFulfillmentService,
   shipmentFulfillmentCode,
 } from '../../agents/finance/agent-fulfillment.service';
+import { FulfillmentRecognitionService } from '../fulfillment-recognition/fulfillment-recognition.service';
 
 const MANUAL = StoreOrderActivitySource.MANUAL;
 
@@ -51,6 +52,7 @@ export class StoreOrderShipmentOperationsService {
     private readonly statusResolver: WorkflowStatusResolverService,
     private readonly postingEngine: PostingEngineService,
     private readonly agentFulfillment: AgentFulfillmentService,
+    private readonly recognition: FulfillmentRecognitionService,
   ) {}
 
   private async assertOrderExists(storeOrderId: string) {
@@ -163,7 +165,7 @@ export class StoreOrderShipmentOperationsService {
     source: StoreOrderActivitySource = MANUAL,
   ) {
     await this.assertOrderExists(storeOrderId);
-    return this.prisma.$transaction(async (tx) => {
+    const committed = await this.prisma.$transaction(async (tx) => {
       const shipment = await this.shipmentsService.markShipped(
         storeOrderId,
         tx,
@@ -180,6 +182,8 @@ export class StoreOrderShipmentOperationsService {
       );
       return shipment;
     });
+    await this.afterCommit(storeOrderId, committed, userId);
+    return committed;
   }
 
   async markOutForDelivery(
@@ -188,7 +192,7 @@ export class StoreOrderShipmentOperationsService {
     source: StoreOrderActivitySource = MANUAL,
   ) {
     await this.assertOrderExists(storeOrderId);
-    return this.prisma.$transaction(async (tx) => {
+    const committed = await this.prisma.$transaction(async (tx) => {
       const shipment = await this.shipmentsService.markOutForDelivery(
         storeOrderId,
         tx,
@@ -205,6 +209,8 @@ export class StoreOrderShipmentOperationsService {
       );
       return shipment;
     });
+    await this.afterCommit(storeOrderId, committed, userId);
+    return committed;
   }
 
   async markDelivered(
@@ -213,7 +219,7 @@ export class StoreOrderShipmentOperationsService {
     source: StoreOrderActivitySource = MANUAL,
   ) {
     await this.assertOrderExists(storeOrderId);
-    return this.prisma.$transaction(async (tx) => {
+    const committed = await this.prisma.$transaction(async (tx) => {
       const shipment = await this.shipmentsService.markDelivered(
         storeOrderId,
         tx,
@@ -231,6 +237,8 @@ export class StoreOrderShipmentOperationsService {
       );
       return shipment;
     });
+    await this.afterCommit(storeOrderId, committed, userId);
+    return committed;
   }
 
   async markDeliveryFailed(
@@ -239,7 +247,7 @@ export class StoreOrderShipmentOperationsService {
     source: StoreOrderActivitySource = MANUAL,
   ) {
     await this.assertOrderExists(storeOrderId);
-    return this.prisma.$transaction(async (tx) => {
+    const committed = await this.prisma.$transaction(async (tx) => {
       const shipment = await this.shipmentsService.markDeliveryFailed(
         storeOrderId,
         tx,
@@ -254,6 +262,8 @@ export class StoreOrderShipmentOperationsService {
       );
       return shipment;
     });
+    await this.afterCommit(storeOrderId, committed, userId);
+    return committed;
   }
 
   /**
@@ -272,7 +282,7 @@ export class StoreOrderShipmentOperationsService {
     source: StoreOrderActivitySource = MANUAL,
   ) {
     await this.assertOrderExists(storeOrderId);
-    return this.prisma.$transaction(async (tx) => {
+    const committed = await this.prisma.$transaction(async (tx) => {
       const target = await tx.shippingStatus.findFirst({
         where: { id: shippingStatusId, deletedAt: null },
       });
@@ -318,8 +328,15 @@ export class StoreOrderShipmentOperationsService {
         tx,
         source,
       );
-      return shipment;
+      return { shipment, catalogCode: target.code };
     });
+    await this.afterCommit(
+      storeOrderId,
+      committed.shipment,
+      userId,
+      committed.catalogCode,
+    );
+    return committed.shipment;
   }
 
   async markNeedsReshipment(
@@ -328,7 +345,7 @@ export class StoreOrderShipmentOperationsService {
     source: StoreOrderActivitySource = MANUAL,
   ) {
     await this.assertOrderExists(storeOrderId);
-    return this.prisma.$transaction(async (tx) => {
+    const committed = await this.prisma.$transaction(async (tx) => {
       const shipment = await this.shipmentsService.markNeedsReshipment(
         storeOrderId,
         tx,
@@ -343,6 +360,8 @@ export class StoreOrderShipmentOperationsService {
       );
       return shipment;
     });
+    await this.afterCommit(storeOrderId, committed, userId);
+    return committed;
   }
 
   async createReshipment(
@@ -703,6 +722,27 @@ export class StoreOrderShipmentOperationsService {
       storeOrderId,
       shipment,
       this.fulfillmentCodeForShipmentStatus(shipment.status),
+      userId,
+    );
+  }
+
+  /**
+   * R14 W3 (spec-3 §2–3) — after the shipment transaction committed: a
+   * company order reserves its stock when shipped, is recognised (invoice +
+   * stock issue + COGS) when delivered, and unwinds when the delivery failed
+   * or the parcel came back. Runs post-commit and never throws, so a courier
+   * status is never lost because stock or configuration is missing; repeated
+   * callbacks / bulk rows / imports hit the same idempotent service.
+   */
+  private async afterCommit(
+    storeOrderId: string,
+    shipment: { status: string | null },
+    userId: string | undefined,
+    catalogCode?: string | null,
+  ) {
+    await this.recognition.afterShipmentStatus(
+      storeOrderId,
+      { status: shipment.status, catalogCode },
       userId,
     );
   }

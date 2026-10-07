@@ -262,7 +262,7 @@ export function TraceGroups({
   result: TraceResult;
   originLabel?: string;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const visible = result.groups.filter((group) => group.state !== "NOT_APPLICABLE");
   if (visible.length === 0) {
     return <p className="text-caption text-muted-foreground">{t("docFlow.trace.none")}</p>;
@@ -308,6 +308,14 @@ export function TraceGroups({
                   )}
                 >
                   {t(stateText)}
+                </span>
+              ) : null}
+              {group.reason ? (
+                <span
+                  className="basis-full pt-0.5 text-caption text-destructive"
+                  data-testid="trace-group-reason"
+                >
+                  {locale === "ar" ? group.reason.messageAr : group.reason.messageEn}
                 </span>
               ) : null}
             </dd>

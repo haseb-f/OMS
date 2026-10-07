@@ -5,7 +5,7 @@
  */
 export type IntegrityStatus = 'PASS' | 'WARN' | 'FAIL';
 
-export type InvariantId = 'I1' | 'I2' | 'I3' | 'I4' | 'I5' | 'I6' | 'I7';
+export type InvariantId = 'I1' | 'I2' | 'I3' | 'I4' | 'I5' | 'I6' | 'I7' | 'I8';
 
 /** One finding. `rule` is a stable code; every other field is plain JSON (strings / numbers / null). */
 export interface IntegrityViolation {

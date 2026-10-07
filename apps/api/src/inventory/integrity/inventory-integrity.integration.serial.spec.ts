@@ -423,7 +423,7 @@ describe('Inventory integrity (integration)', () => {
 
   it('a consistent scenario (receipt, assembly + reversal, kit sale) passes every scoped invariant', async () => {
     const report = await integrity.run(scope());
-    for (const id of ['I1', 'I2', 'I3', 'I4', 'I5', 'I7'] as const) {
+    for (const id of ['I1', 'I2', 'I3', 'I4', 'I5', 'I7', 'I8'] as const) {
       const result = invariant(report, id);
       expect({ id, rules: rules(result), status: result.status }).toEqual({
         id,
@@ -562,6 +562,7 @@ describe('Inventory integrity (integration)', () => {
       'I4:PASS',
       'I5:PASS',
       'I7:PASS',
+      'I8:PASS',
     ]);
   });
 });

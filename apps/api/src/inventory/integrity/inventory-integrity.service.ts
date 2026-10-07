@@ -85,7 +85,7 @@ class Scope {
 }
 
 /**
- * R13 Inventory integrity (spec §8, invariants I1–I7). READ-ONLY: every check
+ * R13 Inventory integrity (spec §8, invariants I1–I7; R14 W3 adds I8). READ-ONLY: every check
  * is a set-based SQL query over the stored rows (movements, assembly orders,
  * invoice kit snapshots, POSTED/REVERSED journal lines); nothing is written or
  * corrected. The GL side of the valuation reconciliation is the posted balance
@@ -119,6 +119,7 @@ export class InventoryIntegrityService {
     invariants.push(await this.kitSales(db, scope));
     invariants.push(await this.valuationVsGl(db, scope));
     invariants.push(await this.agentOwnership(db, scope));
+    invariants.push(await this.deliveredOrdersRecognized(db, scope));
     return {
       generatedAt: new Date().toISOString(),
       durationMs: Date.now() - started,
@@ -1027,6 +1028,94 @@ export class InventoryIntegrityService {
           s(agentStock?.value) || 0,
         ).toFixed(2),
       },
+    });
+  }
+
+  // ------------------------------------------------------------------ I8
+
+  /**
+   * R14 W3 (spec-3) — every delivered / collected store order has its stock
+   * issued: a company order carries a live sales invoice (stock + COGS at
+   * delivery), an agent order its dispatch. A company order returned after
+   * delivery waits for its sales return (WARN). The product filter keeps the
+   * orders with a line of those products; the warehouse filter does not apply.
+   */
+  private async deliveredOrdersRecognized(
+    db: Db,
+    scope: Scope,
+  ): Promise<InvariantResult> {
+    const orderScope = scope.productIds
+      ? Prisma.sql`AND EXISTS (SELECT 1 FROM store_order_items i
+          WHERE i.store_order_id = o.id ${scope.product('i.product_id')})`
+      : Prisma.empty;
+    const base = Prisma.sql`
+      WITH so AS (
+        SELECT o.id, o.internal_order_id, o.agent_id, o.agent_dispatched_at,
+               o.recognition_status::text AS recognition_status,
+               o.recognition_error ->> 'code' AS error_code,
+               o.fulfillment_method::text AS method, fs.code AS fulfillment_code,
+               (SELECT s.status::text FROM shipments s
+                 WHERE s.store_order_id = o.id AND s.deleted_at IS NULL
+                 ORDER BY s.attempt_number DESC LIMIT 1) AS latest_shipment
+        FROM store_orders o
+        LEFT JOIN status_definitions fs ON fs.id = o.fulfillment_status_id
+        WHERE o.deleted_at IS NULL ${orderScope}
+      ), due AS (
+        SELECT * FROM so
+        WHERE (method = 'PICKUP' AND fulfillment_code = 'COLLECTED')
+           OR (method <> 'PICKUP' AND (latest_shipment = 'DELIVERED'
+               OR (latest_shipment IS NULL AND fulfillment_code = 'DELIVERED')))
+      )`;
+    const [counts] = await db.$queryRaw<Row[]>(Prisma.sql`
+      ${base}
+      SELECT COUNT(*)::int AS due FROM due`);
+    const found = capped(
+      await db.$queryRaw<Row[]>(Prisma.sql`
+        ${base}
+        SELECT x.*, COUNT(*) OVER ()::int AS total FROM (
+          SELECT 'DELIVERED_NOT_RECOGNIZED' AS rule, 'FAIL' AS severity, d.id AS "storeOrderId",
+                 d.internal_order_id AS "orderNumber", d.error_code AS "errorCode"
+          FROM due d
+          WHERE d.agent_id IS NULL AND NOT EXISTS (
+            SELECT 1 FROM sales_invoices si
+            WHERE si.store_order_id = d.id AND si.deleted_at IS NULL AND si.status <> 'CANCELLED')
+          UNION ALL
+          SELECT 'AGENT_DELIVERED_NOT_DISPATCHED', 'FAIL', d.id, d.internal_order_id, NULL
+          FROM due d
+          WHERE d.agent_id IS NOT NULL AND d.agent_dispatched_at IS NULL
+          UNION ALL
+          SELECT 'RETURN_PENDING', 'WARN', so.id, so.internal_order_id, NULL
+          FROM so WHERE so.recognition_status = 'RETURN_PENDING'
+        ) x
+        ORDER BY x."orderNumber"
+        LIMIT ${VIOLATION_CAP}`),
+    );
+    const violations: IntegrityViolation[] = found.rows.map((row) => {
+      const { severity, ...rest } = row;
+      const order = s(row.orderNumber);
+      const message =
+        row.rule === 'DELIVERED_NOT_RECOGNIZED'
+          ? `Store order ${order} is delivered but has no sales invoice — stock and COGS were never recognised${row.errorCode ? ` (last attempt: ${s(row.errorCode)})` : ''}. Retry recognition on the order or run the recognition repair.`
+          : row.rule === 'AGENT_DELIVERED_NOT_DISPATCHED'
+            ? `Agent order ${order} is delivered but its agent stock was never dispatched.`
+            : `Store order ${order} was returned after delivery — post the sales return against its invoice.`;
+      return violationFromRow(
+        rest,
+        severity === 'WARN' ? 'WARN' : 'FAIL',
+        message,
+      );
+    });
+    return buildInvariant({
+      id: 'I8',
+      title:
+        'Delivered store orders have their stock issued and cost recognised',
+      checked: n(counts?.due),
+      violations,
+      uncounted: found.uncounted,
+      notes: scope.warehouseId
+        ? ['The warehouse filter does not apply to store orders.']
+        : [],
+      metrics: { deliveredOrders: n(counts?.due) },
     });
   }
 }

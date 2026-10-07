@@ -30,20 +30,6 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
 import { PartnersService } from '../partners/partners.service';
-import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
-import {
-  computeSalesDocumentTotals,
-  computeSalesLine,
-} from '../sales/shared/sales-totals.util';
-import { resolveStoreOrderLineWarehouses } from './store-order-warehouse.util';
-import { StockLineResolver } from '../inventory/stock-lines/stock-line-resolver';
-import {
-  resolveAndLockStockLines,
-  stockLineMovementKey,
-  stockLineTrace,
-} from '../sales/shared/stock-fulfillment';
-import { kitSnapshotJson } from '../sales/shared/kit-snapshot';
-import { resolveTaxesById } from '../taxes/document-tax';
 import { buildDateRangeFilter } from '../sales/shared/sales-list-query.util';
 import { prismaEnumFilter } from '../common/query/enum-list';
 import {
@@ -82,11 +68,7 @@ import { PhoneNumberService } from '../common/phone/phone-number.service';
 import { WorkflowStatusResolverService } from '../workflow/workflow-status-resolver.service';
 import { SalesScopeService } from '../sales-scope/sales-scope.service';
 import { ProductsService } from '../products/products.service';
-import { InventoryService } from '../inventory/inventory.service';
-import { FulfillmentCostService } from '../fulfillment-cost-rules/fulfillment-cost.service';
-import { StoreOrderCollectionService } from '../accounting/store-order-collection/store-order-collection.service';
 import { OrderEconomicsService } from './order-economics/order-economics.service';
-import { AccountMappingService } from '../accounting/account-mapping/account-mapping.service';
 import { evaluateFulfillmentGate } from './store-order-fulfillment-gate';
 import {
   ensureShippingQueued,
@@ -101,6 +83,7 @@ import { randomUUID } from 'node:crypto';
 import { findArabicNormalizedIds } from '../common/text/arabic-search.query';
 import { agentUnprocessable } from '../agents/common/agent-errors';
 import { AgentFulfillmentService } from '../agents/finance/agent-fulfillment.service';
+import { FulfillmentRecognitionService } from './fulfillment-recognition/fulfillment-recognition.service';
 import { resolveAgentCustomerPartner } from '../agents/orders/agent-customer';
 import {
   assertOwnerAffiliation,
@@ -312,7 +295,6 @@ export class StoreOrdersService {
     private readonly prisma: PrismaService,
     private readonly partnersService: PartnersService,
     private readonly numberingEngine: NumberingEngineService,
-    private readonly postingEngine: PostingEngineService,
     private readonly activityService: StoreOrderActivityService,
     private readonly paymentSync: StoreOrderPaymentSyncService,
     private readonly objectStorage: ObjectStorageService,
@@ -321,18 +303,16 @@ export class StoreOrdersService {
     private readonly statusResolver: WorkflowStatusResolverService,
     private readonly salesScope: SalesScopeService,
     private readonly productsService: ProductsService,
-    private readonly inventoryService: InventoryService,
-    private readonly stockLines: StockLineResolver,
-    private readonly fulfillmentCostService: FulfillmentCostService,
-    private readonly storeOrderCollection: StoreOrderCollectionService,
     private readonly orderEconomicsService: OrderEconomicsService,
-    private readonly accountMapping: AccountMappingService,
     /** Agents milestone — pickup handover hook (B2). Optional only so unit specs can omit it. */
     @Optional()
     private readonly agentFulfillment?: AgentFulfillmentService,
     /** R7 - shared lookup budget + disclosure rule. Optional only so unit specs can omit it. */
     @Optional() private readonly lookupThrottle?: LookupThrottleService,
     @Optional() private readonly customerLookup?: CustomerLookupService,
+    /** R14 W3 — delivery-time recognition. Optional only so unit specs can omit it. */
+    @Optional()
+    private readonly recognition?: FulfillmentRecognitionService,
   ) {}
 
   /** The customer so far has agent orders only (no company order) — outside the company scope. */
@@ -1479,7 +1459,7 @@ export class StoreOrdersService {
   /** Business operation: Archive. Soft-delete only — schema has no hard delete anywhere in this pipeline. */
   async archive(id: string, userId?: string) {
     await this.findOne(id, userId);
-    return this.prisma.$transaction(async (tx) => {
+    const archived = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.storeOrder.update({
         where: { id },
         data: { deletedAt: new Date(), updatedBy: userId },
@@ -1496,6 +1476,9 @@ export class StoreOrdersService {
       );
       return updated;
     });
+    // R14 W3 — nothing stays reserved for an archived (cancelled) order.
+    await this.recognition?.afterOrderArchived(id, userId);
+    return archived;
   }
 
   /** Business operation: Add Internal Note — logged directly as a timeline entry (no dedicated Note table on this model). */
@@ -1718,6 +1701,9 @@ export class StoreOrdersService {
       `Pickup status → ${code}`,
       userId,
     );
+    // R14 W3 (spec-3 §2) — post-commit: READY reserves, COLLECTED recognises
+    // revenue + stock + COGS, CANCELLED / RETURNED unwind. Never throws.
+    await this.recognition?.afterPickupTransition(id, code, userId);
     return this.findOne(id, userId);
   }
 
@@ -2068,213 +2054,22 @@ export class StoreOrdersService {
   }
 
   /**
-   * Business operation: Generate Invoice — only callable once
-   * `paymentStatus === FULLY_PAID_RECONCILED`. Creates one `SalesInvoice`
-   * (status CONFIRMED directly — this is one explicit, atomic business
-   * operation, not the multi-step B2B Draft->Approved->Confirmed workflow)
-   * and posts it through the existing central `PostingEngineService`,
-   * reusing `SalesInvoicePostingProvider` completely unmodified (it reads
-   * only the SalesInvoice/SalesInvoiceItem rows themselves — no dependency
-   * on `salesOrderId` being a B2B order). Never auto-called on import or on
-   * payment alone.
+   * Business operation: Generate Invoice — R14 (spec-3, D3-1) the manual
+   * retry of the delivery-time recognition: allowed once the order is
+   * delivered / collected regardless of payment status, refused before
+   * delivery. The invoice (CONFIRMED), stock issue, reservation release,
+   * COGS and receipt allocation are all done by `FulfillmentRecognitionService`
+   * — the same service the delivery hooks run automatically.
    */
   async generateInvoice(id: string, userId?: string) {
-    const order = await this.findOne(id, userId);
-    // Agents milestone (spec §6.4): agent-owned merchandise is not company
-    // revenue — no company sales invoice, COGS or stock issue via this path
-    // (agent stock is issued at dispatch by the agent finance hooks).
-    if (order.agentId) {
-      throw agentUnprocessable(
-        'AGENT_ORDER_NO_COMPANY_INVOICE',
-        'طلبات الوكلاء لا يصدر لها فاتورة مبيعات للشركة لأن البضاعة ملك الوكيل',
-        'Agent orders cannot generate a company sales invoice — the merchandise belongs to the agent.',
-      );
+    await this.findOne(id, userId);
+    if (!this.recognition) {
+      throw new Error('Fulfillment recognition is not available.');
     }
-    // Defensive (S2): even a company order never invoices agent-owned goods
-    // (checked on the loaded lines — the owner locks once a line exists).
-    for (const item of order.items) assertCompanyOwnedProduct(item.product);
-    if (order.paymentStatus !== StoreOrderPaymentStatus.FULLY_PAID_RECONCILED) {
-      throw new BadRequestException(
-        'Invoice can only be generated once the order is Fully Paid & Reconciled.',
-      );
+    const invoice = await this.recognition.recognize(id, userId, 'MANUAL');
+    if (!invoice) {
+      throw new BadRequestException('Recognition did not complete.');
     }
-    // A cancelled (never posted) invoice — e.g. cancelled by an order
-    // amendment — does not block issuing the corrected one.
-    const existingInvoice = await this.prisma.salesInvoice.findFirst({
-      where: {
-        storeOrderId: id,
-        deletedAt: null,
-        status: { not: SalesDocumentStatus.CANCELLED },
-      },
-    });
-    if (existingInvoice) {
-      throw new BadRequestException({
-        code: 'DUPLICATE',
-        message: `Store Order ${order.internalOrderId} already has an invoice (${existingInvoice.invoiceNumber}).`,
-        fields: [],
-      });
-    }
-
-    // Default warehouse resolution (rule 7) — shared with agent dispatch.
-    const resolvedWarehouseIds = await resolveStoreOrderLineWarehouses(
-      this.prisma,
-      order.items,
-    );
-
-    const taxIds = order.items.map((item) => item.product.taxId);
-    const taxById = await resolveTaxesById(this.prisma, taxIds);
-    const computedLines = order.items.map((item) => {
-      const tax = item.product.taxId
-        ? taxById.get(item.product.taxId)
-        : undefined;
-      return computeSalesLine({
-        quantity: item.quantity,
-        unitPrice: Number(item.unitPrice),
-        agreedAmount: storeOrderLineAmount(item),
-        taxRatePercent: tax?.rate,
-        taxInclusive: tax?.inclusive,
-      });
-    });
-    const totals = computeSalesDocumentTotals(computedLines);
-
-    const invoiceNumber =
-      await this.numberingEngine.generateNumber('SALES_INVOICE');
-
-    const fulfillmentRule =
-      await this.prisma.directFulfillmentCostRule.findFirst({
-        where: {
-          deletedAt: null,
-          isActive: true,
-        },
-        select: { id: true },
-      });
-    await this.accountMapping.assertSalesInvoiceMappings({
-      partnerId: order.partnerId,
-      items: order.items.map((item, index) => ({
-        categoryId: item.product.categoryId,
-        isInventoryItem: item.product.isInventoryItem,
-        sku: item.product.sku,
-        currentCost: item.product.currentCost,
-        taxId: item.product.taxId,
-        taxAmount: computedLines[index].taxAmount,
-      })),
-      includeFulfillment: Boolean(fulfillmentRule),
-    });
-
-    // Line ids are assigned here so every delivery / kit snapshot is keyed
-    // to its own invoice line.
-    const invoiceItemIds = order.items.map(() => randomUUID());
-    const invoice = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.salesInvoice.create({
-        data: {
-          invoiceNumber,
-          partnerId: order.partnerId,
-          storeOrderId: order.id,
-          currencyId: order.currencyId,
-          referenceNumber: order.internalOrderId,
-          status: SalesDocumentStatus.CONFIRMED,
-          confirmedAt: new Date(),
-          confirmedBy: userId ?? null,
-          ...totals,
-          createdBy: userId,
-          updatedBy: userId,
-          items: {
-            create: order.items.map((item, index) => ({
-              id: invoiceItemIds[index],
-              productId: item.productId,
-              warehouseId: resolvedWarehouseIds[index],
-              unitId: item.product.unitId,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              taxId: item.product.taxId,
-              taxAmount: computedLines[index].taxAmount,
-              lineTotal: computedLines[index].lineTotal,
-            })),
-          },
-        },
-      });
-
-      // Fix (M1 recovery): this used to only post the accounting/valuation
-      // side (Dr COGS / Cr Inventory via SalesInvoicePostingProvider) and
-      // never actually decremented physical stock — unlike the symmetric
-      // B2B `SalesInvoicesService.confirm()`, which always calls both. Every
-      // Store Order invoice generated before this fix left the GL Inventory
-      // balance and the real on-hand quantity silently diverging. Mirrored
-      // here exactly, guarded to inventory-item products only (a Store
-      // Order can legitimately contain non-stocked/service products, which
-      // `postSalesDelivery` would otherwise reject).
-      // R13 — a kit line delivers its components (snapshot kept on the
-      // invoice line for COGS and returns); every product row is locked
-      // once and each movement is keyed per invoice line (+ component).
-      const resolved = await resolveAndLockStockLines(
-        tx,
-        this.stockLines,
-        order.items.map((item, index) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          warehouseId: resolvedWarehouseIds[index],
-          lineKey: invoiceItemIds[index],
-        })),
-      );
-      for (const line of resolved.stock) {
-        await this.inventoryService.postSalesDelivery(
-          {
-            productId: line.productId,
-            warehouseId: line.warehouseId,
-            quantity: line.quantity,
-            referenceType: 'SALES_INVOICE',
-            referenceId: created.id,
-            idempotencyKey: stockLineMovementKey(
-              'SALES_INVOICE',
-              created.id,
-              line,
-              'SALES_DELIVERY',
-            ),
-            ...stockLineTrace(line),
-          },
-          userId,
-          tx,
-        );
-      }
-      for (const [lineKey, snapshot] of Object.entries(resolved.kitSnapshots)) {
-        await tx.salesInvoiceItem.update({
-          where: { id: lineKey },
-          data: { fulfillmentSnapshot: kitSnapshotJson(snapshot) },
-        });
-      }
-
-      // ADR-0018 (Order Economics M2.2) — the same recognition moment as
-      // historical COGS above: apply the immutable Fulfillment Cost snapshot
-      // before posting, so a later rate change can never alter this Order's
-      // recorded profitability.
-      await this.fulfillmentCostService.applyStandardCost(id, tx, userId);
-
-      await this.postingEngine.post('SALES_INVOICE', created.id, userId, tx);
-      await this.postingEngine.post('FULFILLMENT_COST', id, userId, tx);
-
-      await this.activityService.log(
-        id,
-        StoreOrderActivityType.INVOICE_GENERATED,
-        `Sales Invoice ${created.invoiceNumber} generated`,
-        userId,
-        tx,
-      );
-
-      return created;
-    });
-
-    try {
-      await this.storeOrderCollection.syncVerifiedPayments(id, userId);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Customer receipt posting failed.';
-      throw new BadRequestException(
-        `Sales Invoice ${invoice.invoiceNumber} was created, but customer receipt posting failed: ${message}. Open the invoice and retry the receipt — do not generate the invoice again.`,
-      );
-    }
-
     return invoice;
   }
 

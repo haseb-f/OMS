@@ -57,6 +57,7 @@ import type {
  * FinancialTransactionsService already uses for the same tables.
  */
 const ZERO = new Prisma.Decimal(0);
+const round2Number = (value: number) => Math.round(value * 100) / 100;
 
 @Injectable()
 export class SalesInvoicePostingProvider
@@ -106,32 +107,25 @@ export class SalesInvoicePostingProvider
         },
       },
     });
-    if (Number(invoice.grandTotal) === 0) return null;
-    const exchangeRate = await snapshotDocumentExchangeRate(
-      this.exchangeRates,
-      tx,
-      (rate) =>
-        tx.salesInvoice.update({
-          where: { id: invoice.id },
-          data: { exchangeRate: rate },
-        }),
-      invoice.currencyId,
-      invoice.exchangeRate,
-      invoice.confirmedAt ?? invoice.createdAt,
-    );
+    // R14 W3 (spec-3 §3) — a free-of-charge delivery (grand total 0) still
+    // relieves inventory: no receivable / zero revenue lines, but COGS is
+    // posted. Only a document with neither revenue nor cost posts nothing.
+    const freeOfCharge = Number(invoice.grandTotal) === 0;
 
     const lines: PostingLine[] = [];
 
-    const arAccountId = await this.accountMapping.resolveReceivableAccount(
-      invoice.partner.id,
-      tx,
-    );
-    lines.push({
-      accountId: arAccountId,
-      debit: Number(invoice.grandTotal),
-      description: `Sales Invoice ${invoice.invoiceNumber}`,
-      partnerId: invoice.partner.id,
-    });
+    if (!freeOfCharge) {
+      const arAccountId = await this.accountMapping.resolveReceivableAccount(
+        invoice.partner.id,
+        tx,
+      );
+      lines.push({
+        accountId: arAccountId,
+        debit: Number(invoice.grandTotal),
+        description: `Sales Invoice ${invoice.invoiceNumber}`,
+        partnerId: invoice.partner.id,
+      });
+    }
 
     const discountTotal = Number(invoice.discountTotal ?? 0);
     const discountAccountId =
@@ -165,6 +159,7 @@ export class SalesInvoicePostingProvider
       );
     }
     for (const [accountId, amount] of revenueByLine) {
+      if (round2Number(amount) === 0) continue;
       lines.push({
         accountId,
         credit: amount,
@@ -334,6 +329,20 @@ export class SalesInvoicePostingProvider
         functionalAmount: true,
       });
     }
+
+    if (lines.length === 0) return null;
+    const exchangeRate = await snapshotDocumentExchangeRate(
+      this.exchangeRates,
+      tx,
+      (rate) =>
+        tx.salesInvoice.update({
+          where: { id: invoice.id },
+          data: { exchangeRate: rate },
+        }),
+      invoice.currencyId,
+      invoice.exchangeRate,
+      invoice.confirmedAt ?? invoice.createdAt,
+    );
 
     return {
       lines,

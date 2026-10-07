@@ -659,6 +659,8 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
           partnerId: customerId,
           currencyId: functionalCurrencyId,
           paymentStatus: 'FULLY_PAID_RECONCILED',
+          // R14 — recognition happens at delivery (the manual invoice is its retry).
+          shipments: { create: { attemptNumber: 1, status: 'DELIVERED' } },
           items: {
             create: [
               {

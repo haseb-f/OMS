@@ -19,6 +19,7 @@ import assetSchedulesAr from "./modules/asset-schedules.ar";
 import assemblyAr from "./modules/assembly.ar";
 import inventoryIntegrityAr from "./modules/inventory-integrity.ar";
 import expenseVouchersAr from "./modules/expense-vouchers.ar";
+import storeOrderRecognitionAr from "./modules/store-order-recognition.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
@@ -33,6 +34,7 @@ const ar = {
   assembly: assemblyAr,
   inventoryIntegrity: inventoryIntegrityAr,
   expenseVouchers: expenseVouchersAr,
+  storeOrderRecognition: storeOrderRecognitionAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,

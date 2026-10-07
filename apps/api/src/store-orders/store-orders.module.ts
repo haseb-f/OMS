@@ -26,6 +26,9 @@ import { AccountMappingModule } from '../accounting/account-mapping/account-mapp
 import { StoreOrderPaymentDeclarationService } from './payment-declaration/store-order-payment-declaration.service';
 import { AgentLedgerModule } from '../agents/finance/agent-ledger.module';
 import { StoreOrderDuplicatesModule } from './duplicates/store-order-duplicates.module';
+import { FulfillmentRecognitionService } from './fulfillment-recognition/fulfillment-recognition.service';
+import { RecognitionRepairService } from './fulfillment-recognition/recognition-repair.service';
+import { RecognitionRepairController } from './fulfillment-recognition/recognition-repair.controller';
 
 @Module({
   imports: [
@@ -46,6 +49,8 @@ import { StoreOrderDuplicatesModule } from './duplicates/store-order-duplicates.
     StoreOrderDuplicatesModule,
   ],
   controllers: [
+    // R14 W3 — a static path, registered before `store-orders/:id` routes.
+    RecognitionRepairController,
     StoreOrdersController,
     StoreOrderActivitiesController,
     StoreOrderShipmentsController,
@@ -60,6 +65,8 @@ import { StoreOrderDuplicatesModule } from './duplicates/store-order-duplicates.
     StoreOrderShipmentOperationsService,
     OrderEconomicsService,
     StoreOrderPaymentDeclarationService,
+    FulfillmentRecognitionService,
+    RecognitionRepairService,
   ],
   // `StoreOrderPaymentSyncService` is exported so `PaymentsModule` can keep
   // `StoreOrder.paymentStatus` in sync after Match/Verify/Reject without a
@@ -78,6 +85,9 @@ import { StoreOrderDuplicatesModule } from './duplicates/store-order-duplicates.
     StoreOrderActivityService,
     OrderEconomicsService,
     StoreOrderPaymentDeclarationService,
+    // R14 W3 — the shipping import runs the same post-commit recognition hook.
+    FulfillmentRecognitionService,
+    RecognitionRepairService,
   ],
 })
 export class StoreOrdersModule {}

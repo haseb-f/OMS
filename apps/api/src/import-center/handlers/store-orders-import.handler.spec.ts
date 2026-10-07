@@ -796,7 +796,7 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     }
   });
 
-  it('generateInvoice uses the actual imported line amounts once the order is really reconciled', async () => {
+  it('generateInvoice uses the actual imported line amounts once the order is delivered', async () => {
     const row = baseRow({ quantity: '2', paidAmount: '700' });
     const result = await handler.importRow(row);
 
@@ -814,6 +814,25 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
       },
     });
     await paymentSync.recompute(result.id);
+    // R14 W3 — the invoice is issued at delivery (manual generate = its retry).
+    const queued = await prisma.shipment.findFirst({
+      where: { storeOrderId: result.id, deletedAt: null },
+      orderBy: { attemptNumber: 'desc' },
+    });
+    if (queued) {
+      await prisma.shipment.update({
+        where: { id: queued.id },
+        data: { status: 'DELIVERED' },
+      });
+    } else {
+      await prisma.shipment.create({
+        data: {
+          storeOrderId: result.id,
+          attemptNumber: 1,
+          status: 'DELIVERED',
+        },
+      });
+    }
 
     const invoice = await storeOrdersService.generateInvoice(result.id);
     const items = await prisma.salesInvoiceItem.findMany({

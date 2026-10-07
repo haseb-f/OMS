@@ -43,6 +43,7 @@ const inventoryIntegrityEn = {
     I5: "Kit sales: component deliveries and COGS once",
     I6: "Inventory valuation vs GL inventory accounts",
     I7: "Agent-owned stock stays outside company books",
+    I8: "Delivered store orders have their stock issued and cost recognised",
   },
 };
 

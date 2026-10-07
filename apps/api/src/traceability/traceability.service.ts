@@ -1,3 +1,4 @@
+import { isRecognitionDue } from '../store-orders/fulfillment-recognition/recognition-routing';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,6 +8,7 @@ import type {
   TraceGroupKey,
   TraceKind,
   TraceRecord,
+  TraceFailureReason,
   TraceResult,
   TraceState,
 } from './traceability.types';
@@ -987,7 +989,17 @@ export class TraceabilityService {
   private async storeOrder(id: string) {
     const order = await this.prisma.storeOrder.findFirst({
       where: { id, deletedAt: null },
-      select: { id: true, internalOrderId: true, paymentStatus: true },
+      select: {
+        id: true,
+        internalOrderId: true,
+        paymentStatus: true,
+        agentId: true,
+        agentDispatchedAt: true,
+        fulfillmentMethod: true,
+        recognitionStatus: true,
+        recognitionError: true,
+        fulfillmentStatus: { select: { code: true } },
+      },
     });
     if (!order) return null;
     const [invoices, payments, shipments] = await Promise.all([
@@ -1067,15 +1079,24 @@ export class TraceabilityService {
     const refunds = await this.refundsFor(returnIds);
     const refundIds = refunds.map((r) => r.id);
 
+    const shipmentIds = shipments.map((s) => s.id);
     const entries = await this.journalEntriesWithSource(
       [
         'SALES_INVOICE',
         'FULFILLMENT_COST',
+        'SHIPMENT_COST',
         'CUSTOMER_RECEIPT',
         'SALES_RETURN',
         'CUSTOMER_REFUND',
       ],
-      [...invoiceIds, id, ...receiptIds, ...returnIds, ...refundIds],
+      [
+        ...invoiceIds,
+        id,
+        ...shipmentIds,
+        ...receiptIds,
+        ...returnIds,
+        ...refundIds,
+      ],
     );
     const journaled = new Set(
       entries.map((entry) => `${entry.sourceType}:${entry.sourceId}`),
@@ -1101,11 +1122,15 @@ export class TraceabilityService {
         .map((r) => `CUSTOMER_REFUND:${r.id}`),
     ];
     const journalMissing = expected.some((key) => !journaled.has(key));
-    const journalState: TraceState = journalMissing
-      ? 'FAILED'
-      : entries.length > 0
-        ? 'FOUND'
-        : 'PENDING';
+    // R14 W3 — a delivered company order that was never recognised has no
+    // revenue / COGS journal: FAILED with the recorded reason, not PENDING.
+    const recognitionFailure = storeOrderRecognitionFailure(order, shipments);
+    const journalState: TraceState =
+      journalMissing || recognitionFailure
+        ? 'FAILED'
+        : entries.length > 0
+          ? 'FOUND'
+          : 'PENDING';
 
     // A verified payment on an invoiced order must have produced a receipt.
     const invoiced = invoices.some((i) => POSTED_STATUSES.has(i.status));
@@ -1132,11 +1157,25 @@ export class TraceabilityService {
       })),
     ];
 
+    // Invoice deliveries and returns, plus the order's own STORE_ORDER
+    // movements: the shipment-time reservation / its release (company) and the
+    // dispatch issue of an agent order.
     const { items: movementItems, ...movementBounds } =
       await this.movementsForReferences([
         ...invoiceIds.map((refId) => ({ types: ['SALES_INVOICE'], id: refId })),
         ...returnIds.map((refId) => ({ types: ['SALES_RETURN'], id: refId })),
+        { types: ['STORE_ORDER'], id },
       ]);
+    const stockIssued = movementItems.some(
+      (m) => m.status !== 'RESERVATION' && m.status !== 'RESERVATION_RELEASE',
+    );
+    const stockState: TraceState = recognitionFailure
+      ? 'FAILED'
+      : movementItems.length > 0
+        ? 'FOUND'
+        : invoiced || (order.agentId && order.agentDispatchedAt)
+          ? 'NONE'
+          : 'PENDING';
 
     return {
       record: {
@@ -1169,6 +1208,7 @@ export class TraceabilityService {
           key: 'JOURNAL_ENTRIES' as const,
           state: journalState,
           items: entries.map(withoutSource),
+          ...(recognitionFailure ? { reason: recognitionFailure } : {}),
         },
         this.group(
           'SHIPMENTS',
@@ -1181,12 +1221,13 @@ export class TraceabilityService {
           'PENDING',
         ),
         {
-          ...this.group(
-            'STOCK_MOVEMENTS',
-            movementItems,
-            invoiced ? 'NONE' : 'PENDING',
-          ),
+          key: 'STOCK_MOVEMENTS' as const,
+          state: stockState,
+          items: movementItems,
           ...movementBounds,
+          ...(recognitionFailure && !stockIssued
+            ? { reason: recognitionFailure }
+            : {}),
         },
         this.group(
           'RETURNS',
@@ -1582,4 +1623,53 @@ export class TraceabilityService {
       ],
     };
   }
+}
+
+/**
+ * R14 W3 (spec-3 §3) — the reason a store order's stock / COGS is missing:
+ * the recorded recognition failure, or (orders delivered before R14 / never
+ * retried) a delivered company order without an invoice. Null when nothing is
+ * missing yet (not delivered, recognised, or an agent order).
+ */
+export function storeOrderRecognitionFailure(
+  order: {
+    agentId: string | null;
+    fulfillmentMethod: string;
+    recognitionStatus: string;
+    recognitionError: unknown;
+    fulfillmentStatus: { code: string } | null;
+  },
+  shipments: { attemptNumber: number; status: string | null }[],
+): TraceFailureReason | null {
+  if (order.agentId) return null;
+  if (order.recognitionStatus === 'FAILED') {
+    const error = (order.recognitionError ?? {}) as Partial<TraceFailureReason>;
+    return {
+      code: error.code ?? 'RECOGNITION_ERROR',
+      messageAr: error.messageAr ?? 'تعذّر إثبات البيع عند التسليم.',
+      messageEn: error.messageEn ?? 'Recognition at delivery failed.',
+    };
+  }
+  if (
+    order.recognitionStatus === 'RECOGNIZED' ||
+    order.recognitionStatus === 'RETURN_PENDING'
+  ) {
+    return null;
+  }
+  const latest = [...shipments].sort(
+    (a, b) => b.attemptNumber - a.attemptNumber,
+  )[0];
+  const due = isRecognitionDue({
+    fulfillmentMethod: order.fulfillmentMethod,
+    fulfillmentStatus: order.fulfillmentStatus,
+    shipments: latest ? [latest] : [],
+  });
+  if (!due) return null;
+  return {
+    code: 'NOT_RECOGNIZED',
+    messageAr:
+      'الطلب مُسلَّم ولم يُصرف مخزونه ولم تُرحَّل تكلفته — أعد محاولة إثبات البيع من صفحة الطلب.',
+    messageEn:
+      'The order is delivered but its stock and cost of goods sold were never recognised — retry recognition from the order page.',
+  };
 }
