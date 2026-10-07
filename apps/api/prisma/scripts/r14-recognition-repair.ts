@@ -11,6 +11,7 @@
  * Env:
  *   APPLY=1               apply (default: dry run — nothing is written)
  *   REPAIR_ACTOR_EMAIL    user recorded as createdBy (default: the oldest active super admin)
+ *   REPAIR_ORDER_IDS      comma-separated store order ids to limit the scan (default: every delivered order)
  *   REPAIR_OUT            report path (default: specs/round14-production-readiness/evidence/
  *                         r14-recognition-repair-<dry-run|apply>-<timestamp>.json at the repo root)
  *
@@ -51,7 +52,14 @@ async function main() {
         'APPLY=1 needs a super admin actor (REPAIR_ACTOR_EMAIL or an active super admin).',
       );
     }
-    const report = await repair.run({ dryRun: !apply, userId: actor?.id });
+    const orderIds = process.env.REPAIR_ORDER_IDS?.split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+    const report = await repair.run({
+      dryRun: !apply,
+      userId: actor?.id,
+      orderIds: orderIds?.length ? orderIds : undefined,
+    });
     const stamp = report.generatedAt.replace(/[:.]/g, '-');
     const out = resolve(
       process.env.REPAIR_OUT ??

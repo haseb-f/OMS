@@ -315,6 +315,10 @@ export class FulfillmentRecognitionService {
 
     const preflight = await this.preflight(order);
     if (preflight.issues.length > 0) {
+      // A concurrent attempt may have recognised the order meanwhile (its
+      // stock then reads as consumed) — that is success, not a failure.
+      const raced = await this.liveInvoice(this.prisma, storeOrderId);
+      if (raced) return this.onExisting(order, raced, manual);
       await this.recordFailure(
         order.id,
         'RECOGNITION',
@@ -1065,8 +1069,17 @@ export class FulfillmentRecognitionService {
       at: new Date().toISOString(),
     };
     try {
-      await this.prisma.storeOrder.update({
-        where: { id: storeOrderId },
+      // Never overwrites a recognised order (a late, losing attempt).
+      const updated = await this.prisma.storeOrder.updateMany({
+        where: {
+          id: storeOrderId,
+          recognitionStatus: {
+            notIn: [
+              StoreOrderRecognitionStatus.RECOGNIZED,
+              StoreOrderRecognitionStatus.RETURN_PENDING,
+            ],
+          },
+        },
         data: {
           ...(stage === 'RECOGNITION'
             ? { recognitionStatus: StoreOrderRecognitionStatus.FAILED }
@@ -1075,6 +1088,7 @@ export class FulfillmentRecognitionService {
           recognitionAttemptedAt: new Date(),
         },
       });
+      if (updated.count === 0) return;
       await this.activityService.log(
         storeOrderId,
         stage === 'RECOGNITION'

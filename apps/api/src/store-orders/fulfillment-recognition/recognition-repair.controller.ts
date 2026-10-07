@@ -1,5 +1,5 @@
 import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
-import { IsBoolean, IsOptional } from 'class-validator';
+import { IsArray, IsBoolean, IsOptional, IsUUID } from 'class-validator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
@@ -13,6 +13,12 @@ export class RecognitionRepairDto {
   @IsOptional()
   @IsBoolean()
   dryRun?: boolean;
+
+  /** Limit the repair to these orders (default: every delivered order). */
+  @IsOptional()
+  @IsArray()
+  @IsUUID('all', { each: true })
+  orderIds?: string[];
 }
 
 /**
@@ -35,6 +41,10 @@ export class RecognitionRepairController {
   ) {
     const dryRun = dto.dryRun !== false;
     if (!dryRun) await this.repair.assertMayApply(user.sub);
-    return this.repair.run({ dryRun, userId: user.sub });
+    return this.repair.run({
+      dryRun,
+      userId: user.sub,
+      orderIds: dto.orderIds,
+    });
   }
 }

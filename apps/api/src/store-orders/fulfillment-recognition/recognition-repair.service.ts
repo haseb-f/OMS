@@ -110,11 +110,14 @@ export class RecognitionRepairService {
   async run(options: {
     dryRun: boolean;
     userId?: string;
+    /** Limit the scan to these orders (default: every delivered order). */
+    orderIds?: string[];
   }): Promise<RepairReport> {
     const candidates = await this.prisma.storeOrder.findMany({
       where: {
         deletedAt: null,
         agentId: null,
+        ...(options.orderIds ? { id: { in: options.orderIds } } : {}),
         invoices: {
           none: {
             deletedAt: null,
@@ -130,6 +133,7 @@ export class RecognitionRepairService {
       where: {
         deletedAt: null,
         agentId: { not: null },
+        ...(options.orderIds ? { id: { in: options.orderIds } } : {}),
         agentDispatchedAt: null,
         ...DELIVERED_WHERE,
       },
