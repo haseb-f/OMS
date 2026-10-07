@@ -2,9 +2,11 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -21,12 +23,17 @@ import {
 } from '../auth/decorators/permission-action.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
+import { SetJobTitlePermissionsDto } from './dto/set-job-title-permissions.dto';
+import { PermissionAdministrationService } from '../permissions/permission-administration.service';
 
 @Controller('job-titles')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @PermissionModule('job-titles')
 export class JobTitlesController {
-  constructor(private readonly jobTitlesService: JobTitlesService) {}
+  constructor(
+    private readonly jobTitlesService: JobTitlesService,
+    private readonly permissionAdministration: PermissionAdministrationService,
+  ) {}
 
   @Post()
   create(@Body() dto: CreateJobTitleDto, @CurrentUser() user: JwtPayload) {
@@ -74,5 +81,41 @@ export class JobTitlesController {
   @Post(':id/restore')
   restore(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.jobTitlesService.restore(id, user.sub);
+  }
+
+  /** R14 W2 (spec-2 §A) — the title's default permission template ("الصلاحيات الافتراضية"). */
+  @Get(':id/permissions')
+  @PermissionAction('view')
+  permissionTemplate(@Param('id') id: string) {
+    return this.permissionAdministration.getTemplate(id);
+  }
+
+  /** Impact preview: per holder gained / lost, and overrides that make a change ineffective. Writes nothing. */
+  @Post(':id/permissions/preview')
+  @HttpCode(200)
+  @PermissionAction('manage_permissions')
+  previewPermissionTemplate(
+    @Param('id') id: string,
+    @Body() dto: SetJobTitlePermissionsDto,
+  ) {
+    return this.permissionAdministration.previewTemplate(
+      id,
+      dto.permissionNames,
+    );
+  }
+
+  /** Saves the template — applies live to every current holder. */
+  @Put(':id/permissions')
+  @PermissionAction('manage_permissions')
+  setPermissionTemplate(
+    @Param('id') id: string,
+    @Body() dto: SetJobTitlePermissionsDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.permissionAdministration.setTemplate(
+      user.sub,
+      id,
+      dto.permissionNames,
+    );
   }
 }

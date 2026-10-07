@@ -1147,6 +1147,7 @@ describeDb('Agent finance (local DB)', () => {
       { register: () => undefined } as never,
       { resolveOptional: () => Promise.resolve(undefined) } as never,
       fulfillment,
+      { hasPermission: () => Promise.resolve(true) } as never,
     );
     const before = await onHand(productA);
     await handler.importRow(

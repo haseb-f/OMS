@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { EmployeeStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 
 /**
  * The ONE permission that means "can handle Leads/Orders". Shared by the
@@ -124,7 +125,10 @@ export function exclusionReasons(
  */
 @Injectable()
 export class LeadEligibilityService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly resolver: PermissionsResolverService,
+  ) {}
 
   /** Eligible recipients (stable order) AND the considered-but-excluded users with reasons. */
   async evaluate(
@@ -132,11 +136,11 @@ export class LeadEligibilityService {
   ): Promise<LeadEligibilityResult> {
     const teamUserIds = await this.resolveTeamUserIds(scope.teamId);
 
-    const permitted = await this.prisma.userPermission.findMany({
-      where: { permission: { name: LEAD_HANDLING_PERMISSION } },
-      select: { userId: true },
-    });
-    const permittedIds = new Set(permitted.map((row) => row.userId));
+    // R14 — holders through an individual GRANT or the job-title template,
+    // never a user with an individual DENY (one resolver rule).
+    const permittedIds = new Set(
+      await this.resolver.getUsersWithPermission(LEAD_HANDLING_PERMISSION),
+    );
 
     // Considered = anyone who could plausibly be a recipient: holds the
     // handling permission, is flagged Sales, or is on the selected team.
@@ -242,10 +246,9 @@ export class LeadEligibilityService {
 
   private async evaluateOne(userId: string) {
     const [permission, user] = await Promise.all([
-      this.prisma.userPermission.findFirst({
-        where: { userId, permission: { name: LEAD_HANDLING_PERMISSION } },
-        select: { id: true },
-      }),
+      this.resolver
+        .getUsersWithPermission(LEAD_HANDLING_PERMISSION, [userId])
+        .then((holders) => (holders.length > 0 ? holders[0] : null)),
       this.prisma.user.findFirst({
         where: { id: userId },
         select: {

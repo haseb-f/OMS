@@ -6,6 +6,7 @@ import { EmployeeStatus } from '@prisma/client';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LeadEligibilityService } from './lead-eligibility.service';
+import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 
 /**
  * R7 — the eligibility matrix of the ONE shared "who may receive a Lead" rule
@@ -95,7 +96,7 @@ describe('Lead eligibility matrix (integration)', () => {
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
       imports: [PrismaModule],
-      providers: [LeadEligibilityService],
+      providers: [LeadEligibilityService, PermissionsResolverService],
     }).compile();
     prisma = moduleRef.get(PrismaService);
     service = moduleRef.get(LeadEligibilityService);
