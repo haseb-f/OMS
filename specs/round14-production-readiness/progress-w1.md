@@ -13,3 +13,12 @@ Durable log for spec-1 (entry, sessions, menu tones, required fields, password r
 | Employee account tab reset UI, compact user dialog                                                       | pending |                                                                                     |
 
 | Session policy doc `session-policy.md` | done | incl. limitations + JWT_ACCESS_TTL release note |
+
+## Final verification (2026-10-07)
+
+- API: `tsc` clean; jest (runInBand) auth / users / employees / controller-authorization + 10 touched
+  integration suites: 21 suites, 581 tests green. Mutation: removing the guard's session check fails
+  11/13 tests of `jwt-auth.guard.session.spec.ts`.
+- Web: `tsc` clean; vitest 145 files / 1076 tests green; `next build` OK; compiled CSS checked for
+  `[data-menu-tone]` states, `--menu-max-height`, the required-legend `:has` rule.
+- Not done here (lead): browser pass; Playwright two-tab / new-context restart script.
