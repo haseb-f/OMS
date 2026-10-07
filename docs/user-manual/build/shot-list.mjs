@@ -389,8 +389,8 @@ export const SHOTS = [
       [4, txt(/^قيد يومية/).first()],
       [5, txt(/^شحنة/).first()],
       [6, txt("حجز", true).first()],
-      [7, txt("فك حجز", true).first()],
-      [8, txt("تسليم", true).first()],
+      [7, txt("إلغاء حجز", true).first()],
+      [8, txt("تسليم مبيعات", true).first()],
     ],
   },
   {
@@ -671,8 +671,10 @@ export const SHOTS = [
       await p.getByRole("row", { name: /موظف مبيعات/ }).getByRole("button").last().click();
       await p.waitForTimeout(500);
     },
-    clipRect: { x: 0, y: 150, width: 700, height: 330 },
-    callouts: [[1, (p) => p.getByRole("menuitem", { name: /الصلاحيات الافتراضية/ })]],
+    clip: main,
+    clipPad: 0,
+    trim: false,
+    callouts: [[1, txt(/لكل مسمى وظيفي صلاحيات افتراضية/).first()], [2, (p) => p.getByRole("menuitem", { name: /الصلاحيات الافتراضية/ })]],
     after: async (p) => p.keyboard.press("Escape"),
   },
   {
@@ -725,7 +727,6 @@ export const SHOTS = [
     id: "09-01-partners",
     persona: "accountant",
     path: "/company-partners",
-    width: 1440,
     clip: main,
     clipPad: 0,
     callouts: [[1, btn("إضافة شريك")], [2, (p) => p.getByRole("link", { name: /فترات الأرباح/ })], [3, col(/نسبة الأرباح/)], [4, col(/أساس الاحتساب/)], [5, txt("المتبقي المستحق").first()], [6, txt("مدفوع مقدمًا").first()]],
@@ -735,7 +736,7 @@ export const SHOTS = [
     persona: "accountant",
     path: () => `/company-partners/${id.partner("خالد منصور")}`,
     width: 1600,
-    height: 1050,
+    height: 1100,
     clip: main,
     clipPad: 0,
     callouts: [
@@ -753,7 +754,7 @@ export const SHOTS = [
     persona: "accountant",
     path: () => `/company-partners/${id.partner("دينا فاروق")}`,
     width: 1600,
-    height: 1050,
+    height: 1100,
     before: async (p) => {
       await p.getByRole("tab", { name: "الاتفاقيات" }).click();
       await p.waitForTimeout(900);
@@ -767,14 +768,7 @@ export const SHOTS = [
     id: "09-04-periods",
     persona: "accountant",
     path: "/company-partners/periods",
-    width: 1600,
-    height: 1100,
-    before: async (p) => {
-      await p.getByRole("row", { name: /01 Oct 2026/ }).getByRole("button").last().click();
-      await p.waitForTimeout(400);
-      await p.getByRole("menuitem", { name: "عرض في التقدير" }).click();
-      await p.waitForTimeout(1800);
-    },
+    height: 1150,
     clip: main,
     clipPad: 0,
     callouts: [
@@ -782,14 +776,35 @@ export const SHOTS = [
       [2, txt("التقدير المباشر — تقديري")],
       [3, txt("الاستحقاق التقديري").first()],
       [4, txt("الفترات المحفوظة")],
-      [5, txt("مقفلة").last()],
+      [5, txt("مقفلة", true).last()],
+      [6, txt("قيد المراجعة", true).last()],
     ],
+  },
+  {
+    id: "09-04b-period-not-ended",
+    persona: "accountant",
+    path: "/company-partners/periods",
+    height: 1150,
+    before: async (p) => {
+      await p.getByRole("row", { name: /01 Oct 2026/ }).getByRole("button").last().click();
+      await p.waitForTimeout(400);
+      await p.getByRole("menuitem", { name: "عرض في التقدير" }).click();
+      await p.waitForTimeout(1800);
+      await p.getByRole("row", { name: /01 Oct 2026/ }).getByRole("button").last().click();
+      await p.waitForTimeout(500);
+    },
+    clip: main,
+    clipPad: 0,
+    callouts: [
+      [1, (p) => p.getByTestId("partner-period-not-ended")],
+      [2, (p) => p.getByRole("menuitem", { name: /بعد انتهاء الفترة/ })],
+    ],
+    after: async (p) => p.keyboard.press("Escape"),
   },
   {
     id: "09-05-payment-dialog",
     persona: "accountant",
     path: () => `/company-partners/${id.partner("خالد منصور")}`,
-    width: 1600,
     before: async (p) => {
       await p.getByRole("button", { name: "تسجيل دفعة" }).click();
       await p.waitForTimeout(800);

@@ -17,6 +17,7 @@ const env = Object.fromEntries(
 export const PW = env.MANUAL_PW;
 export const API = (process.env.API ?? env.API ?? "http://localhost:3205").replace(/\/$/, "");
 export const DB = process.env.DB ?? env.DB ?? "oms_r14_manual";
+export const WEB_URL = (process.env.WEB ?? env.WEB ?? "http://localhost:3001").replace(/\/$/, "");
 if (!/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(API)) throw new Error("local API only");
 if (!PW) throw new Error("MANUAL_PW missing in tmp/r14-manual/.env");
 

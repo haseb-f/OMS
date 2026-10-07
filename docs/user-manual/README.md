@@ -1,6 +1,6 @@
 # OMS Arabic user manual (R14)
 
-Branded, illustrated Arabic user manual for OMS release **R14** (git `02368c18`, prepared 2026-10-07).
+Branded, illustrated Arabic user manual for OMS release **R14** (final release `main` @ `0db15e41`, prepared 2026-10-07).
 Spec: `specs/round14-production-readiness/spec-7-arabic-manual.md`.
 
 | Output                                      | Path                                                   |
@@ -39,10 +39,12 @@ the repo). Use Git Bash with `MSYS_NO_PATHCONV=1`.
 # 1. Clean demo database (generates the persona password into tmp/r14-manual/.env — git-ignored)
 bash docs/user-manual/build/prepare-db.sh
 
-# 2. Servers on dedicated ports (the web build has http://localhost:3005 baked in; the screenshot
-#    scripts forward those calls to :3205 with Playwright request routing)
-node -e "process.env.PORT='3205';process.env.WEB_APP_URL='http://localhost:3201';process.env.DATABASE_URL='postgresql://oms:oms@localhost:5434/oms_r14_manual?schema=public';process.chdir('D:/Systems/OMS/apps/api');require('D:/Systems/OMS/apps/api/dist/src/main.js')" &
-(cd apps/web && pnpm exec next start -p 3201) &
+# 2. Servers: API on :3005 (the URL baked into the web build) and web on :3001, both on the demo DB.
+#    (If those ports are busy, run the API elsewhere and set API=/WEB= in tmp/r14-manual/.env —
+#    the screenshot scripts then forward http://localhost:3005 calls to API with Playwright routing.)
+pnpm --dir apps/api exec nest build && pnpm --dir apps/web build
+node -e "process.env.PORT='3005';process.env.WEB_APP_URL='http://localhost:3001';process.env.DATABASE_URL='postgresql://oms:oms@localhost:5434/oms_r14_manual?schema=public';process.chdir('D:/Systems/OMS/apps/api');require('D:/Systems/OMS/apps/api/dist/src/main.js')" &
+(cd apps/web && pnpm exec next start -p 3001) &
 
 # 3. Demonstration data through the API (idempotent; progress in tmp/r14-manual/state.json)
 node docs/user-manual/build/demo-data.mjs
@@ -69,6 +71,14 @@ All fictitious, password only in `tmp/r14-manual/.env`: `admin@oms-demo.local` (
 `shipping@` (كريم فؤاد, «مسؤول الشحن»), `accountant@` (هالة مراد, «محاسب عام»), `agent@` (ياسر نبيل,
 agent admin of «مؤسسة الواحة للتوزيع»). Phone numbers follow `+20 10 0000 0xxx`. Password fields are blanked
 before every capture.
+
+## Demo data notes
+
+- Store orders, shipping, recognition, returns, purchases and the B2B sale happen on the build day (October 2026).
+- September 2026 is recorded as the month before the company started on OMS: two summary journal entries
+  (sales 30,000 / cost of sales 12,000) and three expense vouchers dated in September. This makes September a
+  past period that can be **closed** for the partners (a period closes only after its last Cairo day), while
+  October stays a saved review (تقديري) whose Close action is disabled.
 
 ## Updating for a new release
 

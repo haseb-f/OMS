@@ -418,8 +418,8 @@ await step("partner-accounts", async () => {
   await A("PATCH", "/accounting/posting-settings", { partnerProfitDistributionAccountId: d.id, partnerProfitPayableAccountId: p.id });
 });
 await step("partner-agreements", async () => {
-  await must(T.accountant, "POST", "/company-partners/agreements", { partnerId: partners.a, profitSharePercent: 30, basis: "NET_PROFIT", effectiveFrom: "2026-10-01", frequency: "MONTHLY", activate: true });
-  await must(T.accountant, "POST", "/company-partners/agreements", { partnerId: partners.b, profitSharePercent: 20, basis: "GROSS_PROFIT", effectiveFrom: "2026-10-01", frequency: "MONTHLY", activate: true });
+  await must(T.accountant, "POST", "/company-partners/agreements", { partnerId: partners.a, profitSharePercent: 30, basis: "NET_PROFIT", effectiveFrom: "2026-09-01", frequency: "MONTHLY", activate: true });
+  await must(T.accountant, "POST", "/company-partners/agreements", { partnerId: partners.b, profitSharePercent: 20, basis: "GROSS_PROFIT", effectiveFrom: "2026-09-01", frequency: "MONTHLY", activate: true });
 });
 
 // ───────── 13. B2B sale to a corporate customer + receipt ─────────
@@ -442,19 +442,54 @@ const b2b = await step("b2b-sale", async () => {
   return { customer: cust.id, invoice: inv.id };
 });
 
-// ───────── 14. partner period: review → close → payment (accountant) ─────────
+// ───────── 14. September 2026 books (the month before the company started working in OMS) ─────────
+// The accountant records September's trading as summary journal entries (sales and their cost) and pays
+// September's expenses with expense vouchers dated in September — so September is a past, closable period.
+await step("september-books", async () => {
+  const gj = one(`select id from journals where type = 'GENERAL' and is_active and deleted_at is null order by created_at limit 1`);
+  const je = async (entryDate, description, referenceNumber, lines) => {
+    const e = await must(T.admin, "POST", "/journal-entries", { entryDate, journalId: gj.id, description, referenceNumber, currencyId, lines });
+    await must(T.admin, "POST", `/journal-entries/${e.id}/post`);
+    return e.id;
+  };
+  await je("2026-09-30", "مبيعات شهر سبتمبر (قيد إجمالي قبل بدء العمل على النظام)", "SEP-SALES", [
+    { accountId: settings.bankAccountId, debit: 30000, description: "متحصلات مبيعات سبتمبر" },
+    { accountId: settings.salesRevenueAccountId, credit: 30000, description: "مبيعات سبتمبر" },
+  ]);
+  await je("2026-09-30", "تكلفة البضاعة المباعة لشهر سبتمبر (قيد إجمالي)", "SEP-COGS", [
+    { accountId: settings.costOfGoodsSoldAccountId, debit: 12000, description: "تكلفة مبيعات سبتمبر" },
+    { accountId: settings.bankAccountId, credit: 12000, description: "مشتريات بضاعة بيعت في سبتمبر" },
+  ]);
+  const expAcc = rows(`select id, name from chart_of_accounts where account_type = 'EXPENSE' and allows_posting and deleted_at is null order by code`);
+  const pick = (re) => expAcc.find((a) => re.test(a.name))?.id ?? settings.defaultExpenseAccountId;
+  const ev = (date, expenseAccountId, amount, description) =>
+    must(T.accountant, "POST", "/financial-transactions/expense-payments/confirmed", {
+      expenseAccountId, amount, description, currencyId, transactionDate: date, paymentSourceId: srcBank.id, receivingAccountId: recvBank.id,
+    });
+  await ev("2026-09-05", pick(/إيجار/), 3000, "إيجار المستودع — سبتمبر");
+  await ev("2026-09-20", pick(/كهرباء|مرافق/), 450, "فاتورة الكهرباء — سبتمبر");
+  await ev("2026-09-25", pick(/تسويق|إعلان/), 1200, "حملة إعلانية — سبتمبر");
+});
+
+// ───────── 15. partner periods: September reviewed → closed → paid; October only reviewed (not ended yet) ─────────
 await step("partner-close", async () => {
-  const pv = await must(T.accountant, "POST", "/company-partners/periods", { periodFrom: "2026-10-01", periodTo: "2026-10-31" });
+  const pv = await must(T.accountant, "POST", "/company-partners/periods", { periodFrom: "2026-09-01", periodTo: "2026-09-30" });
   const cl = await must(T.accountant, "POST", `/company-partners/periods/${pv.id}/close`);
   return { id: pv.id, status: cl.status };
 });
 await step("partner-payment", async () => {
   await must(T.accountant, "POST", "/company-partners/payments", {
-    partnerId: partners.a, amount: 600, date: new Date().toISOString().slice(0, 10), financialAccountId: settings.bankAccountId, reference: "تحويل بنكي 90311",
+    partnerId: partners.a, amount: 2000, date: new Date().toISOString().slice(0, 10), financialAccountId: settings.bankAccountId, reference: "تحويل بنكي 90311",
   });
 });
+await step("partner-review-october", async () => {
+  const pv = await must(T.accountant, "POST", "/company-partners/periods", { periodFrom: "2026-10-01", periodTo: "2026-10-31" });
+  const early = await call(T.accountant, "POST", `/company-partners/periods/${pv.id}/close`);
+  if (early.ok) throw new Error("October closed before its end — the release should refuse this");
+  return { id: pv.id, status: pv.status, earlyClose: early.j?.code ?? early.s };
+});
 
-// ───────── 15. a title change → the permissions review flag ─────────
+// ───────── 16. a title change → the permissions review flag ─────────
 await step("review-flag", async () => {
   const jt = await A("POST", "/job-titles", { name: "مشرف مبيعات", nameEn: "Sales supervisor" });
   await A("PUT", `/job-titles/${jt.id}/permissions`, { permissionNames: [...PERMS.sales, "reports.sales.view", "crm.leads.manage"] });

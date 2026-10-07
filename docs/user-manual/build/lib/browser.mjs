@@ -7,9 +7,9 @@
  *  - Password inputs are always blanked/masked before a screenshot.
  */
 import { chromium } from "playwright";
-import { PW, API } from "./api.mjs";
+import { PW, API, WEB_URL } from "./api.mjs";
 
-export const WEB = process.env.WEB ?? "http://localhost:3201";
+export const WEB = WEB_URL;
 const BAKED_API = "http://localhost:3005";
 
 export async function launch() {
@@ -25,7 +25,7 @@ export async function newPersonaPage(browser, { width = 1440, height = 900, mobi
     timezoneId: "Africa/Cairo",
     ...(mobile ? { isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : {}),
   });
-  await context.route(`${BAKED_API}/**`, async (route) => {
+  if (API !== BAKED_API) await context.route(`${BAKED_API}/**`, async (route) => {
     const req = route.request();
     const url = req.url().replace(BAKED_API, API);
     try {
