@@ -28,13 +28,12 @@ async function codeOf(promise: Promise<unknown>): Promise<string | undefined> {
 
 /** The `data` of every `storeOrder.update` call. */
 function updates(db: {
-  storeOrder: { update: jest.Mock };
+  storeOrder: { update: jest.Mock; updateMany: jest.Mock };
 }): Record<string, unknown>[] {
-  return (
-    db.storeOrder.update.mock.calls as Array<
-      [{ data: Record<string, unknown> }]
-    >
-  ).map(([arg]) => arg.data);
+  type Call = [{ data: Record<string, unknown> }];
+  const direct = db.storeOrder.update.mock.calls as Call[];
+  const many = db.storeOrder.updateMany.mock.calls as Call[];
+  return [...direct, ...many].map(([arg]) => arg.data);
 }
 
 describe('FulfillmentRecognitionService (unit)', () => {
@@ -161,6 +160,7 @@ describe('FulfillmentRecognitionService (unit)', () => {
         findFirst: jest.fn().mockResolvedValue(order),
         findUnique: jest.fn().mockResolvedValue(order),
         update: jest.fn().mockResolvedValue(undefined),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       salesInvoice: {
         findFirst: jest.fn().mockResolvedValue(null),
