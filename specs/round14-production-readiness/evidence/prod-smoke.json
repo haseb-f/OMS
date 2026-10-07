@@ -1,0 +1,121 @@
+{
+  "at": "2026-10-07T09:24:17.153Z",
+  "api": "https://oms.haseb.org/api",
+  "user": "qa-admin",
+  "results": [
+    {
+      "name": "login 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "token carries a server session id (sid)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "session lifetime is 12 h even with rememberMe:true",
+      "ok": true,
+      "detail": "12 h"
+    },
+    {
+      "name": "/auth/me 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "permission catalog has shipping.assign_carrier",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "permission catalog has job-titles.manage_permissions",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "permission catalog has users.manage_permissions",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "permission catalog has customers.view_financials",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "permission catalog has company-partners.view",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "GET /store-orders?pageSize=1 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "GET /company-partners/profiles 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "GET /company-partners/periods 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "GET /job-titles?pageSize=1 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "GET /users?pageSize=1 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "customer history endpoint 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "recognition repair dry run 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "web /login 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "logout 2xx",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "token refused after logout (server revocation)",
+      "ok": true,
+      "detail": "401"
+    }
+  ],
+  "repairDryRun": {
+    "dryRun": true,
+    "counts": {
+      "companyCandidates": 1,
+      "recognizable": 1,
+      "blocked": 0,
+      "recognized": 0,
+      "failed": 0,
+      "agentNotDispatched": 0
+    },
+    "orders": [
+      {
+        "order": "STO-2026-000156",
+        "result": "WOULD_RECOGNIZE",
+        "blockers": []
+      }
+    ],
+    "agentOrdersWithoutDispatch": []
+  }
+}

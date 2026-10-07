@@ -25,3 +25,9 @@ Newest first. Each entry: time (UTC+3 local), stream, verified state, next step.
 
 - Serial 16/16 alone; journeys 128/128; browser 33/33 after the logout fix (86ceaf58).
 - Next: fast-forward `main`, push (Production deploy), smoke `scripts/acceptance/r14/r14-prod-smoke.mjs`, then manual (W7).
+
+## 2026-10-07 — lead, released
+
+- Production = `02368c18` (deployment 6906315769 success); smoke 19/19 (`evidence/prod-smoke.json`).
+- Repair dry run on Production: 1 order (STO-2026-000156) recognizable — NOT applied (D3-2, owner).
+- Next: W7 manual (agent, branch `docs/r14-user-manual`), worktree cleanup, handoff.

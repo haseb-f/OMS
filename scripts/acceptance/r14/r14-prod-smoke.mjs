@@ -52,7 +52,8 @@ for (const path of ["/store-orders?pageSize=1", "/company-partners/profiles", "/
   check(`GET ${path} 200`, r.status === 200, r.status);
 }
 
-const order = (await (await get("/store-orders?pageSize=1")).json())?.data?.[0];
+const list = await (await get("/store-orders?pageSize=1")).json();
+const order = (list?.items ?? list?.data ?? [])[0];
 if (order?.partnerId ?? order?.partner?.id) {
   const pid = order.partnerId ?? order.partner.id;
   const h = await get(`/customers/${pid}/history`);
