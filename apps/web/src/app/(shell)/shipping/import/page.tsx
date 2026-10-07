@@ -221,7 +221,7 @@ function ShippingImportContent() {
 
 export default function ShippingImportPage() {
   return (
-    <PermissionGate permission="shipping.view">
+    <PermissionGate permission={["shipping.view", "import-center.view"]}>
       <ShippingImportContent />
     </PermissionGate>
   );

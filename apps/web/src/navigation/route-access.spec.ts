@@ -139,6 +139,18 @@ const grants =
 const allowed = (path: string, ...keys: string[]) =>
   isRouteAccessAllowed(resolveRouteAccess(navigationConfig, path), grants(...keys));
 
+describe("R14 fix — shipping import needs the Import Center permission it opens", () => {
+  it("hides /shipping/import from a shipping.view-only user and opens it with import-center.view", () => {
+    expect(resolveRouteRequiredPermissions(navigationConfig, "/shipping/import")).toEqual([
+      "shipping.view",
+      "import-center.view",
+    ]);
+    expect(allowed("/shipping/import", "shipping.view")).toBe(false);
+    expect(allowed("/shipping/import", "shipping.view", "import-center.view")).toBe(true);
+    expect(allowed("/shipping", "shipping.view")).toBe(true);
+  });
+});
+
 describe("SEC-02 create-route overrides", () => {
   it("covers every /new page under app/(shell) (a new /new page must be reviewed here)", () => {
     const routes = shellNewRoutes();

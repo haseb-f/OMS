@@ -223,7 +223,9 @@ export const navigationConfig: NavigationItem[] = [
     route: "/shipping/import",
     icon: "upload-cloud",
     order: 1,
-    permissions: ["shipping.view"],
+    // The page lists / runs Import Center jobs (GET /import-center/jobs needs
+    // import-center.view) — shipping.view alone must not show an entry that opens to a denial.
+    permissions: ["shipping.view", "import-center.view"],
   },
   {
     id: "master-data-shipping-statuses",
