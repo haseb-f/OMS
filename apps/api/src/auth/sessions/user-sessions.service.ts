@@ -25,6 +25,7 @@ export const SESSION_ERROR = {
 } as const;
 
 const DEFAULT_IDLE_MINUTES = 120;
+const DEFAULT_ABSOLUTE_HOURS = 12;
 /** Session rows are re-read at most this often per process (spec-1 §2). */
 export const SESSION_CACHE_TTL_MS = 15_000;
 /** `last_seen_at` is written at most this often per session. */
@@ -48,6 +49,22 @@ export function sessionIdleMinutes(
 ): number {
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_IDLE_MINUTES;
+}
+
+/**
+ * Absolute session length (R14 integration). Deliberately independent of the
+ * module-wide JWT_ACCESS_TTL: Production runs that at 15 m, and with no refresh
+ * token and no "remember me" that would sign every user out each 15 minutes.
+ * The token is still checked against its server session on every request, so
+ * a long-lived token stays revocable (logout, idle, password reset, deactivation).
+ */
+export function sessionAbsoluteHours(
+  raw: string | undefined = process.env.SESSION_ABSOLUTE_HOURS,
+): number {
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 && parsed <= 24
+    ? parsed
+    : DEFAULT_ABSOLUTE_HOURS;
 }
 
 function unauthorized(code: string, message: string): UnauthorizedException {
@@ -79,15 +96,18 @@ export class UserSessionsService {
 
   /**
    * Opens a session and signs its access token (`sid` = the session id). The
-   * token's lifetime is the module-wide `JWT_ACCESS_TTL`, never extended; the
-   * session's absolute end is that token's own `exp`.
+   * token's lifetime is `SESSION_ABSOLUTE_HOURS` (default 12, max 24), never
+   * extended; the session's absolute end is that token's own `exp`.
    */
   async issueAccessToken(
     claims: AccessTokenClaims,
     userAgent?: string | null,
   ): Promise<string> {
     const sessionId = crypto.randomUUID();
-    const accessToken = this.jwtService.sign({ ...claims, sid: sessionId });
+    const accessToken = this.jwtService.sign(
+      { ...claims, sid: sessionId },
+      { expiresIn: `${sessionAbsoluteHours()}h` },
+    );
     const { exp } = this.jwtService.decode<{ exp: number }>(accessToken);
     await this.prisma.userSession.create({
       data: {

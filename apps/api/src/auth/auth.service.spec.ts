@@ -170,7 +170,7 @@ describe('AuthService.login', () => {
 });
 
 describe('UserSessionsService.issueAccessToken', () => {
-  it('ignores rememberMe: the token lives JWT_ACCESS_TTL and the session ends at its exp', async () => {
+  it('ignores rememberMe: the token lives SESSION_ABSOLUTE_HOURS (not the 15m JWT TTL) and the session ends at its exp', async () => {
     const jwt = new JwtService({
       secret: 's',
       signOptions: { expiresIn: '15m' },
@@ -188,8 +188,8 @@ describe('UserSessionsService.issueAccessToken', () => {
     const payload = jwt.decode<{ sid: string; exp: number; iat: number }>(
       token,
     );
-    expect(payload.exp - payload.iat).toBe(15 * 60);
-    expect(payload.exp).toBeGreaterThanOrEqual(before + 15 * 60);
+    expect(payload.exp - payload.iat).toBe(12 * 3600);
+    expect(payload.exp).toBeGreaterThanOrEqual(before + 12 * 3600);
     const [[{ data: row }]] = create.mock.calls as [
       [{ data: { id: string; expiresAt: Date; userAgentHash: string } }],
     ];

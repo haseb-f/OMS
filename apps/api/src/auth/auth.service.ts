@@ -29,7 +29,7 @@ export class AuthService {
   /**
    * R14 — every login opens a server-side session whose id travels in the
    * token as `sid`; its absolute end is the token's own `exp`
-   * (`JWT_ACCESS_TTL`). `dto.rememberMe` is accepted from older clients but
+   * (`SESSION_ABSOLUTE_HOURS`, default 12). `dto.rememberMe` is accepted from older clients but
    * ignored: the lifetime is never extended.
    */
   async login(dto: LoginDto, userAgent?: string | null) {
