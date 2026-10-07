@@ -15,13 +15,19 @@ const API = (process.env.API ?? "https://oms.haseb.org/api").replace(/\/$/, "");
 const WEB = API.replace(/\/api$/, "");
 const OUT = "specs/round14-production-readiness/evidence";
 mkdirSync(OUT, { recursive: true });
-const pw = readFileSync("tmp/.qa.env", "utf8").split(/\r?\n/).find((l) => /QA_PASSWORD=/.test(l))
-  .replace(/^\s*(export\s+)?QA_PASSWORD=/, "").replace(/^["']|["']$/g, "").trim();
+const pw = readFileSync("tmp/.qa.env", "utf8")
+  .split(/\r?\n/)
+  .find((l) => /QA_PASSWORD=/.test(l))
+  .replace(/^\s*(export\s+)?QA_PASSWORD=/, "")
+  .replace(/^["']|["']$/g, "")
+  .trim();
 
 const results = [];
 const check = (name, ok, detail = "") => {
   results.push({ name, ok: !!ok, detail: String(detail).slice(0, 400) });
-  console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? "  -> " + String(detail).slice(0, 220) : ""}`);
+  console.log(
+    `${ok ? "PASS" : "FAIL"}  ${name}${detail ? "  -> " + String(detail).slice(0, 220) : ""}`,
+  );
 };
 
 const login = await fetch(`${API}/auth/login`, {
@@ -33,7 +39,11 @@ const { accessToken } = await login.json();
 check("login 200", login.status === 200, login.status);
 const claims = JSON.parse(Buffer.from(accessToken.split(".")[1], "base64url").toString());
 check("token carries a server session id (sid)", typeof claims.sid === "string");
-check("session lifetime is 12 h even with rememberMe:true", claims.exp - claims.iat === 12 * 3600, `${(claims.exp - claims.iat) / 3600} h`);
+check(
+  "session lifetime is 12 h even with rememberMe:true",
+  claims.exp - claims.iat === 12 * 3600,
+  `${(claims.exp - claims.iat) / 3600} h`,
+);
 const auth = { Authorization: `Bearer ${accessToken}` };
 const get = (path) => fetch(`${API}${path}`, { headers: auth });
 
@@ -43,11 +53,23 @@ check("/auth/me 200", me.status === 200, me.status);
 
 const catalog = await (await get("/permissions/catalog")).json();
 const names = JSON.stringify(catalog);
-for (const p of ["shipping.assign_carrier", "job-titles.manage_permissions", "users.manage_permissions", "customers.view_financials", "company-partners.view"]) {
+for (const p of [
+  "shipping.assign_carrier",
+  "job-titles.manage_permissions",
+  "users.manage_permissions",
+  "customers.view_financials",
+  "company-partners.view",
+]) {
   check(`permission catalog has ${p}`, names.includes(p));
 }
 
-for (const path of ["/store-orders?pageSize=1", "/company-partners/profiles", "/company-partners/periods", "/job-titles?pageSize=1", "/users?pageSize=1"]) {
+for (const path of [
+  "/store-orders?pageSize=1",
+  "/company-partners/profiles",
+  "/company-partners/periods",
+  "/job-titles?pageSize=1",
+  "/users?pageSize=1",
+]) {
   const r = await get(path);
   check(`GET ${path} 200`, r.status === 200, r.status);
 }
@@ -87,7 +109,20 @@ check("logout 2xx", out.status < 300, out.status);
 const after = await get("/auth/me");
 check("token refused after logout (server revocation)", after.status === 401, after.status);
 
-writeFileSync(`${OUT}/prod-smoke.json`, JSON.stringify({ at: new Date().toISOString(), api: API, user: meBody?.email ? "qa-admin" : null, results, repairDryRun: summary }, null, 2));
+writeFileSync(
+  `${OUT}/prod-smoke.json`,
+  JSON.stringify(
+    {
+      at: new Date().toISOString(),
+      api: API,
+      user: meBody?.email ? "qa-admin" : null,
+      results,
+      repairDryRun: summary,
+    },
+    null,
+    2,
+  ),
+);
 const failed = results.filter((r) => !r.ok).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);
 process.exit(failed ? 1 : 0);
