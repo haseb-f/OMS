@@ -34,6 +34,8 @@ export interface UserRow {
   agent?: { id: string; agentNumber: string; name: string } | null;
   /** R7 — designated sales employee (lead distribution eligibility). */
   salesDistributionEligible?: boolean;
+  /** R14 — the job title changed since an administrator last saved the permission panel. */
+  permissionsReviewRequired?: boolean;
 }
 
 export interface UserFormPayload {
@@ -57,6 +59,21 @@ export type UserMutationResult = UserRow & { temporaryPassword?: string };
 
 export interface UserPermissionsResult {
   granted: string[];
+}
+
+/** R14 W2 — individual overrides, tri-state: in `grants`, in `denies`, or neither (inherit). */
+export interface PermissionOverrides {
+  grants: string[];
+  denies: string[];
+}
+
+/** R14 W2 — the permission panel: job-title template, individual overrides, resolver's effective set. */
+export interface UserPermissionPanel extends PermissionOverrides {
+  userId: string;
+  jobTitle: { id: string; name: string } | null;
+  permissionsReviewRequired: boolean;
+  inherited: string[];
+  effective: string[];
 }
 
 /**
@@ -86,4 +103,9 @@ export const usersService = {
   getPermissions: (id: string) => apiClient.get<UserPermissionsResult>(`/users/${id}/permissions`),
   setPermissions: (id: string, permissionNames: string[]) =>
     apiClient.post<UserPermissionsResult>(`/users/${id}/permissions`, { permissionNames }),
+  getPermissionOverrides: (id: string) =>
+    apiClient.get<UserPermissionPanel>(`/users/${id}/permission-overrides`),
+  /** Saves the full tri-state overrides and clears the review flag. */
+  setPermissionOverrides: (id: string, overrides: PermissionOverrides) =>
+    apiClient.put<UserPermissionPanel>(`/users/${id}/permission-overrides`, overrides),
 };

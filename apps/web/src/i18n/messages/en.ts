@@ -19,6 +19,7 @@ import assetSchedulesEn from "./modules/asset-schedules.en";
 import assemblyEn from "./modules/assembly.en";
 import inventoryIntegrityEn from "./modules/inventory-integrity.en";
 import expenseVouchersEn from "./modules/expense-vouchers.en";
+import permissionTemplatesEn from "./modules/permission-templates.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
@@ -33,6 +34,7 @@ const en = {
   assembly: assemblyEn,
   inventoryIntegrity: inventoryIntegrityEn,
   expenseVouchers: expenseVouchersEn,
+  permissionTemplates: permissionTemplatesEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
