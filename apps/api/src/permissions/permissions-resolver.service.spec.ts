@@ -5,6 +5,7 @@ describe('PermissionsResolverService', () => {
   const prisma = {
     user: { findUnique: jest.fn() },
     userPermission: { findMany: jest.fn(), deleteMany: jest.fn() },
+    jobTitlePermission: { findMany: jest.fn() },
   };
   const resolver = new PermissionsResolverService(
     prisma as unknown as PrismaService,
@@ -66,5 +67,86 @@ describe('PermissionsResolverService', () => {
       true,
     );
     expect((await resolver.getPermissions('user-1')).size).toBe(0);
+  });
+
+  describe('R14 job-title templates + individual overrides', () => {
+    const rows = (names: string[], effect: 'GRANT' | 'DENY' = 'GRANT') =>
+      names.map((name) => ({ effect, permission: { name } }));
+
+    it('inherits the job title template for an INTERNAL user', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        isSuperAdmin: false,
+        userType: 'INTERNAL',
+        jobTitleId: 'title-1',
+      });
+      prisma.userPermission.findMany.mockResolvedValue([]);
+      prisma.jobTitlePermission.findMany.mockResolvedValue(
+        rows(['products.create']),
+      );
+
+      const permissions = await resolver.getPermissions('user-1');
+
+      expect(prisma.jobTitlePermission.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { jobTitleId: 'title-1' } }),
+      );
+      expect(permissions.has('products.create')).toBe(true);
+      expect(permissions.has('products.view')).toBe(true);
+    });
+
+    it('adds an individual GRANT to the template', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        isSuperAdmin: false,
+        userType: 'INTERNAL',
+        jobTitleId: 'title-1',
+      });
+      prisma.userPermission.findMany.mockResolvedValue(rows(['shipping.view']));
+      prisma.jobTitlePermission.findMany.mockResolvedValue(
+        rows(['products.create']),
+      );
+
+      const permissions = await resolver.getPermissions('user-1');
+      expect(permissions.has('shipping.view')).toBe(true);
+      expect(permissions.has('products.create')).toBe(true);
+    });
+
+    it('a DENY beats the inherited grant and its implied permission', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        isSuperAdmin: false,
+        userType: 'INTERNAL',
+        jobTitleId: 'title-1',
+      });
+      prisma.userPermission.findMany.mockResolvedValue(
+        rows(['products.create'], 'DENY'),
+      );
+      prisma.jobTitlePermission.findMany.mockResolvedValue(
+        rows(['products.create']),
+      );
+
+      expect(await resolver.hasPermission('user-1', 'products.create')).toBe(
+        false,
+      );
+      expect(await resolver.hasPermission('user-1', 'products.view')).toBe(
+        false,
+      );
+    });
+
+    it('agent users ignore job-title templates', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        isSuperAdmin: false,
+        userType: 'AGENT',
+        agentRole: 'SALES',
+        jobTitleId: 'title-1',
+      });
+      prisma.userPermission.findMany.mockResolvedValue(
+        rows(['agent.leads.view']),
+      );
+      prisma.jobTitlePermission.findMany.mockResolvedValue(
+        rows(['products.create']),
+      );
+
+      const permissions = await resolver.getPermissions('user-1');
+      expect(prisma.jobTitlePermission.findMany).not.toHaveBeenCalled();
+      expect([...permissions]).toEqual(['agent.leads.view']);
+    });
   });
 });
