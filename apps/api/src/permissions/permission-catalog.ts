@@ -1509,6 +1509,20 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       name,
     })),
   },
+  {
+    // R14 W5 — company partners and profit sharing ("الشركاء", spec-5).
+    // Internal screens only; granted to nobody by migration (super admin
+    // bypasses). `close` reviews / closes / adjusts profit periods (posts);
+    // `pay` records and reverses partner payments (posts).
+    key: 'company-partners',
+    labelKey: 'permissions.modules.companyPartners',
+    actions: [
+      { action: 'view', name: 'company-partners.view' },
+      { action: 'manage', name: 'company-partners.manage' },
+      { action: 'close', name: 'company-partners.close' },
+      { action: 'pay', name: 'company-partners.pay' },
+    ],
+  },
 ];
 
 export const ALL_PERMISSION_NAMES: string[] = [
@@ -1675,6 +1689,8 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   // Investor Engine Milestone 4 — same المستثمرون sidebar section.
   'investor-settings': 'investors.view',
   'investor-portal': 'investors.view',
+  // R14 W5 — الشركاء sits in the Finance sidebar section.
+  'company-partners': 'finance.view',
 };
 
 /** Expands a granted-permission list with every implied coarse section permission (see `IMPLIED_SECTION_PERMISSION`). */

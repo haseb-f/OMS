@@ -116,6 +116,7 @@ import { PaymentReconciliationModule } from './payment-reconciliation/payment-re
 
 import { AgentsModule } from './agents/agents.module';
 import { StoreOrderAmendmentsModule } from './store-orders/amendments/store-order-amendments.module';
+import { CompanyPartnersModule } from './company-partners/company-partners.module';
 @Module({
   imports: [
     PrismaModule,
@@ -233,6 +234,8 @@ import { StoreOrderAmendmentsModule } from './store-orders/amendments/store-orde
     PaymentReconciliationModule,
     AgentsModule,
     StoreOrderAmendmentsModule,
+    // R14 W5 — company partners and profit sharing.
+    CompanyPartnersModule,
   ],
   controllers: [HealthController],
   providers: [],

@@ -605,6 +605,30 @@ export class AccountMappingService {
     ]);
   }
 
+  /** R14 W5 — Dr Partner profit distribution (EQUITY) when a company-partner profit period is closed. */
+  async resolvePartnerProfitDistributionAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(
+      settings?.partnerProfitDistributionAccountId,
+      'Partner Profit Distribution',
+      ['PostingSettings.partnerProfitDistributionAccountId'],
+    );
+  }
+
+  /** R14 W5 — Cr/Dr Partner profit payable (LIABILITY, Partner-dimensioned): credited on close, debited by each payment. */
+  async resolvePartnerProfitPayableAccount(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const settings = await this.getSettings(tx);
+    return this.require(
+      settings?.partnerProfitPayableAccountId,
+      'Partner Profit Payable',
+      ['PostingSettings.partnerProfitPayableAccountId'],
+    );
+  }
+
   async assertSalesInvoiceMappings(input: {
     partnerId: string;
     items: Array<{
