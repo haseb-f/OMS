@@ -33,6 +33,7 @@ import {
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SetUserPermissionsDto } from './dto/set-user-permissions.dto';
 import { DepartmentsService } from '../departments/departments.service';
+import { PermissionAdministrationService } from '../permissions/permission-administration.service';
 
 // Never select passwordHash into an API response.
 const PUBLIC_USER_SELECT = {
@@ -68,6 +69,8 @@ const PUBLIC_USER_SELECT = {
   agent: { select: { id: true, agentNumber: true, name: true } },
   /** R7 — explicit Sales designation (lead distribution eligibility). */
   salesDistributionEligible: true,
+  /** R14 — job title changed since an administrator last saved the permission panel. */
+  permissionsReviewRequired: true,
 } satisfies Prisma.UserSelect;
 
 export type PublicUser = Prisma.UserGetPayload<{
@@ -112,6 +115,7 @@ export class UsersService {
     private readonly resolver: PermissionsResolverService,
     private readonly phoneNumberService: PhoneNumberService,
     private readonly departments: DepartmentsService,
+    private readonly permissionAdministration: PermissionAdministrationService,
   ) {}
 
   /**
@@ -298,7 +302,7 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, dto: UpdateUserDto) {
+  async update(id: string, dto: UpdateUserDto, actorId?: string) {
     const existing = await this.findOne(id);
     // Affiliation (userType / agentId / agentRole) is not part of the DTO
     // and never changes here; agent users also never take internal
@@ -333,8 +337,16 @@ export class UsersService {
     if (dto.mobile) {
       data.mobile = this.normalizeUserMobile(dto.mobile);
     }
+    // R14 (spec-2 §A) — a new job title switches the inherited template;
+    // individual GRANT/DENY rows are kept and the user is flagged for review.
+    const jobTitleChanged =
+      dto.jobTitleId !== undefined &&
+      (dto.jobTitleId || null) !== existing.jobTitleId;
+    if (jobTitleChanged) data.permissionsReviewRequired = true;
+    if (actorId) data.updatedBy = actorId;
+    let updated: PublicUser;
     try {
-      return await this.prisma.user.update({
+      updated = await this.prisma.user.update({
         where: { id },
         data,
         select: PUBLIC_USER_SELECT,
@@ -342,6 +354,15 @@ export class UsersService {
     } catch (error) {
       throw this.mapUniqueError(error);
     }
+    if (jobTitleChanged) {
+      await this.permissionAdministration.recordJobTitleChange(
+        id,
+        existing.jobTitle,
+        updated.jobTitleId,
+        actorId,
+      );
+    }
+    return updated;
   }
 
   async remove(id: string) {
@@ -416,14 +437,18 @@ export class UsersService {
   async getPermissions(id: string) {
     await this.findOne(id);
     const rows = await this.prisma.userPermission.findMany({
-      where: { userId: id },
+      where: { userId: id, effect: 'GRANT' },
       select: { permission: { select: { name: true } } },
     });
     return { granted: rows.map((row) => row.permission.name) };
   }
 
   /** Replaces the user's entire permission set (Part 3/11 — the matrix always saves the full checked list). Unknown/retired names are silently ignored rather than rejected, so a stale client payload can never 500. Authorization-bearing implied permissions (see `withAuthorizationImpliedPermissions`) are bundled in automatically — never a cross-module implication onto another module's data permission (SEC-03 H4). Missing `Permission` rows for those implied names are created rather than dropped, so a matrix grant never leaves its own sidebar section invisible. */
-  async setPermissions(id: string, dto: SetUserPermissionsDto) {
+  async setPermissions(
+    id: string,
+    dto: SetUserPermissionsDto,
+    actorId?: string,
+  ) {
     const user = await this.findOne(id);
     const known = dto.permissionNames.filter((name) =>
       ALL_PERMISSION_NAMES.includes(name),
@@ -468,14 +493,43 @@ export class UsersService {
       select: { id: true },
     });
 
+    if (actorId && !isAgentUser) {
+      await this.permissionAdministration.assertLegacyGrantAllowed(
+        actorId,
+        id,
+        validNames,
+      );
+    }
+    const before = (await this.getPermissions(id)).granted;
+    // R14 — the full list replaces the individual GRANTs; an individual DENY
+    // survives unless the list grants that very permission again.
     await this.prisma.$transaction([
-      this.prisma.userPermission.deleteMany({ where: { userId: id } }),
+      this.prisma.userPermission.deleteMany({
+        where: {
+          userId: id,
+          OR: [
+            { effect: 'GRANT' },
+            { permissionId: { in: permissions.map((p) => p.id) } },
+          ],
+        },
+      }),
       this.prisma.userPermission.createMany({
-        data: permissions.map((p) => ({ userId: id, permissionId: p.id })),
+        data: permissions.map((p) => ({
+          userId: id,
+          permissionId: p.id,
+          createdBy: actorId ?? null,
+        })),
       }),
     ]);
     this.resolver.invalidate(id);
-    return this.getPermissions(id);
+    const after = await this.getPermissions(id);
+    await this.permissionAdministration.logLegacyGrantSet(
+      id,
+      before,
+      after.granted,
+      actorId,
+    );
+    return after;
   }
 
   /**
@@ -483,7 +537,11 @@ export class UsersService {
    * template: replaces the target user's permission set with an exact copy
    * of the source user's current grants.
    */
-  async copyPermissionsFrom(id: string, sourceUserId: string) {
+  async copyPermissionsFrom(
+    id: string,
+    sourceUserId: string,
+    actorId?: string,
+  ) {
     await this.findOne(id);
     if (id === sourceUserId) {
       throw new BadRequestException(
@@ -492,7 +550,11 @@ export class UsersService {
     }
     await this.findOne(sourceUserId);
     const source = await this.getPermissions(sourceUserId);
-    return this.setPermissions(id, { permissionNames: source.granted });
+    return this.setPermissions(
+      id,
+      { permissionNames: source.granted },
+      actorId,
+    );
   }
 
   private mapUniqueError(error: unknown) {

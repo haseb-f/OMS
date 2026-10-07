@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, FoldVertical, UnfoldVertical } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { StatusBadge } from "@/components/business/status-badge";
 import { SearchInput } from "@/components/shared/search-input";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
@@ -38,7 +40,50 @@ const ACTION_LABEL_KEY: Record<string, MessageKey> = {
   view_all: "permissions.actions.viewAll",
   amend: "permissions.actions.amend",
   direct_cost: "permissions.actions.directCost",
+  assign_carrier: "permissionTemplates.actions.assignCarrier",
+  manage_permissions: "permissionTemplates.actions.managePermissions",
 };
+
+const EMPTY: string[] = [];
+
+/** R14 W2 — tri-state source of one permission for one user. */
+type OverrideState = "inherit" | "grant" | "deny";
+
+/** R14 W2 — individual overrides on top of the job-title template (user permission panel). */
+export interface PermissionMatrixOverrides {
+  inherited: string[];
+  grants: string[];
+  denies: string[];
+  onChange: (next: { grants: string[]; denies: string[] }) => void;
+}
+
+/** Source chip: inherited / individual grant (± also inherited) / individual deny. */
+function PermissionSourceChip({
+  name,
+  inherited,
+  grants,
+  denies,
+}: {
+  name: string;
+  inherited: ReadonlySet<string>;
+  grants: ReadonlySet<string>;
+  denies: ReadonlySet<string>;
+}) {
+  const { t } = useLocale();
+  if (denies.has(name)) {
+    return <StatusBadge label={t("permissionTemplates.source.deny")} tone="destructive" />;
+  }
+  if (grants.has(name)) {
+    const label = inherited.has(name)
+      ? `${t("permissionTemplates.source.grant")} · ${t("permissionTemplates.source.alsoInherited")}`
+      : t("permissionTemplates.source.grant");
+    return <StatusBadge label={label} tone="success" />;
+  }
+  if (inherited.has(name)) {
+    return <StatusBadge label={t("permissionTemplates.source.inherited")} tone="info" />;
+  }
+  return null;
+}
 
 /**
  * TASK-060 Part 11 — the Permission Matrix (Daftra-style): one module per
@@ -48,16 +93,23 @@ const ACTION_LABEL_KEY: Record<string, MessageKey> = {
  * `onChange` always receives the full next list (never a delta), matching
  * `PUT /users/:id/permissions`'s own "always saves the full checked list"
  * contract.
+ *
+ * R14 W2 — with `overrides` the same matrix edits a user's individual
+ * overrides: every action shows its source chip (inherited / individual
+ * grant / individual deny) and an Inherit / Grant / Deny control; `value` /
+ * `onChange` are not used. Job-title templates use the checkbox mode.
  */
 export function PermissionMatrix({
-  value,
+  value = EMPTY,
   onChange,
   disabled,
   audience = "internal",
+  overrides,
 }: {
-  value: string[];
-  onChange: (next: string[]) => void;
+  value?: string[];
+  onChange?: (next: string[]) => void;
   disabled?: boolean;
+  overrides?: PermissionMatrixOverrides;
   /**
    * Agents milestone (spec §3): an INTERNAL user sees every section except
    * the agent portal; an AGENT user sees only the agent-portal section (the
@@ -85,7 +137,19 @@ export function PermissionMatrix({
 
   const allModules = useMemo(() => groups?.flatMap((group) => group.modules) ?? [], [groups]);
 
-  const granted = useMemo(() => new Set(value), [value]);
+  const inheritedSet = useMemo(() => new Set(overrides?.inherited ?? []), [overrides?.inherited]);
+  const grantSet = useMemo(() => new Set(overrides?.grants ?? []), [overrides?.grants]);
+  const denySet = useMemo(() => new Set(overrides?.denies ?? []), [overrides?.denies]);
+  // Tri-state mode counts what the user ends up holding at key level:
+  // (template ∪ grants) − denies.
+  const isOverrideMode = overrides !== undefined;
+  const granted = useMemo(
+    () =>
+      isOverrideMode
+        ? new Set([...inheritedSet, ...grantSet].filter((name) => !denySet.has(name)))
+        : new Set(value),
+    [isOverrideMode, inheritedSet, grantSet, denySet, value],
+  );
 
   const filteredGroups = useMemo(() => {
     if (!groups) return [];
@@ -119,8 +183,22 @@ export function PermissionMatrix({
   const expandAll = () => setExpanded(new Set(allModules.map((m) => m.key)));
   const collapseAll = () => setExpanded(new Set());
 
+  const overrideStateOf = (name: string): OverrideState =>
+    denySet.has(name) ? "deny" : grantSet.has(name) ? "grant" : "inherit";
+
+  const setOverride = (name: string, state: OverrideState) => {
+    if (disabled || !overrides) return;
+    const grants = new Set(grantSet);
+    const denies = new Set(denySet);
+    grants.delete(name);
+    denies.delete(name);
+    if (state === "grant") grants.add(name);
+    if (state === "deny") denies.add(name);
+    overrides.onChange({ grants: [...grants], denies: [...denies] });
+  };
+
   const setPermission = (name: string, checked: boolean) => {
-    if (disabled) return;
+    if (disabled || !onChange) return;
     const next = new Set(value);
     if (checked) next.add(name);
     else next.delete(name);
@@ -128,7 +206,7 @@ export function PermissionMatrix({
   };
 
   const toggleModule = (module: PermissionModuleDef, checked: boolean) => {
-    if (disabled) return;
+    if (disabled || !onChange) return;
     const next = new Set(value);
     for (const action of module.actions) {
       if (checked) next.add(action.name);
@@ -137,7 +215,14 @@ export function PermissionMatrix({
     onChange([...next]);
   };
 
-  const totalGrantedCount = value.length;
+  const totalGrantedCount = granted.size;
+
+  const actionLabel = (action: { name: string; action: string }) =>
+    t(
+      action.name.startsWith("agent.")
+        ? agentPermissionLabelKey(action.name)
+        : (ACTION_LABEL_KEY[action.action] ?? (action.action as MessageKey)),
+    );
 
   return (
     <div className="flex flex-col gap-2">
@@ -215,11 +300,15 @@ export function PermissionMatrix({
                           sectionLabel && "ps-6",
                         )}
                       >
-                        <Checkbox
-                          checked={isAllGranted ? true : isSomeGranted ? "indeterminate" : false}
-                          disabled={disabled}
-                          onCheckedChange={(checked) => toggleModule(module, !!checked)}
-                        />
+                        {isOverrideMode ? (
+                          <span className="w-4 shrink-0" />
+                        ) : (
+                          <Checkbox
+                            checked={isAllGranted ? true : isSomeGranted ? "indeterminate" : false}
+                            disabled={disabled}
+                            onCheckedChange={(checked) => toggleModule(module, !!checked)}
+                          />
+                        )}
                         <EnterpriseButton
                           type="button"
                           variant="ghost"
@@ -244,7 +333,7 @@ export function PermissionMatrix({
                           {grantedCount}/{module.actions.length}
                         </span>
                       </div>
-                      {isExpanded && (
+                      {isExpanded && !isOverrideMode && (
                         <div
                           className={cn(
                             "flex flex-wrap gap-x-5 gap-y-2 border-t border-border/40 bg-muted/20 px-3 py-2 ps-10",
@@ -261,13 +350,55 @@ export function PermissionMatrix({
                                 disabled={disabled}
                                 onCheckedChange={(checked) => setPermission(action.name, !!checked)}
                               />
-                              {t(
-                                action.name.startsWith("agent.")
-                                  ? agentPermissionLabelKey(action.name)
-                                  : (ACTION_LABEL_KEY[action.action] ??
-                                      (action.action as MessageKey)),
-                              )}
+                              {actionLabel(action)}
                             </label>
+                          ))}
+                        </div>
+                      )}
+                      {isExpanded && isOverrideMode && (
+                        <div
+                          className={cn(
+                            "flex flex-col divide-y divide-border/40 border-t border-border/40 bg-muted/20 ps-8",
+                            sectionLabel && "ps-12",
+                          )}
+                        >
+                          {module.actions.map((action) => (
+                            <div
+                              key={action.name}
+                              className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5 pe-3"
+                            >
+                              <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-caption">
+                                <span>{actionLabel(action)}</span>
+                                <PermissionSourceChip
+                                  name={action.name}
+                                  inherited={inheritedSet}
+                                  grants={grantSet}
+                                  denies={denySet}
+                                />
+                              </div>
+                              <ToggleGroup
+                                type="single"
+                                value={overrideStateOf(action.name)}
+                                disabled={disabled}
+                                // Radix emits "" when the pressed item is pressed again; a permission always has a source.
+                                onValueChange={(next) => {
+                                  if (next === "inherit" || next === "grant" || next === "deny") {
+                                    setOverride(action.name, next);
+                                  }
+                                }}
+                                aria-label={`${t("permissionTemplates.state.label")} — ${actionLabel(action)}`}
+                              >
+                                <ToggleGroupItem value="inherit" size="sm">
+                                  {t("permissionTemplates.state.inherit")}
+                                </ToggleGroupItem>
+                                <ToggleGroupItem value="grant" size="sm">
+                                  {t("permissionTemplates.state.grant")}
+                                </ToggleGroupItem>
+                                <ToggleGroupItem value="deny" size="sm">
+                                  {t("permissionTemplates.state.deny")}
+                                </ToggleGroupItem>
+                              </ToggleGroup>
+                            </div>
                           ))}
                         </div>
                       )}

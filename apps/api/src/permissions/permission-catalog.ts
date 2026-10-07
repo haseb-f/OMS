@@ -773,6 +773,13 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'create', name: 'masterdata.job-titles.create' },
       { action: 'edit', name: 'masterdata.job-titles.edit' },
       { action: 'delete', name: 'masterdata.job-titles.archive' },
+      // R14 W2 (spec-2 §A) — edit the title's default permission template.
+      // Deliberately NOT a settings-domain configuration action: only an
+      // explicit grant (or super admin) may change what a title confers.
+      {
+        action: 'manage_permissions',
+        name: 'job-titles.manage_permissions',
+      },
     ],
   },
   // TASK-062 Security Hardening — Master Data reference entities that had NO
@@ -1083,6 +1090,8 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     actions: [
       { action: 'view', name: 'settings.view' },
       { action: 'manage', name: 'settings.manage' },
+      // R14 W2 (spec-2 §A) — grant / deny individual permission overrides.
+      { action: 'manage_permissions', name: 'users.manage_permissions' },
     ],
   },
   ...SETTINGS_DOMAINS.map((domain): PermissionModuleDef => ({
@@ -1111,6 +1120,9 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'import', name: 'shipping.import' },
       { action: 'export', name: 'shipping.export' },
       { action: 'print', name: 'shipping.print' },
+      // R14 W2 (spec-2 §B) — assign / change a shipment's shipping company
+      // and tracking (shipment) number. `shipping.view` still shows them.
+      { action: 'assign_carrier', name: 'shipping.assign_carrier' },
     ],
   },
   {

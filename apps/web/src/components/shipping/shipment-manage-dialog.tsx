@@ -30,6 +30,7 @@ import {
 } from "@/services/shipping-service";
 import type { ShippingCompanyOption } from "@/services/shipping-companies-service";
 import { useLocale } from "@/providers/locale-provider";
+import { useUserContext } from "@/providers/user-context";
 import { reportApiError, toast } from "@/lib/toast";
 
 /**
@@ -46,6 +47,10 @@ import { reportApiError, toast } from "@/lib/toast";
  * transition-constrained subset. Moving a FINAL shipment back to an
  * UNDER_SYNC status ("reopening" it) asks for confirmation first, since
  * that makes it eligible for Shipping Sync again.
+ *
+ * R14 W2 (spec-2 §B) — the shipping company and tracking (shipment) number
+ * are editable only with `shipping.assign_carrier`; anyone else who opens the
+ * dialog sees them read only (the server enforces the same right).
  */
 export function ShipmentManageDialog({
   shipment,
@@ -61,6 +66,8 @@ export function ShipmentManageDialog({
   shippingCompanies: ShippingCompanyOption[];
 }) {
   const { t } = useLocale();
+  const { hasPermission } = useUserContext();
+  const canAssignCarrier = hasPermission("shipping.assign_carrier");
   const fieldId = useId();
   const [companyId, setCompanyId] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
@@ -109,7 +116,7 @@ export function ShipmentManageDialog({
           storeOrdersService.shipments.setShippingStatus(shipment.storeOrderId, shippingStatusId),
         );
       }
-      if (companyId && companyId !== (shipment.shippingCompanyId ?? "")) {
+      if (canAssignCarrier && companyId && companyId !== (shipment.shippingCompanyId ?? "")) {
         calls.push(
           storeOrdersService.shipments.setShippingCompany(
             shipment.storeOrderId,
@@ -118,7 +125,11 @@ export function ShipmentManageDialog({
           ),
         );
       }
-      if (trackingNumber.trim() && trackingNumber.trim() !== (shipment.trackingNumber ?? "")) {
+      if (
+        canAssignCarrier &&
+        trackingNumber.trim() &&
+        trackingNumber.trim() !== (shipment.trackingNumber ?? "")
+      ) {
         calls.push(
           storeOrdersService.shipments.setTrackingNumber(
             shipment.storeOrderId,
@@ -236,30 +247,56 @@ export function ShipmentManageDialog({
             )}
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${fieldId}-company`}>{t("shipping.filters.company")}</Label>
-            <SearchableSelect
-              id={`${fieldId}-company`}
-              value={companyId}
-              onValueChange={setCompanyId}
-              options={shippingCompanies.map((company) => ({
-                value: company.id,
-                label: company.name,
-              }))}
-              allowClear
-              placeholder={t("shipping.manage.selectCompany")}
-            />
-          </div>
+          {canAssignCarrier ? (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={`${fieldId}-company`}>{t("shipping.filters.company")}</Label>
+                <SearchableSelect
+                  id={`${fieldId}-company`}
+                  value={companyId}
+                  onValueChange={setCompanyId}
+                  options={shippingCompanies.map((company) => ({
+                    value: company.id,
+                    label: company.name,
+                  }))}
+                  allowClear
+                  placeholder={t("shipping.manage.selectCompany")}
+                />
+              </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label>{t("shipping.manage.trackingNumber")}</Label>
-            <Input
-              dir="ltr"
-              value={trackingNumber}
-              onChange={(e) => setTrackingNumber(e.target.value)}
-              placeholder={t("shipping.manage.trackingNumberPlaceholder")}
-            />
-          </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>{t("shipping.manage.trackingNumber")}</Label>
+                <Input
+                  dir="ltr"
+                  value={trackingNumber}
+                  onChange={(e) => setTrackingNumber(e.target.value)}
+                  placeholder={t("shipping.manage.trackingNumberPlaceholder")}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-muted/30 px-3 py-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-caption text-muted-foreground">
+                  {t("shipping.filters.company")}
+                </span>
+                <span className="text-caption font-medium">
+                  {shipment.shippingCompany?.name ?? "—"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-caption text-muted-foreground">
+                  {t("shipping.manage.trackingNumber")}
+                </span>
+                <span dir="ltr" className="font-mono text-caption">
+                  {shipment.trackingNumber ?? "—"}
+                </span>
+              </div>
+              <p className="text-caption text-muted-foreground">
+                {t("permissionTemplates.shipping.carrierReadOnly")}
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <Label>{t("shipping.manage.shippingCost")}</Label>

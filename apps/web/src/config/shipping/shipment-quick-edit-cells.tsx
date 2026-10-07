@@ -59,6 +59,8 @@ function useSaveState() {
 
 export interface ShipmentQuickEditContext {
   canEdit: boolean;
+  /** R14 W2 (spec-2 §B) — carrier / tracking cells are editable only with `shipping.assign_carrier`. */
+  canAssignCarrier?: boolean;
   statuses: ShippingStatusCatalogEntry[];
   companies: ShippingCompanyOption[];
   onPatched: (shipmentId: string, patch: Partial<ShipmentListRow>) => void;
@@ -187,7 +189,7 @@ export function ShippingCompanyQuickCell({
   const { t } = useLocale();
   const { state, setState, markSaved } = useSaveState();
 
-  if (!ctx.canEdit || !row.isCurrentAttempt) {
+  if (!ctx.canAssignCarrier || !row.isCurrentAttempt) {
     return <span>{row.shippingCompany?.name ?? "—"}</span>;
   }
 
@@ -250,7 +252,7 @@ export function TrackingNumberQuickCell({
     }
   }, [row.trackingNumber, isEditing]);
 
-  if (!ctx.canEdit || !row.isCurrentAttempt) {
+  if (!ctx.canAssignCarrier || !row.isCurrentAttempt) {
     return row.trackingNumber ? (
       <SemanticValue kind="id">{row.trackingNumber}</SemanticValue>
     ) : (

@@ -20,6 +20,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { LegacySalesOrderScopeGuard } from './legacy-sales-order-scope.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PermissionModule } from '../auth/decorators/permission-module.decorator';
+import { PermissionAction } from '../auth/decorators/permission-action.decorator';
 
 /**
  * Business operations, not generic CRUD (per TASK-011: "Never implement
@@ -35,9 +38,14 @@ import { LegacySalesOrderScopeGuard } from './legacy-sales-order-scope.guard';
  * the newer `sales/orders` and `store-orders` shipping flows and needs a
  * product decision on which permission module it should adopt before a
  * guard can be added without risking the wrong access boundary.
+ *
+ * R14 W2 (spec-2 §B) — the carrier and tracking-number routes are the
+ * exception: method-level `shipping.assign_carrier` (the one right to assign
+ * or change a shipping company / shipment number). Routes without a
+ * `@PermissionModule` pass `PermissionsGuard` unchanged.
  */
 @Controller('sales-orders')
-@UseGuards(JwtAuthGuard, LegacySalesOrderScopeGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, LegacySalesOrderScopeGuard)
 export class SalesOrdersController {
   constructor(private readonly salesOrdersService: SalesOrdersService) {}
 
@@ -73,6 +81,8 @@ export class SalesOrdersController {
 
   @Post(':id/shipping-company')
   @HttpCode(200)
+  @PermissionModule('shipping')
+  @PermissionAction('assign_carrier')
   assignShippingCompany(
     @Param('id') id: string,
     @Body() dto: AssignShippingCompanyDto,
@@ -82,6 +92,8 @@ export class SalesOrdersController {
 
   @Post(':id/tracking-number')
   @HttpCode(200)
+  @PermissionModule('shipping')
+  @PermissionAction('assign_carrier')
   addTrackingNumber(
     @Param('id') id: string,
     @Body() dto: AddTrackingNumberDto,

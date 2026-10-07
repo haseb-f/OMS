@@ -20,6 +20,7 @@ import assemblyEn from "./modules/assembly.en";
 import inventoryIntegrityEn from "./modules/inventory-integrity.en";
 import expenseVouchersEn from "./modules/expense-vouchers.en";
 import storeOrderRecognitionEn from "./modules/store-order-recognition.en";
+import permissionTemplatesEn from "./modules/permission-templates.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
@@ -35,6 +36,7 @@ const en = {
   inventoryIntegrity: inventoryIntegrityEn,
   expenseVouchers: expenseVouchersEn,
   storeOrderRecognition: storeOrderRecognitionEn,
+  permissionTemplates: permissionTemplatesEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,

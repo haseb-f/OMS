@@ -30,13 +30,20 @@ export function userStatusTone(row: Pick<UserRow, "isLocked" | "isActive">) {
 
 export function StatusCell({ row }: { row: UserRow }) {
   const { t } = useLocale();
-  if (row.isLocked) {
-    return <StatusBadge label={t("settings.users.status.locked")} tone="destructive" />;
-  }
-  return row.isActive ? (
+  const status = row.isLocked ? (
+    <StatusBadge label={t("settings.users.status.locked")} tone="destructive" />
+  ) : row.isActive ? (
     <StatusBadge label={t("settings.users.status.active")} tone="success" />
   ) : (
     <StatusBadge label={t("settings.users.status.inactive")} tone="neutral" />
+  );
+  // R14 W2 — the job title changed since the permission panel was last saved.
+  if (!row.permissionsReviewRequired) return status;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      {status}
+      <StatusBadge label={t("permissionTemplates.reviewBadge")} tone="warning" />
+    </span>
   );
 }
 

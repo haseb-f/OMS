@@ -20,6 +20,7 @@ import assemblyAr from "./modules/assembly.ar";
 import inventoryIntegrityAr from "./modules/inventory-integrity.ar";
 import expenseVouchersAr from "./modules/expense-vouchers.ar";
 import storeOrderRecognitionAr from "./modules/store-order-recognition.ar";
+import permissionTemplatesAr from "./modules/permission-templates.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
@@ -35,6 +36,7 @@ const ar = {
   inventoryIntegrity: inventoryIntegrityAr,
   expenseVouchers: expenseVouchersAr,
   storeOrderRecognition: storeOrderRecognitionAr,
+  permissionTemplates: permissionTemplatesAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,

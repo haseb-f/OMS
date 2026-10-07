@@ -1149,6 +1149,7 @@ describeDb('Agent finance (local DB)', () => {
       { resolveOptional: () => Promise.resolve(undefined) } as never,
       fulfillment,
       moduleRef.get(FulfillmentRecognitionService, { strict: false }),
+      { hasPermission: () => Promise.resolve(true) } as never,
     );
     const before = await onHand(productA);
     await handler.importRow(

@@ -41,6 +41,11 @@ model User {
   /// drains, manual assignment). Finance/Shipping/HR staff stay false.
   salesDistributionEligible Boolean @default(false) @map("sales_distribution_eligible")
 
+  /// R14 (spec-2 §A) — set when the user's job title changes (the inherited
+  /// template switched while individual GRANT/DENY rows were kept); cleared
+  /// when an administrator saves the user's permission panel.
+  permissionsReviewRequired Boolean @default(false) @map("permissions_review_required")
+
   jobTitleId String?   @map("job_title_id") @db.Uuid
   jobTitle   JobTitle? @relation(fields: [jobTitleId], references: [id])
 
@@ -190,6 +195,8 @@ model JobTitle {
   users                  User[]
   employeeProfiles       EmployeeProfile[]
   kpiTemplateAssignments KpiTemplateAssignment[]
+  /// R14 (spec-2 §A) — the title's default permission template.
+  permissionTemplate     JobTitlePermission[]
 
   @@index([deletedAt, isActive, sortOrder])
   @@index([departmentId])
@@ -342,7 +349,9 @@ model Permission {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
 
-  userPermissions UserPermission[]
+  userPermissions     UserPermission[]
+  /// R14 (spec-2 §A) — job-title templates holding this permission.
+  jobTitlePermissions JobTitlePermission[]
 
   @@map("permissions")
 }
@@ -361,10 +370,16 @@ model UserPermission {
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
+  /// R14 (spec-2 §A) — individual override: GRANT adds to the job-title
+  /// template, DENY removes (beats the template and implied permissions).
+  /// Every pre-R14 row is a GRANT.
+  effect PermissionEffect @default(GRANT)
+
   createdAt DateTime @default(now()) @map("created_at")
   createdBy String?  @map("created_by") @db.Uuid
 
   @@unique([userId, permissionId])
+  @@index([permissionId, effect])
   @@map("user_permissions")
 }
 
@@ -10183,4 +10198,33 @@ model AgentOrderReturn {
 
   @@index([storeOrderId])
   @@map("agent_order_returns")
+}
+
+// ---------------------------------------------------------------------------
+// R14 W2 (spec-2 §A) — job-title permission templates with individual
+// overrides. Effective(user) = (template(user.jobTitle) ∪ GRANTs) − DENYs,
+// resolved by PermissionsResolverService only (INTERNAL users only).
+// ---------------------------------------------------------------------------
+enum PermissionEffect {
+  GRANT
+  DENY
+}
+
+/// The default permission set of a Job Title. Applies live to every INTERNAL
+/// holder of the title; edited with an impact preview (spec-2 §A).
+model JobTitlePermission {
+  id String @id @default(uuid()) @db.Uuid
+
+  jobTitleId   String @map("job_title_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  jobTitle   JobTitle   @relation(fields: [jobTitleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  @@unique([jobTitleId, permissionId])
+  @@index([permissionId])
+  @@map("job_title_permissions")
 }

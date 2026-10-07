@@ -65,9 +65,10 @@ export class StoreOrderShipmentsController {
     );
   }
 
+  /** R14 W2 (spec-2 §B) — carrier / tracking need `shipping.assign_carrier`. */
   @Post('shipping-company')
   @HttpCode(200)
-  @PermissionAction('edit')
+  @PermissionAction('assign_carrier')
   assignShippingCompany(
     @Param('storeOrderId') storeOrderId: string,
     @Body() dto: AssignShippingCompanyDto,
@@ -82,9 +83,10 @@ export class StoreOrderShipmentsController {
     );
   }
 
+  /** R14 W2 (spec-2 §B) — carrier / tracking need `shipping.assign_carrier`. */
   @Post('tracking-number')
   @HttpCode(200)
-  @PermissionAction('edit')
+  @PermissionAction('assign_carrier')
   addTrackingNumber(
     @Param('storeOrderId') storeOrderId: string,
     @Body() dto: AddTrackingNumberDto,

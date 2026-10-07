@@ -182,7 +182,10 @@ function StoreOrderDetailContent() {
   const canEditCustomer = hasPermission("partners.edit");
   const canDeclarePayment = canEdit || hasPermission("sales.receipts.create");
   const canRecordPickup = canEdit || hasPermission("shipping.edit");
-  const canManageShipping = canEdit || hasPermission("shipping.edit");
+  // R14 W2 (spec-2 §B) — shipping rights only: `store-orders.edit` (sales
+  // staff) never opens the carrier / shipment dialog.
+  const canManageShipping =
+    hasPermission("shipping.edit") || hasPermission("shipping.assign_carrier");
   const canReviewDuplicates = hasPermission("store-orders.duplicate_review");
   const canReviewPayments = hasPermission("sales.receipts.view");
 

@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  isAgentPortalPermission,
-  withAuthorizationImpliedPermissions,
-  withSettingsDomainGrants,
-} from './permission-catalog';
+import { computeEffectivePermissions } from './effective-permissions';
 
 interface CacheEntry {
   isSuperAdmin: boolean;
@@ -57,38 +53,43 @@ export class PermissionsResolverService {
     const [user, rows] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: userId },
-        select: { isSuperAdmin: true, userType: true, agentRole: true },
+        select: {
+          isSuperAdmin: true,
+          userType: true,
+          agentRole: true,
+          jobTitleId: true,
+        },
       }),
       this.prisma.userPermission.findMany({
         where: { userId },
-        select: { permission: { select: { name: true } } },
+        select: { effect: true, permission: { select: { name: true } } },
       }),
     ]);
-    const stored = rows.map((row) => row.permission.name);
     // Agents milestone (spec §3): shared login never means shared
     // privileges. An agent user's effective set is only its `agent.*` rows —
     // any internal row (e.g. a same-named role grant) is ignored — and an
     // internal user never holds `agent.*`. Agent users are never super admins.
     const isAgentUser = user?.userType === 'AGENT';
-    // `agent.team.manage` is an Agent Admin capability only (S7) — a SALES
-    // user never holds it, whatever rows exist.
-    const permissions = isAgentUser
-      ? new Set(
-          stored.filter(
-            (name) =>
-              isAgentPortalPermission(name) &&
-              (name !== 'agent.team.manage' || user?.agentRole === 'ADMIN'),
-          ),
-        )
-      : new Set(
-          // R6 — settings-domain keys expand to their domain's setup keys at
-          // resolve time only (never persisted, never for agent users).
-          withSettingsDomainGrants(
-            withAuthorizationImpliedPermissions(
-              stored.filter((name) => !isAgentPortalPermission(name)),
-            ),
-          ),
-        );
+    // R14 (spec-2 §A) — INTERNAL users inherit their job title's template;
+    // individual rows are GRANT (default) or DENY overrides.
+    const template =
+      !isAgentUser && user?.jobTitleId
+        ? await this.prisma.jobTitlePermission.findMany({
+            where: { jobTitleId: user.jobTitleId },
+            select: { permission: { select: { name: true } } },
+          })
+        : [];
+    const permissions = computeEffectivePermissions({
+      isAgentUser,
+      agentRole: user?.agentRole,
+      template: template.map((row) => row.permission.name),
+      grants: rows
+        .filter((row) => row.effect !== 'DENY')
+        .map((row) => row.permission.name),
+      denies: rows
+        .filter((row) => row.effect === 'DENY')
+        .map((row) => row.permission.name),
+    });
     const entry: CacheEntry = {
       isSuperAdmin: !isAgentUser && (user?.isSuperAdmin ?? false),
       isAgentUser,
@@ -119,8 +120,18 @@ export class PermissionsResolverService {
     return (await this.load(userId)).isAgentUser;
   }
 
+  /**
+   * Drops this process's cached entry. Other API instances keep theirs until
+   * the 60 s TTL expires — cross-instance staleness is bounded by CACHE_TTL_MS
+   * (spec-2 §A "Cache").
+   */
   invalidate(userId: string) {
     this.cache.delete(userId);
+  }
+
+  /** R14 — a job-title template change invalidates every holder of the title. */
+  invalidateMany(userIds: Iterable<string>) {
+    for (const userId of userIds) this.cache.delete(userId);
   }
 
   /**
@@ -130,16 +141,52 @@ export class PermissionsResolverService {
    * "one resolver" source of truth — no parallel permission-matching logic
    * anywhere else.
    */
-  async getUsersWithPermission(permissionName: string): Promise<string[]> {
+  async getUsersWithPermission(
+    permissionName: string,
+    /** Restrict the lookup to these users (e.g. one candidate). */
+    amongUserIds?: string[],
+  ): Promise<string[]> {
+    const among = amongUserIds ? { id: { in: amongUserIds } } : {};
     // Internal work pools (lead round robin, assignment pickers) never
-    // include external agent users (spec §3).
-    const rows = await this.prisma.userPermission.findMany({
-      where: {
-        permission: { name: permissionName },
-        user: { userType: 'INTERNAL' },
-      },
-      select: { userId: true },
-    });
-    return [...new Set(rows.map((row) => row.userId))];
+    // include external agent users (spec §3). R14 — a holder is an INTERNAL
+    // user with an individual GRANT or a job-title template carrying the
+    // permission, and without an individual DENY on it.
+    const [granted, inherited, denied] = await Promise.all([
+      this.prisma.userPermission.findMany({
+        where: {
+          effect: 'GRANT',
+          permission: { name: permissionName },
+          user: { userType: 'INTERNAL', ...among },
+        },
+        select: { userId: true },
+      }),
+      this.prisma.user.findMany({
+        where: {
+          userType: 'INTERNAL',
+          ...among,
+          jobTitle: {
+            permissionTemplate: {
+              some: { permission: { name: permissionName } },
+            },
+          },
+        },
+        select: { id: true },
+      }),
+      this.prisma.userPermission.findMany({
+        where: {
+          effect: 'DENY',
+          permission: { name: permissionName },
+          ...(amongUserIds ? { userId: { in: amongUserIds } } : {}),
+        },
+        select: { userId: true },
+      }),
+    ]);
+    const deniedIds = new Set(denied.map((row) => row.userId));
+    return [
+      ...new Set([
+        ...granted.map((row) => row.userId),
+        ...inherited.map((row) => row.id),
+      ]),
+    ].filter((userId) => !deniedIds.has(userId));
   }
 }

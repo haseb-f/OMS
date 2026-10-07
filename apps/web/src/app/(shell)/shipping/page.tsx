@@ -66,6 +66,7 @@ function ShippingPageContent() {
   const router = useRouter();
   const { hasPermission } = useUserContext();
   const canQuickEdit = hasPermission("shipping.edit");
+  const canAssignCarrier = hasPermission("shipping.assign_carrier");
 
   const [items, setItems] = useState<ShipmentListRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -202,12 +203,13 @@ function ShippingPageContent() {
       onManage: (row) => setManageTarget(row),
       quickEdit: {
         canEdit: canQuickEdit,
+        canAssignCarrier,
         statuses,
         companies,
         onPatched: handleRowPatched,
       },
     }),
-    [router, canQuickEdit, statuses, companies, handleRowPatched],
+    [router, canQuickEdit, canAssignCarrier, statuses, companies, handleRowPatched],
   );
   const columns = useMemo(() => buildShipmentColumns(rowHandlers), [rowHandlers]);
 

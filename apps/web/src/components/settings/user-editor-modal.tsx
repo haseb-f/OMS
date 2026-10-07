@@ -18,7 +18,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { OMSPhoneInput, isPhoneValidForCountry } from "@/components/shared/phone-input";
 import { PASSWORD_POLICY, generateSecurePassword } from "@/lib/password-generator";
 import { PermissionMatrix } from "./permission-matrix";
-import { usersService, type UserRow, type UserFormPayload } from "@/services/users-service";
+import {
+  usersService,
+  type PermissionOverrides,
+  type UserPermissionPanel as UserPermissionPanelData,
+  type UserRow,
+  type UserFormPayload,
+} from "@/services/users-service";
+import { UserPermissionPanel } from "./user-permission-panel";
+import { useUserContext } from "@/providers/user-context";
 import { DepartmentPicker } from "@/components/business/department-picker";
 import { UserPicker } from "@/components/business/user-picker";
 import { SearchableSelect } from "@/components/shared/searchable-select";
@@ -29,6 +37,8 @@ import { useLocale } from "@/providers/locale-provider";
 import { toast, reportApiError } from "@/lib/toast";
 import Link from "next/link";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+
+const EMPTY_OVERRIDES: PermissionOverrides = { grants: [], denies: [] };
 
 interface FormState {
   fullName: string;
@@ -104,6 +114,10 @@ export function UserEditorModal({
   const [archivedDepartment, setArchivedDepartment] = useState<DepartmentRow | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [permissions, setPermissions] = useState<string[]>([]);
+  // R14 W2 — internal users: job-title template + individual overrides.
+  const [overrides, setOverrides] = useState<PermissionOverrides>(EMPTY_OVERRIDES);
+  const [permissionPanel, setPermissionPanel] = useState<UserPermissionPanelData | null>(null);
+  const { user: currentUser, isSuperAdmin, hasPermission } = useUserContext();
   const [copySourceId, setCopySourceId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingRecord, setIsLoadingRecord] = useState(false);
@@ -133,6 +147,8 @@ export function UserEditorModal({
       // and copyable; the admin may keep it, regenerate it or type their own.
       setForm({ ...emptyForm, password: generateSecurePassword(), passwordGenerated: true });
       setPermissions([]);
+      setOverrides(EMPTY_OVERRIDES);
+      setPermissionPanel(null);
       setSelectedDepartment(null);
       setArchivedDepartment(null);
       setIsLoadingRecord(false);
@@ -177,18 +193,35 @@ export function UserEditorModal({
         // Table row data already populated the form; keep it if refresh fails.
       })
       .finally(() => setIsLoadingRecord(false));
+    if (user.userType === "AGENT") {
+      usersService
+        .getPermissions(user.id)
+        .then((result) => setPermissions(result.granted))
+        .catch(() => setPermissions([]))
+        .finally(() => setIsLoadingPermissions(false));
+      return;
+    }
+    setPermissionPanel(null);
     usersService
-      .getPermissions(user.id)
-      .then((result) => setPermissions(result.granted))
-      .catch(() => setPermissions([]))
+      .getPermissionOverrides(user.id)
+      .then((panel) => {
+        setPermissionPanel(panel);
+        setOverrides({ grants: panel.grants, denies: panel.denies });
+      })
+      .catch(() => setOverrides(EMPTY_OVERRIDES))
       .finally(() => setIsLoadingPermissions(false));
   }, [open, user]);
 
   const handleLoadPermissions = async () => {
     if (!copySourceId) return;
     try {
-      const result = await usersService.getPermissions(copySourceId);
-      setPermissions(result.granted);
+      if (isAgentUser) {
+        const result = await usersService.getPermissions(copySourceId);
+        setPermissions(result.granted);
+      } else {
+        const source = await usersService.getPermissionOverrides(copySourceId);
+        setOverrides({ grants: source.grants, denies: source.denies });
+      }
       toast.success(t("settings.users.editor.permissionsLoaded"));
     } catch (error) {
       reportApiError(error, "errors.generic");
@@ -251,7 +284,11 @@ export function UserEditorModal({
         saved = created;
         temporaryPassword = created.temporaryPassword;
       }
-      await usersService.setPermissions(saved.id, permissions);
+      if (isAgentUser) {
+        await usersService.setPermissions(saved.id, permissions);
+      } else if (!permissionsReadOnlyReason) {
+        await usersService.setPermissionOverrides(saved.id, overrides);
+      }
       toast.success(user ? t("settings.users.toasts.saved") : t("settings.users.toasts.created"));
       onOpenChange(false);
       onSaved(temporaryPassword);
@@ -265,6 +302,13 @@ export function UserEditorModal({
   // Agents milestone (spec §3): agent users hold only agent-portal permissions,
   // and permissions are never copied across user types.
   const isAgentUser = user?.userType === "AGENT";
+  // R14 W2 — the server rejects self-edits and saves without the right (403);
+  // the panel says so up front instead.
+  const permissionsReadOnlyReason = !hasPermission("users.manage_permissions")
+    ? t("permissionTemplates.userPanel.readOnly")
+    : user && currentUser?.id === user.id && !isSuperAdmin
+      ? t("permissionTemplates.userPanel.selfEdit")
+      : null;
   const otherUsers = allUsers.filter(
     (candidate) => candidate.id !== user?.id && (candidate.userType === "AGENT") === isAgentUser,
   );
@@ -512,11 +556,20 @@ export function UserEditorModal({
               </Alert>
             ) : null}
             <div className="col-span-full">
-              <PermissionMatrix
-                value={permissions}
-                onChange={setPermissions}
-                audience={isAgentUser ? "agent" : "internal"}
-              />
+              {isAgentUser ? (
+                <PermissionMatrix value={permissions} onChange={setPermissions} audience="agent" />
+              ) : (
+                <UserPermissionPanel
+                  panel={permissionPanel}
+                  jobTitleId={form.jobTitleId || null}
+                  jobTitleName={
+                    jobTitles.find((title) => title.id === form.jobTitleId)?.name ?? null
+                  }
+                  value={overrides}
+                  onChange={setOverrides}
+                  readOnlyReason={permissionsReadOnlyReason}
+                />
+              )}
             </div>
           </ModalSection>
         </div>

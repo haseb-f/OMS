@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { PermissionsResolverService } from '../permissions/permissions-resolver.service';
 import type { DepartmentsService } from '../departments/departments.service';
+import type { PermissionAdministrationService } from '../permissions/permission-administration.service';
 import { PhoneNumberService } from '../common/phone/phone-number.service';
 import { UsersService } from './users.service';
 
@@ -16,6 +17,7 @@ describe('UsersService mobile normalization', () => {
     {} as PermissionsResolverService,
     new PhoneNumberService(),
     {} as DepartmentsService,
+    {} as PermissionAdministrationService,
   );
   const normalize = (value: string) =>
     (

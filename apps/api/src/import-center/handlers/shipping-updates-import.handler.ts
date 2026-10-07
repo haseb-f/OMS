@@ -6,6 +6,7 @@ import {
 } from '../../agents/finance/agent-fulfillment.service';
 import { FulfillmentRecognitionService } from '../../store-orders/fulfillment-recognition/fulfillment-recognition.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { StoreOrderShipmentsService } from '../../store-orders/shipments/store-order-shipments.service';
 import {
   StoreOrderActivityService,
@@ -83,6 +84,10 @@ const STORE_ORDER_BY_INTERNAL_ID_CACHE_KEY =
 function systemOrderIdNotFoundMessage(systemOrderId: string): string {
   return `تعذر العثور على طلب OMS المرتبط بهذا الصف.\nرقم طلب OMS في عمود System Order ID: [${systemOrderId}].\nتحقق من الرقم أو أعد مزامنة طلبات المتجر أولًا.`;
 }
+
+/** R14 W2 (spec-2 §B) — per-row rejection when the row would assign or change the carrier / tracking number. */
+export const ASSIGN_CARRIER_REQUIRED_MESSAGE =
+  'لا تملك صلاحية تعيين شركة الشحن أو رقم الشحنة (shipping.assign_carrier) — تم رفض هذا الصف دون أي تغيير.';
 
 /** Data Synchronization spec — neither R nor a usable External Order ID is present on the row. */
 const NO_USABLE_IDENTIFIER_MESSAGE =
@@ -211,6 +216,7 @@ export class ShippingUpdatesImportHandler
     private readonly agentFulfillment: AgentFulfillmentService,
     /** R14 W3 — the same SHIPMENT_COST accrual + post-commit recognition hook as a manual status change. */
     private readonly recognition: FulfillmentRecognitionService,
+    private readonly permissionsResolver: PermissionsResolverService,
   ) {}
 
   onModuleInit() {
@@ -416,6 +422,12 @@ export class ShippingUpdatesImportHandler
     }
 
     const trackingNumber = row.trackingNumber?.trim() || undefined;
+    await this.assertCarrierRights(
+      current,
+      trackingNumber,
+      shippingCompanyId,
+      userId,
+    );
     if (
       catalogStatus.code === ShipmentStatus.DELIVERED &&
       !trackingNumber &&
@@ -480,6 +492,12 @@ export class ShippingUpdatesImportHandler
     );
     const current = await this.shipmentsService.getCurrent(order.id);
     const trackingNumber = row.trackingNumber?.trim() || undefined;
+    await this.assertCarrierRights(
+      current,
+      trackingNumber,
+      shippingCompanyId,
+      userId,
+    );
     const labelUrl = row.labelUrl?.trim() || undefined;
     if (labelUrl) assertValidUrl(labelUrl);
     const notes = row.notes?.trim() || undefined;
@@ -495,6 +513,38 @@ export class ShippingUpdatesImportHandler
       userId,
       StoreOrderActivitySource.GOOGLE_SHEETS,
     );
+  }
+
+  /**
+   * R14 W2 (spec-2 §B) — a row that would assign or change the shipping
+   * company or the tracking number needs `shipping.assign_carrier` (manual
+   * import and Sheets sync alike); otherwise the row is rejected with its own
+   * reason and nothing is written. A row repeating the current values, or
+   * carrying only status / label / notes, keeps needing only the job's own
+   * rights. Internal calls without an actor (tests, system code) are trusted.
+   */
+  private async assertCarrierRights(
+    current: {
+      trackingNumber: string | null;
+      shippingCompanyId: string | null;
+    } | null,
+    trackingNumber: string | undefined,
+    shippingCompanyId: string | undefined,
+    userId: string | undefined,
+  ) {
+    const changesCarrier =
+      (!!shippingCompanyId &&
+        shippingCompanyId !== (current?.shippingCompanyId ?? null)) ||
+      (!!trackingNumber &&
+        trackingNumber !== (current?.trackingNumber ?? null));
+    if (!changesCarrier || !userId) return;
+    const allowed = await this.permissionsResolver.hasPermission(
+      userId,
+      'shipping.assign_carrier',
+    );
+    if (!allowed) {
+      throw new BadRequestException(ASSIGN_CARRIER_REQUIRED_MESSAGE);
+    }
   }
 
   /** Idempotency (spec section 15) — every requested field that was actually provided already matches; applying the update would be a pure no-op. */
