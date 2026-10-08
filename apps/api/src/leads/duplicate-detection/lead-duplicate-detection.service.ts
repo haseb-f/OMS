@@ -22,6 +22,8 @@ export interface DuplicateCheckResult {
   /** Mobile + Customer Name match an existing lead, but the product differs — creation is
    *  allowed, the new lead is flagged `possibleDuplicate`. */
   isPossibleDuplicate: boolean;
+  /** R15 — the existing lead an exact duplicate matches (named in the refusal). */
+  matchedLeadNumber?: string;
 }
 
 /**
@@ -52,6 +54,7 @@ export class LeadDuplicateDetectionService {
         agentId: input.agentId ?? null,
       },
       select: {
+        leadNumber: true,
         productId: true,
         mobileNumber: true,
         country: { select: { code: true } },
@@ -71,10 +74,16 @@ export class LeadDuplicateDetectionService {
     }
 
     const productId = input.productId ?? null;
-    const isExactDuplicate = matches.some(
+    const exact = matches.find(
       (match) => (match.productId ?? null) === productId,
     );
 
-    return { isExactDuplicate, isPossibleDuplicate: !isExactDuplicate };
+    return exact
+      ? {
+          isExactDuplicate: true,
+          isPossibleDuplicate: false,
+          matchedLeadNumber: exact.leadNumber,
+        }
+      : { isExactDuplicate: false, isPossibleDuplicate: true };
   }
 }

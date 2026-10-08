@@ -25,6 +25,7 @@ import {
 } from './dto/company-partners.dto';
 import {
   addCalendarDays,
+  businessDateOf,
   toBusinessDateString,
 } from '../common/time/business-date';
 import {
@@ -34,8 +35,44 @@ import {
   rangesOverlap,
 } from './partner-profit-calculator';
 import { PartnerBalancesService } from './partner-balances.service';
+import { partnershipState } from './partner-statement-rules';
 
 export const PROFILE_ENTITY = 'COMPANY_PARTNER';
+
+/** R15 — the partner's own login as shown on the partner page (never its password or permissions). */
+export const PARTNER_LOGIN_SELECT = {
+  id: true,
+  email: true,
+  fullName: true,
+  isActive: true,
+  isLocked: true,
+  mustChangePassword: true,
+  lastLoginAt: true,
+  createdAt: true,
+} satisfies Prisma.UserSelect;
+
+type PartnerLoginRow = Prisma.UserGetPayload<{
+  select: typeof PARTNER_LOGIN_SELECT;
+}>;
+
+export function partnerLoginView(user: PartnerLoginRow | null | undefined) {
+  if (!user) return null;
+  return {
+    userId: user.id,
+    email: user.email,
+    fullName: user.fullName,
+    isActive: user.isActive,
+    isLocked: user.isLocked,
+    mustChangePassword: user.mustChangePassword,
+    lastLoginAt: user.lastLoginAt,
+    createdAt: user.createdAt,
+  };
+}
+
+/** The login linked to a profile (deleted users never count). */
+const PROFILE_LOGIN_INCLUDE = {
+  user: { select: PARTNER_LOGIN_SELECT },
+} satisfies Prisma.CompanyPartnerProfileInclude;
 export const AGREEMENT_ENTITY = 'PARTNER_AGREEMENT';
 
 /** Agreements that are (or were) in force — DRAFT never counts. */
@@ -106,6 +143,7 @@ export class CompanyPartnersService {
   async list() {
     const profiles = await this.prisma.companyPartnerProfile.findMany({
       include: {
+        ...PROFILE_LOGIN_INCLUDE,
         partner: {
           select: {
             id: true,
@@ -125,20 +163,17 @@ export class CompanyPartnersService {
     const balances = await this.balances.forPartners(
       profiles.map((p) => p.partnerId),
     );
-    const today = isoDate(new Date());
+    const today = businessDateOf(new Date());
     return profiles.map((profile) => {
+      const agreements = profile.partner.partnerAgreements.map(agreementView);
       const current =
-        profile.partner.partnerAgreements.find((a) =>
-          rangesOverlap(
-            isoDate(a.effectiveFrom),
-            a.effectiveTo ? isoDate(a.effectiveTo) : null,
-            today,
-            today,
-          ),
+        agreements.find((a) =>
+          rangesOverlap(a.effectiveFrom, a.effectiveTo, today, today),
         ) ?? null;
       return {
         ...this.profileView(profile),
-        currentAgreement: current ? agreementView(current) : null,
+        currentAgreement: current,
+        partnership: partnershipState(agreements, today),
         ...balances.get(profile.partnerId)!,
       };
     });
@@ -151,9 +186,14 @@ export class CompanyPartnersService {
       orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
     });
     const balances = await this.balances.forPartners([partnerId]);
+    const views = agreements.map(agreementView);
     return {
       ...this.profileView(profile),
-      agreements: agreements.map(agreementView),
+      agreements: views,
+      partnership: partnershipState(
+        views.filter((a) => a.status !== PartnerAgreementStatus.DRAFT),
+        businessDateOf(new Date()),
+      ),
       ...balances.get(partnerId)!,
     };
   }
@@ -167,6 +207,7 @@ export class CompanyPartnersService {
         phone: string | null;
         email: string | null;
       };
+      user: PartnerLoginRow | null;
     },
   ) {
     return {
@@ -183,6 +224,8 @@ export class CompanyPartnersService {
       notes: profile.notes,
       status: profile.status,
       createdAt: profile.createdAt,
+      /** R15 — the partner's own login (email, status, last login), if any. */
+      login: partnerLoginView(profile.user),
     };
   }
 
@@ -223,6 +266,7 @@ export class CompanyPartnersService {
     const profile = await this.prisma.companyPartnerProfile.findUnique({
       where: { partnerId },
       include: {
+        ...PROFILE_LOGIN_INCLUDE,
         partner: {
           select: {
             id: true,
@@ -240,7 +284,11 @@ export class CompanyPartnersService {
     return profile;
   }
 
-  /** From an existing Partner (gains the OWNER role) or a brand-new Partner. No login is ever created. */
+  /**
+   * From an existing Partner (gains the OWNER role) or a brand-new Partner.
+   * The partner's own login is a separate, authorized step taken once an
+   * agreement is in force (`PartnerLoginsService`, R15).
+   */
   async create(dto: CreateCompanyPartnerDto, userId?: string) {
     let partnerId = dto.partnerId;
     if (partnerId) {

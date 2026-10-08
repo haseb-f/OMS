@@ -36,6 +36,9 @@ const INCLUDE = {
 
 type PaymentRow = Prisma.PartnerPaymentGetPayload<{ include: typeof INCLUDE }>;
 
+/** How a partner sees the way it was paid — a method label, never the account. */
+export type PartnerPaymentMethod = 'CASH' | 'BANK' | 'OTHER';
+
 function paymentView(row: PaymentRow) {
   return {
     id: row.id,
@@ -80,6 +83,43 @@ export class PartnerPaymentsService {
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
     });
     return rows.map(paymentView);
+  }
+
+  /**
+   * R15 (spec-w4 §2, 4.11) — the partner-safe payment history: number,
+   * date, amount, method label (cash / bank, from the posting settings'
+   * default accounts — never an account code or name), the payment's own
+   * reference and whether it was reversed. No journal entry, no notes, no
+   * reversal reason.
+   */
+  async history(partnerId: string, range: { from: string; to: string }) {
+    const [rows, settings] = await Promise.all([
+      this.prisma.partnerPayment.findMany({
+        where: {
+          partnerId,
+          date: { gte: dateValue(range.from), lte: dateValue(range.to) },
+        },
+        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      }),
+      this.prisma.postingSettings.findFirst({
+        select: { cashAccountId: true, bankAccountId: true },
+      }),
+    ]);
+    const methodOf = (accountId: string): PartnerPaymentMethod =>
+      accountId === settings?.cashAccountId
+        ? 'CASH'
+        : accountId === settings?.bankAccountId
+          ? 'BANK'
+          : 'OTHER';
+    return rows.map((row) => ({
+      paymentNumber: row.paymentNumber,
+      date: isoDate(row.date),
+      amount: Number(row.amount),
+      method: methodOf(row.financialAccountId),
+      reference: row.reference,
+      reversed: row.reversedAt !== null,
+      reversedOn: row.reversedAt ? businessDateOf(row.reversedAt) : null,
+    }));
   }
 
   private async requirePayment(id: string) {

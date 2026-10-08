@@ -139,6 +139,17 @@ export interface ImportedOrderDetails {
   notes?: string;
 }
 
+/** What scopes a new lead (shared by `create` and its pre-write checks). */
+export interface LeadCreateOptions {
+  /**
+   * Agents milestone (spec §6.1) — set only from a server-verified agent
+   * context (`AgentLeadsService`, the agent import): the lead belongs to that
+   * agent, is owned by `dto.salesEmployeeId` (a user of that agent) and
+   * never enters internal distribution.
+   */
+  agentId?: string;
+}
+
 @Injectable()
 export class LeadsService {
   private readonly logger = new Logger(LeadsService.name);
@@ -203,20 +214,114 @@ export class LeadsService {
   async create(
     dto: CreateLeadDto,
     userId?: string,
-    options?: {
+    options?: LeadCreateOptions & {
       defaultStatusId?: string;
       skipFullRefetch?: boolean;
-      /**
-       * Agents milestone (spec §6.1) — set only by `AgentLeadsService` from
-       * the server-verified agent context: the lead belongs to that agent,
-       * is owned by `dto.salesEmployeeId` (the creating agent user) and
-       * never enters internal distribution.
-       */
-      agentId?: string;
       /** Agent leads: preferred fulfillment captured at entry (default on conversion). */
       fulfillmentMethod?: StoreOrderFulfillmentMethod;
+      /**
+       * R15 (D15-17) — the identity of the spreadsheet row this lead is
+       * imported from (`lead-import:<scope>:<sha256>`), shared by the
+       * one-time import and the Google Sheets sync; unique, so the same row
+       * is never ingested twice.
+       */
+      importRowKey?: string;
     },
   ) {
+    const { mobileNumber, possibleDuplicate, currencyId } =
+      await this.checkCreate(dto, userId, options);
+    const quantity = dto.quantity ?? 1;
+
+    const leadNumber = await this.numberingEngine.generateNumber('LEAD');
+    const defaultStatusId =
+      options?.defaultStatusId ??
+      (await this.workflowEngine.resolveDefaultStatusId(WorkflowType.LEAD));
+
+    const explicitOwnerId = dto.salesEmployeeId;
+    const importMethod = dto.importBatch
+      ? LeadAssignmentMethod.IMPORT
+      : LeadAssignmentMethod.MANUAL;
+    const autoPolicy = explicitOwnerId
+      ? null
+      : await this.leadAutoDistributionService.getEffectivePolicy();
+    const distributionHeld = !explicitOwnerId && !autoPolicy;
+
+    let lead: Prisma.LeadGetPayload<object>;
+    try {
+      lead = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.lead.create({
+          data: {
+            customerName: dto.customerName,
+            mobileNumber,
+            countryId: dto.countryId,
+            city: dto.city,
+            address: dto.address,
+            productId: dto.productId,
+            quantity,
+            currencyId,
+            source: dto.source,
+            importBatch: dto.importBatch,
+            distributionHeld: options?.agentId ? false : distributionHeld,
+            agentId: options?.agentId ?? null,
+            fulfillmentMethod: options?.fulfillmentMethod,
+            externalOrderId: dto.externalOrderId,
+            importRowKey: options?.importRowKey,
+            leadNumber,
+            statusId: defaultStatusId,
+            possibleDuplicate,
+            customerClassificationId: dto.customerClassificationId,
+            createdBy: userId ?? null,
+            updatedBy: userId ?? null,
+          },
+        });
+        await this.leadActivityService.log(
+          created.id,
+          LeadActivityType.LEAD_CREATED,
+          `Lead ${created.leadNumber} created`,
+          undefined,
+          tx,
+        );
+        return created;
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        throw new BadRequestException(
+          'Invalid country, currency, product, or sales employee reference.',
+        );
+      }
+      throw error;
+    }
+
+    if (explicitOwnerId) {
+      await this.leadAssignmentsService.assign(lead.id, {
+        salesEmployeeId: explicitOwnerId,
+        method: importMethod,
+        actorId: userId ?? null,
+      });
+    } else {
+      await this.leadAutoDistributionService.distribute(lead.id);
+    }
+    return options?.skipFullRefetch ? lead : this.loadLeadDetail(lead.id);
+  }
+
+  /**
+   * Every check `create` runs before it writes anything — phone (E.164 via
+   * the country), product ownership, exact duplicate (rejected) / near match
+   * (flagged), external id, classification and the owner's assignment scope.
+   * R15 — also the import preview, so a preview never drifts from the commit.
+   */
+  async checkCreate(
+    dto: CreateLeadDto,
+    userId?: string,
+    options?: LeadCreateOptions,
+  ): Promise<{
+    mobileNumber: string;
+    possibleDuplicate: boolean;
+    currencyId: string;
+  }> {
     if (options?.agentId && !dto.salesEmployeeId) {
       throw new BadRequestException('An agent lead needs its agent owner.');
     }
@@ -255,7 +360,11 @@ export class LeadsService {
     });
 
     if (duplicateCheck.isExactDuplicate) {
-      throw new ConflictException('Duplicate Lead');
+      throw new ConflictException(
+        duplicateCheck.matchedLeadNumber
+          ? `Duplicate Lead — the same customer, phone and product already exist (${duplicateCheck.matchedLeadNumber}).`
+          : 'Duplicate Lead',
+      );
     }
 
     if (dto.externalOrderId) {
@@ -269,7 +378,6 @@ export class LeadsService {
       }
     }
 
-    const quantity = dto.quantity ?? 1;
     const currencyId =
       dto.currencyId ??
       country.defaultCurrencyId ??
@@ -282,20 +390,7 @@ export class LeadsService {
       );
     }
 
-    const leadNumber = await this.numberingEngine.generateNumber('LEAD');
-    const defaultStatusId =
-      options?.defaultStatusId ??
-      (await this.workflowEngine.resolveDefaultStatusId(WorkflowType.LEAD));
-
     const explicitOwnerId = dto.salesEmployeeId;
-    const importMethod = dto.importBatch
-      ? LeadAssignmentMethod.IMPORT
-      : LeadAssignmentMethod.MANUAL;
-    const autoPolicy = explicitOwnerId
-      ? null
-      : await this.leadAutoDistributionService.getEffectivePolicy();
-    const distributionHeld = !explicitOwnerId && !autoPolicy;
-
     if (
       explicitOwnerId &&
       userId &&
@@ -311,64 +406,11 @@ export class LeadsService {
       }
     }
 
-    let lead: Prisma.LeadGetPayload<object>;
-    try {
-      lead = await this.prisma.$transaction(async (tx) => {
-        const created = await tx.lead.create({
-          data: {
-            customerName: dto.customerName,
-            mobileNumber,
-            countryId: dto.countryId,
-            city: dto.city,
-            address: dto.address,
-            productId: dto.productId,
-            quantity,
-            currencyId,
-            source: dto.source,
-            importBatch: dto.importBatch,
-            distributionHeld: options?.agentId ? false : distributionHeld,
-            agentId: options?.agentId ?? null,
-            fulfillmentMethod: options?.fulfillmentMethod,
-            externalOrderId: dto.externalOrderId,
-            leadNumber,
-            statusId: defaultStatusId,
-            possibleDuplicate: duplicateCheck.isPossibleDuplicate,
-            customerClassificationId: dto.customerClassificationId,
-            createdBy: userId ?? null,
-            updatedBy: userId ?? null,
-          },
-        });
-        await this.leadActivityService.log(
-          created.id,
-          LeadActivityType.LEAD_CREATED,
-          `Lead ${created.leadNumber} created`,
-          undefined,
-          tx,
-        );
-        return created;
-      });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2003'
-      ) {
-        throw new BadRequestException(
-          'Invalid country, currency, product, or sales employee reference.',
-        );
-      }
-      throw error;
-    }
-
-    if (explicitOwnerId) {
-      await this.leadAssignmentsService.assign(lead.id, {
-        salesEmployeeId: explicitOwnerId,
-        method: importMethod,
-        actorId: userId ?? null,
-      });
-    } else {
-      await this.leadAutoDistributionService.distribute(lead.id);
-    }
-    return options?.skipFullRefetch ? lead : this.loadLeadDetail(lead.id);
+    return {
+      mobileNumber,
+      possibleDuplicate: duplicateCheck.isPossibleDuplicate,
+      currencyId,
+    };
   }
 
   /**

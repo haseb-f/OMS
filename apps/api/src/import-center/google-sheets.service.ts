@@ -45,8 +45,11 @@ function csvEscape(value: string | null | undefined): string {
 export class GoogleSheetsService {
   private authClient: InstanceType<typeof google.auth.JWT> | null = null;
 
-  private getAuth() {
-    if (this.authClient) return this.authClient;
+  private credentials: { email: string; key: string } | null = null;
+
+  /** The service-account key from `GOOGLE_SERVICE_ACCOUNT_KEY` (raw or base64 JSON), parsed once. */
+  private readCredentials(): { email: string; key: string } {
+    if (this.credentials) return this.credentials;
     const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
     if (!raw) {
       throw new InternalServerErrorException(
@@ -76,9 +79,27 @@ export class GoogleSheetsService {
         'GOOGLE_SERVICE_ACCOUNT_KEY is missing client_email/private_key.',
       );
     }
-    this.authClient = new google.auth.JWT({
+    this.credentials = {
       email: credentials.client_email,
       key: credentials.private_key,
+    };
+    return this.credentials;
+  }
+
+  /**
+   * R15 (D15-17) — the address a user shares a private sheet with (Viewer)
+   * before importing it; never the key itself.
+   */
+  serviceAccountEmail(): string {
+    return this.readCredentials().email;
+  }
+
+  private getAuth() {
+    if (this.authClient) return this.authClient;
+    const { email, key } = this.readCredentials();
+    this.authClient = new google.auth.JWT({
+      email,
+      key,
       // Full (read+write) `spreadsheets` scope — Data Synchronization's
       // write-back (`writeRowResults`) needs write access to the OMS
       // result columns it appends; `spreadsheets.readonly` alone can no
@@ -106,16 +127,22 @@ export class GoogleSheetsService {
       (error as { code?: number; status?: number })?.code ??
       (error as { code?: number; status?: number })?.status;
     if (status === 404) {
-      return new BadRequestException(
-        'لم يتم العثور على جدول البيانات — تحقق من الرابط.',
-      );
+      return new BadRequestException({
+        code: 'GOOGLE_SHEET_NOT_FOUND',
+        message:
+          'لم يتم العثور على جدول البيانات — تحقق من الرابط — Spreadsheet not found: check the link (and that it is shared with the OMS address).',
+      });
     }
     if (status === 403) {
-      return new BadRequestException(
-        access === 'write'
-          ? 'تم رفض الوصول — شارك جدول البيانات مع بريد حساب الخدمة بصلاحية محرر.'
-          : 'تم رفض الوصول — شارك جدول البيانات مع بريد حساب الخدمة بصلاحية عرض.',
-      );
+      const email = this.readCredentials().email;
+      return new BadRequestException({
+        code: 'GOOGLE_SHEET_ACCESS_DENIED',
+        message:
+          access === 'write'
+            ? `تم رفض الوصول — شارك جدول البيانات مع ${email} بصلاحية محرر — Access denied: share the spreadsheet with ${email} as Editor.`
+            : `تم رفض الوصول — شارك جدول البيانات مع ${email} بصلاحية عرض (لا داعي لجعله عامًا) — Access denied: share the spreadsheet with ${email} as Viewer (it never needs to be public).`,
+        serviceAccountEmail: email,
+      });
     }
     return new BadRequestException(
       access === 'write'

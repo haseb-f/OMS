@@ -18,8 +18,10 @@ import { SalesPerformanceQueryDto } from './dto/sales-performance-query.dto';
 
 /**
  * R13 spec E — company sales reports. Gate: `reports.sales.view`
- * (`sales-reports` catalog row). Data scope: SalesScopeService (OWN / TEAM /
- * ALL); agent orders appear only as a separate row for ALL viewers.
+ * (`sales-reports` catalog row). Figures: the report scope (R15 D15-18) —
+ * ALL only with `reports.sales.view_all`, TEAM for a sales-team manager,
+ * otherwise OWN (own figures + own rank). Agent orders and orders without an
+ * owner appear only as separate rows for ALL viewers.
  */
 @Controller('sales-reports')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -49,8 +51,9 @@ export class SalesReportsController {
  * The same reports inside the agent portal (`/agent-portal/sales-reports/*`),
  * following the portal conventions: agent tokens only, live affiliation,
  * fail-closed `AgentPermissionGuard`, the agent id from `@CurrentAgent()`
- * only. Scope = `resolveAgentVisibility` (admin with view_all = the agent's
- * orders, sales = own). No company margin, cost or other agent is exposed.
+ * only. Scope = `resolveAgentReportScope` (`agent.reports.view_team` = the
+ * whole agent's team; anyone else = own figures + own rank within the agent).
+ * No company margin, cost or other agent is exposed.
  */
 @Controller('agent-portal/sales-reports')
 @AgentPortal()

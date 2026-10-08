@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -15,8 +16,18 @@ import { runWithReferenceCache } from './reference-data/reference-cache';
 import {
   ImportRowNeedsReviewError,
   NEEDS_REVIEW_PREFIX,
+  NOTICE_PREFIX,
+  SKIPPED_PREFIX,
+  type ImportActor,
   type ImportFieldDef,
+  type ImportRowResult,
 } from './import-type.interface';
+import { ImportSheetConnectionsService } from './sheet-connections/import-sheet-connections.service';
+import { restrictedColumnWarnings } from './sales-import/restricted-columns';
+import {
+  describeJobRow,
+  summarizeJobRows,
+} from './sales-import/import-job-summary';
 import { CreateImportJobDto } from './dto/create-import-job.dto';
 import { SetMappingDto } from './dto/set-mapping.dto';
 import { RejectImportRowDto } from './dto/reject-import-row.dto';
@@ -57,11 +68,26 @@ export interface ImportPreviewSummary {
   duplicateCount: number;
   invalidCount: number;
   needsReviewCount: number;
+  /** R15 — rows already in OMS (same row key / external id); never imported again. */
+  skippedCount: number;
 }
 
 export interface ImportRowNeedsReview {
   rowNumber: number;
   reason: string;
+}
+
+/** R15 — a non-blocking preview finding: a row's (`rowNumber`) or the file's (`null`). */
+export interface ImportPreviewWarning {
+  rowNumber: number | null;
+  message: string;
+}
+
+/** `run()` options — `actor` (R15) marks a one-time import by a user (see `ImportActor`). */
+export interface ImportRunOptions {
+  acceptRowNumbers?: number[];
+  contextOverrides?: Record<string, string>;
+  actor?: ImportActor;
 }
 
 export interface ImportValidationResult {
@@ -70,6 +96,9 @@ export interface ImportValidationResult {
   errors: ImportRowValidationError[];
   duplicateGroups: ImportDuplicateGroup[];
   needsReview: ImportRowNeedsReview[];
+  /** R15 — rows that would be skipped as already imported, with the existing record named. */
+  skipped: ImportRowNeedsReview[];
+  warnings: ImportPreviewWarning[];
   summary: ImportPreviewSummary;
 }
 
@@ -90,34 +119,50 @@ export class ImportJobsService {
     private readonly prisma: PrismaService,
     private readonly registry: ImportTypeRegistryService,
     private readonly googleSheets: GoogleSheetsService,
+    private readonly sheetConnections: ImportSheetConnectionsService,
   ) {}
 
-  async create(dto: CreateImportJobDto, userId?: string) {
+  /** `agentId` (R15) — an agent user's import, from the verified token only. */
+  async create(dto: CreateImportJobDto, userId?: string, agentId?: string) {
     // Fails fast with a clear 404 if the type isn't registered.
     this.registry.get(dto.importType);
-    return this.prisma.importJob.create({
+    const job = await this.prisma.importJob.create({
       data: {
         importType: dto.importType,
         status: ImportJobStatus.DRAFT,
         fileName: '',
         fileContent: '',
         createdBy: userId ?? null,
+        agentId: agentId ?? null,
       },
       include: JOB_INCLUDE,
     });
+    return { ...job, summary: summarizeJobRows(job.errors, job.successCount) };
   }
 
   /**
-   * List view — the Import Center list page only ever reads the scalar
-   * `errorCount` column (never the `errors` relation itself), so unlike
-   * `findOne`/`create` this doesn't pull every row-level error for every
-   * job in the list.
+   * List view — the scalar counters only (never the `errors` relation or the
+   * uploaded file), filtered by the caller's visibility
+   * (`ImportAccessService.jobsWhere`); `skippedCount` is the number of rows
+   * skipped as already imported (R15).
    */
-  async findAll(importType?: string) {
-    return this.prisma.importJob.findMany({
-      where: importType ? { importType } : undefined,
+  async findAll(where: Prisma.ImportJobWhereInput) {
+    const jobs = await this.prisma.importJob.findMany({
+      where,
+      omit: { fileContent: true },
+      include: {
+        _count: {
+          select: {
+            errors: { where: { errorMessage: { startsWith: SKIPPED_PREFIX } } },
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
+    return jobs.map(({ _count, ...job }) => ({
+      ...job,
+      skippedCount: _count.errors,
+    }));
   }
 
   async findOne(id: string) {
@@ -128,7 +173,7 @@ export class ImportJobsService {
     if (!job) {
       throw new NotFoundException(`Import Job ${id} not found`);
     }
-    return job;
+    return { ...job, summary: summarizeJobRows(job.errors, job.successCount) };
   }
 
   /** Parses the uploaded file (CSV or Excel — see csv-parser.util.ts / xlsx-parser.util.ts) and stores it; moves Draft -> Mapping. */
@@ -151,7 +196,7 @@ export class ImportJobsService {
    * service account's own email first — `GoogleSheetsService` surfaces that
    * exact instruction if it isn't.
    */
-  async uploadFromGoogleSheets(id: string, url: string) {
+  async uploadFromGoogleSheets(id: string, url: string, actor?: ImportActor) {
     const job = await this.findOne(id);
     if (job.status !== ImportJobStatus.DRAFT) {
       throw new BadRequestException(
@@ -159,6 +204,9 @@ export class ImportJobsService {
       );
     }
     const { spreadsheetId, gid } = parseGoogleSheetsUrl(url);
+    // R15 (D15-17) — a one-time import connects the sheet to its importer
+    // (refused when another user/agent owns it or a sync source reads it).
+    if (actor) await this.sheetConnections.connect(spreadsheetId, actor);
     const content = await this.googleSheets.getSheetAsCsv(spreadsheetId, gid);
     return this.storeContent(id, 'google-sheet.csv', content, {
       sourceConnector: 'google-sheets',
@@ -179,7 +227,7 @@ export class ImportJobsService {
    * on success, so the review screen can show "last attempt failed, still
    * showing data from <lastSyncedAt>" instead of silently going stale.
    */
-  async refresh(id: string) {
+  async refresh(id: string, actor?: ImportActor) {
     const job = await this.findOne(id);
     if (job.sourceConnector !== 'google-sheets' || !job.sourceUrl) {
       throw new BadRequestException(
@@ -207,6 +255,7 @@ export class ImportJobsService {
 
     try {
       const { spreadsheetId, gid } = parseGoogleSheetsUrl(job.sourceUrl);
+      if (actor) await this.sheetConnections.assertUsable(spreadsheetId, actor);
       const content = await this.googleSheets.getSheetAsCsv(spreadsheetId, gid);
       const table = parseCsv(content);
       if (table.rows.length === 0) {
@@ -250,8 +299,14 @@ export class ImportJobsService {
         totalRows: table.rows.length,
         sourceConnector: source?.sourceConnector,
         sourceUrl: source?.sourceUrl,
+        // Rows read from a Google Sheet are tagged as such (e.g. a lead's
+        // source) — the continuous sync then sets its own run defaults.
         ...(source
-          ? { lastSyncedAt: new Date(), lastAttemptedAt: new Date() }
+          ? {
+              lastSyncedAt: new Date(),
+              lastAttemptedAt: new Date(),
+              rowDefaults: { source: 'GOOGLE_SHEETS' },
+            }
           : {}),
       },
       include: JOB_INCLUDE,
@@ -318,7 +373,7 @@ export class ImportJobsService {
   async validate(
     id: string,
     userId?: string,
-    options?: { skipRowNumbers?: number[] },
+    options?: { skipRowNumbers?: number[]; actor?: ImportActor },
   ): Promise<ImportValidationResult> {
     // Scopes one request-local Master-Data lookup cache for this entire
     // validation pass (see `reference-cache.ts`) — every row's
@@ -330,7 +385,7 @@ export class ImportJobsService {
   private async validateInner(
     id: string,
     userId?: string,
-    options?: { skipRowNumbers?: number[] },
+    options?: { skipRowNumbers?: number[]; actor?: ImportActor },
   ): Promise<ImportValidationResult> {
     const job = await this.findOne(id);
     if (
@@ -414,6 +469,22 @@ export class ImportJobsService {
     }
 
     const needsReview: ImportRowNeedsReview[] = [];
+    const skipped: ImportRowNeedsReview[] = [];
+    // R15 — a one-time import lists the file's columns OMS never imports.
+    const warnings: ImportPreviewWarning[] = options?.actor
+      ? restrictedColumnWarnings(table.headers, mapping).map((message) => ({
+          rowNumber: null,
+          message,
+        }))
+      : [];
+    const collect = (rowNumbers: number[], result: ImportRowResult) => {
+      for (const rowNumber of rowNumbers) {
+        if (result.skipped) skipped.push({ rowNumber, reason: result.skipped });
+        for (const message of result.warnings ?? []) {
+          warnings.push({ rowNumber, message });
+        }
+      }
+    };
 
     if (handler.preloadRows) {
       await handler.preloadRows(
@@ -427,10 +498,14 @@ export class ImportJobsService {
       for (const groupRows of groups.values()) {
         if (groupRows.every((row) => skip.has(row.rowNumber))) continue;
         try {
-          await handler.importGroup(
+          const result = await handler.importGroup(
             groupRows.map((r) => r.mappedRow),
             userId,
-            { dryRun: true, context: rowDefaults },
+            { dryRun: true, context: rowDefaults, actor: options?.actor },
+          );
+          collect(
+            groupRows.map((row) => row.rowNumber),
+            result,
           );
         } catch (error) {
           if (error instanceof ImportRowNeedsReviewError) {
@@ -449,10 +524,12 @@ export class ImportJobsService {
       for (const { rowNumber, mappedRow } of mappedRows) {
         if (skip.has(rowNumber)) continue;
         try {
-          await handler.importRow(mappedRow, userId, {
+          const result = await handler.importRow(mappedRow, userId, {
             dryRun: true,
             context: rowDefaults,
+            actor: options?.actor,
           });
+          collect([rowNumber], result);
         } catch (error) {
           if (error instanceof ImportRowNeedsReviewError) {
             needsReview.push({ rowNumber, reason: error.message });
@@ -475,22 +552,29 @@ export class ImportJobsService {
       duplicateGroups.flatMap((group) => group.rowNumbers),
     );
     const needsReviewRowNumbers = new Set(needsReview.map((r) => r.rowNumber));
-    // A row counted as invalid never double-counts as a duplicate or a
-    // needs-review row too — the four buckets partition every row exactly
-    // once, so they always sum to `totalRows`.
+    // A row counted as invalid never double-counts as a duplicate, a
+    // needs-review or a skipped row too — the buckets partition every row
+    // exactly once, so they always sum to `totalRows`.
     const duplicateOnlyCount = [...duplicateRowNumbers].filter(
       (rowNumber) => !invalidRowNumbers.has(rowNumber),
     ).length;
+    const skippedOnly = skipped.filter(
+      (row) =>
+        !invalidRowNumbers.has(row.rowNumber) &&
+        !duplicateRowNumbers.has(row.rowNumber),
+    );
     const summary: ImportPreviewSummary = {
       totalRows: table.rows.length,
       invalidCount: invalidRowNumbers.size,
       duplicateCount: duplicateOnlyCount,
       needsReviewCount: needsReviewRowNumbers.size,
+      skippedCount: skippedOnly.length,
       newCount:
         table.rows.length -
         invalidRowNumbers.size -
         duplicateOnlyCount -
-        needsReviewRowNumbers.size,
+        needsReviewRowNumbers.size -
+        skippedOnly.length,
     };
 
     return {
@@ -499,6 +583,8 @@ export class ImportJobsService {
       errors,
       duplicateGroups,
       needsReview,
+      skipped: skippedOnly,
+      warnings,
       summary,
     };
   }
@@ -513,14 +599,7 @@ export class ImportJobsService {
    * (standard enterprise import UX: import what's valid, report what
    * isn't).
    */
-  async run(
-    id: string,
-    userId?: string,
-    options?: {
-      acceptRowNumbers?: number[];
-      contextOverrides?: Record<string, string>;
-    },
-  ) {
+  async run(id: string, userId?: string, options?: ImportRunOptions) {
     // Same request-local Master-Data lookup cache `validate()` uses — a
     // `run()` immediately following a `validate()` on the same job still
     // gets its own fresh fetch (no cache is shared across calls), so
@@ -571,10 +650,7 @@ export class ImportJobsService {
   private async runInner(
     id: string,
     userId?: string,
-    options?: {
-      acceptRowNumbers?: number[];
-      contextOverrides?: Record<string, string>;
-    },
+    options?: ImportRunOptions,
   ) {
     const job = await this.findOne(id);
     if (job.status !== ImportJobStatus.VALIDATING) {
@@ -586,6 +662,19 @@ export class ImportJobsService {
       throw new BadRequestException(
         'No column mapping saved for this Import Job.',
       );
+    }
+    // R15 — the run is claimed atomically: a double click (or a second tab)
+    // finds the job already IMPORTING and is refused, never run twice.
+    const claimed = await this.prisma.importJob.updateMany({
+      where: { id, status: ImportJobStatus.VALIDATING },
+      data: { status: ImportJobStatus.IMPORTING, startedAt: new Date() },
+    });
+    if (claimed.count === 0) {
+      throw new ConflictException({
+        code: 'IMPORT_ALREADY_RUNNING',
+        message:
+          'هذا الاستيراد قيد التشغيل أو انتهى بالفعل — This import is already running or has finished.',
+      });
     }
 
     const handler = this.registry.get(job.importType);
@@ -599,15 +688,15 @@ export class ImportJobsService {
       options?.acceptRowNumbers === undefined
         ? undefined
         : new Set(options.acceptRowNumbers);
-
-    await this.prisma.importJob.update({
-      where: { id },
-      data: { status: ImportJobStatus.IMPORTING, startedAt: new Date() },
-    });
+    const actor = options?.actor;
 
     const startedAt = Date.now();
     let successCount = 0;
     const errors: Prisma.ImportJobErrorCreateManyInput[] = [];
+    // R15 — skipped (already imported) rows and created rows' notices: kept
+    // with their reason for the summary and the report, never counted as
+    // created or as errors.
+    const outcomes: Prisma.ImportJobErrorCreateManyInput[] = [];
     // Per-row created-record ids (Data Synchronization write-back only —
     // e.g. writing "OMS Order ID" back to the source sheet needs to know
     // exactly which row produced which Store Order, not just an aggregate
@@ -620,6 +709,35 @@ export class ImportJobsService {
       noChange?: boolean;
       skippedFinal?: boolean;
     }[] = [];
+    const recordSuccess = (
+      rows: { rowNumber: number; sourceRow: Record<string, string> }[],
+      result: ImportRowResult,
+    ) => {
+      for (const { rowNumber, sourceRow } of rows) {
+        // A skipped row is "no change" for the sync's write-back.
+        successRows.push({
+          rowNumber,
+          id: result.id,
+          noChange: result.noChange || Boolean(result.skipped),
+          skippedFinal: result.skippedFinal,
+        });
+        const outcome = result.skipped
+          ? `${SKIPPED_PREFIX}${result.skipped}`
+          : result.notice
+            ? `${NOTICE_PREFIX}${result.notice}`
+            : null;
+        if (outcome) {
+          outcomes.push({
+            importJobId: id,
+            rowNumber,
+            columnName: null,
+            errorMessage: outcome,
+            rawRowData: sourceRow,
+          });
+        }
+      }
+      if (!result.skipped) successCount += rows.length;
+    };
 
     const mappedRows: {
       rowNumber: number;
@@ -654,16 +772,9 @@ export class ImportJobsService {
           const result = await handler.importGroup(
             groupRows.map((r) => r.mappedRow),
             userId,
-            { context: rowDefaults },
+            { context: rowDefaults, actor },
           );
-          successCount += groupRows.length;
-          for (const { rowNumber } of groupRows) {
-            successRows.push({
-              rowNumber,
-              id: result.id,
-              noChange: result.noChange,
-            });
-          }
+          recordSuccess(groupRows, result);
         } catch (error) {
           if (error instanceof ImportRowNeedsReviewError) {
             for (const { rowNumber, sourceRow } of groupRows) {
@@ -699,14 +810,9 @@ export class ImportJobsService {
         try {
           const result = await handler.importRow(mappedRow, userId, {
             context: rowDefaults,
+            actor,
           });
-          successCount++;
-          successRows.push({
-            rowNumber,
-            id: result.id,
-            noChange: result.noChange,
-            skippedFinal: result.skippedFinal,
-          });
+          recordSuccess([{ rowNumber, sourceRow }], result);
         } catch (error) {
           if (error instanceof ImportRowNeedsReviewError) {
             errors.push({
@@ -730,13 +836,21 @@ export class ImportJobsService {
       }
     }
 
-    if (errors.length > 0) {
-      await this.prisma.importJobError.createMany({ data: errors });
+    if (errors.length > 0 || outcomes.length > 0) {
+      await this.prisma.importJobError.createMany({
+        data: [...errors, ...outcomes],
+      });
     }
 
     const durationMs = Date.now() - startedAt;
+    // Rows skipped as already imported are a clean outcome, not a failure.
+    const skippedCount = outcomes.filter((row) =>
+      row.errorMessage.startsWith(SKIPPED_PREFIX),
+    ).length;
     const finalStatus =
-      successCount > 0 ? ImportJobStatus.COMPLETED : ImportJobStatus.FAILED;
+      successCount + skippedCount > 0
+        ? ImportJobStatus.COMPLETED
+        : ImportJobStatus.FAILED;
 
     const updated = await this.prisma.importJob.update({
       where: { id },
@@ -750,7 +864,11 @@ export class ImportJobsService {
       include: JOB_INCLUDE,
     });
 
-    return { ...updated, successRows };
+    return {
+      ...updated,
+      summary: summarizeJobRows(updated.errors, updated.successCount),
+      successRows,
+    };
   }
 
   /** Re-derives the mapped-field row `importRow`/`resolveNeedsReview` expect from a stored `ImportJobError.rawRowData` (original-header source row) + the job's saved `columnMapping` — the exact same projection `run()`/`validate()` build, just replayed later for one specific row. */
@@ -831,33 +949,120 @@ export class ImportJobsService {
     }));
   }
 
-  /** Business operation: Confirm a needs-review row — writes the record for real via the handler's `resolveNeedsReview`, then removes the flagged row and counts it as a success. */
-  async confirmRow(jobId: string, rowId: string, userId?: string) {
+  /**
+   * Business operation: Confirm a needs-review row — writes the record for
+   * real, then removes the flagged row and counts it as a success. The sync
+   * (no actor) goes through the handler's `resolveNeedsReview`; a one-time
+   * import (R15) re-runs the row — with every row of its document for a
+   * grouped type, so a multi-line order is never written line by line —
+   * with `confirmed: true`, every other rule applying again.
+   */
+  async confirmRow(
+    jobId: string,
+    rowId: string,
+    userId?: string,
+    actor?: ImportActor,
+  ) {
+    return (await this.confirmRowInner(jobId, rowId, userId, actor)).result;
+  }
+
+  private async confirmRowInner(
+    jobId: string,
+    rowId: string,
+    userId?: string,
+    actor?: ImportActor,
+  ): Promise<{ result: ImportRowResult; rowIds: string[] }> {
     const job = await this.findOne(jobId);
     const row = await this.getNeedsReviewRow(jobId, rowId);
     const handler = this.registry.get(job.importType);
-    if (!handler.resolveNeedsReview) {
-      throw new BadRequestException(
-        `Import type "${job.importType}" has no needs-review resolution.`,
+    const columnMapping = (job.columnMapping ?? {}) as Record<string, string>;
+    const remap = (raw: unknown) =>
+      this.remapRow(
+        raw as Record<string, unknown>,
+        columnMapping,
+        handler.fields,
       );
+
+    if (!actor) {
+      if (!handler.resolveNeedsReview) {
+        throw new BadRequestException(
+          `Import type "${job.importType}" has no needs-review resolution.`,
+        );
+      }
+      const result = await handler.resolveNeedsReview(
+        remap(row.rawRowData),
+        userId,
+      );
+      await this.settleConfirmedRows(jobId, [row.id], result);
+      return { result, rowIds: [row.id] };
     }
-    const mappedRow = this.remapRow(
-      row.rawRowData as Record<string, unknown>,
-      (job.columnMapping ?? {}) as Record<string, string>,
-      handler.fields,
+
+    const rows = await this.reviewGroupOf(jobId, row, handler.groupKey, remap);
+    const options = {
+      actor,
+      confirmed: true,
+      context: (job.rowDefaults as Record<string, string> | null) ?? undefined,
+    };
+    const mapped = rows.map((candidate) => remap(candidate.rawRowData));
+    const result =
+      handler.groupKey && handler.importGroup
+        ? await handler.importGroup(mapped, userId, options)
+        : await handler.importRow(mapped[0], userId, options);
+    const rowIds = rows.map((candidate) => candidate.id);
+    await this.settleConfirmedRows(jobId, rowIds, result);
+    return { result, rowIds };
+  }
+
+  /** The open needs-review rows of the same document (same group key value) as `row`. */
+  private async reviewGroupOf(
+    jobId: string,
+    row: { id: string; rawRowData: unknown },
+    groupKey: string | undefined,
+    remap: (raw: unknown) => Record<string, string>,
+  ) {
+    const key = groupKey
+      ? remap(row.rawRowData)[groupKey]?.trim().toLocaleLowerCase('en-US')
+      : '';
+    if (!groupKey || !key) return [row];
+    const open = await this.prisma.importJobError.findMany({
+      where: {
+        importJobId: jobId,
+        errorMessage: { startsWith: NEEDS_REVIEW_PREFIX },
+        rejectedAt: null,
+      },
+      orderBy: { rowNumber: 'asc' },
+    });
+    return open.filter(
+      (candidate) =>
+        remap(candidate.rawRowData)
+          [groupKey]?.trim()
+          .toLocaleLowerCase('en-US') === key,
     );
-    const result = await handler.resolveNeedsReview(mappedRow, userId);
+  }
+
+  /** Confirmed rows leave the review list: created (success) or, when already in OMS, kept as skipped. */
+  private async settleConfirmedRows(
+    jobId: string,
+    rowIds: string[],
+    result: ImportRowResult,
+  ) {
     await this.prisma.$transaction([
-      this.prisma.importJobError.delete({ where: { id: rowId } }),
+      result.skipped
+        ? this.prisma.importJobError.updateMany({
+            where: { id: { in: rowIds } },
+            data: { errorMessage: `${SKIPPED_PREFIX}${result.skipped}` },
+          })
+        : this.prisma.importJobError.deleteMany({
+            where: { id: { in: rowIds } },
+          }),
       this.prisma.importJob.update({
         where: { id: jobId },
         data: {
-          successCount: { increment: 1 },
-          errorCount: { decrement: 1 },
+          successCount: { increment: result.skipped ? 0 : rowIds.length },
+          errorCount: { decrement: rowIds.length },
         },
       }),
     ]);
-    return result;
   }
 
   /**
@@ -886,11 +1091,28 @@ export class ImportJobsService {
   }
 
   /** Bulk variants — partial success allowed, same as every other bulk endpoint in this API. */
-  async confirmRows(jobId: string, rowIds: string[], userId?: string) {
+  async confirmRows(
+    jobId: string,
+    rowIds: string[],
+    userId?: string,
+    actor?: ImportActor,
+  ) {
     const results: { id: string; success: boolean; message?: string }[] = [];
+    // A grouped document confirms all of its rows at once.
+    const settled = new Set<string>();
     for (const rowId of rowIds) {
+      if (settled.has(rowId)) {
+        results.push({ id: rowId, success: true });
+        continue;
+      }
       try {
-        await this.confirmRow(jobId, rowId, userId);
+        const confirmed = await this.confirmRowInner(
+          jobId,
+          rowId,
+          userId,
+          actor,
+        );
+        confirmed.rowIds.forEach((id) => settled.add(id));
         results.push({ id: rowId, success: true });
       } catch (error) {
         results.push({
@@ -941,18 +1163,25 @@ export class ImportJobsService {
     });
   }
 
-  /** "Download Error Report" (Part 6) — one row per failure, the original source data included so a corrected file can be rebuilt. */
+  /**
+   * "Download Error Report" (Part 6) — one line per reported row with its
+   * outcome (R15: rejected / needs review / skipped as already imported /
+   * created with a notice) and reason, so a corrected file can be rebuilt.
+   */
   async exportErrorsCsv(id: string): Promise<string> {
     const job = await this.findOne(id);
-    const header = ['Row', 'Column', 'Error', 'Suggested Fix'];
+    const header = ['Row', 'Result', 'Column', 'Reason', 'Suggested Fix'];
+    const quote = (value: string) => `"${value.replace(/"/g, '""')}"`;
     const lines = [header.join(',')];
     for (const error of job.errors) {
+      const { outcome, reason } = describeJobRow(error);
       lines.push(
         [
           error.rowNumber,
+          outcome,
           error.columnName ?? '',
-          `"${error.errorMessage.replace(/"/g, '""')}"`,
-          `"${(error.suggestedFix ?? '').replace(/"/g, '""')}"`,
+          quote(reason),
+          quote(error.suggestedFix ?? ''),
         ].join(','),
       );
     }

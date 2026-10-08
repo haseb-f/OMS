@@ -102,9 +102,14 @@ export class PartnerProfitService {
     };
   }
 
-  private async agreementsInForce(from: string, to: string) {
+  private async agreementsInForce(
+    from: string,
+    to: string,
+    partnerId?: string,
+  ) {
     const rows = await this.prisma.partnerAgreement.findMany({
       where: {
+        partnerId,
         status: { in: IN_FORCE_STATUSES },
         effectiveFrom: { lte: dateValue(to) },
         OR: [{ effectiveTo: null }, { effectiveTo: { gte: dateValue(from) } }],
@@ -126,8 +131,16 @@ export class PartnerProfitService {
     }));
   }
 
-  /** Live estimate for any range — nothing is stored. */
-  async calculate(fromInput: string, toInput: string) {
+  /**
+   * Live estimate for any range — nothing is stored. `partnerId` limits the
+   * calculation to that partner's agreements (the per-period statement and
+   * the partner portal), with exactly the same math as the pool.
+   */
+  async calculate(
+    fromInput: string,
+    toInput: string,
+    options: { partnerId?: string } = {},
+  ) {
     const from = parseBusinessDate(fromInput, 'from');
     const to = parseBusinessDate(toInput, 'to');
     if (to < from) {
@@ -136,7 +149,7 @@ export class PartnerProfitService {
         message: `"to" (${to}) is before "from" (${from}).`,
       });
     }
-    const inForce = await this.agreementsInForce(from, to);
+    const inForce = await this.agreementsInForce(from, to, options.partnerId);
     const frequencies = [
       ...new Set(inForce.map((row) => row.agreement.frequency)),
     ];
@@ -174,12 +187,10 @@ export class PartnerProfitService {
     }
     partners.sort((a, b) => a.partnerName.localeCompare(b.partnerName));
 
-    const settings = await this.prisma.postingSettings.findFirst({
-      select: { functionalCurrency: { select: { id: true, code: true } } },
-    });
+    const currency = await this.functionalCurrency();
     const warnings: string[] = [];
     if (frequencies.length > 1) warnings.push('MIXED_FREQUENCY');
-    if (!settings?.functionalCurrency) warnings.push('NO_FUNCTIONAL_CURRENCY');
+    if (!currency) warnings.push('NO_FUNCTIONAL_CURRENCY');
     if (inForce.length === 0) warnings.push('NO_AGREEMENTS');
 
     const calculation: PartnerProfitCalculation = {
@@ -188,7 +199,7 @@ export class PartnerProfitService {
       to,
       computedAt: new Date().toISOString(),
       frequency: frequencies.length === 1 ? frequencies[0] : null,
-      currency: settings?.functionalCurrency ?? null,
+      currency,
       figures: await figuresOf(from, to),
       partners,
       totalEntitlement: round2HalfUp(
@@ -197,6 +208,14 @@ export class PartnerProfitService {
       warnings,
     };
     return calculation;
+  }
+
+  /** The functional (base) currency every partner figure is in — Settings → Accounting. */
+  async functionalCurrency(): Promise<{ id: string; code: string } | null> {
+    const settings = await this.prisma.postingSettings.findFirst({
+      select: { functionalCurrency: { select: { id: true, code: true } } },
+    });
+    return settings?.functionalCurrency ?? null;
   }
 
   // ----------------------------------------------------------------- periods

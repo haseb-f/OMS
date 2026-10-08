@@ -71,6 +71,16 @@ import { ListSheetService } from './list-sheet/list-sheet.service';
 import { ReferenceDataRegistryService } from './reference-data/reference-data-registry.service';
 import { ReferenceDataSourcesService } from './reference-data/reference-data-sources.service';
 import { ReferenceDataController } from './reference-data/reference-data.controller';
+import { StoreOrderDuplicatesModule } from '../store-orders/duplicates/store-order-duplicates.module';
+import { AgentOrdersModule } from '../agents/orders/agent-orders.module';
+import { ImportAccessService } from './import-access.service';
+import { ImportWorkspaceService } from './import-workspace.service';
+import { ImportSheetConnectionsService } from './sheet-connections/import-sheet-connections.service';
+import { ImportCatalogService } from './sales-import/import-catalog.service';
+import { ImportedOrderService } from './sales-import/imported-order.service';
+import { ImportOwnerService } from './sales-import/import-owner.service';
+import { CompanyStoreOrderImportService } from './sales-import/company-store-order-import.service';
+import { AgentStoreOrderImportService } from './sales-import/agent-store-order-import.service';
 
 /**
  * Import Center (TASK-056/TASK-059 "Universal Import Center") — deliberately
@@ -115,6 +125,10 @@ import { ReferenceDataController } from './reference-data/reference-data.control
     OpeningBalancesModule,
     BankTransactionsModule,
     StoreOrdersModule,
+    // R15 — sales imports reuse the create endpoints' duplicate gate and the
+    // agent order service (agent rules, pricing, tariffs).
+    StoreOrderDuplicatesModule,
+    AgentOrdersModule,
   ],
   controllers: [
     ImportJobsController,
@@ -133,6 +147,14 @@ import { ReferenceDataController } from './reference-data/reference-data.control
     ListSheetService,
     ReferenceDataRegistryService,
     ReferenceDataSourcesService,
+    ImportAccessService,
+    ImportWorkspaceService,
+    ImportSheetConnectionsService,
+    ImportCatalogService,
+    ImportedOrderService,
+    ImportOwnerService,
+    CompanyStoreOrderImportService,
+    AgentStoreOrderImportService,
     CustomersImportHandler,
     SuppliersImportHandler,
     ProductsImportHandler,
@@ -161,6 +183,12 @@ import { ReferenceDataController } from './reference-data/reference-data.control
     StoreOrdersImportHandler,
     ShippingUpdatesImportHandler,
   ],
-  exports: [GoogleSheetsService, ReferenceDataRegistryService],
+  // R15 — the agent portal imports (`AgentPortalImportsModule`) run through
+  // the same actor-checked workspace as the company endpoints.
+  exports: [
+    GoogleSheetsService,
+    ReferenceDataRegistryService,
+    ImportWorkspaceService,
+  ],
 })
 export class ImportCenterModule {}

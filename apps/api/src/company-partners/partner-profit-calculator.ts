@@ -217,6 +217,38 @@ export function frequencyWindow(
   return { from, to };
 }
 
+const WINDOW_MONTHS: Record<PartnerFrequencyValue, number> = {
+  MONTHLY: 1,
+  QUARTERLY: 3,
+  ANNUAL: 12,
+};
+
+/**
+ * R15 (spec-w4 §5) — every closing window of `frequency` that overlaps the
+ * inclusive range [from, to], oldest first. A window only partly inside the
+ * range is included whole (a period is reported as the period it is).
+ */
+export function closingWindows(
+  frequency: PartnerFrequencyValue,
+  from: string,
+  to: string,
+): Array<{ from: string; to: string }> {
+  if (to < from) return [];
+  const months = WINDOW_MONTHS[frequency];
+  const [year, month] = from.split('-').map(Number);
+  // Index of the first month of the window that contains `from`.
+  let index = year * 12 + (month - 1);
+  index -= index % months;
+  const windows: Array<{ from: string; to: string }> = [];
+  for (;;) {
+    const start = `${String(Math.floor(index / 12)).padStart(4, '0')}-${String((index % 12) + 1).padStart(2, '0')}-01`;
+    if (start > to) break;
+    windows.push(frequencyWindow(frequency, start)!);
+    index += months;
+  }
+  return windows;
+}
+
 /** "YYYY-MM-DD" of a `@db.Date` value (stored at 00:00Z). */
 export function isoDate(value: Date): string {
   return value.toISOString().slice(0, 10);

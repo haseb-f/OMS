@@ -257,7 +257,7 @@ describe('Sales reports (HTTP + DB)', () => {
     await makeUser('A', seller);
     await makeUser('B', seller);
     await makeUser('M', seller); // manages team T (member A)
-    await makeUser('ALL', [...seller, 'crm.leads.manage']);
+    await makeUser('ALL', [...seller, 'reports.sales.view_all']);
     await makeUser('NOREPORT', ['store-orders.view']);
     const department = await prisma.department.findFirstOrThrow();
     teamId = (
@@ -274,7 +274,7 @@ describe('Sales reports (HTTP + DB)', () => {
 
     await makeAgent('G');
     await makeAgent('H');
-    await makeUser('GA', ['agent.dashboard.view', 'agent.records.view_all'], {
+    await makeUser('GA', ['agent.dashboard.view', 'agent.reports.view_team'], {
       agentId: ids.G,
       role: 'ADMIN',
     });
@@ -282,7 +282,7 @@ describe('Sales reports (HTTP + DB)', () => {
       agentId: ids.G,
       role: 'SALES',
     });
-    await makeUser('HA', ['agent.dashboard.view', 'agent.records.view_all'], {
+    await makeUser('HA', ['agent.dashboard.view', 'agent.reports.view_team'], {
       agentId: ids.H,
       role: 'ADMIN',
     });
@@ -496,6 +496,7 @@ describe('Sales reports (HTTP + DB)', () => {
     const body = res.body as PerformanceReport;
     expect(body.scope).toBe('OWN');
     expect(body.employees).toHaveLength(1);
+    expect(body.ownRank).toEqual({ position: 1, of: 2 });
     expect(body.employees[0]).toMatchObject({
       rank: 1,
       userId: ids.A,

@@ -1,6 +1,7 @@
 import {
   type AgreementInForce,
   type ProfitFigures,
+  closingWindows,
   computePartnerResult,
   frequencyWindow,
   maxConcurrentPercent,
@@ -125,5 +126,22 @@ describe('company partner profit calculator (spec-5 §4)', () => {
     expect(frequencyWindow('QUARTERLY', '2026-05-01')).toBeNull();
     expect(frequencyWindow('ANNUAL', '2026-01-01')?.to).toBe('2026-12-31');
     expect(frequencyWindow('MONTHLY', '2026-03-02')).toBeNull();
+  });
+
+  it('R15 — closing windows overlapping a range, partly-inside windows included whole', () => {
+    expect(closingWindows('MONTHLY', '2026-01-20', '2026-03-05')).toEqual([
+      { from: '2026-01-01', to: '2026-01-31' },
+      { from: '2026-02-01', to: '2026-02-28' },
+      { from: '2026-03-01', to: '2026-03-31' },
+    ]);
+    expect(closingWindows('QUARTERLY', '2026-05-10', '2026-07-01')).toEqual([
+      { from: '2026-04-01', to: '2026-06-30' },
+      { from: '2026-07-01', to: '2026-09-30' },
+    ]);
+    expect(closingWindows('ANNUAL', '2025-12-31', '2026-01-01')).toEqual([
+      { from: '2025-01-01', to: '2025-12-31' },
+      { from: '2026-01-01', to: '2026-12-31' },
+    ]);
+    expect(closingWindows('MONTHLY', '2026-03-05', '2026-03-04')).toEqual([]);
   });
 });

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -19,9 +20,14 @@ import { CompanyPartnersService } from './company-partners.service';
 import { PartnerProfitService } from './partner-profit.service';
 import { PartnerPaymentsService } from './partner-payments.service';
 import { PartnerStatementService } from './partner-statement.service';
+import { PartnerLoginsService } from './partner-logins.service';
+import { ResetPasswordDto } from '../users/dto/reset-password.dto';
 import {
   AdjustPartnerProfitPeriodDto,
   CreateCompanyPartnerDto,
+  CreatePartnerLoginDto,
+  LinkPartnerLoginDto,
+  PartnerLoginCandidatesQueryDto,
   CreatePartnerAgreementDto,
   CreatePartnerPaymentDto,
   EndPartnerAgreementDto,
@@ -37,9 +43,10 @@ import {
 } from './dto/company-partners.dto';
 
 /**
- * R14 W5 — "الشركاء". Internal screens only (no partner login). Matrix row
- * `company-partners`: view / manage (profiles, agreements) / close (review,
- * close, adjust periods) / pay (payments and their reversal).
+ * R14 W5 — "الشركاء". Internal screens. Matrix row `company-partners`: view /
+ * manage (profiles, agreements) / close (review, close, adjust periods) /
+ * pay (payments and their reversal) / portal (R15 — the partner's own login).
+ * The partner's own view is the separate `/partner-portal/*` API.
  */
 @Controller('company-partners/profiles')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -234,5 +241,86 @@ export class PartnerPaymentsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.payments.reverse(id, dto, user.sub);
+  }
+}
+
+/**
+ * R15 (D15-14) — the partner's own login, from the partner page. Every
+ * action needs `company-partners.users.manage` (matrix action `portal`).
+ */
+@Controller('company-partners')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@PermissionModule('company-partners')
+export class PartnerLoginsController {
+  constructor(private readonly logins: PartnerLoginsService) {}
+
+  @Get('logins/candidates')
+  @PermissionAction('portal')
+  candidates(@Query() query: PartnerLoginCandidatesQueryDto) {
+    return this.logins.candidates(query.search);
+  }
+
+  /** Returns the generated temporary password once (changed at first sign-in). */
+  @Post('profiles/:partnerId/login')
+  @PermissionAction('portal')
+  create(
+    @Param('partnerId', ParseUUIDPipe) partnerId: string,
+    @Body() dto: CreatePartnerLoginDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.logins.create(partnerId, dto, user.sub);
+  }
+
+  @Post('profiles/:partnerId/login/link')
+  @HttpCode(200)
+  @PermissionAction('portal')
+  link(
+    @Param('partnerId', ParseUUIDPipe) partnerId: string,
+    @Body() dto: LinkPartnerLoginDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.logins.link(partnerId, dto, user.sub);
+  }
+
+  @Post('profiles/:partnerId/login/unlink')
+  @HttpCode(200)
+  @PermissionAction('portal')
+  unlink(
+    @Param('partnerId', ParseUUIDPipe) partnerId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.logins.unlink(partnerId, user.sub);
+  }
+
+  @Post('profiles/:partnerId/login/disable')
+  @HttpCode(200)
+  @PermissionAction('portal')
+  disable(
+    @Param('partnerId', ParseUUIDPipe) partnerId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.logins.setActive(partnerId, false, user.sub);
+  }
+
+  @Post('profiles/:partnerId/login/enable')
+  @HttpCode(200)
+  @PermissionAction('portal')
+  enable(
+    @Param('partnerId', ParseUUIDPipe) partnerId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.logins.setActive(partnerId, true, user.sub);
+  }
+
+  /** Server-generated password when `newPassword` is omitted; every session of the login ends. */
+  @Post('profiles/:partnerId/login/reset-password')
+  @HttpCode(200)
+  @PermissionAction('portal')
+  resetPassword(
+    @Param('partnerId', ParseUUIDPipe) partnerId: string,
+    @Body() dto: ResetPasswordDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.logins.resetPassword(partnerId, dto ?? {}, user.sub);
   }
 }

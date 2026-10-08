@@ -104,9 +104,35 @@ export class ReferenceDataRegistryService {
     rawValue: string,
     label: string,
   ): Promise<string> {
+    return this.resolveAmong(
+      type,
+      await this.listCached(type),
+      [matchField],
+      rawValue,
+      label,
+    );
+  }
+
+  /**
+   * The same resolution (exact normalised match, `Name (CODE)` suffix,
+   * not-found / ambiguous / inactive messages) against a caller-scoped list
+   * — R15: a sales import resolves products inside the importer's own
+   * catalogue (company goods, or the agent's goods), never across owners.
+   * `matchFields` are tried in order (e.g. SKU, then display name).
+   */
+  resolveAmong(
+    type: string,
+    records: ReferenceRecord[],
+    matchFields: ('code' | 'name')[],
+    rawValue: string,
+    label: string,
+  ): string {
     const source = this.get(type);
-    const records = await this.listCached(type);
-    let matches = matchReferenceRecords(records, matchField, rawValue);
+    let matches: ReferenceRecord[] = [];
+    for (const field of matchFields) {
+      matches = matchReferenceRecords(records, field, rawValue);
+      if (matches.length > 0) break;
+    }
     // Documented `Name (CODE)` suffix only — not a silent SKU/name swap.
     if (matches.length === 0) {
       matches = matchCodeSuffix(records, rawValue);

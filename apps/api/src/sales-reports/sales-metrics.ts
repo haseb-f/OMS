@@ -31,6 +31,7 @@ import {
 
 export const CANCELLED_STATUS = 'CANCELLED';
 export const RETURNED_STATUS = 'RETURNED';
+export const DELIVERED_STATUS = 'DELIVERED';
 
 /**
  * Fulfillment status code of an order. Orders created before the status
@@ -128,6 +129,27 @@ export function livePeriodRanges(now: Date = new Date()): LivePeriodRange[] {
     period,
     ...periodRange(from, to),
   }));
+}
+
+/** The home dashboard's period switch (`GET /sales/performance?period=`). */
+export const DASHBOARD_PERIODS = ['today', 'week', 'month'] as const;
+export type DashboardPeriod = (typeof DASHBOARD_PERIODS)[number];
+
+/**
+ * Dashboard period to date in the same Cairo business calendar as the
+ * reports: Today = the Live "today" card, This month = the Live "this month"
+ * card, This week = Monday → today.
+ */
+export function dashboardPeriodRange(
+  period: DashboardPeriod,
+  now: Date = new Date(),
+): PeriodRange {
+  const today = todayBusinessDate(now, BUSINESS_TIME_ZONE);
+  if (period === 'today') return periodRange(today, today);
+  if (period === 'month') return periodRange(monthStart(today), today);
+  // getUTCDay of the calendar date itself: 0 = Sunday … 6 = Saturday.
+  const weekday = new Date(`${today}T00:00:00Z`).getUTCDay();
+  return periodRange(addCalendarDays(today, -((weekday + 6) % 7)), today);
 }
 
 /** Longest custom range the performance report accepts (inclusive days). */
@@ -230,6 +252,11 @@ export class SalesTally {
         currencyCode,
         amount: roundAmount(amount),
       }));
+  }
+
+  /** Orders of one fulfillment status code (0 when none). */
+  countOf(statusCode: string): number {
+    return this.countByStatus.get(statusCode) ?? 0;
   }
 
   statusBreakdown(): Array<{ code: string; count: number }> {

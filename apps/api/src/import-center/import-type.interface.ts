@@ -9,7 +9,33 @@
  * would call, so every imported record passes the exact same validation.
  */
 
+import type { AgentRequestContext } from '../auth/guards/jwt-auth.guard';
+
 export type ImportFieldType = 'string' | 'number' | 'date' | 'boolean';
+
+/** R15 (D15-16) — who runs a one-time import: a company user, or an agent user (never both). */
+export type ImportAudience = 'COMPANY' | 'AGENT';
+
+/**
+ * R15 (D15-16) — the user behind a one-time import, always built by a
+ * controller from the verified token (`@CurrentUser()` / `@CurrentAgent()`),
+ * never from the file. `agent` is set only for an agent user's import: every
+ * row then belongs to that agent. Absent on the continuous Google Sheets sync
+ * (`SyncOrchestratorService`), which keeps its own automation rules.
+ */
+export interface ImportActor {
+  userId: string;
+  agent?: AgentRequestContext;
+}
+
+export function importAudience(actor: ImportActor): ImportAudience {
+  return actor.agent ? 'AGENT' : 'COMPANY';
+}
+
+/** Row-key scope: `company` or `agent:<agentId>` (D15-17). */
+export function importScope(actor: ImportActor): string {
+  return actor.agent ? `agent:${actor.agent.agentId}` : 'company';
+}
 
 export interface ImportFieldDef {
   /** The key `columnMapping` and the row object passed to `importRow` use. */
@@ -17,6 +43,8 @@ export interface ImportFieldDef {
   labelKey: string;
   /** Plain-English column header for the generated Excel Template (Phase 2.5) — the mapping UI itself always renders `labelKey` through the active locale. */
   label: string;
+  /** R15 — Arabic column header of the sales import template (`ImportTemplateService.generateSales`). */
+  labelAr?: string;
   required: boolean;
   type: ImportFieldType;
   /** Shown in the mapping UI as an example of the expected value, and in the Excel Template's Field Guide sheet. */
@@ -86,10 +114,33 @@ export interface ImportRowOptions {
    * upload/import.
    */
   context?: Record<string, string>;
+  /**
+   * R15 — set on every one-time import (company or agent user, see
+   * `ImportActor`): the row is imported with the manual-entry rules (owner =
+   * the importer unless they may assign, duplicate acknowledgement, payment
+   * as a declaration) and its row key. Absent on the continuous sync.
+   */
+  actor?: ImportActor;
+  /**
+   * R15 — a person confirmed this needs-review row (group) of a one-time
+   * import (`ImportJobsService.confirmRow`): the review question (e.g. "same
+   * customer, new order?") is answered yes; every other rule still applies.
+   */
+  confirmed?: boolean;
 }
 
 export interface ImportRowResult {
   id: string;
+  /**
+   * R15 (D15-17) — the row was not written because it is already in OMS
+   * (same row key, or the same external order / lead id); the bilingual
+   * reason names the existing record. Never counted as created.
+   */
+  skipped?: string;
+  /** R15 — the row was created but needs attention (e.g. the order awaits stock). */
+  notice?: string;
+  /** R15 — preview only: non-blocking findings for the row (e.g. stock not available now). */
+  warnings?: string[];
   /**
    * Data Synchronization idempotency (spec: "running Sync twice without
    * changes must return NO_CHANGE, never create duplicate history") — set
@@ -136,6 +187,12 @@ export class ImportRowNeedsReviewError extends Error {
 /** Prefix stamped on the `ImportJobError.errorMessage` of a needs-review row — see `ImportRowNeedsReviewError`. */
 export const NEEDS_REVIEW_PREFIX = 'NEEDS_REVIEW: ';
 
+/** R15 — a row skipped as already imported (`ImportRowResult.skipped`), kept with its reason for the summary. */
+export const SKIPPED_PREFIX = 'SKIPPED: ';
+
+/** R15 — a created row's notice (`ImportRowResult.notice`, e.g. awaiting stock). */
+export const NOTICE_PREFIX = 'NOTICE: ';
+
 /**
  * One registered Import Type. `isAvailable: false` means the type is fully
  * registered (visible in the dashboard, its field schema drives the Mapping
@@ -153,6 +210,20 @@ export interface ImportTypeHandler {
   readonly descriptionKey: string;
   readonly fields: ImportFieldDef[];
   readonly isAvailable: boolean;
+  /**
+   * R15 (D15-16) — the permission a one-time import of this type needs per
+   * audience; `null` = the audience cannot import it. A handler without this
+   * hook is an administrator type: `import-center.manage` for company users,
+   * never for agent users. `import-center.manage` stays the company catch-all
+   * (`ImportAccessService`).
+   */
+  requiredPermission?(audience: ImportAudience): string | null;
+  /**
+   * R15 — ordered field keys of the sales import template (company / agent
+   * users), with Arabic or English headers and a sample row. Types without it
+   * have no sales template.
+   */
+  readonly salesTemplateFields?: Partial<Record<ImportAudience, string[]>>;
   /**
    * Column headers reserved for the sync write-back result (e.g. Store
    * Orders' "Sync Status" / "System Order ID" / "Error Message") — never

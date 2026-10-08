@@ -17,6 +17,8 @@ import {
   type ListSheetColumnKey,
 } from '../list-sheet/list-sheet.catalog';
 import {
+  type ImportActor,
+  type ImportAudience,
   type ImportFieldDef,
   type ImportRowOptions,
   type ImportRowResult,
@@ -27,13 +29,22 @@ import {
   normalizeExternalOrderId,
   REPEAT_CUSTOMER_ORDER_LABEL,
 } from '../sync/store-orders-sync.lifecycle';
+import { CompanyStoreOrderImportService } from '../sales-import/company-store-order-import.service';
+import { AgentStoreOrderImportService } from '../sales-import/agent-store-order-import.service';
+import {
+  companyOrderImportKey,
+  importRowHash,
+} from '../sales-import/import-row-key';
 
 const FIELDS: ImportFieldDef[] = [
   {
     key: 'externalOrderId',
     labelKey: 'importCenter.fields.externalOrderId',
     label: 'External Order ID',
-    required: true,
+    labelAr: 'رقم الطلب الخارجي',
+    // Required by the continuous sync (its row identity); optional in a
+    // one-time import, where rows sharing one id are lines of one order.
+    required: false,
     type: 'string',
     example: 'SH-100234',
   },
@@ -41,6 +52,7 @@ const FIELDS: ImportFieldDef[] = [
     key: 'orderDate',
     labelKey: 'importCenter.fields.orderDate',
     label: 'Order Date',
+    labelAr: 'تاريخ الطلب',
     required: true,
     type: 'date',
     example: '2026-08-01',
@@ -49,6 +61,7 @@ const FIELDS: ImportFieldDef[] = [
     key: 'customerName',
     labelKey: 'importCenter.fields.name',
     label: 'Customer Name',
+    labelAr: 'اسم العميل',
     required: true,
     type: 'string',
     example: 'Mohammed Al-Otaibi',
@@ -57,6 +70,7 @@ const FIELDS: ImportFieldDef[] = [
     key: 'customerPhone',
     labelKey: 'importCenter.fields.mobileNumber',
     label: 'Phone',
+    labelAr: 'الجوال',
     required: true,
     type: 'string',
     example: '512345678',
@@ -65,22 +79,37 @@ const FIELDS: ImportFieldDef[] = [
     key: 'countryName',
     labelKey: 'importCenter.fields.countryName',
     label: 'Country',
+    labelAr: 'الدولة',
     required: true,
     type: 'string',
+    example: 'السعودية (SA)',
     referenceType: 'COUNTRY',
     referenceDisplayWithCode: true,
+  },
+  {
+    key: 'city',
+    labelKey: 'importCenter.fields.city',
+    label: 'City',
+    labelAr: 'المدينة',
+    required: false,
+    type: 'string',
+    example: 'الرياض',
+    omitFromTemplate: true,
   },
   {
     key: 'address',
     labelKey: 'importCenter.fields.address',
     label: 'Detailed Address',
+    labelAr: 'العنوان التفصيلي',
     required: true,
     type: 'string',
+    example: 'حي النرجس، شارع 12',
   },
   {
     key: 'productSku',
     labelKey: 'importCenter.fields.productSku',
     label: 'Product',
+    labelAr: 'المنتج (الرمز أو الاسم)',
     required: true,
     type: 'string',
     example: 'منتج اختبار',
@@ -91,15 +120,38 @@ const FIELDS: ImportFieldDef[] = [
     key: 'quantity',
     labelKey: 'importCenter.fields.quantity',
     label: 'Quantity',
+    labelAr: 'الكمية',
     required: true,
     type: 'number',
     example: '1',
   },
   {
+    key: 'unitPrice',
+    labelKey: 'importCenter.fields.unitPrice',
+    label: 'Unit Price',
+    labelAr: 'سعر الوحدة',
+    required: false,
+    type: 'number',
+    example: '99.00',
+    omitFromTemplate: true,
+  },
+  {
+    key: 'lineAmount',
+    labelKey: 'salesImport.fields.lineAmount',
+    label: 'Line Amount',
+    labelAr: 'إجمالي السطر',
+    required: false,
+    type: 'number',
+    omitFromTemplate: true,
+  },
+  {
     key: 'paidAmount',
     labelKey: 'importCenter.fields.paidAmount',
     label: 'Paid Amount',
-    required: true,
+    labelAr: 'المبلغ المدفوع',
+    // The sync's line price (required there); in a one-time import only
+    // what the customer reportedly paid — a declaration.
+    required: false,
     type: 'number',
     example: '99.00',
   },
@@ -107,6 +159,7 @@ const FIELDS: ImportFieldDef[] = [
     key: 'currencyCode',
     labelKey: 'importCenter.fields.currencyCode',
     label: 'Currency',
+    labelAr: 'العملة',
     required: true,
     type: 'string',
     example: 'SAR',
@@ -116,18 +169,41 @@ const FIELDS: ImportFieldDef[] = [
     key: 'paymentMethodLabel',
     labelKey: 'importCenter.fields.paymentMethodLabel',
     label: 'Payment Method',
-    required: true,
+    labelAr: 'طريقة الدفع',
+    required: false,
     type: 'string',
     referenceType: 'PAYMENT_METHOD',
+  },
+  {
+    key: 'paymentDate',
+    labelKey: 'salesImport.fields.paymentDate',
+    label: 'Payment Date',
+    labelAr: 'تاريخ الدفع',
+    required: false,
+    type: 'date',
+    example: '2026-08-01',
+    omitFromTemplate: true,
   },
   {
     key: 'paymentType',
     labelKey: 'importCenter.fields.paymentType',
     label: 'Payment Type',
+    labelAr: 'نوع الدفع',
     required: false,
     type: 'string',
     options: Object.values(PAYMENT_TYPE_SHEET_LABELS),
     example: 'الدفع عند الاستلام',
+    omitFromTemplate: true,
+  },
+  {
+    key: 'repeatCustomer',
+    labelKey: 'salesImport.fields.repeatCustomer',
+    label: 'Repeat Customer',
+    labelAr: 'عميل متكرر',
+    required: false,
+    type: 'string',
+    options: ['نعم', 'لا'],
+    example: 'لا',
     omitFromTemplate: true,
   },
   {
@@ -155,6 +231,7 @@ const FIELDS: ImportFieldDef[] = [
     key: 'notes',
     labelKey: 'importCenter.fields.notes',
     label: 'Notes',
+    labelAr: 'ملاحظات',
     required: false,
     type: 'string',
   },
@@ -162,11 +239,36 @@ const FIELDS: ImportFieldDef[] = [
     key: 'agentEmail',
     labelKey: 'importCenter.fields.agentEmail',
     label: 'Employee Email',
-    required: true,
+    labelAr: 'المالك (البريد)',
+    // The sync's order owner (required there); a one-time import defaults
+    // to the importer (`ImportOwnerService`).
+    required: false,
     type: 'string',
     referenceType: 'EMPLOYEE',
     referenceMatchField: 'code',
   },
+];
+
+/** Sales import template columns (R15) — company / agent users. */
+const SALES_FIELDS = [
+  'externalOrderId',
+  'orderDate',
+  'customerName',
+  'customerPhone',
+  'countryName',
+  'city',
+  'address',
+  'productSku',
+  'quantity',
+  'unitPrice',
+  'lineAmount',
+  'currencyCode',
+  'paidAmount',
+  'paymentMethodLabel',
+  'paymentDate',
+  'paymentType',
+  'repeatCustomer',
+  'notes',
 ];
 
 interface LineItem {
@@ -215,6 +317,13 @@ interface LineItem {
  *
  * An External Order ID that already exists is always rejected — Sheets
  * sync never updates an existing order via re-import.
+ *
+ * R15 (D15-16 / D15-17) — a one-time import by a company or agent user
+ * (`options.actor`) is delegated to `CompanyStoreOrderImportService` /
+ * `AgentStoreOrderImportService` (manual-entry rules: duplicate gate,
+ * importer as owner, explicit prices, payment as a PENDING declaration). The
+ * sync path above keeps its rules and stamps the same row key
+ * (`creationIdempotencyKey`) as a one-time company import of the row.
  */
 @Injectable()
 export class StoreOrdersImportHandler
@@ -229,6 +338,11 @@ export class StoreOrdersImportHandler
   /** Reserved sync write-back columns (2026-08-15) — must exactly match the column names `SyncOrchestratorService.writeBackStoreOrders`/`confirmRow`/`rejectRow` write to. */
   readonly resultColumns = ['Sync Status', 'System Order ID', 'Error Message'];
 
+  readonly salesTemplateFields = {
+    COMPANY: [...SALES_FIELDS, 'agentEmail'],
+    AGENT: SALES_FIELDS,
+  };
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly partnersService: PartnersService,
@@ -237,10 +351,16 @@ export class StoreOrdersImportHandler
     private readonly phoneNumberService: PhoneNumberService,
     private readonly registry: ImportTypeRegistryService,
     private readonly referenceData: ReferenceDataRegistryService,
+    private readonly companyImport: CompanyStoreOrderImportService,
+    private readonly agentImport: AgentStoreOrderImportService,
   ) {}
 
   onModuleInit() {
     this.registry.register(this);
+  }
+
+  requiredPermission(audience: ImportAudience): string {
+    return audience === 'AGENT' ? 'agent.orders.import' : 'store-orders.import';
   }
 
   importRow(
@@ -256,6 +376,13 @@ export class StoreOrdersImportHandler
     userId?: string,
     options?: ImportRowOptions,
   ): Promise<ImportRowResult> {
+    // R15 — a one-time import by a company or agent user: manual-entry rules.
+    if (options?.actor) {
+      return this.importForActor(rows, options.actor, {
+        dryRun: options.dryRun,
+        confirmed: options.confirmed,
+      });
+    }
     const {
       first,
       countryId,
@@ -321,6 +448,9 @@ export class StoreOrdersImportHandler
         repeatCustomer ? REPEAT_CUSTOMER_ORDER_LABEL : undefined,
       ),
       userId,
+      undefined,
+      undefined,
+      this.syncCreationKey(first, normalizedPhone, orderDate, items),
     );
     await this.recordImportedExtras(
       order.id,
@@ -360,6 +490,9 @@ export class StoreOrdersImportHandler
         REPEAT_CUSTOMER_ORDER_LABEL,
       ),
       userId,
+      undefined,
+      undefined,
+      this.syncCreationKey(first, normalizedPhone, orderDate, items),
     );
     await this.recordImportedExtras(
       order.id,
@@ -369,6 +502,45 @@ export class StoreOrdersImportHandler
       userId,
     );
     return { id: order.id };
+  }
+
+  private importForActor(
+    rows: Record<string, string>[],
+    actor: ImportActor,
+    mode: { dryRun?: boolean; confirmed?: boolean },
+  ): Promise<ImportRowResult> {
+    const { agent } = actor;
+    return agent
+      ? this.agentImport.importGroup(rows, { ...actor, agent }, mode)
+      : this.companyImport.importGroup(rows, actor, mode);
+  }
+
+  /**
+   * R15 (D15-17) — the sync stamps the same row key a one-time company
+   * import of this row would (`import:company:<sha256>`), so neither path
+   * ever ingests the other's row again.
+   */
+  private syncCreationKey(
+    first: Record<string, string>,
+    normalizedPhone: string,
+    orderDate: string,
+    items: LineItem[],
+  ) {
+    const hash = importRowHash('company', {
+      phone: normalizedPhone,
+      name: first.customerName,
+      lines: items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        amount: item.unitPrice * item.quantity,
+      })),
+      orderDate: orderDate.slice(0, 10),
+      externalId: first.externalOrderId,
+    });
+    return {
+      creationIdempotencyKey: companyOrderImportKey(hash),
+      creationPayloadHash: hash,
+    };
   }
 
   private async findPriorOrderForPhone(normalizedPhone: string) {

@@ -1,9 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { Workbook, type Cell, type Worksheet } from 'exceljs';
 import { ImportTypeRegistryService } from './import-type-registry.service';
 import { ReferenceDataRegistryService } from './reference-data/reference-data-registry.service';
-import type { ImportFieldDef, ImportFieldType } from './import-type.interface';
+import type {
+  ImportAudience,
+  ImportFieldDef,
+  ImportFieldType,
+} from './import-type.interface';
 import {
   SHIPPING_INPUT_COLUMN_NAMES,
   SHIPPING_RESULT_COLUMN_NAMES,
@@ -27,6 +31,16 @@ const RESULT_ROW_ARGB = 'FFECF0F1';
 const REFERENCE_SHEET_NAME = 'Reference Data';
 /** How many data rows get a dropdown/list validation — independent of how many values the dropdown's own source list holds (a "Reference Data" column can have far more than this). */
 const TEMPLATE_ROWS = 200;
+/**
+ * Master data a sales template may list as a dropdown: shared reference lists
+ * only — never products (each importer has their own catalogue), employees
+ * (no user directory in a sales template) or, for agents, company payment
+ * methods (agents declare to their own payment destinations).
+ */
+const SALES_DROPDOWN_TYPES: Record<ImportAudience, Set<string>> = {
+  COMPANY: new Set(['COUNTRY', 'CURRENCY', 'PAYMENT_METHOD']),
+  AGENT: new Set(['COUNTRY', 'CURRENCY']),
+};
 
 /**
  * Excel Template Generator (Phase 2.5; Master-Data-Aware Imports) — the
@@ -82,6 +96,57 @@ export class ImportTemplateService {
 
     const arrayBuffer = await workbook.xlsx.writeBuffer();
     const fileName = `${type.toLowerCase().replace(/_/g, '-')}-import-template.xlsx`;
+    return { buffer: Buffer.from(arrayBuffer), fileName };
+  }
+
+  /**
+   * R15 (spec §8) — the sales import template of a type for a company or
+   * agent user: only the columns that user imports (the type's
+   * `salesTemplateFields`), headers in Arabic or English, a sample row, and
+   * dropdowns of shared master data only (see `SALES_DROPDOWN_TYPES`).
+   */
+  async generateSales(
+    type: string,
+    audience: ImportAudience,
+    lang: 'ar' | 'en',
+    sampleProduct?: string,
+  ): Promise<{ buffer: Buffer; fileName: string }> {
+    const handler = this.registry.get(type);
+    const keys = handler.salesTemplateFields?.[audience];
+    if (!keys) {
+      throw new NotFoundException(`No sales import template for "${type}".`);
+    }
+    const allowed = SALES_DROPDOWN_TYPES[audience];
+    const fields = keys.map((key) => {
+      const field = handler.fields.find((candidate) => candidate.key === key)!;
+      return {
+        ...field,
+        label: lang === 'ar' ? (field.labelAr ?? field.label) : field.label,
+        referenceType:
+          field.referenceType && allowed.has(field.referenceType)
+            ? field.referenceType
+            : undefined,
+      };
+    });
+    const workbook = new Workbook();
+    workbook.creator = 'OMS';
+    workbook.created = new Date();
+    const referenceColumns = await this.buildReferenceDataSheet(
+      workbook,
+      fields,
+    );
+    this.buildDataSheet(workbook, fields, referenceColumns, []);
+    const sample = workbook.getWorksheet('Import Data')!.getRow(2);
+    fields.forEach((field, index) => {
+      const value =
+        field.key === 'productSku' && sampleProduct
+          ? sampleProduct
+          : field.example;
+      if (value) sample.getCell(index + 1).value = value;
+    });
+    this.buildFieldGuideSheet(workbook, fields, type);
+    const arrayBuffer = await workbook.xlsx.writeBuffer();
+    const fileName = `${type.toLowerCase().replace(/_/g, '-')}-import-${lang}.xlsx`;
     return { buffer: Buffer.from(arrayBuffer), fileName };
   }
 

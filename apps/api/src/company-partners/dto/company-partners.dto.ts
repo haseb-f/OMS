@@ -1,5 +1,6 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  IsEmail,
   IsEnum,
   IsIn,
   IsNotEmpty,
@@ -18,6 +19,7 @@ import {
   PartnerProfitBasis,
 } from '@prisma/client';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
+import { toNormalizedEmail } from '../../auth/password.util';
 
 /** Business (Africa/Cairo) calendar date, "YYYY-MM-DD". */
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
@@ -235,4 +237,29 @@ export class FindPartnerPaymentsQueryDto {
 export class FindPartnerAgreementsQueryDto {
   @IsOptionalUuid()
   partnerId?: string;
+}
+
+/** R15 (D15-14) — a partner's own login: e-mail (also the username) and display name. */
+export class CreatePartnerLoginDto {
+  @Transform(({ value }: { value: unknown }) => toNormalizedEmail(value))
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  fullName!: string;
+}
+
+/** Link an existing, currently unlinked partner login to this partner. */
+export class LinkPartnerLoginDto {
+  @IsUUID()
+  userId!: string;
+}
+
+export class PartnerLoginCandidatesQueryDto {
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  search?: string;
 }

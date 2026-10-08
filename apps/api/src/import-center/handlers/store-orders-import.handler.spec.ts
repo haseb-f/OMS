@@ -274,16 +274,24 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
     expect(fieldKeys).not.toContain('errorMessage');
   });
 
-  it('Excel field list has no Unit Price column — Paid Amount is the only monetary line field', () => {
-    const keys = handler.fields.map((f) => f.key);
-    expect(keys).not.toContain('unitPrice');
-    expect(keys).toContain('paidAmount');
-    const labels = handler.fields.map((f) => f.label);
-    expect(labels).not.toContain('Unit Price');
-    expect(labels).toContain('Paid Amount');
+  it('the sync template has no Unit Price column — Paid Amount is the sync line amount; explicit prices are one-time import columns (R15)', () => {
+    const templateFields = handler.fields.filter((f) => !f.omitFromTemplate);
+    const templateKeys = templateFields.map((f) => f.key);
+    expect(templateKeys).not.toContain('unitPrice');
+    expect(templateKeys).not.toContain('lineAmount');
+    expect(templateKeys).toContain('paidAmount');
+    // The canonical A:P source block of the sync sheet stays 16 columns.
+    expect(templateFields).toHaveLength(16);
+    expect(handler.salesTemplateFields.COMPANY).toEqual(
+      expect.arrayContaining(['unitPrice', 'lineAmount', 'paidAmount']),
+    );
   });
 
-  it('matches the exact required/optional field list from the spec', () => {
+  // R15 — External Order ID, Paid Amount, Payment Method and Employee Email
+  // stay mandatory for the sync (enforced per row, see the tests below) but
+  // are optional columns of a one-time import (owner = importer, paid amount
+  // = a declaration, rows without an id are single orders).
+  it('matches the exact required/optional field list', () => {
     const required = handler.fields
       .filter((f) => f.required)
       .map((f) => f.key)
@@ -294,7 +302,6 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
       .sort();
     expect(required).toEqual(
       [
-        'externalOrderId',
         'orderDate',
         'customerName',
         'customerPhone',
@@ -302,15 +309,42 @@ describe('StoreOrdersImportHandler — exact field list + Paid Amount semantics'
         'address',
         'productSku',
         'quantity',
-        'paidAmount',
         'currencyCode',
-        'paymentMethodLabel',
-        'agentEmail',
       ].sort(),
     );
     expect(optional).toEqual(
-      ['receipt1', 'receipt2', 'receipt3', 'notes', 'paymentType'].sort(),
+      [
+        'externalOrderId',
+        'paidAmount',
+        'paymentMethodLabel',
+        'agentEmail',
+        'receipt1',
+        'receipt2',
+        'receipt3',
+        'notes',
+        'paymentType',
+        'city',
+        'unitPrice',
+        'lineAmount',
+        'paymentDate',
+        'repeatCustomer',
+      ].sort(),
     );
+  });
+
+  it('the sync (no importing actor) still requires External Order ID, Paid Amount, Payment Method and Employee Email per row', async () => {
+    for (const blank of [
+      'externalOrderId',
+      'paidAmount',
+      'paymentMethodLabel',
+      'agentEmail',
+    ]) {
+      await expect(
+        handler.importRow(baseRow({ [blank]: '' }), undefined, {
+          dryRun: true,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    }
   });
 
   it('derives unitPrice from Paid Amount / Quantity — never from Product master data (Product has no price field at all)', async () => {

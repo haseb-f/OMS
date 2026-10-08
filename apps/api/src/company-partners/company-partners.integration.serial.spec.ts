@@ -83,6 +83,19 @@ describe('Company partners — profit sharing (integration)', () => {
 
   const d = (value: string) => new Date(`${value}T00:00:00.000Z`);
 
+  /**
+   * The number series as they were before the fake 2035 clock: documents
+   * minted under it re-key their yearly series to 2035, which would make the
+   * next real-time document restart at 1 (duplicate numbers for every later
+   * suite on the same database). Restored in afterAll — safe only because this
+   * suite is serial (no other suite mints numbers while it runs).
+   */
+  let seriesBefore: Array<{
+    id: string;
+    nextNumber: number;
+    lastResetKey: string | null;
+  }> = [];
+
   /** Business "now" after every 2035 fixture period — only `Date` is faked. */
   function clockAfterFixturePeriods() {
     jest.useFakeTimers({
@@ -186,6 +199,9 @@ describe('Company partners — profit sharing (integration)', () => {
     }).compile();
     await moduleRef.init();
     prisma = moduleRef.get(PrismaService);
+    seriesBefore = await prisma.numberSeries.findMany({
+      select: { id: true, nextNumber: true, lastResetKey: true },
+    });
     partners = moduleRef.get(CompanyPartnersService);
     profit = moduleRef.get(PartnerProfitService);
     payments = moduleRef.get(PartnerPaymentsService);
@@ -275,6 +291,15 @@ describe('Company partners — profit sharing (integration)', () => {
   afterAll(async () => {
     jest.useRealTimers();
     if (!prisma) return;
+    for (const series of seriesBefore) {
+      await prisma.numberSeries.updateMany({
+        where: { id: series.id, lastResetKey: { startsWith: '2035' } },
+        data: {
+          nextNumber: series.nextNumber,
+          lastResetKey: series.lastResetKey,
+        },
+      });
+    }
     const partnerIds = created.partners;
     const periods = await prisma.partnerProfitPeriod.findMany({
       where: { entitlements: { some: { partnerId: { in: partnerIds } } } },
@@ -701,7 +726,7 @@ describe('Company partners — profit sharing (integration)', () => {
     );
   });
 
-  it('statement: terms, estimate vs approved, paid, remaining payable', async () => {
+  it('statement: terms, per-period rows (closed / under review), paid oldest-first, remaining payable', async () => {
     const statement = await statements.statement(
       partnerA,
       '2035-03-01',
@@ -710,14 +735,35 @@ describe('Company partners — profit sharing (integration)', () => {
     expect(
       statement.agreements.map((a) => a.profitSharePercent).sort(),
     ).toEqual([30, 40]);
-    expect(statement.approved.total).toBe(7_600);
-    expect(statement.approved.periods[0]).toMatchObject({
-      original: 7_200,
-      adjustments: 400,
-      total: 7_600,
+    expect(
+      statement.periods.map((row) => [
+        row.periodFrom,
+        row.status,
+        row.entitlement,
+        row.adjustments,
+        row.approvedDue,
+        row.paid,
+        row.remaining,
+      ]),
+    ).toEqual([
+      ['2035-03-01', 'CLOSED', 7_200, 400, 7_600, 5_000, 2_600],
+      // The April review was saved before the late April invoice (loss month).
+      ['2035-04-01', 'UNDER_REVIEW', 0, null, null, null, null],
+    ]);
+    expect(statement.totals).toMatchObject({
+      approvedDue: 7_600,
+      paid: 5_000,
+      remaining: 2_600,
     });
+    expect(statement.adjustments).toEqual([
+      expect.objectContaining({
+        periodFrom: '2035-03-01',
+        reason: 'Late March invoice',
+        amount: 400,
+      }),
+    ]);
     expect(statement.paidInRange).toBe(5_000);
-    expect(statement.balance).toMatchObject({
+    expect(statement.position).toMatchObject({
       approved: 7_600,
       paid: 5_000,
       payable: 2_600,

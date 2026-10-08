@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PartnerProfitPeriodStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { dateValue, round2HalfUp } from './partner-profit-calculator';
+import { round2HalfUp } from './partner-profit-calculator';
 
 export interface PartnerBalance {
   /** Approved entitlements (closed periods incl. adjustments). */
@@ -26,33 +26,21 @@ export class PartnerBalancesService {
 
   async forPartners(
     partnerIds: string[],
-    range?: { from?: string; to?: string },
   ): Promise<Map<string, PartnerBalance>> {
     const result = new Map<string, PartnerBalance>();
     if (partnerIds.length === 0) return result;
-    const periodWhere: Prisma.PartnerProfitPeriodWhereInput = {
-      status: PartnerProfitPeriodStatus.CLOSED,
-      ...(range?.from && { periodFrom: { gte: dateValue(range.from) } }),
-      ...(range?.to && { periodTo: { lte: dateValue(range.to) } }),
-    };
     const [entitlements, payments] = await Promise.all([
       this.prisma.partnerEntitlement.groupBy({
         by: ['partnerId'],
-        where: { partnerId: { in: partnerIds }, period: periodWhere },
+        where: {
+          partnerId: { in: partnerIds },
+          period: { status: PartnerProfitPeriodStatus.CLOSED },
+        },
         _sum: { amount: true },
       }),
       this.prisma.partnerPayment.groupBy({
         by: ['partnerId'],
-        where: {
-          partnerId: { in: partnerIds },
-          reversedAt: null,
-          ...((range?.from || range?.to) && {
-            date: {
-              ...(range.from && { gte: dateValue(range.from) }),
-              ...(range.to && { lte: dateValue(range.to) }),
-            },
-          }),
-        },
+        where: { partnerId: { in: partnerIds }, reversedAt: null },
         _sum: { amount: true },
       }),
     ]);

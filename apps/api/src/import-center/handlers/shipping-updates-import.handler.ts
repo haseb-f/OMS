@@ -5,6 +5,7 @@ import {
   shipmentFulfillmentCode,
 } from '../../agents/finance/agent-fulfillment.service';
 import { FulfillmentRecognitionService } from '../../store-orders/fulfillment-recognition/fulfillment-recognition.service';
+import { StoreOrderStockService } from '../../store-orders/stock-lifecycle/store-order-stock.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { StoreOrderShipmentsService } from '../../store-orders/shipments/store-order-shipments.service';
@@ -217,6 +218,8 @@ export class ShippingUpdatesImportHandler
     /** R14 W3 — the same SHIPMENT_COST accrual + post-commit recognition hook as a manual status change. */
     private readonly recognition: FulfillmentRecognitionService,
     private readonly permissionsResolver: PermissionsResolverService,
+    /** R15 W5a — the same dispatch-to-transit / delivery stock step as a manual status change. */
+    private readonly stock: StoreOrderStockService,
   ) {}
 
   onModuleInit() {
@@ -644,6 +647,15 @@ export class ShippingUpdatesImportHandler
             where: { id: updated.id },
             data: { shippingCompanyId },
           });
+          // R15 (W3, D15-13) — a carrier set by import confirms an agent
+          // order's agreed shipping charge exactly like the manual
+          // assignment (no-op for company orders, idempotent; a missing
+          // tariff fails this row).
+          await this.agentFulfillment.onShippingCompanyAssigned(
+            tx,
+            order.id,
+            userId,
+          );
         }
         if (trackingNumber) {
           updated = await tx.shipment.update({
@@ -682,8 +694,19 @@ export class ShippingUpdatesImportHandler
           data: { lastExternalSyncAt: syncedAt, updatedAt: syncedAt },
         });
 
+        // R15 (D15-4…D15-8) — the same stock step as a manual change, in
+        // this transaction: SHIPPED dispatches to transit (a parcel whose
+        // stock cannot be secured fails this row), DELIVERED records the
+        // accepted quantities, failed / returning goods stay in transit.
+        await this.stock.onShipmentStatus(
+          tx,
+          order.id,
+          updated,
+          { catalogCode: catalogStatus.code },
+          userId,
+        );
         // Agents milestone (S3): the same agent hook the manual shipment
-        // operations run — stock issue at dispatch, per-shipment fee and the
+        // operations run — dispatch stamp, per-shipment fee and the
         // DELIVERED earning event — in this transaction. Idempotent (dispatch
         // stamp + ledger keys), a no-op for company orders.
         await this.agentFulfillment.onShipmentProgress(
@@ -708,11 +731,16 @@ export class ShippingUpdatesImportHandler
       },
     );
 
-    // R14 W3 — post-commit (never throws): reserve on SHIPPED, recognise a
-    // company order on DELIVERED, unwind on failed / returned.
+    // R14 W3 / R15 — post-commit (never throws): recognise a company order's
+    // delivered shipment, record a COD parcel's expected collection, flag a
+    // return after delivery.
     await this.recognition.afterShipmentStatus(
       order.id,
-      { status: shipment.status, catalogCode: catalogStatus.code },
+      {
+        id: shipment.id,
+        status: shipment.status,
+        catalogCode: catalogStatus.code,
+      },
       userId,
     );
 
