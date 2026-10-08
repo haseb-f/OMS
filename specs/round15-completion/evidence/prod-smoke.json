@@ -1,0 +1,216 @@
+{
+  "api": "https://oms.haseb.org/api",
+  "at": "2026-10-08T12:48:07.844Z",
+  "results": [
+    {
+      "name": "qa-admin login 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "permission catalogue has crm.leads.import",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "permission catalogue has store-orders.import",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "permission catalogue has agent.leads.import",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "permission catalogue has agent.orders.import",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "permission catalogue has reports.sales.view",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "permission catalogue has reports.sales.view_all",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "permission catalogue has shipping.receive_returns",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "permission catalogue has sales.receipts.reverse",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "permission catalogue has company-partners.users.manage",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "WH-TRANSIT exists with role TRANSIT",
+      "ok": true,
+      "detail": "WH-TRANSIT TRANSIT"
+    },
+    {
+      "name": "WH-DAMAGED exists with role DAMAGED",
+      "ok": true,
+      "detail": "WH-DAMAGED DAMAGED"
+    },
+    {
+      "name": "shipping agreements readable for every agent",
+      "ok": true,
+      "detail": "[{\"agent\":\"AG-0003\",\"status\":\"ACTIVE\",\"http\":200,\"agreements\":[]},{\"agent\":\"AG-0002\",\"status\":\"ACTIVE\",\"http\":200,\"agreements\":[\"ASA-AGR-2026-0002/ACTIVE/rates=8\"]},{\"agent\":\"AG-0001\",\"status\":\"ACTIVE\",\"http\":200,\"agreements\":[\"ASA-AGR-2026-0003/ACTIVE/rates=8\",\"ASA-AGR-2026-0001/ACTIVE/rates=8\"]}]"
+    },
+    {
+      "name": "AG-0001: its old tariff became an ACTIVE shipping agreement (ASA-…)",
+      "ok": true,
+      "detail": "[\"ASA-AGR-2026-0003/ACTIVE/rates=8\",\"ASA-AGR-2026-0001/ACTIVE/rates=8\"]"
+    },
+    {
+      "name": "AG-0002: its old tariff became an ACTIVE shipping agreement (ASA-…)",
+      "ok": true,
+      "detail": "[\"ASA-AGR-2026-0002/ACTIVE/rates=8\"]"
+    },
+    {
+      "name": "store-order stock-status filter answers",
+      "ok": true,
+      "detail": "{\"PENDING\":7,\"RESERVED\":0,\"SHORT\":0,\"IN_TRANSIT\":0,\"DELIVERED\":0,\"NOT_REQUIRED\":0}"
+    },
+    {
+      "name": "stock backfill dry run 200 (super admin)",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "dry run reports no failure",
+      "ok": true,
+      "detail": "{\"candidates\":7,\"reserve\":6,\"moveToTransit\":0,\"mark\":1,\"skipped\":0,\"short\":6,\"failed\":0}"
+    },
+    {
+      "name": "internal token on /partner-portal/me → refused",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "name": "sales report answers for the super admin",
+      "ok": true,
+      "detail": "200 scope=ALL"
+    },
+    {
+      "name": "logout",
+      "ok": true,
+      "detail": "200"
+    }
+  ],
+  "agents": [
+    {
+      "agent": "AG-0003",
+      "status": "ACTIVE",
+      "http": 200,
+      "agreements": []
+    },
+    {
+      "agent": "AG-0002",
+      "status": "ACTIVE",
+      "http": 200,
+      "agreements": ["ASA-AGR-2026-0002/ACTIVE/rates=8"]
+    },
+    {
+      "agent": "AG-0001",
+      "status": "ACTIVE",
+      "http": 200,
+      "agreements": ["ASA-AGR-2026-0003/ACTIVE/rates=8", "ASA-AGR-2026-0001/ACTIVE/rates=8"]
+    }
+  ],
+  "stockTotalsBefore": {
+    "PENDING": 7,
+    "RESERVED": 0,
+    "SHORT": 0,
+    "IN_TRANSIT": 0,
+    "DELIVERED": 0,
+    "NOT_REQUIRED": 0
+  },
+  "dryRun": {
+    "summary": {
+      "candidates": 7,
+      "reserve": 6,
+      "moveToTransit": 0,
+      "mark": 1,
+      "skipped": 0,
+      "short": 6,
+      "failed": 0
+    },
+    "orders": [
+      {
+        "order": "STO-2026-000156",
+        "agent": false,
+        "action": "RESERVE",
+        "before": "PENDING",
+        "ledger": "SHORT",
+        "after": null,
+        "short": 1
+      },
+      {
+        "order": "STO-2026-000157",
+        "agent": false,
+        "action": "RESERVE",
+        "before": "PENDING",
+        "ledger": "SHORT",
+        "after": null,
+        "short": 1
+      },
+      {
+        "order": "STO-2026-000158",
+        "agent": false,
+        "action": "RESERVE",
+        "before": "PENDING",
+        "ledger": "SHORT",
+        "after": null,
+        "short": 1
+      },
+      {
+        "order": "STO-2026-000159",
+        "agent": false,
+        "action": "RESERVE",
+        "before": "PENDING",
+        "ledger": "SHORT",
+        "after": null,
+        "short": 1
+      },
+      {
+        "order": "STO-2026-000160",
+        "agent": false,
+        "action": "RESERVE",
+        "before": "PENDING",
+        "ledger": "SHORT",
+        "after": null,
+        "short": 1
+      },
+      {
+        "order": "STO-2026-000161",
+        "agent": false,
+        "action": "RESERVE",
+        "before": "PENDING",
+        "ledger": "SHORT",
+        "after": null,
+        "short": 1
+      },
+      {
+        "order": "STO-2026-000162",
+        "agent": false,
+        "action": "MARK",
+        "before": "PENDING",
+        "ledger": "DELIVERED",
+        "after": null,
+        "short": 0
+      }
+    ]
+  },
+  "applied": null
+}

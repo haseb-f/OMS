@@ -27,7 +27,10 @@ const bcrypt = require("bcryptjs");
 mkdirSync(`${ROOT}/tmp/r15`, { recursive: true });
 const envFile = `${ROOT}/tmp/r15/.r15.env`;
 let pw;
-if (existsSync(envFile)) pw = readFileSync(envFile, "utf8").match(/R15_PW=(.*)/)?.[1]?.trim();
+if (existsSync(envFile))
+  pw = readFileSync(envFile, "utf8")
+    .match(/R15_PW=(.*)/)?.[1]
+    ?.trim();
 if (!pw) {
   pw = "R15-" + randomBytes(9).toString("base64url");
   writeFileSync(envFile, `R15_PW=${pw}\n`);
@@ -69,7 +72,11 @@ export const PERSONAS = [
     // store-orders.view only for the dashboard gate (OWN record scope — never widens).
     perms: ["reports.sales.view", "reports.sales.view_all", "store-orders.view"],
   },
-  { key: "browse", name: "متصفح طلبات R15", perms: ["reports.sales.view", "store-orders.view_all"] },
+  {
+    key: "browse",
+    name: "متصفح طلبات R15",
+    perms: ["reports.sales.view", "store-orders.view_all"],
+  },
   {
     key: "shipping",
     name: "موظف شحن R15",

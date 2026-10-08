@@ -1,0 +1,6223 @@
+{
+  "base": "https://oms.haseb.org",
+  "at": "2026-10-08T13:28:26.698Z",
+  "setup": {
+    "agent": "AG-0001",
+    "shippingAgreements": ["ASA-AGR-2026-0003", "ASA-AGR-2026-0001"],
+    "agentAdminName": true,
+    "deliveredOrder": "STO-2026-000162",
+    "otherSellers": 20
+  },
+  "results": [
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/",
+      "check": "«الشركاء» module tile on Home",
+      "ok": true,
+      "detail": "",
+      "screenshot": "001-home-partners-tile-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/",
+      "check": "tile label",
+      "ok": true,
+      "detail": "الشركاء\nالشركاء · فترات الأرباح",
+      "screenshot": "001-home-partners-tile-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/",
+      "check": "«الشركاء» is a top-level sidebar section",
+      "ok": true,
+      "detail": "1",
+      "screenshot": "001-home-partners-tile-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "001-home-partners-tile-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "001-home-partners-tile-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "001-home-partners-tile-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "001-home-partners-tile-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "001-home-partners-tile-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "001-home-partners-tile-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "001-home-partners-tile-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "001-home-partners-tile-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/modules/company-partners",
+      "check": "module overview lists the partners destinations",
+      "ok": true,
+      "detail": "2",
+      "screenshot": "002-partners-module-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/modules/company-partners",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "002-partners-module-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/modules/company-partners",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "002-partners-module-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/modules/company-partners",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "002-partners-module-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/modules/company-partners",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "002-partners-module-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/modules/company-partners",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "002-partners-module-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/modules/company-partners",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "002-partners-module-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/modules/company-partners",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "002-partners-module-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/modules/company-partners",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "002-partners-module-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/company-partners",
+      "check": "partners list renders (list or empty state)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "003-company-partners-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/company-partners",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "003-company-partners-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/company-partners",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "003-company-partners-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/company-partners",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "003-company-partners-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/company-partners",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "003-company-partners-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/company-partners",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "003-company-partners-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/company-partners",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "003-company-partners-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/company-partners",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "003-company-partners-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/company-partners",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "003-company-partners-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents",
+      "check": "cross-agent overview panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "004-agents-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents",
+      "check": "overview insight cards rendered",
+      "ok": true,
+      "detail": "8 cards",
+      "screenshot": "004-agents-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "004-agents-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "004-agents-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "004-agents-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "004-agents-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "004-agents-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "004-agents-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "004-agents-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "004-agents-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "orders & fulfilment panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "005-agent-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "overview uses shared insight cards",
+      "ok": true,
+      "detail": "15 cards",
+      "screenshot": "005-agent-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "money panels shown with agents.finance.view (sales + account position)",
+      "ok": true,
+      "detail": "sales 1 position 1",
+      "screenshot": "005-agent-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "005-agent-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "005-agent-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "005-agent-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "005-agent-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "005-agent-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "005-agent-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "005-agent-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "005-agent-overview-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "shipping agreement section present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "006-agent-settings-shipping-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "migrated agreement number shown (ASA-…)",
+      "ok": true,
+      "detail": "ASA-AGR-2026-0003,ASA-AGR-2026-0001",
+      "screenshot": "006-agent-settings-shipping-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "rates listed per service and destination",
+      "ok": true,
+      "detail": "",
+      "screenshot": "006-agent-settings-shipping-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "006-agent-settings-shipping-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "006-agent-settings-shipping-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "006-agent-settings-shipping-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "006-agent-settings-shipping-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "006-agent-settings-shipping-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "006-agent-settings-shipping-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "006-agent-settings-shipping-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "006-agent-settings-shipping-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "'New agent order' button reachable on the Orders tab",
+      "ok": true,
+      "detail": "",
+      "screenshot": "007-agent-order-entry-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "button opens the shared order-entry dialog",
+      "ok": true,
+      "detail": "",
+      "screenshot": "007-agent-order-entry-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "shared flow shows the four steps (customer → products → delivery & payment → review)",
+      "ok": true,
+      "detail": "1العميل2المنتجات3التوصيل والدفع4المراجعة",
+      "screenshot": "007-agent-order-entry-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "steps are in order",
+      "ok": true,
+      "detail": "[1,8,17,32]",
+      "screenshot": "007-agent-order-entry-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "flow opens on the customer step",
+      "ok": true,
+      "detail": "customer",
+      "screenshot": "007-agent-order-entry-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "desktop: step list visible",
+      "ok": true,
+      "detail": "",
+      "screenshot": "007-agent-order-entry-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "Next button visible",
+      "ok": true,
+      "detail": "",
+      "screenshot": "007-agent-order-entry-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "required-field indicators present",
+      "ok": true,
+      "detail": "1",
+      "screenshot": "007-agent-order-entry-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "dialog closes without saving",
+      "ok": true,
+      "detail": "",
+      "screenshot": "007-agent-order-entry-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "007-agent-order-entry-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "007-agent-order-entry-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "007-agent-order-entry-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "007-agent-order-entry-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "007-agent-order-entry-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "007-agent-order-entry-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "007-agent-order-entry-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "007-agent-order-entry-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/inventory/stock",
+      "check": "In transit column shown",
+      "ok": true,
+      "detail": "",
+      "screenshot": "008-inventory-stock-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/inventory/stock",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "008-inventory-stock-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/inventory/stock",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "008-inventory-stock-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/inventory/stock",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "008-inventory-stock-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/inventory/stock",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "008-inventory-stock-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/inventory/stock",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "008-inventory-stock-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/inventory/stock",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "008-inventory-stock-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/inventory/stock",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "008-inventory-stock-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/inventory/stock",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "008-inventory-stock-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/master-data/warehouses",
+      "check": "WH-TRANSIT listed with the 'بضاعة في الطريق' role badge",
+      "ok": true,
+      "detail": "",
+      "screenshot": "009-warehouses-roles-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/master-data/warehouses",
+      "check": "WH-DAMAGED listed with the 'بضاعة تالفة' role badge",
+      "ok": true,
+      "detail": "",
+      "screenshot": "009-warehouses-roles-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/master-data/warehouses",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "009-warehouses-roles-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/master-data/warehouses",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "009-warehouses-roles-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/master-data/warehouses",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "009-warehouses-roles-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/master-data/warehouses",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "009-warehouses-roles-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/master-data/warehouses",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "009-warehouses-roles-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/master-data/warehouses",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "009-warehouses-roles-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/master-data/warehouses",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "009-warehouses-roles-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/master-data/warehouses",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "009-warehouses-roles-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "stock-status column in the list",
+      "ok": true,
+      "detail": "",
+      "screenshot": "010-store-orders-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "stock chips rendered in rows",
+      "ok": true,
+      "detail": "لم يُقيَّم بعد",
+      "screenshot": "010-store-orders-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "010-store-orders-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "010-store-orders-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "010-store-orders-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "010-store-orders-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "010-store-orders-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "010-store-orders-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "010-store-orders-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "010-store-orders-list-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "New order opens the shared order-entry dialog",
+      "ok": true,
+      "detail": "",
+      "screenshot": "011-store-order-new-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "shared flow shows the four steps (customer → products → delivery & payment → review)",
+      "ok": true,
+      "detail": "1العميل2المنتجات3التوصيل والدفع4المراجعة",
+      "screenshot": "011-store-order-new-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "steps are in order",
+      "ok": true,
+      "detail": "[1,8,17,32]",
+      "screenshot": "011-store-order-new-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "flow opens on the customer step",
+      "ok": true,
+      "detail": "customer",
+      "screenshot": "011-store-order-new-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "desktop: step list visible",
+      "ok": true,
+      "detail": "",
+      "screenshot": "011-store-order-new-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "Next button visible",
+      "ok": true,
+      "detail": "",
+      "screenshot": "011-store-order-new-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "required-field indicators present",
+      "ok": true,
+      "detail": "1",
+      "screenshot": "011-store-order-new-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "Next on an empty customer step stays there with field errors",
+      "ok": true,
+      "detail": "step customer, invalid 2",
+      "screenshot": "011-store-order-new-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "no console errors while the dialog is open",
+      "ok": true,
+      "detail": "",
+      "screenshot": "011-store-order-new-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "dialog closes without saving",
+      "ok": true,
+      "detail": "",
+      "screenshot": "011-store-order-new-dialog-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "stock panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "stock panel shows reserved / in transit / delivered",
+      "ok": true,
+      "detail": "",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "payments section present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "Collection panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "Collection panel shows the verified collection figure",
+      "ok": true,
+      "detail": "",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "012-order-stock-panel-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/reports/sales",
+      "check": "company-wide tabs (reports.sales.view_all)",
+      "ok": true,
+      "detail": "تقارير Live | الموظفون | الفرق | المقارنة | طرق الدفع",
+      "screenshot": "014-sales-reports-company-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/reports/sales",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "014-sales-reports-company-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/reports/sales",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "014-sales-reports-company-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/reports/sales",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "014-sales-reports-company-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/reports/sales",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "014-sales-reports-company-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/reports/sales",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "014-sales-reports-company-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/reports/sales",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "014-sales-reports-company-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/reports/sales",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "014-sales-reports-company-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-desktop",
+      "persona": "admin",
+      "variant": "ar-desktop",
+      "page": "/reports/sales",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "014-sales-reports-company-admin-ar-desktop.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/",
+      "check": "«الشركاء» module tile on Home",
+      "ok": true,
+      "detail": "",
+      "screenshot": "015-home-partners-tile-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/",
+      "check": "tile label",
+      "ok": true,
+      "detail": "الشركاء\nالشركاء · فترات الأرباح",
+      "screenshot": "015-home-partners-tile-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "015-home-partners-tile-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "015-home-partners-tile-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "015-home-partners-tile-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 390 / clientWidth 390",
+      "screenshot": "015-home-partners-tile-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "015-home-partners-tile-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "015-home-partners-tile-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "015-home-partners-tile-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "015-home-partners-tile-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/",
+      "check": "phone: tables fit without sideways scrolling",
+      "ok": true,
+      "detail": "",
+      "screenshot": "015-home-partners-tile-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents",
+      "check": "cross-agent overview panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "016-agents-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents",
+      "check": "overview insight cards rendered",
+      "ok": true,
+      "detail": "8 cards",
+      "screenshot": "016-agents-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "016-agents-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "016-agents-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "016-agents-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 390 / clientWidth 390",
+      "screenshot": "016-agents-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "016-agents-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "016-agents-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "016-agents-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "016-agents-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents",
+      "check": "phone: tables fit without sideways scrolling",
+      "ok": true,
+      "detail": "",
+      "screenshot": "016-agents-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "shipping agreement section present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "017-agent-settings-shipping-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "migrated agreement number shown (ASA-…)",
+      "ok": true,
+      "detail": "ASA-AGR-2026-0003,ASA-AGR-2026-0001",
+      "screenshot": "017-agent-settings-shipping-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "rates listed per service and destination",
+      "ok": true,
+      "detail": "",
+      "screenshot": "017-agent-settings-shipping-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "017-agent-settings-shipping-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "017-agent-settings-shipping-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "017-agent-settings-shipping-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 390 / clientWidth 390",
+      "screenshot": "017-agent-settings-shipping-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "017-agent-settings-shipping-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "017-agent-settings-shipping-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "017-agent-settings-shipping-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "017-agent-settings-shipping-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "phone: tables fit without sideways scrolling",
+      "ok": true,
+      "detail": "",
+      "screenshot": "017-agent-settings-shipping-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "'New agent order' button reachable on the Orders tab",
+      "ok": true,
+      "detail": "",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "button opens the shared order-entry dialog",
+      "ok": true,
+      "detail": "",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "shared flow shows the four steps (customer → products → delivery & payment → review)",
+      "ok": true,
+      "detail": "1العميل2المنتجات3التوصيل والدفع4المراجعة",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "steps are in order",
+      "ok": true,
+      "detail": "[1,8,17,32]",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "flow opens on the customer step",
+      "ok": true,
+      "detail": "customer",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "phone: compact stepper visible",
+      "ok": true,
+      "detail": "",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "Next button visible",
+      "ok": true,
+      "detail": "",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "phone: Next button inside the viewport",
+      "ok": true,
+      "detail": "{\"x\":29,\"y\":787,\"w\":46}",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "required-field indicators present",
+      "ok": true,
+      "detail": "1",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "phone: dialog fits the viewport",
+      "ok": true,
+      "detail": "x 8 w 374 / 390",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "dialog closes without saving",
+      "ok": true,
+      "detail": "",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 390 / clientWidth 390",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/agents/AG-0001?tab=orders",
+      "check": "phone: tables fit without sideways scrolling",
+      "ok": true,
+      "detail": "",
+      "screenshot": "018-agent-order-entry-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "019-store-orders-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "019-store-orders-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "019-store-orders-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 390 / clientWidth 390",
+      "screenshot": "019-store-orders-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "019-store-orders-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "019-store-orders-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "019-store-orders-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "019-store-orders-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "phone: tables fit without sideways scrolling",
+      "ok": true,
+      "detail": "",
+      "screenshot": "019-store-orders-list-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "New order opens the shared order-entry dialog",
+      "ok": true,
+      "detail": "",
+      "screenshot": "020-store-order-new-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "shared flow shows the four steps (customer → products → delivery & payment → review)",
+      "ok": true,
+      "detail": "1العميل2المنتجات3التوصيل والدفع4المراجعة",
+      "screenshot": "020-store-order-new-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "steps are in order",
+      "ok": true,
+      "detail": "[1,8,17,32]",
+      "screenshot": "020-store-order-new-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "flow opens on the customer step",
+      "ok": true,
+      "detail": "customer",
+      "screenshot": "020-store-order-new-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "phone: compact stepper visible",
+      "ok": true,
+      "detail": "",
+      "screenshot": "020-store-order-new-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "Next button visible",
+      "ok": true,
+      "detail": "",
+      "screenshot": "020-store-order-new-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "phone: Next button inside the viewport",
+      "ok": true,
+      "detail": "{\"x\":29,\"y\":787,\"w\":46}",
+      "screenshot": "020-store-order-new-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "required-field indicators present",
+      "ok": true,
+      "detail": "1",
+      "screenshot": "020-store-order-new-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "phone: dialog fits the viewport",
+      "ok": true,
+      "detail": "x 8 w 374 / 390",
+      "screenshot": "020-store-order-new-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "no console errors while the dialog is open",
+      "ok": true,
+      "detail": "",
+      "screenshot": "020-store-order-new-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "dialog closes without saving",
+      "ok": true,
+      "detail": "",
+      "screenshot": "020-store-order-new-dialog-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "stock panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "stock panel shows reserved / in transit / delivered",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 390 / clientWidth 390",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "phone: tables fit without sideways scrolling",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "payments section present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "Collection panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "Collection panel shows the verified collection figure",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 390 / clientWidth 390",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-ar-mobile",
+      "persona": "admin",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "phone: tables fit without sideways scrolling",
+      "ok": true,
+      "detail": "",
+      "screenshot": "021-order-stock-panel-admin-ar-mobile.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/",
+      "check": "«الشركاء» module tile on Home",
+      "ok": true,
+      "detail": "",
+      "screenshot": "023-home-partners-tile-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/",
+      "check": "tile label",
+      "ok": true,
+      "detail": "Partners\nPartners · Profit periods",
+      "screenshot": "023-home-partners-tile-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/",
+      "check": "«الشركاء» is a top-level sidebar section",
+      "ok": true,
+      "detail": "1",
+      "screenshot": "023-home-partners-tile-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "023-home-partners-tile-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "023-home-partners-tile-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "023-home-partners-tile-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "023-home-partners-tile-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/",
+      "check": "html dir = ltr",
+      "ok": true,
+      "detail": "ltr",
+      "screenshot": "023-home-partners-tile-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "023-home-partners-tile-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "shipping agreement section present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "024-agent-settings-shipping-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "migrated agreement number shown (ASA-…)",
+      "ok": true,
+      "detail": "ASA-AGR-2026-0003,ASA-AGR-2026-0001",
+      "screenshot": "024-agent-settings-shipping-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "rates listed per service and destination",
+      "ok": true,
+      "detail": "",
+      "screenshot": "024-agent-settings-shipping-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "024-agent-settings-shipping-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "024-agent-settings-shipping-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "024-agent-settings-shipping-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "024-agent-settings-shipping-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "html dir = ltr",
+      "ok": true,
+      "detail": "ltr",
+      "screenshot": "024-agent-settings-shipping-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "024-agent-settings-shipping-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders",
+      "check": "stock-status column in the list",
+      "ok": true,
+      "detail": "",
+      "screenshot": "025-store-orders-list-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders",
+      "check": "stock chips rendered in rows",
+      "ok": true,
+      "detail": "Delivered, Not evaluated",
+      "screenshot": "025-store-orders-list-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "025-store-orders-list-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "025-store-orders-list-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "025-store-orders-list-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "025-store-orders-list-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders",
+      "check": "html dir = ltr",
+      "ok": true,
+      "detail": "ltr",
+      "screenshot": "025-store-orders-list-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "025-store-orders-list-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "stock panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "026-order-stock-panel-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "stock panel shows reserved / in transit / delivered",
+      "ok": true,
+      "detail": "",
+      "screenshot": "026-order-stock-panel-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "026-order-stock-panel-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "026-order-stock-panel-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "026-order-stock-panel-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "026-order-stock-panel-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "html dir = ltr",
+      "ok": true,
+      "detail": "ltr",
+      "screenshot": "026-order-stock-panel-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "026-order-stock-panel-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "payments section present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "026-order-stock-panel-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "Collection panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "026-order-stock-panel-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "Collection panel shows the verified collection figure",
+      "ok": true,
+      "detail": "",
+      "screenshot": "026-order-stock-panel-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "026-order-stock-panel-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "026-order-stock-panel-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "026-order-stock-panel-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "026-order-stock-panel-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "html dir = ltr",
+      "ok": true,
+      "detail": "ltr",
+      "screenshot": "026-order-stock-panel-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-en-desktop",
+      "persona": "admin",
+      "variant": "en-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "026-order-stock-panel-admin-en-desktop.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents",
+      "check": "cross-agent overview panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "028-agents-list-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents",
+      "check": "overview insight cards rendered",
+      "ok": true,
+      "detail": "8 cards",
+      "screenshot": "028-agents-list-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "028-agents-list-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "028-agents-list-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "028-agents-list-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "028-agents-list-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "028-agents-list-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents",
+      "check": "dark theme applied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "028-agents-list-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents",
+      "check": "dark: no near-black text on a dark surface",
+      "ok": true,
+      "detail": "",
+      "screenshot": "028-agents-list-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "028-agents-list-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "028-agents-list-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "028-agents-list-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "shipping agreement section present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "029-agent-settings-shipping-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "migrated agreement number shown (ASA-…)",
+      "ok": true,
+      "detail": "ASA-AGR-2026-0003,ASA-AGR-2026-0001",
+      "screenshot": "029-agent-settings-shipping-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "rates listed per service and destination",
+      "ok": true,
+      "detail": "",
+      "screenshot": "029-agent-settings-shipping-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "029-agent-settings-shipping-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "029-agent-settings-shipping-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "029-agent-settings-shipping-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "029-agent-settings-shipping-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "029-agent-settings-shipping-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "dark theme applied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "029-agent-settings-shipping-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "dark: no near-black text on a dark surface",
+      "ok": true,
+      "detail": "",
+      "screenshot": "029-agent-settings-shipping-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "029-agent-settings-shipping-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "029-agent-settings-shipping-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=settings",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "029-agent-settings-shipping-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "stock panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "stock panel shows reserved / in transit / delivered",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "dark theme applied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "dark: no near-black text on a dark surface",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "payments section present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "Collection panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "Collection panel shows the verified collection figure",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "dark theme applied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "dark: no near-black text on a dark surface",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "admin-ar-dark",
+      "persona": "admin",
+      "variant": "ar-dark",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "030-order-stock-panel-admin-ar-dark.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "orders & fulfilment panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "032-agent-overview-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "overview uses shared insight cards",
+      "ok": true,
+      "detail": "12 cards",
+      "screenshot": "032-agent-overview-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "money panels shown with agents.finance.view (sales + account position)",
+      "ok": true,
+      "detail": "sales 1 position 1",
+      "screenshot": "032-agent-overview-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "032-agent-overview-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "032-agent-overview-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "032-agent-overview-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "032-agent-overview-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "032-agent-overview-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "032-agent-overview-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "032-agent-overview-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "032-agent-overview-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "stock panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "stock panel shows reserved / in transit / delivered",
+      "ok": true,
+      "detail": "",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "payments section present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "Collection panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "Collection panel shows the verified collection figure",
+      "ok": true,
+      "detail": "",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-desktop",
+      "persona": "finance",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "033-order-stock-panel-finance-ar-desktop.png"
+    },
+    {
+      "session": "finance-ar-dark",
+      "persona": "finance",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "orders & fulfilment panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "035-agent-overview-finance-ar-dark.png"
+    },
+    {
+      "session": "finance-ar-dark",
+      "persona": "finance",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "overview uses shared insight cards",
+      "ok": true,
+      "detail": "12 cards",
+      "screenshot": "035-agent-overview-finance-ar-dark.png"
+    },
+    {
+      "session": "finance-ar-dark",
+      "persona": "finance",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "money panels shown with agents.finance.view (sales + account position)",
+      "ok": true,
+      "detail": "sales 1 position 1",
+      "screenshot": "035-agent-overview-finance-ar-dark.png"
+    },
+    {
+      "session": "finance-ar-dark",
+      "persona": "finance",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "035-agent-overview-finance-ar-dark.png"
+    },
+    {
+      "session": "finance-ar-dark",
+      "persona": "finance",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "035-agent-overview-finance-ar-dark.png"
+    },
+    {
+      "session": "finance-ar-dark",
+      "persona": "finance",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "035-agent-overview-finance-ar-dark.png"
+    },
+    {
+      "session": "finance-ar-dark",
+      "persona": "finance",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "035-agent-overview-finance-ar-dark.png"
+    },
+    {
+      "session": "finance-ar-dark",
+      "persona": "finance",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "035-agent-overview-finance-ar-dark.png"
+    },
+    {
+      "session": "finance-ar-dark",
+      "persona": "finance",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "dark theme applied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "035-agent-overview-finance-ar-dark.png"
+    },
+    {
+      "session": "finance-ar-dark",
+      "persona": "finance",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "dark: no near-black text on a dark surface",
+      "ok": true,
+      "detail": "",
+      "screenshot": "035-agent-overview-finance-ar-dark.png"
+    },
+    {
+      "session": "finance-ar-dark",
+      "persona": "finance",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "035-agent-overview-finance-ar-dark.png"
+    },
+    {
+      "session": "finance-ar-dark",
+      "persona": "finance",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "035-agent-overview-finance-ar-dark.png"
+    },
+    {
+      "session": "finance-ar-dark",
+      "persona": "finance",
+      "variant": "ar-dark",
+      "page": "/agents/AG-0001?tab=overview",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "035-agent-overview-finance-ar-dark.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "ranking panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "036-sales-dashboard-rank-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "own rank card ('x of y' or not ranked)",
+      "ok": true,
+      "detail": "غير مُرتَّب بعد",
+      "screenshot": "036-sales-dashboard-rank-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "no leaderboard rows in the ranking panel",
+      "ok": true,
+      "detail": "",
+      "screenshot": "036-sales-dashboard-rank-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "no other employee's name on the dashboard",
+      "ok": true,
+      "detail": "checked 20 names",
+      "screenshot": "036-sales-dashboard-rank-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "036-sales-dashboard-rank-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "036-sales-dashboard-rank-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "036-sales-dashboard-rank-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "036-sales-dashboard-rank-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "036-sales-dashboard-rank-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "036-sales-dashboard-rank-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "036-sales-dashboard-rank-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "036-sales-dashboard-rank-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "stock-status column in the list",
+      "ok": true,
+      "detail": "",
+      "screenshot": "037-store-orders-list-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "list empty for this persona's scope (no orders of their own)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "037-store-orders-list-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "037-store-orders-list-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "037-store-orders-list-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "037-store-orders-list-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "037-store-orders-list-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "037-store-orders-list-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "037-store-orders-list-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "037-store-orders-list-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "037-store-orders-list-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "New order opens the shared order-entry dialog",
+      "ok": true,
+      "detail": "",
+      "screenshot": "038-store-order-new-dialog-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "shared flow shows the four steps (customer → products → delivery & payment → review)",
+      "ok": true,
+      "detail": "1العميل2المنتجات3التوصيل والدفع4المراجعة",
+      "screenshot": "038-store-order-new-dialog-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "steps are in order",
+      "ok": true,
+      "detail": "[1,8,17,32]",
+      "screenshot": "038-store-order-new-dialog-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "flow opens on the customer step",
+      "ok": true,
+      "detail": "customer",
+      "screenshot": "038-store-order-new-dialog-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "desktop: step list visible",
+      "ok": true,
+      "detail": "",
+      "screenshot": "038-store-order-new-dialog-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "Next button visible",
+      "ok": true,
+      "detail": "",
+      "screenshot": "038-store-order-new-dialog-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "required-field indicators present",
+      "ok": true,
+      "detail": "1",
+      "screenshot": "038-store-order-new-dialog-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "Next on an empty customer step stays there with field errors",
+      "ok": true,
+      "detail": "step customer, invalid 2",
+      "screenshot": "038-store-order-new-dialog-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "no console errors while the dialog is open",
+      "ok": true,
+      "detail": "",
+      "screenshot": "038-store-order-new-dialog-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/store-orders (New order dialog)",
+      "check": "dialog closes without saving",
+      "ok": true,
+      "detail": "",
+      "screenshot": "038-store-order-new-dialog-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/crm/leads",
+      "check": "Import menu hidden without crm.leads.import",
+      "ok": true,
+      "detail": "0",
+      "screenshot": "039-leads-import-hidden-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/crm/leads",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "039-leads-import-hidden-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/crm/leads",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "039-leads-import-hidden-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/crm/leads",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "039-leads-import-hidden-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/crm/leads",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "039-leads-import-hidden-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/crm/leads",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "039-leads-import-hidden-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/crm/leads",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "039-leads-import-hidden-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/crm/leads",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "039-leads-import-hidden-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/crm/leads",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "039-leads-import-hidden-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/reports/sales",
+      "check": "sales reports not opened without reports.sales.view",
+      "ok": true,
+      "detail": "/reports/sales",
+      "screenshot": "040-sales-reports-denied-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-desktop",
+      "persona": "sales",
+      "variant": "ar-desktop",
+      "page": "/reports/sales",
+      "check": "no other employee's name shown",
+      "ok": true,
+      "detail": "",
+      "screenshot": "040-sales-reports-denied-sales-ar-desktop.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/dashboard",
+      "check": "ranking panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "041-sales-dashboard-rank-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/dashboard",
+      "check": "own rank card ('x of y' or not ranked)",
+      "ok": true,
+      "detail": "غير مُرتَّب بعد",
+      "screenshot": "041-sales-dashboard-rank-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/dashboard",
+      "check": "no leaderboard rows in the ranking panel",
+      "ok": true,
+      "detail": "",
+      "screenshot": "041-sales-dashboard-rank-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/dashboard",
+      "check": "no other employee's name on the dashboard",
+      "ok": true,
+      "detail": "checked 20 names",
+      "screenshot": "041-sales-dashboard-rank-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/dashboard",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "041-sales-dashboard-rank-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/dashboard",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "041-sales-dashboard-rank-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/dashboard",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "041-sales-dashboard-rank-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/dashboard",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 390 / clientWidth 390",
+      "screenshot": "041-sales-dashboard-rank-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/dashboard",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "041-sales-dashboard-rank-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/dashboard",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "041-sales-dashboard-rank-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/dashboard",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "041-sales-dashboard-rank-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/dashboard",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "041-sales-dashboard-rank-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/dashboard",
+      "check": "phone: tables fit without sideways scrolling",
+      "ok": true,
+      "detail": "",
+      "screenshot": "041-sales-dashboard-rank-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "042-store-orders-list-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "042-store-orders-list-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "042-store-orders-list-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 390 / clientWidth 390",
+      "screenshot": "042-store-orders-list-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "042-store-orders-list-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "042-store-orders-list-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "042-store-orders-list-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "042-store-orders-list-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders",
+      "check": "phone: tables fit without sideways scrolling",
+      "ok": true,
+      "detail": "",
+      "screenshot": "042-store-orders-list-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "New order opens the shared order-entry dialog",
+      "ok": true,
+      "detail": "",
+      "screenshot": "043-store-order-new-dialog-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "shared flow shows the four steps (customer → products → delivery & payment → review)",
+      "ok": true,
+      "detail": "1العميل2المنتجات3التوصيل والدفع4المراجعة",
+      "screenshot": "043-store-order-new-dialog-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "steps are in order",
+      "ok": true,
+      "detail": "[1,8,17,32]",
+      "screenshot": "043-store-order-new-dialog-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "flow opens on the customer step",
+      "ok": true,
+      "detail": "customer",
+      "screenshot": "043-store-order-new-dialog-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "phone: compact stepper visible",
+      "ok": true,
+      "detail": "",
+      "screenshot": "043-store-order-new-dialog-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "Next button visible",
+      "ok": true,
+      "detail": "",
+      "screenshot": "043-store-order-new-dialog-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "phone: Next button inside the viewport",
+      "ok": true,
+      "detail": "{\"x\":29,\"y\":787,\"w\":46}",
+      "screenshot": "043-store-order-new-dialog-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "required-field indicators present",
+      "ok": true,
+      "detail": "1",
+      "screenshot": "043-store-order-new-dialog-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "phone: dialog fits the viewport",
+      "ok": true,
+      "detail": "x 8 w 374 / 390",
+      "screenshot": "043-store-order-new-dialog-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "no console errors while the dialog is open",
+      "ok": true,
+      "detail": "",
+      "screenshot": "043-store-order-new-dialog-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-ar-mobile",
+      "persona": "sales",
+      "variant": "ar-mobile",
+      "page": "/store-orders (New order dialog)",
+      "check": "dialog closes without saving",
+      "ok": true,
+      "detail": "",
+      "screenshot": "043-store-order-new-dialog-sales-ar-mobile.png"
+    },
+    {
+      "session": "sales-en-desktop",
+      "persona": "sales",
+      "variant": "en-desktop",
+      "page": "/dashboard",
+      "check": "ranking panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "044-sales-dashboard-rank-sales-en-desktop.png"
+    },
+    {
+      "session": "sales-en-desktop",
+      "persona": "sales",
+      "variant": "en-desktop",
+      "page": "/dashboard",
+      "check": "own rank card ('x of y' or not ranked)",
+      "ok": true,
+      "detail": "Not ranked yet",
+      "screenshot": "044-sales-dashboard-rank-sales-en-desktop.png"
+    },
+    {
+      "session": "sales-en-desktop",
+      "persona": "sales",
+      "variant": "en-desktop",
+      "page": "/dashboard",
+      "check": "no leaderboard rows in the ranking panel",
+      "ok": true,
+      "detail": "",
+      "screenshot": "044-sales-dashboard-rank-sales-en-desktop.png"
+    },
+    {
+      "session": "sales-en-desktop",
+      "persona": "sales",
+      "variant": "en-desktop",
+      "page": "/dashboard",
+      "check": "no other employee's name on the dashboard",
+      "ok": true,
+      "detail": "checked 20 names",
+      "screenshot": "044-sales-dashboard-rank-sales-en-desktop.png"
+    },
+    {
+      "session": "sales-en-desktop",
+      "persona": "sales",
+      "variant": "en-desktop",
+      "page": "/dashboard",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "044-sales-dashboard-rank-sales-en-desktop.png"
+    },
+    {
+      "session": "sales-en-desktop",
+      "persona": "sales",
+      "variant": "en-desktop",
+      "page": "/dashboard",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "044-sales-dashboard-rank-sales-en-desktop.png"
+    },
+    {
+      "session": "sales-en-desktop",
+      "persona": "sales",
+      "variant": "en-desktop",
+      "page": "/dashboard",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "044-sales-dashboard-rank-sales-en-desktop.png"
+    },
+    {
+      "session": "sales-en-desktop",
+      "persona": "sales",
+      "variant": "en-desktop",
+      "page": "/dashboard",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "044-sales-dashboard-rank-sales-en-desktop.png"
+    },
+    {
+      "session": "sales-en-desktop",
+      "persona": "sales",
+      "variant": "en-desktop",
+      "page": "/dashboard",
+      "check": "html dir = ltr",
+      "ok": true,
+      "detail": "ltr",
+      "screenshot": "044-sales-dashboard-rank-sales-en-desktop.png"
+    },
+    {
+      "session": "sales-en-desktop",
+      "persona": "sales",
+      "variant": "en-desktop",
+      "page": "/dashboard",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "044-sales-dashboard-rank-sales-en-desktop.png"
+    },
+    {
+      "session": "manager-ar-desktop",
+      "persona": "manager",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "ranking panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "045-manager-dashboard-ranking-manager-ar-desktop.png"
+    },
+    {
+      "session": "manager-ar-desktop",
+      "persona": "manager",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "company-wide ranking (reports.sales.view_all), not the own-only card",
+      "ok": true,
+      "detail": "2 leaderboard rows",
+      "screenshot": "045-manager-dashboard-ranking-manager-ar-desktop.png"
+    },
+    {
+      "session": "manager-ar-desktop",
+      "persona": "manager",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "045-manager-dashboard-ranking-manager-ar-desktop.png"
+    },
+    {
+      "session": "manager-ar-desktop",
+      "persona": "manager",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "045-manager-dashboard-ranking-manager-ar-desktop.png"
+    },
+    {
+      "session": "manager-ar-desktop",
+      "persona": "manager",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "045-manager-dashboard-ranking-manager-ar-desktop.png"
+    },
+    {
+      "session": "manager-ar-desktop",
+      "persona": "manager",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "045-manager-dashboard-ranking-manager-ar-desktop.png"
+    },
+    {
+      "session": "manager-ar-desktop",
+      "persona": "manager",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "045-manager-dashboard-ranking-manager-ar-desktop.png"
+    },
+    {
+      "session": "manager-ar-desktop",
+      "persona": "manager",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "045-manager-dashboard-ranking-manager-ar-desktop.png"
+    },
+    {
+      "session": "manager-ar-desktop",
+      "persona": "manager",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "045-manager-dashboard-ranking-manager-ar-desktop.png"
+    },
+    {
+      "session": "manager-ar-desktop",
+      "persona": "manager",
+      "variant": "ar-desktop",
+      "page": "/dashboard",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "045-manager-dashboard-ranking-manager-ar-desktop.png"
+    },
+    {
+      "session": "manager-ar-desktop",
+      "persona": "manager",
+      "variant": "ar-desktop",
+      "page": "/reports/sales",
+      "check": "sales reports not opened without reports.sales.view",
+      "ok": true,
+      "detail": "/reports/sales",
+      "screenshot": "046-sales-reports-denied-manager-ar-desktop.png"
+    },
+    {
+      "session": "manager-ar-desktop",
+      "persona": "manager",
+      "variant": "ar-desktop",
+      "page": "/reports/sales",
+      "check": "no other employee's name shown",
+      "ok": true,
+      "detail": "",
+      "screenshot": "046-sales-reports-denied-manager-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "stock-status column in the list",
+      "ok": true,
+      "detail": "",
+      "screenshot": "047-store-orders-list-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "list empty for this persona's scope (no orders of their own)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "047-store-orders-list-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "047-store-orders-list-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "047-store-orders-list-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "047-store-orders-list-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "047-store-orders-list-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "047-store-orders-list-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "047-store-orders-list-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "047-store-orders-list-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "047-store-orders-list-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "stock panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "048-order-stock-panel-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "stock panel shows reserved / in transit / delivered",
+      "ok": true,
+      "detail": "",
+      "screenshot": "048-order-stock-panel-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "048-order-stock-panel-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "048-order-stock-panel-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "048-order-stock-panel-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "048-order-stock-panel-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "048-order-stock-panel-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "048-order-stock-panel-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "048-order-stock-panel-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-desktop",
+      "persona": "shipping",
+      "variant": "ar-desktop",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "048-order-stock-panel-shipping-ar-desktop.png"
+    },
+    {
+      "session": "shipping-ar-mobile",
+      "persona": "shipping",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "stock panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "049-order-stock-panel-shipping-ar-mobile.png"
+    },
+    {
+      "session": "shipping-ar-mobile",
+      "persona": "shipping",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "stock panel shows reserved / in transit / delivered",
+      "ok": true,
+      "detail": "",
+      "screenshot": "049-order-stock-panel-shipping-ar-mobile.png"
+    },
+    {
+      "session": "shipping-ar-mobile",
+      "persona": "shipping",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "049-order-stock-panel-shipping-ar-mobile.png"
+    },
+    {
+      "session": "shipping-ar-mobile",
+      "persona": "shipping",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "049-order-stock-panel-shipping-ar-mobile.png"
+    },
+    {
+      "session": "shipping-ar-mobile",
+      "persona": "shipping",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "049-order-stock-panel-shipping-ar-mobile.png"
+    },
+    {
+      "session": "shipping-ar-mobile",
+      "persona": "shipping",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 390 / clientWidth 390",
+      "screenshot": "049-order-stock-panel-shipping-ar-mobile.png"
+    },
+    {
+      "session": "shipping-ar-mobile",
+      "persona": "shipping",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "049-order-stock-panel-shipping-ar-mobile.png"
+    },
+    {
+      "session": "shipping-ar-mobile",
+      "persona": "shipping",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "049-order-stock-panel-shipping-ar-mobile.png"
+    },
+    {
+      "session": "shipping-ar-mobile",
+      "persona": "shipping",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "049-order-stock-panel-shipping-ar-mobile.png"
+    },
+    {
+      "session": "shipping-ar-mobile",
+      "persona": "shipping",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "049-order-stock-panel-shipping-ar-mobile.png"
+    },
+    {
+      "session": "shipping-ar-mobile",
+      "persona": "shipping",
+      "variant": "ar-mobile",
+      "page": "/store-orders/STO-2026-000162",
+      "check": "phone: tables fit without sideways scrolling",
+      "ok": true,
+      "detail": "",
+      "screenshot": "049-order-stock-panel-shipping-ar-mobile.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "login → landing",
+      "check": "login lands on /agent",
+      "ok": true,
+      "detail": "/agent",
+      "screenshot": null
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "orders panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "050-agent-dashboard-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "shared insight cards rendered",
+      "ok": true,
+      "detail": "14 cards",
+      "screenshot": "050-agent-dashboard-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "team breakdown panel (agent.reports.view_team)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "050-agent-dashboard-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "050-agent-dashboard-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "050-agent-dashboard-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "050-agent-dashboard-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "050-agent-dashboard-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "050-agent-dashboard-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "050-agent-dashboard-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "050-agent-dashboard-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "050-agent-dashboard-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "Import menu present (agent.leads.import / agent.orders.import)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "051-agent-import-menu-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "menu offers Upload Excel/CSV (wizard not opened on Production)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "051-agent-import-menu-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "051-agent-import-menu-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "051-agent-import-menu-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "051-agent-import-menu-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "051-agent-import-menu-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "051-agent-import-menu-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "051-agent-import-menu-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "051-agent-import-menu-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-desktop",
+      "persona": "agent-admin",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "051-agent-import-menu-agent-admin-ar-desktop.png"
+    },
+    {
+      "session": "agent-admin-ar-mobile",
+      "persona": "agent-admin",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "orders panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "052-agent-dashboard-agent-admin-ar-mobile.png"
+    },
+    {
+      "session": "agent-admin-ar-mobile",
+      "persona": "agent-admin",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "shared insight cards rendered",
+      "ok": true,
+      "detail": "14 cards",
+      "screenshot": "052-agent-dashboard-agent-admin-ar-mobile.png"
+    },
+    {
+      "session": "agent-admin-ar-mobile",
+      "persona": "agent-admin",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "team breakdown panel (agent.reports.view_team)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "052-agent-dashboard-agent-admin-ar-mobile.png"
+    },
+    {
+      "session": "agent-admin-ar-mobile",
+      "persona": "agent-admin",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "052-agent-dashboard-agent-admin-ar-mobile.png"
+    },
+    {
+      "session": "agent-admin-ar-mobile",
+      "persona": "agent-admin",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "052-agent-dashboard-agent-admin-ar-mobile.png"
+    },
+    {
+      "session": "agent-admin-ar-mobile",
+      "persona": "agent-admin",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "052-agent-dashboard-agent-admin-ar-mobile.png"
+    },
+    {
+      "session": "agent-admin-ar-mobile",
+      "persona": "agent-admin",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 390 / clientWidth 390",
+      "screenshot": "052-agent-dashboard-agent-admin-ar-mobile.png"
+    },
+    {
+      "session": "agent-admin-ar-mobile",
+      "persona": "agent-admin",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "052-agent-dashboard-agent-admin-ar-mobile.png"
+    },
+    {
+      "session": "agent-admin-ar-mobile",
+      "persona": "agent-admin",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "052-agent-dashboard-agent-admin-ar-mobile.png"
+    },
+    {
+      "session": "agent-admin-ar-mobile",
+      "persona": "agent-admin",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "052-agent-dashboard-agent-admin-ar-mobile.png"
+    },
+    {
+      "session": "agent-admin-ar-mobile",
+      "persona": "agent-admin",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "052-agent-dashboard-agent-admin-ar-mobile.png"
+    },
+    {
+      "session": "agent-admin-ar-mobile",
+      "persona": "agent-admin",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "phone: tables fit without sideways scrolling",
+      "ok": true,
+      "detail": "",
+      "screenshot": "052-agent-dashboard-agent-admin-ar-mobile.png"
+    },
+    {
+      "session": "agent-admin-en-desktop",
+      "persona": "agent-admin",
+      "variant": "en-desktop",
+      "page": "/agent/dashboard",
+      "check": "orders panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "053-agent-dashboard-agent-admin-en-desktop.png"
+    },
+    {
+      "session": "agent-admin-en-desktop",
+      "persona": "agent-admin",
+      "variant": "en-desktop",
+      "page": "/agent/dashboard",
+      "check": "shared insight cards rendered",
+      "ok": true,
+      "detail": "14 cards",
+      "screenshot": "053-agent-dashboard-agent-admin-en-desktop.png"
+    },
+    {
+      "session": "agent-admin-en-desktop",
+      "persona": "agent-admin",
+      "variant": "en-desktop",
+      "page": "/agent/dashboard",
+      "check": "team breakdown panel (agent.reports.view_team)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "053-agent-dashboard-agent-admin-en-desktop.png"
+    },
+    {
+      "session": "agent-admin-en-desktop",
+      "persona": "agent-admin",
+      "variant": "en-desktop",
+      "page": "/agent/dashboard",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "053-agent-dashboard-agent-admin-en-desktop.png"
+    },
+    {
+      "session": "agent-admin-en-desktop",
+      "persona": "agent-admin",
+      "variant": "en-desktop",
+      "page": "/agent/dashboard",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "053-agent-dashboard-agent-admin-en-desktop.png"
+    },
+    {
+      "session": "agent-admin-en-desktop",
+      "persona": "agent-admin",
+      "variant": "en-desktop",
+      "page": "/agent/dashboard",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "053-agent-dashboard-agent-admin-en-desktop.png"
+    },
+    {
+      "session": "agent-admin-en-desktop",
+      "persona": "agent-admin",
+      "variant": "en-desktop",
+      "page": "/agent/dashboard",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "053-agent-dashboard-agent-admin-en-desktop.png"
+    },
+    {
+      "session": "agent-admin-en-desktop",
+      "persona": "agent-admin",
+      "variant": "en-desktop",
+      "page": "/agent/dashboard",
+      "check": "html dir = ltr",
+      "ok": true,
+      "detail": "ltr",
+      "screenshot": "053-agent-dashboard-agent-admin-en-desktop.png"
+    },
+    {
+      "session": "agent-admin-en-desktop",
+      "persona": "agent-admin",
+      "variant": "en-desktop",
+      "page": "/agent/dashboard",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "053-agent-dashboard-agent-admin-en-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "login → landing",
+      "check": "login lands on /agent",
+      "ok": true,
+      "detail": "/agent",
+      "screenshot": null
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "orders panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "054-agent-dashboard-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "shared insight cards rendered",
+      "ok": true,
+      "detail": "6 cards",
+      "screenshot": "054-agent-dashboard-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "no team breakdown for an agent salesperson",
+      "ok": true,
+      "detail": "",
+      "screenshot": "054-agent-dashboard-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "the agent admin's name is absent",
+      "ok": true,
+      "detail": "",
+      "screenshot": "054-agent-dashboard-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "054-agent-dashboard-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "054-agent-dashboard-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "054-agent-dashboard-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "054-agent-dashboard-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "054-agent-dashboard-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "054-agent-dashboard-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "054-agent-dashboard-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/dashboard",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "054-agent-dashboard-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/orders/new",
+      "check": "agent order entry renders the shared flow",
+      "ok": true,
+      "detail": "",
+      "screenshot": "055-agent-new-order-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/orders/new",
+      "check": "shared flow shows the four steps (customer → products → delivery & payment → review)",
+      "ok": true,
+      "detail": "1العميل2المنتجات3التوصيل والدفع4المراجعة",
+      "screenshot": "055-agent-new-order-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/orders/new",
+      "check": "steps are in order",
+      "ok": true,
+      "detail": "[1,8,17,32]",
+      "screenshot": "055-agent-new-order-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/orders/new",
+      "check": "flow opens on the customer step",
+      "ok": true,
+      "detail": "customer",
+      "screenshot": "055-agent-new-order-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/orders/new",
+      "check": "desktop: step list visible",
+      "ok": true,
+      "detail": "",
+      "screenshot": "055-agent-new-order-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/orders/new",
+      "check": "Next button visible",
+      "ok": true,
+      "detail": "",
+      "screenshot": "055-agent-new-order-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/orders/new",
+      "check": "required-field indicators present",
+      "ok": true,
+      "detail": "1",
+      "screenshot": "055-agent-new-order-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/orders/new",
+      "check": "Next on an empty customer step stays there with field errors",
+      "ok": true,
+      "detail": "step customer, invalid 3",
+      "screenshot": "055-agent-new-order-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/orders/new",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "055-agent-new-order-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/orders/new",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "055-agent-new-order-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/orders/new",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "055-agent-new-order-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/orders/new",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": "055-agent-new-order-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/orders/new",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "055-agent-new-order-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/orders/new",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "055-agent-new-order-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/orders/new",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "055-agent-new-order-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/orders/new",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "055-agent-new-order-agent-sales-ar-desktop.png"
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "imports page gated without an import permission (Access denied, no menu)",
+      "ok": true,
+      "detail": "",
+      "screenshot": null
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": null
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": null
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 1440 / clientWidth 1440",
+      "screenshot": null
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": null
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": null
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": null
+    },
+    {
+      "session": "agent-sales-ar-desktop",
+      "persona": "agent-sales",
+      "variant": "ar-desktop",
+      "page": "/agent/imports",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": null
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "orders panel present",
+      "ok": true,
+      "detail": "",
+      "screenshot": "056-agent-dashboard-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "shared insight cards rendered",
+      "ok": true,
+      "detail": "6 cards",
+      "screenshot": "056-agent-dashboard-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "no team breakdown for an agent salesperson",
+      "ok": true,
+      "detail": "",
+      "screenshot": "056-agent-dashboard-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "the agent admin's name is absent",
+      "ok": true,
+      "detail": "",
+      "screenshot": "056-agent-dashboard-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "056-agent-dashboard-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "056-agent-dashboard-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "056-agent-dashboard-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 390 / clientWidth 390",
+      "screenshot": "056-agent-dashboard-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "056-agent-dashboard-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "056-agent-dashboard-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "056-agent-dashboard-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "056-agent-dashboard-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/dashboard",
+      "check": "phone: tables fit without sideways scrolling",
+      "ok": true,
+      "detail": "",
+      "screenshot": "056-agent-dashboard-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/orders/new",
+      "check": "agent order entry renders the shared flow",
+      "ok": true,
+      "detail": "",
+      "screenshot": "057-agent-new-order-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/orders/new",
+      "check": "shared flow shows the four steps (customer → products → delivery & payment → review)",
+      "ok": true,
+      "detail": "1العميل2المنتجات3التوصيل والدفع4المراجعة",
+      "screenshot": "057-agent-new-order-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/orders/new",
+      "check": "steps are in order",
+      "ok": true,
+      "detail": "[1,8,17,32]",
+      "screenshot": "057-agent-new-order-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/orders/new",
+      "check": "flow opens on the customer step",
+      "ok": true,
+      "detail": "customer",
+      "screenshot": "057-agent-new-order-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/orders/new",
+      "check": "phone: compact stepper visible",
+      "ok": true,
+      "detail": "",
+      "screenshot": "057-agent-new-order-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/orders/new",
+      "check": "Next button visible",
+      "ok": true,
+      "detail": "",
+      "screenshot": "057-agent-new-order-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/orders/new",
+      "check": "phone: Next button inside the viewport",
+      "ok": true,
+      "detail": "{\"x\":29,\"y\":487,\"w\":46}",
+      "screenshot": "057-agent-new-order-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/orders/new",
+      "check": "required-field indicators present",
+      "ok": true,
+      "detail": "1",
+      "screenshot": "057-agent-new-order-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/orders/new",
+      "check": "no error boundary / not-found page",
+      "ok": true,
+      "detail": "",
+      "screenshot": "057-agent-new-order-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/orders/new",
+      "check": "no Access denied",
+      "ok": true,
+      "detail": "",
+      "screenshot": "057-agent-new-order-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/orders/new",
+      "check": "no console errors",
+      "ok": true,
+      "detail": "",
+      "screenshot": "057-agent-new-order-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/orders/new",
+      "check": "no horizontal page overflow",
+      "ok": true,
+      "detail": "scrollWidth 390 / clientWidth 390",
+      "screenshot": "057-agent-new-order-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/orders/new",
+      "check": "html dir = rtl",
+      "ok": true,
+      "detail": "rtl",
+      "screenshot": "057-agent-new-order-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/orders/new",
+      "check": "dates keep their reading order in RTL (no bidi reordering)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "057-agent-new-order-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/orders/new",
+      "check": "card values holding Arabic words are not forced LTR (word order kept)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "057-agent-new-order-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/orders/new",
+      "check": "card labels not squeezed (≤ 2 lines, no mid-word break)",
+      "ok": true,
+      "detail": "",
+      "screenshot": "057-agent-new-order-agent-sales-ar-mobile.png"
+    },
+    {
+      "session": "agent-sales-ar-mobile",
+      "persona": "agent-sales",
+      "variant": "ar-mobile",
+      "page": "/agent/orders/new",
+      "check": "phone: tables fit without sideways scrolling",
+      "ok": true,
+      "detail": "",
+      "screenshot": "057-agent-new-order-agent-sales-ar-mobile.png"
+    }
+  ]
+}

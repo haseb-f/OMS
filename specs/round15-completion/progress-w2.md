@@ -56,8 +56,8 @@ Recovery point for workstream W2 (spec: `spec-w2-imports.md`). Test DB: `oms_r15
 - [x] Controller authorization safety net: `import-center/import-jobs.controller.ts` and
       `agents/portal/agent-portal-imports.controller.ts` documented in `INTENTIONALLY_UNGATED` (per-type checks in
       `ImportWorkspaceService`) — `controller-authorization.spec.ts` 349/349.
-- [x] Final verification (2026-10-08): `jest --runInBand src/import-center src/leads
-    src/permissions/controller-authorization.spec.ts` → 26 suites, 669 tests passed; API `tsc --noEmit` 0 errors;
+- [x] Final verification (2026-10-08):
+      `jest --runInBand src/import-center src/leads src/permissions/controller-authorization.spec.ts` → 26 suites, 669 tests passed; API `tsc --noEmit` 0 errors;
       web vitest (W2 specs + navigation + i18n) 9 files / 96 tests passed; eslint clean on W2 files.
 - [ ] Browser pass — not run.
 - Fixture hygiene: the integration spec deactivates its users and removes their permissions in `afterAll` (left-over
