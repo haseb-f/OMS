@@ -8,16 +8,16 @@ import {
   agentUnprocessable,
 } from '../common/agent-errors';
 import { activeAgreementWhere, toDateOnly } from './agents.service';
+import {
+  dayString,
+  inForceWhere,
+  overlappingRangeWhere,
+} from '../shipping-agreements/shipping-agreement-resolution';
 import type {
   CreateAgreementDto,
   EndAgreementDto,
   UpdateAgreementDto,
-  UpsertShippingRateDto,
 } from './dto/agreement.dto';
-import {
-  normalizeTariffCity,
-  type TariffRow,
-} from '../pricing/agent-shipping-tariff';
 
 type Client = Prisma.TransactionClient | PrismaService;
 
@@ -36,48 +36,18 @@ export async function resolveActiveAgreement(
   });
 }
 
-/**
- * The agreement's shipping tariff rows (spec-2-agent-pricing.md 2B) in the
- * shape the pure resolver reads.
- */
-export async function loadAgreementTariffs(
-  agreementId: string,
-  client: Client,
-): Promise<TariffRow[]> {
-  const rows = await client.agentShippingRate.findMany({
-    where: { agreementId },
-  });
-  return rows.map((row) => ({
-    id: row.id,
-    countryId: row.countryId,
-    city: row.city,
-    deliveryChannel: row.deliveryChannel,
-    paymentType: row.paymentType,
-    amount: Number(row.amount),
-  }));
-}
-
 const AGREEMENT_INCLUDE = {
   currency: { select: { id: true, code: true, name: true, symbol: true } },
-  shippingRates: {
-    include: {
-      country: { select: { id: true, code: true, name: true, nameEn: true } },
-    },
-    orderBy: [
-      { countryId: 'asc' as const },
-      { city: 'asc' as const },
-      { deliveryChannel: 'asc' as const },
-      { paymentType: 'asc' as const },
-    ],
-  },
   _count: { select: { storeOrders: true } },
 } satisfies Prisma.AgentAgreementInclude;
 
 /**
  * Effective-dated agent agreements (spec §2). DRAFT is editable; ACTIVE
- * terms and rates are immutable (change = end it and create a new one);
+ * terms are immutable (change = end it and create a new one);
  * ENDED keeps its fixed last day. Active ranges of one agent never overlap —
- * activation is serialized on the agent row.
+ * activation is serialized on the agent row. The shipping charges live in
+ * the agent's shipping agreement (R15 D15-13); this agreement keeps only the
+ * shipping policy.
  */
 @Injectable()
 export class AgentAgreementsService {
@@ -203,10 +173,12 @@ export class AgentAgreementsService {
    * DRAFT → ACTIVE. Every term is re-validated as explicit and in range,
    * and the range must not overlap any other activated agreement of the
    * agent. The agent row is locked FOR UPDATE so two concurrent activations
-   * cannot both pass the overlap check.
+   * cannot both pass the overlap check. A PREDETERMINED_CHARGE agreement
+   * whose start date no ACTIVE shipping agreement covers is activated with a
+   * warning (R15 D15-13): its orders cannot be priced until one is.
    */
   async activate(agentId: string, agreementId: string, userId: string) {
-    await this.prisma.$transaction(async (tx) => {
+    const activated = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM agents WHERE id = ${agentId}::uuid FOR UPDATE`;
       const agent = await tx.agent.findFirst({
         where: { id: agentId, deletedAt: null },
@@ -234,7 +206,10 @@ export class AgentAgreementsService {
           agentId,
           id: { not: agreementId },
           status: { in: ['ACTIVE', 'ENDED'] },
-          ...overlapWhere(agreement.effectiveFrom, agreement.effectiveTo),
+          ...overlappingRangeWhere(
+            agreement.effectiveFrom,
+            agreement.effectiveTo,
+          ),
         },
         select: { agreementNumber: true },
       });
@@ -245,7 +220,7 @@ export class AgentAgreementsService {
           `The agreement dates overlap agreement ${overlapping.agreementNumber}. End it first or choose non-overlapping dates.`,
         );
       }
-      await tx.agentAgreement.update({
+      return tx.agentAgreement.update({
         where: { id: agreementId },
         data: {
           status: 'ACTIVE',
@@ -255,7 +230,21 @@ export class AgentAgreementsService {
         },
       });
     });
-    return this.findOne(agentId, agreementId);
+    const warnings: Array<{ code: string; message: string }> = [];
+    if (
+      activated.shippingPolicy === 'PREDETERMINED_CHARGE' &&
+      !(await this.prisma.agentShippingAgreement.findFirst({
+        where: inForceWhere(agentId, activated.effectiveFrom),
+        select: { id: true },
+      }))
+    ) {
+      const day = dayString(activated.effectiveFrom);
+      warnings.push({
+        code: 'SHIPPING_AGREEMENT_NOT_IN_FORCE',
+        message: `لا توجد اتفاقية شحن مفعّلة تغطي ${day}؛ لن تُسعَّر طلبات الشحن حتى تُفعَّل واحدة من الإعدادات ← اتفاقية الشحن — No active shipping agreement covers ${day}; shipped orders cannot be priced until one is activated under Settings → Shipping agreement.`,
+      });
+    }
+    return { ...(await this.findOne(agentId, agreementId)), warnings };
   }
 
   /**
@@ -310,77 +299,6 @@ export class AgentAgreementsService {
     return this.findOne(agentId, agreementId);
   }
 
-  // ── Shipping rates (DRAFT agreements only) ──────────────────────────────
-
-  async upsertShippingRate(
-    agentId: string,
-    agreementId: string,
-    dto: UpsertShippingRateDto,
-  ) {
-    await this.requireDraft(agentId, agreementId);
-    const country = await this.prisma.country.findFirst({
-      where: { id: dto.countryId, deletedAt: null },
-      select: { id: true },
-    });
-    if (!country) {
-      throw agentUnprocessable(
-        'COUNTRY_NOT_FOUND',
-        'الدولة غير موجودة',
-        'Country not found.',
-      );
-    }
-    const city = (dto.city ?? '').trim();
-    const deliveryChannel = dto.deliveryChannel ?? 'ANY';
-    const paymentType = dto.paymentType ?? 'ANY';
-    // One row per (destination, channel, payment type); the city compares
-    // case-insensitively so "Riyadh" and "riyadh" are the same tariff.
-    const existing = (
-      await this.prisma.agentShippingRate.findMany({
-        where: {
-          agreementId,
-          countryId: dto.countryId,
-          deliveryChannel,
-          paymentType,
-        },
-      })
-    ).find(
-      (row) => normalizeTariffCity(row.city) === normalizeTariffCity(city),
-    );
-    if (existing) {
-      await this.prisma.agentShippingRate.update({
-        where: { id: existing.id },
-        data: { amount: dto.amount },
-      });
-    } else {
-      await this.prisma.agentShippingRate.create({
-        data: {
-          agreementId,
-          countryId: dto.countryId,
-          city,
-          deliveryChannel,
-          paymentType,
-          amount: dto.amount,
-        },
-      });
-    }
-    return this.findOne(agentId, agreementId);
-  }
-
-  async removeShippingRate(
-    agentId: string,
-    agreementId: string,
-    rateId: string,
-  ) {
-    await this.requireDraft(agentId, agreementId);
-    const deleted = await this.prisma.agentShippingRate.deleteMany({
-      where: { id: rateId, agreementId },
-    });
-    if (deleted.count === 0) {
-      throw agentNotFoundError('Shipping rate', 'سعر الشحن');
-    }
-    return this.findOne(agentId, agreementId);
-  }
-
   // ── helpers ─────────────────────────────────────────────────────────────
 
   private async requireAgent(agentId: string) {
@@ -399,8 +317,8 @@ export class AgentAgreementsService {
     if (agreement.status !== 'DRAFT') {
       throw agentConflict(
         'AGREEMENT_IMMUTABLE',
-        'شروط الاتفاقية المفعّلة وأسعار الشحن فيها لا تتغير؛ أنهِها وأنشئ اتفاقية جديدة',
-        'An activated agreement’s terms and shipping rates are immutable — end it and create a new agreement.',
+        'شروط الاتفاقية المفعّلة لا تتغير؛ أنهِها وأنشئ اتفاقية جديدة',
+        'An activated agreement’s terms are immutable — end it and create a new agreement.',
       );
     }
     return agreement;
@@ -425,21 +343,6 @@ export class AgentAgreementsService {
       );
     }
   }
-}
-
-/** Ranges [from, to|∞] overlap the given [from, to|∞]. */
-function overlapWhere(
-  from: Date,
-  to: Date | null,
-): Prisma.AgentAgreementWhereInput {
-  return {
-    AND: [
-      // other.from ≤ this.to (or this is open-ended)
-      ...(to ? [{ effectiveFrom: { lte: to } }] : []),
-      // other.to ≥ this.from (or other is open-ended)
-      { OR: [{ effectiveTo: null }, { effectiveTo: { gte: from } }] },
-    ],
-  };
 }
 
 /**

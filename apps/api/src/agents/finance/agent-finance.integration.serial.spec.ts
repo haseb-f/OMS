@@ -1,4 +1,5 @@
 import { FulfillmentRecognitionService } from '../../store-orders/fulfillment-recognition/fulfillment-recognition.service';
+import { StoreOrderStockService } from '../../store-orders/stock-lifecycle/store-order-stock.service';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'crypto';
 import {
@@ -1150,6 +1151,7 @@ describeDb('Agent finance (local DB)', () => {
       fulfillment,
       moduleRef.get(FulfillmentRecognitionService, { strict: false }),
       { hasPermission: () => Promise.resolve(true) } as never,
+      moduleRef.get(StoreOrderStockService, { strict: false }),
     );
     const before = await onHand(productA);
     await handler.importRow(

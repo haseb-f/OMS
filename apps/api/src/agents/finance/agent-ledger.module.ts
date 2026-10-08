@@ -9,6 +9,7 @@ import { AgentLedgerService } from './agent-ledger.service';
 import { AgentFulfillmentService } from './agent-fulfillment.service';
 import { AgentCollectionHooksService } from './agent-collection-hooks.service';
 import { AgentShippingPricingService } from '../pricing/agent-shipping-pricing.service';
+import { StoreOrderStockModule } from '../../store-orders/stock-lifecycle/store-order-stock.module';
 
 /**
  * Agent ledger core + the hooks other modules call inside their own
@@ -25,6 +26,9 @@ import { AgentShippingPricingService } from '../pricing/agent-shipping-pricing.s
     InventoryModule,
     StockLinesModule,
     RecipesModule,
+    // R15 W5a — AgentFulfillmentService moves agent goods through the stock
+    // lifecycle (transit, delivery, received back); inventory-only, no cycle.
+    StoreOrderStockModule,
   ],
   providers: [
     AgentLedgerService,

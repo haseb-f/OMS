@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -34,7 +33,6 @@ import {
   CreateAgreementDto,
   EndAgreementDto,
   UpdateAgreementDto,
-  UpsertShippingRateDto,
 } from './dto/agreement.dto';
 import { CreatePaymentDestinationDto } from './dto/destination.dto';
 
@@ -234,26 +232,6 @@ export class AgentsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.agreements.end(id, agreementId, dto, user.sub);
-  }
-
-  @Put(':id/agreements/:agreementId/shipping-rates')
-  @PermissionAction('manage')
-  upsertShippingRate(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Param('agreementId', ParseUUIDPipe) agreementId: string,
-    @Body() dto: UpsertShippingRateDto,
-  ) {
-    return this.agreements.upsertShippingRate(id, agreementId, dto);
-  }
-
-  @Delete(':id/agreements/:agreementId/shipping-rates/:rateId')
-  @PermissionAction('manage')
-  removeShippingRate(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Param('agreementId', ParseUUIDPipe) agreementId: string,
-    @Param('rateId', ParseUUIDPipe) rateId: string,
-  ) {
-    return this.agreements.removeShippingRate(id, agreementId, rateId);
   }
 
   // ── Payment destinations ────────────────────────────────────────────────

@@ -4,12 +4,10 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
-  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
   IsString,
-  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -131,30 +129,4 @@ export class AgreementPreviewQueryDto {
   @Min(0)
   @IsOptional()
   customerShipping?: number;
-}
-
-export class UpsertShippingRateDto {
-  @IsUUID()
-  countryId!: string;
-
-  /** Empty / omitted = the whole country; a city row wins over it. */
-  @IsString()
-  @IsOptional()
-  @MaxLength(120)
-  city?: string;
-
-  /** Spec 2 — ANY (default) matches every delivery channel. */
-  @IsOptional()
-  @IsIn(['ANY', 'CARRIER', 'INTERNAL_COURIER'])
-  deliveryChannel?: 'ANY' | 'CARRIER' | 'INTERNAL_COURIER';
-
-  /** Spec 2 — ANY (default) matches every payment type. */
-  @IsOptional()
-  @IsIn(['ANY', 'PREPAID', 'CASH_ON_DELIVERY'])
-  paymentType?: 'ANY' | 'PREPAID' | 'CASH_ON_DELIVERY';
-
-  @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  amount!: number;
 }

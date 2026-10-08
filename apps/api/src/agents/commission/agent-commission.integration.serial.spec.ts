@@ -29,6 +29,12 @@ import { CarrierReconciliationModule } from '../../carrier-reconciliation/carrie
 import { CarrierReconciliationService } from '../../carrier-reconciliation/carrier-reconciliation.service';
 import { AgentsAdminModule } from '../admin/agents-admin.module';
 import { AgentAgreementsService } from '../admin/agent-agreements.service';
+import { AgentShippingAgreementsModule } from '../shipping-agreements/agent-shipping-agreements.module';
+import { AgentShippingAgreementsService } from '../shipping-agreements/agent-shipping-agreements.service';
+import {
+  activateShippingAgreement,
+  everyService,
+} from '../shipping-agreements/shipping-agreement.fixture';
 import { AgentOrdersModule } from '../orders/agent-orders.module';
 import { AgentOrdersService } from '../orders/agent-orders.service';
 import type { CreateAgreementDto } from '../admin/dto/agreement.dto';
@@ -66,6 +72,7 @@ describeDb('Agent commission and shipping policy (local DB)', () => {
   let inventory: InventoryService;
   let carrier: CarrierReconciliationService;
   let agreements: AgentAgreementsService;
+  let shippingAgreements: AgentShippingAgreementsService;
   let orders: AgentOrdersService;
   let fulfillment: AgentFulfillmentService;
   let payouts: AgentPayoutsService;
@@ -363,6 +370,7 @@ describeDb('Agent commission and shipping policy (local DB)', () => {
         AgentFinanceModule,
         AgentsAdminModule,
         AgentOrdersModule,
+        AgentShippingAgreementsModule,
         CarrierReconciliationModule,
       ],
     })
@@ -378,6 +386,7 @@ describeDb('Agent commission and shipping policy (local DB)', () => {
     inventory = get(InventoryService);
     carrier = get(CarrierReconciliationService);
     agreements = get(AgentAgreementsService);
+    shippingAgreements = get(AgentShippingAgreementsService);
     orders = get(AgentOrdersService);
     fulfillment = get(AgentFulfillmentService);
     payouts = get(AgentPayoutsService);
@@ -771,10 +780,12 @@ describeDb('Agent commission and shipping policy (local DB)', () => {
       agreementTerms(),
       userId,
     );
-    await agreements.upsertShippingRate(agent.id, agreement.id, {
-      countryId,
-      amount: 100,
-    });
+    await activateShippingAgreement(
+      shippingAgreements,
+      agent.id,
+      everyService(100, { countryId }),
+      userId,
+    );
     await agreements.activate(agent.id, agreement.id, userId);
     const actor = { userId };
     const input = (

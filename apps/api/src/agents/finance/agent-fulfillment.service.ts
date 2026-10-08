@@ -6,6 +6,7 @@ import {
   Prisma,
   ProductSupplyMethod,
   StoreOrderFulfillmentMethod,
+  WarehouseRole,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
@@ -13,17 +14,9 @@ import {
   InventoryService,
   lockProductsForUpdate,
 } from '../../inventory/inventory.service';
-import {
-  StockLineResolver,
-  isStockAffecting,
-} from '../../inventory/stock-lines/stock-line-resolver';
+import { isStockAffecting } from '../../inventory/stock-lines/stock-line-resolver';
 import { movementIdempotencyKey } from '../../inventory/dto/movement-trace';
 import { RECIPE_INCLUDE, RecipeService } from '../../recipes/recipe.service';
-import {
-  resolveAndLockStockLines,
-  stockLineMovementKey,
-  stockLineTrace,
-} from '../../sales/shared/stock-fulfillment';
 import {
   lockStoreOrderRow,
   roundMoney,
@@ -32,7 +25,7 @@ import {
   storeOrderLineAmount,
   storeOrderPayableTotal,
 } from '../../store-orders/store-order-line-amount';
-import { resolveStoreOrderLineWarehouses } from '../../store-orders/store-order-warehouse.util';
+import { StoreOrderStockService } from '../../store-orders/stock-lifecycle/store-order-stock.service';
 import { AGENT_POSTING_SOURCE } from '../../accounting/posting-providers/agent-ledger-posting.provider';
 import {
   isAgentOrderDigitalOnly,
@@ -82,7 +75,7 @@ export const AGENT_SOURCE = {
   PAYOUT: 'AGENT_PAYOUT',
 } as const;
 
-/** Stock movement references of agent dispatch / agent returns. */
+/** Stock movement references of agent deliveries / agent returns. */
 const DISPATCH_REFERENCE = 'STORE_ORDER';
 const RETURN_REFERENCE = 'AGENT_ORDER_RETURN';
 
@@ -225,8 +218,9 @@ export class AgentFulfillmentService {
     private readonly inventory: InventoryService,
     private readonly ledger: AgentLedgerService,
     private readonly shippingPricing: AgentShippingPricingService,
-    private readonly stockLines: StockLineResolver,
     private readonly recipes: RecipeService,
+    /** R15 W5a — the physical steps (transit, delivery, received back). */
+    private readonly stock: StoreOrderStockService,
   ) {}
 
   async loadOrder(tx: Tx | PrismaService, storeOrderId: string) {
@@ -307,7 +301,11 @@ export class AgentFulfillmentService {
     }
   }
 
-  /** Pickup handover (COLLECTED): dispatch + DELIVERED earning event, in its own transaction. */
+  /**
+   * Pickup handover (COLLECTED): dispatch + the goods leave their warehouse
+   * to the customer (no transit) + DELIVERED earning event, in its own
+   * transaction.
+   */
   async onPickupHandover(storeOrderId: string, userId?: string) {
     await this.prisma.$transaction(
       async (tx) => {
@@ -315,6 +313,7 @@ export class AgentFulfillmentService {
         const order = await this.loadOrder(tx, storeOrderId);
         if (!order?.agentId) return;
         await this.dispatch(tx, order, userId);
+        await this.stock.issuePickupInTx(tx, storeOrderId, userId);
         await this.tryEarn(tx, storeOrderId, 'DELIVERED', userId);
       },
       { maxWait: 10_000, timeout: 60_000 },
@@ -341,53 +340,18 @@ export class AgentFulfillmentService {
     await this.tryEarn(tx, storeOrderId, 'PAYMENT_VERIFIED', userId);
   }
 
-  /** Issues the order's agent stock once (SALES_DELIVERY, referenceType STORE_ORDER). */
+  /**
+   * The order's dispatch, once: the tariff is frozen and `agentDispatchedAt`
+   * stamped. R15 (D15-4, D15-7): the goods themselves move through
+   * `StoreOrderStockService` — to transit in the shipment transaction (still
+   * the agent's, `ownerAgentId` on every movement), out of transit at
+   * delivery; a pickup issues them at handover.
+   */
   async dispatch(tx: Tx, order: AgentOrderContext, userId?: string) {
     if (order.agentDispatchedAt) return false;
     // Spec 2: the tariff is re-resolved and frozen at dispatch; an order
     // whose fee still waits for the delivery method never leaves.
     await this.shippingPricing.beforeDispatch(tx, order.id, userId);
-    const inventoryItems = order.items.filter((item) =>
-      this.movesStock(order, item),
-    );
-    const warehouses = await resolveStoreOrderLineWarehouses(
-      tx,
-      inventoryItems,
-    );
-    // R13 — kits issue their components (the resolver enforces one owner
-    // across the kit and its components), every product row is locked once
-    // and each movement is keyed per order line (+ component).
-    const resolved = await resolveAndLockStockLines(
-      tx,
-      this.stockLines,
-      inventoryItems.map((item, index) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        warehouseId: warehouses[index],
-        lineKey: item.id,
-      })),
-    );
-    for (const line of resolved.stock) {
-      await this.inventory.postSalesDelivery(
-        {
-          productId: line.productId,
-          warehouseId: line.warehouseId,
-          quantity: line.quantity,
-          referenceType: DISPATCH_REFERENCE,
-          referenceId: order.id,
-          notes: `Agent order ${order.internalOrderId} dispatched`,
-          idempotencyKey: stockLineMovementKey(
-            DISPATCH_REFERENCE,
-            order.id,
-            line,
-            InventoryMovementType.SALES_DELIVERY,
-          ),
-          ...stockLineTrace(line),
-        },
-        userId,
-        tx,
-      );
-    }
     const now = new Date();
     const updated = await tx.storeOrder.updateMany({
       where: { id: order.id, agentDispatchedAt: null },
@@ -896,10 +860,48 @@ export class AgentFulfillmentService {
             createdBy: userId ?? null,
           },
         });
+        // R15 (D15-8) — units still with the carrier (never delivered) come
+        // back from transit: no sale to reverse. Delivered units are a
+        // SALES_RETURN as before. Agent goods stay the agent's either way.
+        const stockLines = lines.filter((line) => line.isInventoryItem);
+        const inTransit = await this.stock.inTransitUnits(tx, storeOrderId);
+        const fromTransit = stockLines
+          .map((line) => ({
+            storeOrderItemId: line.storeOrderItemId,
+            quantity: Math.min(
+              line.quantity,
+              inTransit.get(line.storeOrderItemId) ?? 0,
+            ),
+          }))
+          .filter((line) => line.quantity > 0);
+        if (fromTransit.length > 0) {
+          const damaged = await tx.warehouse.count({
+            where: { id: input.warehouseId, role: WarehouseRole.DAMAGED },
+          });
+          await this.stock.receiveBackInTx(
+            tx,
+            storeOrderId,
+            fromTransit.map((line) => ({
+              ...line,
+              condition: damaged > 0 ? 'DAMAGED' : 'SALEABLE',
+              warehouseId: input.warehouseId,
+            })),
+            record.id,
+            userId,
+          );
+        }
+        const transitOf = (itemId: string) =>
+          fromTransit.find((line) => line.storeOrderItemId === itemId)
+            ?.quantity ?? 0;
         await this.returnStock(
           tx,
           order,
-          lines.filter((line) => line.isInventoryItem),
+          stockLines
+            .map((line) => ({
+              ...line,
+              quantity: line.quantity - transitOf(line.storeOrderItemId),
+            }))
+            .filter((line) => line.quantity > 0),
           { id: record.id, returnNumber, warehouseId: input.warehouseId },
           userId,
         );
@@ -1003,6 +1005,12 @@ export class AgentFulfillmentService {
         });
         continue;
       }
+      // The delivery of that order line: keyed per line (pickup, pre-R15
+      // dispatch) or per shipment line (R15 delivery out of transit).
+      const shipmentLines = await tx.shipmentLine.findMany({
+        where: { storeOrderItemId: line.storeOrderItemId },
+        select: { id: true },
+      });
       const dispatched = await tx.inventoryMovement.findFirst({
         where: {
           referenceType: DISPATCH_REFERENCE,
@@ -1010,9 +1018,13 @@ export class AgentFulfillmentService {
           type: InventoryMovementType.SALES_DELIVERY,
           parentProductId: line.productId,
           recipeId: { not: null },
-          idempotencyKey: {
-            startsWith: `${DISPATCH_REFERENCE}:${order.id}:${line.storeOrderItemId}:`,
-          },
+          OR: [line.storeOrderItemId, ...shipmentLines.map((s) => s.id)].map(
+            (lineKey) => ({
+              idempotencyKey: {
+                startsWith: `${DISPATCH_REFERENCE}:${order.id}:${lineKey}:`,
+              },
+            }),
+          ),
         },
         select: { recipeId: true },
       });

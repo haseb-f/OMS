@@ -1,7 +1,10 @@
 import {
   deliveryChannelOf,
+  destinationKeyOf,
   resolveSubmissionTariff,
   resolveTariff,
+  serviceOf,
+  shippingAgreementCoverage,
   type TariffRow,
 } from './agent-shipping-tariff';
 import { repriceForConfirmedFee } from './agent-shipping-reprice';
@@ -12,115 +15,85 @@ import {
 import { leakedKeys } from './leaked-keys.test-util';
 
 const SA = 'country-sa';
+const EG = 'country-eg';
 const row = (
   id: string,
-  over: Partial<TariffRow> & Pick<TariffRow, 'amount'>,
-): TariffRow => ({
-  id,
-  countryId: SA,
-  city: '',
-  deliveryChannel: 'ANY',
-  paymentType: 'ANY',
-  ...over,
-});
+  over: Partial<TariffRow> & Pick<TariffRow, 'service' | 'amount'>,
+): TariffRow => ({ id, countryId: SA, city: '', ...over });
 
-/** spec-2-agent-pricing.md worked tariff (SAR). */
+/** spec-2-agent-pricing.md worked tariff (SAR), as explicit services. */
 const WORKED: TariffRow[] = [
-  row('prepaid-carrier', {
-    deliveryChannel: 'CARRIER',
-    paymentType: 'PREPAID',
-    amount: 25,
-  }),
-  row('cod-carrier', {
-    deliveryChannel: 'CARRIER',
-    paymentType: 'CASH_ON_DELIVERY',
-    amount: 35,
-  }),
-  row('cod-internal', {
-    deliveryChannel: 'INTERNAL_COURIER',
-    paymentType: 'CASH_ON_DELIVERY',
-    amount: 25,
-  }),
+  row('prepaid-carrier', { service: 'PREPAID_CARRIER', amount: 25 }),
+  row('cod-carrier', { service: 'COD_CARRIER', amount: 35 }),
+  row('cod-internal', { service: 'COD_INTERNAL_COURIER', amount: 25 }),
 ];
 const dest = { countryId: SA, city: 'Riyadh' };
 
-describe('agent shipping tariff resolution (spec 2B)', () => {
-  it('worked tariff: prepaid carrier 25, COD carrier 35, COD internal 25, prepaid internal unresolved', () => {
-    expect(resolveTariff(WORKED, dest, 'CARRIER', 'PREPAID')?.amount).toBe(25);
-    expect(
-      resolveTariff(WORKED, dest, 'CARRIER', 'CASH_ON_DELIVERY')?.amount,
-    ).toBe(35);
-    expect(
-      resolveTariff(WORKED, dest, 'INTERNAL_COURIER', 'CASH_ON_DELIVERY')
-        ?.amount,
-    ).toBe(25);
-    expect(
-      resolveTariff(WORKED, dest, 'INTERNAL_COURIER', 'PREPAID'),
-    ).toBeNull();
+describe('agent shipping agreement resolution (R15 D15-13)', () => {
+  it('service = delivery channel × payment type (four services, no wildcard)', () => {
+    expect(serviceOf('CARRIER', 'PREPAID')).toBe('PREPAID_CARRIER');
+    expect(serviceOf('CARRIER', 'CASH_ON_DELIVERY')).toBe('COD_CARRIER');
+    expect(serviceOf('INTERNAL_COURIER', 'CASH_ON_DELIVERY')).toBe(
+      'COD_INTERNAL_COURIER',
+    );
+    expect(serviceOf('INTERNAL_COURIER', 'PREPAID')).toBe(
+      'PREPAID_INTERNAL_COURIER',
+    );
   });
 
-  it('city beats country, exact channel beats ANY, exact payment type beats ANY', () => {
+  it('worked tariff: every service resolves to its own row; a missing service is null (never zero)', () => {
+    expect(resolveTariff(WORKED, dest, 'PREPAID_CARRIER')?.amount).toBe(25);
+    expect(resolveTariff(WORKED, dest, 'COD_CARRIER')?.amount).toBe(35);
+    expect(resolveTariff(WORKED, dest, 'COD_INTERNAL_COURIER')?.amount).toBe(
+      25,
+    );
+    expect(resolveTariff(WORKED, dest, 'PREPAID_INTERNAL_COURIER')).toBeNull();
+  });
+
+  it('destination specificity: city > country > all destinations; other countries / cities never match', () => {
     const rows: TariffRow[] = [
-      row('country-any', { amount: 10 }),
-      row('country-carrier', { deliveryChannel: 'CARRIER', amount: 20 }),
-      row('country-carrier-cod', {
-        deliveryChannel: 'CARRIER',
-        paymentType: 'CASH_ON_DELIVERY',
-        amount: 30,
-      }),
-      row('city-any', { city: 'riyadh ', amount: 40 }),
+      row('all', { service: 'COD_CARRIER', countryId: null, amount: 70 }),
+      row('country', { service: 'COD_CARRIER', amount: 60 }),
+      row('city', { service: 'COD_CARRIER', city: ' riyadh ', amount: 40 }),
+      row('other-service', { service: 'PREPAID_CARRIER', amount: 1 }),
     ];
-    // City (even ANY/ANY) wins over every country row.
-    expect(resolveTariff(rows, dest, 'CARRIER', 'CASH_ON_DELIVERY')?.id).toBe(
-      'city-any',
-    );
+    expect(resolveTariff(rows, dest, 'COD_CARRIER')).toEqual({
+      id: 'city',
+      amount: 40,
+      service: 'COD_CARRIER',
+      scope: 'CITY',
+    });
     const jeddah = { countryId: SA, city: 'Jeddah' };
-    expect(resolveTariff(rows, jeddah, 'CARRIER', 'CASH_ON_DELIVERY')?.id).toBe(
-      'country-carrier-cod',
+    expect(resolveTariff(rows, jeddah, 'COD_CARRIER')).toMatchObject({
+      id: 'country',
+      scope: 'COUNTRY',
+    });
+    const egypt = { countryId: EG, city: 'Riyadh' };
+    expect(resolveTariff(rows, egypt, 'COD_CARRIER')).toMatchObject({
+      id: 'all',
+      scope: 'ALL',
+    });
+    // The order of the rows never changes the winner.
+    expect(resolveTariff([...rows].reverse(), dest, 'COD_CARRIER')?.id).toBe(
+      'city',
     );
-    expect(resolveTariff(rows, jeddah, 'CARRIER', 'PREPAID')?.id).toBe(
-      'country-carrier',
-    );
-    expect(resolveTariff(rows, jeddah, 'INTERNAL_COURIER', 'PREPAID')?.id).toBe(
-      'country-any',
-    );
-    // Channel is more specific than payment type.
-    const tie: TariffRow[] = [
-      row('channel', { deliveryChannel: 'CARRIER', amount: 1 }),
-      row('payment', { paymentType: 'PREPAID', amount: 2 }),
-    ];
-    expect(resolveTariff(tie, jeddah, 'CARRIER', 'PREPAID')?.id).toBe(
-      'channel',
-    );
-    // Another country never matches.
+    // No row for the service anywhere.
+    expect(resolveTariff(rows, dest, 'PREPAID_INTERNAL_COURIER')).toBeNull();
+    // A city row of another country never matches.
     expect(
       resolveTariff(
-        rows,
-        { countryId: 'other', city: null },
-        'CARRIER',
-        'PREPAID',
+        [row('sa-city', { service: 'COD_CARRIER', city: 'Riyadh', amount: 9 })],
+        egypt,
+        'COD_CARRIER',
       ),
     ).toBeNull();
   });
 
-  it('legacy ANY/ANY rows resolve exactly as before (city row, else country row)', () => {
-    const legacy: TariffRow[] = [
-      row('country', { amount: 100 }),
-      row('cairo', { city: 'Cairo', amount: 60 }),
-    ];
-    const cairo = { countryId: SA, city: 'cairo' };
-    expect(resolveTariff(legacy, cairo, 'CARRIER', 'PREPAID')?.amount).toBe(60);
-    const other = { countryId: SA, city: 'Giza' };
-    expect(
-      resolveTariff(legacy, other, 'INTERNAL_COURIER', 'CASH_ON_DELIVERY')
-        ?.amount,
-    ).toBe(100);
-    const submission = resolveSubmissionTariff(legacy, cairo, 'PREPAID');
-    expect(submission).toMatchObject({
-      status: 'CONFIRMED',
-      estimateChannel: null,
-    });
-    expect(submission?.tariff.amount).toBe(60);
+  it('destination key: all = "*", country, country|lower(trimmed city)', () => {
+    expect(destinationKeyOf(null, '')).toBe('*');
+    expect(destinationKeyOf(EG, '')).toBe(EG);
+    expect(destinationKeyOf(EG, '  Cairo ')).toBe(`${EG}|cairo`);
+    expect(destinationKeyOf(EG, 'CAIRO')).toBe(destinationKeyOf(EG, 'cairo'));
   });
 
   it('submission: equal fee on every channel confirms; otherwise pending with the carrier estimate', () => {
@@ -129,13 +102,18 @@ describe('agent shipping tariff resolution (spec 2B)', () => {
     ).toMatchObject({
       status: 'PENDING_METHOD',
       estimateChannel: 'CARRIER',
-      tariff: { amount: 35 },
+      tariff: { amount: 35, service: 'COD_CARRIER' },
+      byChannel: {
+        CARRIER: { id: 'cod-carrier' },
+        INTERNAL_COURIER: { id: 'cod-internal' },
+      },
     });
     // Prepaid: internal courier missing → pending, estimate = carrier 25.
     expect(resolveSubmissionTariff(WORKED, dest, 'PREPAID')).toMatchObject({
       status: 'PENDING_METHOD',
       estimateChannel: 'CARRIER',
       tariff: { amount: 25 },
+      byChannel: { INTERNAL_COURIER: null },
     });
     // Only the internal courier resolves → it is the first resolvable.
     const internalOnly = [WORKED[2]];
@@ -147,13 +125,73 @@ describe('agent shipping tariff resolution (spec 2B)', () => {
       tariff: { amount: 25 },
     });
     const equal = [
-      row('a', { deliveryChannel: 'CARRIER', amount: 30 }),
-      row('b', { deliveryChannel: 'INTERNAL_COURIER', amount: 30 }),
+      row('a', { service: 'PREPAID_CARRIER', amount: 30 }),
+      row('b', { service: 'PREPAID_INTERNAL_COURIER', amount: 30 }),
     ];
     expect(resolveSubmissionTariff(equal, dest, 'PREPAID')?.status).toBe(
       'CONFIRMED',
     );
     expect(resolveSubmissionTariff([], dest, 'PREPAID')).toBeNull();
+  });
+
+  it('coverage matrix: one row per named destination, inherited cells marked, missing combinations listed', () => {
+    // spec-w3 §7 agreement: COD carrier Egypt 60, COD courier Cairo 40,
+    // prepaid carrier all destinations 70.
+    const rows: TariffRow[] = [
+      { id: 'eg', service: 'COD_CARRIER', countryId: EG, city: '', amount: 60 },
+      {
+        id: 'cairo',
+        service: 'COD_INTERNAL_COURIER',
+        countryId: EG,
+        city: 'Cairo',
+        amount: 40,
+      },
+      {
+        id: 'all',
+        service: 'PREPAID_CARRIER',
+        countryId: null,
+        city: '',
+        amount: 70,
+      },
+    ];
+    const coverage = shippingAgreementCoverage(rows);
+    expect(coverage.destinations.map((d) => [d.key, d.scope])).toEqual([
+      ['*', 'ALL'],
+      [EG, 'COUNTRY'],
+      [`${EG}|cairo`, 'CITY'],
+    ]);
+    const cairo = coverage.destinations[2].cells;
+    expect(cairo.COD_INTERNAL_COURIER).toEqual({
+      rateId: 'cairo',
+      amount: 40,
+      inherited: false,
+    });
+    expect(cairo.COD_CARRIER).toEqual({
+      rateId: 'eg',
+      amount: 60,
+      inherited: true,
+    });
+    expect(cairo.PREPAID_CARRIER).toMatchObject({
+      amount: 70,
+      inherited: true,
+    });
+    expect(cairo.PREPAID_INTERNAL_COURIER).toBeNull();
+    expect(coverage.complete).toBe(false);
+    expect(
+      coverage.missing.map((m) => `${m.destinationKey}:${m.service}`),
+    ).toEqual([
+      '*:COD_CARRIER',
+      '*:COD_INTERNAL_COURIER',
+      '*:PREPAID_INTERNAL_COURIER',
+      `${EG}:COD_INTERNAL_COURIER`,
+      `${EG}:PREPAID_INTERNAL_COURIER`,
+      `${EG}|cairo:PREPAID_INTERNAL_COURIER`,
+    ]);
+    expect(shippingAgreementCoverage([])).toEqual({
+      destinations: [],
+      missing: [],
+      complete: true,
+    });
   });
 
   it('maps the shipping company type to the delivery channel', () => {

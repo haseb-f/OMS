@@ -42,6 +42,12 @@ import {
   AgentUsersService,
 } from '../admin/agent-users.service';
 import { AgentOrdersModule } from './agent-orders.module';
+import { AgentShippingAgreementsModule } from '../shipping-agreements/agent-shipping-agreements.module';
+import { AgentShippingAgreementsService } from '../shipping-agreements/agent-shipping-agreements.service';
+import {
+  activateShippingAgreement,
+  everyService,
+} from '../shipping-agreements/shipping-agreement.fixture';
 import { AgentOrdersService } from './agent-orders.service';
 import { AgentLeadsService } from './agent-leads.service';
 import type { CreateAgreementDto } from '../admin/dto/agreement.dto';
@@ -205,6 +211,7 @@ describe('Agents B1 — admin + orders (integration)', () => {
         FxModule,
         AgentsAdminModule,
         AgentOrdersModule,
+        AgentShippingAgreementsModule,
       ],
     }).compile();
     await moduleRef.init();
@@ -306,15 +313,15 @@ describe('Agents B1 — admin + orders (integration)', () => {
     ).id;
 
     agreementId = (await agreements.create(agentId, terms(), adminId)).id;
-    await agreements.upsertShippingRate(agentId, agreementId, {
-      countryId: egId,
-      amount: 100,
-    });
-    await agreements.upsertShippingRate(agentId, agreementId, {
-      countryId: egId,
-      city: 'Cairo',
-      amount: 60,
-    });
+    await activateShippingAgreement(
+      moduleRef.get(AgentShippingAgreementsService),
+      agentId,
+      [
+        ...everyService(100, { countryId: egId }),
+        ...everyService(60, { countryId: egId, city: 'Cairo' }),
+      ],
+      adminId,
+    );
     await agreements.activate(agentId, agreementId, adminId);
     const agreementB = await agreements.create(agentBId, terms(), adminId);
     await agreements.activate(agentBId, agreementB.id, adminId);
@@ -436,7 +443,7 @@ describe('Agents B1 — admin + orders (integration)', () => {
   });
 
   describe('agreements', () => {
-    it('ACTIVE terms and rates are immutable', async () => {
+    it('ACTIVE terms are immutable', async () => {
       await expectCode(
         agreements.update(
           agentId,
@@ -444,13 +451,6 @@ describe('Agents B1 — admin + orders (integration)', () => {
           { productCommissionRatePercent: 20 },
           adminId,
         ),
-        'AGREEMENT_IMMUTABLE',
-      );
-      await expectCode(
-        agreements.upsertShippingRate(agentId, agreementId, {
-          countryId: egId,
-          amount: 1,
-        }),
         'AGREEMENT_IMMUTABLE',
       );
     });
@@ -681,6 +681,19 @@ describe('Agents B1 — admin + orders (integration)', () => {
       });
     });
 
+    it('an agent user cannot back-date an order: it is dated (and priced) today (R15 review M1)', async () => {
+      const before = Date.now();
+      const order = await orders.createAgentOrder(
+        { ...orderInput(), orderDate: '2020-01-15' },
+        { userId: salesCtx.userId, agent: salesCtx },
+      );
+      const stored = await prisma.storeOrder.findUniqueOrThrow({
+        where: { id: order.id },
+        select: { orderDate: true },
+      });
+      expect(stored.orderDate.getTime()).toBeGreaterThanOrEqual(before - 1000);
+    });
+
     it('shipping included: the city rate wins (1,000 incl. 60 ⇒ 940 + 60)', async () => {
       const order = await orders.createAgentOrder(
         orderInput({
@@ -710,7 +723,7 @@ describe('Agents B1 — admin + orders (integration)', () => {
         orders.createAgentOrder(orderInput({ countryId: noRateCountryId }), {
           userId: adminId,
         }),
-        'SHIPPING_RATE_REQUIRED',
+        'AGENT_SHIPPING_TARIFF_MISSING',
       );
       await expectCode(
         orders.createAgentOrder(
@@ -1375,19 +1388,22 @@ describe('Agents B1 — admin + orders (integration)', () => {
         adminId,
       );
       // The company already has this contact: no 409 oracle for the agent.
-      await agentLeads.create(salesCtx, {
+      const own = await agentLeads.create(salesCtx, {
         customerName: name,
         mobileNumber: mobile,
         countryId: egId,
       });
-      // …but the agent's own duplicate is still refused.
+      // …but the agent's own duplicate is still refused, naming its own lead
+      // (never the company's — R15: an import row names the lead it repeats).
       await expect(
         agentLeads.create(salesCtx, {
           customerName: name,
           mobileNumber: mobile,
           countryId: egId,
         }),
-      ).rejects.toThrow('Duplicate Lead');
+      ).rejects.toThrow(
+        `Duplicate Lead — the same customer, phone and product already exist (${own.leadNumber}).`,
+      );
     });
 
     it('S4: order owners follow the affiliation rule', async () => {

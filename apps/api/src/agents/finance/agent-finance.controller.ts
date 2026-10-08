@@ -132,12 +132,6 @@ export class AgentFinanceController {
     return this.statements.summary(agentId, query);
   }
 
-  @Get('agents/:agentId/dashboard')
-  @PermissionAction('view')
-  dashboard(@Param('agentId', ParseUUIDPipe) agentId: string) {
-    return this.statements.dashboard(agentId);
-  }
-
   @Get('agents/:agentId/payments')
   @PermissionAction('view')
   paymentStages(

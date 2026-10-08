@@ -8,24 +8,16 @@ import {
   type AgentOrderSnapshot,
   type AgentShippingChargeSnapshot,
 } from '../common/agent-terms';
-import {
-  deliveryChannelOf,
-  type DeliveryChannel,
-} from './agent-shipping-tariff';
+import { deliveryChannelOf, serviceOf } from './agent-shipping-tariff';
 import { repriceForConfirmedFee } from './agent-shipping-reprice';
+import {
+  describeDestination,
+  missingTariffMessage,
+} from '../shipping-agreements/shipping-agreement-resolution';
 
 type Tx = Prisma.TransactionClient;
 
 const money = (n: number) => n.toFixed(2);
-
-const CHANNEL_LABEL: Record<DeliveryChannel, { ar: string; en: string }> = {
-  CARRIER: { ar: 'شركة شحن', en: 'Carrier' },
-  INTERNAL_COURIER: { ar: 'مندوب داخلي', en: 'Internal courier' },
-};
-const PAYMENT_LABEL = {
-  PREPAID: { ar: 'مدفوع مسبقًا', en: 'Prepaid' },
-  CASH_ON_DELIVERY: { ar: 'الدفع عند الاستلام', en: 'Cash on delivery' },
-} as const;
 
 /** Timeline marker of a tariff resolution (agent-visible: contractual amounts only). */
 export const AGENT_SHIPPING_TARIFF_ACTIVITY = 'AGENT_SHIPPING_TARIFF_RESOLVED';
@@ -69,22 +61,27 @@ const ORDER_SELECT = {
 type PricedOrder = Prisma.StoreOrderGetPayload<{ select: typeof ORDER_SELECT }>;
 
 /**
- * Agent shipping tariff resolution (spec-2-agent-pricing.md 2B). The
- * contractual agent shipping fee of a PREDETERMINED_CHARGE agent order is
- * final only once Shipping has chosen the delivery method (the shipment's
- * shipping company). Runs inside the caller's transaction under the Store
- * Order row lock; every change is audited on the order timeline. Carrier
- * cost is never read here — it is not part of the agent's price.
+ * Agent shipping charge confirmation (spec-2-agent-pricing.md 2B; R15
+ * D15-13). The contractual agent shipping fee of a PREDETERMINED_CHARGE
+ * agent order is final only once Shipping has chosen the delivery method
+ * (the shipment's shipping company) — the service is then known and its
+ * charge is read from the shipping agreement rows frozen at submission.
+ * Runs inside the caller's transaction under the Store Order row lock; every
+ * change is audited on the order timeline. Carrier cost is never read here
+ * — it is not part of the agent's price.
  */
 @Injectable()
 export class AgentShippingPricingService {
   /**
-   * Shipping assigned (or changed) the shipping company. Resolves the fee
-   * for the company's channel × the order's payment type × destination,
-   * snapshots it and applies the customer-side effect. A missing tariff is
+   * Shipping assigned (or changed) the shipping company — every path that
+   * sets a shipment's company must call this (through
+   * `AgentFulfillmentService.onShippingCompanyAssigned`, which also earns a
+   * held order once the fee is final). Resolves the fee for the
+   * service (company channel × the order's payment type) × destination,
+   * snapshots it and applies the customer-side effect. A missing charge is
    * refused (AGENT_SHIPPING_TARIFF_MISSING) so no unpriced agent shipment
    * can dispatch. No-op for company orders, other policies, pickup /
-   * digital-only orders and after dispatch (the tariff is frozen).
+   * digital-only orders and after dispatch (the fee is frozen).
    */
   async onShippingCompanyAssigned(
     tx: Tx,
@@ -157,9 +154,10 @@ export class AgentShippingPricingService {
     if (!company) return order.shippingPricingStatus;
 
     const channel = deliveryChannelOf(company.type);
-    // Priced from the tariffs frozen at submission (payment type included):
-    // agreement edits never change an existing order.
+    // Priced from the charges frozen at submission (payment type included):
+    // a later shipping agreement never changes an existing order.
     const paymentType = current.paymentType;
+    const service = serviceOf(channel, paymentType);
     const destination = {
       countryId: current.countryId ?? snapshot.customer?.countryId ?? null,
       city: current.city ?? snapshot.customer?.city ?? null,
@@ -167,23 +165,22 @@ export class AgentShippingPricingService {
     const frozen = current.byChannel[channel];
     const tariff = frozen ? { id: frozen.rateId, amount: frozen.amount } : null;
     if (!tariff) {
-      const country = destination.countryId
-        ? await tx.country.findUnique({
-            where: { id: destination.countryId },
-            select: { name: true, nameEn: true },
-          })
-        : null;
-      const where = [country?.nameEn ?? country?.name, destination.city]
-        .filter(Boolean)
-        .join(' / ');
-      const whereAr = [country?.name, destination.city]
-        .filter(Boolean)
-        .join(' / ');
+      const text = missingTariffMessage(
+        current.shippingAgreementNumber,
+        [service],
+        await describeDestination(tx, destination),
+      );
       throw agentUnprocessable(
         'AGENT_SHIPPING_TARIFF_MISSING',
-        `لا توجد تعرفة شحن في اتفاقية الوكيل لـ ${CHANNEL_LABEL[channel].ar} × ${PAYMENT_LABEL[paymentType].ar} × ${whereAr || '—'} — أضفها في الاتفاقية أو اختر طريقة توصيل أخرى`,
-        `The agent agreement has no shipping tariff for ${CHANNEL_LABEL[channel].en} × ${PAYMENT_LABEL[paymentType].en} × ${where || '—'} — add it to the agreement or choose another delivery method.`,
-        { deliveryChannel: channel, paymentType, destination },
+        text.ar,
+        text.en,
+        {
+          shippingAgreementNumber: current.shippingAgreementNumber ?? null,
+          service,
+          deliveryChannel: channel,
+          paymentType,
+          destination,
+        },
       );
     }
 
@@ -239,6 +236,9 @@ export class AgentShippingPricingService {
       amount: tariff.amount,
       source: 'TARIFF',
       rateId: tariff.id,
+      shippingAgreementId: current.shippingAgreementId ?? null,
+      shippingAgreementNumber: current.shippingAgreementNumber ?? null,
+      service,
       provisional: false,
       deliveryChannel: channel,
       paymentType,
@@ -337,7 +337,10 @@ export class AgentShippingPricingService {
         action: AGENT_SHIPPING_TARIFF_ACTIVITY,
         details: [
           `Agent shipping fee ${before} → ${money(tariff.amount)}`,
-          `${channel} × ${paymentType} via ${company.name}`,
+          `${service} (${channel} × ${paymentType}) via ${company.name}`,
+          ...(current.shippingAgreementNumber
+            ? [`shipping agreement ${current.shippingAgreementNumber}`]
+            : []),
           ...notes,
         ].join(' · '),
         performedById: userId ?? null,

@@ -43,15 +43,23 @@ import {
   agentNotFoundError,
   agentUnprocessable,
 } from '../common/agent-errors';
+import { resolveActiveAgreement } from '../admin/agent-agreements.service';
 import {
-  loadAgreementTariffs,
-  resolveActiveAgreement,
-} from '../admin/agent-agreements.service';
-import {
+  DELIVERY_CHANNELS,
   resolveSubmissionTariff,
+  serviceOf,
   type ResolvedTariff,
   type SubmissionTariff,
+  type TariffDestination,
 } from '../pricing/agent-shipping-tariff';
+import {
+  describeDestination,
+  missingAgreementMessage,
+  missingTariffMessage,
+  resolveShippingAgreement,
+  shippingAgreementDay,
+  type InForceShippingAgreement,
+} from '../shipping-agreements/shipping-agreement-resolution';
 import type { AgentOrderPersistInput } from './agent-order-persist';
 import { isStockAffecting } from '../../inventory/stock-lines/stock-line-resolver';
 import { AgentFulfillmentService } from '../finance/agent-fulfillment.service';
@@ -112,6 +120,11 @@ interface PreparedOrder {
   issues: AgentOrderIssue[];
   agent: Pick<Agent, 'id' | 'name' | 'agentNumber' | 'status'> | null;
   agreement: AgentAgreement | null;
+  /** R15 D15-13 — the shipping agreement in force on the order date (when shipping was priced). */
+  shippingAgreement: Pick<
+    InForceShippingAgreement,
+    'id' | 'agreementNumber'
+  > | null;
   currencyId: string | null;
   fulfillmentMethod: StoreOrderFulfillmentMethod;
   paymentType: StoreOrderPaymentType;
@@ -180,9 +193,11 @@ export interface AgentAmendmentQuote {
   persist: AgentOrderPersistInput | null;
 }
 
-/** The submission-time tariff of one channel, as frozen in the order snapshot. */
+/** The submission-time charge of one channel, as frozen in the order snapshot. */
 const frozenTariff = (tariff: ResolvedTariff | null) =>
-  tariff ? { rateId: tariff.id, amount: tariff.amount } : null;
+  tariff
+    ? { rateId: tariff.id, amount: tariff.amount, service: tariff.service }
+    : null;
 
 const issue = (code: string, message: string, lineKey?: string) => ({
   code,
@@ -325,7 +340,9 @@ export class AgentOrdersService {
       // Not used for agent orders: the customer is resolved from
       // `agentOrder.customer` among the agent's own customers (S1).
       partner: { name: customer.name },
-      orderDate: input.orderDate,
+      // Agent users always order "now" (the date the order was priced on): a
+      // stored back-date would let an amendment re-quote an older agreement.
+      orderDate: resolved.isAgentUser ? undefined : input.orderDate,
       source: StoreOrderSource.MANUAL,
       currencyId: agentOrder.currencyId,
       paymentType: agentOrder.paymentType,
@@ -1019,6 +1036,9 @@ export class AgentOrdersService {
     };
     let shippingOverrideReason: string | null = null;
     let submissionTariff: SubmissionTariff | null = null;
+    let shippingAgreement: InForceShippingAgreement | null = null;
+    /** Why no charge resolves (no agreement / no service × destination row). */
+    let missingTariff: AgentOrderIssue | null = null;
     const override = input.shippingChargeOverride;
     if (frozen) {
       // Amendment: the order's own shipping terms, unchanged (Spec 2 freeze).
@@ -1046,14 +1066,33 @@ export class AgentOrdersService {
           'حدد دولة الشحن — Choose the shipping destination country.',
         ),
       );
-    } else if (agreement) {
-      // Spec 2: the delivery channel is unknown at submission — the fee is
-      // final when every channel agrees, else a provisional estimate.
-      submissionTariff = resolveSubmissionTariff(
-        await loadAgreementTariffs(agreement.id, this.prisma),
-        { countryId: input.countryId, city: input.city },
-        paymentType,
+    } else if (agent && agreement) {
+      // R15 D15-13: charged from the agent's shipping agreement in force on
+      // the order date. Spec 2: the delivery channel is unknown at
+      // submission — the fee is final when every channel agrees, else a
+      // provisional estimate.
+      const destination = { countryId: input.countryId, city: input.city };
+      shippingAgreement = await resolveShippingAgreement(
+        agent.id,
+        orderDate,
+        this.prisma,
       );
+      submissionTariff = shippingAgreement
+        ? resolveSubmissionTariff(
+            shippingAgreement.rows,
+            destination,
+            paymentType,
+          )
+        : null;
+      if (!submissionTariff) {
+        missingTariff = await this.missingShippingChargeIssue(
+          agent.name,
+          orderDate,
+          shippingAgreement,
+          destination,
+          paymentType,
+        );
+      }
       shipping.rate = submissionTariff?.tariff ?? null;
       const rateAmount = shipping.rate?.amount ?? null;
       const isOverride =
@@ -1082,13 +1121,9 @@ export class AgentOrdersService {
       } else if (rateAmount != null) {
         shipping.charge = rateAmount;
         shipping.source = 'RATE';
-      } else {
-        issues.push(
-          issue(
-            'SHIPPING_RATE_REQUIRED',
-            'لا يوجد سعر شحن معتمد لهذه الوجهة؛ لا يمكن تقدير الشحن — No configured shipping rate for this destination; the shipping charge cannot be guessed.',
-          ),
-        );
+      } else if (missingTariff) {
+        // Never guessed, never zero: the company completes the agreement.
+        issues.push(missingTariff);
       }
     }
 
@@ -1149,12 +1184,9 @@ export class AgentOrdersService {
         );
       }
       if (rate == null) {
-        issues.push(
-          issue(
-            'AGENT_SHIPPING_CHARGE_NOT_CONFIGURED',
-            'لا يوجد سعر شحن مُعدّ لهذه الوجهة في الاتفاقية لتحديد رسم شحن الوكيل — No agreement shipping rate for this destination to set the agent shipping charge.',
-          ),
-        );
+        // An authorized manual customer shipping charge still needs the
+        // agreed agent charge it settles.
+        if (missingTariff) issues.push(missingTariff);
       } else {
         const pending =
           !noShipment && submissionTariff?.status === 'PENDING_METHOD';
@@ -1162,6 +1194,13 @@ export class AgentOrdersService {
           amount: rate,
           source: digitalOnly ? 'DIGITAL_ONLY' : noShipment ? 'PICKUP' : 'RATE',
           rateId: noShipment ? null : (shipping.rate?.id ?? null),
+          ...(noShipment || !shippingAgreement
+            ? {}
+            : {
+                shippingAgreementId: shippingAgreement.id,
+                shippingAgreementNumber: shippingAgreement.agreementNumber,
+                service: shipping.rate?.service ?? null,
+              }),
           provisional: pending,
           deliveryChannel: pending
             ? (submissionTariff?.estimateChannel ?? null)
@@ -1190,6 +1229,12 @@ export class AgentOrdersService {
       issues,
       agent,
       agreement,
+      shippingAgreement: shippingAgreement
+        ? {
+            id: shippingAgreement.id,
+            agreementNumber: shippingAgreement.agreementNumber,
+          }
+        : null,
       currencyId,
       fulfillmentMethod,
       paymentType,
@@ -1230,13 +1275,11 @@ export class AgentOrdersService {
       fulfillmentMethod: prepared.fulfillmentMethod,
       paymentType: prepared.paymentType,
       digitalOnly: prepared.digitalOnly,
+      shippingAgreement: prepared.shippingAgreement,
       shipping: {
         rate: prepared.shipping.rate?.amount ?? null,
-        rateScope: prepared.shipping.rate
-          ? prepared.shipping.rate.city
-            ? 'CITY'
-            : 'COUNTRY'
-          : null,
+        /** CITY / COUNTRY / ALL (all destinations) — which agreement row priced it. */
+        rateScope: prepared.shipping.rate?.scope ?? null,
         charge: prepared.shipping.charge,
         source: prepared.shipping.source,
         overrideAllowed: prepared.shipping.overrideAllowed,
@@ -1377,6 +1420,38 @@ export class AgentOrdersService {
     };
   }
 
+  /**
+   * R15 D15-13 — the actionable reason an order's shipping cannot be priced:
+   * no shipping agreement in force on the order date
+   * (AGENT_SHIPPING_AGREEMENT_MISSING), or the agreement has no row for the
+   * services this payment type can be delivered by × the destination
+   * (AGENT_SHIPPING_TARIFF_MISSING, naming the agreement).
+   */
+  private async missingShippingChargeIssue(
+    agentName: string,
+    orderDate: Date,
+    shippingAgreement: InForceShippingAgreement | null,
+    destination: TariffDestination,
+    paymentType: StoreOrderPaymentType,
+  ): Promise<AgentOrderIssue> {
+    if (!shippingAgreement) {
+      const text = missingAgreementMessage(
+        agentName,
+        shippingAgreementDay(orderDate),
+      );
+      return issue(
+        'AGENT_SHIPPING_AGREEMENT_MISSING',
+        `${text.ar} — ${text.en}`,
+      );
+    }
+    const text = missingTariffMessage(
+      shippingAgreement.agreementNumber,
+      DELIVERY_CHANNELS.map((channel) => serviceOf(channel, paymentType)),
+      await describeDestination(this.prisma, destination),
+    );
+    return issue('AGENT_SHIPPING_TARIFF_MISSING', `${text.ar} — ${text.en}`);
+  }
+
   private async canOverrideShipping(actor: ResolvedActor) {
     // Internal users never hold `agent.*` permissions (resolver rule): their
     // override — including below the agent fee (O1) — is `agents.edit`.
@@ -1397,7 +1472,12 @@ export class AgentOrdersService {
     actor: ResolvedActor,
     agentId: string,
   ): Promise<string | null> {
-    if (actor.isAgentUser) return actor.userId;
+    if (actor.isAgentUser) {
+      // R15 (D15-16) — an agent user owns its orders; naming a colleague (an
+      // import's Owner column) needs the explicit `agent.records.assign` key.
+      if (!ownerUserId || ownerUserId === actor.userId) return actor.userId;
+      await this.assertAgentPermission(actor, 'agent.records.assign');
+    }
     if (!ownerUserId) return null;
     const owner = await this.prisma.user.findFirst({
       where: {

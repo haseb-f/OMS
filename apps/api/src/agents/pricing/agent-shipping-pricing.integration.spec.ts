@@ -28,7 +28,9 @@ import type { CreateAgreementDto } from '../admin/dto/agreement.dto';
 import type { CreateAgentOrderDto } from '../orders/dto/agent-order.dto';
 import type { AgentOrderSnapshot } from '../common/agent-terms';
 import { AgentFulfillmentService } from '../finance/agent-fulfillment.service';
+import { ShippingUpdatesImportHandler } from '../../import-center/handlers/shipping-updates-import.handler';
 import { leakedKeys } from './leaked-keys.test-util';
+import type { ShippingRateFixture } from '../shipping-agreements/shipping-agreement.fixture';
 
 async function expectCode(promise: Promise<unknown>, code: string) {
   let caught: unknown;
@@ -89,14 +91,8 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
     request(http).get(path).set('Authorization', `Bearer ${token}`);
   const post = (token: string, path: string, body: object = {}) =>
     request(http).post(path).set('Authorization', `Bearer ${token}`).send(body);
-  const put = (token: string, path: string, body: object = {}) =>
-    request(http).put(path).set('Authorization', `Bearer ${token}`).send(body);
-
-  type TariffInput = {
-    deliveryChannel: 'ANY' | 'CARRIER' | 'INTERNAL_COURIER';
-    paymentType: 'ANY' | 'PREPAID' | 'CASH_ON_DELIVERY';
-    amount: number;
-  };
+  /** Egypt-wide charges, service → amount. */
+  type TariffInput = Omit<ShippingRateFixture, 'countryId'>;
   let makeAgent: (
     suffix: string,
     tariffs: TariffInput[],
@@ -295,38 +291,34 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
         terms(over),
         internal.id,
       );
-      // Tariff CRUD through the agreement admin endpoint (spec 2B).
-      for (const tariff of tariffs) {
-        const res = await put(
-          internalToken,
-          `/agents/${agent.id}/agreements/${agreement.id}/shipping-rates`,
-          { countryId: egId, ...tariff },
-        );
-        expect(res.status).toBe(200);
-      }
+      // R15 D15-13 — the charges live in the agent's shipping agreement,
+      // created and activated through its admin endpoints.
+      const draft = await post(
+        internalToken,
+        `/agents/${agent.id}/shipping-agreements`,
+        {
+          effectiveFrom: '2020-01-01',
+          rates: tariffs.map((tariff) => ({ countryId: egId, ...tariff })),
+        },
+      );
+      expect(draft.status).toBe(201);
+      const activated = await post(
+        internalToken,
+        `/agents/${agent.id}/shipping-agreements/${draft.body.id}/activate`,
+      );
+      expect(activated.status).toBe(201);
       await agreements.activate(agent.id, agreement.id, internal.id);
       return agent.id;
     };
     agentAId = await makeAgent('A', [
-      { deliveryChannel: 'CARRIER', paymentType: 'PREPAID', amount: 25 },
-      {
-        deliveryChannel: 'CARRIER',
-        paymentType: 'CASH_ON_DELIVERY',
-        amount: 35,
-      },
-      {
-        deliveryChannel: 'INTERNAL_COURIER',
-        paymentType: 'CASH_ON_DELIVERY',
-        amount: 25,
-      },
+      { service: 'PREPAID_CARRIER', amount: 25 },
+      { service: 'COD_CARRIER', amount: 35 },
+      { service: 'COD_INTERNAL_COURIER', amount: 25 },
     ]);
     agentBId = await makeAgent('B', [
-      { deliveryChannel: 'CARRIER', paymentType: 'ANY', amount: 25 },
-      {
-        deliveryChannel: 'INTERNAL_COURIER',
-        paymentType: 'CASH_ON_DELIVERY',
-        amount: 35,
-      },
+      { service: 'PREPAID_CARRIER', amount: 25 },
+      { service: 'COD_CARRIER', amount: 25 },
+      { service: 'COD_INTERNAL_COURIER', amount: 35 },
     ]);
     productAId = await makeProduct(agentAId);
     productBId = await makeProduct(agentBId);
@@ -357,18 +349,30 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
     await app?.close();
   });
 
-  it('tariff CRUD: the agreement lists channel × payment type rows; one row per key', async () => {
-    const res = await get(internalToken, `/agents/${agentAId}/agreements`);
-    expect(res.status).toBe(200);
-    const rates = res.body[0].shippingRates.map(
-      (r: { deliveryChannel: string; paymentType: string; amount: string }) =>
-        `${r.deliveryChannel}/${r.paymentType}=${Number(r.amount)}`,
+  it('shipping agreement: lists service × destination rows (one per key); the commission agreement carries none', async () => {
+    const list = await get(
+      internalToken,
+      `/agents/${agentAId}/shipping-agreements`,
+    );
+    expect(list.status).toBe(200);
+    expect(list.body.inForceId).toBe(list.body.items[0].id);
+    const res = await get(
+      internalToken,
+      `/agents/${agentAId}/shipping-agreements/${list.body.inForceId}`,
+    );
+    const rates = res.body.rates.map(
+      (r: { service: string; amount: number }) => `${r.service}=${r.amount}`,
     );
     expect(rates.sort()).toEqual([
-      'CARRIER/CASH_ON_DELIVERY=35',
-      'CARRIER/PREPAID=25',
-      'INTERNAL_COURIER/CASH_ON_DELIVERY=25',
+      'COD_CARRIER=35',
+      'COD_INTERNAL_COURIER=25',
+      'PREPAID_CARRIER=25',
     ]);
+    const commission = await get(
+      internalToken,
+      `/agents/${agentAId}/agreements`,
+    );
+    expect(commission.body[0]).not.toHaveProperty('shippingRates');
   });
 
   it('acceptance 1+2 — COD: pending at submission, dispatch refused, carrier 35 / courier 25 on assignment, re-resolved before dispatch, frozen after', async () => {
@@ -448,13 +452,56 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
     const refused = await assign(id, courierCoId);
     expect(refused.status).toBe(422);
     expect(refused.body.code).toBe('AGENT_SHIPPING_TARIFF_MISSING');
-    expect(refused.body.message).toContain('Internal courier × Prepaid');
+    expect(refused.body.message).toContain(
+      'has no charge for Internal courier prepaid to Egypt / Riyadh',
+    );
     expect((await loadOrder(id)).shippingPricingStatus).toBe('PENDING_METHOD');
 
     expect((await assign(id, carrierCoId)).status).toBe(200);
     const order = await loadOrder(id);
     expect(order.shippingPricingStatus).toBe('CONFIRMED');
     expect(Number(order.shippingCharge)).toBe(25);
+  });
+
+  it('R15 — a carrier set by the shipping import (no dispatch yet) confirms the agreed charge like the manual assignment; a missing tariff fails the row', async () => {
+    const id = await createOrder(productAId, { paymentType: 'PREPAID' });
+    const { internalOrderId } = await loadOrder(id);
+    const handler = moduleRef.get(ShippingUpdatesImportHandler, {
+      strict: false,
+    });
+    // Prepaid × internal courier has no charge: the row fails, nothing moves.
+    await expectCode(
+      handler.importRow(
+        {
+          systemOrderId: internalOrderId,
+          status: 'LABEL_CREATED',
+          shippingCompanyName: `R5 courier ${tag}`,
+        },
+        internalId,
+      ),
+      'AGENT_SHIPPING_TARIFF_MISSING',
+    );
+    let order = await loadOrder(id);
+    expect(order.shippingPricingStatus).toBe('PENDING_METHOD');
+    expect(order.agentDispatchedAt).toBeNull();
+
+    await handler.importRow(
+      {
+        systemOrderId: internalOrderId,
+        status: 'LABEL_CREATED',
+        shippingCompanyName: `R5 carrier ${tag}`,
+      },
+      internalId,
+    );
+    order = await loadOrder(id);
+    expect(order.shippingPricingStatus).toBe('CONFIRMED');
+    expect(Number(order.shippingCharge)).toBe(25);
+    expect(order.agentDispatchedAt).toBeNull();
+    expect((await snapshotOf(id)).agentShippingCharge).toMatchObject({
+      amount: 25,
+      source: 'TARIFF',
+      deliveryChannel: 'CARRIER',
+    });
   });
 
   it('acceptance 3 — shipping included: agreed total 500, fee 35 → merchandise 465, shipping 35, difference 0', async () => {
@@ -660,11 +707,9 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
     }
     const detail = await get(adminToken, `/agent-portal/orders/${detailId}`);
     expect(detail.body.shippingPricing).toMatchObject({ status: 'CONFIRMED' });
-    // Tariff dimensions are part of the agent's own agreement terms.
+    // The agreed charges (service × destination) are the agent's own terms.
     const me = await get(adminToken, '/agent-portal/me');
-    expect(me.body.agreement.shippingRates[0]).toHaveProperty(
-      'deliveryChannel',
-    );
+    expect(me.body.shippingAgreement.rates[0]).toHaveProperty('service');
   });
 
   it('agent portal confirms the customer total for its own order', async () => {
@@ -707,12 +752,8 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
     const agentId = await makeAgent(
       `H1${next()}`,
       [
-        { deliveryChannel: 'CARRIER', paymentType: 'PREPAID', amount: 25 },
-        {
-          deliveryChannel: 'INTERNAL_COURIER',
-          paymentType: 'PREPAID',
-          amount: 35,
-        },
+        { service: 'PREPAID_CARRIER', amount: 25 },
+        { service: 'PREPAID_INTERNAL_COURIER', amount: 35 },
       ],
       { commissionEarningEvent: 'PAYMENT_VERIFIED' },
     );
@@ -766,8 +807,10 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
 
   it('review M2 — a tariff edited after submission never changes the order; legacy snapshots ship unchanged', async () => {
     const agentId = await makeAgent(`M2${next()}`, [
-      { deliveryChannel: 'CARRIER', paymentType: 'ANY', amount: 25 },
-      { deliveryChannel: 'INTERNAL_COURIER', paymentType: 'ANY', amount: 30 },
+      { service: 'PREPAID_CARRIER', amount: 25 },
+      { service: 'COD_CARRIER', amount: 25 },
+      { service: 'PREPAID_INTERNAL_COURIER', amount: 30 },
+      { service: 'COD_INTERNAL_COURIER', amount: 30 },
     ]);
     const productId = await makeProduct(agentId);
     const id = await createOrder(productId);
@@ -776,9 +819,11 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
       CARRIER: expect.objectContaining({ amount: 25 }),
       INTERNAL_COURIER: expect.objectContaining({ amount: 30 }),
     });
-    const agreementId = (await loadOrder(id)).agentAgreementId!;
-    await prisma.agentShippingRate.updateMany({
-      where: { agreementId, deliveryChannel: 'CARRIER' },
+    await prisma.agentShippingAgreementRate.updateMany({
+      where: {
+        shippingAgreement: { agentId },
+        service: { in: ['PREPAID_CARRIER', 'COD_CARRIER'] },
+      },
       data: { amount: 99 },
     });
     expect((await assign(id, carrierCoId)).status).toBe(200);
@@ -846,17 +891,19 @@ describe('Spec 2 — agent shipping tariffs and pricing (HTTP integration)', () 
     ).ownerAgentId;
     expect([agentAId, agentBId]).toContain(owner);
 
-    const rate = await prisma.agentShippingRate.findFirstOrThrow({
-      where: { agreement: { agentId: agentAId } },
+    // One row per service × destination key (the city compares trimmed and
+    // case-insensitively through the key) — enforced by the database too.
+    const rate = await prisma.agentShippingAgreementRate.findFirstOrThrow({
+      where: { shippingAgreement: { agentId: agentAId } },
     });
     await expect(
-      prisma.agentShippingRate.create({
+      prisma.agentShippingAgreementRate.create({
         data: {
-          agreementId: rate.agreementId,
+          shippingAgreementId: rate.shippingAgreementId,
+          service: rate.service,
           countryId: rate.countryId,
-          city: ` ${rate.city.toUpperCase()}X `.replace('X', ''),
-          deliveryChannel: rate.deliveryChannel,
-          paymentType: rate.paymentType,
+          city: rate.city,
+          destinationKey: rate.destinationKey,
           amount: 1,
         },
       }),

@@ -13,11 +13,7 @@ import {
   storeOrderLineAmount,
   storeOrderPayableTotal,
 } from '../../store-orders/store-order-line-amount';
-import {
-  agentFulfillmentFacts,
-  aggregateAgentFulfillment,
-  readAgentTermsSnapshot,
-} from '../common/agent-terms';
+import { readAgentTermsSnapshot } from '../common/agent-terms';
 import { agentNotFoundError } from '../common/agent-errors';
 import {
   computeAgentBalances,
@@ -594,88 +590,46 @@ export class AgentStatementService {
   // Dashboard + payment stages (portal-reusable)
   // -------------------------------------------------------------------------
 
-  async dashboard(agentId: string) {
-    const agent = await this.requireAgent(agentId);
-    const orders = await this.prisma.storeOrder.findMany({
-      where: { agentId, deletedAt: null },
-      select: {
-        id: true,
-        agentDispatchedAt: true,
-        agentEarnedAt: true,
-        currencyId: true,
-        merchandiseAmount: true,
-        payableTotal: true,
-        shippingCharge: true,
-        agentTermsSnapshot: true,
-        fulfillmentStatus: { select: { code: true } },
-        items: {
-          where: { deletedAt: null },
-          select: {
-            quantity: true,
-            unitPrice: true,
-            agreedAmount: true,
-            productId: true,
-            product: { select: { isInventoryItem: true, supplyMethod: true } },
+  /**
+   * Agent-level money of the dashboard: returned merchandise, payments
+   * awaiting verification, statement position and payouts. Never attributed
+   * to one seller — callers show it only with the agent-level money right.
+   */
+  async dashboardMoney(agentId: string, currencyId: string) {
+    const [returns, declared, payouts, lastPayout, { balances }] =
+      await Promise.all([
+        this.prisma.agentOrderReturn.aggregate({
+          where: { agentId },
+          _sum: { merchandiseAmount: true },
+        }),
+        this.prisma.payment.aggregate({
+          where: {
+            agentId,
+            deletedAt: null,
+            status: { in: [PaymentStatus.PENDING, PaymentStatus.MATCHED] },
           },
-        },
-        _count: { select: { agentReturns: true } },
-      },
-    });
-    const active = orders.filter(
-      (o) => o.fulfillmentStatus?.code !== 'CANCELLED',
-    );
-    const fulfillment = aggregateAgentFulfillment(
-      orders.map(agentFulfillmentFacts),
-    );
-    const inCurrency = active.filter((o) => o.currencyId === agent.currencyId);
-    const sum = (values: number[]) =>
-      fromMinor(values.reduce((s, v) => s + toMinor(v), 0));
-    const returns = await this.prisma.agentOrderReturn.aggregate({
-      where: { agentId },
-      _sum: { merchandiseAmount: true },
-    });
-    const declared = await this.prisma.payment.aggregate({
-      where: {
-        agentId,
-        deletedAt: null,
-        status: { in: [PaymentStatus.PENDING, PaymentStatus.MATCHED] },
-      },
-      _sum: { amount: true },
-      _count: { _all: true },
-    });
-    const payouts = await this.prisma.agentPayout.aggregate({
-      where: { agentId, status: AgentPayoutStatus.CONFIRMED },
-      _sum: { amount: true },
-      _count: { _all: true },
-    });
-    const lastPayout = await this.prisma.agentPayout.findFirst({
-      where: { agentId, status: AgentPayoutStatus.CONFIRMED },
-      orderBy: { payoutDate: 'desc' },
-      select: { id: true, payoutNumber: true, amount: true, payoutDate: true },
-    });
-    const { balances } = await this.balances(agentId);
-    const position = balances.find((b) => b.currencyId === agent.currencyId);
+          _sum: { amount: true },
+          _count: { _all: true },
+        }),
+        this.prisma.agentPayout.aggregate({
+          where: { agentId, status: AgentPayoutStatus.CONFIRMED },
+          _sum: { amount: true },
+          _count: { _all: true },
+        }),
+        this.prisma.agentPayout.findFirst({
+          where: { agentId, status: AgentPayoutStatus.CONFIRMED },
+          orderBy: { payoutDate: 'desc' },
+          select: {
+            id: true,
+            payoutNumber: true,
+            amount: true,
+            payoutDate: true,
+          },
+        }),
+        this.balances(agentId),
+      ]);
+    const position = balances.find((b) => b.currencyId === currencyId);
     return {
-      agent: {
-        id: agent.id,
-        agentNumber: agent.agentNumber,
-        name: agent.name,
-        currency: agent.currency,
-      },
-      fulfillment,
-      sales: {
-        merchandiseSalesExShipping: sum(
-          inCurrency.map((o) =>
-            o.merchandiseAmount != null
-              ? Number(o.merchandiseAmount)
-              : o.items.reduce((s, i) => s + storeOrderLineAmount(i), 0),
-          ),
-        ),
-        customerShippingCharges: sum(
-          inCurrency.map((o) => Number(o.shippingCharge ?? 0)),
-        ),
-        totalOrderValue: sum(inCurrency.map((o) => storeOrderPayableTotal(o))),
-      },
       returns: {
         merchandiseReturned: round2(
           Number(returns._sum.merchandiseAmount ?? 0),
@@ -747,23 +701,31 @@ export class AgentStatementService {
     return payments.map((payment) => {
       const credit = credits.find((c) => c.paymentId === payment.id);
       const row = credit ? rowById.get(credit.id) : undefined;
-      const stage = paymentStage({
-        status: payment.status,
-        destinationOwnership: payment.destinationOwnership,
-        requiresReconciliation: !!payment.paymentMethod?.requiresReconciliation,
-        amount: Number(payment.amount),
-        settledAmount: Number(payment.settledAmount),
-        earnedAt: payment.storeOrder?.agentEarnedAt ?? null,
-        credit: row
-          ? {
-              amount: row.credit,
-              availableAt: row.availableAt,
-              allocated: row.allocated ?? 0,
-              reversed: reversedKeys.has(`${row.sourceType}|${row.sourceId}`),
-            }
-          : null,
-        now,
-      });
+      // R15 D15-12 — a reversed payment (recorded in error) is REVERSED
+      // whatever its ledger credit says.
+      const stage =
+        payment.status === 'REVERSED'
+          ? 'REVERSED'
+          : paymentStage({
+              status: payment.status,
+              destinationOwnership: payment.destinationOwnership,
+              requiresReconciliation:
+                !!payment.paymentMethod?.requiresReconciliation,
+              amount: Number(payment.amount),
+              settledAmount: Number(payment.settledAmount),
+              earnedAt: payment.storeOrder?.agentEarnedAt ?? null,
+              credit: row
+                ? {
+                    amount: row.credit,
+                    availableAt: row.availableAt,
+                    allocated: row.allocated ?? 0,
+                    reversed: reversedKeys.has(
+                      `${row.sourceType}|${row.sourceId}`,
+                    ),
+                  }
+                : null,
+              now,
+            });
       return {
         ...payment,
         amount: Number(payment.amount),

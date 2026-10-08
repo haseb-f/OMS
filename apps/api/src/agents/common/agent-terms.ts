@@ -1,4 +1,8 @@
-import type { AgentAgreement, ProductSupplyMethod } from '@prisma/client';
+import type {
+  AgentAgreement,
+  AgentShippingService,
+  ProductSupplyMethod,
+} from '@prisma/client';
 import { isStockAffecting } from '../../inventory/stock-lines/stock-line-resolver';
 import type { AgentLineCommissionRate } from '../commission/agent-commission';
 
@@ -63,8 +67,8 @@ export interface AgentLineSnapshot {
 /** What `StoreOrder.agentTermsSnapshot` holds: agreement terms + order facts. */
 /**
  * commission-policy.md A3/A5 — the agent shipping charge fixed at submission
- * (PREDETERMINED_CHARGE policy): the agreement rate for the order's shipping
- * type/destination, 0 for pickup and digital-only orders.
+ * (PREDETERMINED_CHARGE policy): the agent shipping agreement's charge for
+ * the order's service / destination, 0 for pickup and digital-only orders.
  */
 export interface AgentShippingChargeSnapshot {
   amount: number;
@@ -73,7 +77,15 @@ export interface AgentShippingChargeSnapshot {
    * delivery method (spec-2-agent-pricing.md 2B); PICKUP / DIGITAL_ONLY = 0.
    */
   source: 'RATE' | 'TARIFF' | 'PICKUP' | 'DIGITAL_ONLY';
+  /** The shipping agreement row the amount came from. */
   rateId: string | null;
+  /**
+   * R15 D15-13 — the agent shipping agreement in force on the order date and
+   * the service the amount is priced by (absent on earlier snapshots).
+   */
+  shippingAgreementId?: string | null;
+  shippingAgreementNumber?: string | null;
+  service?: AgentShippingService | null;
   /** Spec 2 — true while the delivery method is unknown (estimate only). */
   provisional?: boolean;
   /** Channel the amount was resolved for (null = same fee for every channel). */
@@ -86,14 +98,14 @@ export interface AgentShippingChargeSnapshot {
   resolvedAt?: string;
   resolvedBy?: string | null;
   /**
-   * Spec 2 — the tariff of every delivery channel as resolved at submission
+   * Spec 2 — the charge of every delivery channel as resolved at submission
    * (null = not configured). Shipping's later choice is priced from this
-   * frozen copy: agreement edits never change an existing order. Absent on
-   * legacy snapshots, which are never re-resolved.
+   * frozen copy: a later shipping agreement never changes an existing order.
+   * Absent on legacy snapshots, which are never re-resolved.
    */
   byChannel?: Record<
     'CARRIER' | 'INTERNAL_COURIER',
-    { rateId: string; amount: number } | null
+    { rateId: string; amount: number; service?: AgentShippingService } | null
   >;
 }
 

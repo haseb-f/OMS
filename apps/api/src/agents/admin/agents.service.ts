@@ -201,7 +201,6 @@ export class AgentsService {
       await Promise.all([
         this.prisma.agentAgreement.findFirst({
           where: { agentId: id, ...activeAgreementWhere(today) },
-          include: { shippingRates: { include: { country: true } } },
         }),
         this.countOpenOrders(id),
         this.prisma.agentPaymentDestination.count({
@@ -230,10 +229,12 @@ export class AgentsService {
     const existing = await this.requireAgent(id);
     if (dto.currencyId && dto.currencyId !== existing.currencyId) {
       await this.assertCurrency(dto.currencyId);
-      const agreements = await this.prisma.agentAgreement.count({
-        where: { agentId: id },
-      });
-      if (agreements > 0) {
+      // Both agreement documents are in the settlement currency (R15 D15-13).
+      const [agreements, shippingAgreements] = await Promise.all([
+        this.prisma.agentAgreement.count({ where: { agentId: id } }),
+        this.prisma.agentShippingAgreement.count({ where: { agentId: id } }),
+      ]);
+      if (agreements + shippingAgreements > 0) {
         throw agentConflict(
           'AGENT_CURRENCY_LOCKED',
           'لا يمكن تغيير عملة التسوية بعد إنشاء اتفاقيات للوكيل',

@@ -5,24 +5,31 @@ import { PermissionsResolverService } from '../../permissions/permissions-resolv
 import { isAgentPortalPermission } from '../../permissions/permission-catalog';
 import { ObjectStorageService } from '../../common/storage/object-storage.service';
 import type { AgentRequestContext } from '../../auth/guards/jwt-auth.guard';
-import {
-  storeOrderLineAmount,
-  storeOrderPayableTotal,
-} from '../../store-orders/store-order-line-amount';
 import { ProductsService } from '../../products/products.service';
 import { InventoryService } from '../../inventory/inventory.service';
 import { isStockAffecting } from '../../inventory/stock-lines/stock-line-resolver';
 import { RecipeInsightsService } from '../../recipes/recipe-insights.service';
 import {
+  agentLeadWhere,
   agentNotFound,
   agentStoreOrderWhere,
+  resolveAgentReportScope,
   resolveAgentVisibility,
+  type AgentVisibility,
 } from '../common/agent-visibility';
 import {
-  agentFulfillmentFacts,
-  aggregateAgentFulfillment,
-} from '../common/agent-terms';
+  AGENT_ORDER_FIGURES_SELECT,
+  agentOrderFigures,
+  emptyLeadCounts,
+  sumLeadCounts,
+  teamBreakdown,
+} from '../overview/agent-order-figures';
+import {
+  agentTeamMembers,
+  leadCountsBy,
+} from '../overview/agent-overview-queries';
 import { resolveActiveAgreement } from '../admin/agent-agreements.service';
+import { shippingAgreementTerms } from '../shipping-agreements/shipping-agreement-resolution';
 import { AgentDestinationsService } from '../admin/agent-destinations.service';
 import { AgentCommissionReportService } from '../finance/agent-commission-report.service';
 import { AgentStatementService } from '../finance/agent-statement.service';
@@ -34,8 +41,6 @@ import type {
   AgentPortalStatementQueryDto,
   AgentPortalStockQueryDto,
 } from './dto/agent-portal.dto';
-
-const round2 = (value: number) => Math.round(value * 100) / 100;
 
 /**
  * Calculation inputs an agent may see on its statement (S8). Everything else
@@ -110,30 +115,19 @@ export class AgentPortalService {
   // ── Profile ───────────────────────────────────────────────────────────
 
   async me(agent: AgentRequestContext) {
-    const [profile, user, agreement, permissions] = await Promise.all([
-      this.statements.requireAgent(agent.agentId),
-      this.prisma.user.findUniqueOrThrow({
-        where: { id: agent.userId },
-        select: { id: true, fullName: true, username: true, email: true },
-      }),
-      resolveActiveAgreement(agent.agentId, new Date(), this.prisma),
-      this.permissions(agent),
-    ]);
-    const rates = agreement
-      ? await this.prisma.agentShippingRate.findMany({
-          where: { agreementId: agreement.id },
-          orderBy: [{ countryId: 'asc' }, { city: 'asc' }],
-          select: {
-            city: true,
-            deliveryChannel: true,
-            paymentType: true,
-            amount: true,
-            country: {
-              select: { id: true, name: true, nameEn: true, code: true },
-            },
-          },
-        })
-      : [];
+    const now = new Date();
+    const [profile, user, agreement, shippingAgreement, permissions] =
+      await Promise.all([
+        this.statements.requireAgent(agent.agentId),
+        this.prisma.user.findUniqueOrThrow({
+          where: { id: agent.userId },
+          select: { id: true, fullName: true, username: true, email: true },
+        }),
+        resolveActiveAgreement(agent.agentId, now, this.prisma),
+        // R15 D15-13 — the shipping agreement in force today (charges only).
+        shippingAgreementTerms(agent.agentId, now, this.prisma),
+        this.permissions(agent),
+      ]);
     return {
       user: { ...user, agentRole: agent.agentRole, permissions },
       agent: {
@@ -166,100 +160,106 @@ export class AgentPortalService {
             serviceFeePerOrder: Number(agreement.serviceFeePerOrder),
             allowAgentDestinations: agreement.allowAgentDestinations,
             payoutHoldDays: agreement.payoutHoldDays,
-            shippingRates: rates.map((r) => ({
-              country: r.country,
-              city: r.city || null,
-              deliveryChannel: r.deliveryChannel,
-              paymentType: r.paymentType,
-              amount: Number(r.amount),
-            })),
           }
         : null,
+      shippingAgreement,
     };
   }
 
   // ── Dashboard ─────────────────────────────────────────────────────────
 
   /**
-   * Agent-wide dashboard for `agent.records.view_all`; otherwise order
-   * counts/sales over the caller's own orders. Money figures (sales,
-   * returns, collections, balance, payouts) only with `agent.statement.view`;
-   * in OWN scope only the caller's own sales — never agent-level money.
+   * Agent portal dashboard (R15 W1). Two scopes, decided per figure:
+   *  - RECORDS (`resolveAgentVisibility`: the whole agent with
+   *    `agent.records.view_all`, else the caller's own) for the counts the user
+   *    can browse in the lists anyway — `fulfillment` (orders by stage) and
+   *    `leads` (with `agent.leads.view`); `scope` reports it.
+   *  - REPORTS (`resolveAgentReportScope`, D15-18: the whole team only with
+   *    `agent.reports.view_team`, else the caller's own) for every sales /
+   *    money figure — browsing every record never opens colleagues' sales:
+   *    - `own` (no team scope): the caller's own order value, delivered value
+   *      and returns — their own work, no further right needed;
+   *    - `sales`: team or own sales, with `agent.statement.view`;
+   *    - `returns` / `collections` / `position` / `payouts`: agent-level money
+   *      (never attributable to one seller), team scope with
+   *      `agent.statement.view` only;
+   *    - `team`: the per-employee breakdown, team scope.
    */
   async dashboard(agent: AgentRequestContext) {
-    const [visibility, canSeeMoney] = await Promise.all([
-      resolveAgentVisibility(agent, this.resolver),
-      this.resolver.hasPermission(agent.userId, 'agent.statement.view'),
+    const [records, report, canSeeMoney, canSeeLeads, profile] =
+      await Promise.all([
+        resolveAgentVisibility(agent, this.resolver),
+        resolveAgentReportScope(agent, this.resolver),
+        this.resolver.hasPermission(agent.userId, 'agent.statement.view'),
+        this.resolver.hasPermission(agent.userId, 'agent.leads.view'),
+        this.statements.requireAgent(agent.agentId),
+      ]);
+    const ownRecords = records.ownerUserId !== null;
+    const team = report.ownerUserId === null;
+    // One read over the wider of the two scopes; each figure filters to its own.
+    const widest: AgentVisibility =
+      ownRecords && !team ? records : { ...records, ownerUserId: null };
+    const [orders, leadGroups, members, money] = await Promise.all([
+      this.prisma.storeOrder.findMany({
+        where: agentStoreOrderWhere(widest),
+        select: AGENT_ORDER_FIGURES_SELECT,
+      }),
+      canSeeLeads || team
+        ? leadCountsBy(this.prisma, agentLeadWhere(widest), 'salesEmployeeId')
+        : null,
+      team ? agentTeamMembers(this.prisma, agent.agentId) : null,
+      canSeeMoney && team
+        ? this.statements.dashboardMoney(agent.agentId, profile.currencyId)
+        : null,
     ]);
-    const full = await this.statements.dashboard(agent.agentId);
-    const scope = visibility.ownerUserId ? 'OWN' : 'ALL';
-    const own = visibility.ownerUserId
-      ? await this.ownFulfillmentAndSales(agent, full.agent.currency.id)
-      : null;
-    return {
-      scope,
-      agent: full.agent,
-      fulfillment: own?.fulfillment ?? full.fulfillment,
-      sales: canSeeMoney ? (own?.sales ?? full.sales) : null,
-      // R6 (spec A.5) — collections, statement position and payouts are
-      // agent-level money that cannot be attributed to one seller: in OWN
-      // scope they are never sent (the UI hides null blocks).
-      returns: canSeeMoney && !own ? full.returns : null,
-      collections: canSeeMoney && !own ? full.collections : null,
-      position: canSeeMoney && !own ? full.position : null,
-      payouts: canSeeMoney && !own ? full.payouts : null,
-    };
-  }
-
-  private async ownFulfillmentAndSales(
-    agent: AgentRequestContext,
-    currencyId: string,
-  ) {
-    const visibility = await resolveAgentVisibility(agent, this.resolver);
-    const orders = await this.prisma.storeOrder.findMany({
-      where: agentStoreOrderWhere(visibility),
-      select: {
-        agentDispatchedAt: true,
-        agentEarnedAt: true,
-        currencyId: true,
-        merchandiseAmount: true,
-        payableTotal: true,
-        shippingCharge: true,
-        agentTermsSnapshot: true,
-        fulfillmentStatus: { select: { code: true } },
-        items: {
-          where: { deletedAt: null },
-          select: {
-            quantity: true,
-            unitPrice: true,
-            agreedAmount: true,
-            productId: true,
-            product: { select: { isInventoryItem: true, supplyMethod: true } },
-          },
-        },
-        _count: { select: { agentReturns: true } },
-      },
-    });
-    const active = orders.filter(
-      (o) => o.fulfillmentStatus?.code !== 'CANCELLED',
+    const ordersOf = (scope: AgentVisibility) =>
+      scope.ownerUserId
+        ? orders.filter((order) => order.employeeId === scope.ownerUserId)
+        : orders;
+    const recordFigures = agentOrderFigures(
+      ordersOf(records),
+      profile.currencyId,
     );
-    const inCurrency = active.filter((o) => o.currencyId === currencyId);
-    const sum = (values: number[]) => round2(values.reduce((s, v) => s + v, 0));
+    const reportFigures = agentOrderFigures(
+      ordersOf(report),
+      profile.currencyId,
+    );
     return {
-      fulfillment: aggregateAgentFulfillment(orders.map(agentFulfillmentFacts)),
-      sales: {
-        merchandiseSalesExShipping: sum(
-          inCurrency.map((o) =>
-            o.merchandiseAmount != null
-              ? Number(o.merchandiseAmount)
-              : o.items.reduce((s, i) => s + storeOrderLineAmount(i), 0),
-          ),
-        ),
-        customerShippingCharges: sum(
-          inCurrency.map((o) => Number(o.shippingCharge ?? 0)),
-        ),
-        totalOrderValue: sum(inCurrency.map((o) => storeOrderPayableTotal(o))),
+      scope: ownRecords ? 'OWN' : 'ALL',
+      agent: {
+        id: profile.id,
+        agentNumber: profile.agentNumber,
+        name: profile.name,
+        currency: profile.currency,
       },
+      fulfillment: recordFigures.fulfillment,
+      leads:
+        canSeeLeads && leadGroups
+          ? ownRecords
+            ? (leadGroups.get(agent.userId) ?? emptyLeadCounts())
+            : sumLeadCounts(leadGroups.values())
+          : null,
+      own: team
+        ? null
+        : {
+            orderValue: reportFigures.sales.totalOrderValue,
+            deliveredValue: reportFigures.delivered.value,
+            deliveredCount: reportFigures.delivered.count,
+            returnCount: reportFigures.returnCount,
+          },
+      sales: canSeeMoney ? reportFigures.sales : null,
+      returns: money?.returns ?? null,
+      collections: money?.collections ?? null,
+      position: money?.position ?? null,
+      payouts: money?.payouts ?? null,
+      team:
+        members && leadGroups
+          ? teamBreakdown(members, orders, leadGroups, profile.currencyId, {
+              money: true,
+              // R15 review L4 — lead counts only for a user who sees leads.
+              leads: canSeeLeads,
+            })
+          : null,
     };
   }
 

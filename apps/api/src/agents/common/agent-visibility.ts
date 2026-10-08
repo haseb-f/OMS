@@ -29,6 +29,28 @@ export async function resolveAgentVisibility(
   };
 }
 
+/**
+ * R15 (D15-18) — whose SALES FIGURES an agent user may read (sales reports,
+ * rankings, per-employee breakdowns): the whole agent's team only with
+ * `agent.reports.view_team`; otherwise the caller's own. Deliberately not
+ * `agent.records.view_all` — browsing every record (delegable to a sales
+ * user) never opens colleagues' figures. The agent boundary is never optional.
+ */
+export async function resolveAgentReportScope(
+  agent: AgentRequestContext,
+  resolver: PermissionsResolverService,
+): Promise<AgentVisibility> {
+  const team = await resolver.hasPermission(
+    agent.userId,
+    'agent.reports.view_team',
+  );
+  return {
+    agentId: agent.agentId,
+    userId: agent.userId,
+    ownerUserId: team ? null : agent.userId,
+  };
+}
+
 /** Prisma where-fragment for StoreOrder rows visible to the caller. */
 export function agentStoreOrderWhere(v: AgentVisibility) {
   return {

@@ -18,6 +18,11 @@ import { PermissionsResolverService } from '../../permissions/permissions-resolv
 import { ObjectStorageService } from '../../common/storage/object-storage.service';
 import { AgentsService } from '../admin/agents.service';
 import { AgentAgreementsService } from '../admin/agent-agreements.service';
+import { AgentShippingAgreementsService } from '../shipping-agreements/agent-shipping-agreements.service';
+import {
+  activateShippingAgreement,
+  everyService,
+} from '../shipping-agreements/shipping-agreement.fixture';
 import { AgentDestinationsService } from '../admin/agent-destinations.service';
 import { AgentUsersService } from '../admin/agent-users.service';
 import type { CreateAgreementDto } from '../admin/dto/agreement.dto';
@@ -122,6 +127,9 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
     resolver = moduleRef.get(PermissionsResolverService);
     const agents = moduleRef.get(AgentsService, { strict: false });
     const agreements = moduleRef.get(AgentAgreementsService, { strict: false });
+    const shippingAgreements = moduleRef.get(AgentShippingAgreementsService, {
+      strict: false,
+    });
     const destinations = moduleRef.get(AgentDestinationsService, {
       strict: false,
     });
@@ -177,10 +185,12 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
         internal.id,
       );
       const agreement = await agreements.create(agent.id, terms(), internal.id);
-      await agreements.upsertShippingRate(agent.id, agreement.id, {
-        countryId: egId,
-        amount: 100,
-      });
+      await activateShippingAgreement(
+        shippingAgreements,
+        agent.id,
+        everyService(100, { countryId: egId }),
+        internal.id,
+      );
       await agreements.activate(agent.id, agreement.id, internal.id);
       const destination = await destinations.create(
         agent.id,
@@ -450,7 +460,13 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
       expect(me.body.user.agentRole).toBe('SALES');
       expect(me.body.agreement.productCommissionRatePercent).toBe(10);
       expect(me.body.agreement.serviceCommissionRatePercent).toBe(10);
-      expect(me.body.agreement.shippingRates[0].amount).toBe(100);
+      // R15 D15-13 — the shipping agreement in force today, charges only.
+      expect(me.body.shippingAgreement.rates[0]).toEqual({
+        service: 'PREPAID_CARRIER',
+        country: expect.objectContaining({ id: egId }),
+        city: null,
+        amount: 100,
+      });
       expect(me.body.user.permissions).toContain('agent.orders.create');
 
       const products = await get(users.salesA1.token, '/agent-portal/products');
@@ -613,8 +629,10 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
       proofAttachmentId = claim.attachments[0].attachmentId;
       expect(
         declared.body.timeline.map((e: { event: string }) => e.event),
-        // R6 SHIP: the full declaration sends the order to Shipping.
-      ).toEqual(['ORDER_CREATED', 'PAYMENT_DECLARED', 'SHIPMENT_CREATED']);
+        // R15 D15-3: payment never gates the physical flow — the prepaid
+        // order reached Shipping at creation, before (and independent of) the
+        // declaration, which stays a claim awaiting Finance.
+      ).toEqual(['ORDER_CREATED', 'SHIPMENT_CREATED', 'PAYMENT_DECLARED']);
 
       const file = await get(
         users.salesA1.token,
