@@ -39,7 +39,10 @@ export class AuthService {
         deletedAt: null,
         email: { equals: email, mode: 'insensitive' },
       },
-      include: { agent: { select: { status: true, deletedAt: true } } },
+      include: {
+        agent: { select: { status: true, deletedAt: true } },
+        companyPartner: { select: { id: true } },
+      },
     });
 
     const passwordMatches =
@@ -80,6 +83,17 @@ export class AuthService {
       });
     }
 
+    // R15 (D15-14) — a company partner's login carries the partner claim;
+    // the guard confines it to `@PartnerPortal()` handlers. A login that is
+    // no longer linked to a partner cannot sign in.
+    const isPartnerUser = user.userType === 'PARTNER';
+    if (isPartnerUser && (!user.companyPartnerId || !user.companyPartner)) {
+      throw new ForbiddenException({
+        code: 'PARTNER_LOGIN_UNLINKED',
+        message: 'This partner login is not linked to a partner.',
+      });
+    }
+
     await this.prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
@@ -93,7 +107,14 @@ export class AuthService {
             typ: 'agent',
             agentId: user.agentId,
           }
-        : { sub: user.id, email: user.email },
+        : isPartnerUser
+          ? {
+              sub: user.id,
+              email: user.email,
+              typ: 'partner',
+              companyPartnerId: user.companyPartnerId,
+            }
+          : { sub: user.id, email: user.email },
       userAgent,
     );
 
@@ -244,6 +265,11 @@ export class AuthService {
             deletedAt: true,
           },
         },
+        companyPartner: {
+          select: {
+            partner: { select: { id: true, name: true, partnerNumber: true } },
+          },
+        },
         companyMemberships: {
           include: {
             company: { include: { branches: { where: { deletedAt: null } } } },
@@ -287,7 +313,7 @@ export class AuthService {
       isSuperAdmin: user.isSuperAdmin,
       permissions,
       companies,
-      /** INTERNAL (company staff) or AGENT (external agent user). */
+      /** INTERNAL (company staff), AGENT (external agent user) or PARTNER (a company partner's own login). */
       userType: user.userType,
       agentRole: user.agentRole,
       agent:
@@ -296,6 +322,15 @@ export class AuthService {
               id: user.agent.id,
               agentNumber: user.agent.agentNumber,
               name: user.agent.name,
+            }
+          : null,
+      /** R15 — the company partner a PARTNER login belongs to (its own identity only). */
+      companyPartner:
+        user.userType === 'PARTNER' && user.companyPartner
+          ? {
+              partnerId: user.companyPartner.partner.id,
+              name: user.companyPartner.partner.name,
+              partnerNumber: user.companyPartner.partner.partnerNumber,
             }
           : null,
     };

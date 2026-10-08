@@ -17,6 +17,7 @@ import {
   AgentShared,
   AllowPendingPasswordChange,
 } from './decorators/agent-access.decorator';
+import { PartnerShared } from './decorators/partner-access.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import type { JwtPayload } from './guards/jwt-auth.guard';
 
@@ -45,6 +46,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(200)
   @AgentShared()
+  @PartnerShared()
   @AllowPendingPasswordChange()
   @UseGuards(JwtAuthGuard)
   logout(@CurrentUser() user: JwtPayload) {
@@ -55,16 +57,18 @@ export class AuthController {
 
   @Get('me')
   @AgentShared()
+  @PartnerShared()
   @AllowPendingPasswordChange()
   @UseGuards(JwtAuthGuard)
   me(@CurrentUser() user: JwtPayload) {
     return this.authService.getCurrentUser(user.sub);
   }
 
-  /** Own password change (internal and agent users); clears `mustChangePassword`. */
+  /** Own password change (internal, agent and partner users); clears `mustChangePassword`. */
   @Post('change-password')
   @HttpCode(200)
   @AgentShared()
+  @PartnerShared()
   @AllowPendingPasswordChange()
   @UseGuards(JwtAuthGuard)
   changePassword(

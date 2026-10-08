@@ -60,11 +60,17 @@ const INTENTIONALLY_UNGATED: Record<string, string> = {
   'shipping-methods/shipping-methods.controller.ts':
     'Retired — every route throws 410 Gone, no data exposed.',
   'sales-performance/sales-performance.controller.ts':
-    "Dashboard scoped to the caller's own performance (user.sub), not cross-user data.",
+    'R15 (D15-18) — dashboard figures on the shared report scope: the service refuses a caller without a leads / store-orders view key (403) and returns own figures + own rank, the team for a sales-team manager, company-wide only with reports.sales.view_all.',
   'sales-orders/sales-orders.controller.ts':
     'KNOWN DEBT (TASK-062): legacy route family overlapping sales/orders + store-orders shipping flows; JwtAuthGuard added, granular permission module needs a product decision on which boundary to adopt.',
   'investor-portal/investor-portal-auth.controller.ts':
     'Pre-authentication Investor Portal endpoints (login/activate/forgot-password) — same shape as auth/auth.controller.ts above, for the external Investor identity instead of the internal User.',
+  'partner-portal/partner-portal.controller.ts':
+    'R15 (D15-14) — partner logins only: JwtAuthGuard denies every other audience on @PartnerPortal handlers; PartnerPermissionGuard requires a partner.* key per handler (fail closed); every handler is self-scoped via @CurrentPartner(), never a URL id.',
+  'import-center/import-jobs.controller.ts':
+    "R15 (D15-16) — one-time imports: the permission depends on the job's import type (crm.leads.import / store-orders.import / import-center.manage), so every route goes through ImportWorkspaceService, which checks the type permission (ImportAccessService) and the job owner (creator, or import-center.manage; never an agent job) before the engine runs — 403 / 404 otherwise.",
+  'agents/portal/agent-portal-imports.controller.ts':
+    'R15 (D15-16) — agent users only (@AgentPortal: JwtAuthGuard denies internal tokens); AgentPermissionGuard requires agent.leads.import or agent.orders.import (fail closed); ImportWorkspaceService then checks the per-type agent key and the job owner inside the token agent; the agent always comes from @CurrentAgent(), never a URL id.',
   'investor-portal/investor-portal.controller.ts':
     "Guarded by the Investor Portal's own InvestorPortalAuthGuard (not the internal PermissionsGuard/@PermissionModule system — mission Part 18/52 requires a fully separate external-access boundary); every handler is self-scoped to the authenticated Portal Investor via @CurrentPortalInvestor(), never an internal permission check.",
 };

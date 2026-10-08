@@ -6,6 +6,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
+import type { CompanyReportScope } from './sales-report-scope';
 
 export type SalesScopeKind = 'ALL' | 'TEAM' | 'OWN' | 'NONE';
 
@@ -58,6 +59,16 @@ export interface SalesScope {
  *    (has a shipment) / an order with payment activity (payment evidence).
  *  - Non-ALL scopes never include agent leads/orders (`agentId` is set).
  */
+/**
+ * R15 — by-id access options. `includeArchived` opens an archived (cancelled)
+ * order for the few read / physical-receipt routes that must still work after
+ * cancellation (goods coming back from transit, the order's money position);
+ * the scope rule itself is unchanged.
+ */
+export interface StoreOrderAccessOptions {
+  includeArchived?: boolean;
+}
+
 @Injectable()
 export class SalesScopeService {
   constructor(
@@ -129,23 +140,12 @@ export class SalesScopeService {
       canManagePaymentEvidence,
     };
 
-    const managed = await this.prisma.salesTeam.findMany({
-      where: { managerId: userId, deletedAt: null, isActive: true },
-      select: {
-        managerId: true,
-        members: { select: { userId: true } },
-      },
-    });
-
-    if (managed.length > 0) {
-      const ownerIds = new Set<string>([userId]);
-      for (const team of managed) {
-        for (const member of team.members) ownerIds.add(member.userId);
-      }
+    const teamOwnerIds = await this.managedTeamOwnerIds(userId);
+    if (teamOwnerIds) {
       return {
         ...shared,
         kind: 'TEAM',
-        ownerIds: [...ownerIds],
+        ownerIds: teamOwnerIds,
         canViewLeads: true,
         canViewAllOrders: canViewAllStoreOrders,
         canViewTeamUnassigned: canManageLeads,
@@ -182,6 +182,49 @@ export class SalesScopeService {
       canViewAllOrders: canViewAllStoreOrders,
       canViewTeamUnassigned: false,
     };
+  }
+
+  /**
+   * The caller plus the members of every active team they manage, or null
+   * when they manage none. Shared by the record scope (`resolve`) and the
+   * report scope (`resolveReportScope`), so "team" means the same in both.
+   */
+  private async managedTeamOwnerIds(userId: string): Promise<string[] | null> {
+    const managed = await this.prisma.salesTeam.findMany({
+      where: { managerId: userId, deletedAt: null, isActive: true },
+      select: { members: { select: { userId: true } } },
+    });
+    if (managed.length === 0) return null;
+    const ownerIds = new Set<string>([userId]);
+    for (const team of managed) {
+      for (const member of team.members) ownerIds.add(member.userId);
+    }
+    return [...ownerIds];
+  }
+
+  /**
+   * R15 (D15-18) — the ONE company report scope (sales reports, charts,
+   * rankings, dashboard figures). Independent of the record scope above:
+   * only `reports.sales.view_all` (always true for Super Admin) opens every
+   * owner; `store-orders.view_all` and `crm.leads.manage` never widen it. A
+   * sales-team manager sees the team; everyone else their own figures.
+   */
+  async resolveReportScope(userId: string): Promise<CompanyReportScope> {
+    if (
+      await this.permissions.hasPermission(userId, 'reports.sales.view_all')
+    ) {
+      return { audience: 'company', label: 'ALL', userId, ownerIds: null };
+    }
+    const teamOwnerIds = await this.managedTeamOwnerIds(userId);
+    if (teamOwnerIds) {
+      return {
+        audience: 'company',
+        label: 'TEAM',
+        userId,
+        ownerIds: teamOwnerIds,
+      };
+    }
+    return { audience: 'company', label: 'OWN', userId, ownerIds: [userId] };
   }
 
   leadWhere(scope: SalesScope): Prisma.LeadWhereInput {
@@ -266,10 +309,14 @@ export class SalesScopeService {
   async assertStoreOrderAccessById(
     scope: SalesScope,
     id: string,
+    options: StoreOrderAccessOptions = {},
   ): Promise<void> {
     const found = await this.prisma.storeOrder.findFirst({
       where: {
-        AND: [{ id, deletedAt: null }, this.storeOrderAccessWhere(scope)],
+        AND: [
+          options.includeArchived ? { id } : { id, deletedAt: null },
+          this.storeOrderAccessWhere(scope),
+        ],
       },
       select: { id: true },
     });
@@ -282,9 +329,13 @@ export class SalesScopeService {
    * no route under `/store-orders/:id/*` can disclose an order the caller
    * cannot open (R7 review finding: activities/shipments were unscoped).
    */
-  async assertCanOpenStoreOrder(userId: string, id: string): Promise<void> {
+  async assertCanOpenStoreOrder(
+    userId: string,
+    id: string,
+    options: StoreOrderAccessOptions = {},
+  ): Promise<void> {
     const scope = await this.resolve(userId);
-    await this.assertStoreOrderAccessById(scope, id);
+    await this.assertStoreOrderAccessById(scope, id, options);
   }
 
   /** Legacy `sales-orders` (lead-converted SalesOrder) visibility. */

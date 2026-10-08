@@ -69,6 +69,12 @@ const AGENT_PORTAL_SECTION = {
   sectionLabelKey: 'permissions.sections.agentPortal',
 } as const;
 
+/** R15 (D15-14) — permissions a company partner's own login may hold. */
+const PARTNER_PORTAL_SECTION = {
+  sectionKey: 'partner-portal',
+  sectionLabelKey: 'permissions.sections.partnerPortal',
+} as const;
+
 /**
  * The complete `agent.*` vocabulary (spec §3). An AGENT user can hold only
  * these; an INTERNAL user can hold none of them.
@@ -89,6 +95,15 @@ export const AGENT_PORTAL_PERMISSIONS = [
   'agent.payouts.view',
   'agent.team.view',
   'agent.team.manage',
+  // R15 (D15-16) — import leads / orders from Excel or a connected Google
+  // Sheet into the user's own agent; `assign` honours an owner column (and
+  // reassigning to colleagues of the same agent).
+  'agent.leads.import',
+  'agent.orders.import',
+  'agent.records.assign',
+  // R15 (D15-18) — the agent team's sales reports and rankings (per-employee
+  // figures). Distinct from `agent.records.view_all` (browse every record).
+  'agent.reports.view_team',
 ] as const;
 
 export type AgentPortalPermission = (typeof AGENT_PORTAL_PERMISSIONS)[number];
@@ -126,8 +141,29 @@ export const AGENT_ROLE_PRESETS: Record<
     'agent.statement.view',
     'agent.payouts.view',
     'agent.team.view',
+    'agent.leads.import',
+    'agent.orders.import',
+    'agent.records.assign',
+    'agent.reports.view_team',
   ],
 };
+
+/**
+ * R15 (D15-14) — the complete `partner.*` vocabulary. A PARTNER user (a
+ * company partner's own login) can hold only these, and they unlock nothing
+ * but `@PartnerPortal()` handlers scoped to the user's own partner.
+ */
+export const PARTNER_PORTAL_PERMISSIONS = [
+  'partner.dashboard.view',
+  'partner.statement.view',
+] as const;
+
+export type PartnerPortalPermission =
+  (typeof PARTNER_PORTAL_PERMISSIONS)[number];
+
+export function isPartnerPortalPermission(name: string): boolean {
+  return (PARTNER_PORTAL_PERMISSIONS as readonly string[]).includes(name);
+}
 
 /** Groups catalog rows for the Permission Matrix: Sales children render under المبيعات, standalone modules stay as top-level rows. */
 export function groupPermissionCatalog(
@@ -389,6 +425,9 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'edit', name: 'crm.leads.edit' },
       { action: 'confirm', name: 'crm.leads.convert' },
       { action: 'delete', name: 'crm.leads.archive' },
+      // R15 (D15-16) — import leads (Excel / connected Google Sheet) as the
+      // importer's own; needs no Import Center administration right.
+      { action: 'import', name: 'crm.leads.import' },
       // "manage" = view every Lead/Order (not just assigned-to-self) and
       // assign/reassign/bulk-assign — the "authorized manager" capability
       // TASK-061 §6/§7 describe, distinct from the base CRUD actions above.
@@ -447,6 +486,9 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'print', name: 'store-orders.print' },
       { action: 'export', name: 'store-orders.export' },
       { action: 'manage', name: 'store-orders.manage' },
+      // R15 (D15-16) — import store orders (Excel / connected Google Sheet)
+      // as the importer's own; needs no Import Center administration right.
+      { action: 'import', name: 'store-orders.import' },
       // Round 7 review — the ONE explicit cross-owner browse grant for Store
       // Orders (every owner's orders in lists and by id). Granted to nobody
       // by the migration; Super Admin bypasses. `store-orders.manage` is an
@@ -493,7 +535,12 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
   {
     key: 'customer-receipts',
     labelKey: 'permissions.modules.customerReceipts',
-    actions: paymentActions('sales.receipts'),
+    actions: [
+      ...paymentActions('sales.receipts'),
+      // R15 (D15-12) — audited reversal of a VERIFIED payment recorded in
+      // error (reversing entry, reason required); never a deletion.
+      { action: 'reverse', name: 'sales.receipts.reverse' },
+    ],
   },
   {
     // Customer Refund — money paid back out against a posted Sales Return's
@@ -703,7 +750,13 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
     // payment mix). Data scope stays SalesScopeService (OWN / TEAM / ALL).
     key: 'sales-reports',
     labelKey: 'permissions.modules.salesReports',
-    actions: [{ action: 'view', name: 'reports.sales.view' }],
+    actions: [
+      { action: 'view', name: 'reports.sales.view' },
+      // R15 (D15-18) — the ONE key for company-wide sales reports and
+      // rankings. Without it a user sees their own figures (and a team
+      // manager their team); browse keys never widen reports.
+      { action: 'view_all', name: 'reports.sales.view_all' },
+    ],
   },
   {
     key: 'inventory-reports',
@@ -1127,6 +1180,9 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       // R14 W2 (spec-2 §B) — assign / change a shipment's shipping company
       // and tracking (shipment) number. `shipping.view` still shows them.
       { action: 'assign_carrier', name: 'shipping.assign_carrier' },
+      // R15 (D15-8) — physical receipt + inspection of goods that came back
+      // undelivered (transit → stock / damaged).
+      { action: 'receive_returns', name: 'shipping.receive_returns' },
     ],
   },
   {
@@ -1537,7 +1593,19 @@ export const PERMISSION_CATALOG: PermissionModuleDef[] = [
       { action: 'manage', name: 'company-partners.manage' },
       { action: 'close', name: 'company-partners.close' },
       { action: 'pay', name: 'company-partners.pay' },
+      // R15 (D15-14) — create / link / disable a partner's own login.
+      { action: 'portal', name: 'company-partners.users.manage' },
     ],
+  },
+  // R15 (D15-14) — permissions a company partner's own login may hold.
+  {
+    key: 'partner-portal',
+    labelKey: 'permissions.modules.partnerPortal',
+    ...PARTNER_PORTAL_SECTION,
+    actions: PARTNER_PORTAL_PERMISSIONS.map((name) => ({
+      action: name.slice('partner.'.length),
+      name,
+    })),
   },
 ];
 
@@ -1705,8 +1773,8 @@ export const IMPLIED_SECTION_PERMISSION: Record<
   // Investor Engine Milestone 4 — same المستثمرون sidebar section.
   'investor-settings': 'investors.view',
   'investor-portal': 'investors.view',
-  // R14 W5 — الشركاء sits in the Finance sidebar section.
-  'company-partners': 'finance.view',
+  // R15 (D15-14) — الشركاء is its own top-level sidebar section.
+  'company-partners': 'company-partners.view',
 };
 
 /** Expands a granted-permission list with every implied coarse section permission (see `IMPLIED_SECTION_PERMISSION`). */

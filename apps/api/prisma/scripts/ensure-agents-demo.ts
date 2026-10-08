@@ -31,6 +31,15 @@ import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { AgentsService } from '../../src/agents/admin/agents.service';
 import { AgentAgreementsService } from '../../src/agents/admin/agent-agreements.service';
+import { AgentShippingAgreementsService } from '../../src/agents/shipping-agreements/agent-shipping-agreements.service';
+import {
+  activateShippingAgreement,
+  everyService,
+} from '../../src/agents/shipping-agreements/shipping-agreement.fixture';
+import {
+  dateOnly,
+  inForceWhere,
+} from '../../src/agents/shipping-agreements/shipping-agreement-resolution';
 import { AgentDestinationsService } from '../../src/agents/admin/agent-destinations.service';
 import { AgentUsersService } from '../../src/agents/admin/agent-users.service';
 import { ProductsService } from '../../src/products/products.service';
@@ -284,6 +293,7 @@ export async function ensureAgentsDemo(
   const prisma = get(PrismaService);
   const agents = get(AgentsService);
   const agreements = get(AgentAgreementsService);
+  const shippingAgreements = get(AgentShippingAgreementsService);
   const destinations = get(AgentDestinationsService);
   const agentUsers = get(AgentUsersService);
   const products = get(ProductsService);
@@ -461,7 +471,26 @@ export async function ensureAgentsDemo(
       await agents.setStatus(agent.id, 'ACTIVE', actor.id);
     }
 
-    // Agreement in force today (ACTIVE). Created DRAFT → rates → ACTIVE.
+    // Shipping agreement in force today (R15 D15-13): the demo charges for
+    // every service, Egypt-wide with a city override.
+    const shippingInForce = await prisma.agentShippingAgreement.findFirst({
+      where: inForceWhere(agent.id, dateOnly(todayIso())),
+      select: { id: true },
+    });
+    if (!shippingInForce) {
+      const shipping = await activateShippingAgreement(
+        shippingAgreements,
+        agent.id,
+        RATES.flatMap((rate) =>
+          everyService(rate.amount, { countryId: egypt.id, city: rate.city }),
+        ),
+        actor.id,
+        { effectiveFrom: todayIso() },
+      );
+      note(`+ shipping agreement ${shipping.agreementNumber} for ${spec.key}`);
+    }
+
+    // Agreement in force today (ACTIVE). Created DRAFT → ACTIVE.
     const today = new Date(`${todayIso()}T00:00:00.000Z`);
     let agreement = await prisma.agentAgreement.findFirst({
       where: {
@@ -487,13 +516,6 @@ export async function ensureAgentsDemo(
         },
         actor.id,
       );
-      for (const rate of RATES) {
-        await agreements.upsertShippingRate(agent.id, draft.id, {
-          countryId: egypt.id,
-          city: rate.city,
-          amount: rate.amount,
-        });
-      }
       await agreements.activate(agent.id, draft.id, actor.id);
       agreement = {
         id: draft.id,

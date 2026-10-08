@@ -35,6 +35,11 @@ model User {
   agent     Agent?     @relation("AgentUsers", fields: [agentId], references: [id])
   agentRole AgentRole? @map("agent_role")
 
+  /// R15 (D15-14) — PARTNER users only: the company partner this login belongs
+  /// to (one login per partner). Set at creation / link, never by the user.
+  companyPartnerId String?                @unique @map("company_partner_id") @db.Uuid
+  companyPartner   CompanyPartnerProfile? @relation("CompanyPartnerUser", fields: [companyPartnerId], references: [id])
+
   /// Round 7 — explicit Sales designation for lead distribution. A stable flag
   /// (never inferred from a display name): only INTERNAL users with this set,
   /// who also hold `crm.leads.edit`, can receive leads (auto Round Robin,
@@ -498,14 +503,16 @@ model PasswordResetToken {
 // ---------------------------------------------------------------------------
 
 model Currency {
-  id                 String             @id @default(uuid()) @db.Uuid
-  agents             Agent[]
-  agentLedgerEntries AgentLedgerEntry[]
-  agentPayouts       AgentPayout[]
-  agentAgreements    AgentAgreement[]
-  code               String             @unique
-  name               String
-  symbol             String?
+  id                      String                   @id @default(uuid()) @db.Uuid
+  agents                  Agent[]
+  agentLedgerEntries      AgentLedgerEntry[]
+  agentPayouts            AgentPayout[]
+  agentAgreements         AgentAgreement[]
+  /// R15 (D15-13).
+  agentShippingAgreements AgentShippingAgreement[]
+  code                    String                   @unique
+  name                    String
+  symbol                  String?
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -557,16 +564,17 @@ model Currency {
 /// own supported-region list + the `i18n-iso-countries` reference package —
 /// never hand-typed codes) instead of being admin-created master data.
 model Country {
-  id                  String              @id @default(uuid()) @db.Uuid
-  agentShippingRates  AgentShippingRate[]
+  id                          String                       @id @default(uuid()) @db.Uuid
+  /// R15 (D15-13) — shipping-agreement charges for this destination.
+  agentShippingAgreementRates AgentShippingAgreementRate[]
   /// R11 — store orders delivered to this country (order-level destination).
-  deliveryStoreOrders StoreOrder[]        @relation("StoreOrderDeliveryCountry")
+  deliveryStoreOrders         StoreOrder[]                 @relation("StoreOrderDeliveryCountry")
   /// ISO 3166-1 alpha-2 — the one code the phone-validation architecture
   /// already keys everything off of.
-  code                String              @unique
+  code                        String                       @unique
   /// Arabic name — primary identity, matches the Product/Lead convention.
-  name                String
-  nameEn              String?             @map("name_en")
+  name                        String
+  nameEn                      String?                      @map("name_en")
 
   /// ISO 3166-1 alpha-3 / numeric — reference identifiers, not used for
   /// lookups anywhere yet.
@@ -700,6 +708,8 @@ model PaymentMethod {
   statementImports     PaymentStatementImport[]
   statementLines       PaymentStatementLine[]
   settlements          PaymentSettlement[]
+  /// R15 (D15-9) — carriers whose COD collections use this method.
+  codCarriers          ShippingCompany[]        @relation("ShippingCompanyCodMethod")
 
   @@index([paymentSourceId])
   @@map("payment_methods")
@@ -1246,6 +1256,13 @@ model Warehouse {
   /// Product.defaultCostMethod/defaultTaxCategory in ADR-0012).
   warehouseType String? @map("warehouse_type")
 
+  /// R15 (D15-4) — what the stock held here means. STOCK = ordinary sellable
+  /// stock; TRANSIT = the system "goods in transit" warehouse (dispatched,
+  /// not yet delivered — still company inventory); DAMAGED = returned goods
+  /// that failed inspection. Only STOCK counts towards available-to-sell, and
+  /// only STOCK warehouses are offered for purchases, receipts and defaults.
+  role WarehouseRole @default(STOCK)
+
   isActive Boolean @default(true) @map("is_active")
 
   /// Future warehouse hierarchy — prepared only: a nullable self-relation,
@@ -1284,7 +1301,15 @@ model Warehouse {
 
   assemblyOrders AssemblyOrder[]
 
+  @@index([role])
   @@map("warehouses")
+}
+
+/// R15 (D15-4) — see `Warehouse.role`.
+enum WarehouseRole {
+  STOCK
+  TRANSIT
+  DAMAGED
 }
 
 /// Warehouse Locations (TASK-030) — unlimited bins/shelves/zones per
@@ -1338,6 +1363,12 @@ model ShippingCompany {
 
   shipments      Shipment[]
   carrierCharges CarrierCharge[]
+
+  /// R15 (D15-9) — the payment method (with its clearing account = "receivable
+  /// from this carrier") used for cash this carrier collects on delivery. Null
+  /// = COD collections of this carrier are not tracked (Finance records them manually).
+  codPaymentMethodId String?        @map("cod_payment_method_id") @db.Uuid
+  codPaymentMethod   PaymentMethod? @relation("ShippingCompanyCodMethod", fields: [codPaymentMethodId], references: [id])
 
   @@map("shipping_companies")
 }
@@ -1660,6 +1691,12 @@ model Lead {
   /// never carried one. Not unique at the DB level (older/manual leads have
   /// none), enforced in `LeadsService.create()` instead.
   externalOrderId String? @map("external_order_id")
+
+  /// R15 (D15-17) — identity of the spreadsheet row this lead was imported
+  /// from (`lead-import:<scope>:<sha256 of the normalized row>`), shared by the
+  /// one-time import and the Google Sheets sync: the same row is never
+  /// ingested twice. Null for leads entered by hand.
+  importRowKey String? @unique @map("import_row_key")
 
   /// Nullable until Lead conversion. Lead is a CRM prospect — Partner
   /// (canonical commercial identity) is resolved/created only by
@@ -2191,6 +2228,11 @@ model Shipment {
   /// per shipment").
   carrierCharges CarrierCharge[]
 
+  /// R15 (D15-5) — quantities this attempt carries (none = the whole order, pre-R15).
+  lines        ShipmentLine[]
+  /// R15 (D15-5) — the sales invoice issued when this attempt was delivered (company orders).
+  salesInvoice SalesInvoice?
+
   @@index([storeOrderId])
   @@index([salesOrderId])
   @@index([status, createdAt])
@@ -2346,6 +2388,9 @@ enum PaymentStatus {
   REJECTED
   /// Finance disputes the Sales declaration (reason required). Not a posting state.
   DISPUTED
+  /// R15 (D15-12) — a VERIFIED payment recorded in error, reversed through the
+  /// audited action (its receipt reversed by a reversing entry). Never deleted.
+  REVERSED
 }
 
 /// Who/what created a Payment claim (payment-declaration-reconciliation).
@@ -2354,6 +2399,10 @@ enum PaymentOrigin {
   SALES_DECLARATION
   FINANCE_DECLARATION
   LEAD_CONVERSION
+  /// R15 (D15-9) — the COD amount a delivered parcel's carrier is expected to
+  /// collect (PENDING claim, never posted until the carrier's collection is
+  /// confirmed by statement match or Finance verification).
+  CARRIER_COD
 }
 
 enum PaymentDeclarationKind {
@@ -2816,6 +2865,11 @@ model Payment {
   /// Client-supplied key: a retried or double-submitted declaration returns the same row.
   idempotencyKey  String?                 @unique @map("idempotency_key")
   disputeReason   String?                 @map("dispute_reason")
+
+  /// R15 (D15-12) — audited reversal of a VERIFIED payment recorded in error (status REVERSED).
+  reversedAt     DateTime? @map("reversed_at")
+  reversedById   String?   @map("reversed_by_id") @db.Uuid
+  reversalReason String?   @map("reversal_reason")
 
   settlementStatus PaymentSettlementStatus @default(NOT_APPLICABLE) @map("settlement_status")
   settledAmount    Decimal                 @default(0) @map("settled_amount") @db.Decimal(12, 2)
@@ -5350,11 +5404,25 @@ model StoreOrder {
   recognitionError       Json?                       @map("recognition_error")
   recognitionAttemptedAt DateTime?                   @map("recognition_attempted_at")
 
+  /// R15 (D15-1…D15-8) — physical stock state of the order, a summary of its
+  /// reservation / transit / delivery movements (the ledger stays the source
+  /// of truth). Written by the stock lifecycle service on every event, for
+  /// companies' and agents' orders alike. Independent of payment status.
+  stockStatus   StoreOrderStockStatus @default(PENDING) @map("stock_status")
+  /// Last shortage / failure `{ code, messageAr, messageEn, lines: [{ productId, sku, warehouseId, required, available }] }`; null when none.
+  stockIssue    Json?                 @map("stock_issue")
+  stockStatusAt DateTime?             @map("stock_status_at")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by") @db.Uuid
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedAt DateTime? @map("deleted_at")
+
+  /// R15 (D15-11) — refunds of this order's advance (cancelled / undelivered / overpaid), see FinancialTransactionAllocation.storeOrderId.
+  refundAllocations FinancialTransactionAllocation[]
+  /// R15 (D15-10) — sales returns raised from this order.
+  salesReturns      SalesReturn[]
 
   agentReturns AgentOrderReturn[]
   amendments   StoreOrderAmendment[]
@@ -5387,6 +5455,7 @@ model StoreOrder {
   @@index([agentId, createdAt])
   @@index([duplicateReviewStatus, createdAt])
   @@index([recognitionStatus])
+  @@index([stockStatus, createdAt])
   @@map("store_orders")
 }
 
@@ -5397,6 +5466,63 @@ enum StoreOrderRecognitionStatus {
   RECOGNIZED
   FAILED
   RETURN_PENDING
+  /// R15 (D15-10) — every delivered quantity came back on posted sales returns.
+  RETURNED
+  /// R15 (D15-10) — part of the delivered quantity came back on posted sales returns.
+  PARTIALLY_RETURNED
+}
+
+/// R15 — see `StoreOrder.stockStatus`.
+enum StoreOrderStockStatus {
+  /// Not evaluated yet (orders created before R15 until the backfill runs).
+  PENDING
+  /// No stock-affecting line (services / digital only).
+  NOT_REQUIRED
+  /// Every stock line is reserved; nothing dispatched yet.
+  RESERVED
+  /// At least one stock line could not be reserved (see `stockIssue`); never shipped until reserved.
+  SHORT
+  /// Some or all quantities are with the carrier (transit warehouse).
+  IN_TRANSIT
+  /// Part of the order was delivered; the rest is reserved, in transit or returning.
+  PARTIALLY_DELIVERED
+  /// Every stock quantity was delivered to the customer.
+  DELIVERED
+  /// Undelivered quantities are on their way back (failed delivery / cancelled in transit), awaiting physical receipt.
+  RETURNING
+  /// Goods that were out came back and were received (cancelled order, nothing pending).
+  RETURNED
+  /// Cancelled before dispatch: the reservation was released.
+  RELEASED
+}
+
+/// R15 (D15-5) — the quantities one shipment attempt carries. A shipment
+/// without lines (created before R15) carries the whole order. Delivered and
+/// received-back quantities are recorded per line; the movements stay the
+/// source of truth (`STORE_ORDER_TRANSIT` references).
+model ShipmentLine {
+  id String @id @default(uuid()) @db.Uuid
+
+  shipmentId String   @map("shipment_id") @db.Uuid
+  shipment   Shipment @relation(fields: [shipmentId], references: [id])
+
+  storeOrderItemId String         @map("store_order_item_id") @db.Uuid
+  storeOrderItem   StoreOrderItem @relation(fields: [storeOrderItemId], references: [id])
+
+  /// Dispatched with this attempt.
+  quantity          Int
+  /// Accepted by the customer at delivery (≤ quantity).
+  deliveredQuantity Int @default(0) @map("delivered_quantity")
+  /// Received back at a warehouse after a failed / refused delivery.
+  returnedQuantity  Int @default(0) @map("returned_quantity")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  @@unique([shipmentId, storeOrderItemId])
+  @@index([storeOrderItemId])
+  @@map("shipment_lines")
 }
 
 /// Pricing snapshot per line — same rationale as the legacy OrderItem model
@@ -5424,6 +5550,9 @@ model StoreOrderItem {
   /// Investor Engine Milestone 2.
   investmentAllocations OpportunitySaleAllocation[]
   reallocations         OpportunityReallocation[]
+
+  /// R15 (D15-5) — shipment attempts that carried this line.
+  shipmentLines ShipmentLine[]
 
   @@map("store_order_items")
 }
@@ -5822,6 +5951,12 @@ model SalesInvoice {
   storeOrderId String?     @map("store_order_id") @db.Uuid
   storeOrder   StoreOrder? @relation(fields: [storeOrderId], references: [id])
 
+  /// R15 (D15-5) — the delivered shipment attempt this invoice recognises
+  /// (one invoice per delivered shipment; null on invoices issued before R15
+  /// and on pickup orders). Unique: a delivery is invoiced once.
+  shipmentId String?   @unique @map("shipment_id") @db.Uuid
+  shipment   Shipment? @relation(fields: [shipmentId], references: [id])
+
   currencyId   String?   @map("currency_id") @db.Uuid
   currency     Currency? @relation(fields: [currencyId], references: [id])
   /// Snapshot of transaction→functional rate at confirm. Never rewritten.
@@ -5976,6 +6111,12 @@ model SalesReturn {
   salesInvoiceId String?       @map("sales_invoice_id") @db.Uuid
   salesInvoice   SalesInvoice? @relation(fields: [salesInvoiceId], references: [id])
 
+  /// R15 (D15-10) — set when the return was raised from a store order (its invoice's order).
+  storeOrderId String?     @map("store_order_id") @db.Uuid
+  storeOrder   StoreOrder? @relation(fields: [storeOrderId], references: [id])
+  /// R15 (D15-10) — why the customer returned the goods (required on store-order returns).
+  reason       String?
+
   currencyId   String?   @map("currency_id") @db.Uuid
   currency     Currency? @relation(fields: [currencyId], references: [id])
   exchangeRate Decimal?  @map("exchange_rate") @db.Decimal(18, 8)
@@ -6024,7 +6165,14 @@ model SalesReturn {
   /// Customer Refunds paid against this return's credit (CUSTOMER_REFUND).
   refundAllocations FinancialTransactionAllocation[]
 
+  @@index([storeOrderId])
   @@map("sales_returns")
+}
+
+/// R15 (D15-10) — see `SalesReturnItem.condition`.
+enum ReturnItemCondition {
+  SALEABLE
+  DAMAGED
 }
 
 model SalesReturnItem {
@@ -6046,6 +6194,10 @@ model SalesReturnItem {
 
   warehouseId String    @map("warehouse_id") @db.Uuid
   warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  /// R15 (D15-10) — inspection result at physical receipt: SALEABLE goes back
+  /// to a stock warehouse, DAMAGED to a damaged-goods warehouse.
+  condition ReturnItemCondition @default(SALEABLE)
 
   unitId String @map("unit_id") @db.Uuid
   unit   Unit   @relation(fields: [unitId], references: [id])
@@ -7298,6 +7450,12 @@ model FinancialTransactionAllocation {
   salesReturnId String?      @map("sales_return_id") @db.Uuid
   salesReturn   SalesReturn? @relation(fields: [salesReturnId], references: [id])
 
+  /// R15 (D15-11) — CUSTOMER_REFUND only — the store order whose verified,
+  /// not-invoiced advance (cancelled / undelivered order, overpayment) this
+  /// refund pays back. Exactly one of salesReturnId / storeOrderId on a refund line.
+  storeOrderId String?     @map("store_order_id") @db.Uuid
+  storeOrder   StoreOrder? @relation(fields: [storeOrderId], references: [id])
+
   allocatedAmount Decimal  @map("allocated_amount") @db.Decimal(12, 2)
   allocationDate  DateTime @default(now()) @map("allocation_date")
 
@@ -7307,6 +7465,7 @@ model FinancialTransactionAllocation {
   updatedBy String?  @map("updated_by") @db.Uuid
 
   @@index([salesReturnId])
+  @@index([storeOrderId])
   @@map("financial_transaction_allocations")
 }
 
@@ -7914,15 +8073,50 @@ model ImportJob {
   /// column mapping. Null for a plain manual upload.
   rowDefaults Json? @map("row_defaults")
 
+  /// R15 (D15-16) — an agent user's import: the agent every row belongs to
+  /// (from the token, never from the file). Null = a company import.
+  agentId String? @map("agent_id") @db.Uuid
+  agent   Agent?  @relation(fields: [agentId], references: [id])
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+  /// The importing user — a job (and its uploaded file) is visible and runnable
+  /// only by its creator, unless the caller holds `import-center.manage`.
   createdBy String?  @map("created_by") @db.Uuid
 
   errors           ImportJobError[]
   bankTransactions BankTransaction[]
   syncSourceConfig SyncSourceConfig?
 
+  @@index([createdBy, createdAt])
+  @@index([agentId, createdAt])
   @@map("import_jobs")
+}
+
+/// R15 (D15-17) — a private Google spreadsheet connected for one-time imports.
+/// The owner shares it with the OMS service account (Viewer) — never public.
+/// The first user (company) or agent that connects a spreadsheet owns it;
+/// nobody else can import from it. Spreadsheets used by a continuous sync
+/// source cannot be connected here (one ingestion path per sheet).
+model ImportSheetConnection {
+  id            String    @id @default(uuid()) @db.Uuid
+  spreadsheetId String    @unique @map("spreadsheet_id")
+  title         String?
+  /// Company connection: the user who connected it. Agent connection: null.
+  ownerUserId   String?   @map("owner_user_id") @db.Uuid
+  /// Agent connection: every user of this agent holding an agent import permission may use it.
+  agentId       String?   @map("agent_id") @db.Uuid
+  agent         Agent?    @relation(fields: [agentId], references: [id])
+  lastUsedAt    DateTime? @map("last_used_at")
+  revokedAt     DateTime? @map("revoked_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  @@index([ownerUserId])
+  @@index([agentId])
+  @@map("import_sheet_connections")
 }
 
 enum SyncSourceType {
@@ -9730,8 +9924,8 @@ model GlobalLookupAudit {
 
   /// Round 7 advanced lookup — matches returned (0 = miss) and the outcome
   /// (MATCH / NO_MATCH / RATE_LIMITED). Null for the older exact lookups.
-  resultCount Int?    @map("result_count")
-  outcome     String? @map("outcome")
+  resultCount   Int?    @map("result_count")
+  outcome       String? @map("outcome")
   /// Round 14 (W4) — what the caller was shown: `FULL_DISCLOSURE` (full name,
   /// phone, latest order) for an authorized `customers.lookup_advanced` hit.
   outcomeDetail String? @map("outcome_detail")
@@ -9753,6 +9947,9 @@ model GlobalLookupAudit {
 enum UserType {
   INTERNAL
   AGENT
+  /// R15 (D15-14) — a company partner's own login: only `partner.*`
+  /// permissions, only `@PartnerPortal()` handlers, scoped to `companyPartnerId`.
+  PARTNER
 }
 
 enum AgentRole {
@@ -9893,6 +10090,11 @@ model Agent {
   users               User[]                           @relation("AgentUsers")
   products            Product[]                        @relation("AgentProducts")
   agreements          AgentAgreement[]
+  /// R15 (D15-13).
+  shippingAgreements  AgentShippingAgreement[]
+  /// R15 (D15-16 / D15-17).
+  importJobs          ImportJob[]
+  sheetConnections    ImportSheetConnection[]
   paymentDestinations AgentPaymentDestination[]
   leads               Lead[]
   storeOrders         StoreOrder[]
@@ -9950,46 +10152,98 @@ model AgentAgreement {
   createdBy String?  @map("created_by") @db.Uuid
   updatedBy String?  @map("updated_by") @db.Uuid
 
-  shippingRates AgentShippingRate[]
-  storeOrders   StoreOrder[]
+  storeOrders StoreOrder[]
 
   @@index([agentId, status, effectiveFrom])
   @@map("agent_agreements")
 }
 
-/// Configured customer shipping charge by destination (the "configured rate").
-model AgentShippingRate {
+/// R15 (D15-13) — the agent's shipping agreement: the charge agreed with the
+/// agent for delivering its orders, per service and destination. Its own
+/// document (number, effective dates, DRAFT / ACTIVE / INACTIVE), separate
+/// from the commission agreement (which keeps only the shipping *policy*).
+/// At most one ACTIVE agreement is in force for an agent on any day; the one
+/// in force on the order date is frozen into the order's terms snapshot, so a
+/// later change never reprices history.
+model AgentShippingAgreement {
   id              String                       @id @default(uuid()) @db.Uuid
-  agreementId     String                       @map("agreement_id") @db.Uuid
-  agreement       AgentAgreement               @relation(fields: [agreementId], references: [id], onDelete: Cascade)
-  countryId       String                       @map("country_id") @db.Uuid
-  country         Country                      @relation(fields: [countryId], references: [id])
-  /// Empty string = whole country; a city row wins over the country row.
-  city            String                       @default("")
-  /// Spec 2 tariff dimensions — ANY matches every channel / payment type;
-  /// the most specific row wins (city → channel → payment type).
-  deliveryChannel AgentShippingDeliveryChannel @default(ANY) @map("delivery_channel")
-  paymentType     AgentShippingPaymentType     @default(ANY) @map("payment_type")
-  amount          Decimal                      @db.Decimal(12, 2)
+  /// Numbering Engine "AGENT_SHIPPING_AGREEMENT" ("ASA-2026-0001"); never typed.
+  agreementNumber String                       @unique @map("agreement_number")
+  agentId         String                       @map("agent_id") @db.Uuid
+  agent           Agent                        @relation(fields: [agentId], references: [id])
+  /// Always the agent's settlement currency (validated).
+  currencyId      String                       @map("currency_id") @db.Uuid
+  currency        Currency                     @relation(fields: [currencyId], references: [id])
+  status          AgentShippingAgreementStatus @default(DRAFT)
+  /// Cairo business dates, inclusive; effectiveTo null = open-ended.
+  effectiveFrom   DateTime                     @map("effective_from") @db.Date
+  effectiveTo     DateTime?                    @map("effective_to") @db.Date
+  notes           String?
 
-  @@unique([agreementId, countryId, city, deliveryChannel, paymentType], map: "agent_shipping_rates_tariff_key")
-  @@map("agent_shipping_rates")
+  /// The agreement this one replaced from its effectiveFrom ("replace from date").
+  supersedesId String?                 @unique @map("supersedes_id") @db.Uuid
+  supersedes   AgentShippingAgreement? @relation("AgentShippingAgreementSupersede", fields: [supersedesId], references: [id])
+  supersededBy AgentShippingAgreement? @relation("AgentShippingAgreementSupersede")
+
+  activatedAt        DateTime? @map("activated_at")
+  activatedBy        String?   @map("activated_by") @db.Uuid
+  deactivatedAt      DateTime? @map("deactivated_at")
+  deactivatedBy      String?   @map("deactivated_by") @db.Uuid
+  deactivationReason String?   @map("deactivation_reason")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  /// Discarded drafts only — an activated agreement is never deleted.
+  deletedAt DateTime? @map("deleted_at")
+
+  rates AgentShippingAgreementRate[]
+
+  @@index([agentId, status, effectiveFrom])
+  @@map("agent_shipping_agreements")
 }
 
-/// Spec 2 — how a shipment is delivered (from ShippingCompany.type).
-enum AgentShippingDeliveryChannel {
-  ANY
-  /// ShippingCompany.type EXTERNAL_COMPANY.
-  CARRIER
-  /// ShippingCompany.type INTERNAL_DELIVERY.
-  INTERNAL_COURIER
+/// R15 (D15-13) — one agreed charge: service × destination. Destination =
+/// all destinations (countryId null), a country, or a city of a country; the
+/// most specific row wins (city → country → all). `destinationKey` makes the
+/// combination unique ("*", "<countryId>", "<countryId>|<lower(city)>").
+model AgentShippingAgreementRate {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  shippingAgreementId String                 @map("shipping_agreement_id") @db.Uuid
+  shippingAgreement   AgentShippingAgreement @relation(fields: [shippingAgreementId], references: [id], onDelete: Cascade)
+  service             AgentShippingService
+  countryId           String?                @map("country_id") @db.Uuid
+  country             Country?               @relation(fields: [countryId], references: [id])
+  /// Empty = the whole country (or all destinations when countryId is null).
+  city                String                 @default("")
+  destinationKey      String                 @map("destination_key")
+  amount              Decimal                @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  @@unique([shippingAgreementId, service, destinationKey])
+  @@map("agent_shipping_agreement_rates")
 }
 
-/// Spec 2 — payment arrangement a tariff applies to.
-enum AgentShippingPaymentType {
-  ANY
-  PREPAID
-  CASH_ON_DELIVERY
+/// R15 (D15-13).
+enum AgentShippingAgreementStatus {
+  DRAFT
+  ACTIVE
+  /// Deactivated: never applies to a new order again; orders already priced keep their snapshot.
+  INACTIVE
+}
+
+/// R15 (D15-13) — the shipping / payment-service combination a charge applies to.
+/// Carrier = ShippingCompany.type EXTERNAL_COMPANY; internal courier = INTERNAL_DELIVERY.
+enum AgentShippingService {
+  PREPAID_CARRIER
+  COD_CARRIER
+  COD_INTERNAL_COURIER
+  PREPAID_INTERNAL_COURIER
 }
 
 /// Spec 2 — whether an agent order's contractual shipping fee is final.
@@ -10333,6 +10587,9 @@ model CompanyPartnerProfile {
   ownershipPercent Decimal?             @map("ownership_percent") @db.Decimal(7, 4)
   notes            String?
   status           CompanyPartnerStatus @default(ACTIVE)
+
+  /// R15 (D15-14) — the partner's own login (User.userType PARTNER), if one was created / linked.
+  user User? @relation("CompanyPartnerUser")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

@@ -70,10 +70,13 @@ export class PermissionsResolverService {
     // any internal row (e.g. a same-named role grant) is ignored — and an
     // internal user never holds `agent.*`. Agent users are never super admins.
     const isAgentUser = user?.userType === 'AGENT';
+    // R15 (D15-14) — a partner login holds only `partner.*` and is never a
+    // super admin, exactly like an agent user.
+    const isPartnerUser = user?.userType === 'PARTNER';
     // R14 (spec-2 §A) — INTERNAL users inherit their job title's template;
     // individual rows are GRANT (default) or DENY overrides.
     const template =
-      !isAgentUser && user?.jobTitleId
+      !isAgentUser && !isPartnerUser && user?.jobTitleId
         ? await this.prisma.jobTitlePermission.findMany({
             where: { jobTitleId: user.jobTitleId },
             select: { permission: { select: { name: true } } },
@@ -81,6 +84,7 @@ export class PermissionsResolverService {
         : [];
     const permissions = computeEffectivePermissions({
       isAgentUser,
+      isPartnerUser,
       agentRole: user?.agentRole,
       template: template.map((row) => row.permission.name),
       grants: rows
@@ -91,7 +95,8 @@ export class PermissionsResolverService {
         .map((row) => row.permission.name),
     });
     const entry: CacheEntry = {
-      isSuperAdmin: !isAgentUser && (user?.isSuperAdmin ?? false),
+      isSuperAdmin:
+        !isAgentUser && !isPartnerUser && (user?.isSuperAdmin ?? false),
       isAgentUser,
       permissions,
       expiresAt: Date.now() + CACHE_TTL_MS,

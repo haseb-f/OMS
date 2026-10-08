@@ -10,6 +10,7 @@ import { PermissionsResolverService } from './permissions-resolver.service';
 import {
   ALL_PERMISSION_NAMES,
   isAgentPortalPermission,
+  isPartnerPortalPermission,
 } from './permission-catalog';
 import {
   computeEffectivePermissions,
@@ -476,12 +477,14 @@ export class PermissionAdministrationService {
     }
   }
 
-  /** Known, INTERNAL catalog permissions only — never an `agent.*` key. */
+  /** Known, INTERNAL catalog permissions only — never an `agent.*` or `partner.*` key. */
   private assertGrantable(names: string[]): string[] {
     const unique = sorted(names);
     const invalid = unique.filter(
       (name) =>
-        !ALL_PERMISSION_NAMES.includes(name) || isAgentPortalPermission(name),
+        !ALL_PERMISSION_NAMES.includes(name) ||
+        isAgentPortalPermission(name) ||
+        isPartnerPortalPermission(name),
     );
     if (invalid.length > 0) {
       throw new BadRequestException({

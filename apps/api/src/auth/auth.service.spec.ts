@@ -56,7 +56,10 @@ describe('AuthService.login', () => {
         deletedAt: null,
         email: { equals: 'admin@example.com', mode: 'insensitive' },
       },
-      include: { agent: { select: { status: true, deletedAt: true } } },
+      include: {
+        agent: { select: { status: true, deletedAt: true } },
+        companyPartner: { select: { id: true } },
+      },
     });
     expect(result.accessToken).toBe('token');
     expect(result.user.email).toBe('admin@example.com');
@@ -151,6 +154,56 @@ describe('AuthService.login', () => {
       { sub: 'user-1', email: 'admin@example.com' },
       'UA/1.0',
     );
+  });
+
+  it('R15 — issues a partner-scoped token to a company partner login', async () => {
+    const password = 'Secret123!';
+    prisma.user.findFirst.mockResolvedValue({
+      ...baseUser,
+      userType: 'PARTNER',
+      agentId: null,
+      agent: null,
+      companyPartnerId: 'profile-1',
+      companyPartner: { id: 'profile-1' },
+      passwordHash: await hashPassword(password),
+    });
+    const result = await service.login({
+      email: 'admin@example.com',
+      password,
+    });
+    expect(sessions.issueAccessToken).toHaveBeenCalledWith(
+      {
+        sub: 'user-1',
+        email: 'admin@example.com',
+        typ: 'partner',
+        companyPartnerId: 'profile-1',
+      },
+      undefined,
+    );
+    expect(result.user.userType).toBe('PARTNER');
+  });
+
+  it('R15 — refuses a partner login that is no longer linked to a partner', async () => {
+    const password = 'Secret123!';
+    prisma.user.findFirst.mockResolvedValue({
+      ...baseUser,
+      userType: 'PARTNER',
+      agent: null,
+      companyPartnerId: null,
+      companyPartner: null,
+      passwordHash: await hashPassword(password),
+    });
+    const error = await service
+      .login({ email: 'admin@example.com', password })
+      .then(
+        () => null,
+        (e: unknown) => e,
+      );
+    expect(error).toBeInstanceOf(ForbiddenException);
+    expect(
+      ((error as ForbiddenException).getResponse() as { code: string }).code,
+    ).toBe('PARTNER_LOGIN_UNLINKED');
+    expect(sessions.issueAccessToken).not.toHaveBeenCalled();
   });
 
   it('refuses login for a user of an inactive agent', async () => {

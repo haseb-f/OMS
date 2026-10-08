@@ -7,8 +7,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 export interface AccessTokenClaims {
   sub: string;
   email: string;
-  typ?: 'agent';
+  typ?: 'agent' | 'partner';
   agentId?: string | null;
+  /** R15 — partner logins only (`CompanyPartnerProfile.id`). */
+  companyPartnerId?: string | null;
 }
 
 /** Why a session ended — stored on `user_sessions.revoked_reason`. */

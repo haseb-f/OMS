@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { uniqueFieldFromPrismaError } from '../common/errors/prisma-unique-field';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
@@ -15,7 +15,9 @@ import {
 } from '../common/phone/phone-number.service';
 import {
   ALL_PERMISSION_NAMES,
+  PARTNER_PORTAL_PERMISSIONS,
   isAgentPortalPermission,
+  isPartnerPortalPermission,
   withAuthorizationImpliedPermissions,
 } from '../permissions/permission-catalog';
 import {
@@ -68,6 +70,8 @@ const PUBLIC_USER_SELECT = {
   agentId: true,
   agentRole: true,
   agent: { select: { id: true, agentNumber: true, name: true } },
+  /** R15 — PARTNER users only: the company partner profile this login belongs to. */
+  companyPartnerId: true,
   /** R7 — explicit Sales designation (lead distribution eligibility). */
   salesDistributionEligible: true,
   /** R14 — job title changed since an administrator last saved the permission panel. */
@@ -93,6 +97,54 @@ export interface CreateAgentUserInput {
   /** Full `agent.*` permission set to grant (preset ± extras, validated by the caller). */
   permissionNames: string[];
   createdBy?: string;
+}
+
+/** R15 (D15-14) — input for a company partner's own login (never from the internal Users DTO). */
+export interface CreatePartnerUserInput {
+  /** `CompanyPartnerProfile.id`. */
+  companyPartnerId: string;
+  email: string;
+  fullName: string;
+  createdBy?: string;
+}
+
+/** The only audience that may hold a permission: `agent.*` → AGENT, `partner.*` → PARTNER, the rest → INTERNAL. */
+function permissionAudience(name: string): UserType {
+  if (isAgentPortalPermission(name)) return 'AGENT';
+  if (isPartnerPortalPermission(name)) return 'PARTNER';
+  return 'INTERNAL';
+}
+
+function permissionAudienceError(
+  userType: UserType,
+  mismatched: string[],
+): { code: string; message: string; permissions: string[] } {
+  if (userType === 'AGENT') {
+    return {
+      code: 'AGENT_USER_INTERNAL_PERMISSION',
+      message: 'Agent users can only hold agent portal permissions.',
+      permissions: mismatched,
+    };
+  }
+  if (userType === 'PARTNER') {
+    return {
+      code: 'PARTNER_USER_PERMISSION',
+      message: 'Partner users can only hold partner portal permissions.',
+      permissions: mismatched,
+    };
+  }
+  return mismatched.some(isPartnerPortalPermission)
+    ? {
+        code: 'INTERNAL_USER_PARTNER_PERMISSION',
+        message:
+          'Partner portal permissions can only be granted to partner users.',
+        permissions: mismatched,
+      }
+    : {
+        code: 'INTERNAL_USER_AGENT_PERMISSION',
+        message: 'Agent portal permissions can only be granted to agent users.',
+        permissions: mismatched,
+      };
 }
 
 /** Internal-only profile fields an agent user never carries (spec §3). */
@@ -245,6 +297,43 @@ export class UsersService {
   }
 
   /**
+   * R15 (D15-14) — creates a company partner's own login. The only path that
+   * sets `userType = PARTNER` / `companyPartnerId`. The username is the
+   * e-mail (nothing to type), the password a generated temporary one changed
+   * at first sign-in, and the permissions exactly the `partner.*` set.
+   */
+  async createPartnerUser(
+    input: CreatePartnerUserInput,
+  ): Promise<UserWithTemporaryPassword> {
+    const temporaryPassword = generateTemporaryPassword();
+    const passwordHash = await hashPassword(temporaryPassword);
+    let user: PublicUser;
+    try {
+      user = await this.prisma.user.create({
+        data: {
+          email: normalizeEmail(input.email),
+          username: normalizeUsername(normalizeEmail(input.email)),
+          fullName: input.fullName,
+          passwordHash,
+          mustChangePassword: true,
+          userType: 'PARTNER',
+          companyPartnerId: input.companyPartnerId,
+          isSuperAdmin: false,
+          createdBy: input.createdBy ?? null,
+          updatedBy: input.createdBy ?? null,
+        },
+        select: PUBLIC_USER_SELECT,
+      });
+    } catch (error) {
+      throw this.mapUniqueError(error);
+    }
+    await this.setPermissions(user.id, {
+      permissionNames: [...PARTNER_PORTAL_PERMISSIONS],
+    });
+    return { ...(await this.findOne(user.id)), temporaryPassword };
+  }
+
+  /**
    * Internal users list. Agent users (spec §3, S6) are listed only on
    * request (`userType=AGENT|ALL`) — internal pickers built on this list keep
    * offering internal staff only.
@@ -282,8 +371,22 @@ export class UsersService {
   async assertInternallyManaged(id: string) {
     const user = await this.prisma.user.findFirst({
       where: { id, deletedAt: null },
-      select: { userType: true, agentId: true },
+      select: {
+        userType: true,
+        agentId: true,
+        companyPartner: { select: { partnerId: true } },
+      },
     });
+    // R15 — a partner login is administered only from its partner's page
+    // (`company-partners.users.manage`), never the internal Users API.
+    if (user?.userType === 'PARTNER') {
+      const partnerId = user.companyPartner?.partnerId ?? null;
+      throw new ConflictException({
+        code: 'PARTNER_USER_MANAGED_IN_PARTNERS',
+        message: `حسابات الشركاء تُدار من صفحة الشريك — Partner logins are managed from the partner's page${partnerId ? `: /company-partners/${partnerId}` : '.'}`,
+        partnerId,
+      });
+    }
     if (user?.userType === 'AGENT') {
       throw new ConflictException({
         code: 'AGENT_USER_MANAGED_IN_AGENTS',
@@ -465,27 +568,21 @@ export class UsersService {
     const known = dto.permissionNames.filter((name) =>
       ALL_PERMISSION_NAMES.includes(name),
     );
-    // Agents milestone (spec §3): external agent users hold only `agent.*`
-    // permissions and internal users never do — a mismatched grant is
-    // rejected explicitly, never silently stored.
-    const isAgentUser = user.userType === 'AGENT';
+    // Agents milestone (spec §3) / R15 (D15-14): an external agent user holds
+    // only `agent.*`, a partner login only `partner.*`, and an internal user
+    // neither — a mismatched grant is rejected explicitly, never silently stored.
+    const isInternalUser = user.userType === 'INTERNAL';
     const mismatched = known.filter(
-      (name) => isAgentPortalPermission(name) !== isAgentUser,
+      (name) => permissionAudience(name) !== user.userType,
     );
     if (mismatched.length > 0) {
-      throw new BadRequestException({
-        code: isAgentUser
-          ? 'AGENT_USER_INTERNAL_PERMISSION'
-          : 'INTERNAL_USER_AGENT_PERMISSION',
-        message: isAgentUser
-          ? 'Agent users can only hold agent portal permissions.'
-          : 'Agent portal permissions can only be granted to agent users.',
-        permissions: mismatched,
-      });
+      throw new BadRequestException(
+        permissionAudienceError(user.userType, mismatched),
+      );
     }
-    const validNames = isAgentUser
-      ? known
-      : withAuthorizationImpliedPermissions(known);
+    const validNames = isInternalUser
+      ? withAuthorizationImpliedPermissions(known)
+      : known;
     const existing = await this.prisma.permission.findMany({
       where: { name: { in: validNames } },
       select: { id: true, name: true },
@@ -505,7 +602,7 @@ export class UsersService {
       select: { id: true },
     });
 
-    if (actorId && !isAgentUser) {
+    if (actorId && isInternalUser) {
       await this.permissionAdministration.assertLegacyGrantAllowed(
         actorId,
         id,

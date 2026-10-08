@@ -119,6 +119,8 @@ import { StoreOrderAmendmentsModule } from './store-orders/amendments/store-orde
 // R14 W4 — customer history + repeat-customer numbers.
 import { CustomerHistoryModule } from './customer-history/customer-history.module';
 import { CompanyPartnersModule } from './company-partners/company-partners.module';
+import { PartnerPortalModule } from './partner-portal/partner-portal.module';
+import { StoreOrderMoneyModule } from './store-orders/collections/store-order-money.module';
 @Module({
   imports: [
     PrismaModule,
@@ -240,6 +242,10 @@ import { CompanyPartnersModule } from './company-partners/company-partners.modul
     CustomerHistoryModule,
     // R14 W5 — company partners and profit sharing.
     CompanyPartnersModule,
+    // R15 W4 — a company partner's own login (`/partner-portal/*`).
+    PartnerPortalModule,
+    // R15 W5b — order money panel + returns of delivered goods.
+    StoreOrderMoneyModule,
   ],
   controllers: [HealthController],
   providers: [],

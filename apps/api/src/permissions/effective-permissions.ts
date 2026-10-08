@@ -1,5 +1,6 @@
 import {
   isAgentPortalPermission,
+  isPartnerPortalPermission,
   withAuthorizationImpliedPermissions,
   withSettingsDomainGrants,
 } from './permission-catalog';
@@ -18,10 +19,14 @@ import {
  * expansion means a DENY on an implied key itself wins too.
  *
  * Agent users keep their `agent.*` presets only: no job-title template, no
- * DENY rows (spec §A — templates apply to INTERNAL users only).
+ * DENY rows (spec §A — templates apply to INTERNAL users only). Partner logins
+ * (R15 D15-14) likewise keep only their `partner.*` grants; an INTERNAL user
+ * never holds an `agent.*` or `partner.*` key.
  */
 export interface PermissionSources {
   isAgentUser: boolean;
+  /** R15 (D15-14) — a company partner's own login (`UserType.PARTNER`). */
+  isPartnerUser?: boolean;
   agentRole?: string | null;
   /** The user's job-title template (INTERNAL users only). */
   template: Iterable<string>;
@@ -44,10 +49,19 @@ export function computeEffectivePermissions(
       ),
     );
   }
+  if (sources.isPartnerUser) {
+    return new Set([...sources.grants].filter(isPartnerPortalPermission));
+  }
   const denied = new Set(sources.denies);
   const base = new Set<string>();
   for (const name of [...sources.template, ...sources.grants]) {
-    if (!isAgentPortalPermission(name) && !denied.has(name)) base.add(name);
+    if (
+      !isAgentPortalPermission(name) &&
+      !isPartnerPortalPermission(name) &&
+      !denied.has(name)
+    ) {
+      base.add(name);
+    }
   }
   const expanded = withSettingsDomainGrants(
     withAuthorizationImpliedPermissions([...base]),
