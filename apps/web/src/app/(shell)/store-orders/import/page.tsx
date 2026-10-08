@@ -1,51 +1,42 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
-import { Ban, UploadCloud, Eye } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { UploadCloud } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { HeaderActions } from "@/components/shared/header-actions";
 import { EmptyState } from "@/components/shared/empty-state";
-import { StatusBadge } from "@/components/business/status-badge";
-import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
-import { RowActionsMenu } from "@/components/shared/data-table";
-import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
-// The Store Orders import reuses the existing Import Center wizard shell
-// unmodified — only a new `STORE_ORDERS` type key (registered server-side)
-// is threaded through it, never a second/bespoke wizard implementation.
+// The Store Orders import reuses the existing Import Center wizard shell —
+// the `STORE_ORDERS` type runs in sales mode, never a second/bespoke wizard.
 import { ImportJobWizard } from "@/app/(shell)/data-management/import-center/import-job-wizard";
-import { importTypesService, type ImportTypeDefinition } from "@/services/import-types-service";
-import {
-  importJobsService,
-  isImportJobCancellable,
-  type ImportJobRow,
-} from "@/services/import-jobs-service";
-import { IMPORT_JOB_STATUS_LABEL_KEY, IMPORT_JOB_STATUS_TONE } from "@/config/import-center/status";
+import { ImportHistoryTable } from "@/components/import-center/import-history-table";
+import type { ImportTypeDefinition } from "@/services/import-types-service";
+import type { ImportJobRow } from "@/services/import-jobs-service";
+import { COMPANY_IMPORT_API } from "@/services/import-api";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { useLocale } from "@/providers/locale-provider";
-import { useUserContext } from "@/providers/user-context";
-import { formatDateTime } from "@/lib/date";
-import { reportApiError, toast } from "@/lib/toast";
+import { reportApiError } from "@/lib/toast";
 
 const IMPORT_TYPE = "STORE_ORDERS";
+const api = COMPANY_IMPORT_API;
 
+/**
+ * Store Orders import (R15, D15-16): any user holding `store-orders.import`
+ * (or the `import-center.manage` catch-all) imports orders as their own,
+ * with the manual-entry rules; "My imports" lists only the caller's jobs.
+ */
 function StoreOrdersImportContent() {
   const { t } = useLocale();
-  const { hasPermission } = useUserContext();
-  const canImport = hasPermission("import-center.manage");
-
   const [typeDef, setTypeDef] = useState<ImportTypeDefinition | null>(null);
   const [jobs, setJobs] = useState<ImportJobRow[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardJobId, setWizardJobId] = useState<string | undefined>(undefined);
-  const [cancelTarget, setCancelTarget] = useState<ImportJobRow | null>(null);
-  const [isCancelling, setIsCancelling] = useState(false);
+  const canImport = typeDef?.canImport !== false && Boolean(typeDef);
 
   const loadJobs = useCallback(async () => {
     setIsLoadingJobs(true);
     try {
-      setJobs(await importJobsService.list(IMPORT_TYPE));
+      setJobs(await api.jobs.list(IMPORT_TYPE));
     } catch (error) {
       reportApiError(error, "errors.loadFailed");
     } finally {
@@ -54,7 +45,7 @@ function StoreOrdersImportContent() {
   }, []);
 
   useEffect(() => {
-    importTypesService
+    api.types
       .list()
       .then((types) => setTypeDef(types.find((type) => type.type === IMPORT_TYPE) ?? null))
       .catch(() => setTypeDef(null));
@@ -62,86 +53,10 @@ function StoreOrdersImportContent() {
     void loadJobs();
   }, [loadJobs]);
 
-  const columns = useMemo<ColumnDef<ImportJobRow, unknown>[]>(
-    () => [
-      {
-        id: "status",
-        header: t("importCenter.table.status"),
-        meta: { titleKey: "importCenter.table.status", type: "status" },
-        cell: (info) => {
-          const status = info.row.original.status;
-          return (
-            <StatusBadge
-              label={t(IMPORT_JOB_STATUS_LABEL_KEY[status])}
-              tone={IMPORT_JOB_STATUS_TONE[status]}
-            />
-          );
-        },
-      },
-      {
-        id: "fileName",
-        header: t("importCenter.table.fileName"),
-        meta: { titleKey: "importCenter.table.fileName", type: "name" },
-        accessorFn: (row) => row.fileName || "—",
-      },
-      {
-        id: "totalRows",
-        header: t("importCenter.table.totalRows"),
-        meta: { titleKey: "importCenter.table.totalRows", type: "number" },
-        accessorFn: (row) => row.totalRows,
-      },
-      {
-        id: "successCount",
-        header: t("importCenter.table.successCount"),
-        meta: { titleKey: "importCenter.table.successCount", type: "number" },
-        accessorFn: (row) => row.successCount,
-      },
-      {
-        id: "errorCount",
-        header: t("importCenter.table.errorCount"),
-        meta: { titleKey: "importCenter.table.errorCount", type: "number" },
-        accessorFn: (row) => row.errorCount,
-      },
-      {
-        id: "createdAt",
-        header: t("importCenter.table.createdAt"),
-        meta: { titleKey: "importCenter.table.createdAt", type: "date" },
-        accessorFn: (row) => formatDateTime(row.createdAt),
-      },
-      {
-        id: "__actions",
-        meta: { titleKey: "common.actions" },
-        enableSorting: false,
-        enableHiding: false,
-        cell: (info) => (
-          <RowActionsMenu
-            label={t("common.actions")}
-            actions={[
-              {
-                key: "view",
-                label: t("importCenter.viewJob"),
-                icon: Eye,
-                onSelect: () => {
-                  setWizardJobId(info.row.original.id);
-                  setWizardOpen(true);
-                },
-              },
-              {
-                key: "cancel",
-                label: t("importCenter.cancelJob"),
-                icon: Ban,
-                hidden: !canImport || !isImportJobCancellable(info.row.original.status),
-                destructive: true,
-                separatorBefore: true,
-                onSelect: () => setCancelTarget(info.row.original),
-              },
-            ]}
-          />
-        ),
-      },
-    ],
-    [t, canImport],
-  );
+  const openJob = useCallback((job: ImportJobRow) => {
+    setWizardJobId(job.id);
+    setWizardOpen(true);
+  }, []);
 
   return (
     <PageWorkspace
@@ -167,15 +82,14 @@ function StoreOrdersImportContent() {
       {!typeDef ? (
         <EmptyState icon={UploadCloud} title={t("storeOrders.import.typeUnavailable")} />
       ) : (
-        <EnterpriseDataTable
+        <ImportHistoryTable
           tableId="store-orders-import-jobs"
           printTitle={t("nav.storeOrdersImport")}
-          columns={columns}
-          data={jobs}
+          jobs={jobs}
           isLoading={isLoadingJobs}
-          getRowId={(row) => row.id}
-          emptyTitle={t("importCenter.noJobs")}
-          onRefresh={loadJobs}
+          onRefresh={() => void loadJobs()}
+          onOpen={openJob}
+          cancelWith={canImport ? api.jobs : undefined}
         />
       )}
 
@@ -185,36 +99,10 @@ function StoreOrdersImportContent() {
           onOpenChange={setWizardOpen}
           typeDef={typeDef}
           initialJobId={wizardJobId}
-          onDone={loadJobs}
+          onDone={() => void loadJobs()}
+          api={api}
         />
       )}
-
-      <ConfirmationDialog
-        open={!!cancelTarget}
-        onOpenChange={(open) => {
-          if (!open) setCancelTarget(null);
-        }}
-        tone="destructive"
-        title={t("importCenter.confirmCancelJobTitle")}
-        description={t("importCenter.confirmCancelJobDescription")}
-        confirmLabel={t("importCenter.cancelJob")}
-        cancelLabel={t("common.cancel")}
-        isConfirming={isCancelling}
-        onConfirm={async () => {
-          if (!cancelTarget) return;
-          setIsCancelling(true);
-          try {
-            await importJobsService.cancel(cancelTarget.id);
-            toast.success(t("importCenter.cancelJob"));
-            setCancelTarget(null);
-            await loadJobs();
-          } catch (error) {
-            reportApiError(error, "common.failedToSave");
-          } finally {
-            setIsCancelling(false);
-          }
-        }}
-      />
     </PageWorkspace>
   );
 }

@@ -22,6 +22,10 @@ export const AGENT_PORTAL_PERMISSIONS = [
   "agent.payouts.view",
   "agent.team.view",
   "agent.team.manage",
+  "agent.leads.import",
+  "agent.orders.import",
+  "agent.records.assign",
+  "agent.reports.view_team",
 ] as const;
 
 export type AgentPortalPermission = (typeof AGENT_PORTAL_PERMISSIONS)[number];
@@ -46,6 +50,10 @@ export const AGENT_ROLE_PRESETS: Record<AgentRole, AgentPortalPermission[]> = {
     "agent.statement.view",
     "agent.payouts.view",
     "agent.team.view",
+    "agent.leads.import",
+    "agent.orders.import",
+    "agent.records.assign",
+    "agent.reports.view_team",
   ],
 };
 

@@ -55,6 +55,10 @@ const ACTION_LABEL_KEY: Record<string, MessageKey> = {
   profitability_edit_costs: "permissions.actions.profitabilityEditCosts",
   pay: "permissions.actions.pay",
   close: "permissions.actions.close",
+  receive_returns: "permissions.actions.receiveReturns",
+  portal: "permissions.actions.partnerLogins",
+  "dashboard.view": "permissions.actions.partnerDashboard",
+  "statement.view": "permissions.actions.partnerStatement",
 };
 
 const EMPTY: string[] = [];

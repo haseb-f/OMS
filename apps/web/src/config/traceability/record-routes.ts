@@ -85,6 +85,10 @@ export const MOVEMENT_REFERENCE_KIND: Record<string, TraceKind> = {
   SALES_RETURN: "SALES_RETURN",
   PURCHASE_INVOICE: "PURCHASE_INVOICE",
   PURCHASE_RETURN: "PURCHASE_RETURN",
+  // R15 W5a — a store order's reservations / agent issues, and its goods
+  // moved to / back from goods in transit, link to the order.
+  STORE_ORDER: "STORE_ORDER",
+  STORE_ORDER_TRANSIT: "STORE_ORDER",
 };
 
 /**

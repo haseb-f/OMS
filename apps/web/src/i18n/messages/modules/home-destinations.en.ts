@@ -93,6 +93,7 @@ const destinations = {
   "reports-executive": "Company-wide results for management.",
   "reports-sales": "Live sales, employee and team ranking, payment mix.",
   "agent-portal-reports": "Your live sales, ranking and payment mix.",
+  "agent-portal-imports": "Import leads and orders from Excel or your own Google Sheet.",
   "reports-crm": "Lead and conversion reporting.",
   "reports-purchasing": "Purchasing volumes and supplier spend.",
   "reports-inventory": "Stock levels, movement and valuation.",
@@ -116,7 +117,9 @@ const destinations = {
   "settings-integrations": "Connections to external services.",
   "settings-security": "Sign-in and security policies.",
   "settings-backup": "Backup and restore.",
-  "finance-company-partners": "Partners' profit shares, profit periods and payments.",
+  "company-partners-list":
+    "Each partner's profit share, per-period statement, payments and own login.",
+  "company-partners-periods": "Preview, review and close the partners' profit periods.",
 } as const;
 
 export default destinations;

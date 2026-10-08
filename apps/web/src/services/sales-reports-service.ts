@@ -6,7 +6,12 @@ import { apiClient } from "./api-client";
  * amounts per order currency (never added together), Africa/Cairo days.
  */
 
-export type SalesReportScope = "ALL" | "TEAM" | "OWN" | "NONE" | "AGENT_ALL" | "AGENT_OWN";
+/**
+ * R15 (D15-18) — whose figures the response holds: ALL only with
+ * `reports.sales.view_all`, TEAM for a sales-team manager, otherwise OWN;
+ * agent: AGENT_ALL only with `agent.reports.view_team`, otherwise AGENT_OWN.
+ */
+export type SalesReportScope = "ALL" | "TEAM" | "OWN" | "AGENT_ALL" | "AGENT_OWN";
 export type LivePeriod = "today" | "yesterday" | "last7Days" | "thisMonth" | "lastMonth";
 export type RankBy = "count" | "amount";
 
@@ -40,8 +45,8 @@ export interface LiveReport {
 export interface RankedEmployee extends SalesStats {
   rank: number;
   rankValue: number;
-  userId: string | null;
-  name: string | null;
+  userId: string;
+  name: string;
 }
 
 export interface RankedTeam extends SalesStats {
@@ -59,6 +64,16 @@ export interface PaymentMixRow {
   cod: { count: number; amount: number };
 }
 
+/**
+ * The caller's own standing over the whole company (company) or the whole
+ * agent (agent): position + count only, never another employee's name or
+ * figure. `position` is null when the caller has no order in the period.
+ */
+export interface OwnRank {
+  position: number | null;
+  of: number;
+}
+
 export interface PerformanceReport {
   scope: SalesReportScope;
   timeZone: string;
@@ -68,10 +83,15 @@ export interface PerformanceReport {
   rankBy: RankBy;
   currency: string | null;
   currencies: string[];
+  /** In scope, ranked among themselves; OWN / AGENT_OWN: the caller's row only (rank = own position). */
   employees: RankedEmployee[];
   employeesTruncated: boolean;
+  ownRank: OwnRank;
   teams: RankedTeam[] | null;
+  /** Agent orders — ALL only, never ranked. */
   agents: SalesStats | null;
+  /** Company orders without an owner — ALL only, never ranked. */
+  unassigned: SalesStats | null;
   paymentMix: PaymentMixRow[];
 }
 

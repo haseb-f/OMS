@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import {
   ArrowRightLeft,
   ChartNoAxesColumn,
@@ -32,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DashboardPanel, PanelLink, ShareBar } from "@/components/dashboard/dashboard-panel";
+import { OwnRankCard } from "@/components/reports/own-rank-card";
 import {
   SALES_PERIODS,
   buildActivityRows,
@@ -40,6 +42,7 @@ import {
   type SalesByPeriod,
 } from "@/components/dashboard/dashboard-data";
 import { useLocale } from "@/providers/locale-provider";
+import { useUserContext } from "@/providers/user-context";
 import type { MessageKey } from "@/i18n/translate";
 import type { SalesPerformanceDashboard, SalesPeriod } from "@/services/sales-performance-service";
 import { cn } from "@/lib/utils";
@@ -292,9 +295,12 @@ export function ActivityPanel({
 }
 
 /**
- * Orders created per salesperson in the selected period: the top eight with
- * a bar on one scale, the signed-in user highlighted. Hidden for users who
- * only see their own orders (the API returns no leaderboard for them).
+ * Valid orders per salesperson in the selected period, in the viewer's
+ * report scope (R15 D15-18 — the API sends nothing beyond it). OWN: the
+ * caller's own rank over the whole company ("3 of 12"), never a colleague.
+ * TEAM: the team ranked within itself plus the manager's company position.
+ * ALL: the company's top eight. Bars share one scale; the signed-in user's
+ * row is highlighted.
  */
 export function RankingPanel({
   data,
@@ -303,11 +309,82 @@ export function RankingPanel({
   data: SalesPerformanceDashboard;
   period: SalesPeriod;
 }) {
-  const { t } = useLocale();
+  const { t, direction } = useLocale();
+  const { user } = useUserContext();
   const { self, leaderboard } = data.ranking;
+  // The caller's company position; null when they have no order in the period.
+  const position: number | null = self.rank;
   const rows = leaderboard.slice(0, 8);
   const top = rows[0]?.orders ?? 0;
-  const ranked = leaderboard.some((row) => row.rank === self.rank && self.orders > 0);
+
+  let body: ReactNode;
+  if (data.scope === "OWN") {
+    body = (
+      <div className="flex min-w-0 flex-col gap-2 p-3">
+        <OwnRankCard position={position} of={self.of} population="company" />
+        <p className="text-caption text-muted-foreground">{t("salesVisibility.ownOnly")}</p>
+      </div>
+    );
+  } else if (rows.length === 0) {
+    body = (
+      <EmptyState icon={Trophy} title={t("dashboard.overview.rankingEmpty")} className="py-6" />
+    );
+  } else {
+    body = (
+      <>
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-surface-sunken px-3 py-2 text-caption">
+          <span className="text-muted-foreground">
+            {t(
+              data.scope === "TEAM" ? "salesVisibility.companyRank" : "dashboard.overview.yourRank",
+            )}
+          </span>
+          {/* Words + numbers: keep the reading direction (a forced LTR run reorders Arabic). */}
+          <span className="tabular-nums" dir={direction}>
+            {/* Not ranked (no order yet): no invented rank, just the count. */}
+            {position !== null ? (
+              <span className="font-semibold text-foreground">
+                {t("docUi.dashboard.rank", { rank: position, of: self.of })}
+                {" · "}
+              </span>
+            ) : null}
+            <span className="text-muted-foreground">
+              {t("docUi.dashboard.ordersCount", { count: self.orders })}
+            </span>
+          </span>
+        </div>
+        <ol className="divide-y divide-border">
+          {rows.map((row) => {
+            const isSelf = row.userId === user?.id;
+            return (
+              <li
+                key={row.userId}
+                aria-current={isSelf ? "true" : undefined}
+                className={cn(
+                  "grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 px-3 py-1.5",
+                  isSelf && "bg-table-row-selected",
+                )}
+              >
+                <span className="num text-caption text-muted-foreground">#{row.rank}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate text-body font-medium">{row.displayName}</span>
+                  {isSelf ? (
+                    <EnterpriseBadge variant="info">{t("docUi.dashboard.you")}</EnterpriseBadge>
+                  ) : null}
+                </span>
+                <span className="num text-end text-body font-semibold">{row.orders}</span>
+                <span className="col-start-2 col-end-4">
+                  <ShareBar
+                    value={percentOf(row.orders, top)}
+                    label={t("docUi.dashboard.ordersCount", { count: row.orders })}
+                  />
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      </>
+    );
+  }
 
   return (
     <DashboardPanel
@@ -318,57 +395,7 @@ export function RankingPanel({
       scope={{ kind: "period", label: t(PERIOD_LABEL_KEY[period]) }}
       description={t("insights.company.ranking")}
     >
-      {rows.length === 0 ? (
-        <EmptyState icon={Trophy} title={t("dashboard.overview.rankingEmpty")} className="py-6" />
-      ) : (
-        <>
-          <div className="flex items-center justify-between gap-3 border-b border-border bg-surface-sunken px-3 py-2 text-caption">
-            <span className="text-muted-foreground">{t("dashboard.overview.yourRank")}</span>
-            <span className="num">
-              {/* Not on the board (no orders yet): no invented rank, just the count. */}
-              {ranked ? (
-                <span className="font-semibold text-foreground">
-                  {t("docUi.dashboard.rank", { rank: self.rank, of: self.of })}
-                  {" · "}
-                </span>
-              ) : null}
-              <span className="text-muted-foreground">
-                {t("docUi.dashboard.ordersCount", { count: self.orders })}
-              </span>
-            </span>
-          </div>
-          <ol className="divide-y divide-border">
-            {rows.map((row) => {
-              const isSelf = ranked && row.rank === self.rank;
-              return (
-                <li
-                  key={`${row.rank}-${row.userId}`}
-                  aria-current={isSelf ? "true" : undefined}
-                  className={cn(
-                    "grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 px-3 py-1.5",
-                    isSelf && "bg-table-row-selected",
-                  )}
-                >
-                  <span className="num text-caption text-muted-foreground">#{row.rank}</span>
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="truncate text-body font-medium">{row.displayName}</span>
-                    {isSelf ? (
-                      <EnterpriseBadge variant="info">{t("docUi.dashboard.you")}</EnterpriseBadge>
-                    ) : null}
-                  </span>
-                  <span className="num text-end text-body font-semibold">{row.orders}</span>
-                  <span className="col-start-2 col-end-4">
-                    <ShareBar
-                      value={percentOf(row.orders, top)}
-                      label={t("docUi.dashboard.ordersCount", { count: row.orders })}
-                    />
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-        </>
-      )}
+      {body}
     </DashboardPanel>
   );
 }

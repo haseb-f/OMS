@@ -11,6 +11,7 @@ import {
 } from "@/components/master-data/enterprise-data-table";
 import { getColumnDisplayValue } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/business/status-badge";
+import { WarehouseRoleBadge } from "@/components/store-orders/stock/warehouse-role-badge";
 import {
   EnterpriseDateRangePicker,
   type DateRangeValue,
@@ -294,6 +295,16 @@ function ReportsInventoryPageContent() {
         meta: { titleKey: "masterData.fields.warehouse" },
         accessorFn: (row) =>
           row.warehouse ? `${row.warehouse.code} — ${row.warehouse.name}` : row.warehouseId,
+        // R15 (D15-4) — goods in transit / damaged goods are owned, never sellable.
+        cell: ({ row, getValue }) => {
+          const role = (row.original.warehouse as { role?: string } | null)?.role;
+          return (
+            <span className="flex flex-wrap items-center gap-1.5">
+              {getValue() as string}
+              <WarehouseRoleBadge role={role} />
+            </span>
+          );
+        },
       },
       {
         id: "sku",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useState } from "react";
-import { CheckCircle2, Eye, FileSignature, MapPin, Pencil, Plus, StopCircle } from "lucide-react";
+import { CheckCircle2, Eye, FileSignature, Pencil, Plus, StopCircle } from "lucide-react";
 import { DetailSection } from "@/components/shared/detail-workspace";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
@@ -26,11 +26,11 @@ import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { formatDate, toISODate } from "@/lib/date";
 import { apiErrorMessage, reportApiError, toast } from "@/lib/toast";
+import { uiLanguagePart } from "@/services/api-client";
 import { AgreementFormDialog } from "./agreement-form-dialog";
 import { AgreementTerms } from "./agreement-terms";
 import { AgreementPreviewPanel } from "./agreement-preview-panel";
 import { formatClassRates } from "@/config/agents/agreement-form";
-import { ShippingRatesDialog } from "./shipping-rates-dialog";
 
 const STATUS_TONE = { DRAFT: "neutral", ACTIVE: "success", ENDED: "warning" } as const;
 
@@ -44,7 +44,7 @@ export function AgentAgreementsTab({
   /** The agent header / overview show the active agreement — refresh them after a change. */
   onChanged: () => void;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { hasPermission } = useUserContext();
   const canManage = hasPermission("agents.agreements.manage");
   const endFieldId = useId();
@@ -52,7 +52,6 @@ export function AgentAgreementsTab({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [formTarget, setFormTarget] = useState<AgentAgreement | "new" | null>(null);
   const [viewTarget, setViewTarget] = useState<AgentAgreement | null>(null);
-  const [ratesTarget, setRatesTarget] = useState<AgentAgreement | null>(null);
   const [activateTarget, setActivateTarget] = useState<AgentAgreement | null>(null);
   // Activation waits for the preview; a product without a rate blocks it (A3/A4).
   const [previewBlocked, setPreviewBlocked] = useState(true);
@@ -87,8 +86,12 @@ export function AgentAgreementsTab({
     if (!activateTarget) return;
     setIsBusy(true);
     try {
-      await agentsService.agreements.activate(agentId, activateTarget.id);
+      const { warnings } = await agentsService.agreements.activate(agentId, activateTarget.id);
       toast.success(t("agents.agreements.toasts.activated"));
+      // R15 D15-13 — e.g. no shipping agreement covers its start date yet.
+      for (const warning of warnings) {
+        toast.warning(uiLanguagePart(warning.message, locale) ?? warning.code);
+      }
       setActivateTarget(null);
       refresh();
     } catch (error) {
@@ -174,12 +177,6 @@ export function AgentAgreementsTab({
               onSelect: () => setFormTarget(row),
             },
             {
-              key: "rates",
-              label: t("agents.agreements.actions.rates"),
-              icon: MapPin,
-              onSelect: () => setRatesTarget(row),
-            },
-            {
               key: "activate",
               label: t("agents.agreements.actions.activate"),
               icon: CheckCircle2,
@@ -237,16 +234,6 @@ export function AgentAgreementsTab({
           agreement={formTarget === "new" ? null : formTarget}
           onOpenChange={(open) => !open && setFormTarget(null)}
           onSaved={refresh}
-        />
-      ) : null}
-
-      {ratesTarget ? (
-        <ShippingRatesDialog
-          agentId={agentId}
-          agreement={ratesTarget}
-          canManage={canManage}
-          onOpenChange={(open) => !open && setRatesTarget(null)}
-          onChanged={() => void load()}
         />
       ) : null}
 

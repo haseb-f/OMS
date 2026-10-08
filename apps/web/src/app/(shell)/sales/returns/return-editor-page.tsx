@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ban, CheckCircle2, PackagePlus, Printer, Save, Send, Undo2 } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import { CustomerRefundDialog } from "@/components/financial-transactions/customer-refund-dialog";
+import { StoreOrderReturnNotice } from "@/components/store-orders/money/store-order-return-notice";
 import { EditorWorkspace } from "@/components/shared/detail-workspace";
 import {
   SalesDocumentEditor,
@@ -60,6 +61,12 @@ function lineToPayload(line: ProductLineItemsGridLine) {
     taxId: line.taxId ?? undefined,
   };
 }
+
+/** R15 (D15-10) — a return raised from a store order carries the order and the customer's reason. */
+type StoreOrderReturnFields = {
+  storeOrder?: { id: string; internalOrderId: string } | null;
+  reason?: string | null;
+};
 
 /**
  * TASK-048 — a Sales Return is never created blank here; the only creation
@@ -355,6 +362,7 @@ export function ReturnEditorPage({ id }: { id: string }) {
   const canRefund = hasPermission("sales.refunds.create") && hasPermission("sales.refunds.confirm");
 
   useBreadcrumbLabel(salesReturn?.returnNumber ?? t("sales.returns.addNew"));
+  const orderReturn = salesReturn as (SalesReturnRow & StoreOrderReturnFields) | null;
 
   return (
     <EditorWorkspace>
@@ -363,6 +371,23 @@ export function ReturnEditorPage({ id }: { id: string }) {
         id={id}
         refreshKey={`${salesReturn?.status ?? ""}:${relatedRefreshKey}`}
       />
+
+      {orderReturn?.storeOrder ? (
+        <StoreOrderReturnNotice
+          salesReturnId={orderReturn.id}
+          status={orderReturn.status}
+          reason={orderReturn.reason ?? null}
+          storeOrder={orderReturn.storeOrder}
+          onReceived={() => {
+            salesReturnsService
+              .get(id)
+              .then(applyReturn)
+              .catch((error) => reportApiError(error, "errors.loadFailed"));
+            refreshActivity(id);
+            setRelatedRefreshKey((key) => key + 1);
+          }}
+        />
+      ) : null}
 
       <SalesDocumentEditor
         config={{
@@ -389,9 +414,12 @@ export function ReturnEditorPage({ id }: { id: string }) {
         <CustomerRefundDialog
           open={refundOpen}
           onOpenChange={setRefundOpen}
-          salesReturnId={salesReturn.id}
-          partnerId={salesReturn.partnerId}
-          currencyId={salesReturn.currencyId}
+          target={{
+            kind: "return",
+            salesReturnId: salesReturn.id,
+            partnerId: salesReturn.partnerId,
+            currencyId: salesReturn.currencyId,
+          }}
           currencyCode={salesReturn.currency?.code}
           onRefunded={() => {
             setRelatedRefreshKey((key) => key + 1);

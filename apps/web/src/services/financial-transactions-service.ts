@@ -28,6 +28,12 @@ export interface FinancialTransactionAllocationRow {
   /** CUSTOMER_REFUND — the posted Sales Return (credit note) this refund pays back. */
   salesReturnId?: string | null;
   salesReturn?: { id: string; returnNumber: string; grandTotal: string } | null;
+  /**
+   * R15 (D15-11) — on a CUSTOMER_REFUND: the store order whose advance it pays back; on a
+   * CUSTOMER_RECEIPT: the part of the receipt that advance refund consumed.
+   */
+  storeOrderId?: string | null;
+  storeOrder?: { id: string; internalOrderId: string } | null;
   allocatedAmount: string;
   allocationDate: string;
 }
@@ -73,10 +79,14 @@ export interface FinancialTransactionRow {
   allocations: FinancialTransactionAllocationRow[];
 }
 
-export interface AllocationInputPayload {
-  invoiceId: string;
-  allocatedAmount: number;
-}
+/**
+ * One allocation line: `invoiceId` names the document the transaction type
+ * settles; a Customer Refund line may name a store order instead (R15,
+ * D15-11 — its verified advance).
+ */
+export type AllocationInputPayload =
+  | { invoiceId: string; allocatedAmount: number }
+  | { storeOrderId: string; allocatedAmount: number };
 
 export interface FinancialTransactionFormPayload {
   /** Expense vouchers: optional supplier counterparty; `null` clears it on edit. */

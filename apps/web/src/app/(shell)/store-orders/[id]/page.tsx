@@ -13,6 +13,7 @@ import {
   Trash2,
   Truck,
   Wallet,
+  PackageCheck,
 } from "lucide-react";
 import { PaymentDeclarationDialog } from "@/components/payments/declaration/payment-declaration-dialog";
 import {
@@ -20,6 +21,10 @@ import {
   PaymentDiscrepancyAlert,
 } from "@/components/payments/declaration/order-payment-status-panel";
 import { StoreOrderPickupPanel } from "@/components/store-orders/store-order-pickup-panel";
+import { StoreOrderStockPanel } from "@/components/store-orders/stock/store-order-stock-panel";
+import { StockStatusChip } from "@/components/store-orders/stock/stock-status-chip";
+import { StoreOrderMoneyPanel } from "@/components/store-orders/money/store-order-money-panel";
+import { ShipmentQuantitiesDialog } from "@/components/shipping/shipment-quantities-dialog";
 import { SetPaymentFeeDialog } from "@/components/store-orders/set-payment-fee-dialog";
 import { StoreOrderEditAssignmentDialog } from "@/components/store-orders/store-order-edit-assignment-dialog";
 import { StoreOrderEditNotesDialog } from "@/components/store-orders/store-order-edit-notes-dialog";
@@ -86,7 +91,7 @@ import {
   type ShippingCompanyOption,
 } from "@/services/shipping-companies-service";
 import type { ShipmentListRow } from "@/services/shipping-service";
-import { isReadyForShipping, paymentRecordStatusBadge } from "@/config/store-orders/status";
+import { paymentRecordStatusBadge } from "@/config/store-orders/status";
 import {
   shipmentStatusLabelKey,
   shipmentStatusTone,
@@ -114,6 +119,7 @@ import { formatFileSize } from "@/lib/format-file-size";
 import { isImageAttachmentMime } from "@/lib/order-attachments";
 import type { MessageKey } from "@/i18n/translate";
 import { PartnerRepeatBadge } from "@/components/business/repeat-customer-badge";
+import { ltrIsolate } from "@/lib/bidi";
 
 const ACTIVITY_PREVIEW = 8;
 /** Remembered per user (per-user browser storage): which detail sections stay open (spec 1C). */
@@ -223,6 +229,8 @@ function StoreOrderDetailContent() {
   const [amendOpen, setAmendOpen] = useState(false);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [handOverOpen, setHandOverOpen] = useState(false);
+  // R15 (D15-5) — the accepted quantities of the parcel that is with the carrier.
+  const [deliverOpen, setDeliverOpen] = useState(false);
   const [customerTotal, setCustomerTotal] = useState<number | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [openSections, setOpenSections] = useLocalStorage<Partial<Record<SectionKey, boolean>>>(
@@ -474,22 +482,6 @@ function StoreOrderDetailContent() {
     }
   };
 
-  const markHandedOver = async () => {
-    const shipment = order?.shipments?.[0];
-    if (!order || !shipment) return;
-    setActionBusy(true);
-    try {
-      await storeOrdersService.shipments.ship(order.id, shipment.id);
-      reportSuccess(t("orderAmendments.nextAction.handedOver"));
-      setHandOverOpen(false);
-      await refreshOrder();
-    } catch (error) {
-      reportApiError(error, "common.failedToSave");
-    } finally {
-      setActionBusy(false);
-    }
-  };
-
   const openCustomerTotal = async () => {
     if (!order) return;
     try {
@@ -569,7 +561,6 @@ function StoreOrderDetailContent() {
       !paymentContext.fullySettled
     : order.declaredPaymentStatus !== "PAID";
   const isPickup = order.fulfillmentMethod === "PICKUP";
-  const fulfillmentAllowed = isReadyForShipping(order);
   const latestShipment = order.shipments?.[0] ?? null;
   const duplicatePending = order.duplicateReviewStatus === "PENDING";
 
@@ -736,7 +727,9 @@ function StoreOrderDetailContent() {
             {
               id: "date",
               header: t("storeOrders.detail.payments.date"),
-              cell: (payment) => formatDate(payment.paymentDate),
+              cell: (payment) => (
+                <SemanticValue kind="date">{formatDate(payment.paymentDate)}</SemanticValue>
+              ),
             },
             {
               id: "method",
@@ -826,7 +819,7 @@ function StoreOrderDetailContent() {
                   {[
                     formatFileSize(receipt.fileSizeBytes),
                     receipt.createdBy,
-                    formatDate(receipt.createdAt),
+                    ltrIsolate(formatDate(receipt.createdAt)),
                   ]
                     .filter(Boolean)
                     .join(" · ")}
@@ -897,10 +890,16 @@ function StoreOrderDetailContent() {
           orderId={order.id}
           fulfillmentStatusCode={order.fulfillmentStatus?.code}
           canTransition={canRecordPickup}
-          paymentAllowsCollection={fulfillmentAllowed}
           onChanged={() => void refreshOrder()}
         />
       ) : null}
+
+      {/* R15 (D15-1 … D15-8) — reservation, transit, delivery and goods received back. */}
+      <StoreOrderStockPanel
+        orderId={order.id}
+        refreshKey={relatedRefreshKey}
+        onChanged={() => void refreshOrder()}
+      />
 
       <CollapsibleDetailSection
         title={t("orderAmendments.detail.sections.payments")}
@@ -919,6 +918,15 @@ function StoreOrderDetailContent() {
           remainingAmount={remainingAmount}
           currency={order.currency}
         />
+        {/* R15 (D15-9 … D15-12) — collected / with carrier / settled, invoiced, credited, refunds.
+            Agent-order money lives in the agent ledger (AgentOrderPanel). */}
+        {!order.agentId ? (
+          <StoreOrderMoneyPanel
+            storeOrderId={order.id}
+            refreshKey={order.updatedAt}
+            onChanged={() => void refreshOrder()}
+          />
+        ) : null}
         {paymentsTable}
         {invoice ? (
           <DetailFieldRow
@@ -1004,7 +1012,9 @@ function StoreOrderDetailContent() {
                   {
                     id: "createdAt",
                     header: t("common.createdAt"),
-                    cell: (shipment) => formatDate(shipment.createdAt),
+                    cell: (shipment) => (
+                      <SemanticValue kind="date">{formatDate(shipment.createdAt)}</SemanticValue>
+                    ),
                   },
                 ]}
                 rows={[...order.shipments].sort((a, b) => a.attemptNumber - b.attemptNumber)}
@@ -1013,9 +1023,7 @@ function StoreOrderDetailContent() {
             </div>
           ) : shippingHandoff?.queued || shippingHandoff?.blocker ? null : (
             <p className="text-caption text-muted-foreground">
-              {fulfillmentAllowed
-                ? t("storeOrders.shippingStage.READY_FOR_SHIPPING")
-                : t("paymentDeclaration.gate.notReadyHint")}
+              {t("storeOrders.shippingStage.READY_FOR_SHIPPING")}
             </p>
           )}
         </CollapsibleDetailSection>
@@ -1176,6 +1184,7 @@ function StoreOrderDetailContent() {
               }`}
               tone={fulfillmentBadge.tone}
             />
+            <StockStatusChip status={order.stockStatus} />
             {order.agent ? <AgentBadge agent={order.agent} /> : null}
             {recognitionBadge ? (
               <StatusBadge
@@ -1191,7 +1200,7 @@ function StoreOrderDetailContent() {
         }
         meta={[
           order.agentTermsSnapshot?.customer?.name ?? order.partner?.name,
-          order.orderDate ? formatDate(order.orderDate) : null,
+          order.orderDate ? ltrIsolate(formatDate(order.orderDate)) : null,
           order.currency?.code,
         ]
           .filter(Boolean)
@@ -1231,6 +1240,19 @@ function StoreOrderDetailContent() {
                 icon: Truck,
                 hidden: !canManageShipping || !latestShipment || isPickup,
                 onSelect: openShippingEdit,
+              },
+              {
+                key: "record-delivery",
+                label: t("storeOrderStock.deliver.submit"),
+                icon: PackageCheck,
+                testId: "order-record-delivery",
+                hidden:
+                  !canManageShipping ||
+                  isPickup ||
+                  !latestShipment ||
+                  (latestShipment.status !== "SHIPPED" &&
+                    latestShipment.status !== "OUT_FOR_DELIVERY"),
+                onSelect: () => setDeliverOpen(true),
               },
               {
                 key: "generate-invoice",
@@ -1361,15 +1383,20 @@ function StoreOrderDetailContent() {
         onOpenChange={setDuplicateOpen}
         onResolved={() => void refreshOrder()}
       />
-      <ConfirmationDialog
+      {/* R15 (D15-4 / D15-5) — hand-over = dispatch to goods in transit with the parcel's quantities. */}
+      <ShipmentQuantitiesDialog
+        orderId={order.id}
+        mode="dispatch"
         open={handOverOpen}
         onOpenChange={setHandOverOpen}
-        title={t("orderAmendments.nextAction.handedOverTitle")}
-        description={t("orderAmendments.nextAction.handedOverDescription")}
-        confirmLabel={t("orderAmendments.nextAction.MARK_HANDED_OVER")}
-        cancelLabel={t("common.cancel")}
-        isConfirming={actionBusy}
-        onConfirm={() => void markHandedOver()}
+        onDone={() => void refreshOrder()}
+      />
+      <ShipmentQuantitiesDialog
+        orderId={order.id}
+        mode="deliver"
+        open={deliverOpen}
+        onOpenChange={setDeliverOpen}
+        onDone={() => void refreshOrder()}
       />
       <ConfirmationDialog
         open={customerTotal != null}

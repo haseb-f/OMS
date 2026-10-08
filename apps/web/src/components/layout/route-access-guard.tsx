@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { navigationConfig } from "@/navigation/navigation.config";
 import {
   AGENT_PORTAL_HOME,
+  PARTNER_PORTAL_HOME,
   resolveRouteAccess,
   routeAudienceMismatch,
 } from "@/navigation/route-access";
@@ -42,8 +43,9 @@ export function RouteAccessGuard({ children }: { children: ReactNode }) {
   );
 
   // Agents milestone (spec §3) — the shell is shared, the audiences are not.
-  // An external agent user lives in the `/agent` portal only; an internal user
-  // never renders a portal page. The API enforces the same rule server-side.
+  // An external agent user lives in the `/agent` portal only, a partner login
+  // (R15 D15-14) in `/partner` only; an internal user never renders a portal
+  // page. The API enforces the same rule server-side.
   const audienceMismatch =
     status === "authenticated" && user ? routeAudienceMismatch(user.userType, pathname) : null;
   // A temporary password is not a working credential (both audiences): the
@@ -53,9 +55,11 @@ export function RouteAccessGuard({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (passwordRedirect) router.replace(passwordRedirect);
     else if (audienceMismatch === "agent-outside-portal") router.replace(AGENT_PORTAL_HOME);
+    else if (audienceMismatch === "partner-outside-portal") router.replace(PARTNER_PORTAL_HOME);
   }, [passwordRedirect, audienceMismatch, router]);
   if (passwordRedirect) return null;
-  if (audienceMismatch === "agent-outside-portal") return null;
+  if (audienceMismatch === "agent-outside-portal" || audienceMismatch === "partner-outside-portal")
+    return null;
   if (audienceMismatch === "internal-in-portal") return <AccessDenied />;
 
   if (requirement.permissions.length === 0) return <>{children}</>;

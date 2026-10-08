@@ -1,11 +1,12 @@
 import { apiClient } from "./api-client";
+import type { AudienceUserType } from "@/types/navigation";
 
 export interface AuthUser {
   id: string;
   email: string;
   fullName: string;
   /** Returned by `POST /auth/login` — lets the login page land on the right audience's home (R6 A.4). */
-  userType?: "INTERNAL" | "AGENT";
+  userType?: AudienceUserType;
 }
 
 export interface CompanyBranch {
@@ -35,11 +36,13 @@ export interface CurrentUser extends AuthUser {
   isSuperAdmin: boolean;
   permissions: string[];
   companies: CompanyContext[];
-  /** Agents milestone — INTERNAL (company staff) or AGENT (an external agent's user). */
-  userType?: "INTERNAL" | "AGENT";
+  /** INTERNAL (company staff), AGENT (an external agent's user) or PARTNER (a company partner's own login, R15). */
+  userType?: AudienceUserType;
   agentRole?: "ADMIN" | "SALES" | null;
   /** The agent an AGENT user belongs to (null for internal users). */
   agent?: { id: string; agentNumber: string; name: string } | null;
+  /** R15 (D15-14) — the company partner a PARTNER login belongs to (null otherwise). */
+  companyPartner?: { partnerId: string; name: string; partnerNumber: string } | null;
 }
 
 export interface LoginResponse {

@@ -2,9 +2,11 @@ import type { StoreOrderCreateFormValues } from "@/config/store-orders/store-ord
 import type { MessageKey } from "@/i18n/translate";
 
 /**
- * R13 A4 — the company order dialog as four steps (StepFlow). Pure config: which
- * form fields each step owns (so "Next" validates only those), and which step a
- * client or server error belongs to (so a failed Create returns the user there).
+ * R13 A4 / R15 W1 — the one order-entry flow (company and agent orders) as four
+ * steps (StepFlow). Pure config: which form fields each step owns (so "Next"
+ * validates only those), and which step a client or server error belongs to (so
+ * a failed Create returns the user there). Each adapter supplies its own field
+ * map; the steps and the routing rule are shared.
  */
 export const ORDER_CREATE_STEPS = ["customer", "products", "deliveryPayment", "review"] as const;
 
@@ -17,12 +19,63 @@ export const ORDER_CREATE_STEP_LABEL_KEY: Record<OrderCreateStepId, MessageKey> 
   review: "storeOrders.createDialog.steps.review",
 };
 
+export function orderCreateStepIndex(step: OrderCreateStepId): number {
+  return ORDER_CREATE_STEPS.indexOf(step);
+}
+
+export interface OrderStepRouting {
+  /** The step holding a field / error key (`customerPhone`, `partner.phone`, `items[0].unitPrice`), or null when unknown. */
+  stepForField: (key: string) => OrderCreateStepId | null;
+  /** The earliest step holding any of these error keys — where a failed Create sends the user. */
+  firstStepWithError: (keys: Iterable<string>) => OrderCreateStepId | null;
+}
+
+/**
+ * Error routing of one adapter: its form fields per step plus the keys that are
+ * not form fields (the flow's own parts and the API's DTO names).
+ */
+export function orderStepRouting(
+  fields: Record<OrderCreateStepId, readonly string[]>,
+  otherKeys: Record<string, OrderCreateStepId>,
+): OrderStepRouting {
+  const fieldStep: Record<string, OrderCreateStepId> = Object.fromEntries(
+    ORDER_CREATE_STEPS.flatMap((step) => fields[step].map((field) => [field, step] as const)),
+  );
+  const stepForField = (key: string): OrderCreateStepId | null => {
+    const root = key.split(/[.[]/)[0] ?? "";
+    return fieldStep[root] ?? otherKeys[root] ?? null;
+  };
+  const firstStepWithError = (keys: Iterable<string>): OrderCreateStepId | null => {
+    let best: OrderCreateStepId | null = null;
+    for (const key of keys) {
+      const step = stepForField(key);
+      if (step && (best === null || orderCreateStepIndex(step) < orderCreateStepIndex(best))) {
+        best = step;
+      }
+    }
+    return best;
+  };
+  return { stepForField, firstStepWithError };
+}
+
+/** Keys every adapter shares: the flow's own parts (lines, duplicates, receipts) and the order DTO's nested names. */
+export const SHARED_ORDER_ERROR_KEYS: Record<string, OrderCreateStepId> = {
+  duplicates: "customer",
+  duplicateResolution: "customer",
+  lines: "products",
+  items: "products",
+  delivery: "deliveryPayment",
+  declaration: "deliveryPayment",
+  payment: "deliveryPayment",
+  receipts: "deliveryPayment",
+};
+
 type FormField = keyof StoreOrderCreateFormValues;
 
-/** The react-hook-form fields each step validates with `trigger([...])` before moving on. */
+/** Company adapter: the react-hook-form fields each step validates with `trigger([...])` before moving on. */
 export const ORDER_CREATE_STEP_FIELDS: Record<OrderCreateStepId, readonly FormField[]> = {
   customer: ["customerName", "countryId", "customerPhone", "customerEmail"],
-  // Line items are dialog state (ProductLineItemsGrid), validated by the dialog itself.
+  // Line items are flow state (ProductLineItemsGrid), validated by the adapter itself.
   products: [],
   deliveryPayment: [
     "fulfillmentMethod",
@@ -40,46 +93,11 @@ export const ORDER_CREATE_STEP_FIELDS: Record<OrderCreateStepId, readonly FormFi
   review: [],
 };
 
-/**
- * Error keys that are not form fields: the dialog's own non-RHF parts and the
- * API's DTO names (`partner.*`, `items[0].*`, `delivery.*`, `declaration.*`).
- */
-const OTHER_KEY_STEP: Record<string, OrderCreateStepId> = {
+const companyRouting = orderStepRouting(ORDER_CREATE_STEP_FIELDS, {
+  ...SHARED_ORDER_ERROR_KEYS,
   partner: "customer",
-  duplicates: "customer",
-  duplicateResolution: "customer",
-  lines: "products",
-  items: "products",
-  delivery: "deliveryPayment",
-  declaration: "deliveryPayment",
-  payment: "deliveryPayment",
-  receipts: "deliveryPayment",
-};
+});
 
-const FIELD_STEP: Record<string, OrderCreateStepId> = Object.fromEntries(
-  ORDER_CREATE_STEPS.flatMap((step) =>
-    ORDER_CREATE_STEP_FIELDS[step].map((field) => [field, step] as const),
-  ),
-);
-
-export function orderCreateStepIndex(step: OrderCreateStepId): number {
-  return ORDER_CREATE_STEPS.indexOf(step);
-}
-
-/** The step holding a field / error key (`customerPhone`, `partner.phone`, `items[0].unitPrice`), or null when unknown. */
-export function stepForField(key: string): OrderCreateStepId | null {
-  const root = key.split(/[.[]/)[0] ?? "";
-  return FIELD_STEP[root] ?? OTHER_KEY_STEP[root] ?? null;
-}
-
-/** The earliest step holding any of these error keys — where a failed Create sends the user. */
-export function firstStepWithError(keys: Iterable<string>): OrderCreateStepId | null {
-  let best: OrderCreateStepId | null = null;
-  for (const key of keys) {
-    const step = stepForField(key);
-    if (step && (best === null || orderCreateStepIndex(step) < orderCreateStepIndex(best))) {
-      best = step;
-    }
-  }
-  return best;
-}
+/** Company adapter routing (`partner.*` is the store-order DTO's customer). */
+export const stepForField = companyRouting.stepForField;
+export const firstStepWithError = companyRouting.firstStepWithError;

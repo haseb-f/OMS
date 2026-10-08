@@ -1,5 +1,5 @@
 import type { MessageKey } from "../i18n/translate";
-import type { NavigationGroupId, NavigationItem } from "../types/navigation";
+import type { AudienceUserType, NavigationGroupId, NavigationItem } from "../types/navigation";
 import type { IconName } from "./icon-registry";
 import {
   buildNavigationTree,
@@ -64,7 +64,7 @@ export interface ModuleOverview {
 export interface ModuleOverviewAccess {
   permissions: readonly string[];
   isSuperAdmin: boolean;
-  userType: "INTERNAL" | "AGENT" | undefined;
+  userType: AudienceUserType | undefined;
 }
 
 export function destinationDescriptionKey(id: string): MessageKey {
@@ -86,7 +86,7 @@ export function buildModuleOverview(
   const allowed = filterNavigationByAuth(navigation, [...permissions], {
     isSuperAdmin,
     accessReady: true,
-    userType: userType === "AGENT" ? "AGENT" : "INTERNAL",
+    userType,
   });
   const root = buildNavigationTree(allowed).find((item) => item.id === moduleId);
   if (!root || root.homeHidden || !isModuleEntry(root)) return null;

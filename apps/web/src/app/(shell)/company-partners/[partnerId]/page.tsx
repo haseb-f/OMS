@@ -1,19 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   BarChart3,
   CalendarX,
-  Calculator,
-  HandCoins,
   Handshake,
-  Info,
   Percent,
+  Play,
   Plus,
-  Scale,
+  Printer,
   Undo2,
   Wallet,
 } from "lucide-react";
@@ -25,17 +22,17 @@ import {
   EnterpriseDateRangePicker,
   type DateRangeValue,
 } from "@/components/shared/date-range-picker";
-import { InsightCard, InsightGroup, InsightScope } from "@/components/shared/insight-card";
 import { SummaryCard } from "@/components/agents/summary-card";
 import { ReportMoney } from "@/components/accounting/financial-report/report-money";
 import { JournalTraceCell } from "@/components/accounting/journal-trace-cell";
 import { RowActionsMenu } from "@/components/shared/data-table";
-import { EntityTabs } from "@/components/business/entity-tabs";
 import { StatusBadge } from "@/components/business/status-badge";
-import { EnterpriseBadge } from "@/components/ui/badge";
 import { AGREEMENT_TONE, incomeStatementHref, percentText } from "@/config/company-partners/format";
+import { PeriodStatementView } from "@/config/company-partners/period-statement-view";
+import { usePartnerStatementPrint } from "@/config/company-partners/use-statement-print";
 import {
   companyPartnersService,
+  type CompanyPartnerDetail,
   type PartnerAgreementRow,
   type PartnerPaymentRow,
   type PartnerSegment,
@@ -44,30 +41,39 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { formatDate, toISODate } from "@/lib/date";
-import { apiErrorMessage } from "@/lib/toast";
+import { apiErrorMessage, reportApiError, toast } from "@/lib/toast";
 import {
   AgreementDialog,
   type AgreementDialogMode,
   PaymentDialog,
   ReversePaymentDialog,
 } from "../_components/partner-dialogs";
-
-type ApprovedPeriod = PartnerStatement["approved"]["periods"][number];
+import { PartnerLoginCard } from "../_components/partner-login";
+import { ltrIsolate } from "@/lib/bidi";
 
 const yearToDate = (): DateRangeValue => {
   const today = new Date();
   return { from: new Date(today.getFullYear(), 0, 1), to: today };
 };
 
+/**
+ * One company partner (R14 W5 + R15 W4): terms, the partner's own login, the
+ * per-period statement shared with the partner portal (estimate / under
+ * review / approved, paid oldest-first, remaining, payment and adjustment
+ * history), the live range estimate with the company figures it used, the
+ * agreements and the payments with their journal trace.
+ */
 function PartnerStatementContent() {
   const { t } = useLocale();
   const { partnerId } = useParams<{ partnerId: string }>();
   const { hasPermission } = useUserContext();
   const canManage = hasPermission("company-partners.manage");
   const canPay = hasPermission("company-partners.pay");
+  const canManageLogin = hasPermission("company-partners.users.manage");
+  const printStatement = usePartnerStatementPrint();
   const [range, setRange] = useState<DateRangeValue>(yearToDate);
   const [statement, setStatement] = useState<PartnerStatement | null>(null);
-  const [agreements, setAgreements] = useState<PartnerAgreementRow[]>([]);
+  const [profile, setProfile] = useState<CompanyPartnerDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [agreementDialog, setAgreementDialog] = useState<AgreementDialogMode | null>(null);
@@ -86,12 +92,12 @@ function PartnerStatementContent() {
     setIsLoading(true);
     setError(null);
     try {
-      const [nextStatement, nextAgreements] = await Promise.all([
+      const [nextStatement, nextProfile] = await Promise.all([
         companyPartnersService.statement(partnerId, query),
-        companyPartnersService.agreements(partnerId),
+        companyPartnersService.get(partnerId),
       ]);
       setStatement(nextStatement);
-      setAgreements(nextAgreements);
+      setProfile(nextProfile);
     } catch (loadError) {
       setError(apiErrorMessage(loadError, "errors.loadFailed"));
     } finally {
@@ -104,9 +110,23 @@ function PartnerStatementContent() {
     void load();
   }, [load]);
 
+  const activate = useCallback(
+    async (agreement: PartnerAgreementRow) => {
+      try {
+        await companyPartnersService.activateAgreement(agreement.id);
+        toast.success(t("companyPartners.toasts.agreementActivated"));
+        void load();
+      } catch (activateError) {
+        reportApiError(activateError, "errors.saveFailed");
+      }
+    },
+    [t, load],
+  );
+
+  const agreements = profile?.agreements ?? [];
   const currency = statement?.currency?.code ?? null;
   const current = statement?.currentAgreements[0] ?? null;
-  const money = (value: number) => <ReportMoney value={value} currency={currency} align="inline" />;
+  const partnership = profile?.partnership ?? statement?.partnership ?? null;
 
   const segmentColumns = useMemo<ColumnDef<PartnerSegment, unknown>[]>(
     () => [
@@ -172,68 +192,6 @@ function PartnerStatementContent() {
     [t],
   );
 
-  const periodColumns = useMemo<ColumnDef<ApprovedPeriod, unknown>[]>(
-    () => [
-      {
-        id: "period",
-        accessorFn: (row) => row.periodFrom,
-        meta: {
-          titleKey: "companyPartners.fields.period",
-          type: "date",
-          importance: "critical",
-          displayValue: (row) => `${row.periodFrom} → ${row.periodTo}`,
-        },
-        cell: ({ row }) => (
-          <span className="num">
-            {formatDate(row.original.periodFrom)} – {formatDate(row.original.periodTo)}
-          </span>
-        ),
-      },
-      {
-        id: "original",
-        accessorFn: (row) => row.original,
-        meta: { titleKey: "companyPartners.fields.original", type: "money" },
-        cell: ({ row }) => <ReportMoney value={row.original.original} />,
-      },
-      {
-        id: "adjustments",
-        accessorFn: (row) => row.adjustments,
-        meta: { titleKey: "companyPartners.fields.adjustments", type: "money" },
-        cell: ({ row }) => <ReportMoney value={row.original.adjustments} />,
-      },
-      {
-        id: "total",
-        accessorFn: (row) => row.total,
-        meta: { titleKey: "companyPartners.fields.total", type: "money", importance: "critical" },
-        cell: ({ row }) => <ReportMoney value={row.original.total} />,
-      },
-      {
-        id: "journal",
-        meta: { titleKey: "companyPartners.fields.journalEntry", type: "reference" },
-        cell: ({ row }) => (
-          <JournalTraceCell
-            sourceType="PARTNER_PROFIT_DISTRIBUTION"
-            sourceId={row.original.periodId}
-            expected={row.original.original !== 0}
-          />
-        ),
-      },
-      {
-        id: "incomeStatement",
-        meta: { titleKey: "companyPartners.links.incomeStatement", type: "default" },
-        cell: ({ row }) => (
-          <Link
-            href={incomeStatementHref(row.original.periodFrom, row.original.periodTo)}
-            className="text-primary hover:underline focus-visible:underline"
-          >
-            {t("companyPartners.links.incomeStatement")}
-          </Link>
-        ),
-      },
-    ],
-    [t],
-  );
-
   const agreementColumns = useMemo<ColumnDef<PartnerAgreementRow, unknown>[]>(
     () => [
       {
@@ -284,7 +242,9 @@ function PartnerStatementContent() {
           row.original.effectiveTo ? (
             <span className="num">{formatDate(row.original.effectiveTo)}</span>
           ) : (
-            <span className="text-muted-foreground">—</span>
+            <span className="text-muted-foreground">
+              {t("companyPartners.partnership.openEnded")}
+            </span>
           ),
       },
       {
@@ -310,6 +270,13 @@ function PartnerStatementContent() {
             label={t("common.actions")}
             actions={[
               {
+                key: "activate",
+                label: t("companyPartners.actions.activate"),
+                icon: Play,
+                hidden: !canManage || row.original.status !== "DRAFT",
+                onSelect: () => void activate(row.original),
+              },
+              {
                 key: "change",
                 label: t("companyPartners.actions.changeShare"),
                 icon: Percent,
@@ -328,7 +295,7 @@ function PartnerStatementContent() {
         ),
       },
     ],
-    [t, canManage],
+    [t, canManage, activate],
   );
 
   const paymentColumns = useMemo<ColumnDef<PartnerPaymentRow, unknown>[]>(
@@ -380,7 +347,11 @@ function PartnerStatementContent() {
         meta: { titleKey: "companyPartners.fields.status", type: "status" },
         cell: ({ row }) =>
           row.original.reversedAt ? (
-            <StatusBadge label={t("companyPartners.actions.reverse")} tone="neutral" icon={Undo2} />
+            <StatusBadge
+              label={t("companyPartners.statement.reversed")}
+              tone="neutral"
+              icon={Undo2}
+            />
           ) : (
             <StatusBadge label={t("companyPartners.fields.paid")} tone="success" />
           ),
@@ -420,18 +391,33 @@ function PartnerStatementContent() {
   );
 
   const estimate = statement?.estimate;
-  const balance = statement?.balance;
   const paymentTarget = useMemo(
     () =>
       payOpen && statement
         ? {
             partnerId,
             name: statement.partner.name,
-            payable: statement.balance.payable,
+            payable: statement.position.payable,
           }
         : null,
     [payOpen, statement, partnerId],
   );
+
+  const print = () => {
+    if (!statement) return;
+    printStatement(
+      statement,
+      statement.partner,
+      statement.payments.map((payment) => ({
+        date: payment.date,
+        reference: [payment.paymentNumber, payment.reference].filter(Boolean).join(" · "),
+        description: payment.reversedAt
+          ? `${t("companyPartners.statement.method.OTHER")} — ${t("companyPartners.statement.reversed")}`
+          : t("companyPartners.statement.method.OTHER"),
+        amount: payment.amount,
+      })),
+    );
+  };
 
   return (
     <PageWorkspace
@@ -469,6 +455,13 @@ function PartnerStatementContent() {
                     }),
                 },
             {
+              key: "print",
+              label: t("companyPartners.statement.print"),
+              icon: Printer,
+              disabled: !statement,
+              onSelect: print,
+            },
+            {
               key: "incomeStatement",
               label: t("companyPartners.links.incomeStatement"),
               icon: BarChart3,
@@ -488,126 +481,97 @@ function PartnerStatementContent() {
         </p>
       ) : null}
 
-      <p className="flex items-start gap-2 rounded-md border border-info-soft bg-info-soft px-3 py-2 text-caption text-info-soft-foreground">
-        <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-        {t("companyPartners.estimateNote")}
-      </p>
-
-      {statement && estimate && balance ? (
-        <>
-          <InsightGroup fit>
-            <InsightCard
-              icon={Percent}
-              tone="info"
-              label={t("companyPartners.summary.currentShare")}
-              value={current ? percentText(current.profitSharePercent) : "—"}
-              context={
-                current
-                  ? t(`companyPartners.basis.${current.basis}`)
-                  : t("companyPartners.summary.noAgreement")
-              }
-              keepToneAtZero
-            />
-            <InsightCard
-              icon={Calculator}
-              tone="profit"
-              label={t("companyPartners.summary.estimated")}
-              value={money(estimate.amount)}
-              amount={estimate.amount}
-              meta={
-                <EnterpriseBadge variant="outline" className="font-medium">
-                  {t("companyPartners.estimateTag")}
-                </EnterpriseBadge>
-              }
-            />
-            <InsightCard
-              icon={Handshake}
-              tone="success"
-              label={t("companyPartners.summary.approved")}
-              value={money(statement.approved.total)}
-              amount={statement.approved.total}
-              meta={<InsightScope kind="period">{t("companyPartners.fields.period")}</InsightScope>}
-            />
-            <InsightCard
-              icon={HandCoins}
-              label={t("companyPartners.summary.paid")}
-              value={money(statement.paidInRange)}
-              amount={statement.paidInRange}
-              meta={<InsightScope kind="period">{t("companyPartners.fields.period")}</InsightScope>}
-            />
-            <InsightCard
-              icon={Scale}
-              tone="warning"
-              emphasis={balance.payable > 0}
-              label={t("companyPartners.summary.payable")}
-              value={money(balance.payable)}
-              amount={balance.payable}
-              meta={
-                <InsightScope kind="current">{t("companyPartners.sections.position")}</InsightScope>
-              }
-            />
-            <InsightCard
-              icon={Wallet}
-              tone="destructive"
-              label={t("companyPartners.summary.advance")}
-              value={money(balance.advance)}
-              amount={balance.advance}
-              meta={
-                <InsightScope kind="current">{t("companyPartners.sections.position")}</InsightScope>
-              }
-            />
-          </InsightGroup>
-
-          <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2">
-            <SummaryCard
-              tone="revenue"
-              icon={BarChart3}
-              title={`${t("companyPartners.sections.profitUsed")} — ${formatDate(statement.range.from)} – ${formatDate(statement.range.to)}`}
-              currency={currency ?? ""}
-              rows={[
-                { label: t("companyPartners.fields.revenue"), value: estimate.figures.netRevenue },
-                {
-                  label: t("companyPartners.fields.costOfSales"),
-                  value: estimate.figures.costOfSales,
-                },
-                {
-                  label: t("companyPartners.fields.grossProfit"),
-                  value: estimate.figures.grossProfit,
-                  emphasis: current?.basis === "GROSS_PROFIT",
-                },
-                {
-                  label: t("companyPartners.fields.otherExpenses"),
-                  value: estimate.figures.otherExpensesNet,
-                },
-                {
-                  label: t("companyPartners.fields.netProfit"),
-                  value: estimate.figures.netProfit,
-                  emphasis: current?.basis !== "GROSS_PROFIT",
-                },
-              ]}
-            />
-            <SummaryCard
-              tone="profit"
-              icon={Scale}
-              title={t("companyPartners.sections.position")}
-              currency={currency ?? ""}
-              rows={[
-                { label: t("companyPartners.fields.approved"), value: balance.approved },
-                { label: t("companyPartners.fields.paid"), value: balance.paid },
-                { label: t("companyPartners.fields.advance"), value: balance.advance },
-                {
-                  label: t("companyPartners.summary.payable"),
-                  value: balance.payable,
-                  emphasis: true,
-                },
-              ]}
-            />
-          </div>
-        </>
+      {profile && statement && estimate ? (
+        <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-3">
+          <SummaryCard
+            tone="info"
+            icon={Handshake}
+            title={t("companyPartners.summary.currentShare")}
+            currency=""
+            rows={[
+              {
+                label: t("companyPartners.fields.profitShare"),
+                value: current ? percentText(current.profitSharePercent) : "—",
+              },
+              {
+                label: t("companyPartners.fields.basis"),
+                value: current ? t(`companyPartners.basis.${current.basis}`) : "—",
+              },
+              {
+                label: t("companyPartners.fields.frequency"),
+                value: current ? t(`companyPartners.frequency.${current.frequency}`) : "—",
+              },
+              {
+                label: t("companyPartners.fields.effectiveFrom"),
+                value: partnership?.startedOn ? ltrIsolate(formatDate(partnership.startedOn)) : "—",
+              },
+              {
+                label: t("companyPartners.fields.effectiveTo"),
+                value: partnership?.endsOn
+                  ? ltrIsolate(formatDate(partnership.endsOn))
+                  : t("companyPartners.partnership.openEnded"),
+              },
+              {
+                label: t("companyPartners.fields.partnership"),
+                value: partnership ? t(`companyPartners.partnership.${partnership.status}`) : "—",
+                emphasis: partnership?.status === "ENDED",
+              },
+            ]}
+          />
+          <SummaryCard
+            tone="revenue"
+            icon={BarChart3}
+            title={`${t("companyPartners.sections.profitUsed")} — ${ltrIsolate(`${formatDate(statement.range.from)} – ${formatDate(statement.range.to)}`)}`}
+            currency={currency ?? ""}
+            rows={[
+              { label: t("companyPartners.fields.revenue"), value: estimate.figures.netRevenue },
+              {
+                label: t("companyPartners.fields.costOfSales"),
+                value: estimate.figures.costOfSales,
+              },
+              {
+                label: t("companyPartners.fields.grossProfit"),
+                value: estimate.figures.grossProfit,
+                emphasis: current?.basis === "GROSS_PROFIT",
+              },
+              {
+                label: t("companyPartners.fields.otherExpenses"),
+                value: estimate.figures.otherExpensesNet,
+              },
+              {
+                label: t("companyPartners.fields.netProfit"),
+                value: estimate.figures.netProfit,
+                emphasis: current?.basis !== "GROSS_PROFIT",
+              },
+            ]}
+          />
+          <PartnerLoginCard
+            partnerId={partnerId}
+            partnerName={profile.name}
+            partnerEmail={profile.email}
+            login={profile.login}
+            canManage={canManageLogin}
+            hasAgreement={Boolean(partnership && partnership.status !== "NO_AGREEMENT")}
+            onChanged={() => void load()}
+          />
+        </div>
       ) : null}
 
-      <EntityTabs
-        tabs={[
+      <PeriodStatementView
+        statement={statement}
+        isLoading={isLoading}
+        tableIdPrefix="company-partner"
+        payments={
+          <EnterpriseDataTable
+            tableId="company-partner-payments"
+            columns={paymentColumns}
+            data={statement?.payments ?? []}
+            isLoading={isLoading}
+            getRowId={(row) => row.id}
+            emptyTitle={t("companyPartners.statement.noPayments")}
+          />
+        }
+        extraTabs={[
           {
             value: "estimate",
             label: t("companyPartners.tabs.estimate"),
@@ -623,20 +587,6 @@ function PartnerStatementContent() {
             ),
           },
           {
-            value: "approved",
-            label: t("companyPartners.tabs.approved"),
-            content: (
-              <EnterpriseDataTable
-                tableId="company-partner-approved"
-                columns={periodColumns}
-                data={statement?.approved.periods ?? []}
-                isLoading={isLoading}
-                getRowId={(row) => row.periodId}
-                emptyTitle={t("companyPartners.periods.empty")}
-              />
-            ),
-          },
-          {
             value: "agreements",
             label: t("companyPartners.tabs.agreements"),
             content: (
@@ -647,20 +597,6 @@ function PartnerStatementContent() {
                 isLoading={isLoading}
                 getRowId={(row) => row.id}
                 emptyTitle={t("companyPartners.summary.noAgreement")}
-              />
-            ),
-          },
-          {
-            value: "payments",
-            label: t("companyPartners.tabs.payments"),
-            content: (
-              <EnterpriseDataTable
-                tableId="company-partner-payments"
-                columns={paymentColumns}
-                data={statement?.payments ?? []}
-                isLoading={isLoading}
-                getRowId={(row) => row.id}
-                emptyTitle={t("companyPartners.empty")}
               />
             ),
           },

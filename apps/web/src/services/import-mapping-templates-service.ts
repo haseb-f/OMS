@@ -16,13 +16,22 @@ export interface SaveMappingTemplatePayload {
   columnMapping: Record<string, string>;
 }
 
-/** "Save Mapping Template" (TASK-056 Part 4) — a reusable column mapping per Import Type. */
-export const importMappingTemplatesService = {
-  list: (importType: string) =>
-    apiClient.get<ImportMappingTemplateRow[]>(
-      `/import-center/jobs/mapping-templates/${importType}`,
-    ),
-  save: (dto: SaveMappingTemplatePayload) =>
-    apiClient.post<ImportMappingTemplateRow>("/import-center/jobs/mapping-templates", dto),
-  remove: (id: string) => apiClient.delete<void>(`/import-center/jobs/mapping-templates/${id}`),
-};
+/**
+ * "Save Mapping Template" (TASK-056 Part 4) — a reusable column mapping per
+ * Import Type. R15 — company templates are shared by the company's importers
+ * of the type; an agent's templates stay inside that agent.
+ */
+export function createImportMappingTemplatesService(jobsBase: string) {
+  return {
+    list: (importType: string) =>
+      apiClient.get<ImportMappingTemplateRow[]>(`${jobsBase}/mapping-templates/${importType}`),
+    save: (dto: SaveMappingTemplatePayload) =>
+      apiClient.post<ImportMappingTemplateRow>(`${jobsBase}/mapping-templates`, dto),
+    remove: (id: string) => apiClient.delete<void>(`${jobsBase}/mapping-templates/${id}`),
+  };
+}
+
+export type ImportMappingTemplatesApi = ReturnType<typeof createImportMappingTemplatesService>;
+
+export const importMappingTemplatesService =
+  createImportMappingTemplatesService("/import-center/jobs");

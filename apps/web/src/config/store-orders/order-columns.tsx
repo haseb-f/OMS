@@ -25,6 +25,7 @@ import {
   storeOrderShippingText,
 } from "@/components/store-orders/store-order-row-cells";
 import { AgentBadge } from "@/components/agents/agent-options";
+import { StockStatusChip } from "@/components/store-orders/stock/stock-status-chip";
 
 export interface StoreOrderRowHandlers {
   onView: (row: StoreOrderRow) => void;
@@ -226,6 +227,21 @@ export function buildStoreOrderColumns(
         return tracking ? `${row.shippingStage} ${tracking}` : row.shippingStage;
       },
       cell: ({ row }) => <StoreOrderShippingCell order={row.original} />,
+    },
+    {
+      // R15 (D15-1 … D15-8) — reserved / short / in transit / delivered / returning.
+      id: "stockStatus",
+      meta: {
+        titleKey: "storeOrderStock.statusLabel",
+        type: "status",
+        importance: "medium",
+        minWidth: 110,
+        maxWidth: 170,
+        displayValue: (row, t) =>
+          row.stockStatus ? t(`storeOrderStock.status.${row.stockStatus}`) : "",
+      },
+      accessorFn: (row) => row.stockStatus ?? "",
+      cell: ({ row }) => <StockStatusChip status={row.original.stockStatus} />,
     },
     ...(handlers.includeProfitability
       ? ([

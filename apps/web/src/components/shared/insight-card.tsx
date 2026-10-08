@@ -102,6 +102,7 @@ export function InsightCard({
   direction = "rtl",
   amount,
   keepToneAtZero = false,
+  phrase = false,
 }: {
   label: string;
   value: ReactNode;
@@ -126,12 +127,20 @@ export function InsightCard({
   amount?: number | null;
   /** Keep the tone even at zero (zero is the meaningful outcome). */
   keepToneAtZero?: boolean;
+  /**
+   * The value is a phrase with words ("3 من 12", "غير مرتب"), not a bare
+   * figure: it keeps the reading direction instead of the left-to-right
+   * number run, so Arabic words stay in order.
+   */
+  phrase?: boolean;
 }) {
   const resolvedTone = resolveInsightTone(tone, value, amount, keepToneAtZero);
   const Chevron = direction === "rtl" ? ChevronLeft : ChevronRight;
   const body = (
     <>
-      <div className="flex min-w-0 items-center gap-2">
+      {/* R15 — the scope chip wraps under the label when the tile is narrow,
+          so a label never breaks mid-word around it. */}
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         {Icon ? (
           <span
             data-slot="insight-icon"
@@ -145,7 +154,7 @@ export function InsightCard({
             concise; the period / scope lives in the group header). */}
         <span
           data-slot="insight-label"
-          className="min-w-0 flex-1 text-metric-label text-pretty break-words text-muted-foreground"
+          className="min-w-[7rem] flex-1 text-metric-label text-pretty break-words text-muted-foreground"
         >
           {label}
         </span>
@@ -153,7 +162,10 @@ export function InsightCard({
       </div>
       <div className="mt-1.5 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <span data-slot="insight-value" className="num text-metric-lg tracking-tight">
+          <span
+            data-slot="insight-value"
+            className={cn("text-metric-lg tracking-tight", phrase ? "tabular-nums" : "num")}
+          >
             {value}
           </span>
           {unit ? (

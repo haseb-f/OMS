@@ -6,6 +6,7 @@ const salesReportsAr = {
     "الطلبات الصالحة لا تشمل الملغاة. المبالغ حسب عملة الطلب ولا تُجمع العملات معًا. الأيام بتوقيت القاهرة.",
   tabs: {
     live: "تقارير Live",
+    own: "أدائي",
     employees: "الموظفون",
     teams: "الفرق",
     comparison: "المقارنة",
@@ -15,7 +16,6 @@ const salesReportsAr = {
     ALL: "جميع الموظفين",
     TEAM: "أنت وفريقك",
     OWN: "طلباتك فقط",
-    NONE: "لا توجد طلبات ضمن نطاقك",
     AGENT_ALL: "جميع طلبات الوكيل",
     AGENT_OWN: "طلباتك فقط",
   },
@@ -53,7 +53,8 @@ const salesReportsAr = {
     rankByAmount: "المبلغ · {currency}",
   },
   employees: {
-    unassigned: "غير مسندة",
+    unassigned: "طلبات بلا موظف",
+    unassignedHint: "غير مُسندة إلى موظف — لا تدخل في الترتيب.",
     rank: "#{rank}",
     empty: "لا توجد طلبات في هذه الفترة.",
     truncated: "يُعرض أعلى {count} موظفًا.",
@@ -65,7 +66,6 @@ const salesReportsAr = {
     members: "الأعضاء",
     noMembers: "لا أعضاء آخرين",
     empty: "لا توجد فرق مبيعات نشطة.",
-    notAvailable: "أرقام الفرق متاحة لمديري الفرق ولمن يملك رؤية الشركة كاملة.",
   },
   comparison: {
     chartTitle: "الترتيب — {metric}",

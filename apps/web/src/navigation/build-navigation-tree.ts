@@ -1,4 +1,4 @@
-import type { NavigationItem } from "../types/navigation";
+import type { AudienceUserType, NavigationAudience, NavigationItem } from "../types/navigation";
 
 /**
  * Assembles the flat `navigation.config.ts` list into a nested tree
@@ -69,13 +69,13 @@ export function filterNavigationByAuth(
   options: {
     isSuperAdmin?: boolean;
     accessReady?: boolean;
-    userType?: "INTERNAL" | "AGENT";
+    userType?: AudienceUserType;
   } = {},
 ): NavigationItem[] {
-  const audience = options.userType === "AGENT" ? "agent" : "internal";
+  const audience = audienceOf(options.userType);
   const forAudience = filterByAudience(items, audience);
   if (!options.accessReady) return forAudience;
-  // Agent users are never super admins; the bypass applies to internal items only.
+  // External users (agent, partner) are never super admins; the bypass applies to internal items only.
   return filterByAccess(
     forAudience,
     userPermissions,
@@ -83,10 +83,17 @@ export function filterNavigationByAuth(
   );
 }
 
-/** Agents milestone — keeps only the items for one audience (spec §3). */
+/** The navigation audience of a user type — an unknown / missing type is internal. */
+export function audienceOf(userType: AudienceUserType | undefined): NavigationAudience {
+  if (userType === "AGENT") return "agent";
+  if (userType === "PARTNER") return "partner";
+  return "internal";
+}
+
+/** Agents milestone / R15 — keeps only the items for one audience (spec §3). */
 export function filterByAudience(
   items: NavigationItem[],
-  audience: "internal" | "agent",
+  audience: NavigationAudience,
 ): NavigationItem[] {
   return items.filter((item) => (item.audience ?? "internal") === audience);
 }

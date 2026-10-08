@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { CompanySwitcher } from "./company-switcher";
-import { AgentPortalIdentity } from "@/components/agent-portal/agent-portal-identity";
+import { PortalIdentity } from "./portal-identity";
 import { cn } from "@/lib/utils";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -159,7 +159,11 @@ export function AppSidebar() {
 
       {/* Context only, never a dashboard widget — kept compact so it never competes with navigation below. */}
       <div className="px-2 pt-2 group-data-[collapsible=icon]:px-1">
-        {user?.userType === "AGENT" ? <AgentPortalIdentity /> : <CompanySwitcher />}
+        {user?.userType === "AGENT" || user?.userType === "PARTNER" ? (
+          <PortalIdentity />
+        ) : (
+          <CompanySwitcher />
+        )}
       </div>
 
       <SidebarContent className="px-2 pt-1 pb-2 group-data-[collapsible=icon]:px-1">

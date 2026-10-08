@@ -23,6 +23,14 @@ import storeOrderRecognitionEn from "./modules/store-order-recognition.en";
 import permissionTemplatesEn from "./modules/permission-templates.en";
 import customerHistoryEn from "./modules/customer-history.en";
 import companyPartnersEn from "./modules/company-partners.en";
+import orderEntryEn from "./modules/order-entry.en";
+import agentOverviewEn from "./modules/agent-overview.en";
+import salesImportEn from "./modules/sales-import.en";
+import agentShippingAgreementsEn from "./modules/agent-shipping-agreements.en";
+import partnerPortalEn from "./modules/partner-portal.en";
+import storeOrderStockEn from "./modules/store-order-stock.en";
+import storeOrderMoneyEn from "./modules/store-order-money.en";
+import salesVisibilityEn from "./modules/sales-visibility.en";
 const en = {
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
@@ -41,6 +49,14 @@ const en = {
   permissionTemplates: permissionTemplatesEn,
   customerHistory: customerHistoryEn,
   companyPartners: companyPartnersEn,
+  orderEntry: orderEntryEn,
+  agentOverview: agentOverviewEn,
+  salesImport: salesImportEn,
+  agentShippingAgreements: agentShippingAgreementsEn,
+  partnerPortal: partnerPortalEn,
+  storeOrderStock: storeOrderStockEn,
+  storeOrderMoney: storeOrderMoneyEn,
+  salesVisibility: salesVisibilityEn,
   paymentDeclaration: paymentDeclarationEn,
   paymentReconciliation: paymentReconciliationEn,
   paymentSettlement: paymentSettlementEn,
@@ -308,6 +324,7 @@ const en = {
       hr: "HR",
       investors: "Investors",
       settings: "Settings",
+      partnerPortal: "Partner portal",
     },
     actions: {
       view: "View",
@@ -341,6 +358,10 @@ const en = {
       profitabilityEditCosts: "Edit profitability costs",
       pay: "Pay",
       close: "Close",
+      receiveReturns: "Receive returned goods",
+      partnerLogins: "Manage partner logins",
+      partnerDashboard: "Partner overview",
+      partnerStatement: "Partner statement",
     },
     modules: {
       dashboard: "Dashboard",
@@ -427,6 +448,7 @@ const en = {
       exchangeRates: "Exchange Rates",
       fxRevaluations: "FX Revaluation",
       companyPartners: "Partners",
+      partnerPortal: "Partner portal",
       paymentReconciliation: "Payment Reconciliation & Settlement",
       workflowTransitions: "Workflow Transitions",
       analyticDistributions: "Analytic Distributions",
@@ -726,9 +748,9 @@ const en = {
     collect: "Collect {amount}",
     collectAtPickup: "Collect {amount} at pickup",
     noCollection: "No collection required",
-    hold: "Payment not confirmed — do not hand over",
+    hold: "Prepaid — collect nothing from the customer",
     holdDetail:
-      "Prepaid order without a full payment declaration or Finance verification. Confirm payment before release.",
+      "Payment not confirmed yet (no full declaration or Finance verification). The parcel ships; Finance follows the payment up.",
     basisDeclared: "Customer payment declared by Sales — awaiting Finance verification",
     basisVerified: "Payment verified by Finance",
     codDetail: "Order total {total} − declared paid {paid}",

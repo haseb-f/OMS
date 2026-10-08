@@ -40,9 +40,12 @@ describe("R6 A.1 — Finance", () => {
       "finance-fiscal-periods",
       "finance-accounting-settings",
       "finance-cost-allocation-rules",
+      // R15 (4.1) — «الشركاء» is its own top-level section now.
+      "finance-company-partners",
     ]) {
       expect(ids).not.toContain(moved);
     }
+    expect(finance.some((item) => item.route?.startsWith("/company-partners"))).toBe(false);
     expect(ids).toContain("finance-fx");
     expect(byId.get("finance-fx")?.group).toBe("finance-ledger");
   });
@@ -196,6 +199,13 @@ describe("R6 A.4 — landing and deep links", () => {
     expect(resolvePostLoginPath("/finance/expenses", "AGENT")).toBe("/agent");
     expect(resolvePostLoginPath("/agent/orders", "INTERNAL")).toBe("/");
     expect(resolvePostLoginPath("/profile/password", "AGENT")).toBe("/profile/password");
+    // R15 — a company partner's login stays in /partner; staff never land there.
+    expect(resolvePostLoginPath("/company-partners", "PARTNER")).toBe("/partner");
+    expect(resolvePostLoginPath("/agent/orders", "PARTNER")).toBe("/partner");
+    expect(resolvePostLoginPath("/partner/statement", "PARTNER")).toBe("/partner/statement");
+    expect(resolvePostLoginPath("/profile/password", "PARTNER")).toBe("/profile/password");
+    expect(resolvePostLoginPath("/partner/statement", "INTERNAL")).toBe("/");
+    expect(resolvePostLoginPath("/partner", "AGENT")).toBe("/agent");
   });
 
   it("a fresh login forgets the previously expanded sidebar group", () => {

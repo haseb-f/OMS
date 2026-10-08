@@ -185,7 +185,6 @@ const agentsEn = {
       edit: "Edit draft",
       activate: "Activate",
       end: "End agreement",
-      rates: "Shipping rates",
       view: "View terms",
     },
     confirm: {
@@ -202,31 +201,15 @@ const agentsEn = {
       saved: "Agreement saved",
       activated: "Agreement activated",
       ended: "Agreement ended",
-      rateSaved: "Shipping rate saved",
-      rateRemoved: "Shipping rate removed",
-    },
-    rates: {
-      title: "Customer shipping rates",
-      description:
-        "The customer shipping charge by destination. A city row overrides its country row.",
-      country: "Country",
-      city: "City",
-      cityHint: "Leave empty for the whole country",
-      amount: "Amount",
-      add: "Add rate",
-      empty:
-        "No shipping rates yet — shipping orders to a destination without a rate need a manual amount.",
-      wholeCountry: "Whole country",
-      readOnly: "Rates are read-only once the agreement is active.",
     },
     shippingPolicy: {
-      PREDETERMINED_CHARGE: "Predetermined shipping charge (from the shipping rates)",
+      PREDETERMINED_CHARGE: "Predetermined shipping charge (from the shipping agreement)",
       FLAT_FEE_PER_SHIPMENT: "Flat fee per shipment (earlier agreements)",
       NONE: "No agent shipping charge",
     },
     shippingPolicyHint: {
       PREDETERMINED_CHARGE:
-        "The agent shipping charge is the shipping rate of the order's destination, fixed when the order is submitted. The customer shipping collected belongs to the company and settles it — the agent is not charged it again. Actual carrier invoices never create an agent deduction.",
+        "The agent shipping charge is the charge of the agent's shipping agreement (Settings) for the order's service and destination, fixed when the order is submitted. The customer shipping collected belongs to the company and settles it — the agent is not charged it again. Actual carrier invoices never create an agent deduction.",
       FLAT_FEE_PER_SHIPMENT: "The flat fee below is charged for each dispatched shipment.",
       NONE: "No shipping deduction from the agent.",
     },
@@ -724,6 +707,10 @@ const agentsEn = {
       payouts_view: "View payouts",
       team_view: "View team",
       team_manage: "Manage team",
+      leads_import: "Import leads (Excel / Google Sheets)",
+      orders_import: "Import orders (Excel / Google Sheets)",
+      records_assign: "Assign records to colleagues",
+      reports_view_team: "Team sales reports and ranking",
     },
   },
   commission: {

@@ -1,4 +1,4 @@
-import type { NavigationItem } from "../types/navigation";
+import type { AudienceUserType, NavigationItem } from "../types/navigation";
 import { findNavigationAncestorByRoute, findNavigationItemByRoute } from "./build-navigation-tree";
 
 type SearchParamsInput = URLSearchParams | string | null | undefined;
@@ -7,26 +7,36 @@ type SearchParamsInput = URLSearchParams | string | null | undefined;
 export const AGENT_PORTAL_PREFIX = "/agent";
 export const AGENT_PORTAL_HOME = "/agent";
 
-/** Routes both audiences may open (own profile / password). */
+/** R15 (D15-14) — a company partner's own portal: route prefix and home. */
+export const PARTNER_PORTAL_PREFIX = "/partner";
+export const PARTNER_PORTAL_HOME = "/partner";
+
+/** Routes every audience may open (own profile / password). */
 const SHARED_ROUTES = ["/profile"];
 
-function isUnderRoute(pathname: string, route: string): boolean {
+export function isUnderRoute(pathname: string, route: string): boolean {
   return pathname === route || pathname.startsWith(`${route}/`);
 }
 
+export type RouteAudienceMismatch =
+  "agent-outside-portal" | "partner-outside-portal" | "internal-in-portal";
+
 /**
- * Which audience a route belongs to (spec §3): `/agent` and its children are
- * the agent portal; everything else is internal. Returns the mismatch for the
- * given user type, or null when the route is allowed.
+ * Which audience a route belongs to (spec §3, R15): `/agent` and its children
+ * are the agent portal, `/partner` and its children the partner portal,
+ * everything else is internal. Returns the mismatch for the given user type,
+ * or null when the route is allowed.
  */
 export function routeAudienceMismatch(
-  userType: "INTERNAL" | "AGENT" | undefined,
+  userType: AudienceUserType | undefined,
   pathname: string,
-): "agent-outside-portal" | "internal-in-portal" | null {
+): RouteAudienceMismatch | null {
   if (SHARED_ROUTES.some((route) => isUnderRoute(pathname, route))) return null;
-  const inPortal = isUnderRoute(pathname, AGENT_PORTAL_PREFIX);
-  if (userType === "AGENT") return inPortal ? null : "agent-outside-portal";
-  return inPortal ? "internal-in-portal" : null;
+  const inAgentPortal = isUnderRoute(pathname, AGENT_PORTAL_PREFIX);
+  const inPartnerPortal = isUnderRoute(pathname, PARTNER_PORTAL_PREFIX);
+  if (userType === "AGENT") return inAgentPortal ? null : "agent-outside-portal";
+  if (userType === "PARTNER") return inPartnerPortal ? null : "partner-outside-portal";
+  return inAgentPortal || inPartnerPortal ? "internal-in-portal" : null;
 }
 
 /**

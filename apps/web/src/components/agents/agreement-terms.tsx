@@ -6,6 +6,7 @@ import { useLocale } from "@/providers/locale-provider";
 import { formatAmount } from "@/lib/money";
 import { formatDate } from "@/lib/date";
 import type { AgentAgreement } from "@/services/agents-service";
+import { ltrIsolate } from "@/lib/bidi";
 
 /** Read-only presentation of every agreement term (ACTIVE / ENDED agreements and the Overview). */
 export function AgreementTerms({ agreement }: { agreement: AgentAgreement }) {
@@ -15,9 +16,9 @@ export function AgreementTerms({ agreement }: { agreement: AgentAgreement }) {
     <DetailFieldGrid columns={3}>
       <DetailField
         label={t("agents.agreements.period")}
-        value={`${formatDate(agreement.effectiveFrom)} – ${
+        value={`${ltrIsolate(formatDate(agreement.effectiveFrom))} – ${
           agreement.effectiveTo
-            ? formatDate(agreement.effectiveTo)
+            ? ltrIsolate(formatDate(agreement.effectiveTo))
             : t("agents.agreements.openEnded")
         }`}
       />

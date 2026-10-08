@@ -4,7 +4,8 @@ export type SalesPeriod = "today" | "week" | "month";
 
 export interface SalesPerformanceDashboard {
   period: SalesPeriod;
-  scope: "ALL" | "TEAM" | "OWN" | "NONE";
+  /** The report scope (R15 D15-18): ALL only with `reports.sales.view_all`. */
+  scope: "ALL" | "TEAM" | "OWN";
   kpis: {
     newLeads: number;
     inProgress: number;
@@ -17,8 +18,10 @@ export interface SalesPerformanceDashboard {
     conversionRate: number;
   };
   ranking: {
-    self: { rank: number; orders: number; of: number };
-    leaderboard: { rank: number; userId: string | null; displayName: string; orders: number }[];
+    /** Own company position (null = no order in the period) and valid orders. */
+    self: { rank: number | null; orders: number; of: number };
+    /** The caller's scope ranked within itself; always empty for OWN. */
+    leaderboard: { rank: number; userId: string; displayName: string; orders: number }[];
   };
 }
 

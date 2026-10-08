@@ -93,6 +93,8 @@ const destinations = {
   "reports-executive": "نتائج الشركة الإجمالية للإدارة.",
   "reports-sales": "مبيعات Live وترتيب الموظفين والفرق وطرق الدفع.",
   "agent-portal-reports": "مبيعاتك Live والترتيب وطرق الدفع.",
+  "agent-portal-imports":
+    "استيراد العملاء المحتملين والطلبات من Excel أو من Google Sheet الخاص بك.",
   "reports-crm": "تقارير العملاء المحتملين والتحويل.",
   "reports-purchasing": "حجم المشتريات والإنفاق على الموردين.",
   "reports-inventory": "مستويات المخزون وحركته وتقييمه.",
@@ -116,7 +118,8 @@ const destinations = {
   "settings-integrations": "الربط مع الخدمات الخارجية.",
   "settings-security": "سياسات الدخول والأمان.",
   "settings-backup": "النسخ الاحتياطي والاستعادة.",
-  "finance-company-partners": "نسب أرباح الشركاء وفترات الأرباح والمدفوعات.",
+  "company-partners-list": "نسبة أرباح كل شريك وكشفه لكل فترة والمدفوعات وحساب دخوله.",
+  "company-partners-periods": "معاينة فترات أرباح الشركاء ومراجعتها وإقفالها.",
 } as const;
 
 export default destinations;

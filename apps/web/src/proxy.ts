@@ -1,4 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  AGENT_PORTAL_HOME,
+  PARTNER_PORTAL_HOME,
+  isUnderRoute,
+  routeAudienceMismatch,
+} from "./navigation/route-access";
 
 const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password"];
 
@@ -34,21 +40,46 @@ function investorPortalProxy(request: NextRequest, pathname: string) {
 }
 
 /**
- * Where an already signed-in visitor of a public auth page goes: the agent
- * portal for an agent token (`typ: "agent"`), the company dashboard
- * otherwise. Routing only — the claim is NOT trusted for authorization (the
- * API verifies the signature on every call and the shell's route guard
- * enforces the audience); a malformed token just falls back to "/".
+ * The audience claim of an access token (`typ`: "agent" / "partner"), read
+ * WITHOUT verifying the signature. Routing only — the claim is NOT trusted for
+ * authorization (the API verifies the signature on every call and the
+ * shell's route guard enforces the audience); a malformed token reads as
+ * internal.
  */
-function homeForToken(token: string | undefined): string {
+function tokenAudience(token: string | undefined): "agent" | "partner" | "internal" {
   try {
     const payload = token?.split(".")[1];
-    if (!payload) return "/";
+    if (!payload) return "internal";
     const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
-    return (JSON.parse(json) as { typ?: string }).typ === "agent" ? "/agent" : "/";
+    const typ = (JSON.parse(json) as { typ?: string }).typ;
+    return typ === "agent" || typ === "partner" ? typ : "internal";
   } catch {
-    return "/";
+    return "internal";
   }
+}
+
+/** Where an already signed-in visitor of a public auth page goes: the audience's own home. */
+function homeForToken(token: string | undefined): string {
+  const audience = tokenAudience(token);
+  if (audience === "agent") return AGENT_PORTAL_HOME;
+  if (audience === "partner") return PARTNER_PORTAL_HOME;
+  return "/";
+}
+
+/**
+ * R15 (D15-14) — a company partner's login lives in its own zone: any other
+ * page (the company Home, a module, a deep link) is answered with a redirect
+ * to the partner portal before the shell renders, except the shared own
+ * profile / password pages and the isolated print preview of its statement.
+ * The API refuses a partner token everywhere else regardless.
+ */
+const PARTNER_PASSTHROUGH = ["/print"];
+
+function partnerOutsideZone(pathname: string): boolean {
+  return (
+    routeAudienceMismatch("PARTNER", pathname) === "partner-outside-portal" &&
+    !PARTNER_PASSTHROUGH.some((prefix) => isUnderRoute(pathname, prefix))
+  );
 }
 
 /**
@@ -83,6 +114,10 @@ export function proxy(request: NextRequest) {
 
   if (hasToken && isPublicPath) {
     return NextResponse.redirect(new URL(homeForToken(token), request.url));
+  }
+
+  if (hasToken && tokenAudience(token) === "partner" && partnerOutsideZone(pathname)) {
+    return NextResponse.redirect(new URL(PARTNER_PORTAL_HOME, request.url));
   }
 
   return NextResponse.next();

@@ -1,4 +1,5 @@
 import type { DuplicateResolution, DuplicateReviewStatus } from "./order-duplicates-service";
+import type { StockIssue, StoreOrderStockStatus } from "@/components/store-orders/stock/stock-api";
 import { apiClient } from "./api-client";
 import { orderAmendmentsClient } from "./order-amendments-service";
 import { buildQueryString } from "@/lib/query-string";
@@ -321,6 +322,9 @@ export interface StoreOrderRow {
   recognitionStatus?: StoreOrderRecognitionStatus;
   recognitionError?: StoreOrderRecognitionError | null;
   recognitionAttemptedAt?: string | null;
+  /** R15 (D15-1 … D15-8) — physical stock state (reservation / transit / delivery) and the last shortage. */
+  stockStatus?: StoreOrderStockStatus;
+  stockIssue?: StockIssue | null;
   /** Spec 2 — agent shipping tariff state and customer-total agreement. */
   shippingPricingStatus?: "NOT_APPLICABLE" | "PENDING_METHOD" | "CONFIRMED";
   customerTotalStatus?: "NONE" | "CONFIRMATION_REQUIRED" | "CONFIRMED";
@@ -342,6 +346,8 @@ export interface StoreOrderListParams {
   declaredPaymentStatus?:
     StoreOrderDeclaredPaymentStatusValue | StoreOrderDeclaredPaymentStatusValue[];
   shippingStage?: StoreOrderShippingStageValue | StoreOrderShippingStageValue[];
+  /** R15 — physical stock state (e.g. SHORT = awaiting stock). */
+  stockStatus?: StoreOrderStockStatus[];
   source?: StoreOrderSourceValue | StoreOrderSourceValue[];
   dateFrom?: string;
   dateTo?: string;

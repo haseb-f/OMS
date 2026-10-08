@@ -32,6 +32,7 @@ import {
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { StatusBadge } from "@/components/business/status-badge";
+import { WarehouseRoleBadge } from "@/components/store-orders/stock/warehouse-role-badge";
 import { productsService } from "@/services/products-service";
 import { createMasterDataService } from "@/services/master-data-service";
 import { OpeningInventoryDialog } from "./opening-inventory-dialog";
@@ -198,7 +199,16 @@ function InventoryMovementsPageContent() {
         meta: { titleKey: "masterData.fields.warehouse", defaultHidden: true },
         accessorFn: (row) =>
           row.warehouse ? `${row.warehouse.code} — ${row.warehouse.name}` : row.warehouseId,
-        cell: (info) => info.getValue() as string,
+        // R15 (D15-4) — goods in transit / damaged goods: owned, never sellable.
+        cell: (info) => {
+          const role = (info.row.original.warehouse as { role?: string } | null | undefined)?.role;
+          return (
+            <span className="flex flex-wrap items-center gap-1.5">
+              {info.getValue() as string}
+              <WarehouseRoleBadge role={role} />
+            </span>
+          );
+        },
       },
       {
         id: "reference",

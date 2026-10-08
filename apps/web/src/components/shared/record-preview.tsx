@@ -310,7 +310,7 @@ export function TraceGroups({
                     group.state === "FAILED"
                       ? "font-medium text-destructive"
                       : group.state === "UNAUTHORIZED"
-                        ? "text-warning-foreground"
+                        ? "text-warning-soft-foreground"
                         : "text-muted-foreground",
                   )}
                 >

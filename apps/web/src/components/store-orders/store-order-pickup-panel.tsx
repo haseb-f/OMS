@@ -38,8 +38,6 @@ const NEXT: Record<PickupStatusCode, PickupTransitionCode[]> = {
 };
 
 const NEEDS_CONFIRMATION = new Set<PickupTransitionCode>(["COLLECTED", "CANCELLED"]);
-/** Prepaid pickup steps that need the same payment basis as shipping (API re-checks). */
-const PAYMENT_GATED = new Set<PickupTransitionCode>(["READY_FOR_PICKUP", "COLLECTED"]);
 
 function asPickupCode(code: string | null | undefined): PickupStatusCode {
   return (PICKUP_STATUS_CODES as readonly string[]).includes(code ?? "")
@@ -49,21 +47,18 @@ function asPickupCode(code: string | null | undefined): PickupStatusCode {
 
 /**
  * Pickup workflow on the order page — no labels, no carrier queue, nothing
- * automatic. For a prepaid order, marking it ready and recording collection
- * both need the prepaid gate (declared paid in full or verified) — the same
- * basis as shipping — and are re-checked by the API. COD is never gated.
+ * automatic. Payment never gates a physical step (R15 D15-3): a prepaid order
+ * is prepared and handed over like a COD one; its money is tracked separately.
  */
 export function StoreOrderPickupPanel({
   orderId,
   fulfillmentStatusCode,
   canTransition,
-  paymentAllowsCollection,
   onChanged,
 }: {
   orderId: string;
   fulfillmentStatusCode?: string | null;
   canTransition: boolean;
-  paymentAllowsCollection: boolean;
   onChanged: () => void;
 }) {
   const { t } = useLocale();
@@ -105,19 +100,13 @@ export function StoreOrderPickupPanel({
               type="button"
               size="xs"
               variant={code === "CANCELLED" ? "outline" : "default"}
-              disabled={pending != null || (PAYMENT_GATED.has(code) && !paymentAllowsCollection)}
+              disabled={pending != null}
               onClick={() => (NEEDS_CONFIRMATION.has(code) ? setConfirming(code) : void run(code))}
             >
               {t(`paymentDeclaration.pickup.actions.${code}` as MessageKey)}
             </EnterpriseButton>
           ))}
         </div>
-      ) : null}
-      {(current === "AWAITING_PREPARATION" || current === "READY_FOR_PICKUP") &&
-      !paymentAllowsCollection ? (
-        <p className="py-1.5 text-caption text-muted-foreground">
-          {t("paymentDeclaration.gate.pickupHint")}
-        </p>
       ) : null}
       <ConfirmationDialog
         open={confirming != null}

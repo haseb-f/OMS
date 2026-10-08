@@ -1,7 +1,7 @@
 import { apiClient } from "./api-client";
 import { compactPayload } from "@/lib/compact-payload";
 
-/** R14 W5 — company partners and profit sharing ("الشركاء"). */
+/** R14 W5 — company partners and profit sharing ("الشركاء"); R15 W4 — partner login + per-period statement. */
 
 export type PartnerProfitBasis = "GROSS_PROFIT" | "NET_PROFIT";
 export type PartnerAgreementFrequency = "MONTHLY" | "QUARTERLY" | "ANNUAL";
@@ -30,6 +30,35 @@ export interface PartnerAgreementRow {
   createdAt: string;
 }
 
+/** R15 — the partnership spans its agreements in force; ENDED after the last end date (D15-14). */
+export type PartnershipStatus = "NO_AGREEMENT" | "NOT_STARTED" | "ACTIVE" | "ENDED";
+
+export interface PartnershipState {
+  status: PartnershipStatus;
+  startedOn: string | null;
+  /** Null while an agreement is open-ended. */
+  endsOn: string | null;
+}
+
+/** R15 — the partner's own login as staff see it (never a password). */
+export interface PartnerLogin {
+  userId: string;
+  email: string;
+  fullName: string;
+  isActive: boolean;
+  isLocked: boolean;
+  mustChangePassword: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+}
+
+export interface PartnerLoginCandidate {
+  id: string;
+  email: string;
+  fullName: string;
+  isActive: boolean;
+}
+
 export interface CompanyPartnerRow extends PartnerBalance {
   id: string;
   partnerId: string;
@@ -42,6 +71,8 @@ export interface CompanyPartnerRow extends PartnerBalance {
   status: "ACTIVE" | "INACTIVE";
   createdAt: string;
   currentAgreement: PartnerAgreementRow | null;
+  partnership: PartnershipState;
+  login: PartnerLogin | null;
 }
 
 export interface CompanyPartnerDetail extends CompanyPartnerRow {
@@ -155,7 +186,79 @@ export interface PartnerPaymentRow {
   createdAt: string;
 }
 
-export interface PartnerStatement {
+/** R15 (spec-w4 §5) — OPEN = live estimate · UNDER_REVIEW = reviewed, not approved · CLOSED = approved. */
+export type StatementPeriodStatus = "OPEN" | "UNDER_REVIEW" | "CLOSED";
+
+/** The company figures a partner may see: only the lines its basis uses. */
+export interface ProfitBaseLines {
+  netRevenue: number;
+  costOfSales: number;
+  /** Net basis only. */
+  otherExpensesNet: number | null;
+  profit: number;
+}
+
+export interface StatementSegment {
+  from: string;
+  to: string;
+  days: number;
+  percent: number;
+  basis: PartnerProfitBasis;
+  profitBase: ProfitBaseLines;
+  baseAmount: number;
+  lossClamped: boolean;
+  amount: number;
+}
+
+/** One closing period of a partner's statement — shared by staff and the partner portal. */
+export interface StatementPeriodRow {
+  periodId: string | null;
+  periodFrom: string;
+  periodTo: string;
+  frequency: PartnerAgreementFrequency;
+  status: StatementPeriodStatus;
+  segments: StatementSegment[];
+  /** Live estimate (OPEN), reviewed figure (UNDER_REVIEW) or approved original (CLOSED). */
+  entitlement: number;
+  /** CLOSED only. */
+  adjustments: number | null;
+  approvedDue: number | null;
+  paid: number | null;
+  remaining: number | null;
+}
+
+export interface StatementTotals {
+  /** Provisional: OPEN + UNDER_REVIEW periods. */
+  estimated: number;
+  /** Approved: CLOSED periods. */
+  approvedDue: number;
+  paid: number;
+  remaining: number;
+}
+
+export interface StatementAdjustmentRow {
+  periodId: string;
+  periodFrom: string;
+  periodTo: string;
+  date: string;
+  reason: string;
+  amount: number;
+}
+
+/** The per-period statement both audiences read (the portal returns exactly these fields, partner-safe). */
+export interface PeriodStatement {
+  range: { from: string; to: string };
+  currency: { id: string; code: string } | null;
+  partnership: PartnershipState;
+  periods: StatementPeriodRow[];
+  totals: StatementTotals;
+  adjustments: StatementAdjustmentRow[];
+  /** All-time: approved, paid, still payable, paid in advance. */
+  position: PartnerBalance;
+}
+
+/** Internal partner page: the per-period statement plus what only staff see. */
+export interface PartnerStatement extends PeriodStatement {
   partner: {
     partnerId: string;
     name: string;
@@ -163,9 +266,9 @@ export interface PartnerStatement {
     ownershipPercent: number | null;
     status: "ACTIVE" | "INACTIVE";
   };
-  range: { from: string; to: string };
-  currency: { id: string; code: string } | null;
+  login: PartnerLogin | null;
   agreements: PartnerAgreementRow[];
+  currentAgreements: PartnerAgreementRow[];
   estimate: {
     figures: ProfitFigures;
     segments: PartnerSegment[];
@@ -173,23 +276,14 @@ export interface PartnerStatement {
     computedAt: string;
     warnings: string[];
   };
-  approved: {
-    periods: Array<{
-      periodId: string;
-      periodFrom: string;
-      periodTo: string;
-      original: number;
-      adjustments: number;
-      total: number;
-      journalEntryId: string | null;
-      adjustmentIds: string[];
-    }>;
-    total: number;
-  };
   payments: PartnerPaymentRow[];
   paidInRange: number;
-  balance: PartnerBalance;
-  currentAgreements: PartnerAgreementRow[];
+}
+
+/** Returned once when a login is created or its password reset. */
+export interface PartnerLoginCredentials {
+  login: PartnerLogin;
+  temporaryPassword?: string;
 }
 
 const query = (params: Record<string, string | undefined>) => {
@@ -226,6 +320,27 @@ export const companyPartnersService = {
       `/company-partners/profiles/${partnerId}/statement${query(range)}`,
     ),
 
+  /** R15 (D15-14) — the partner's own login, `company-partners.users.manage`. */
+  createLogin: (partnerId: string, dto: { email: string; fullName: string }) =>
+    apiClient.post<PartnerLoginCredentials>(`/company-partners/profiles/${partnerId}/login`, dto),
+  loginCandidates: (search?: string) =>
+    apiClient.get<PartnerLoginCandidate[]>(
+      `/company-partners/logins/candidates${query({ search })}`,
+    ),
+  linkLogin: (partnerId: string, userId: string) =>
+    apiClient.post<PartnerLogin>(`/company-partners/profiles/${partnerId}/login/link`, { userId }),
+  unlinkLogin: (partnerId: string) =>
+    apiClient.post<{ unlinked: true }>(`/company-partners/profiles/${partnerId}/login/unlink`),
+  setLoginActive: (partnerId: string, active: boolean) =>
+    apiClient.post<PartnerLogin>(
+      `/company-partners/profiles/${partnerId}/login/${active ? "enable" : "disable"}`,
+    ),
+  resetLoginPassword: (partnerId: string) =>
+    apiClient.post<PartnerLoginCredentials>(
+      `/company-partners/profiles/${partnerId}/login/reset-password`,
+      {},
+    ),
+
   agreements: (partnerId?: string) =>
     apiClient.get<PartnerAgreementRow[]>(`/company-partners/agreements${query({ partnerId })}`),
   createAgreement: (dto: {
@@ -236,7 +351,11 @@ export const companyPartnersService = {
     effectiveTo?: string;
     frequency: PartnerAgreementFrequency;
     notes?: string;
+    /** false keeps a DRAFT (activated later); omitted = active at once. */
+    activate?: boolean;
   }) => apiClient.post<PartnerAgreementRow>("/company-partners/agreements", compactPayload(dto)),
+  activateAgreement: (id: string) =>
+    apiClient.post<PartnerAgreementRow>(`/company-partners/agreements/${id}/activate`),
   endAgreement: (id: string, effectiveTo: string) =>
     apiClient.post<PartnerAgreementRow>(`/company-partners/agreements/${id}/end`, {
       effectiveTo,

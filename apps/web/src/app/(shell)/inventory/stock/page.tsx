@@ -28,7 +28,7 @@ import {
 import {
   inventoryService,
   type InventoryValuationMethod,
-  type StockCard as StockCardRow,
+  type StockCard,
 } from "@/services/inventory-service";
 import { useLocale } from "@/providers/locale-provider";
 import { reportApiError, toast } from "@/lib/toast";
@@ -53,6 +53,13 @@ import {
 // offering it here would let a user select a method that silently does
 // nothing. Only list methods that are actually computed.
 const VALUATION_METHODS: InventoryValuationMethod[] = ["AVERAGE_COST"];
+
+/**
+ * R15 (D15-4) — the API splits what is owned but not sellable: goods with
+ * the carrier (goods-in-transit warehouse) and damaged goods. `available`
+ * already excludes both.
+ */
+type StockCardRow = StockCard & { inTransit?: number; damaged?: number };
 
 function formatCost(value: number | null) {
   return value === null ? "—" : formatAmount(value);
@@ -164,6 +171,22 @@ function InventoryStockPageContent() {
         header: t("inventory.fields.reserved"),
         meta: { titleKey: "inventory.fields.reserved", defaultHidden: true, type: "quantity" },
         accessorFn: (row) => row.reserved,
+      },
+      {
+        id: "inTransit",
+        header: t("storeOrderStock.inventory.inTransit"),
+        meta: { titleKey: "storeOrderStock.inventory.inTransit", type: "quantity" },
+        accessorFn: (row) => row.inTransit ?? 0,
+      },
+      {
+        id: "damaged",
+        header: t("storeOrderStock.inventory.damaged"),
+        meta: {
+          titleKey: "storeOrderStock.inventory.damaged",
+          defaultHidden: true,
+          type: "quantity",
+        },
+        accessorFn: (row) => row.damaged ?? 0,
       },
       {
         id: "stockValue",

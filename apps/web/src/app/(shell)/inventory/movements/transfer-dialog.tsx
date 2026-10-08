@@ -6,7 +6,7 @@ import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { EnterpriseButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { WarehousePicker } from "@/components/business/warehouse-picker";
+import { WarehousePicker, WRITE_OFF_ROLES } from "@/components/business/warehouse-picker";
 import { ProductPicker } from "@/components/business/product-picker";
 import { IconActionButton } from "@/components/shared/icon-action-button";
 import {
@@ -145,6 +145,7 @@ export function TransferDialog({
               id={`${fieldId}-source`}
               value={sourceWarehouse}
               onChange={setSourceWarehouse}
+              roles={WRITE_OFF_ROLES}
             />
           </div>
           <div className="flex flex-col gap-2">

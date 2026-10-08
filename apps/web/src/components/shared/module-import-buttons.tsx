@@ -2,7 +2,7 @@
 
 import { TriggerChevron } from "@/components/ui/trigger-chevron";
 import { Fragment, useEffect, useState } from "react";
-import { Download, FileUp, Sheet, Upload } from "lucide-react";
+import { Download, FileUp, History, Sheet, Upload } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,8 +13,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ImportJobWizard } from "@/app/(shell)/data-management/import-center/import-job-wizard";
-import { importTypesService, type ImportTypeDefinition } from "@/services/import-types-service";
-import { useUserContext } from "@/providers/user-context";
+import { ImportHistoryDialog } from "@/components/import-center/import-history-dialog";
+import type { ImportTypeDefinition } from "@/services/import-types-service";
+import { COMPANY_IMPORT_API, fetchImportTemplate, type ImportApi } from "@/services/import-api";
 import { useLocale } from "@/providers/locale-provider";
 import { reportApiError } from "@/lib/toast";
 import { downloadBlob } from "@/lib/download";
@@ -29,17 +30,24 @@ const TYPES_TTL_MS = 5 * 60_000;
  * several record types (e.g. Inventory Movements: opening stock and
  * adjustments) passes all of them and gets one menu grouped per type —
  * never one button row per type.
+ *
+ * R15 (D15-16) — shown for the types the user may import (the type's own
+ * permission, e.g. `crm.leads.import`, or `import-center.manage`; the server
+ * decides `canImport`), never behind an Import Center role. Sales types
+ * (Leads / Store Orders) add "My imports" — the user's own import history.
+ * The agent portal uses the same menu with its own endpoints (`api`).
  */
 export function ModuleImportButtons({
   importType,
   onImported,
+  api = COMPANY_IMPORT_API,
 }: {
   importType: string | string[];
   onImported?: () => void;
+  /** The agent portal passes its own endpoint family (R15). */
+  api?: ImportApi;
 }) {
-  const { t } = useLocale();
-  const { hasPermission } = useUserContext();
-  const canImport = hasPermission("import-center.manage");
+  const { t, locale } = useLocale();
   const wanted = Array.isArray(importType) ? importType : [importType];
   const wantedKey = wanted.join(",");
 
@@ -47,28 +55,36 @@ export function ModuleImportButtons({
   const [wizard, setWizard] = useState<{
     typeDef: ImportTypeDefinition;
     source: "file" | "sheets";
+    jobId?: string;
   } | null>(null);
+  const [history, setHistory] = useState<ImportTypeDefinition | null>(null);
 
   useEffect(() => {
-    if (!canImport) return;
     const types = wantedKey.split(",");
-    cachedLookup("import-types", () => importTypesService.list(), TYPES_TTL_MS)
+    cachedLookup(`import-types:${api.scope}`, () => api.types.list(), TYPES_TTL_MS)
       .then((all) =>
         setTypeDefs(
           types
             .map((type) => all.find((definition) => definition.type === type))
-            .filter((definition): definition is ImportTypeDefinition => Boolean(definition)),
+            .filter(
+              (definition): definition is ImportTypeDefinition =>
+                Boolean(definition) && definition?.canImport !== false,
+            ),
         ),
       )
       .catch(() => setTypeDefs([]));
-  }, [wantedKey, canImport]);
+  }, [wantedKey, api]);
 
-  if (!canImport || typeDefs.length === 0) return null;
+  if (typeDefs.length === 0) return null;
 
   const downloadTemplate = async (typeDef: ImportTypeDefinition) => {
     try {
-      const blob = await importTypesService.downloadTemplate(typeDef.type);
-      downloadBlob(blob, `${typeDef.type.toLowerCase().replace(/_/g, "-")}-import-template.xlsx`);
+      const { blob, fileName } = await fetchImportTemplate(
+        api,
+        typeDef,
+        locale === "ar" ? "ar" : "en",
+      );
+      downloadBlob(blob, fileName);
     } catch (error) {
       reportApiError(error, "importCenter.downloadTemplateFailed");
     }
@@ -118,10 +134,30 @@ export function ModuleImportButtons({
                 <Sheet className="size-3.5" />
                 {t("importCenter.actions.googleSheets")}
               </DropdownMenuItem>
+              {typeDef.salesFields?.length ? (
+                <DropdownMenuItem className="min-h-9 gap-2" onSelect={() => setHistory(typeDef)}>
+                  <History className="size-3.5" />
+                  {t("salesImport.actions.myImports")}
+                </DropdownMenuItem>
+              ) : null}
             </Fragment>
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+      {history ? (
+        <ImportHistoryDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setHistory(null);
+          }}
+          jobs={api.jobs}
+          typeDef={history}
+          onOpenJob={(job) => {
+            setHistory(null);
+            setWizard({ typeDef: history, source: "file", jobId: job.id });
+          }}
+        />
+      ) : null}
       {wizard ? (
         <ImportJobWizard
           open
@@ -129,8 +165,10 @@ export function ModuleImportButtons({
             if (!open) setWizard(null);
           }}
           typeDef={wizard.typeDef}
+          initialJobId={wizard.jobId}
           initialUploadMode={wizard.source}
           onDone={onImported ?? (() => {})}
+          api={api}
         />
       ) : null}
     </>

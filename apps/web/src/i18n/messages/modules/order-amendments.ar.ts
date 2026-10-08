@@ -143,9 +143,6 @@ const orderAmendmentsAr = {
     MARK_READY_FOR_PICKUP: "جاهز للاستلام",
     MARK_COLLECTED: "تم الاستلام",
     GENERATE_INVOICE: "إصدار الفاتورة",
-    handedOverTitle: "تأكيد تسليم الطرد لشركة الشحن؟",
-    handedOverDescription: "تنتقل الشحنة إلى «تم الشحن». لا يمكن بعدها تعديل الأصناف أو العنوان.",
-    handedOver: "تم تسجيل الشحنة كمشحونة.",
   },
   detail: {
     card: "الطلب",

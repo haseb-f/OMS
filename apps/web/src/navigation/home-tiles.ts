@@ -1,5 +1,5 @@
 import type { MessageKey } from "../i18n/translate";
-import type { HomeTone, NavigationItem } from "../types/navigation";
+import type { AudienceUserType, HomeTone, NavigationItem } from "../types/navigation";
 import type { IconName } from "./icon-registry";
 import {
   buildNavigationTree,
@@ -19,7 +19,7 @@ import { isRouteAccessAllowed, resolveRouteAccess, routeAudienceMismatch } from 
  * route guard and, for every figure and record, by the API's permission guards.
  */
 
-export type UserType = "INTERNAL" | "AGENT" | undefined;
+export type UserType = AudienceUserType | undefined;
 
 export interface HomeAccessInput {
   permissions: readonly string[];
@@ -62,8 +62,8 @@ function tileHref(item: NavigationItem): string | undefined {
 }
 
 /**
- * One tile per authorized top-level entry (an internal module, or an agent
- * portal page). An entry with no authorized page never appears; Home itself
+ * One tile per authorized top-level entry (an internal module, or an agent /
+ * partner portal page). An entry with no authorized page never appears; Home itself
  * (`homeHidden`) is not a tile.
  */
 export function buildHomeTiles(
@@ -73,7 +73,7 @@ export function buildHomeTiles(
   const allowed = filterNavigationByAuth(navigation, [...permissions], {
     isSuperAdmin,
     accessReady: true,
-    userType: userType === "AGENT" ? "AGENT" : "INTERNAL",
+    userType,
   });
   const roots = buildNavigationTree(allowed).filter((item) => !item.homeHidden);
   return roots.flatMap((item, index) => {
@@ -176,7 +176,7 @@ export function buildHomeActions(
   { permissions, isSuperAdmin, userType }: HomeAccessInput,
   definitions: readonly HomeActionDefinition[] = HOME_ACTIONS,
 ): HomeAction[] {
-  const audience = userType === "AGENT" ? "AGENT" : "INTERNAL";
+  const audience = userType ?? "INTERNAL";
   const hasPermission = (permission: string) =>
     (isSuperAdmin && audience === "INTERNAL") || permissions.includes(permission);
   return definitions

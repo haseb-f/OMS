@@ -63,6 +63,13 @@ export interface AgentRef {
 /** How the agent bears carrier costs (commission-policy.md A3). */
 export type AgentShippingPolicy = "PREDETERMINED_CHARGE" | "FLAT_FEE_PER_SHIPMENT" | "NONE";
 
+/**
+ * The four services an agent shipping agreement prices (R15 D15-13): the
+ * delivery channel Shipping chooses × the order's payment type.
+ */
+export type AgentShippingService =
+  "PREPAID_CARRIER" | "COD_CARRIER" | "COD_INTERNAL_COURIER" | "PREPAID_INTERNAL_COURIER";
+
 export interface AgentActiveAgreementRef {
   id: string;
   agreementNumber: string;
@@ -91,22 +98,6 @@ export interface AgentRow {
   activeAgreement: AgentActiveAgreementRef | null;
 }
 
-/** Spec 2 (R5) — how a shipment is delivered (from the shipping company type). */
-export type TariffDeliveryChannel = "ANY" | "CARRIER" | "INTERNAL_COURIER";
-/** Spec 2 (R5) — payment arrangement a tariff applies to. */
-export type TariffPaymentType = "ANY" | "PREPAID" | "CASH_ON_DELIVERY";
-
-export interface AgentShippingRate {
-  id: string;
-  agreementId: string;
-  countryId: string;
-  city: string;
-  deliveryChannel: TariffDeliveryChannel;
-  paymentType: TariffPaymentType;
-  amount: string;
-  country: { id: string; code: string; name: string; nameEn: string | null } | null;
-}
-
 export interface AgentAgreement {
   id: string;
   agentId: string;
@@ -132,8 +123,17 @@ export interface AgentAgreement {
   activatedAt: string | null;
   endedAt: string | null;
   createdAt: string;
-  shippingRates: AgentShippingRate[];
   _count?: { storeOrders: number };
+}
+
+/**
+ * Activation succeeded but needs attention — e.g. a PREDETERMINED_CHARGE
+ * agreement whose start no ACTIVE shipping agreement covers (R15 D15-13).
+ * `message` is the bilingual "عربي — English" server text.
+ */
+export interface AgreementActivationWarning {
+  code: string;
+  message: string;
 }
 
 export interface AgentDetail extends Omit<AgentRow, "activeAgreement"> {
@@ -394,31 +394,6 @@ export interface AgentPosition {
   pending: number;
   available: number;
   paidOut: number;
-}
-
-export interface AgentDashboard {
-  agent: AgentRef & { currency: AgentCurrencyRef | null };
-  fulfillment: {
-    total: number;
-    awaitingDispatch: number;
-    dispatched: number;
-    completed: number;
-    withReturns: number;
-    cancelled: number;
-  };
-  sales: {
-    merchandiseSalesExShipping: number;
-    customerShippingCharges: number;
-    totalOrderValue: number;
-  };
-  returns: { merchandiseReturned: number };
-  collections: { awaitingVerificationCount: number; awaitingVerificationAmount: number };
-  position: AgentPosition;
-  payouts: {
-    count: number;
-    total: number;
-    last: { id: string; payoutNumber: string; amount: string; payoutDate: string } | null;
-  };
 }
 
 export interface AgentLedgerReferences {
@@ -803,30 +778,13 @@ export const agentsService = {
         )}`,
       ),
     activate: (agentId: string, agreementId: string) =>
-      apiClient.post<AgentAgreement>(`${base}/${agentId}/agreements/${agreementId}/activate`),
+      apiClient.post<AgentAgreement & { warnings: AgreementActivationWarning[] }>(
+        `${base}/${agentId}/agreements/${agreementId}/activate`,
+      ),
     end: (agentId: string, agreementId: string, effectiveTo?: string) =>
       apiClient.post<AgentAgreement>(`${base}/${agentId}/agreements/${agreementId}/end`, {
         effectiveTo,
       }),
-    upsertRate: (
-      agentId: string,
-      agreementId: string,
-      dto: {
-        countryId: string;
-        city?: string;
-        deliveryChannel?: TariffDeliveryChannel;
-        paymentType?: TariffPaymentType;
-        amount: number;
-      },
-    ) =>
-      apiClient.put<AgentAgreement>(
-        `${base}/${agentId}/agreements/${agreementId}/shipping-rates`,
-        dto,
-      ),
-    removeRate: (agentId: string, agreementId: string, rateId: string) =>
-      apiClient.delete<AgentAgreement>(
-        `${base}/${agentId}/agreements/${agreementId}/shipping-rates/${rateId}`,
-      ),
   },
 
   /** Products tab (spec 2A) — link / unlink go through the product update path. */
@@ -932,8 +890,6 @@ export const agentFinanceService = {
     apiClient.get<AgentStatement>(
       `${finance}/agents/${agentId}/statement/print${buildQueryString(params as Record<string, unknown>)}`,
     ),
-  dashboard: (agentId: string) =>
-    apiClient.get<AgentDashboard>(`${finance}/agents/${agentId}/dashboard`),
   paymentStages: (agentId: string, storeOrderId?: string) =>
     apiClient.get<AgentPaymentStageRow[]>(
       `${finance}/agents/${agentId}/payments${buildQueryString({ storeOrderId })}`,

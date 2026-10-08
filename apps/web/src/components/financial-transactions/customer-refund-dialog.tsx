@@ -2,7 +2,7 @@
 
 import { RequiredMark } from "@/components/ui/form";
 import { useEffect, useId, useRef, useState } from "react";
-import { Undo2 } from "lucide-react";
+import { Info, Undo2 } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import {
   CreateOperationFooter,
@@ -12,6 +12,7 @@ import {
 import { ModalSection } from "@/components/shared/modal-section";
 import { MoneyInput } from "@/components/shared/money-input";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/shared/searchable-select";
@@ -28,37 +29,87 @@ import {
   paymentSourcesService,
   type PaymentSourceOption,
 } from "@/services/payment-sources-service";
+import {
+  storeOrderMoneyService,
+  type StoreOrderRefundable,
+} from "@/components/store-orders/money/store-order-money-service";
 import { useLocale } from "@/providers/locale-provider";
+import type { MessageKey } from "@/i18n/translate";
 import { formatMoney } from "@/lib/money";
 import { toast, reportApiError } from "@/lib/toast";
 import { newIdempotencyKey } from "@/hooks/use-idempotency-key";
 
 /**
- * "Refund" on a posted Sales Return — pays the customer back against the
- * return's credit. Prefilled with what the API says is refundable now
- * (unrefunded credit capped by the customer's ledger credit) and the
- * default Cash/Bank account, so the common case is one click. Creates +
- * confirms + posts in one call; a synchronous guard blocks double-submit.
+ * What a refund pays back: one posted credit note, or — R15 (D15-11) — a
+ * store order (the server refunds its credit notes first, then its verified
+ * advance of a cancelled / undelivered order or an overpayment).
+ */
+export type RefundTarget =
+  | { kind: "return"; salesReturnId: string; partnerId: string; currencyId: string | null }
+  | { kind: "order"; storeOrderId: string; orderNumber: string };
+
+/** The dialog's read-only summary — every figure comes from the API. */
+export interface RefundSummary {
+  title: string;
+  rows: { labelKey: MessageKey; amount: number }[];
+  refundable: number;
+}
+
+export function returnRefundSummary(summary: RefundableReturnSummary): RefundSummary {
+  return {
+    title: summary.returnNumber,
+    rows: [
+      { labelKey: "sales.refunds.dialog.returnTotal", amount: summary.grandTotal },
+      { labelKey: "sales.refunds.dialog.refunded", amount: summary.refundedTotal },
+      { labelKey: "sales.refunds.dialog.customerCredit", amount: summary.customerCreditBalance },
+      { labelKey: "sales.refunds.dialog.refundable", amount: summary.refundableAmount },
+    ],
+    refundable: summary.refundableAmount,
+  };
+}
+
+export function orderRefundSummary(summary: StoreOrderRefundable): RefundSummary {
+  return {
+    title: summary.internalOrderId,
+    rows: [
+      { labelKey: "storeOrderMoney.refundDialog.collected", amount: summary.collected },
+      { labelKey: "storeOrderMoney.refundDialog.netInvoiced", amount: summary.expected },
+      { labelKey: "storeOrderMoney.refundDialog.refunded", amount: summary.refunded },
+      { labelKey: "storeOrderMoney.refundDialog.refundDue", amount: summary.refundDue },
+      {
+        labelKey: "storeOrderMoney.refundDialog.customerCredit",
+        amount: summary.customerCreditBalance,
+      },
+      { labelKey: "storeOrderMoney.refundDialog.refundable", amount: summary.refundable },
+    ],
+    refundable: summary.refundable,
+  };
+}
+
+/**
+ * "Refund" — money actually returned to the customer, recorded manually (no
+ * payment gateway is integrated, so the money goes back through the gateway /
+ * bank first; the dialog says so). Prefilled with what the API says is
+ * refundable now (capped by the customer's ledger credit) and the default
+ * Cash/Bank account, so the common case is one click. Creates + confirms +
+ * posts in one call; one idempotency key per opening and a synchronous guard
+ * block a double submit.
  */
 export function CustomerRefundDialog({
   open,
   onOpenChange,
-  salesReturnId,
-  partnerId,
-  currencyId,
+  target,
   currencyCode,
   onRefunded,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  salesReturnId: string;
-  partnerId: string;
-  currencyId: string | null;
+  target: RefundTarget;
   currencyCode?: string | null;
   onRefunded?: (refund: FinancialTransactionRow) => void;
 }) {
   const { t } = useLocale();
-  const [summary, setSummary] = useState<RefundableReturnSummary | null>(null);
+  const [summary, setSummary] = useState<RefundSummary | null>(null);
   const [amount, setAmount] = useState(0);
   const [transactionDate, setTransactionDate] = useState<Date | null>(new Date());
   const [receivingAccountId, setReceivingAccountId] = useState<string | null>(null);
@@ -71,17 +122,21 @@ export function CustomerRefundDialog({
   /** One idempotency key per opening of the dialog (R13 B2) — a retried submit returns the first refund. */
   const idempotencyKeyRef = useRef<string | null>(null);
   const fieldId = useId();
+  const targetId = target.kind === "return" ? target.salesReturnId : target.storeOrderId;
 
   useEffect(() => {
     if (!open) return;
     idempotencyKeyRef.current = newIdempotencyKey();
     let cancelled = false;
-    customerRefundsService
-      .refundable(salesReturnId)
+    const load =
+      target.kind === "return"
+        ? customerRefundsService.refundable(targetId).then(returnRefundSummary)
+        : storeOrderMoneyService.refundable(targetId).then(orderRefundSummary);
+    load
       .then((result) => {
         if (cancelled) return;
         setSummary(result);
-        setAmount(result.refundableAmount);
+        setAmount(result.refundable);
       })
       .catch((error) => reportApiError(error, t("errors.generic")));
     receivingAccountsService
@@ -102,11 +157,36 @@ export function CustomerRefundDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, salesReturnId, t]);
+  }, [open, target.kind, targetId, t]);
 
-  const refundable = summary?.refundableAmount ?? 0;
+  const refundable = summary?.refundable ?? 0;
   const exceeds = amount > refundable + 0.005;
   const isValid = !!summary && amount > 0 && !exceeds && !!receivingAccountId;
+
+  const submit = (accountId: string) => {
+    const common = {
+      transactionDate: transactionDate ? transactionDate.toISOString() : undefined,
+      paymentSourceId: paymentSourceId ?? undefined,
+      referenceNumber: referenceNumber || undefined,
+    };
+    const idempotencyKey = idempotencyKeyRef.current ?? newIdempotencyKey();
+    return target.kind === "return"
+      ? customerRefundsService.createConfirmed({
+          ...common,
+          partnerId: target.partnerId,
+          currencyId: target.currencyId ?? undefined,
+          receivingAccountId: accountId,
+          amount,
+          allocations: [{ invoiceId: target.salesReturnId, allocatedAmount: amount }],
+          idempotencyKey,
+        })
+      : storeOrderMoneyService.recordRefund(target.storeOrderId, {
+          ...common,
+          receivingAccountId: accountId,
+          amount,
+          idempotencyKey,
+        });
+  };
 
   const handleSubmit = async () => {
     if (!summary) return;
@@ -128,18 +208,12 @@ export function CustomerRefundDialog({
     submittingRef.current = true;
     setIsSubmitting(true);
     try {
-      const refund = await customerRefundsService.createConfirmed({
-        partnerId,
-        currencyId: currencyId ?? undefined,
-        transactionDate: transactionDate ? transactionDate.toISOString() : undefined,
-        paymentSourceId: paymentSourceId ?? undefined,
-        receivingAccountId,
-        amount,
-        referenceNumber: referenceNumber || undefined,
-        allocations: [{ invoiceId: salesReturnId, allocatedAmount: amount }],
-        idempotencyKey: idempotencyKeyRef.current ?? undefined,
-      });
-      toast.success(t("sales.returns.toasts.refunded", { number: refund.transactionNumber }));
+      const refund = await submit(receivingAccountId);
+      toast.success(
+        target.kind === "return"
+          ? t("sales.returns.toasts.refunded", { number: refund.transactionNumber })
+          : t("storeOrderMoney.refundDialog.recorded", { number: refund.transactionNumber }),
+      );
       onOpenChange(false);
       onRefunded?.(refund);
     } catch (error) {
@@ -158,7 +232,11 @@ export function CustomerRefundDialog({
       onOpenChange={onOpenChange}
       size="md"
       icon={Undo2}
-      title={t("sales.refunds.dialog.title")}
+      title={
+        target.kind === "return"
+          ? t("sales.refunds.dialog.title")
+          : t("storeOrderMoney.refundDialog.title", { order: target.orderNumber })
+      }
       description={t("sales.refunds.dialog.description")}
       footer={(requestClose) => (
         <CreateOperationFooter
@@ -171,23 +249,21 @@ export function CustomerRefundDialog({
       )}
     >
       <CreateOperationLayout>
+        <Alert tone="info">
+          <Info />
+          <AlertDescription>
+            {t("storeOrderMoney.refundDialog.gatewayNotice")}
+            {target.kind === "order" ? (
+              <span className="block">{t("storeOrderMoney.refundDialog.split")}</span>
+            ) : null}
+          </AlertDescription>
+        </Alert>
         <CreateOperationSummary
-          title={summary?.returnNumber ?? t("common.loading")}
-          rows={[
-            {
-              label: t("sales.refunds.dialog.returnTotal"),
-              value: money(summary?.grandTotal ?? 0),
-            },
-            {
-              label: t("sales.refunds.dialog.refunded"),
-              value: money(summary?.refundedTotal ?? 0),
-            },
-            {
-              label: t("sales.refunds.dialog.customerCredit"),
-              value: money(summary?.customerCreditBalance ?? 0),
-            },
-            { label: t("sales.refunds.dialog.refundable"), value: money(refundable) },
-          ]}
+          title={summary?.title ?? t("common.loading")}
+          rows={(summary?.rows ?? []).map((row) => ({
+            label: t(row.labelKey),
+            value: money(row.amount),
+          }))}
         />
         {summary && refundable <= 0 ? (
           <p className="text-caption text-muted-foreground">

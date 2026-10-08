@@ -30,19 +30,28 @@ import { TaskProgress, type TaskProgressStatus } from "@/components/shared/task-
 import { DismissibleAlert } from "@/components/shared/dismissible-alert";
 import { downloadBlob } from "@/lib/download";
 import { formatDateTime } from "@/lib/date";
-import {
-  importJobsService,
-  type ImportJobRow,
-  type ImportJobStatus,
-  type ImportPreviewResult,
-  type ImportValidationResult,
+import type {
+  ImportJobDetail,
+  ImportJobStatus,
+  ImportPreviewResult,
+  ImportValidationResult,
 } from "@/services/import-jobs-service";
-import {
-  importMappingTemplatesService,
-  type ImportMappingTemplateRow,
-} from "@/services/import-mapping-templates-service";
-import { importTypesService, type ImportTypeDefinition } from "@/services/import-types-service";
+import type { ImportMappingTemplateRow } from "@/services/import-mapping-templates-service";
+import type { ImportTypeDefinition } from "@/services/import-types-service";
+import { COMPANY_IMPORT_API, fetchImportTemplate, type ImportApi } from "@/services/import-api";
 import { IMPORT_JOB_STATUS_LABEL_KEY } from "@/config/import-center/status";
+import { autoMapColumns } from "@/config/import-center/auto-map";
+import {
+  IMPORT_ROW_OUTCOME_LABEL_KEY,
+  describeImportRow,
+} from "@/config/import-center/row-outcome";
+import {
+  ImportSummaryCards,
+  previewSummaryItems,
+  resultSummaryItems,
+} from "@/components/import-center/import-summary-cards";
+import { ImportReviewRows } from "@/components/import-center/import-review-rows";
+import { GoogleSheetShareHint } from "@/components/import-center/google-sheet-share-hint";
 import type { MessageKey } from "@/i18n/translate";
 
 type Step = "upload" | "mapping" | "preview" | "results";
@@ -52,13 +61,13 @@ const TERMINAL_STATUSES: ImportJobStatus[] = ["COMPLETED", "FAILED", "CANCELLED"
 /** How often an in-flight import is re-read from `GET /import-center/jobs/:id`. */
 const POLL_INTERVAL_MS = 3000;
 
-function resultStatus(job: ImportJobRow): TaskProgressStatus {
+function resultStatus(job: ImportJobDetail): TaskProgressStatus {
   if (job.status === "CANCELLED") return "cancelled";
   if (job.status === "COMPLETED") return job.errorCount > 0 ? "partial" : "succeeded";
   return "failed";
 }
 
-function resolveStep(job: ImportJobRow): Step {
+function resolveStep(job: ImportJobDetail): Step {
   switch (job.status) {
     case "DRAFT":
     case "UPLOADING":
@@ -79,6 +88,12 @@ function resolveStep(job: ImportJobRow): Step {
  * the lifecycle itself; every step is a thin UI over `ImportJobsService`
  * (create/upload/preview/setMapping/run/cancel), which is the only place
  * rows are actually written (always via the target module's own service).
+ *
+ * R15 — `api` is the caller's endpoint family (company Import Center by
+ * default, or the agent portal); a type with `salesFields` (Leads / Store
+ * Orders) runs in sales mode: the sales template in the current language,
+ * only the sales columns, automatic column matching, the private Google Sheet
+ * share step, preview / result summary cards and the needs-review decisions.
  */
 export function ImportJobWizard({
   open,
@@ -87,6 +102,7 @@ export function ImportJobWizard({
   initialJobId,
   initialUploadMode = "file",
   onDone,
+  api = COMPANY_IMPORT_API,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -94,10 +110,13 @@ export function ImportJobWizard({
   initialJobId?: string;
   initialUploadMode?: "file" | "sheets";
   onDone: () => void;
+  api?: ImportApi;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const fieldId = useId();
-  const [job, setJob] = useState<ImportJobRow | null>(null);
+  const [job, setJob] = useState<ImportJobDetail | null>(null);
+  /** Columns matched by name on upload (sales mode) — shown so the user checks them. */
+  const [autoMappedCount, setAutoMappedCount] = useState(0);
   const [step, setStep] = useState<Step>("upload");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -123,6 +142,7 @@ export function ImportJobWizard({
     setUploadMode(initialUploadMode);
     setPreview(null);
     setMapping({});
+    setAutoMappedCount(0);
     setTemplateName("");
     setValidation(null);
     setRunError(null);
@@ -130,7 +150,7 @@ export function ImportJobWizard({
     (async () => {
       try {
         if (initialJobId) {
-          const existing = await importJobsService.get(initialJobId);
+          const existing = await api.jobs.get(initialJobId);
           setJob(existing);
           const resumedStep = resolveStep(existing);
           setStep(resumedStep);
@@ -140,17 +160,17 @@ export function ImportJobWizard({
           }
           if (existing.columnMapping) setMapping(existing.columnMapping);
           if (resumedStep === "mapping" || resumedStep === "preview") {
-            const previewData = await importJobsService.preview(existing.id, 10);
+            const previewData = await api.jobs.preview(existing.id, 10);
             setPreview(previewData);
           }
           if (resumedStep === "preview") {
-            importJobsService
+            api.jobs
               .validate(existing.id)
               .then(setValidation)
               .catch(() => setValidation(null));
           }
         } else {
-          const created = await importJobsService.create(typeDef.type);
+          const created = await api.jobs.create(typeDef.type);
           setJob(created);
           setStep("upload");
         }
@@ -166,11 +186,11 @@ export function ImportJobWizard({
 
   useEffect(() => {
     if (!open || step !== "mapping") return;
-    importMappingTemplatesService
+    api.templates
       .list(typeDef.type)
       .then(setTemplates)
       .catch(() => setTemplates([]));
-  }, [open, step, typeDef.type]);
+  }, [open, step, typeDef.type, api.templates]);
 
   // Keeps an in-flight import current: while our own run request is pending
   // (status flips to IMPORTING server-side), or when the wizard is reopened on
@@ -181,7 +201,7 @@ export function ImportJobWizard({
     if (!open || !jobId) return;
     if (!isRunning && jobStatus !== "IMPORTING") return;
     const timer = window.setInterval(() => {
-      importJobsService
+      api.jobs
         .get(jobId)
         .then((fresh) => {
           if (fresh.status === "IMPORTING") {
@@ -194,16 +214,36 @@ export function ImportJobWizard({
         .catch(() => undefined);
     }, POLL_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [open, jobId, jobStatus, isRunning]);
+  }, [open, jobId, jobStatus, isRunning, api.jobs]);
 
+  const salesFields = typeDef.salesFields;
+  const salesMode = Boolean(salesFields?.length);
+  /** Sales mode: only the user's sales columns, in template order. */
+  const visibleFields = useMemo(
+    () =>
+      salesFields?.length
+        ? salesFields
+            .map((key) => typeDef.fields.find((field) => field.key === key))
+            .filter((field): field is ImportTypeDefinition["fields"][number] => Boolean(field))
+        : typeDef.fields,
+    [typeDef.fields, salesFields],
+  );
   const requiredFields = useMemo(
-    () => typeDef.fields.filter((field) => field.required),
-    [typeDef.fields],
+    () => visibleFields.filter((field) => field.required),
+    [visibleFields],
   );
   const optionalFields = useMemo(
-    () => typeDef.fields.filter((field) => !field.required),
-    [typeDef.fields],
+    () => visibleFields.filter((field) => !field.required),
+    [visibleFields],
   );
+
+  /** Sales mode: pre-fill the mapping from the file's headers (template headers in either language). */
+  const applyAutoMapping = (headers: string[]) => {
+    if (!salesMode) return;
+    const auto = autoMapColumns(visibleFields, headers, (field) => t(field.labelKey as MessageKey));
+    setMapping(auto);
+    setAutoMappedCount(Object.keys(auto).length);
+  };
   const missingRequired = requiredFields.filter((field) => !mapping[field.key]);
   const headerOptions = useMemo(
     () => (preview?.headers ?? []).map((header) => ({ value: header, label: header })),
@@ -215,10 +255,11 @@ export function ImportJobWizard({
     if (!job || !file) return;
     setIsLoading(true);
     try {
-      const updated = await importJobsService.upload(job.id, file);
+      const updated = await api.jobs.upload(job.id, file);
       setJob(updated);
-      const previewData = await importJobsService.preview(updated.id, 10);
+      const previewData = await api.jobs.preview(updated.id, 10);
       setPreview(previewData);
+      applyAutoMapping(previewData.headers);
       setStep("mapping");
     } catch (error) {
       reportApiError(error, "common.failedToSave");
@@ -231,10 +272,11 @@ export function ImportJobWizard({
     if (!job || !sheetsUrl.trim()) return;
     setIsLoading(true);
     try {
-      const updated = await importJobsService.uploadFromGoogleSheets(job.id, sheetsUrl.trim());
+      const updated = await api.jobs.uploadFromGoogleSheets(job.id, sheetsUrl.trim());
       setJob(updated);
-      const previewData = await importJobsService.preview(updated.id, 10);
+      const previewData = await api.jobs.preview(updated.id, 10);
       setPreview(previewData);
+      applyAutoMapping(previewData.headers);
       setStep("mapping");
     } catch (error) {
       reportApiError(error, "importCenter.wizard.googleSheets.readFailed");
@@ -248,9 +290,9 @@ export function ImportJobWizard({
     if (!job) return;
     setIsRefreshing(true);
     try {
-      const updated = await importJobsService.refresh(job.id);
+      const updated = await api.jobs.refresh(job.id);
       setJob(updated);
-      const previewData = await importJobsService.preview(updated.id, 10);
+      const previewData = await api.jobs.preview(updated.id, 10);
       setPreview(previewData);
       toast.success(t("importCenter.wizard.googleSheets.refreshed"));
     } catch (error) {
@@ -264,11 +306,11 @@ export function ImportJobWizard({
     if (!job || missingRequired.length > 0) return;
     setIsLoading(true);
     try {
-      const updated = await importJobsService.setMapping(job.id, mapping);
+      const updated = await api.jobs.setMapping(job.id, mapping);
       setJob(updated);
       setStep("preview");
       setIsValidating(true);
-      importJobsService
+      api.jobs
         .validate(updated.id)
         .then(setValidation)
         .catch(() => setValidation(null))
@@ -283,14 +325,14 @@ export function ImportJobWizard({
   const handleSaveTemplate = async () => {
     if (!templateName.trim()) return;
     try {
-      await importMappingTemplatesService.save({
+      await api.templates.save({
         importType: typeDef.type,
         name: templateName.trim(),
         columnMapping: mapping,
       });
       toast.success(t("importCenter.wizard.mapping.templateSaved"));
       setTemplateName("");
-      importMappingTemplatesService
+      api.templates
         .list(typeDef.type)
         .then(setTemplates)
         .catch(() => {});
@@ -305,13 +347,13 @@ export function ImportJobWizard({
     setIsRunning(true);
     setRunError(null);
     try {
-      const result = await importJobsService.run(job.id);
+      const result = await api.jobs.run(job.id);
       setJob(result);
       setStep("results");
     } catch (error) {
       // The request can fail while the server keeps importing (timeout,
       // dropped connection) — re-read the job before declaring failure.
-      const fresh = await importJobsService.get(job.id).catch(() => null);
+      const fresh = await api.jobs.get(job.id).catch(() => null);
       if (fresh && (fresh.status === "IMPORTING" || TERMINAL_STATUSES.includes(fresh.status))) {
         setJob(fresh);
         if (fresh.status !== "IMPORTING") setStep("results");
@@ -328,7 +370,7 @@ export function ImportJobWizard({
   const handleStartOver = async () => {
     setIsLoading(true);
     try {
-      const created = await importJobsService.create(typeDef.type);
+      const created = await api.jobs.create(typeDef.type);
       setJob(created);
       setFile(null);
       setPreview(null);
@@ -346,7 +388,7 @@ export function ImportJobWizard({
   const handleCancelJob = async () => {
     if (!job) return;
     try {
-      await importJobsService.cancel(job.id);
+      await api.jobs.cancel(job.id);
       setCancelConfirmOpen(false);
       onOpenChange(false);
       toast.success(t("feedback.import.jobCancelled"));
@@ -359,7 +401,7 @@ export function ImportJobWizard({
   const handleDownloadErrors = async () => {
     if (!job) return;
     try {
-      const blob = await importJobsService.exportErrorsCsv(job.id);
+      const blob = await api.jobs.exportErrorsCsv(job.id);
       downloadBlob(blob, `import-errors-${job.id}.csv`);
     } catch (error) {
       reportApiError(error, "common.failedToSave");
@@ -368,11 +410,22 @@ export function ImportJobWizard({
 
   const handleDownloadTemplate = async () => {
     try {
-      const blob = await importTypesService.downloadTemplate(typeDef.type);
-      downloadBlob(blob, `${typeDef.type.toLowerCase().replace(/_/g, "-")}-import-template.xlsx`);
+      const { blob, fileName } = await fetchImportTemplate(
+        api,
+        typeDef,
+        locale === "ar" ? "ar" : "en",
+      );
+      downloadBlob(blob, fileName);
     } catch (error) {
       reportApiError(error, "common.failedToSave");
     }
+  };
+
+  /** Re-reads the job after a needs-review decision (counts and outcomes move). */
+  const reloadJob = async () => {
+    if (!job) return;
+    const fresh = await api.jobs.get(job.id).catch(() => null);
+    if (fresh) setJob(fresh);
   };
 
   return (
@@ -538,14 +591,17 @@ export function ImportJobWizard({
                 />
               </label>
             ) : (
-              <div className="flex flex-col gap-2">
-                <Label>{t("importCenter.wizard.googleSheets.urlLabel")}</Label>
-                <Input
-                  dir="ltr"
-                  value={sheetsUrl}
-                  onChange={(event) => setSheetsUrl(event.target.value)}
-                  placeholder="https://docs.google.com/spreadsheets/d/…/edit"
-                />
+              <div className="flex flex-col gap-3">
+                <GoogleSheetShareHint types={api.types} />
+                <div className="flex flex-col gap-2">
+                  <Label>{t("importCenter.wizard.googleSheets.urlLabel")}</Label>
+                  <Input
+                    dir="ltr"
+                    value={sheetsUrl}
+                    onChange={(event) => setSheetsUrl(event.target.value)}
+                    placeholder="https://docs.google.com/spreadsheets/d/…/edit"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -559,6 +615,11 @@ export function ImportJobWizard({
             <p className="text-body text-muted-foreground">
               {t("importCenter.wizard.mapping.description")}
             </p>
+            {autoMappedCount > 0 && (
+              <DismissibleAlert tone="info">
+                {t("salesImport.mapping.autoMapped", { count: autoMappedCount })}
+              </DismissibleAlert>
+            )}
 
             {templates.length > 0 && (
               <div className="flex flex-col gap-2">
@@ -750,38 +811,8 @@ export function ImportJobWizard({
                     ? t("importCenter.wizard.validation.passed")
                     : t("importCenter.wizard.validation.failed", { count: validation.errorCount })}
                 </p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <div className="rounded-md border border-border bg-card p-2 text-center">
-                    <p className="text-card-title font-semibold">{validation.summary.totalRows}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {t("importCenter.wizard.preview.summaryTotal")}
-                    </p>
-                  </div>
-                  <div className="rounded-md border border-success/30 bg-success/5 p-2 text-center">
-                    <p className="text-card-title font-semibold text-success">
-                      {validation.summary.newCount}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {t("importCenter.wizard.preview.summaryNew")}
-                    </p>
-                  </div>
-                  <div className="rounded-md border border-warning/30 bg-warning/5 p-2 text-center">
-                    <p className="text-card-title font-semibold text-warning">
-                      {validation.summary.duplicateCount}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {t("importCenter.wizard.preview.summaryDuplicate")}
-                    </p>
-                  </div>
-                  <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-center">
-                    <p className="text-card-title font-semibold text-destructive">
-                      {validation.summary.invalidCount}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {t("importCenter.wizard.preview.summaryInvalid")}
-                    </p>
-                  </div>
-                </div>
+                <ImportSummaryCards items={previewSummaryItems(validation.summary)} />
+                <PreviewNotes validation={validation} />
                 {validation.duplicateGroups.length > 0 && (
                   <p className="text-xs text-destructive">
                     {t("importCenter.wizard.validation.duplicatesFound", {
@@ -819,7 +850,7 @@ export function ImportJobWizard({
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("importCenter.wizard.preview.rowNumber")}</TableHead>
-                    {typeDef.fields.map((field) => (
+                    {visibleFields.map((field) => (
                       <TableHead key={field.key}>{t(field.labelKey as MessageKey)}</TableHead>
                     ))}
                   </TableRow>
@@ -828,7 +859,7 @@ export function ImportJobWizard({
                   {preview.rows.map((row, index) => (
                     <TableRow key={index}>
                       <TableCell>{index + 2}</TableCell>
-                      {typeDef.fields.map((field) => {
+                      {visibleFields.map((field) => {
                         const column = mapping[field.key];
                         return (
                           <TableCell key={field.key}>
@@ -849,6 +880,7 @@ export function ImportJobWizard({
             <h2 className="text-card-title font-semibold">
               {t("importCenter.wizard.results.title")}
             </h2>
+            {job.summary && <ImportSummaryCards items={resultSummaryItems(job.summary)} />}
             <TaskProgress
               status={resultStatus(job)}
               title={
@@ -867,17 +899,21 @@ export function ImportJobWizard({
               succeeded={job.successCount}
               failed={job.errorCount}
               skipped={Math.max(0, job.totalRows - job.successCount - job.errorCount)}
-              errors={job.errors.map((error) => ({
-                id: error.id,
-                label: [
-                  `${t("importCenter.wizard.preview.rowNumber")} ${error.rowNumber}`,
-                  error.columnName,
-                ]
-                  .filter(Boolean)
-                  .join(" · "),
-                message: error.errorMessage,
-                hint: error.suggestedFix ?? undefined,
-              }))}
+              errors={job.errors.map((error) => {
+                const { outcome, reason } = describeImportRow(error);
+                return {
+                  id: error.id,
+                  label: [
+                    `${t("importCenter.wizard.preview.rowNumber")} ${error.rowNumber}`,
+                    t(IMPORT_ROW_OUTCOME_LABEL_KEY[outcome]),
+                    error.columnName,
+                  ]
+                    .filter(Boolean)
+                    .join(" · "),
+                  message: reason,
+                  hint: error.suggestedFix ?? undefined,
+                };
+              })}
               maxErrors={10}
               onRetry={job.status === "FAILED" ? handleStartOver : undefined}
               retryLabel={t("feedback.import.startOver")}
@@ -896,6 +932,9 @@ export function ImportJobWizard({
                 ) : undefined
               }
             />
+            {(job.summary?.needsReview ?? 0) > 0 && (
+              <ImportReviewRows jobs={api.jobs} jobId={job.id} onChanged={() => void reloadJob()} />
+            )}
             {job.errors.length === 0 && job.status === "COMPLETED" ? (
               <p className="text-caption text-muted-foreground">
                 {t("importCenter.wizard.results.noErrors")}
@@ -915,5 +954,62 @@ export function ImportJobWizard({
         onConfirm={() => void handleCancelJob()}
       />
     </>
+  );
+}
+
+/**
+ * R15 — the preview's non-blocking findings: file-level warnings (columns OMS
+ * never imports), per-row warnings (e.g. stock not available now), rows that
+ * will be skipped as already imported, and rows that will need a decision.
+ */
+function PreviewNotes({ validation }: { validation: ImportValidationResult }) {
+  const { t } = useLocale();
+  const groups = [
+    {
+      key: "warnings",
+      title: t("salesImport.preview.warningsTitle"),
+      tone: "warning" as const,
+      lines: (validation.warnings ?? []).map((warning) => ({
+        row: warning.rowNumber,
+        text: warning.message,
+      })),
+    },
+    {
+      key: "skipped",
+      title: t("salesImport.preview.skippedTitle"),
+      tone: "info" as const,
+      lines: (validation.skipped ?? []).map((row) => ({ row: row.rowNumber, text: row.reason })),
+    },
+    {
+      key: "review",
+      title: t("salesImport.preview.needsReviewTitle"),
+      tone: "warning" as const,
+      lines: (validation.needsReview ?? []).map((row) => ({
+        row: row.rowNumber,
+        text: row.reason,
+      })),
+    },
+  ].filter((group) => group.lines.length > 0);
+  if (groups.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      {groups.map((group) => (
+        <DismissibleAlert key={group.key} tone={group.tone} dismissible={false}>
+          <p className="font-medium">{group.title}</p>
+          <ul className="mt-1 flex max-h-40 flex-col gap-1 overflow-y-auto">
+            {group.lines.map((line, index) => (
+              <li key={index} className="text-caption">
+                <span className="num font-semibold">
+                  {line.row === null
+                    ? t("salesImport.preview.fileWarning")
+                    : `${t("importCenter.wizard.preview.rowNumber")} ${line.row}`}
+                </span>{" "}
+                — {line.text}
+              </li>
+            ))}
+          </ul>
+        </DismissibleAlert>
+      ))}
+    </div>
   );
 }

@@ -1,20 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { PageLoading } from "@/components/shared/page-loading";
 import { ErrorState } from "@/components/shared/error-state";
-import { AgentOrderForm } from "@/components/agent-portal/agent-order-form";
+import { OrderEntryFlow, useOrderEntryFlow } from "@/components/order-entry/order-entry-flow";
+import { useAgentOrderEntry } from "@/components/order-entry/agent/use-agent-order-entry";
+import { portalAgentEntrySource } from "@/components/order-entry/agent/agent-entry-source";
 import { usePortalProfile } from "@/components/agent-portal/use-portal-profile";
-import { agentPortalService, type PortalLead } from "@/services/agent-portal-service";
+import {
+  agentPortalService,
+  type CountryRef,
+  type CurrencyRef,
+  type FulfillmentMethod,
+  type PortalLead,
+} from "@/services/agent-portal-service";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { apiErrorMessage } from "@/lib/toast";
 
 /**
  * New agent order, or — with `?leadId=` — the conversion of one of the
- * agent's leads (customer from the lead, pricing entered here). Route access:
+ * agent's leads (customer from the lead, pricing entered here): the agent
+ * adapter of the one order-entry flow (R15 D15-19), as a page. Route access:
  * `agent.orders.create` (reviewed create override); conversion additionally
  * needs `agent.leads.convert`, which the API enforces.
  */
@@ -46,7 +55,7 @@ export default function AgentNewOrderPage() {
 
   return (
     <PageWorkspace title={title} description={t("agentPortal.orderForm.description")}>
-      <AgentOrderForm
+      <AgentPortalOrderEntry
         lead={lead}
         initialMethod={
           methodParam === "PICKUP" || methodParam === "SHIPPING"
@@ -57,5 +66,41 @@ export default function AgentNewOrderPage() {
         currency={profile?.agent.currency ?? null}
       />
     </PageWorkspace>
+  );
+}
+
+function AgentPortalOrderEntry({
+  lead,
+  initialMethod,
+  countries,
+  currency,
+}: {
+  lead: PortalLead | null;
+  initialMethod: FulfillmentMethod;
+  countries: Array<CountryRef & { code: string }>;
+  currency: CurrencyRef | null;
+}) {
+  const router = useRouter();
+  const flow = useOrderEntryFlow(true);
+  const adapter = useAgentOrderEntry({
+    source: portalAgentEntrySource,
+    open: true,
+    lead,
+    onOpenLead: lead ? () => router.push(`/agent/leads/${lead.id}`) : undefined,
+    initialMethod,
+    countries,
+    currency,
+    flow,
+    onCreated: (created) => router.push(`/agent/orders/${created.id}`),
+    onCancel: () => router.back(),
+  });
+  return (
+    <OrderEntryFlow
+      flow={flow}
+      adapter={adapter}
+      container="page"
+      onCancel={() => router.back()}
+      testId="agent-order-entry"
+    />
   );
 }

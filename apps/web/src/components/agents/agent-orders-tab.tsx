@@ -6,6 +6,10 @@ import { ShieldAlert, Undo2 } from "lucide-react";
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { RecordRefundDialog } from "./agent-finance-dialogs";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
+import {
+  AgentOrderEntryButton,
+  type AgentEntryTarget,
+} from "@/components/order-entry/agent/agent-order-entry-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { MoneyValue } from "@/components/shared/money-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
@@ -161,7 +165,16 @@ function buildColumns(
  * The agent's orders with their price breakdown — `GET /agents/:id/orders`
  * (`agents.view`), not the sales-scoped Store Orders list.
  */
-export function AgentOrdersTab({ agentId, agentLabel }: { agentId: string; agentLabel: string }) {
+export function AgentOrdersTab({
+  agentId,
+  agentLabel,
+  entryTarget,
+}: {
+  agentId: string;
+  agentLabel: string;
+  /** R15 (D15-19) — staff enter an order for this agent with the shared order-entry flow. */
+  entryTarget?: AgentEntryTarget;
+}) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const canView = hasPermission("agents.view");
@@ -223,6 +236,12 @@ export function AgentOrdersTab({ agentId, agentLabel }: { agentId: string; agent
 
   return (
     <>
+      {/* Its own row (not the filter bar, which folds into a sheet on phones). */}
+      {entryTarget ? (
+        <div className="flex justify-end">
+          <AgentOrderEntryButton agent={entryTarget} onCreated={() => void load()} />
+        </div>
+      ) : null}
       <EnterpriseDataTable
         tableId="agent-orders"
         printTitle={`${t("agents.tabs.orders")} — ${agentLabel}`}
@@ -248,6 +267,7 @@ export function AgentOrdersTab({ agentId, agentLabel }: { agentId: string; agent
         fetchAllRows={fetchAllRows}
         emptyTitle={t("agents.orders.empty")}
         getRowId={(row) => row.id}
+
         getRowHref={(row) => `/store-orders/${row.id}`}
       />
       {refundTarget ? (

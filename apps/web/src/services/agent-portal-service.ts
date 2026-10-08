@@ -5,9 +5,8 @@ import { orderAmendmentsClient } from "./order-amendments-service";
 import { buildQueryString as buildQuery } from "@/lib/query-string";
 import type {
   AgentCommissionReport,
+  AgentShippingService,
   ShippingPricingView,
-  TariffDeliveryChannel,
-  TariffPaymentType,
 } from "./agents-service";
 
 /**
@@ -89,12 +88,22 @@ export interface CatalogStatus {
 
 // ── Profile / dashboard ───────────────────────────────────────────────────
 
-export interface PortalShippingRate {
-  country: CountryRef & { code: string };
-  city: string | null;
-  deliveryChannel: TariffDeliveryChannel;
-  paymentType: TariffPaymentType;
-  amount: number;
+/**
+ * R15 D15-13 — the agent shipping agreement in force today, as the agent
+ * sees it: agreed charges by service and destination (country null = all
+ * destinations). Never carrier cost or margin.
+ */
+export interface PortalShippingAgreement {
+  agreementNumber: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  currency: CurrencyRef;
+  rates: Array<{
+    service: AgentShippingService;
+    country: (CountryRef & { code: string }) | null;
+    city: string | null;
+    amount: number;
+  }>;
 }
 
 export interface PortalMe {
@@ -123,8 +132,8 @@ export interface PortalMe {
     serviceCommissionRatePercent: number;
     shippingPolicy: "PREDETERMINED_CHARGE" | "FLAT_FEE_PER_SHIPMENT" | "NONE";
     allowAgentDestinations: boolean;
-    shippingRates: PortalShippingRate[];
   } | null;
+  shippingAgreement: PortalShippingAgreement | null;
 }
 
 export interface PortalFulfillmentCounts {
@@ -287,6 +296,9 @@ export interface QuoteIssue {
   lineKey?: string;
 }
 
+/** Which row of the agent's shipping agreement priced the shipping (R15). */
+export type ShippingRateScope = "CITY" | "COUNTRY" | "ALL";
+
 export interface OrderQuote {
   valid: boolean;
   issues: QuoteIssue[];
@@ -296,7 +308,8 @@ export interface OrderQuote {
   digitalOnly: boolean;
   shipping: {
     rate: number | null;
-    rateScope: "CITY" | "COUNTRY" | null;
+    /** R15 (W3) — ALL = the shipping agreement's all-destinations row. */
+    rateScope: ShippingRateScope | null;
     charge: number | null;
     source: ShippingChargeSource | null;
     overrideAllowed: boolean;

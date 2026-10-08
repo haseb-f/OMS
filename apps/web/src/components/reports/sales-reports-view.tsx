@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   CalendarCheck,
   CalendarClock,
@@ -11,6 +11,7 @@ import {
   ListChecks,
   RefreshCw,
   UserRound,
+  UserRoundX,
   UsersRound,
   Wallet,
   type LucideIcon,
@@ -41,6 +42,8 @@ import {
 import { DashboardPanel } from "@/components/dashboard/dashboard-panel";
 import { ReportCard, ReportCardSkeleton } from "@/components/reports/report-card";
 import { BarChart } from "@/components/reports/bar-chart";
+import { OwnRankCard } from "@/components/reports/own-rank-card";
+import { reportTabs, type ReportTab } from "@/components/reports/sales-report-tabs";
 import { useLiveRefresh, type LiveRefreshState } from "@/components/reports/use-live-refresh";
 import {
   salesReportsService,
@@ -61,8 +64,7 @@ import { businessPresetRange, formatBusinessDateTime } from "@/lib/business-date
 import { formatNumber } from "@/lib/format-number";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
-
-type ReportTab = "live" | "employees" | "teams" | "comparison" | "paymentMix";
+import { ltrIsolate } from "@/lib/bidi";
 
 const PERIOD_ICON: Record<LivePeriod, LucideIcon> = {
   today: CalendarCheck,
@@ -81,7 +83,7 @@ function isForbidden(error: unknown): boolean {
 }
 
 function rangeLabel(from: string, to: string): string {
-  return from === to ? formatDate(from) : `${formatDate(from)} – ${formatDate(to)}`;
+  return ltrIsolate(from === to ? formatDate(from) : `${formatDate(from)} – ${formatDate(to)}`);
 }
 
 /** "count" or "amount:<CODE>" — one Select value for the rank-by control. */
@@ -97,21 +99,22 @@ function parseRank(value: RankValue): { rankBy: RankBy; currency: string | null 
  * Sales reports (R13 spec E) — one view for the company page
  * (`/reports/sales`) and the agent portal (`/agent/reports`): Live period
  * cards, ranked employees, teams, a comparison chart + table and the payment
- * mix. Every figure comes from the API's single metric definitions; the
- * view only arranges them.
+ * mix. Every figure comes from the API's single metric definitions and its
+ * report scope (R15 D15-18); the view only arranges them. The tabs follow the
+ * scope the API answered with (`reportTabs`): an own scope gets "My
+ * performance" instead of the tabs about other people.
  */
 export function SalesReportsView({ source }: { source: SalesReportsSource }) {
   const { t } = useLocale();
   const [tab, setTab] = useState<ReportTab>("live");
+  const [scope, setScope] = useState<SalesReportScope | null>(null);
   const [range, setRange] = useState<DateRangeValue>(() => businessPresetRange("THIS_MONTH"));
   const [rank, setRank] = useState<RankValue>("count");
-  const tabs: ReportTab[] =
-    source === "agent"
-      ? ["live", "employees", "comparison", "paymentMix"]
-      : ["live", "employees", "teams", "comparison", "paymentMix"];
+  const tabs = reportTabs(scope);
+  const current = tabs.includes(tab) ? tab : "live";
 
   return (
-    <Tabs value={tab} onValueChange={(value) => setTab(value as ReportTab)} className="min-w-0">
+    <Tabs value={current} onValueChange={(value) => setTab(value as ReportTab)} className="min-w-0">
       <TabsList variant="line" className="max-w-full flex-wrap justify-start">
         {tabs.map((key) => (
           <TabsTrigger key={key} value={key} className="flex-none">
@@ -120,13 +123,13 @@ export function SalesReportsView({ source }: { source: SalesReportsSource }) {
         ))}
       </TabsList>
       <p className="text-caption text-muted-foreground">{t("salesReports.definitions")}</p>
-      <TabsContent value={tab} className="min-w-0">
-        {tab === "live" ? (
-          <LiveTab source={source} />
+      <TabsContent value={current} className="min-w-0">
+        {current === "live" ? (
+          <LiveTab source={source} onScope={setScope} />
         ) : (
           <PerformancePanel
             source={source}
-            tab={tab}
+            tab={current}
             range={range}
             onRangeChange={setRange}
             rank={rank}
@@ -162,7 +165,7 @@ function RefreshBar<T extends { scope: SalesReportScope }>({
             <>
               {" · "}
               {t("salesReports.refresh.lastRefreshed", {
-                time: formatBusinessDateTime(new Date(state.lastRefreshedAt)),
+                time: ltrIsolate(formatBusinessDateTime(new Date(state.lastRefreshedAt))),
               })}
             </>
           ) : null}
@@ -247,12 +250,23 @@ function useStatLines() {
 // Live
 // ---------------------------------------------------------------------------
 
-function LiveTab({ source }: { source: SalesReportsSource }) {
+function LiveTab({
+  source,
+  onScope,
+}: {
+  source: SalesReportsSource;
+  /** Reports the scope the API answered with (the view's tabs follow it). */
+  onScope: (scope: SalesReportScope) => void;
+}) {
   const { t } = useLocale();
   const statLines = useStatLines();
   const loader = useCallback(() => salesReportsService.live(source), [source]);
   const live = useLiveRefresh(loader, { intervalMs: 60_000 });
   const [selected, setSelected] = useState<LivePeriod>("today");
+  const scope = live.data?.scope ?? null;
+  useEffect(() => {
+    if (scope) onScope(scope);
+  }, [scope, onScope]);
 
   if (!live.data && live.error) return <LoadFailure state={live} />;
   const bucket = live.data?.periods.find((entry) => entry.period === selected);
@@ -261,9 +275,7 @@ function LiveTab({ source }: { source: SalesReportsSource }) {
     <div className="flex min-w-0 flex-col gap-3">
       <RefreshBar state={live} auto />
       <FreshnessBanner state={live} />
-      {live.data?.scope === "NONE" ? (
-        <EmptyState title={t("salesReports.scope.NONE")} />
-      ) : live.data ? (
+      {live.data ? (
         <InsightGroup className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {live.data.periods.map((entry) => (
             <ReportCard
@@ -288,7 +300,7 @@ function LiveTab({ source }: { source: SalesReportsSource }) {
           className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
         />
       )}
-      {bucket && live.data?.scope !== "NONE" ? (
+      {bucket ? (
         <DashboardPanel
           id="sales-live-status"
           icon={ListChecks}
@@ -387,7 +399,7 @@ function PerformancePanel({
   let body: ReactNode;
   if (!data && perf.error) body = <LoadFailure state={perf} />;
   else if (!data) body = <CardSkeletons count={4} className={CARD_GRID} />;
-  else if (data.scope === "NONE") body = <EmptyState title={t("salesReports.scope.NONE")} />;
+  else if (tab === "own") body = <OwnTab data={data} />;
   else if (tab === "employees") body = <EmployeesTab data={data} />;
   else if (tab === "teams") body = <TeamsTab data={data} />;
   else if (tab === "comparison") body = <ComparisonTab data={data} />;
@@ -406,10 +418,6 @@ function PerformancePanel({
   );
 }
 
-function employeeName(t: ReturnType<typeof useLocale>["t"], row: RankedEmployee): string {
-  return row.name ?? t("salesReports.employees.unassigned");
-}
-
 function RankBadge({ rank }: { rank: number }) {
   const { t } = useLocale();
   return (
@@ -419,19 +427,96 @@ function RankBadge({ rank }: { rank: number }) {
   );
 }
 
-function EmployeesTab({ data }: { data: PerformanceReport }) {
+const NO_SALES: SalesStats = { orders: 0, valid: 0, cancelled: 0, returned: 0, amounts: [] };
+
+/** OWN / AGENT_OWN: the caller's own figures and own rank — nothing about anyone else. */
+function OwnTab({ data }: { data: PerformanceReport }) {
+  const { t } = useLocale();
+  const statLines = useStatLines();
+  const own = data.employees[0] ?? NO_SALES;
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <p className="text-caption text-muted-foreground">{t("salesVisibility.ownOnly")}</p>
+      <InsightGroup className={CARD_GRID}>
+        <ReportCard
+          title={t("salesVisibility.ownSales")}
+          icon={UserRound}
+          tone="info"
+          figure={own.valid}
+          unit={t("salesReports.stats.valid")}
+          amounts={own.amounts}
+          noAmountsLabel={t("salesReports.stats.noSales")}
+          stats={statLines(own)}
+        />
+        <OwnRankCard
+          position={data.ownRank.position}
+          of={data.ownRank.of}
+          population={data.scope === "AGENT_OWN" ? "agent" : "company"}
+        />
+      </InsightGroup>
+    </div>
+  );
+}
+
+/** One unranked row kept apart from the employees (agents, orders without an owner). */
+function SeparateRow({
+  id,
+  title,
+  hint,
+  icon,
+  stats,
+}: {
+  id: string;
+  title: string;
+  hint: string;
+  icon: LucideIcon;
+  stats: SalesStats;
+}) {
   const { t } = useLocale();
   const statLines = useStatLines();
   return (
+    <section className="flex min-w-0 flex-col gap-2" aria-labelledby={id}>
+      <h2 id={id} className="text-card-title">
+        {title}
+      </h2>
+      <InsightGroup className={CARD_GRID}>
+        <ReportCard
+          title={hint}
+          icon={icon}
+          tone="neutral"
+          figure={stats.valid}
+          unit={t("salesReports.stats.valid")}
+          amounts={stats.amounts}
+          noAmountsLabel={t("salesReports.stats.noSales")}
+          stats={statLines(stats)}
+        />
+      </InsightGroup>
+    </section>
+  );
+}
+
+function EmployeesTab({ data }: { data: PerformanceReport }) {
+  const { t } = useLocale();
+  const statLines = useStatLines();
+  const { position, of } = data.ownRank;
+  return (
     <div className="flex min-w-0 flex-col gap-4">
+      {/* A team is ranked within itself; the manager's own company position is said once. */}
+      {data.scope === "TEAM" ? (
+        <p className="text-caption text-muted-foreground">
+          {position === null
+            ? t("salesVisibility.notRankedHint", { of })
+            : t("salesVisibility.companyRankLine", { position, of })}
+        </p>
+      ) : null}
       {data.employees.length === 0 ? (
         <EmptyState icon={UserRound} title={t("salesReports.employees.empty")} />
       ) : (
         <InsightGroup className={CARD_GRID}>
           {data.employees.map((row) => (
             <ReportCard
-              key={row.userId ?? "unassigned"}
-              title={employeeName(t, row)}
+              key={row.userId}
+              title={row.name}
               icon={UserRound}
               tone="info"
               figure={row.valid}
@@ -449,24 +534,23 @@ function EmployeesTab({ data }: { data: PerformanceReport }) {
           {t("salesReports.employees.truncated", { count: data.employees.length })}
         </p>
       ) : null}
+      {data.unassigned ? (
+        <SeparateRow
+          id="sales-unassigned-row"
+          title={t("salesReports.employees.unassigned")}
+          hint={t("salesReports.employees.unassignedHint")}
+          icon={UserRoundX}
+          stats={data.unassigned}
+        />
+      ) : null}
       {data.agents ? (
-        <section className="flex min-w-0 flex-col gap-2" aria-labelledby="sales-agents-row">
-          <h2 id="sales-agents-row" className="text-card-title">
-            {t("salesReports.employees.agentsTitle")}
-          </h2>
-          <InsightGroup className={CARD_GRID}>
-            <ReportCard
-              title={t("salesReports.employees.agentsHint")}
-              icon={Handshake}
-              tone="neutral"
-              figure={data.agents.valid}
-              unit={t("salesReports.stats.valid")}
-              amounts={data.agents.amounts}
-              noAmountsLabel={t("salesReports.stats.noSales")}
-              stats={statLines(data.agents)}
-            />
-          </InsightGroup>
-        </section>
+        <SeparateRow
+          id="sales-agents-row"
+          title={t("salesReports.employees.agentsTitle")}
+          hint={t("salesReports.employees.agentsHint")}
+          icon={Handshake}
+          stats={data.agents}
+        />
       ) : null}
     </div>
   );
@@ -479,10 +563,8 @@ function TeamsTab({ data }: { data: PerformanceReport }) {
     () => new Map(data.employees.map((row) => [row.userId, row.valid])),
     [data.employees],
   );
-  if (data.teams === null) {
-    return <EmptyState icon={UsersRound} title={t("salesReports.teams.notAvailable")} />;
-  }
-  if (data.teams.length === 0) {
+  // The tab exists only for TEAM / ALL (`reportTabs`), which always carry `teams`.
+  if (!data.teams?.length) {
     return <EmptyState icon={UsersRound} title={t("salesReports.teams.empty")} />;
   }
   const person = (userId: string, name: string) => (
@@ -542,7 +624,7 @@ function ComparisonTab({ data }: { data: PerformanceReport }) {
       header: t("salesReports.comparison.rank"),
       cell: (row) => <span className="num">{row.rank}</span>,
     },
-    { id: "name", header: t("salesReports.comparison.name"), cell: (row) => employeeName(t, row) },
+    { id: "name", header: t("salesReports.comparison.name"), cell: (row) => row.name },
     {
       id: "orders",
       header: t("salesReports.stats.orders"),
@@ -595,8 +677,8 @@ function ComparisonTab({ data }: { data: PerformanceReport }) {
             title={t("salesReports.comparison.chartTitle", { metric })}
             emptyLabel={t("salesReports.chart.empty")}
             items={data.employees.slice(0, CHART_LIMIT).map((row) => ({
-              id: row.userId ?? "unassigned",
-              label: employeeName(t, row),
+              id: row.userId,
+              label: row.name,
               value: row.rankValue,
               valueLabel: valueLabel(row.rankValue),
               prefix: `#${row.rank}`,
@@ -612,7 +694,7 @@ function ComparisonTab({ data }: { data: PerformanceReport }) {
       <CompactDetailTable
         columns={columns}
         rows={data.employees}
-        rowKey={(row) => row.userId ?? "unassigned"}
+        rowKey={(row) => row.userId}
         empty={t("salesReports.employees.empty")}
         stacked
       />

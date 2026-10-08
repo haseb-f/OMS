@@ -69,29 +69,14 @@ const agentPricingEn = {
       "No products are linked to your agent yet. Ask your agent administrator or the company's agent manager to link products.",
   },
   tariffs: {
-    title: "Agent shipping tariffs",
-    description:
-      "The contractual agent shipping fee by destination, delivery channel and payment type. Customer shipping follows it.",
-    channel: "Delivery channel",
-    paymentType: "Payment type",
     channels: {
-      ANY: "Any",
       CARRIER: "Carrier",
       INTERNAL_COURIER: "Internal courier",
     },
     paymentTypes: {
-      ANY: "Any",
       PREPAID: "Prepaid",
       CASH_ON_DELIVERY: "Cash on delivery",
     },
-    matrixTitle: "Resolved fee by destination",
-    matrixHint:
-      "The most specific row wins: city, then channel, then payment type. “Not set” means Shipping cannot choose that delivery method for the destination.",
-    destination: "Destination",
-    notConfigured: "Not set",
-    rowsTitle: "Tariff rows",
-    add: "Add tariff",
-    saved: "Tariff saved.",
   },
   status: {
     NOT_APPLICABLE: "Not applicable",

@@ -152,10 +152,6 @@ const orderAmendmentsEn = {
     MARK_READY_FOR_PICKUP: "Mark ready for pickup",
     MARK_COLLECTED: "Mark collected",
     GENERATE_INVOICE: "Generate invoice",
-    handedOverTitle: "Mark the parcel handed over to the carrier?",
-    handedOverDescription:
-      "The shipment moves to Shipped. Items and address cannot be amended afterwards.",
-    handedOver: "Shipment marked as shipped.",
   },
   detail: {
     card: "Order",

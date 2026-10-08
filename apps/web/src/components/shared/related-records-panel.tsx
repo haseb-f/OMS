@@ -53,7 +53,9 @@ export function RelatedRecordsPanel({
           <Skeleton className="h-7 w-28" />
         </div>
       ) : error && forbidden ? (
-        <p className="text-caption text-warning-foreground">
+        // Text on the card surface (light and dark): the soft-warning text token,
+        // never the filled-warning foreground (near-black, invisible in dark mode).
+        <p className="text-caption text-warning-soft-foreground">
           {t("docFlow.trace.state.UNAUTHORIZED")}
         </p>
       ) : error ? (

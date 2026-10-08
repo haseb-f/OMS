@@ -11,6 +11,11 @@ import { cn } from "@/lib/utils";
 
 const warehousesService = createMasterDataService<WarehouseRow>("/warehouses");
 
+type WarehouseRole = NonNullable<WarehouseRow["role"]>;
+const STOCK_ONLY: readonly WarehouseRole[] = ["STOCK"];
+/** Documents that take goods out (write-off adjustment, transfer source) may use the damaged-goods warehouse. */
+export const WRITE_OFF_ROLES: readonly WarehouseRole[] = ["STOCK", "DAMAGED"];
+
 export function WarehousePicker({
   value,
   onChange,
@@ -21,6 +26,7 @@ export function WarehousePicker({
   className,
   id,
   "aria-label": ariaLabel,
+  roles = STOCK_ONLY,
 }: {
   value: WarehouseRow | null | undefined;
   onChange: (warehouse: WarehouseRow) => void;
@@ -32,6 +38,13 @@ export function WarehousePicker({
   /** Forwarded to the trigger so an external `<Label htmlFor>` / `FormControl` can name it. */
   id?: string;
   "aria-label"?: string;
+  /**
+   * R15 (review M3) — the warehouse roles offered. Stock warehouses only by
+   * default: goods in transit are moved by the order lifecycle alone, and a
+   * manual document may only take goods out of the damaged-goods warehouse
+   * (adjustment / transfer source pass `["STOCK", "DAMAGED"]`).
+   */
+  roles?: readonly WarehouseRole[];
 }) {
   const { t } = useLocale();
 
@@ -47,7 +60,9 @@ export function WarehousePicker({
         const result = await cachedLookup(`warehouses:${JSON.stringify(params)}`, () =>
           warehousesService.list(params),
         );
-        return result.items.filter((warehouse) => warehouse.isActive);
+        return result.items.filter(
+          (warehouse) => warehouse.isActive && roles.includes(warehouse.role ?? "STOCK"),
+        );
       }}
       getId={(warehouse) => warehouse.id}
       getTitle={(warehouse) => warehouse.name}

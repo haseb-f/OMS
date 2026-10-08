@@ -1,28 +1,32 @@
 import { STORAGE_KEYS } from "../constants/storage-keys";
-import { AGENT_PORTAL_HOME, routeAudienceMismatch } from "./route-access";
+import type { AudienceUserType } from "../types/navigation";
+import {
+  AGENT_PORTAL_HOME,
+  PARTNER_PORTAL_HOME,
+  isUnderRoute,
+  routeAudienceMismatch,
+} from "./route-access";
 
-type UserType = "INTERNAL" | "AGENT" | undefined;
+type UserType = AudienceUserType | undefined;
 
 /** Pages a signed-in user must never be sent back to after login. */
 const NON_DESTINATION_PREFIXES = ["/login", "/forgot-password", "/reset-password", "/investor"];
 
 const PLACEHOLDER_ORIGIN = "http://oms.invalid";
 
-function isUnder(pathname: string, prefix: string): boolean {
-  return pathname === prefix || pathname.startsWith(`${prefix}/`);
-}
-
-/** The audience's authorized home: the agent portal for agents, the company dashboard otherwise. */
+/** The audience's authorized home: the agent portal, the partner portal, else the company Home. */
 export function homePathFor(userType: UserType): string {
-  return userType === "AGENT" ? AGENT_PORTAL_HOME : "/";
+  if (userType === "AGENT") return AGENT_PORTAL_HOME;
+  if (userType === "PARTNER") return PARTNER_PORTAL_HOME;
+  return "/";
 }
 
 /**
  * R6 (spec A.4) — validates a `?next=` deep link: a same-origin RELATIVE path
  * (never `//host`, `\\host`, a scheme, or control characters), not an auth
  * page or the separate investor zone, and inside the user's own audience
- * (agents only `/agent*` + shared `/profile`; internal users never
- * `/agent*`). Returns the normalized path incl. query/hash, or null.
+ * (agents only `/agent*`, partners only `/partner*`, both + shared
+ * `/profile`; internal users never either portal). Returns the normalized path incl. query/hash, or null.
  * Page-level permissions are still enforced by `RouteAccessGuard`.
  */
 export function safeNextPath(next: string | null | undefined, userType: UserType): string | null {
@@ -47,7 +51,7 @@ export function safeNextPath(next: string | null | undefined, userType: UserType
   if (!pathname.startsWith("/") || pathname.startsWith("//") || pathname.startsWith("/\\")) {
     return null;
   }
-  if (NON_DESTINATION_PREFIXES.some((prefix) => isUnder(pathname, prefix))) return null;
+  if (NON_DESTINATION_PREFIXES.some((prefix) => isUnderRoute(pathname, prefix))) return null;
   if (routeAudienceMismatch(userType ?? "INTERNAL", pathname)) return null;
   return `${pathname}${url.search}${url.hash}`;
 }

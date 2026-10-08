@@ -3,11 +3,19 @@
 import { CreateOperationTotals } from "@/components/shared/create-operation";
 import { MoneyValue } from "@/components/shared/money-value";
 import { useLocale } from "@/providers/locale-provider";
-import type { ShippingChargeSource } from "@/services/agent-portal-service";
+import type { ShippingChargeSource, ShippingRateScope } from "@/services/agent-portal-service";
+import type { MessageKey } from "@/i18n/translate";
 import { formatMoney } from "@/lib/money";
 
 const codeOf = (currency: string | { code: string } | null | undefined) =>
   typeof currency === "string" ? currency : (currency?.code ?? null);
+
+/** Which agreement row priced the shipping (city, country, or the all-destinations row). */
+const RATE_SCOPE_LABEL: Record<ShippingRateScope, MessageKey> = {
+  CITY: "agentPortal.orderForm.breakdown.rateScopeCity",
+  COUNTRY: "agentPortal.orderForm.breakdown.rateScopeCountry",
+  ALL: "agentShippingAgreements.allDestinations",
+};
 
 export interface BreakdownFigures {
   merchandiseAmount: number | null;
@@ -39,7 +47,7 @@ export function OrderBreakdown({
   shippingSource?: ShippingChargeSource | null;
   /** The configured rate — shown next to a manual override so the difference is visible. */
   shippingRate?: number | null;
-  rateScope?: "CITY" | "COUNTRY" | null;
+  rateScope?: ShippingRateScope | null;
   /** Spec 2 — the shipping fee is an estimate until Shipping selects the delivery method. */
   provisional?: boolean;
   mode?: "SHIPPING_ADDED" | "SHIPPING_INCLUDED" | null;
@@ -54,13 +62,7 @@ export function OrderBreakdown({
     ? t("agentPricing.shippingProvisional")
     : shippingSource === "RATE"
       ? `${t("agentPortal.orderForm.breakdown.configuredRate")}${
-          rateScope
-            ? ` · ${t(
-                rateScope === "CITY"
-                  ? "agentPortal.orderForm.breakdown.rateScopeCity"
-                  : "agentPortal.orderForm.breakdown.rateScopeCountry",
-              )}`
-            : ""
+          rateScope ? ` · ${t(RATE_SCOPE_LABEL[rateScope])}` : ""
         }`
       : shippingSource === "MANUAL"
         ? t("agentPortal.orderForm.breakdown.manualOverride")

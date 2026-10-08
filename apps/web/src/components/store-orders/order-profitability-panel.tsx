@@ -161,6 +161,10 @@ export function OrderProfitabilityPanel({ storeOrderId }: { storeOrderId: string
                   ({economics.fulfillmentCostRuleName})
                 </span>
               ) : null}
+              {/* R15 (D15-6) — the standard operational cost is an estimate, never the posted COGS. */}
+              <span className="text-caption text-muted-foreground">
+                {t("storeOrderStock.costs.estimated")}
+              </span>
             </span>
           }
         />

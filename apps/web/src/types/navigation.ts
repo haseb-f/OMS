@@ -19,6 +19,12 @@ export type NavigationGroupId =
   | "settings-crm"
   | "settings-integrations";
 
+/** The three audiences of the shell (R15 adds a company partner's own login). */
+export type NavigationAudience = "internal" | "agent" | "partner";
+
+/** `User.userType` as the web receives it from `/auth/me` and `/auth/login`. */
+export type AudienceUserType = "INTERNAL" | "AGENT" | "PARTNER";
+
 /**
  * Config-driven navigation contract. Every sidebar/topbar navigation
  * surface renders from `navigation.config.ts` entries shaped like this —
@@ -57,11 +63,12 @@ export interface NavigationItem {
   permissionMatch?: "all" | "any";
   /**
    * Who the item is for. `agent` items (the external agent portal) are shown
-   * only to AGENT users; every other item only to INTERNAL users — even a
-   * super admin never sees the other audience's navigation. Defaults to
+   * only to AGENT users, `partner` items (R15 — a company partner's own
+   * portal) only to PARTNER users; every other item only to INTERNAL users —
+   * even a super admin never sees another audience's navigation. Defaults to
    * `internal`.
    */
-  audience?: "internal" | "agent";
+  audience?: NavigationAudience;
   /**
    * Home launcher (`/`): the tile's identity colour. Only top-level modules /
    * agent pages need it; an item without one falls back to a stable palette

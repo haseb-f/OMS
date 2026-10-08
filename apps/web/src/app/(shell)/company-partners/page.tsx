@@ -23,6 +23,7 @@ import { ReportMoney } from "@/components/accounting/financial-report/report-mon
 import { RowActionsMenu } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/business/status-badge";
 import { percentText } from "@/config/company-partners/format";
+import { PARTNERSHIP_TONE } from "@/config/company-partners/period-statement";
 import {
   companyPartnersService,
   type CompanyPartnerRow,
@@ -183,6 +184,52 @@ function CompanyPartnersContent() {
             tone={row.original.status === "ACTIVE" ? "success" : "neutral"}
           />
         ),
+      },
+      {
+        id: "partnership",
+        accessorFn: (row) => row.partnership.status,
+        meta: {
+          titleKey: "companyPartners.fields.partnership",
+          type: "status",
+          importance: "medium",
+          displayValue: (row, tr) => tr(`companyPartners.partnership.${row.partnership.status}`),
+        },
+        cell: ({ row }) => (
+          <StatusBadge
+            label={t(`companyPartners.partnership.${row.original.partnership.status}`)}
+            tone={PARTNERSHIP_TONE[row.original.partnership.status]}
+          />
+        ),
+      },
+      {
+        id: "login",
+        accessorFn: (row) => (row.login ? (row.login.isActive ? "ACTIVE" : "DISABLED") : "NONE"),
+        meta: {
+          titleKey: "companyPartners.fields.login",
+          type: "status",
+          importance: "low",
+          displayValue: (row, tr) =>
+            row.login
+              ? tr(
+                  row.login.isActive
+                    ? "companyPartners.login.active"
+                    : "companyPartners.login.disabled",
+                )
+              : "—",
+        },
+        cell: ({ row }) =>
+          row.original.login ? (
+            <StatusBadge
+              label={t(
+                row.original.login.isActive
+                  ? "companyPartners.login.active"
+                  : "companyPartners.login.disabled",
+              )}
+              tone={row.original.login.isActive ? "success" : "neutral"}
+            />
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
       },
       {
         id: "actions",

@@ -66,7 +66,7 @@ export function RelatedDocuments({ groups }: { groups: RelatedDocumentGroup[] })
               ),
             )
           ) : (
-            <span className="text-warning-foreground">{group.emptyLabel}</span>
+            <span className="text-warning-soft-foreground">{group.emptyLabel}</span>
           )}
         </div>
       ))}

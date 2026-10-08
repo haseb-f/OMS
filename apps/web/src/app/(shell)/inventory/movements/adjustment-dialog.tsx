@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { WarehousePicker } from "@/components/business/warehouse-picker";
+import { WarehousePicker, WRITE_OFF_ROLES } from "@/components/business/warehouse-picker";
 import { ProductPicker } from "@/components/business/product-picker";
 import { useLocale } from "@/providers/locale-provider";
 import { toast, reportApiError } from "@/lib/toast";
@@ -156,6 +156,7 @@ export function AdjustmentDialog({
               id={`${fieldId}-warehouse`}
               value={warehouse}
               onChange={setWarehouse}
+              roles={WRITE_OFF_ROLES}
             />
           </div>
         </div>

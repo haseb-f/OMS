@@ -19,3 +19,14 @@ export function detectTextDirection(value: string): "rtl" | "ltr" {
 export function hasArabicScript(value: string): boolean {
   return ARABIC_SCRIPT.test(value);
 }
+
+/**
+ * A left-to-right run (a date, "3 من 12"-style figures) inside text that can
+ * only be a string — a card title, a joined caption, an interpolated message.
+ * Wraps it in LEFT-TO-RIGHT ISOLATE … POP DIRECTIONAL ISOLATE so an Arabic
+ * line never reorders "08 Oct 2026" into "Oct 2026 08". Display only — never
+ * for exported or copied values; in JSX prefer `SemanticValue kind="date"`.
+ */
+export function ltrIsolate(text: string): string {
+  return text ? `\u2066${text}\u2069` : text;
+}

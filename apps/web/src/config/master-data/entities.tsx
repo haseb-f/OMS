@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { fixedAssetStatusTone } from "@/config/finance/schedule-status";
+import { WarehouseRoleBadge } from "@/components/store-orders/stock/warehouse-role-badge";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { MasterDataFormField } from "@/components/master-data/master-data-form";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -23,6 +24,8 @@ export interface WarehouseRow {
   description: string | null;
   isDefault: boolean;
   warehouseType: string | null;
+  /** R15 (D15-4) — STOCK, or a system warehouse (TRANSIT / DAMAGED) that is not available to sell. */
+  role?: "STOCK" | "TRANSIT" | "DAMAGED";
   isActive: boolean;
   managerId: string | null;
   manager?: { id: string; fullName: string } | null;
@@ -310,6 +313,12 @@ export const warehousesColumns: ColumnDef<WarehouseRow, unknown>[] = [
   textColumn("code", "masterData.fields.code", (r) => r.code),
   textColumn("name", "masterData.fields.name", (r) => r.name),
   textColumn("warehouseType", "masterData.fields.warehouseType", (r) => r.warehouseType, "default"),
+  {
+    id: "role",
+    meta: { titleKey: "storeOrderStock.warehouseRoleLabel", type: "status" },
+    accessorFn: (row) => row.role ?? "STOCK",
+    cell: ({ row }) => <WarehouseRoleBadge role={row.original.role} />,
+  },
   textColumn("manager", "masterData.fields.manager", (r) => r.manager?.fullName, "default"),
   statusColumn<WarehouseRow>(),
 ];

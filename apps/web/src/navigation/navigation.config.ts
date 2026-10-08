@@ -633,6 +633,36 @@ export const navigationConfig: NavigationItem[] = [
     permissions: ["agents.finance.view"],
   },
 
+  // R15 (D15-14, 4.1) — «الشركاء» is its own top-level section (company
+  // partners and profit sharing); its Home tile comes from this root. The
+  // partner's own login is managed on the partner page (no page of its own).
+  {
+    id: "company-partners",
+    homeTone: "violet",
+    titleKey: "companyPartners.nav.title",
+    icon: "briefcase",
+    order: 58,
+    permissions: ["company-partners.view"],
+  },
+  {
+    id: "company-partners-list",
+    titleKey: "companyPartners.nav.list",
+    parent: "company-partners",
+    route: "/company-partners",
+    icon: "users-round",
+    order: 0,
+    permissions: ["company-partners.view"],
+  },
+  {
+    id: "company-partners-periods",
+    titleKey: "companyPartners.nav.periods",
+    parent: "company-partners",
+    route: "/company-partners/periods",
+    icon: "calendar-check",
+    order: 1,
+    permissions: ["company-partners.view"],
+  },
+
   {
     id: "expenses",
     homeTone: "amber",
@@ -901,17 +931,6 @@ export const navigationConfig: NavigationItem[] = [
     icon: "coins",
     order: 17.5,
     permissions: ["exchange-rates.view"],
-  },
-  {
-    // R14 W5 — company partners and profit sharing ("الشركاء").
-    id: "finance-company-partners",
-    titleKey: "companyPartners.nav.title",
-    parent: "finance",
-    group: "finance-operations",
-    route: "/company-partners",
-    icon: "handshake",
-    order: 13.9,
-    permissions: ["company-partners.view"],
   },
   {
     id: "finance-fiscal-periods",
@@ -1435,5 +1454,52 @@ export const navigationConfig: NavigationItem[] = [
     order: 7,
     audience: "agent",
     permissions: ["agent.dashboard.view"],
+  },
+
+  // R15 (D15-14) — a company partner's own portal (audience "partner"):
+  // shown only to PARTNER logins. It opens on its own Home (`/partner`,
+  // ungated); each page gates on the `partner.*` permission its API requires.
+  {
+    id: "partner-portal-home",
+    titleKey: "nav.home",
+    subtitleKey: "nav.homeSubtitle",
+    icon: "home",
+    route: "/partner",
+    order: -1,
+    audience: "partner",
+    homeHidden: true,
+  },
+  {
+    id: "partner-portal-overview",
+    homeTone: "blue",
+    titleKey: "partnerPortal.nav.overview",
+    icon: "dashboard",
+    route: "/partner/overview",
+    order: 0,
+    audience: "partner",
+    permissions: ["partner.dashboard.view"],
+  },
+  {
+    id: "partner-portal-statement",
+    homeTone: "indigo",
+    titleKey: "partnerPortal.nav.statement",
+    icon: "book-text",
+    route: "/partner/statement",
+    order: 1,
+    audience: "partner",
+    permissions: ["partner.statement.view"],
+  },
+  // R15 (D15-16) — agent portal imports (leads / orders from Excel or a
+  // private Google Sheet): either agent import key opens the page.
+  {
+    id: "agent-portal-imports",
+    homeTone: "teal",
+    titleKey: "salesImport.nav.agentImports",
+    icon: "upload-cloud",
+    route: "/agent/imports",
+    order: 8,
+    audience: "agent",
+    permissions: ["agent.leads.import", "agent.orders.import"],
+    permissionMatch: "any",
   },
 ];

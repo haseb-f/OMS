@@ -12,6 +12,7 @@ import {
 } from "@/components/master-data/enterprise-data-table";
 import { SelectFilter } from "@/components/shared/data-table";
 import { AgentFormDialog } from "@/components/agents/agent-form-dialog";
+import { AgentsOverviewPanel } from "@/components/agents/overview/agents-overview-panel";
 import {
   agentExportColumns,
   agentExportRow,
@@ -85,12 +86,15 @@ function AgentsPageContent() {
   );
 
   const columns = useMemo(() => buildAgentColumns(), []);
+  const pageAgentIds = useMemo(() => items.map((row) => row.id), [items]);
 
   return (
     <PageWorkspace
       dense
       title={t("agents.list.title")}
       description={t("agents.list.description")}
+      // R15 W1 — the cross-agent overview of the agents on this page (supporting panel).
+      secondary={<AgentsOverviewPanel agentIds={pageAgentIds} ready={!isLoading && !loadError} />}
       actions={
         <HeaderActions
           primary={{

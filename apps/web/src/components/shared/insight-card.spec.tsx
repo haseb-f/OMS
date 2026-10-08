@@ -127,7 +127,8 @@ describe("InsightGroup fit (R14 fix — partner statement summary)", () => {
   it("company partner summaries use the fit layout (no fixed 5–6 column rows)", () => {
     for (const file of [
       "src/app/(shell)/company-partners/page.tsx",
-      "src/app/(shell)/company-partners/[partnerId]/page.tsx",
+      "src/config/company-partners/period-statement-view.tsx",
+      "src/app/(shell)/partner/overview/page.tsx",
       "src/app/(shell)/company-partners/periods/page.tsx",
     ]) {
       const source = readFileSync(join(process.cwd(), file), "utf8");

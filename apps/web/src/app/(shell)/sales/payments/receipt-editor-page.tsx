@@ -43,6 +43,18 @@ let nextLineId = 1;
 function allocationToLine(
   allocation: FinancialTransactionRow["allocations"][number],
 ): AllocationGridLine {
+  // R15 (D15-11) — the part of the receipt paid back by its order's advance
+  // refund: shown as the order (removing it is refused — cancel the refund).
+  if (allocation.storeOrderId && !allocation.salesInvoiceId) {
+    return {
+      id: allocation.id,
+      invoiceId: allocation.storeOrderId,
+      invoiceNumber: allocation.storeOrder?.internalOrderId ?? "—",
+      invoiceHref: `/store-orders/${allocation.storeOrderId}`,
+      remainingBalance: Number(allocation.allocatedAmount),
+      allocatedAmount: Number(allocation.allocatedAmount),
+    };
+  }
   return {
     id: allocation.id,
     invoiceId: allocation.salesInvoiceId ?? "",

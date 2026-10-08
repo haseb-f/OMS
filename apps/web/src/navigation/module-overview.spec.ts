@@ -40,7 +40,7 @@ describe("Home tiles open an overview for modules and the page for page entries"
   const tiles = buildHomeTiles(navigationConfig, internal([], true));
   it("every module tile → /modules/<id>; Dashboard stays a direct destination", () => {
     const roots = buildNavigationTree(navigationConfig).filter(
-      (item) => !item.homeHidden && item.audience !== "agent",
+      (item) => !item.homeHidden && (item.audience ?? "internal") === "internal",
     );
     for (const root of roots) {
       const tile = tiles.find((entry) => entry.id === root.id);
@@ -124,7 +124,7 @@ describe("buildModuleOverview", () => {
 
 describe("destination descriptions", () => {
   const leaves = flattenNavigationTree(buildNavigationTree(navigationConfig))
-    .filter((item) => item.route && item.audience !== "agent")
+    .filter((item) => item.route && (item.audience ?? "internal") === "internal")
     .filter((item) => item.id !== "home" && item.id !== "dashboard");
   const moduleRoots = buildNavigationTree(navigationConfig).filter(isModuleEntry);
   const listed = new Set(

@@ -10,6 +10,7 @@ import { EnterpriseButton } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { SyncButton } from "@/components/shared/sync-button";
+import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
 import {
   EnterpriseDateRangePicker,
   type DateRangeValue,
@@ -22,6 +23,10 @@ import {
 } from "@/components/shared/data-table";
 import { BULK_LIMITS } from "@/lib/bulk-limits";
 import { SelectFilter } from "@/components/shared/data-table/select-filter";
+import {
+  STORE_ORDER_STOCK_STATUSES,
+  type StoreOrderStockStatus,
+} from "@/components/store-orders/stock/stock-api";
 import {
   DECLARED_STATUS_VALUES,
   declaredStatusLabelKey,
@@ -114,6 +119,11 @@ function StoreOrdersPageContent() {
     "",
   );
   const [sourceFilter, setSourceFilter] = usePathRestorableState<string[]>("source", []);
+  // R15 — physical stock state (reserved / short / in transit / …).
+  const [stockStatusFilter, setStockStatusFilter] = usePathRestorableState<string[]>(
+    "stockStatus",
+    [],
+  );
   // Agents milestone — orders of one owner agent.
   const [agentFilter, setAgentFilter] = usePathRestorableState<string>("agentId", "");
   const [dateRange, setDateRange] = usePathRestorableState<DateRangeValue>(
@@ -152,6 +162,7 @@ function StoreOrdersPageContent() {
         ? (declaredStatusFilter as StoreOrderDeclaredPaymentStatusValue)
         : undefined,
       shippingStage: shippingStageFilter as StoreOrderShippingStageValue[],
+      stockStatus: stockStatusFilter as StoreOrderStockStatus[],
       source: sourceFilter as StoreOrderSourceValue[],
       agentId: agentFilter || undefined,
       ...(canReviewDuplicates && duplicateReviewFilter
@@ -172,6 +183,7 @@ function StoreOrdersPageContent() {
       paymentStatusFilter,
       declaredStatusFilter,
       shippingStageFilter,
+      stockStatusFilter,
       sourceFilter,
       agentFilter,
       canReviewDuplicates,
@@ -432,7 +444,13 @@ function StoreOrdersPageContent() {
       description={t("storeOrders.description")}
       actions={
         <HeaderActions
-          inline={<SyncButton sourceType="STORE_ORDERS" onSynced={load} />}
+          inline={
+            <>
+              <SyncButton sourceType="STORE_ORDERS" onSynced={load} />
+              {/* R15 (D15-16) — shown only to holders of store-orders.import (or import-center.manage). */}
+              <ModuleImportButtons importType="STORE_ORDERS" onImported={load} />
+            </>
+          }
           primary={{
             key: "create",
             label: t("storeOrders.createDialog.trigger"),
@@ -546,6 +564,18 @@ function StoreOrdersPageContent() {
               }))}
             />
             <MultiSelectFilter
+              label={t("storeOrderStock.statusLabel")}
+              values={stockStatusFilter}
+              onChange={(values) => {
+                setStockStatusFilter(values);
+                setPage(1);
+              }}
+              options={STORE_ORDER_STOCK_STATUSES.map((status) => ({
+                value: status,
+                label: t(`storeOrderStock.status.${status}`),
+              }))}
+            />
+            <MultiSelectFilter
               label={t("storeOrders.filters.source")}
               values={sourceFilter}
               onChange={(values) => {
@@ -624,6 +654,7 @@ function StoreOrdersPageContent() {
             {(paymentStatusFilter.length > 0 ||
               declaredStatusFilter ||
               shippingStageFilter.length > 0 ||
+              stockStatusFilter.length > 0 ||
               sourceFilter.length > 0 ||
               agentFilter ||
               costStateFilter.length > 0 ||
@@ -639,6 +670,7 @@ function StoreOrdersPageContent() {
                   setPaymentStatusFilter([]);
                   setDeclaredStatusFilter("");
                   setShippingStageFilter([]);
+                  setStockStatusFilter([]);
                   setSourceFilter([]);
                   setAgentFilter("");
                   setCostStateFilter([]);

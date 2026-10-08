@@ -30,6 +30,15 @@ export interface ImportJobErrorRow {
   createdAt: string;
 }
 
+/** R15 — the four result buckets of a run (stored row outcomes), plus created rows with a notice. */
+export interface ImportJobSummary {
+  created: number;
+  skipped: number;
+  needsReview: number;
+  rejected: number;
+  notices: number;
+}
+
 export interface ImportJobRow {
   id: string;
   importType: string;
@@ -54,7 +63,15 @@ export interface ImportJobRow {
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;
+  /** List rows only (R15): rows skipped as already imported. */
+  skippedCount?: number;
+}
+
+/** One job with its stored row outcomes (`get`, and every step of the wizard). */
+export interface ImportJobDetail extends ImportJobRow {
   errors: ImportJobErrorRow[];
+  /** Returned by `get` / `create` / `run` (the steps in between only move the job forward). */
+  summary?: ImportJobSummary;
 }
 
 export interface ImportPreviewResult {
@@ -80,6 +97,19 @@ export interface ImportPreviewSummary {
   duplicateCount: number;
   invalidCount: number;
   needsReviewCount: number;
+  /** R15 — rows already in OMS (same row key / external id); never imported twice. */
+  skippedCount: number;
+}
+
+/** R15 — a non-blocking preview finding for one row, or for the whole file (`rowNumber` null). */
+export interface ImportPreviewWarning {
+  rowNumber: number | null;
+  message: string;
+}
+
+export interface ImportRowReason {
+  rowNumber: number;
+  reason: string;
 }
 
 export interface ImportValidationResult {
@@ -87,6 +117,10 @@ export interface ImportValidationResult {
   errorCount: number;
   errors: ImportRowValidationError[];
   duplicateGroups: ImportDuplicateGroup[];
+  needsReview: ImportRowReason[];
+  /** R15 — rows that would be skipped as already imported, naming the existing record. */
+  skipped: ImportRowReason[];
+  warnings: ImportPreviewWarning[];
   summary: ImportPreviewSummary;
 }
 
@@ -139,59 +173,64 @@ export interface BulkRowActionResult {
  * Import Job engine client (TASK-056 Part 3) — every call maps 1:1 to
  * `ImportJobsService` on the API; the frontend never re-implements the
  * Draft -> Mapping -> Validating -> Importing -> Completed/Failed lifecycle,
- * it only drives it.
+ * it only drives it. R15 — one client per endpoint family: the company
+ * Import Center (`/import-center/jobs`) and the agent portal
+ * (`/agent-portal/imports/jobs`) share the same server workspace, so the same
+ * wizard drives both.
  */
-export const importJobsService = {
-  create: (importType: string) =>
-    apiClient.post<ImportJobRow>("/import-center/jobs", { importType }),
-  list: (importType?: string) =>
-    apiClient.get<ImportJobRow[]>(
-      `/import-center/jobs${importType ? `?importType=${encodeURIComponent(importType)}` : ""}`,
-    ),
-  get: (id: string) => apiClient.get<ImportJobRow>(`/import-center/jobs/${id}`),
-  upload: (id: string, file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    return apiClient.postForm<ImportJobRow>(`/import-center/jobs/${id}/upload`, formData);
-  },
-  uploadFromGoogleSheets: (id: string, url: string) =>
-    apiClient.post<ImportJobRow>(`/import-center/jobs/${id}/google-sheets`, { url }),
-  /** "Manual Refresh" — re-fetches the same Google Sheet this job was created from. */
-  refresh: (id: string) => apiClient.post<ImportJobRow>(`/import-center/jobs/${id}/refresh`),
-  preview: (id: string, limit?: number) =>
-    apiClient.get<ImportPreviewResult>(
-      `/import-center/jobs/${id}/preview${limit ? `?limit=${limit}` : ""}`,
-    ),
-  setMapping: (id: string, columnMapping: Record<string, string>) =>
-    apiClient.post<ImportJobRow>(`/import-center/jobs/${id}/mapping`, { columnMapping }),
-  /** Pre-flight validation ("Nothing is imported until validation succeeds") — read-only, never changes the job's status. */
-  validate: (id: string) =>
-    apiClient.post<ImportValidationResult>(`/import-center/jobs/${id}/validate`),
-  run: (id: string) => apiClient.post<ImportJobRow>(`/import-center/jobs/${id}/run`),
-  cancel: (id: string) => apiClient.post<ImportJobRow>(`/import-center/jobs/${id}/cancel`),
-  exportErrorsCsv: (id: string) => apiClient.getBlob(`/import-center/jobs/${id}/errors/export`),
+export function createImportJobsService(base: string) {
+  return {
+    create: (importType: string) => apiClient.post<ImportJobDetail>(base, { importType }),
+    /** The caller's own jobs ("My imports"; every company job for `import-center.manage`) — counters only. */
+    list: (importType?: string) =>
+      apiClient.get<ImportJobRow[]>(
+        `${base}${importType ? `?importType=${encodeURIComponent(importType)}` : ""}`,
+      ),
+    get: (id: string) => apiClient.get<ImportJobDetail>(`${base}/${id}`),
+    upload: (id: string, file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return apiClient.postForm<ImportJobDetail>(`${base}/${id}/upload`, formData);
+    },
+    /** Connects the private sheet to the importer (shared with the OMS address as Viewer) and reads it. */
+    uploadFromGoogleSheets: (id: string, url: string) =>
+      apiClient.post<ImportJobDetail>(`${base}/${id}/google-sheets`, { url }),
+    /** "Manual Refresh" — re-fetches the same Google Sheet this job was created from. */
+    refresh: (id: string) => apiClient.post<ImportJobDetail>(`${base}/${id}/refresh`),
+    preview: (id: string, limit?: number) =>
+      apiClient.get<ImportPreviewResult>(`${base}/${id}/preview${limit ? `?limit=${limit}` : ""}`),
+    setMapping: (id: string, columnMapping: Record<string, string>) =>
+      apiClient.post<ImportJobDetail>(`${base}/${id}/mapping`, { columnMapping }),
+    /** Preview — the same checks as the run, nothing written; never changes the job's status. */
+    validate: (id: string) => apiClient.post<ImportValidationResult>(`${base}/${id}/validate`),
+    run: (id: string) => apiClient.post<ImportJobDetail>(`${base}/${id}/run`),
+    cancel: (id: string) => apiClient.post<ImportJobDetail>(`${base}/${id}/cancel`),
+    exportErrorsCsv: (id: string) => apiClient.getBlob(`${base}/${id}/errors/export`),
 
-  // Needs Review (Store Orders import) — an existing-customer-by-phone row
-  // requires an explicit human confirm/reject click, per row or in bulk;
-  // confirming attaches the row's order to the matched Customer, rejecting
-  // discards the row. Neither ever happens automatically.
-  rows: (jobId: string, status?: ImportRowStatus) =>
-    apiClient.get<ImportJobRowRecord[]>(
-      `/import-center/jobs/${jobId}/rows${status ? `?status=${status}` : ""}`,
-    ),
-  confirmRow: (jobId: string, rowId: string) =>
-    apiClient.post<ImportJobRowRecord>(`/import-center/jobs/${jobId}/rows/${rowId}/confirm`),
-  /** A reason is always required — the Reject dialog never lets this fire without one. */
-  rejectRow: (jobId: string, rowId: string, reason: RejectImportRowPayload) =>
-    apiClient.post<ImportJobRowRecord>(`/import-center/jobs/${jobId}/rows/${rowId}/reject`, reason),
-  bulkConfirmRows: (jobId: string, rowIds: string[]) =>
-    apiClient.post<BulkRowActionResult>(`/import-center/jobs/${jobId}/rows/bulk-confirm`, {
-      rowIds,
-    }),
-  /** One reason applies to every selected row. */
-  bulkRejectRows: (jobId: string, rowIds: string[], reason: RejectImportRowPayload) =>
-    apiClient.post<BulkRowActionResult>(`/import-center/jobs/${jobId}/rows/bulk-reject`, {
-      rowIds,
-      ...reason,
-    }),
-};
+    // Needs Review — e.g. an existing customer matched by phone must be
+    // explicitly confirmed (same customer, new order) or rejected, per row or
+    // in bulk. Neither ever happens automatically.
+    rows: (jobId: string, status?: ImportRowStatus) =>
+      apiClient.get<ImportJobRowRecord[]>(
+        `${base}/${jobId}/rows${status ? `?status=${status}` : ""}`,
+      ),
+    confirmRow: (jobId: string, rowId: string) =>
+      apiClient.post<ImportJobRowRecord>(`${base}/${jobId}/rows/${rowId}/confirm`),
+    /** A reason is always required — the Reject dialog never lets this fire without one. */
+    rejectRow: (jobId: string, rowId: string, reason: RejectImportRowPayload) =>
+      apiClient.post<ImportJobRowRecord>(`${base}/${jobId}/rows/${rowId}/reject`, reason),
+    bulkConfirmRows: (jobId: string, rowIds: string[]) =>
+      apiClient.post<BulkRowActionResult>(`${base}/${jobId}/rows/bulk-confirm`, { rowIds }),
+    /** One reason applies to every selected row. */
+    bulkRejectRows: (jobId: string, rowIds: string[], reason: RejectImportRowPayload) =>
+      apiClient.post<BulkRowActionResult>(`${base}/${jobId}/rows/bulk-reject`, {
+        rowIds,
+        ...reason,
+      }),
+  };
+}
+
+export type ImportJobsApi = ReturnType<typeof createImportJobsService>;
+
+/** Company users (Import Center, Leads, Store Orders). */
+export const importJobsService = createImportJobsService("/import-center/jobs");

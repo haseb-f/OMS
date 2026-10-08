@@ -193,7 +193,8 @@ export function DashboardOverview({ access }: { access: DashboardAccess }) {
           </div>
           <div className="flex min-w-0 flex-col gap-4 max-lg:contents">
             <div className="min-w-0 max-lg:order-1">{attention}</div>
-            {current && current.scope !== "OWN" ? (
+            {/* Every scope has a standing: OWN shows "your rank X of N", never a colleague. */}
+            {current ? (
               <div className="min-w-0 max-lg:order-5">
                 <RankingPanel data={current} period={period} />
               </div>

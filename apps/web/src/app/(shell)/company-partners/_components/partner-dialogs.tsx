@@ -22,6 +22,7 @@ import { AccountPicker } from "@/components/business/account-picker";
 import { ReportMoney } from "@/components/accounting/financial-report/report-money";
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { percentText } from "@/config/company-partners/format";
+import { agreementEndFromMonths } from "@/config/company-partners/period-statement";
 import {
   companyPartnersService,
   type PartnerAgreementFrequency,
@@ -31,7 +32,7 @@ import {
   type PartnerProfitBasis,
 } from "@/services/company-partners-service";
 import { useLocale } from "@/providers/locale-provider";
-import { fromISODate, toISODate } from "@/lib/date";
+import { formatDate, fromISODate, toISODate } from "@/lib/date";
 import { reportApiError, toast } from "@/lib/toast";
 
 const BASES: PartnerProfitBasis[] = ["NET_PROFIT", "GROSS_PROFIT"];
@@ -78,6 +79,83 @@ function useBasisOptions() {
   };
 }
 
+type EndMode = "date" | "months";
+
+/**
+ * R15 (4.5) — an agreement ends on a date, or after a duration in months
+ * (the end date is computed and shown); empty = open-ended. Reports the
+ * resulting "YYYY-MM-DD" (or "") to the caller.
+ */
+function AgreementEndField({
+  id,
+  start,
+  onChange,
+}: {
+  id: string;
+  start: string;
+  onChange: (effectiveTo: string) => void;
+}) {
+  const { t } = useLocale();
+  const [mode, setMode] = useState<EndMode>("date");
+  const [date, setDate] = useState("");
+  const [months, setMonths] = useState("");
+  const fromMonths = months.trim() ? agreementEndFromMonths(start, Number(months)) : null;
+  const effectiveTo = mode === "date" ? date : (fromMonths ?? "");
+
+  useEffect(() => {
+    onChange(effectiveTo);
+  }, [effectiveTo, onChange]);
+
+  return (
+    <Field
+      id={id}
+      label={t(`companyPartners.agreementDialog.endMode.${mode}`)}
+      hint={
+        mode === "months" && fromMonths
+          ? t("companyPartners.agreementDialog.endsOn", { date: formatDate(fromMonths) })
+          : effectiveTo
+            ? undefined
+            : t("companyPartners.agreementDialog.openEnded")
+      }
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <ToggleGroup
+          type="single"
+          value={mode}
+          onValueChange={(next) => next && setMode(next as EndMode)}
+          className="w-fit shrink-0"
+        >
+          <ToggleGroupItem size="sm" value="date">
+            {t("companyPartners.agreementDialog.endMode.date")}
+          </ToggleGroupItem>
+          <ToggleGroupItem size="sm" value="months">
+            {t("companyPartners.agreementDialog.endMode.months")}
+          </ToggleGroupItem>
+        </ToggleGroup>
+        {mode === "date" ? (
+          <EnterpriseDatePicker
+            id={id}
+            value={fromISODate(date)}
+            onChange={(next) => setDate(next ? toISODate(next) : "")}
+          />
+        ) : (
+          <Input
+            id={id}
+            type="number"
+            min={1}
+            step={1}
+            inputMode="numeric"
+            dir="ltr"
+            placeholder={t("companyPartners.agreementDialog.months")}
+            value={months}
+            onChange={(e) => setMonths(e.target.value)}
+          />
+        )}
+      </div>
+    </Field>
+  );
+}
+
 const firstOfMonth = () => {
   const today = new Date();
   return toISODate(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -108,6 +186,7 @@ export function AddPartnerDialog({
   const [basis, setBasis] = useState<PartnerProfitBasis>("NET_PROFIT");
   const [frequency, setFrequency] = useState<PartnerAgreementFrequency>(defaultFrequency);
   const [effectiveFrom, setEffectiveFrom] = useState(firstOfMonth());
+  const [effectiveTo, setEffectiveTo] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -149,6 +228,7 @@ export function AddPartnerDialog({
             basis,
             frequency,
             effectiveFrom,
+            effectiveTo,
           });
           toast.success(t("companyPartners.toasts.agreementSaved"));
         } catch (error) {
@@ -265,7 +345,11 @@ export function AddPartnerDialog({
               onChange={(e) => setShare(e.target.value)}
             />
           </Field>
-          <Field id={`${fieldId}-basis`} label={t("companyPartners.fields.basis")}>
+          <Field
+            id={`${fieldId}-basis`}
+            label={t("companyPartners.fields.basis")}
+            hint={t(`companyPartners.agreementDialog.basisHint.${basis}`)}
+          >
             <SearchableSelect
               id={`${fieldId}-basis`}
               value={basis}
@@ -288,6 +372,13 @@ export function AddPartnerDialog({
               onChange={(next) => setEffectiveFrom(next ? toISODate(next) : "")}
             />
           </Field>
+          {open ? (
+            <AgreementEndField
+              id={`${fieldId}-to`}
+              start={effectiveFrom}
+              onChange={setEffectiveTo}
+            />
+          ) : null}
         </ModalSection>
       </CreateOperationLayout>
     </EnterpriseModal>
@@ -316,6 +407,8 @@ export function AgreementDialog({
   const [basis, setBasis] = useState<PartnerProfitBasis>("NET_PROFIT");
   const [frequency, setFrequency] = useState<PartnerAgreementFrequency>("MONTHLY");
   const [date, setDate] = useState(firstOfMonth());
+  const [effectiveTo, setEffectiveTo] = useState("");
+  const [activate, setActivate] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -325,6 +418,7 @@ export function AgreementDialog({
     setBasis(mode.kind === "new" ? "NET_PROFIT" : mode.agreement.basis);
     setFrequency(mode.kind === "new" ? mode.frequency : mode.agreement.frequency);
     setDate(firstOfMonth());
+    setActivate(true);
   }, [mode]);
 
   if (!mode) return null;
@@ -342,6 +436,8 @@ export function AgreementDialog({
           basis,
           frequency,
           effectiveFrom: date,
+          effectiveTo,
+          activate,
         });
         toast.success(t("companyPartners.toasts.agreementSaved"));
       } else if (mode.kind === "change") {
@@ -429,7 +525,11 @@ export function AgreementDialog({
                   onChange={(e) => setShare(e.target.value)}
                 />
               </Field>
-              <Field id={`${fieldId}-basis`} label={t("companyPartners.fields.basis")}>
+              <Field
+                id={`${fieldId}-basis`}
+                label={t("companyPartners.fields.basis")}
+                hint={t(`companyPartners.agreementDialog.basisHint.${basis}`)}
+              >
                 <SearchableSelect
                   id={`${fieldId}-basis`}
                   value={basis}
@@ -464,6 +564,27 @@ export function AgreementDialog({
               onChange={(next) => setDate(next ? toISODate(next) : "")}
             />
           </Field>
+          {mode.kind === "new" ? (
+            <>
+              <AgreementEndField id={`${fieldId}-to`} start={date} onChange={setEffectiveTo} />
+              <Field id={`${fieldId}-status`} label={t("companyPartners.agreementDialog.status")}>
+                <ToggleGroup
+                  id={`${fieldId}-status`}
+                  type="single"
+                  value={activate ? "active" : "draft"}
+                  onValueChange={(next) => next && setActivate(next === "active")}
+                  className="w-fit"
+                >
+                  <ToggleGroupItem size="sm" value="active">
+                    {t("companyPartners.agreementDialog.activateNow")}
+                  </ToggleGroupItem>
+                  <ToggleGroupItem size="sm" value="draft">
+                    {t("companyPartners.agreementDialog.keepDraft")}
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </Field>
+            </>
+          ) : null}
         </ModalSection>
       </CreateOperationLayout>
     </EnterpriseModal>

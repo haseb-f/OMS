@@ -23,6 +23,14 @@ import storeOrderRecognitionAr from "./modules/store-order-recognition.ar";
 import permissionTemplatesAr from "./modules/permission-templates.ar";
 import customerHistoryAr from "./modules/customer-history.ar";
 import companyPartnersAr from "./modules/company-partners.ar";
+import orderEntryAr from "./modules/order-entry.ar";
+import agentOverviewAr from "./modules/agent-overview.ar";
+import salesImportAr from "./modules/sales-import.ar";
+import agentShippingAgreementsAr from "./modules/agent-shipping-agreements.ar";
+import partnerPortalAr from "./modules/partner-portal.ar";
+import storeOrderStockAr from "./modules/store-order-stock.ar";
+import storeOrderMoneyAr from "./modules/store-order-money.ar";
+import salesVisibilityAr from "./modules/sales-visibility.ar";
 const ar = {
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
@@ -41,6 +49,14 @@ const ar = {
   permissionTemplates: permissionTemplatesAr,
   customerHistory: customerHistoryAr,
   companyPartners: companyPartnersAr,
+  orderEntry: orderEntryAr,
+  agentOverview: agentOverviewAr,
+  salesImport: salesImportAr,
+  agentShippingAgreements: agentShippingAgreementsAr,
+  partnerPortal: partnerPortalAr,
+  storeOrderStock: storeOrderStockAr,
+  storeOrderMoney: storeOrderMoneyAr,
+  salesVisibility: salesVisibilityAr,
   paymentDeclaration: paymentDeclarationAr,
   paymentReconciliation: paymentReconciliationAr,
   paymentSettlement: paymentSettlementAr,
@@ -308,6 +324,7 @@ const ar = {
       hr: "الموارد البشرية",
       investors: "المستثمرون",
       settings: "الإعدادات",
+      partnerPortal: "بوابة الشريك",
     },
     actions: {
       view: "عرض",
@@ -341,6 +358,10 @@ const ar = {
       profitabilityEditCosts: "تعديل تكاليف الربحية",
       pay: "سداد",
       close: "إقفال",
+      receiveReturns: "استلام البضاعة المرتجعة",
+      partnerLogins: "إدارة دخول الشركاء",
+      partnerDashboard: "ملخص الشريك",
+      partnerStatement: "كشف حساب الشريك",
     },
     modules: {
       dashboard: "لوحة التحكم",
@@ -427,6 +448,7 @@ const ar = {
       exchangeRates: "أسعار الصرف",
       fxRevaluations: "إعادة تقييم العملات",
       companyPartners: "الشركاء",
+      partnerPortal: "بوابة الشريك",
       paymentReconciliation: "مطابقة وتسوية المدفوعات",
       workflowTransitions: "انتقالات سير العمل",
       analyticDistributions: "التوزيعات التحليلية",
@@ -725,8 +747,9 @@ const ar = {
     collect: "يُحصّل مبلغ {amount}",
     collectAtPickup: "يُحصّل مبلغ {amount} عند الاستلام",
     noCollection: "لا يُحصّل مبلغ",
-    hold: "الدفع غير مكتمل — لا يُسلَّم قبل تأكيد الدفع",
-    holdDetail: "طلب دفع مسبق بلا إبلاغ دفع كامل ولا تحقق من المالية. أكِّد الدفع قبل التسليم.",
+    hold: "دفع مسبق — لا يُحصَّل شيء من العميل",
+    holdDetail:
+      "لم يُؤكَّد الدفع بعد (لا إبلاغ كامل ولا تحقق من المالية). تُشحن الطلبية وتتابع المالية الدفع.",
     basisDeclared: "الدفع مُبلَّغ من المبيعات — بانتظار تحقق المالية",
     basisVerified: "تحققت المالية من الدفع",
     codDetail: "إجمالي الطلب {total} − مدفوع مُبلَّغ {paid}",

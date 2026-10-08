@@ -10,7 +10,7 @@ import { SubmitButton } from "@/components/shared/form-fields";
 import { PasswordInput } from "@/components/shared/password-input";
 import { FieldHint, FieldMessage } from "@/components/ui/form";
 import { validateChangePassword, type ChangePasswordError } from "@/config/account/change-password";
-import { AGENT_PORTAL_HOME } from "@/navigation/route-access";
+import { homePathFor } from "@/navigation/post-login";
 import { authService } from "@/services/auth-service";
 import { useAuth } from "@/providers/auth-provider";
 import { useLocale } from "@/providers/locale-provider";
@@ -53,7 +53,7 @@ export default function ChangePasswordPage() {
       reportSuccess(t("account.changePassword.success"));
       await refreshUser();
       const next = params.get("next");
-      const home = user?.userType === "AGENT" ? AGENT_PORTAL_HOME : "/";
+      const home = homePathFor(user?.userType);
       router.replace(next && next.startsWith("/") && !next.startsWith("//") ? next : home);
     } catch (error) {
       reportApiError(error, "account.changePassword.failed");

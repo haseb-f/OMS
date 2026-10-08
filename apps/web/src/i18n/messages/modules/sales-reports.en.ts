@@ -6,6 +6,7 @@ const salesReportsEn = {
     "Valid orders exclude cancelled ones. Amounts are per order currency and never added together. Days follow Cairo time.",
   tabs: {
     live: "Live",
+    own: "My performance",
     employees: "Employees",
     teams: "Teams",
     comparison: "Comparison",
@@ -15,7 +16,6 @@ const salesReportsEn = {
     ALL: "All employees",
     TEAM: "You and your team",
     OWN: "Your own orders",
-    NONE: "No orders are in your scope",
     AGENT_ALL: "All of the agent's orders",
     AGENT_OWN: "Your own orders",
   },
@@ -53,7 +53,8 @@ const salesReportsEn = {
     rankByAmount: "Amount · {currency}",
   },
   employees: {
-    unassigned: "Unassigned",
+    unassigned: "Orders without an owner",
+    unassignedHint: "Not assigned to an employee — never ranked.",
     rank: "#{rank}",
     empty: "No orders in this period.",
     truncated: "Showing the top {count} employees.",
@@ -65,7 +66,6 @@ const salesReportsEn = {
     members: "Members",
     noMembers: "No other members",
     empty: "No active sales teams.",
-    notAvailable: "Team figures are available to team managers and company-wide viewers.",
   },
   comparison: {
     chartTitle: "Ranking — {metric}",

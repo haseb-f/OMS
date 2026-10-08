@@ -34,9 +34,26 @@ import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { reportApiError, reportSuccess } from "@/lib/toast";
 
-function allocationToLine(
-  allocation: FinancialTransactionRow["allocations"][number],
-): AllocationGridLine {
+/**
+ * A refund line pays back a posted Sales Return's credit, or (R15, D15-11) a
+ * store order's verified advance — the latter names the order instead.
+ */
+type RefundAllocationRow = FinancialTransactionRow["allocations"][number] & {
+  storeOrderId?: string | null;
+  storeOrder?: { id: string; internalOrderId: string } | null;
+};
+
+function allocationToLine(allocation: RefundAllocationRow): AllocationGridLine {
+  if (allocation.storeOrderId) {
+    return {
+      id: allocation.id,
+      invoiceId: allocation.storeOrderId,
+      invoiceNumber: allocation.storeOrder?.internalOrderId ?? "—",
+      invoiceHref: `/store-orders/${allocation.storeOrderId}`,
+      remainingBalance: Number(allocation.allocatedAmount),
+      allocatedAmount: Number(allocation.allocatedAmount),
+    };
+  }
   return {
     id: allocation.id,
     invoiceId: allocation.salesReturnId ?? "",
@@ -114,6 +131,12 @@ export function RefundEditorPage({ id }: { id: string }) {
   }, [id, applyRefund, refreshActivity, t]);
 
   const allocatedTotal = allocations.reduce((sum, line) => sum + line.allocatedAmount, 0);
+  /** Lines paying back a store order's advance keep that target on save. */
+  const orderTargets = new Set(
+    ((refund?.allocations ?? []) as RefundAllocationRow[])
+      .map((allocation) => allocation.storeOrderId)
+      .filter((value): value is string => !!value),
+  );
 
   /** Inline validation (design §8): shown under the fields after a failed Save/Confirm, updated live; entered data is never cleared. */
   const [validationMode, setValidationMode] = useState<"save" | "post" | null>(null);
@@ -135,10 +158,11 @@ export function RefundEditorPage({ id }: { id: string }) {
     amount,
     referenceNumber: referenceNumber || undefined,
     notes: notes || undefined,
-    allocations: allocations.map((line) => ({
-      invoiceId: line.invoiceId,
-      allocatedAmount: line.allocatedAmount,
-    })),
+    allocations: allocations.map((line) =>
+      orderTargets.has(line.invoiceId)
+        ? { storeOrderId: line.invoiceId, allocatedAmount: line.allocatedAmount }
+        : { invoiceId: line.invoiceId, allocatedAmount: line.allocatedAmount },
+    ),
   });
 
   const handleSave = async () => {

@@ -94,10 +94,6 @@ const paymentDeclarationEn = {
       "The order was amended after payments were declared. Finance must review the declared payments against the amended order — see Amendments & activity for the details.",
   },
   gate: {
-    notReadyHint:
-      "Becomes ready for shipping once the customer payment is declared paid in full — Finance verification is not required. A partial declaration is not enough.",
-    pickupHint:
-      "Ready for pickup and collection can be recorded once the customer payment is declared paid in full (or the order is cash on delivery).",
     readyDeclared: "Payment declared by Sales — Finance verification still pending.",
   },
   pickup: {

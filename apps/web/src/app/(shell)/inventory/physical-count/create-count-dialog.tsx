@@ -16,6 +16,7 @@ import {
 } from "@/services/physical-count-service";
 import { productsService, type ProductRow } from "@/services/products-service";
 import { useWarehouses } from "@/hooks/use-reference-data";
+import { WRITE_OFF_ROLES } from "@/components/business/warehouse-picker";
 import { cachedLookup } from "@/lib/lookup-cache";
 import { filterByArabicSearch } from "@/lib/arabic-search";
 
@@ -49,14 +50,17 @@ export function CreateCountDialog({
   const { t } = useLocale();
   const fieldId = useId();
   const warehouses = useWarehouses();
+  // Goods in transit are counted by the order lifecycle, never physically (R15 M3).
   const warehouseOptions = useMemo(
     () =>
-      warehouses.map((warehouse) => ({
-        value: warehouse.id,
-        label: warehouse.name,
-        description: warehouse.code,
-        searchText: warehouse.code,
-      })),
+      warehouses
+        .filter((warehouse) => WRITE_OFF_ROLES.includes(warehouse.role ?? "STOCK"))
+        .map((warehouse) => ({
+          value: warehouse.id,
+          label: warehouse.name,
+          description: warehouse.code,
+          searchText: warehouse.code,
+        })),
     [warehouses],
   );
   const [products, setProducts] = useState<ProductRow[]>([]);

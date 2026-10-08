@@ -10,6 +10,7 @@ import {
   Hourglass,
   Landmark,
   ShieldAlert,
+  Undo2,
   type LucideIcon,
 } from "lucide-react";
 import type { StatusTone } from "@/components/business/status-tone";
@@ -37,6 +38,7 @@ export type PaymentTerm =
   | "SETTLED"
   | "DISPUTED"
   | "REJECTED"
+  | "REVERSED"
   | "EXCEPTION"
   | "IGNORED";
 
@@ -64,6 +66,7 @@ const TERMS: Record<
   SETTLED: { tone: "success", stage: 5, icon: Landmark },
   DISPUTED: { tone: "destructive", stage: null, icon: ShieldAlert },
   REJECTED: { tone: "neutral", stage: null, icon: Ban },
+  REVERSED: { tone: "destructive", stage: null, icon: Undo2 },
   EXCEPTION: { tone: "destructive", stage: null, icon: AlertTriangle },
   IGNORED: { tone: "neutral", stage: null, icon: CircleSlash },
 };
@@ -82,7 +85,8 @@ export function paymentTerm(term: PaymentTerm): PaymentTermDefinition {
 // ── Record-state → term mappers (the only place codes become words) ──────
 
 /** Prisma `PaymentStatus` of a payment declaration/claim. */
-export type PaymentRecordStatus = "PENDING" | "MATCHED" | "VERIFIED" | "REJECTED" | "DISPUTED";
+export type PaymentRecordStatus =
+  "PENDING" | "MATCHED" | "VERIFIED" | "REJECTED" | "DISPUTED" | "REVERSED";
 
 const RECORD_TERM: Record<PaymentRecordStatus, PaymentTerm> = {
   PENDING: "DECLARED",
@@ -90,6 +94,7 @@ const RECORD_TERM: Record<PaymentRecordStatus, PaymentTerm> = {
   VERIFIED: "CONFIRMED",
   REJECTED: "REJECTED",
   DISPUTED: "DISPUTED",
+  REVERSED: "REVERSED",
 };
 
 export function isPaymentRecordStatus(value: string): value is PaymentRecordStatus {

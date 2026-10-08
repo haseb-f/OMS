@@ -1,31 +1,24 @@
 "use client";
 
-import { RequiredMark } from "@/components/ui/form";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { Check, ListChecks, X } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { EnterpriseButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
 import { SelectFilter } from "@/components/shared/data-table/select-filter";
 import { RowActionsMenu, type RowAction } from "@/components/shared/data-table";
 import { NeedsReviewGridCard } from "@/components/store-orders/needs-review-grid-card";
 import { PermissionGate } from "@/components/shared/permission-gate";
+import {
+  RejectReasonPicker,
+  isRejectReasonComplete,
+} from "@/components/import-center/reject-reason-picker";
 import { useUserContext } from "@/providers/user-context";
 import {
   importJobsService,
-  IMPORT_ROW_REJECTION_REASON_CODES,
   type ImportJobRow,
   type ImportJobRowRecord,
   type ImportRowRejectionReasonCode,
@@ -35,62 +28,6 @@ import { reportApiError, toast } from "@/lib/toast";
 import { bulkOutcomeFromIds, reportBulkOutcome } from "@/lib/bulk-run";
 
 const IMPORT_TYPE = "STORE_ORDERS";
-
-/**
- * Rejection always requires a reason (Part 1 of the four-gaps task) — this
- * small picker is shared by the individual-row and bulk reject dialogs so
- * the "must provide a reason before rejection completes" rule can never be
- * bypassed from either entry point.
- */
-function RejectReasonPicker({
-  code,
-  note,
-  onCodeChange,
-  onNoteChange,
-}: {
-  code: ImportRowRejectionReasonCode | "";
-  note: string;
-  onCodeChange: (code: ImportRowRejectionReasonCode) => void;
-  onNoteChange: (note: string) => void;
-}) {
-  const { t } = useLocale();
-  const reasonFieldId = useId();
-  return (
-    <div className="flex flex-col gap-3 pt-2 text-start">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor={reasonFieldId}>
-          {t("storeOrders.needsReview.rejectReason.label")} <RequiredMark className="ms-0.5" />
-        </Label>
-        <Select value={code} onValueChange={(v) => onCodeChange(v as ImportRowRejectionReasonCode)}>
-          <SelectTrigger id={reasonFieldId} className="w-full">
-            <SelectValue placeholder={t("storeOrders.needsReview.rejectReason.placeholder")} />
-          </SelectTrigger>
-          <SelectContent>
-            {IMPORT_ROW_REJECTION_REASON_CODES.map((reasonCode) => (
-              <SelectItem key={reasonCode} value={reasonCode}>
-                {t(`storeOrders.needsReview.rejectReason.codes.${reasonCode}`)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      {code === "OTHER" && (
-        <div className="flex flex-col gap-1.5">
-          <Label>
-            {t("storeOrders.needsReview.rejectReason.noteLabel")}{" "}
-            <RequiredMark className="ms-0.5" />
-          </Label>
-          <Textarea
-            value={note}
-            onChange={(e) => onNoteChange(e.target.value)}
-            rows={2}
-            placeholder={t("storeOrders.needsReview.rejectReason.notePlaceholder")}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
 
 function rawField(row: ImportJobRowRecord, key: string): string {
   const value = row.rawRowData[key];
@@ -106,7 +43,9 @@ function rawField(row: ImportJobRowRecord, key: string): string {
 function NeedsReviewContent() {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
-  const canManage = hasPermission("import-center.manage");
+  // R15 (D15-16) — the store-order importer resolves its own review rows (the
+  // API returns only rows of jobs the caller may act on).
+  const canManage = hasPermission("import-center.manage") || hasPermission("store-orders.import");
 
   const [jobs, setJobs] = useState<ImportJobRow[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string>("");
@@ -124,7 +63,7 @@ function NeedsReviewContent() {
     setReasonNote("");
   };
 
-  const reasonIsValid = reasonCode !== "" && (reasonCode !== "OTHER" || reasonNote.trim() !== "");
+  const reasonIsValid = isRejectReasonComplete(reasonCode, reasonNote);
 
   useEffect(() => {
     importJobsService

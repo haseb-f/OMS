@@ -1,8 +1,6 @@
 import type { StatusTone } from "@/components/business/status-badge";
-import { isPrepaidFulfillmentAllowed } from "@/components/payments/declaration/declaration-status";
 import { paymentRecordTerm, paymentTerm } from "@/config/payments/payment-vocabulary";
 import type {
-  StoreOrderDeclaredPaymentStatusValue,
   StoreOrderPaymentStatusValue,
   StoreOrderPaymentTypeValue,
   StoreOrderShippingStageValue,
@@ -93,17 +91,4 @@ export function financialStatusLabelKey(
       : "storeOrders.paymentStatus.AWAITING_RECONCILIATION";
   }
   return PAYMENT_STATUS_LABEL_KEY[paymentStatus];
-}
-
-/**
- * Prepaid orders may ship / be collected once the customer payment is
- * DECLARED paid in full or VERIFIED paid by Finance — a partial declaration
- * never passes, COD always may. Mirrors the API gate; the server decides.
- */
-export function isReadyForShipping(order: {
-  paymentType?: StoreOrderPaymentTypeValue | null;
-  declaredPaymentStatus?: StoreOrderDeclaredPaymentStatusValue | null;
-  paymentStatus?: StoreOrderPaymentStatusValue | null;
-}): boolean {
-  return isPrepaidFulfillmentAllowed(order);
 }

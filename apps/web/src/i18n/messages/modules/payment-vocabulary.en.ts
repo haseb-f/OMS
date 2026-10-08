@@ -50,6 +50,11 @@ const paymentVocabularyEn = {
       label: "Rejected",
       description: "Finance rejected the declaration with a reason; nothing was posted.",
     },
+    REVERSED: {
+      label: "Reversed",
+      description:
+        "A verified payment recorded in error: Finance reversed its receipt with a reason (reversing entry); nothing was deleted.",
+    },
     EXCEPTION: {
       label: "Exception",
       description: "A statement row changed or failed after import and needs a decision.",
