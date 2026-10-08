@@ -29,6 +29,7 @@ import { StoreOrderDuplicatesModule } from './duplicates/store-order-duplicates.
 import { FulfillmentRecognitionService } from './fulfillment-recognition/fulfillment-recognition.service';
 import { RecognitionRepairService } from './fulfillment-recognition/recognition-repair.service';
 import { RecognitionRepairController } from './fulfillment-recognition/recognition-repair.controller';
+import { StoreOrderStockModule } from './stock-lifecycle/store-order-stock.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { RecognitionRepairController } from './fulfillment-recognition/recogniti
     AccountMappingModule,
     AgentLedgerModule,
     StoreOrderDuplicatesModule,
+    StoreOrderStockModule,
   ],
   controllers: [
     // R14 W3 — a static path, registered before `store-orders/:id` routes.

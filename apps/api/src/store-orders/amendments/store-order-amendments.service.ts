@@ -51,7 +51,15 @@ import {
   syncPartnerPhoneKeys,
 } from '../../partners/partner-phone-keys';
 import { AgentFulfillmentService } from '../../agents/finance/agent-fulfillment.service';
-import { deliveryChannelOf } from '../../agents/pricing/agent-shipping-tariff';
+import { StoreOrderStockService } from '../stock-lifecycle/store-order-stock.service';
+import {
+  deliveryChannelOf,
+  serviceOf,
+} from '../../agents/pricing/agent-shipping-tariff';
+import {
+  describeDestination,
+  missingTariffMessage,
+} from '../../agents/shipping-agreements/shipping-agreement-resolution';
 import { repriceForConfirmedFee } from '../../agents/pricing/agent-shipping-reprice';
 import {
   readAgentCustomerSnapshot,
@@ -311,6 +319,8 @@ export class StoreOrderAmendmentsService {
     private readonly paymentSync: StoreOrderPaymentSyncService,
     private readonly agentFulfillment: AgentFulfillmentService,
     private readonly salesScope: SalesScopeService,
+    /** R15 W5a — stock re-reservation after the lines changed. */
+    private readonly stock: StoreOrderStockService,
   ) {}
 
   // ── Public operations ───────────────────────────────────────────────────
@@ -378,6 +388,10 @@ export class StoreOrderAmendmentsService {
       },
       { maxWait: 10_000, timeout: 60_000 },
     );
+    // R15 (W5a) — new lines, new reservation (released and re-reserved).
+    if (result.linesChanged) {
+      await this.stock.onOrderLinesChanged(orderId, actor.userId);
+    }
     const invoice = result.regenerateInvoice
       ? await this.regenerateInvoice(orderId, actor.userId)
       : null;
@@ -740,7 +754,7 @@ export class StoreOrderAmendmentsService {
     // Shipping already chose the delivery method: the payable is the one the
     // confirmed fee yields (the commit re-resolves it the same way).
     if (isAgentOrder && agentQuote) {
-      total = this.agentPricingImpacts(order, agentQuote, impacts);
+      total = await this.agentPricingImpacts(db, order, agentQuote, impacts);
     }
     total = Math.round(total * 100) / 100;
 
@@ -764,6 +778,20 @@ export class StoreOrderAmendmentsService {
         amendmentImpact(
           'ORDER_IN_TRANSIT',
           'The shipment is on its way — items, quantities, address and fulfillment method cannot change; use a return / reshipment. Prices and customer contact can still change.',
+          { tracking: latest?.trackingNumber ?? null },
+        ),
+      );
+    } else if (
+      (kinds.items || kinds.fulfillmentMethod) &&
+      (await this.stock.goodsInTransit(db, order.id)) > 0
+    ) {
+      // R15 (D15-8) — after a failed / refused delivery the goods stay with
+      // the carrier (WH-TRANSIT) until received back: the lines they belong
+      // to, and how the order is fulfilled, cannot change under them.
+      impacts.push(
+        amendmentImpact(
+          'ORDER_IN_TRANSIT',
+          'Goods of this order are still with the carrier (failed delivery / returning) — items, quantities and the fulfillment method cannot change until they are received back ("Receive returned goods"). Prices, address and customer contact can still change.',
           { tracking: latest?.trackingNumber ?? null },
         ),
       );
@@ -1105,11 +1133,12 @@ export class StoreOrderAmendmentsService {
    * `repriceForConfirmedFee` and reports that payable — never the
    * provisional one.
    */
-  private agentPricingImpacts(
+  private async agentPricingImpacts(
+    db: Db,
     order: LoadedOrder,
     quote: AgentOrderPersistInput,
     impacts: AmendmentImpact[],
-  ): number {
+  ): Promise<number> {
     const snapshot =
       order.agentTermsSnapshot as unknown as AgentOrderSnapshot | null;
     const before = snapshot?.agentShippingCharge ?? null;
@@ -1128,12 +1157,25 @@ export class StoreOrderAmendmentsService {
       const channel = deliveryChannelOf(company.type);
       const tariff = after.byChannel[channel];
       if (!tariff) {
+        // The same bilingual wording as the dispatch-time refusal
+        // (shipping agreement number, service, destination).
+        const service = serviceOf(channel, quote.paymentType);
+        const text = missingTariffMessage(
+          after.shippingAgreementNumber,
+          [service],
+          await describeDestination(db, {
+            countryId: after.countryId ?? quote.customer.countryId,
+            city: after.city ?? quote.customer.city,
+          }),
+        );
         impacts.push(
-          amendmentImpact(
-            'AGENT_SHIPPING_TARIFF_MISSING',
-            `The agent agreement has no shipping tariff for the assigned delivery method (${channel}) × ${quote.paymentType} × the new destination — add it to the agreement or ask Shipping to choose another delivery method first.`,
-            { deliveryChannel: channel, paymentType: quote.paymentType },
-          ),
+          amendmentImpact('AGENT_SHIPPING_TARIFF_MISSING', text.en, {
+            deliveryChannel: channel,
+            paymentType: quote.paymentType,
+            service,
+            shippingAgreementNumber: after.shippingAgreementNumber ?? null,
+            messageAr: text.ar,
+          }),
         );
         return payable;
       }
@@ -1830,6 +1872,7 @@ export class StoreOrderAmendmentsService {
       version,
       impacts: plan.impacts,
       regenerateInvoice: regenerateInvoice && !plan.isAgentOrder,
+      linesChanged: plan.kinds.items,
     };
   }
 

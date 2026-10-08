@@ -10,15 +10,16 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { AllocationInputDto } from '../../shared/allocation-input.dto';
+import { RefundAllocationInputDto } from './refund-allocation-input.dto';
 import { IsIdempotencyKey } from '../../shared/idempotency-key';
 import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
 
 /**
  * Customer Refund — pays a customer back against the unrefunded credit of
- * posted Sales Return(s). Each allocation's `invoiceId` is the Sales Return
- * id; the allocations must add up to `amount` exactly (no unallocated
- * refund). `currencyId` defaults to the currency of the refunded return.
+ * posted Sales Return(s) (`invoiceId` = the Sales Return id) and/or the
+ * verified, not-invoiced advance of a store order (`storeOrderId`, R15). The
+ * allocations must add up to `amount` exactly (no unallocated refund).
+ * `currencyId` defaults to the currency of the first refunded document.
  */
 export class CreateCustomerRefundDto {
   @IsUUID()
@@ -60,8 +61,8 @@ export class CreateCustomerRefundDto {
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
-  @Type(() => AllocationInputDto)
-  allocations!: AllocationInputDto[];
+  @Type(() => RefundAllocationInputDto)
+  allocations!: RefundAllocationInputDto[];
 
   /** One key per opened form — a repeated submit returns the first document. */
   @IsIdempotencyKey()

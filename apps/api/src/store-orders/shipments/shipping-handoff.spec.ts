@@ -5,10 +5,6 @@ const base = {
   deletedAt: null,
   fulfillmentMethod: 'SHIPPING' as const,
   shippingStage: 'READY_FOR_SHIPPING' as const,
-  paymentType: 'CASH_ON_DELIVERY' as const,
-  paymentStatus: 'PAYMENT_PENDING' as const,
-  declaredPaymentStatus: 'UNPAID' as const,
-  paymentStatusDef: { code: 'UNPAID' },
   fulfillmentStatus: { code: 'READY', isFinal: false },
 };
 
@@ -21,23 +17,18 @@ describe('evaluateShippingReadiness (R6 SHIP)', () => {
     });
   });
 
-  it('prepaid needs a FULL declaration or verified payment — partial never', () => {
-    const prepaid = { ...base, paymentType: 'PREPAID' as const };
-    expect(evaluateShippingReadiness(prepaid).blocker).toBe('PAYMENT_REQUIRED');
-    expect(
-      evaluateShippingReadiness({
-        ...prepaid,
-        declaredPaymentStatus: 'PARTIALLY_PAID',
-      }).blocker,
-    ).toBe('PAYMENT_REQUIRED');
-    expect(
-      evaluateShippingReadiness({ ...prepaid, declaredPaymentStatus: 'PAID' })
-        .eligible,
-    ).toBe(true);
-    expect(
-      evaluateShippingReadiness({ ...prepaid, paymentStatus: 'OVERPAID' })
-        .eligible,
-    ).toBe(true);
+  it('R15 (D15-3): payment never gates the queue — an unpaid / partially declared prepaid order is eligible', () => {
+    const unpaidPrepaid = {
+      ...base,
+      paymentType: 'PREPAID' as const,
+      paymentStatus: 'PAYMENT_PENDING' as const,
+      declaredPaymentStatus: 'PARTIALLY_PAID' as const,
+    };
+    expect(evaluateShippingReadiness(unpaidPrepaid)).toEqual({
+      eligible: true,
+      blocker: null,
+      reason: null,
+    });
   });
 
   it('archived, cancelled, pickup and digital-only orders are never queued', () => {

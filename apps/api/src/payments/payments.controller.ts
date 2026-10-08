@@ -31,6 +31,7 @@ import { MatchPaymentDto } from './dto/match-payment.dto';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
 import { RejectPaymentDto } from './dto/reject-payment.dto';
 import { DisputePaymentDto } from './dto/dispute-payment.dto';
+import { ReversePaymentDto } from './dto/reverse-payment.dto';
 import { FindPaymentsQueryDto } from './dto/find-payments-query.dto';
 import { SetActualFeeDto } from './dto/set-actual-fee.dto';
 import {
@@ -167,6 +168,22 @@ export class PaymentsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.paymentsService.dispute(id, user.sub, dto.reason);
+  }
+
+  /**
+   * R15 (D15-12) — audited reversal of a VERIFIED payment recorded in error:
+   * its receipt is reversed by a reversing entry, the payment becomes
+   * REVERSED (reason kept); never a deletion.
+   */
+  @Post(':id/reverse')
+  @HttpCode(200)
+  @PermissionAction('reverse')
+  reverse(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReversePaymentDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.paymentsService.reverse(id, dto.reason, user.sub);
   }
 
   /**

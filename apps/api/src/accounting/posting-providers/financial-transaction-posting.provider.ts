@@ -6,6 +6,10 @@ import { AccountMappingService } from '../account-mapping/account-mapping.servic
 import { ExchangeRatesService } from '../fx/exchange-rates.service';
 import { snapshotDocumentExchangeRate } from '../fx/snapshot-document-rate';
 import { resolveAgentCollectionCredit } from './agent-collection-credit';
+import {
+  advanceRateOf,
+  loadStoreOrderMoneyPosition,
+} from '../../financial-transactions/shared/store-order-money';
 import type {
   PostingProvider,
   PostingResult,
@@ -17,6 +21,8 @@ interface AllocationRateView {
   salesInvoice: { exchangeRate: unknown } | null;
   purchaseInvoice: { exchangeRate: unknown } | null;
   salesReturn?: { exchangeRate: unknown } | null;
+  /** R15 — a refund line paying back a store order's advance. */
+  storeOrderId?: string | null;
 }
 
 /**
@@ -34,7 +40,9 @@ interface AllocationRateView {
  * customer's AR, so its AR debit is valued at each refunded return's own
  * snapshotted rate (the rate that return credited AR at) — the mirror of
  * a receipt clearing invoices at their rates; any difference to the cash
- * paid out at the refund's rate is realized FX, never an AR residue.
+ * paid out at the refund's rate is realized FX, never an AR residue. A line
+ * paying back a store order's advance (R15) is valued at the rate the
+ * order's receipts credited AR at (`advanceRateOf`), for the same reason.
  *
  * The Bank/Cash account is always `ReceivingAccount.chartOfAccountId` — the
  * one already-required, already-real account this codebase resolves
@@ -339,8 +347,25 @@ export class FinancialTransactionPostingProvider
       tx,
     );
     const cashFunctional = this.round2(amount * payRate);
+    // An order-advance line clears AR at the rate its receipts credited it.
+    const allocations: AllocationRateView[] = [];
+    for (const allocation of transaction.allocations) {
+      if (!allocation.storeOrderId) {
+        allocations.push(allocation);
+        continue;
+      }
+      const position = await loadStoreOrderMoneyPosition(
+        tx,
+        allocation.storeOrderId,
+      );
+      const rate = position ? advanceRateOf(position.receipts) : null;
+      allocations.push({
+        ...allocation,
+        salesReturn: rate == null ? null : { exchangeRate: rate },
+      });
+    }
     const arFunctional = this.clearedFunctional(
-      transaction.allocations,
+      allocations,
       'return',
       amount,
       payRate,

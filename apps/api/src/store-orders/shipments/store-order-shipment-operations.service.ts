@@ -24,6 +24,11 @@ import {
   shipmentFulfillmentCode,
 } from '../../agents/finance/agent-fulfillment.service';
 import { FulfillmentRecognitionService } from '../fulfillment-recognition/fulfillment-recognition.service';
+import {
+  StoreOrderStockService,
+  type LineQuantity,
+} from '../stock-lifecycle/store-order-stock.service';
+import { nothingToDispatch } from '../stock-lifecycle/stock-errors';
 
 const MANUAL = StoreOrderActivitySource.MANUAL;
 
@@ -53,6 +58,7 @@ export class StoreOrderShipmentOperationsService {
     private readonly postingEngine: PostingEngineService,
     private readonly agentFulfillment: AgentFulfillmentService,
     private readonly recognition: FulfillmentRecognitionService,
+    private readonly stock: StoreOrderStockService,
   ) {}
 
   private async assertOrderExists(storeOrderId: string) {
@@ -159,10 +165,16 @@ export class StoreOrderShipmentOperationsService {
     });
   }
 
+  /**
+   * R15 (D15-4, D15-5) — dispatch: the shipment's lines (`lines`, default
+   * every reserved quantity) leave their warehouse for goods in transit in
+   * this transaction; a parcel whose stock cannot be secured is refused.
+   */
   async markShipped(
     storeOrderId: string,
     userId?: string,
     source: StoreOrderActivitySource = MANUAL,
+    options: { lines?: LineQuantity[] } = {},
   ) {
     await this.assertOrderExists(storeOrderId);
     const committed = await this.prisma.$transaction(async (tx) => {
@@ -171,6 +183,13 @@ export class StoreOrderShipmentOperationsService {
         tx,
       );
       await this.syncOrderFulfillment(storeOrderId, shipment.status, tx);
+      await this.stock.onShipmentStatus(
+        tx,
+        storeOrderId,
+        shipment,
+        { lines: options.lines },
+        userId,
+      );
       await this.agentProgress(storeOrderId, shipment, userId, tx);
       await this.activityService.log(
         storeOrderId,
@@ -198,6 +217,7 @@ export class StoreOrderShipmentOperationsService {
         tx,
       );
       await this.syncOrderFulfillment(storeOrderId, shipment.status, tx);
+      await this.stock.onShipmentStatus(tx, storeOrderId, shipment, {}, userId);
       await this.agentProgress(storeOrderId, shipment, userId, tx);
       await this.activityService.log(
         storeOrderId,
@@ -213,10 +233,16 @@ export class StoreOrderShipmentOperationsService {
     return committed;
   }
 
+  /**
+   * R15 (D15-5, D15-6) — delivery: the accepted quantities per line
+   * (`deliveredLines`, default everything the parcel carried) are recorded in
+   * this transaction; the invoice / stock issue / COGS follow post-commit.
+   */
   async markDelivered(
     storeOrderId: string,
     userId?: string,
     source: StoreOrderActivitySource = MANUAL,
+    options: { deliveredLines?: LineQuantity[] } = {},
   ) {
     await this.assertOrderExists(storeOrderId);
     const committed = await this.prisma.$transaction(async (tx) => {
@@ -225,6 +251,13 @@ export class StoreOrderShipmentOperationsService {
         tx,
       );
       await this.syncOrderFulfillment(storeOrderId, shipment.status, tx);
+      await this.stock.onShipmentStatus(
+        tx,
+        storeOrderId,
+        shipment,
+        { deliveredLines: options.deliveredLines },
+        userId,
+      );
       await this.agentProgress(storeOrderId, shipment, userId, tx);
       await this.postShipmentCost(shipment, userId, tx);
       await this.activityService.log(
@@ -252,6 +285,8 @@ export class StoreOrderShipmentOperationsService {
         storeOrderId,
         tx,
       );
+      // D15-8 — the goods stay in transit (RETURNING) until received back.
+      await this.stock.onShipmentStatus(tx, storeOrderId, shipment, {}, userId);
       await this.activityService.log(
         storeOrderId,
         StoreOrderActivityType.DELIVERY_FAILED,
@@ -306,6 +341,13 @@ export class StoreOrderShipmentOperationsService {
         shipment.status ?? target.code,
         tx,
       );
+      await this.stock.onShipmentStatus(
+        tx,
+        storeOrderId,
+        shipment,
+        { catalogCode: target.code },
+        userId,
+      );
       await this.agentProgress(
         storeOrderId,
         { id: shipment.id, status: shipment.status ?? target.code },
@@ -350,6 +392,7 @@ export class StoreOrderShipmentOperationsService {
         storeOrderId,
         tx,
       );
+      await this.stock.onShipmentStatus(tx, storeOrderId, shipment, {}, userId);
       await this.activityService.log(
         storeOrderId,
         StoreOrderActivityType.DELIVERY_FAILED,
@@ -379,6 +422,36 @@ export class StoreOrderShipmentOperationsService {
         storeOrderId,
         StoreOrderActivityType.RESHIPPED,
         `Shipment #${shipment.attemptNumber} created (reship)`,
+        userId,
+        tx,
+        source,
+      );
+      return shipment;
+    });
+  }
+
+  /**
+   * R15 (D15-5) — partial dispatch: after the current attempt was delivered,
+   * a new attempt ships what is still to go (refused when nothing is).
+   */
+  async createNextShipment(
+    storeOrderId: string,
+    userId?: string,
+    source: StoreOrderActivitySource = MANUAL,
+  ) {
+    await this.assertOrderExists(storeOrderId);
+    return this.prisma.$transaction(async (tx) => {
+      if ((await this.stock.openUnits(tx, storeOrderId)) === 0) {
+        throw nothingToDispatch();
+      }
+      const shipment = await this.shipmentsService.createNextShipment(
+        storeOrderId,
+        tx,
+      );
+      await this.activityService.log(
+        storeOrderId,
+        StoreOrderActivityType.SHIPMENT_CREATED,
+        `Shipment #${shipment.attemptNumber} created for the remaining quantities`,
         userId,
         tx,
         source,
@@ -727,22 +800,23 @@ export class StoreOrderShipmentOperationsService {
   }
 
   /**
-   * R14 W3 (spec-3 §2–3) — after the shipment transaction committed: a
-   * company order reserves its stock when shipped, is recognised (invoice +
-   * stock issue + COGS) when delivered, and unwinds when the delivery failed
-   * or the parcel came back. Runs post-commit and never throws, so a courier
-   * status is never lost because stock or configuration is missing; repeated
-   * callbacks / bulk rows / imports hit the same idempotent service.
+   * R14 W3 (spec-3 §2–3) / R15 — after the shipment transaction committed: a
+   * delivered company order is recognised (invoice + stock issue out of
+   * transit + COGS, per shipment), a delivered COD parcel records the
+   * carrier's expected collection, a return code on a delivered parcel flags
+   * the sales return. Runs post-commit and never throws, so a courier status
+   * is never lost because configuration is missing; repeated callbacks / bulk
+   * rows / imports hit the same idempotent service.
    */
   private async afterCommit(
     storeOrderId: string,
-    shipment: { status: string | null },
+    shipment: { id: string; status: string | null },
     userId: string | undefined,
     catalogCode?: string | null,
   ) {
     await this.recognition.afterShipmentStatus(
       storeOrderId,
-      { status: shipment.status, catalogCode },
+      { id: shipment.id, status: shipment.status, catalogCode },
       userId,
     );
   }

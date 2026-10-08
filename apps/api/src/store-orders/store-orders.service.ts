@@ -84,6 +84,8 @@ import { findArabicNormalizedIds } from '../common/text/arabic-search.query';
 import { agentUnprocessable } from '../agents/common/agent-errors';
 import { AgentFulfillmentService } from '../agents/finance/agent-fulfillment.service';
 import { FulfillmentRecognitionService } from './fulfillment-recognition/fulfillment-recognition.service';
+import { StoreOrderStockService } from './stock-lifecycle/store-order-stock.service';
+import { stockErrors } from './stock-lifecycle/stock-errors';
 import { resolveAgentCustomerPartner } from '../agents/orders/agent-customer';
 import {
   assertOwnerAffiliation,
@@ -313,6 +315,9 @@ export class StoreOrdersService {
     /** R14 W3 — delivery-time recognition. Optional only so unit specs can omit it. */
     @Optional()
     private readonly recognition?: FulfillmentRecognitionService,
+    /** R15 W5a — reservation at creation. Optional only so unit specs can omit it. */
+    @Optional()
+    private readonly stock?: StoreOrderStockService,
   ) {}
 
   /** The customer so far has agent orders only (no company order) — outside the company scope. */
@@ -575,6 +580,9 @@ export class StoreOrdersService {
       if (dto.payment) {
         await this.paymentSync.recompute(order.id);
       }
+      // R15 (D15-1) — every creation path reserves the stock lines right
+      // after the order committed, prepaid or COD (never throws).
+      await this.stock?.afterOrderCreated(order.id, userId);
 
       // Agent callers (portal) are outside the internal sales scope; the
       // agent orders service applies the agent visibility itself.
@@ -782,6 +790,7 @@ export class StoreOrdersService {
       | 'dateTo'
       | 'agentId'
       | 'duplicateReviewStatus'
+      | 'stockStatus'
     >,
   ): Promise<Prisma.StoreOrderWhereInput> {
     const where: Prisma.StoreOrderWhereInput = {
@@ -793,6 +802,7 @@ export class StoreOrdersService {
       declaredPaymentStatus: prismaEnumFilter(query.declaredPaymentStatus),
       shippingStage: prismaEnumFilter(query.shippingStage),
       source: prismaEnumFilter(query.source),
+      stockStatus: prismaEnumFilter(query.stockStatus),
     };
     if (query.phone) {
       where.partner = {
@@ -1075,6 +1085,7 @@ export class StoreOrdersService {
       | 'dateTo'
       | 'agentId'
       | 'duplicateReviewStatus'
+      | 'stockStatus'
       | 'sortBy'
       | 'sortOrder'
       | 'limit'
@@ -1619,8 +1630,8 @@ export class StoreOrdersService {
   }
 
   /**
-   * Central fulfillment gate — see `evaluateFulfillmentGate`: PREPAID needs a
-   * full paid declaration OR verified payment; COD may ship before payment.
+   * The prepaid payment basis (`evaluateFulfillmentGate`) — read by the
+   * package slip; R15 (D15-3): it never gates shipping or pickup.
    */
   async canFulfill(id: string, userId?: string) {
     const order = await this.findOne(id, userId);
@@ -1669,14 +1680,13 @@ export class StoreOrdersService {
         `Cannot move pickup from ${current} to ${code}.`,
       );
     }
-    // Prepaid pickup readiness and collection need the same payment basis as
-    // shipping (declared PAID in full or verified paid); COD is never gated.
-    // Nothing here is automatic — an authorized user records each step.
-    if (code === 'READY_FOR_PICKUP' || code === 'COLLECTED') {
-      const gate = await this.canFulfill(id);
-      if (!gate.allowed) {
-        throw new BadRequestException(gate.reason ?? 'Payment required.');
-      }
+    // R15 (D15-3): payment never gates the pickup — prepaid or COD. Nothing
+    // here is automatic — an authorized user records each step.
+    // A collection issues the whole order from its warehouse: goods still
+    // with the carrier (a former delivery) are received back first (H2).
+    if (code === 'COLLECTED' && this.stock) {
+      const inTransit = await this.stock.goodsInTransit(this.prisma, id);
+      if (inTransit > 0) throw stockErrors.goodsInTransit(inTransit);
     }
     // Agents milestone (spec §6.4): handover issues the agent's stock and is
     // the DELIVERED earning event — idempotent, before the status moves.
@@ -1701,8 +1711,9 @@ export class StoreOrdersService {
       `Pickup status → ${code}`,
       userId,
     );
-    // R14 W3 (spec-3 §2) — post-commit: READY reserves, COLLECTED recognises
-    // revenue + stock + COGS, CANCELLED / RETURNED unwind. Never throws.
+    // R14 W3 / R15 — post-commit: READY retries the reservation, COLLECTED
+    // recognises revenue + stock + COGS, CANCELLED releases, RETURNED (after
+    // collection) flags the sales return. Never throws.
     await this.recognition?.afterPickupTransition(id, code, userId);
     return this.findOne(id, userId);
   }

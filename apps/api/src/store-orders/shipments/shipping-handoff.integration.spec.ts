@@ -17,6 +17,11 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ExchangeRatesService } from '../../accounting/fx/exchange-rates.service';
 import { AgentsService } from '../../agents/admin/agents.service';
 import { AgentAgreementsService } from '../../agents/admin/agent-agreements.service';
+import { AgentShippingAgreementsService } from '../../agents/shipping-agreements/agent-shipping-agreements.service';
+import {
+  activateShippingAgreement,
+  everyService,
+} from '../../agents/shipping-agreements/shipping-agreement.fixture';
 import { AgentDestinationsService } from '../../agents/admin/agent-destinations.service';
 import { AgentUsersService } from '../../agents/admin/agent-users.service';
 import { StoreOrderPaymentDeclarationService } from '../payment-declaration/store-order-payment-declaration.service';
@@ -302,10 +307,12 @@ describe('R6 SHIP — Sales → Shipping queue handoff (HTTP integration)', () =
       },
       internal.id,
     );
-    await agreements.upsertShippingRate(agent.id, agreement.id, {
-      countryId: egId,
-      amount: 100,
-    });
+    await activateShippingAgreement(
+      moduleRef.get(AgentShippingAgreementsService, { strict: false }),
+      agent.id,
+      everyService(100, { countryId: egId }),
+      internal.id,
+    );
     await agreements.activate(agent.id, agreement.id, internal.id);
     const agentMethod = await prisma.paymentMethod.create({
       data: {
@@ -485,12 +492,13 @@ describe('R6 SHIP — Sales → Shipping queue handoff (HTTP integration)', () =
     expect(await liveShipments(order.id)).toBe(1);
   });
 
-  it('internal prepaid (unpaid) conversion is blocked with the payment reason; pickup never queues', async () => {
+  it('R15 (D15-3): an internal prepaid (unpaid) conversion reaches the queue at once; pickup never queues', async () => {
     const prepaid = await convertInternal({ paymentType: 'PREPAID' });
-    expect(await queueRows(prepaid.internalOrderId)).toHaveLength(0);
+    expect(await queueRows(prepaid.internalOrderId)).toHaveLength(1);
     expect(await handoff(prepaid.id)).toMatchObject({
-      queued: false,
-      blocker: 'PAYMENT_REQUIRED',
+      queued: true,
+      eligible: true,
+      blocker: null,
     });
 
     const pickup = await convertInternal({
@@ -524,9 +532,10 @@ describe('R6 SHIP — Sales → Shipping queue handoff (HTTP integration)', () =
     expect(rows).toHaveLength(1);
   });
 
-  it('agent prepaid partial → blocked (read-only reason), then the full declaration queues it', async () => {
+  it('R15 (D15-3): an agent prepaid order is queued unpaid; partial / full declarations never change it', async () => {
     const order = await agentLeadConvert({ paymentType: 'PREPAID' });
-    expect(order.fulfillment.shippingBlocker).toBe('PAYMENT_REQUIRED');
+    expect(order.fulfillment.shippingBlocker).toBeNull();
+    expect(await queueRows(order.internalOrderId)).toHaveLength(1);
     const today = new Date().toISOString().slice(0, 10);
     const partial = await post(
       agentSales.token,
@@ -540,11 +549,11 @@ describe('R6 SHIP — Sales → Shipping queue handoff (HTTP integration)', () =
       },
     );
     expect(partial.status).toBe(200);
-    expect(partial.body.fulfillment.shippingBlocker).toBe('PAYMENT_REQUIRED');
-    expect(await queueRows(order.internalOrderId)).toHaveLength(0);
+    expect(partial.body.fulfillment.shippingBlocker).toBeNull();
+    expect(await queueRows(order.internalOrderId)).toHaveLength(1);
     expect(await handoff(order.id)).toMatchObject({
-      queued: false,
-      blocker: 'PAYMENT_REQUIRED',
+      queued: true,
+      blocker: null,
     });
 
     const full = await post(
@@ -721,9 +730,9 @@ describe('R6 SHIP — Sales → Shipping queue handoff (HTTP integration)', () =
     ).toBe(0);
   });
 
-  it('a rejected FULL claim withdraws the queued attempt; declaring again restores #1 (no #2)', async () => {
+  it('R15 (D15-3): a prepaid order stays queued whatever happens to its payment claims (no withdrawal, never a #2)', async () => {
     const order = await convertInternal({ paymentType: 'PREPAID' });
-    expect(await liveShipments(order.id)).toBe(0);
+    expect(await liveShipments(order.id)).toBe(1);
     const first = await declareFull(order.id);
     expect(await queueRows(order.internalOrderId)).toHaveLength(1);
 
@@ -733,17 +742,17 @@ describe('R6 SHIP — Sales → Shipping queue handoff (HTTP integration)', () =
         rejectedById: internal.id,
         rejectionReason: 'Not received',
       });
-    expect(await liveShipments(order.id)).toBe(0);
-    expect(await queueRows(order.internalOrderId)).toHaveLength(0);
+    expect(await liveShipments(order.id)).toBe(1);
+    expect(await queueRows(order.internalOrderId)).toHaveLength(1);
     expect(await handoff(order.id)).toMatchObject({
-      queued: false,
-      blocker: 'PAYMENT_REQUIRED',
+      queued: true,
+      blocker: null,
     });
     expect(
       await prisma.storeOrderActivity.count({
         where: { storeOrderId: order.id, action: 'SHIPPING_QUEUE_WITHDRAWN' },
       }),
-    ).toBe(1);
+    ).toBe(0);
 
     await declareFull(order.id);
     expect(await attempts(order.id)).toEqual([
@@ -783,9 +792,9 @@ describe('R6 SHIP — Sales → Shipping queue handoff (HTTP integration)', () =
     expect(await queueRows(order.internalOrderId)).toHaveLength(0);
   });
 
-  it('Finance-verified payment (payment sync) queues a prepaid order', async () => {
+  it('R15 (D15-3): a prepaid order is queued before any verification; the verified payment keeps one attempt', async () => {
     const order = await convertInternal({ paymentType: 'PREPAID' });
-    expect(await liveShipments(order.id)).toBe(0);
+    expect(await liveShipments(order.id)).toBe(1);
     // A claim on another order supplies the required payment columns.
     const template = await convertInternal({ paymentType: 'PREPAID' });
     const claim = (await declareFull(template.id)).payment!;

@@ -11,6 +11,7 @@ import {
   InventoryValuationMethod,
   Prisma,
   ProductStatus,
+  WarehouseRole,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
@@ -41,6 +42,10 @@ import {
 } from './dto/movement-trace';
 import { ownerAgentCondition } from './dto/owner-filter';
 import { round2 } from '../accounting/inventory-valuation/inventory-valuation.service';
+import {
+  assertWarehouseUse,
+  type WarehouseUse,
+} from './system-warehouse-policy';
 
 const RESERVATION_TYPES: InventoryMovementType[] = [
   InventoryMovementType.RESERVATION,
@@ -124,7 +129,10 @@ export class InventoryService {
 
   async openingBalance(dto: OpeningBalanceDto, userId?: string) {
     const product = await this.assertInventoryProduct(dto.productId);
-    const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
+    const warehouse = await this.assertActiveWarehouse(
+      dto.warehouseId,
+      'RECEIVE',
+    );
 
     const movement = await this.prisma.$transaction(async (tx) => {
       await lockProductsForUpdate(tx, [dto.productId]);
@@ -186,7 +194,10 @@ export class InventoryService {
 
   async adjustment(dto: AdjustmentDto, userId?: string) {
     const product = await this.assertInventoryProduct(dto.productId);
-    const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
+    const warehouse = await this.assertActiveWarehouse(
+      dto.warehouseId,
+      dto.quantity > 0 ? 'RECEIVE' : 'WRITE_OFF',
+    );
 
     return this.prisma.$transaction(async (tx) => {
       await lockProductsForUpdate(tx, [dto.productId]);
@@ -263,9 +274,11 @@ export class InventoryService {
 
     const sourceWarehouse = await this.assertActiveWarehouse(
       dto.sourceWarehouseId,
+      'WRITE_OFF',
     );
     const destinationWarehouse = await this.assertActiveWarehouse(
       dto.destinationWarehouseId,
+      'RECEIVE',
     );
     const products = await Promise.all(
       dto.lines.map((line) => this.assertInventoryProduct(line.productId)),
@@ -399,7 +412,10 @@ export class InventoryService {
     outerTx?: Prisma.TransactionClient,
   ) {
     const product = await this.assertInventoryProduct(dto.productId);
-    const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
+    const warehouse = await this.assertActiveWarehouse(
+      dto.warehouseId,
+      'ISSUE',
+    );
 
     const run = async (tx: Prisma.TransactionClient) => {
       await lockProductsForUpdate(tx, [dto.productId]);
@@ -453,14 +469,23 @@ export class InventoryService {
     return outerTx ? run(outerTx) : this.prisma.$transaction(run);
   }
 
-  /** Accepts an optional caller-supplied `tx` (TASK-057) — see `postPurchaseReceipt`'s doc comment for why. */
+  /**
+   * Accepts an optional caller-supplied `tx` (TASK-057) — see `postPurchaseReceipt`'s doc comment for why.
+   * R15 — releasing moves no stock, so a reservation of a product deactivated
+   * since (an order cancelled after the product was archived) can always be
+   * released; the product must still be stock-tracked.
+   */
   async release(
     dto: ReleaseDto & MovementTrace,
     userId?: string,
     tx?: Prisma.TransactionClient,
   ) {
-    const product = await this.assertInventoryProduct(dto.productId);
-    const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
+    const product = await this.assertStockTrackedProduct(
+      tx ?? this.prisma,
+      dto.productId,
+    );
+    // Lowering a reservation is allowed wherever one exists.
+    const warehouse = await this.assertActiveWarehouse(dto.warehouseId, null);
 
     const run = async (client: Prisma.TransactionClient) => {
       await lockProductsForUpdate(client, [dto.productId]);
@@ -527,7 +552,11 @@ export class InventoryService {
     tx?: Prisma.TransactionClient,
   ) {
     const product = await this.assertInventoryProduct(dto.productId);
-    const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
+    const warehouse = await this.assertActiveWarehouse(
+      dto.warehouseId,
+      'ISSUE',
+      dto.systemWarehouse,
+    );
 
     const run = async (client: Prisma.TransactionClient) => {
       await lockProductsForUpdate(client, [dto.productId]);
@@ -624,7 +653,10 @@ export class InventoryService {
     tx?: Prisma.TransactionClient,
   ) {
     const product = await this.assertInventoryProduct(dto.productId);
-    const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
+    const warehouse = await this.assertActiveWarehouse(
+      dto.warehouseId,
+      'INSPECTED_RETURN',
+    );
 
     const run = async (client: Prisma.TransactionClient) => {
       await lockProductsForUpdate(client, [dto.productId]);
@@ -686,7 +718,10 @@ export class InventoryService {
     tx?: Prisma.TransactionClient,
   ) {
     const product = await this.assertInventoryProduct(dto.productId);
-    const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
+    const warehouse = await this.assertActiveWarehouse(
+      dto.warehouseId,
+      'RECEIVE',
+    );
 
     const run = async (client: Prisma.TransactionClient) => {
       await lockProductsForUpdate(client, [dto.productId]);
@@ -753,7 +788,10 @@ export class InventoryService {
     tx?: Prisma.TransactionClient,
   ) {
     const product = await this.assertInventoryProduct(dto.productId);
-    const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
+    const warehouse = await this.assertActiveWarehouse(
+      dto.warehouseId,
+      'WRITE_OFF',
+    );
 
     const run = async (client: Prisma.TransactionClient) => {
       await lockProductsForUpdate(client, [dto.productId]);
@@ -809,6 +847,130 @@ export class InventoryService {
     return tx ? run(tx) : this.prisma.$transaction(run);
   }
 
+  /**
+   * R15 (D15-4, D15-8) — a document-driven warehouse transfer inside the
+   * caller's transaction: store-order goods dispatched to the goods-in-transit
+   * warehouse, and goods received back from it. One TRANSFER pair (OUT −q at
+   * the source, IN +q at the destination) keyed `<idempotencyKey>:OUT|IN`,
+   * never negative and never taking stock reserved for other documents (the
+   * caller releases its own reservation first). Value-neutral: no journal —
+   * the goods stay inventory of the same owner at the same moving average.
+   * `allowInactiveProduct` — goods physically coming back may be of a
+   * product deactivated meanwhile (it must still exist and be stock-tracked).
+   */
+  async postDocumentTransfer(
+    tx: Prisma.TransactionClient,
+    input: MovementTrace & {
+      productId: string;
+      fromWarehouseId: string;
+      toWarehouseId: string;
+      quantity: number;
+      referenceType: string;
+      referenceId: string;
+      idempotencyKey: string;
+      notes?: string;
+      allowInactiveProduct?: boolean;
+    },
+    userId?: string,
+  ) {
+    if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
+      throw new BadRequestException(
+        'A transfer needs a positive whole quantity.',
+      );
+    }
+    if (input.fromWarehouseId === input.toWarehouseId) {
+      throw new BadRequestException('Cannot transfer to the same warehouse.');
+    }
+    const product = input.allowInactiveProduct
+      ? await this.assertStockTrackedProduct(tx, input.productId)
+      : await this.assertInventoryProduct(input.productId);
+    // The store-order lifecycle's own transfers (to / from the system warehouses).
+    const source = await this.assertActiveWarehouse(
+      input.fromWarehouseId,
+      null,
+    );
+    const destination = await this.assertActiveWarehouse(
+      input.toWarehouseId,
+      null,
+    );
+    await lockProductsForUpdate(tx, [input.productId]);
+
+    const sourceBefore = await this.getOnHandQuantity(
+      tx,
+      input.productId,
+      input.fromWarehouseId,
+    );
+    if (sourceBefore - input.quantity < 0) {
+      throw new BadRequestException({
+        code: 'INVENTORY_AVAILABLE_INSUFFICIENT',
+        message: `Transfer of ${input.quantity} × ${product.sku} exceeds the on-hand stock at ${source.code} (on-hand ${sourceBefore}).`,
+      });
+    }
+    await this.assertUnreservedStock(tx, {
+      product,
+      warehouse: source,
+      onHand: sourceBefore,
+      quantity: input.quantity,
+      operation: 'Transfer',
+    });
+    const destinationBefore = await this.getOnHandQuantity(
+      tx,
+      input.productId,
+      input.toWarehouseId,
+    );
+    const common = {
+      type: InventoryMovementType.TRANSFER,
+      productId: input.productId,
+      referenceType: input.referenceType,
+      referenceId: input.referenceId,
+      notes: input.notes,
+      createdBy: userId ?? null,
+      parentProductId: input.parentProductId,
+      recipeId: input.recipeId,
+    };
+    const out = await this.createMovement(tx, {
+      ...common,
+      movementNumber: await this.numberingEngine.generateNumber(
+        'INVENTORY_MOVEMENT',
+        undefined,
+        tx,
+      ),
+      warehouseId: input.fromWarehouseId,
+      quantity: -input.quantity,
+      quantityBefore: sourceBefore,
+      quantityAfter: sourceBefore - input.quantity,
+      idempotencyKey: `${input.idempotencyKey}:OUT`,
+    });
+    const into = await this.createMovement(tx, {
+      ...common,
+      movementNumber: await this.numberingEngine.generateNumber(
+        'INVENTORY_MOVEMENT',
+        undefined,
+        tx,
+      ),
+      warehouseId: input.toWarehouseId,
+      quantity: input.quantity,
+      quantityBefore: destinationBefore,
+      quantityAfter: destinationBefore + input.quantity,
+      idempotencyKey: `${input.idempotencyKey}:IN`,
+    });
+    await this.activityService.log(
+      out.id,
+      InventoryMovementActivityType.TRANSFERRED,
+      `Transferred ${input.quantity} of ${product.sku} out to ${destination.code}`,
+      undefined,
+      tx,
+    );
+    await this.activityService.log(
+      into.id,
+      InventoryMovementActivityType.TRANSFERRED,
+      `Transferred ${input.quantity} of ${product.sku} in from ${source.code}`,
+      undefined,
+      tx,
+    );
+    return { out, in: into };
+  }
+
   findAllMovements(query: FindMovementsQueryDto) {
     return this.prisma.inventoryMovement.findMany({
       where: {
@@ -827,7 +989,7 @@ export class InventoryService {
             analyticAccount: { select: { name: true } },
           },
         },
-        warehouse: { select: { code: true, name: true } },
+        warehouse: { select: { code: true, name: true, role: true } },
         createdByUser: { select: { fullName: true } },
       },
     });
@@ -852,12 +1014,12 @@ export class InventoryService {
    */
   async getStock(productId: string, warehouseId?: string, owner?: string) {
     const product = await this.productsService.findOne(productId);
-    if (warehouseId) {
-      await this.warehousesService.findOne(warehouseId);
-    }
+    const warehouse = warehouseId
+      ? await this.warehousesService.findOne(warehouseId)
+      : null;
 
     const ownerCondition = ownerAgentCondition(owner);
-    const [onHand, reserved] = await Promise.all([
+    const [onHand, reserved, roles] = await Promise.all([
       this.getOnHandQuantity(
         this.prisma,
         productId,
@@ -871,6 +1033,24 @@ export class InventoryService {
         undefined,
         ownerCondition,
       ),
+      this.nonStockWarehouses(),
+    ]);
+    // R15 (D15-4) — goods in transit / damaged are still owned (on-hand) but
+    // never available to sell.
+    const held = async (ids: string[]) =>
+      warehouse
+        ? ids.includes(warehouse.id)
+          ? onHand
+          : 0
+        : this.getOnHandQuantity(
+            this.prisma,
+            productId,
+            { in: ids },
+            ownerCondition,
+          );
+    const [inTransit, damaged] = await Promise.all([
+      held(roles.transit),
+      held(roles.damaged),
     ]);
 
     return {
@@ -878,9 +1058,29 @@ export class InventoryService {
       warehouseId: warehouseId ?? null,
       onHand,
       reserved,
-      available: onHand - reserved,
+      available: onHand - inTransit - damaged - reserved,
+      inTransit,
+      damaged,
       ownerAgentId: product.ownerAgent?.id ?? null,
       ownerAgentName: product.ownerAgent?.name ?? null,
+    };
+  }
+
+  /** R15 — warehouses whose stock is never available to sell (goods in transit, damaged goods). */
+  async nonStockWarehouses(
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<{ transit: string[]; damaged: string[] }> {
+    const rows = await client.warehouse.findMany({
+      where: { role: { not: WarehouseRole.STOCK } },
+      select: { id: true, role: true },
+    });
+    return {
+      transit: rows
+        .filter((row) => row.role === WarehouseRole.TRANSIT)
+        .map((row) => row.id),
+      damaged: rows
+        .filter((row) => row.role === WarehouseRole.DAMAGED)
+        .map((row) => row.id),
     };
   }
 
@@ -979,21 +1179,29 @@ export class InventoryService {
     const warehouses = warehouseIds.length
       ? await this.prisma.warehouse.findMany({
           where: { id: { in: warehouseIds } },
-          select: { id: true, name: true, code: true },
+          select: { id: true, name: true, code: true, role: true },
         })
       : [];
     const productById = new Map(products.map((p) => [p.id, p]));
     const warehouseById = new Map(warehouses.map((w) => [w.id, w]));
     const items = [...rows.values()]
       .filter((row) => productById.has(row.productId))
-      .map((row) => ({
-        ...row,
-        available: row.onHand - row.reserved,
-        product: productById.get(row.productId)!,
-        warehouse: row.warehouseId
+      .map((row) => {
+        const warehouse = row.warehouseId
           ? (warehouseById.get(row.warehouseId) ?? null)
-          : null,
-      }))
+          : null;
+        return {
+          ...row,
+          // R15 (D15-4) — the agent's goods in transit / damaged are still
+          // theirs (on-hand) but never available to sell.
+          available:
+            !warehouse || warehouse.role === WarehouseRole.STOCK
+              ? row.onHand - row.reserved
+              : 0,
+          product: productById.get(row.productId)!,
+          warehouse,
+        };
+      })
       .sort(
         (a, b) =>
           a.product.name.localeCompare(b.product.name) ||
@@ -1050,29 +1258,40 @@ export class InventoryService {
     if (products.length === 0) return [];
     const productIds = products.map((p) => p.id);
 
-    const [onHandGroups, reservedGroups, lastMovements] = await Promise.all([
-      this.prisma.inventoryMovement.groupBy({
-        by: ['productId'],
-        where: {
-          productId: { in: productIds },
-          type: { notIn: RESERVATION_TYPES },
-        },
-        _sum: { quantity: true },
-      }),
-      this.prisma.inventoryMovement.groupBy({
-        by: ['productId'],
-        where: {
-          productId: { in: productIds },
-          type: { in: RESERVATION_TYPES },
-        },
-        _sum: { quantity: true },
-      }),
-      this.prisma.inventoryMovement.findMany({
-        where: { productId: { in: productIds } },
-        orderBy: { createdAt: 'desc' },
-        distinct: ['productId'],
-      }),
-    ]);
+    const roles = await this.nonStockWarehouses();
+    const [onHandGroups, reservedGroups, lastMovements, heldGroups] =
+      await Promise.all([
+        this.prisma.inventoryMovement.groupBy({
+          by: ['productId'],
+          where: {
+            productId: { in: productIds },
+            type: { notIn: RESERVATION_TYPES },
+          },
+          _sum: { quantity: true },
+        }),
+        this.prisma.inventoryMovement.groupBy({
+          by: ['productId'],
+          where: {
+            productId: { in: productIds },
+            type: { in: RESERVATION_TYPES },
+          },
+          _sum: { quantity: true },
+        }),
+        this.prisma.inventoryMovement.findMany({
+          where: { productId: { in: productIds } },
+          orderBy: { createdAt: 'desc' },
+          distinct: ['productId'],
+        }),
+        this.prisma.inventoryMovement.groupBy({
+          by: ['productId', 'warehouseId'],
+          where: {
+            productId: { in: productIds },
+            warehouseId: { in: [...roles.transit, ...roles.damaged] },
+            type: { notIn: RESERVATION_TYPES },
+          },
+          _sum: { quantity: true },
+        }),
+      ]);
     const onHandByProduct = new Map(
       onHandGroups.map((g) => [g.productId, g._sum.quantity ?? 0]),
     );
@@ -1082,16 +1301,24 @@ export class InventoryService {
     const lastMovementByProduct = new Map(
       lastMovements.map((m) => [m.productId, m]),
     );
+    const heldOf = (productId: string, ids: string[]) =>
+      heldGroups
+        .filter((g) => g.productId === productId && ids.includes(g.warehouseId))
+        .reduce((sum, g) => sum + (g._sum.quantity ?? 0), 0);
 
     return products.map((product) => {
       const onHand = onHandByProduct.get(product.id) ?? 0;
       const reserved = reservedByProduct.get(product.id) ?? 0;
       const lastMovement = lastMovementByProduct.get(product.id) ?? null;
+      const inTransit = heldOf(product.id, roles.transit);
+      const damaged = heldOf(product.id, roles.damaged);
       return {
         ...this.stockCardIdentity(product),
         onHand,
         reserved,
-        available: onHand - reserved,
+        available: onHand - inTransit - damaged - reserved,
+        inTransit,
+        damaged,
         ...this.stockCardCost(product, onHand),
         lastMovement: lastMovement
           ? {
@@ -1135,20 +1362,30 @@ export class InventoryService {
   }
 
   private async buildStockCard(product: StockCardProduct) {
-    const [onHand, reserved, lastMovement] = await Promise.all([
-      this.getOnHandQuantity(this.prisma, product.id),
-      this.getReservedQuantity(this.prisma, product.id),
-      this.prisma.inventoryMovement.findFirst({
-        where: { productId: product.id },
-        orderBy: { createdAt: 'desc' },
-      }),
-    ]);
+    const roles = await this.nonStockWarehouses();
+    const [onHand, reserved, lastMovement, inTransit, damaged] =
+      await Promise.all([
+        this.getOnHandQuantity(this.prisma, product.id),
+        this.getReservedQuantity(this.prisma, product.id),
+        this.prisma.inventoryMovement.findFirst({
+          where: { productId: product.id },
+          orderBy: { createdAt: 'desc' },
+        }),
+        this.getOnHandQuantity(this.prisma, product.id, {
+          in: roles.transit,
+        }),
+        this.getOnHandQuantity(this.prisma, product.id, {
+          in: roles.damaged,
+        }),
+      ]);
 
     return {
       ...this.stockCardIdentity(product),
       onHand,
       reserved,
-      available: onHand - reserved,
+      available: onHand - inTransit - damaged - reserved,
+      inTransit,
+      damaged,
       ...this.stockCardCost(product, onHand),
       lastMovement: lastMovement
         ? {
@@ -1197,7 +1434,7 @@ export class InventoryService {
       }),
       this.prisma.warehouse.findMany({
         where: { id: { in: warehouseIds } },
-        select: { id: true, code: true, name: true },
+        select: { id: true, code: true, name: true, role: true },
       }),
       agentIds.length
         ? this.prisma.agent.findMany({
@@ -1253,7 +1490,10 @@ export class InventoryService {
     userId?: string,
   ) {
     const product = await this.assertInventoryProduct(dto.productId);
-    const warehouse = await this.assertActiveWarehouse(dto.warehouseId);
+    const warehouse = await this.assertActiveWarehouse(
+      dto.warehouseId,
+      'WRITE_OFF',
+    );
 
     return this.prisma.$transaction(async (tx) => {
       await lockProductsForUpdate(tx, [dto.productId]);
@@ -1338,6 +1578,16 @@ export class InventoryService {
       userId?: string;
     },
   ) {
+    const warehouse = await tx.warehouse.findUnique({
+      where: { id: input.warehouseId },
+      select: { code: true, role: true },
+    });
+    if (warehouse) {
+      assertWarehouseUse(
+        warehouse,
+        input.difference > 0 ? 'RECEIVE' : 'WRITE_OFF',
+      );
+    }
     await lockProductsForUpdate(tx, [input.productId]);
     const quantityBefore = await this.getOnHandQuantity(
       tx,
@@ -1421,7 +1671,14 @@ export class InventoryService {
     const product = input.allowInactiveProduct
       ? await this.assertReversibleProduct(tx, input)
       : await this.assertInventoryProduct(input.productId);
-    const warehouse = await this.assertActiveWarehouse(input.warehouseId);
+    const warehouse = await this.assertActiveWarehouse(
+      input.warehouseId,
+      input.quantity > 0
+        ? 'RECEIVE'
+        : input.type === 'PRODUCTION_CONSUMPTION'
+          ? 'ISSUE'
+          : 'WRITE_OFF',
+    );
     await lockProductsForUpdate(tx, [input.productId]);
 
     const quantityBefore = await this.getOnHandQuantity(
@@ -1480,6 +1737,24 @@ export class InventoryService {
     return product;
   }
 
+  /** Goods physically moving back: the product must exist and be stock-tracked (it may be inactive since). */
+  private async assertStockTrackedProduct(
+    tx: Prisma.TransactionClient | PrismaService,
+    productId: string,
+  ) {
+    const product = await tx.product.findUnique({
+      where: { id: productId },
+      select: { id: true, sku: true, isInventoryItem: true },
+    });
+    if (!product) {
+      throw new NotFoundException(`Product ${productId} not found`);
+    }
+    if (!product.isInventoryItem) {
+      throw new BadRequestException('Product is not an inventory item.');
+    }
+    return product;
+  }
+
   /**
    * A production REVERSAL may return stock of a product archived / deactivated
    * after the assembly (the row must exist and still be stock-tracked); any
@@ -1515,11 +1790,22 @@ export class InventoryService {
     return product;
   }
 
-  private async assertActiveWarehouse(warehouseId: string) {
+  /**
+   * Active, and allowed for what the writer does there (`use`, see
+   * `system-warehouse-policy.ts`); `null` only for the store-order lifecycle's
+   * own transfers and for lowering a reservation. `system` — a delivery out of
+   * the goods-in-transit warehouse by the lifecycle itself.
+   */
+  private async assertActiveWarehouse(
+    warehouseId: string,
+    use: WarehouseUse | null,
+    system = false,
+  ) {
     const warehouse = await this.warehousesService.findOne(warehouseId);
     if (!warehouse.isActive) {
       throw new BadRequestException('Warehouse is inactive.');
     }
+    if (use) assertWarehouseUse(warehouse, use, system);
     return warehouse;
   }
 
@@ -1565,7 +1851,7 @@ export class InventoryService {
   private async getOnHandQuantity(
     tx: Prisma.TransactionClient | PrismaService,
     productId: string,
-    warehouseId?: string,
+    warehouseId?: string | Prisma.StringFilter,
     ownerAgentId?: Prisma.StringNullableFilter | null,
   ): Promise<number> {
     const result = await tx.inventoryMovement.aggregate({

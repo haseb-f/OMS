@@ -1,5 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
-import { PaymentStatus, Prisma, StoreOrderPaymentStatus } from '@prisma/client';
+import {
+  PaymentStatus,
+  Prisma,
+  SalesDocumentStatus,
+  StoreOrderPaymentStatus,
+} from '@prisma/client';
 import { storeOrderPayableTotal } from './store-order-line-amount';
 
 const OPEN_CLAIM_STATUSES: PaymentStatus[] = [
@@ -173,8 +178,27 @@ export async function computeStoreOrderSettlement(
   const claimed =
     paid + amountFor(PaymentStatus.PENDING) + amountFor(PaymentStatus.MATCHED);
 
+  // R15 (review L8) — once invoiced, the customer owes the posted invoices
+  // (VAT and service lines are added at invoicing), which can exceed the
+  // order's payable total; the larger of the two is what is due, so payment
+  // status, the declaration cap and verification all agree. Never below the
+  // payable total.
+  const invoiced = await client.salesInvoice.aggregate({
+    where: {
+      storeOrderId,
+      deletedAt: null,
+      status: {
+        in: [SalesDocumentStatus.CONFIRMED, SalesDocumentStatus.CLOSED],
+      },
+    },
+    _sum: { grandTotal: true },
+  });
+
   return settlementFromTotals({
-    total: storeOrderPayableTotal(order),
+    total: Math.max(
+      storeOrderPayableTotal(order),
+      roundMoney(Number(invoiced._sum.grandTotal ?? 0)),
+    ),
     paid,
     claimed,
     paymentStatus: order.paymentStatus,

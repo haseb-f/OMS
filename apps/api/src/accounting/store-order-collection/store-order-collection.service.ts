@@ -7,14 +7,22 @@ import {
   FinancialTransactionStatus,
   PaymentStatus,
   Prisma,
-  SalesDocumentStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { FinancialTransactionsService } from '../../financial-transactions/financial-transactions.service';
 import { AccountMappingService } from '../account-mapping/account-mapping.service';
 import { sumConfirmedAllocations } from '../../financial-transactions/shared/invoice-payment.util';
+import {
+  POSTED_SALES_STATUSES,
+  roundMoney,
+} from '../../financial-transactions/shared/store-order-money';
+import {
+  STORE_ORDER_PAYMENT_NOTE_PREFIX,
+  storeOrderReceiptsWhere,
+  syncAdvanceRefundConsumption,
+} from '../../financial-transactions/shared/store-order-receipts';
+import { CarrierCodCollectionService } from './carrier-cod-collection.service';
 
-const PAYMENT_NOTE_PREFIX = 'STORE_ORDER_PAYMENT:';
 const EPSILON = 0.005;
 
 /**
@@ -37,21 +45,28 @@ export interface PostedPaymentReceipt {
   journalEntry: { id: string; entryNumber: string } | null;
 }
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
+/** One invoice of the order with what is still unpaid on it. */
+interface OpenInvoice {
+  id: string;
+  remaining: number;
 }
 
 /**
  * Turns a verified Store Order Payment into exactly ONE Customer Receipt
  * voucher, through the same Matching Engine + Posting Engine path every
- * other receipt uses (Dr Bank/Cash, Cr Accounts Receivable).
+ * other receipt uses (Dr Bank/Cash or the method's clearing account, Cr
+ * Accounts Receivable). A receipt never creates revenue.
  *
- * - With a confirmed Sales Invoice on the order, the receipt is allocated
- *   to it (up to the invoice's remaining balance).
+ * - With confirmed Sales Invoices on the order (R15: one per delivered
+ *   shipment), the receipt is allocated to them oldest-first, each up to its
+ *   remaining balance.
  * - Without one yet, the receipt posts as an unallocated customer advance;
- *   `syncVerifiedPayments` allocates it the moment the invoice exists.
+ *   `syncVerifiedPayments` allocates the order's advances the moment an
+ *   invoice exists. Money paid back by the order's advance refunds is held
+ *   on its receipts as allocation rows (`syncAdvanceRefundConsumption`), so
+ *   it is never allocated again — by this service or by the generic Allocate.
  *
- * Idempotent: one receipt per payment, keyed by the notes prefix and
+ * Idempotent: one receipt per payment (DB-unique `PaymentReceiptLink`),
  * serialized by the caller's Store Order row lock.
  */
 @Injectable()
@@ -60,6 +75,7 @@ export class StoreOrderCollectionService {
     private readonly prisma: PrismaService,
     private readonly financialTransactions: FinancialTransactionsService,
     private readonly accountMapping: AccountMappingService,
+    private readonly carrierCod: CarrierCodCollectionService,
   ) {}
 
   /**
@@ -99,7 +115,7 @@ export class StoreOrderCollectionService {
         deletedAt: null,
         type: 'CUSTOMER_RECEIPT',
         status: { not: FinancialTransactionStatus.CANCELLED },
-        notes: `${PAYMENT_NOTE_PREFIX}${paymentId}`,
+        notes: `${STORE_ORDER_PAYMENT_NOTE_PREFIX}${paymentId}`,
       },
       select,
     });
@@ -182,35 +198,17 @@ export class StoreOrderCollectionService {
       );
     }
 
-    const invoice = await tx.salesInvoice.findFirst({
-      where: {
-        storeOrderId: payment.storeOrder.id,
-        deletedAt: null,
-        status: {
-          in: [SalesDocumentStatus.CONFIRMED, SalesDocumentStatus.CLOSED],
-        },
-      },
-      select: { id: true, grandTotal: true },
-      orderBy: { createdAt: 'asc' },
-    });
-
-    const cashAmount = round2(Number(payment.amount));
+    const cashAmount = roundMoney(Number(payment.amount));
     // Method claims never deduct a fee at confirmation: the provider fee is
     // recognized at batch settlement (owner rule 1).
     const feeAmount = override
       ? 0
-      : round2(Number(payment.actualFeeAmount ?? 0));
-    let allocatedAmount = 0;
-    if (invoice) {
-      const allocated = await sumConfirmedAllocations(tx, 'salesInvoiceId', [
-        invoice.id,
-      ]);
-      const remaining = Math.max(
-        round2(Number(invoice.grandTotal) - (allocated.get(invoice.id) ?? 0)),
-        0,
-      );
-      allocatedAmount = round2(Math.min(cashAmount + feeAmount, remaining));
-    }
+      : roundMoney(Number(payment.actualFeeAmount ?? 0));
+    // Earlier receipts first carry the order's advance refunds (caller holds
+    // the order row lock), so this receipt's new money is all its own.
+    await syncAdvanceRefundConsumption(tx, payment.storeOrder.id, userId);
+    const invoices = await this.openInvoices(tx, payment.storeOrder.id);
+    const allocations = planAllocations(cashAmount + feeAmount, invoices);
 
     const feeAccountId =
       feeAmount > 0
@@ -234,11 +232,11 @@ export class StoreOrderCollectionService {
         feeAmount,
         feeAccountId,
         referenceNumber: payment.paymentNumber,
-        notes: `${PAYMENT_NOTE_PREFIX}${payment.id}`,
-        allocations:
-          invoice && allocatedAmount > EPSILON
-            ? [{ invoiceId: invoice.id, allocatedAmount }]
-            : [],
+        notes: `${STORE_ORDER_PAYMENT_NOTE_PREFIX}${payment.id}`,
+        allocations: allocations.map((line) => ({
+          invoiceId: line.invoiceId,
+          allocatedAmount: line.amount,
+        })),
       },
       userId,
       undefined,
@@ -276,10 +274,13 @@ export class StoreOrderCollectionService {
   }
 
   /**
-   * Brings every VERIFIED payment of the order to "receipt posted" and, once
-   * the order has a confirmed Sales Invoice, allocates any receipt still
-   * holding an unallocated advance to it. Safe to re-run: never creates a
-   * second receipt or allocation for the same money.
+   * Brings every VERIFIED payment of the order to "receipt posted", allocates
+   * the order's unallocated advances to its confirmed invoices (oldest invoice
+   * first, R15: one invoice per delivered shipment) and records the carrier's
+   * expected COD collection of every delivered, invoiced COD shipment still
+   * without one (a delivery whose invoice was issued late — failed
+   * recognition retried — gets its claim here, at the invoiced amount).
+   * Safe to re-run: never creates a second receipt, allocation or claim.
    */
   async syncVerifiedPayments(storeOrderId: string, userId?: string) {
     const payments = await this.prisma.payment.findMany({
@@ -296,72 +297,162 @@ export class StoreOrderCollectionService {
     for (const payment of payments) {
       const receipt = await this.prisma.$transaction(
         async (tx) => {
-          await tx.$queryRaw`
-            SELECT id FROM store_orders WHERE id = ${storeOrderId}::uuid FOR UPDATE
-          `;
-          const result = await this.postPaymentReceipt(tx, payment.id, userId);
-          await this.allocateAdvance(tx, storeOrderId, result.id, userId);
-          return result;
+          await this.lockOrder(tx, storeOrderId);
+          return this.postPaymentReceipt(tx, payment.id, userId);
         },
         { maxWait: 10_000, timeout: 30_000 },
       );
       posted.push(receipt);
     }
+    await this.prisma.$transaction(
+      async (tx) => {
+        await this.lockOrder(tx, storeOrderId);
+        await this.allocateAdvances(tx, storeOrderId, userId);
+      },
+      { maxWait: 10_000, timeout: 30_000 },
+    );
+    await this.recordMissingCodClaims(storeOrderId, userId);
     return posted;
   }
 
-  private async allocateAdvance(
-    tx: Prisma.TransactionClient,
-    storeOrderId: string,
-    receiptId: string,
-    userId?: string,
-  ) {
-    const invoice = await tx.salesInvoice.findFirst({
+  /** Delivered + invoiced shipments of the order with no carrier COD claim yet (the hook skips the rest). */
+  private async recordMissingCodClaims(storeOrderId: string, userId?: string) {
+    const shipments = await this.prisma.shipment.findMany({
       where: {
         storeOrderId,
         deletedAt: null,
-        status: {
-          in: [SalesDocumentStatus.CONFIRMED, SalesDocumentStatus.CLOSED],
-        },
+        status: 'DELIVERED',
+        salesInvoice: { is: { status: { in: POSTED_SALES_STATUSES } } },
+        storeOrder: { is: { paymentType: 'CASH_ON_DELIVERY', agentId: null } },
+      },
+      select: { id: true },
+    });
+    for (const shipment of shipments) {
+      await this.carrierCod.onCodShipmentDelivered(shipment.id, userId);
+    }
+  }
+
+  /**
+   * Allocates the order's posted receipts' unallocated money (oldest receipt
+   * first) to its open invoices (oldest first). The order's advance refunds
+   * are first carried on its receipts (`syncAdvanceRefundConsumption`), so
+   * refunded money is never allocated. Runs under the caller's order row lock.
+   */
+  async allocateAdvances(
+    tx: Prisma.TransactionClient,
+    storeOrderId: string,
+    userId?: string,
+  ) {
+    await syncAdvanceRefundConsumption(tx, storeOrderId, userId);
+    const invoices = await this.openInvoices(tx, storeOrderId);
+    if (invoices.length === 0) return;
+    const receipts = await this.receiptsWithUnallocated(tx, storeOrderId);
+    for (const receipt of receipts) {
+      let unallocated = receipt.unallocated;
+      for (const invoice of invoices) {
+        const amount = roundMoney(Math.min(unallocated, invoice.remaining));
+        if (amount <= EPSILON) continue;
+        await this.financialTransactions.allocate(
+          receipt.id,
+          { invoiceId: invoice.id, allocatedAmount: amount },
+          userId,
+          tx,
+        );
+        unallocated = roundMoney(unallocated - amount);
+        invoice.remaining = roundMoney(invoice.remaining - amount);
+      }
+    }
+  }
+
+  private async lockOrder(tx: Prisma.TransactionClient, storeOrderId: string) {
+    await tx.$queryRaw`
+      SELECT id FROM store_orders WHERE id = ${storeOrderId}::uuid FOR UPDATE
+    `;
+  }
+
+  /** The order's confirmed invoices with an unpaid balance, oldest first. */
+  private async openInvoices(
+    tx: Prisma.TransactionClient,
+    storeOrderId: string,
+  ): Promise<OpenInvoice[]> {
+    const invoices = await tx.salesInvoice.findMany({
+      where: {
+        storeOrderId,
+        deletedAt: null,
+        status: { in: POSTED_SALES_STATUSES },
       },
       select: { id: true, grandTotal: true },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ createdAt: 'asc' }, { invoiceNumber: 'asc' }],
     });
-    if (!invoice) return;
+    const allocated = await sumConfirmedAllocations(
+      tx,
+      'salesInvoiceId',
+      invoices.map((invoice) => invoice.id),
+    );
+    return invoices
+      .map((invoice) => ({
+        id: invoice.id,
+        remaining: Math.max(
+          roundMoney(
+            Number(invoice.grandTotal) - (allocated.get(invoice.id) ?? 0),
+          ),
+          0,
+        ),
+      }))
+      .filter((invoice) => invoice.remaining > EPSILON);
+  }
 
-    const receipt = await tx.financialTransaction.findUniqueOrThrow({
-      where: { id: receiptId },
+  /** The order's posted receipts that still hold unallocated money, oldest first. */
+  private async receiptsWithUnallocated(
+    tx: Prisma.TransactionClient,
+    storeOrderId: string,
+  ) {
+    const payments = await tx.payment.findMany({
+      where: { storeOrderId, deletedAt: null },
+      select: { id: true },
+    });
+    const receipts = await tx.financialTransaction.findMany({
+      where: storeOrderReceiptsWhere(
+        storeOrderId,
+        payments.map((payment) => payment.id),
+      ),
       select: {
-        status: true,
+        id: true,
         amount: true,
         feeAmount: true,
         allocations: { select: { allocatedAmount: true } },
       },
+      orderBy: [{ createdAt: 'asc' }, { transactionNumber: 'asc' }],
     });
-    if (receipt.status !== FinancialTransactionStatus.CONFIRMED) return;
-    const unallocated = round2(
-      Number(receipt.amount) +
-        Number(receipt.feeAmount ?? 0) -
-        receipt.allocations.reduce(
-          (sum, row) => sum + Number(row.allocatedAmount),
-          0,
+    return receipts
+      .map((receipt) => ({
+        id: receipt.id,
+        unallocated: roundMoney(
+          Number(receipt.amount) +
+            Number(receipt.feeAmount ?? 0) -
+            receipt.allocations.reduce(
+              (sum, row) => sum + Number(row.allocatedAmount),
+              0,
+            ),
         ),
-    );
-    if (unallocated <= EPSILON) return;
-
-    const allocated = await sumConfirmedAllocations(tx, 'salesInvoiceId', [
-      invoice.id,
-    ]);
-    const remaining = round2(
-      Number(invoice.grandTotal) - (allocated.get(invoice.id) ?? 0),
-    );
-    const amount = round2(Math.min(unallocated, remaining));
-    if (amount <= EPSILON) return;
-    await this.financialTransactions.allocate(
-      receiptId,
-      { invoiceId: invoice.id, allocatedAmount: amount },
-      userId,
-      tx,
-    );
+      }))
+      .filter((receipt) => receipt.unallocated > EPSILON);
   }
+}
+
+/** Oldest-first allocation of `capacity` over the open invoices (pure). */
+export function planAllocations(
+  capacity: number,
+  invoices: OpenInvoice[],
+): { invoiceId: string; amount: number }[] {
+  const lines: { invoiceId: string; amount: number }[] = [];
+  let left = roundMoney(capacity);
+  for (const invoice of invoices) {
+    if (left <= EPSILON) break;
+    const amount = roundMoney(Math.min(left, invoice.remaining));
+    if (amount <= EPSILON) continue;
+    lines.push({ invoiceId: invoice.id, amount });
+    left = roundMoney(left - amount);
+  }
+  return lines;
 }

@@ -16,6 +16,7 @@ import {
   StoreOrderDeclaredPaymentStatus,
   StoreOrderShippingStage,
   StoreOrderSource,
+  StoreOrderStockStatus,
 } from '@prisma/client';
 import type { CostState } from '../order-economics/order-economics.types';
 import { IsOptionalUuid } from '../../common/decorators/is-optional-uuid.decorator';
@@ -58,6 +59,12 @@ export class FindStoreOrdersQueryDto {
   @IsEnum(StoreOrderShippingStage, { each: true })
   @IsOptional()
   shippingStage?: StoreOrderShippingStage[];
+
+  /** R15 (W5a) — physical stock state (reserved / short / in transit / …). */
+  @TransformEnumList()
+  @IsEnum(StoreOrderStockStatus, { each: true })
+  @IsOptional()
+  stockStatus?: StoreOrderStockStatus[];
 
   @TransformEnumList()
   @IsEnum(StoreOrderSource, { each: true })

@@ -56,6 +56,8 @@ const SETTLEABLE_STATUSES: PaymentSettlementStatus[] = [
 const EXCLUDED_PAYMENT_STATUSES: PaymentStatus[] = [
   PaymentStatus.REJECTED,
   PaymentStatus.DISPUTED,
+  // R15 (D15-12) — a reversed payment's receipt was reversed: nothing to settle.
+  PaymentStatus.REVERSED,
 ];
 
 /** Where-clause shared by the eligible list, the balance report and validation. */

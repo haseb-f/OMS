@@ -16,6 +16,7 @@ export type RecognitionErrorCode =
   | 'KIT_RECIPE'
   | 'AGENT_OWNED_PRODUCT'
   | 'EMPTY_ORDER'
+  | 'GOODS_IN_TRANSIT'
   | 'RECOGNITION_ERROR';
 
 /** Which step failed: the shipment-time reservation or the delivery-time recognition. */
@@ -118,6 +119,13 @@ export const recognitionIssue = {
         'الطلب لا يحتوي على بنود، فلا تصدر له فاتورة. أضف بنود الطلب (تعديل الطلب) ثم أعد المحاولة.',
       messageEn:
         'The order has no lines, so no invoice is issued. Add its lines (amend the order), then retry.',
+    };
+  },
+  goodsInTransit(units: number): RecognitionIssue {
+    return {
+      code: 'GOODS_IN_TRANSIT',
+      messageAr: `${units} وحدة من بضاعة الطلب ما زالت لدى شركة الشحن، فلا يُصرف الطلب كاملاً من المستودع. استلم البضاعة المرتجعة (الطلب ← المخزون) ثم أعد المحاولة.`,
+      messageEn: `${units} unit(s) of the order are still with the carrier, so the whole order is not issued from its warehouse. Receive the returned goods (order → Stock), then retry.`,
     };
   },
   unexpected(detail: string): RecognitionIssue {

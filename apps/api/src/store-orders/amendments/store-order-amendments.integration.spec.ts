@@ -173,14 +173,28 @@ describe('Spec 1A — order amendments (HTTP integration)', () => {
       },
     });
 
-  const addShipment = (
+  /**
+   * R15 (D15-3): every shipping order — prepaid too — is queued at creation
+   * (attempt #1 without a status); the scenario moves that attempt.
+   */
+  const addShipment = async (
     storeOrderId: string,
     status: ShipmentStatus,
     trackingNumber: string | null = null,
-  ) =>
-    prisma.shipment.create({
-      data: { storeOrderId, attemptNumber: 1, status, trackingNumber },
+  ) => {
+    const queued = await prisma.shipment.findFirst({
+      where: { storeOrderId, deletedAt: null },
+      orderBy: { attemptNumber: 'desc' },
     });
+    return queued
+      ? prisma.shipment.update({
+          where: { id: queued.id },
+          data: { status, trackingNumber },
+        })
+      : prisma.shipment.create({
+          data: { storeOrderId, attemptNumber: 1, status, trackingNumber },
+        });
+  };
 
   const amountChange = (
     order: { items: Array<{ id: string }> },
@@ -353,25 +367,26 @@ describe('Spec 1A — order amendments (HTTP integration)', () => {
         terms,
         users.admin.id,
       );
-      for (const tariff of [
-        { deliveryChannel: 'CARRIER', paymentType: 'PREPAID', amount: 25 },
-        {
-          deliveryChannel: 'CARRIER',
-          paymentType: 'CASH_ON_DELIVERY',
-          amount: 35,
-        },
-        {
-          deliveryChannel: 'INTERNAL_COURIER',
-          paymentType: 'CASH_ON_DELIVERY',
-          amount: 25,
-        },
-      ]) {
-        const res = await request(http)
-          .put(`/agents/${agent.id}/agreements/${agreement.id}/shipping-rates`)
-          .set('Authorization', `Bearer ${users.admin.token}`)
-          .send({ countryId: egId, ...tariff });
-        expect(res.status).toBe(200);
-      }
+      // R15 D15-13 — the charges live in the agent's shipping agreement.
+      const shipping = await request(http)
+        .post(`/agents/${agent.id}/shipping-agreements`)
+        .set('Authorization', `Bearer ${users.admin.token}`)
+        .send({
+          effectiveFrom: '2020-01-01',
+          rates: [
+            { service: 'PREPAID_CARRIER', countryId: egId, amount: 25 },
+            { service: 'COD_CARRIER', countryId: egId, amount: 35 },
+            { service: 'COD_INTERNAL_COURIER', countryId: egId, amount: 25 },
+          ],
+        });
+      expect(shipping.status).toBe(201);
+      const activated = await request(http)
+        .post(
+          `/agents/${agent.id}/shipping-agreements/${shipping.body.id}/activate`,
+        )
+        .set('Authorization', `Bearer ${users.admin.token}`)
+        .send({});
+      expect(activated.status).toBe(201);
       await agreements.activate(agent.id, agreement.id, users.admin.id);
       const created = await agentUsers.create(
         agent.id,
@@ -1114,12 +1129,11 @@ describe('Spec 1A — order amendments (HTTP integration)', () => {
       expect(assignedOrder.version).toBe(2);
 
       // Review HIGH 3 — an amount-only amendment never re-reads live
-      // tariffs: an agreement edit after submission changes nothing.
-      await prisma.agentShippingRate.updateMany({
+      // charges: an agreement edit after submission changes nothing.
+      await prisma.agentShippingAgreementRate.updateMany({
         where: {
-          agreement: { agentId: agentAId },
-          deliveryChannel: 'CARRIER',
-          paymentType: 'PREPAID',
+          shippingAgreement: { agentId: agentAId },
+          service: 'PREPAID_CARRIER',
         },
         data: { amount: 99 },
       });
@@ -1187,6 +1201,36 @@ describe('Spec 1A — order amendments (HTTP integration)', () => {
       // Declared 725 (set above, no claim rows) → recomputed on 685: unpaid.
       expect(final.declaredPaymentStatus).toBe('UNPAID');
       expect(internal.body.version).toBe(final.version);
+    });
+
+    it('R15 — a change the assigned delivery method has no charge for names the shipping agreement, service and destination', async () => {
+      const order = await createAgentOrder();
+      const courier = await prisma.shippingCompany.create({
+        data: { name: `Amend courier ${next()}`, type: 'INTERNAL_DELIVERY' },
+      });
+      const assigned = await post(
+        users.admin,
+        `/store-orders/${order.id}/shipments/shipping-company`,
+        { shippingCompanyId: courier.id },
+      );
+      expect(assigned.status).toBe(200);
+      // COD × internal courier is agreed; prepaid × internal courier is not.
+      const res = await preview(users.sales, order.id, {
+        paymentType: 'PREPAID',
+      });
+      expect(res.status).toBe(200);
+      const missing = res.body.impacts.find(
+        (i: { code: string }) => i.code === 'AGENT_SHIPPING_TARIFF_MISSING',
+      );
+      expect(missing.message).toMatch(
+        /^Shipping agreement \S+ has no charge for Internal courier prepaid to Egypt \/ Cairo/,
+      );
+      expect(missing.params).toMatchObject({
+        deliveryChannel: 'INTERNAL_COURIER',
+        paymentType: 'PREPAID',
+        service: 'PREPAID_INTERNAL_COURIER',
+      });
+      expect(missing.params.messageAr).toContain('اتفاقية الشحن');
     });
 
     it('earned commission → blocked', async () => {

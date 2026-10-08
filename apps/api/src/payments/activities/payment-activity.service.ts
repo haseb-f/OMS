@@ -17,6 +17,8 @@ export const PaymentActivityType = {
   REJECTED: 'REJECTED',
   /** Finance disputes a Sales declaration (payment-declaration-reconciliation). */
   DISPUTED: 'DISPUTED',
+  /** R15 (D15-12) — a VERIFIED payment reversed as recorded in error (receipt reversed). */
+  REVERSED: 'REVERSED',
   ATTACHMENT_ADDED: 'ATTACHMENT_ADDED',
   NOTE_ADDED: 'NOTE_ADDED',
   /// ADR-0018 (Order Economics M2.2).

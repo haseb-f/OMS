@@ -34,11 +34,18 @@ import type { AllocationInputDto } from './shared/allocation-input.dto';
 import type { FindFinancialTransactionsQueryDto } from './shared/find-financial-transactions-query.dto';
 import { prismaEnumFilter } from '../common/query/enum-list';
 import { partnerLedgerBalances } from '../accounting/reports/partner-ledger-balance';
+import {
+  advanceRateOf,
+  loadStoreOrderMoneyPosition,
+} from './shared/store-order-money';
+import {
+  STORE_ORDER_PAYMENT_NOTE_PREFIX as STORE_ORDER_PAYMENT_PREFIX,
+  storeOrderOfReceipt,
+  syncAdvanceRefundConsumption,
+} from './shared/store-order-receipts';
+import { lockStoreOrderRow } from '../store-orders/store-order-payment-settlement.util';
 
 type DbClient = Prisma.TransactionClient | PrismaService;
-
-/** Historical Store Order claim receipts carry this note (see traceability). */
-const STORE_ORDER_PAYMENT_PREFIX = 'STORE_ORDER_PAYMENT:';
 
 const NUMBERING_DOCUMENT_TYPE: Record<FinancialTransactionType, string> = {
   CUSTOMER_RECEIPT: 'CUSTOMER_RECEIPT',
@@ -72,9 +79,24 @@ const TRANSACTION_INCLUDE = {
       salesReturn: {
         select: { id: true, returnNumber: true, grandTotal: true },
       },
+      storeOrder: {
+        select: { id: true, internalOrderId: true },
+      },
     },
   },
 } satisfies Prisma.FinancialTransactionInclude;
+
+/**
+ * One allocation line as the service receives it: `invoiceId` names the
+ * settled document of the transaction's type; a CUSTOMER_REFUND line may name
+ * a store order (`storeOrderId`) instead — its verified, not-invoiced advance
+ * (R15, D15-11). Exactly one target per line.
+ */
+export interface AllocationLineInput {
+  invoiceId?: string;
+  storeOrderId?: string;
+  allocatedAmount: number;
+}
 
 export interface FinancialTransactionCreateInput {
   /** Required party for receipts / payments / refunds; EXPENSE_PAYMENT: optional supplier counterparty (never posted to AP, never allocated). */
@@ -102,7 +124,7 @@ export interface FinancialTransactionCreateInput {
   /** What was spent — expense vouchers (carried onto the journal line). */
   description?: string;
   notes?: string;
-  allocations?: AllocationInputDto[];
+  allocations?: AllocationLineInput[];
   /** R13 B2 — one key per opened form; see `findIdempotentReplay`. */
   idempotencyKey?: string;
 }
@@ -219,8 +241,9 @@ export class FinancialTransactionsService {
     let currencyId = dto.currencyId;
     if (type === 'CUSTOMER_REFUND') {
       this.assertRefundFullyAllocated(dto.amount, allocations);
-      // A refund pays back a credit note in that note's own currency.
-      currencyId ??= await this.firstReturnCurrency(allocations, outerTx);
+      // A refund pays back a credit note / an order advance in that
+      // document's own currency.
+      currencyId ??= await this.firstRefundCurrency(allocations, outerTx);
     } else {
       this.assertAllocationsWithinAmount(dto.amount, allocations, feeAmount);
     }
@@ -362,15 +385,20 @@ export class FinancialTransactionsService {
     }
     const same = (requested: string | undefined, stored: string | null) =>
       requested === undefined || requested === (stored ?? undefined);
-    const allocationKey = (invoiceId: string | null, amount: number) =>
-      `${invoiceId ?? ''}:${this.round2(amount).toFixed(2)}`;
+    const allocationKey = (target: string | null | undefined, amount: number) =>
+      `${target ?? ''}:${this.round2(amount).toFixed(2)}`;
     const requestedAllocations = (dto.allocations ?? [])
-      .map((a) => allocationKey(a.invoiceId, a.allocatedAmount))
+      .map((a) =>
+        allocationKey(a.invoiceId ?? a.storeOrderId, a.allocatedAmount),
+      )
       .sort();
     const storedAllocations = existing.allocations
       .map((a) =>
         allocationKey(
-          a.salesInvoiceId ?? a.purchaseInvoiceId ?? a.salesReturnId,
+          a.salesInvoiceId ??
+            a.purchaseInvoiceId ??
+            a.salesReturnId ??
+            a.storeOrderId,
           Number(a.allocatedAmount),
         ),
       )
@@ -599,10 +627,7 @@ export class FinancialTransactionsService {
             await this.prisma.financialTransactionAllocation.findMany({
               where: { transactionId: id },
             })
-          ).map((a) => ({
-            invoiceId: a.salesReturnId ?? '',
-            allocatedAmount: Number(a.allocatedAmount),
-          }));
+          ).map((a) => this.refundLineOf(a));
         this.assertRefundFullyAllocated(amount, lines);
       } else {
         this.assertAllocationsWithinAmount(amount, dto.allocations ?? []);
@@ -699,13 +724,23 @@ export class FinancialTransactionsService {
       if (existing.type === 'CUSTOMER_REFUND') {
         this.assertRefundFullyAllocated(
           Number(existing.amount),
-          existing.allocations.map((a) => ({
-            invoiceId: a.salesReturnId ?? '',
-            allocatedAmount: Number(a.allocatedAmount),
-          })),
+          existing.allocations.map((a) => this.refundLineOf(a)),
         );
+        // R15 — every refund of this customer serializes HERE, before any
+        // cap is read, so two concurrent refunds can never both pass the
+        // same limit (order advance, return credit or ledger credit).
+        await this.lockPartnerRow(tx, existing.partnerId);
       }
       for (const allocation of existing.allocations) {
+        if (allocation.storeOrderId) {
+          await lockStoreOrderRow(tx, allocation.storeOrderId);
+          await this.assertAdvanceRefundWithin(
+            allocation.storeOrderId,
+            Number(allocation.allocatedAmount),
+            tx,
+          );
+          continue;
+        }
         const invoiceId =
           allocation.salesInvoiceId ??
           allocation.purchaseInvoiceId ??
@@ -732,6 +767,11 @@ export class FinancialTransactionsService {
         },
         include: TRANSACTION_INCLUDE,
       });
+      // R15 (review H1) — the advance this refund pays back leaves the
+      // order's receipts: never allocatable to an invoice again.
+      for (const storeOrderId of this.advanceOrders(existing.allocations)) {
+        await syncAdvanceRefundConsumption(tx, storeOrderId, userId);
+      }
       await this.activityService.log(
         id,
         FinancialTransactionActivityType.TRANSACTION_CONFIRMED,
@@ -755,8 +795,9 @@ export class FinancialTransactionsService {
    * that posts a Store Order payment claim (PaymentReceiptLink, or the
    * historical `STORE_ORDER_PAYMENT:<id>` note while that claim is VERIFIED)
    * is refused: cancelling it here would leave the claim VERIFIED with no
-   * receipt. Only the reconciliation correction path may cancel it, and it
-   * says so explicitly with `allowLinkedClaim` (it resets the claim itself).
+   * receipt. Only the reconciliation correction path and the audited payment
+   * reversal (R15) may cancel it, and they say so explicitly with
+   * `allowLinkedClaim` (each resets the claim itself).
    */
   async cancelInTx(
     tx: Prisma.TransactionClient,
@@ -780,11 +821,15 @@ export class FinancialTransactionsService {
         `Cannot cancel ${this.label(existing.type)} ${existing.transactionNumber} from ${existing.status}.`,
       );
     }
-    if (
-      existing.type === FinancialTransactionType.CUSTOMER_RECEIPT &&
-      !opts.allowLinkedClaim
-    ) {
-      await this.assertNotClaimReceipt(tx, existing);
+    const allocations = await tx.financialTransactionAllocation.findMany({
+      where: { transactionId: id },
+      select: { storeOrderId: true, allocatedAmount: true },
+    });
+    if (existing.type === FinancialTransactionType.CUSTOMER_RECEIPT) {
+      this.assertReceiptNotRefunded(existing, allocations);
+      if (!opts.allowLinkedClaim) {
+        await this.assertNotClaimReceipt(tx, existing);
+      }
     }
 
     await this.postingEngine.reverse(existing.type, id, userId, tx);
@@ -807,7 +852,45 @@ export class FinancialTransactionsService {
       opts.metadata,
       tx,
     );
+    // A cancelled advance refund gives its money back to the order's receipts.
+    if (existing.type === FinancialTransactionType.CUSTOMER_REFUND) {
+      for (const storeOrderId of this.advanceOrders(allocations)) {
+        await lockStoreOrderRow(tx, storeOrderId);
+        await syncAdvanceRefundConsumption(tx, storeOrderId, userId);
+      }
+    }
     return transaction;
+  }
+
+  /** The store orders whose advance a refund's lines pay back. */
+  private advanceOrders(allocations: { storeOrderId: string | null }[]) {
+    return [
+      ...new Set(
+        allocations
+          .map((allocation) => allocation.storeOrderId)
+          .filter((value): value is string => !!value),
+      ),
+    ];
+  }
+
+  /**
+   * A receipt whose money was paid back by an order's advance refund cannot
+   * be cancelled (reversed / corrected) while that refund stands — the
+   * refund would pay out money that never came in. Cancel the refund first.
+   */
+  private assertReceiptNotRefunded(
+    receipt: { transactionNumber: string },
+    allocations: { storeOrderId: string | null; allocatedAmount: unknown }[],
+  ) {
+    const refunded = allocations
+      .filter((allocation) => allocation.storeOrderId)
+      .reduce((sum, allocation) => sum + Number(allocation.allocatedAmount), 0);
+    if (refunded > 0.005) {
+      throw new ConflictException({
+        code: 'RECEIPT_REFUNDED',
+        message: `رُدّ ${this.round2(refunded).toFixed(2)} من سند القبض ${receipt.transactionNumber} للعميل — ألغِ سند الرد أولاً — ${this.round2(refunded).toFixed(2)} of Customer Receipt ${receipt.transactionNumber} was paid back to the customer by an order advance refund: cancel that refund first, then cancel or reverse the receipt.`,
+      });
+    }
   }
 
   /** 409 when this receipt posts a Store Order payment claim (see cancelInTx). */
@@ -848,7 +931,7 @@ export class FinancialTransactionsService {
       ? `Payment ${payment.paymentNumber} is already included in a provider settlement — reverse the settlement first, then correct the match in Finance → Payment reconciliation ("Correct match").`
       : payment._count.matches > 0
         ? `Correct it from Finance → Payment reconciliation → the payment method workspace → "Correct match"; that reverses this receipt and returns the claim to review in one audited step.`
-        : `Cancelling it here would leave the claim verified with no receipt; a verified claim is corrected through Finance → Payment reconciliation ("Correct match"), never by cancelling its receipt.`;
+        : `Cancelling it here would leave the claim verified with no receipt; a payment verified in error is reversed from the payment itself ("Reverse payment", audited) — that reverses this receipt with it.`;
     throw new ConflictException(
       `Customer Receipt ${receipt.transactionNumber} posts Store Order payment ${payment.paymentNumber} and cannot be cancelled directly. ${how}`,
     );
@@ -925,6 +1008,17 @@ export class FinancialTransactionsService {
     );
 
     return this.inTransaction(outerTx, async (tx) => {
+      // R15 (review H1) — a store-order receipt: the order row first (same
+      // lock order as refunds), its advance refunds carried on its receipts,
+      // then this receipt's row — refunded money is never allocatable.
+      const storeOrderId = await storeOrderOfReceipt(tx, id);
+      if (storeOrderId) {
+        await lockStoreOrderRow(tx, storeOrderId);
+        await syncAdvanceRefundConsumption(tx, storeOrderId, userId);
+      }
+      await tx.$queryRaw`
+        SELECT id FROM financial_transactions WHERE id = ${id}::uuid FOR UPDATE
+      `;
       await lockInvoiceRow(tx, existing.type, dto.invoiceId);
       const currentAllocated =
         await tx.financialTransactionAllocation.aggregate({
@@ -988,6 +1082,16 @@ export class FinancialTransactionsService {
       });
     if (!allocation) {
       throw new NotFoundException(`Allocation ${allocationId} not found`);
+    }
+    if (
+      existing.type === FinancialTransactionType.CUSTOMER_RECEIPT &&
+      allocation.storeOrderId
+    ) {
+      throw new ConflictException({
+        code: 'ADVANCE_REFUND_ALLOCATION',
+        message:
+          'هذا الجزء من سند القبض رُدّ للعميل — ألغِ سند الرد بدلاً من ذلك — This part of the receipt was paid back to the customer by an order advance refund; cancel that refund instead.',
+      });
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -1198,7 +1302,7 @@ export class FinancialTransactionsService {
 
   private assertAllocationsWithinAmount(
     amount: number,
-    allocations: AllocationInputDto[],
+    allocations: AllocationLineInput[],
     feeAmount = 0,
   ) {
     const total = allocations.reduce((sum, a) => sum + a.allocatedAmount, 0);
@@ -1216,7 +1320,7 @@ export class FinancialTransactionsService {
   private async resolveAllocations(
     type: FinancialTransactionType,
     partyId: string,
-    allocations: AllocationInputDto[],
+    allocations: AllocationLineInput[],
     client: DbClient = this.prisma,
     /** CUSTOMER_REFUND — the refund's currency every refunded return must share. */
     refundCurrencyId: string | null = null,
@@ -1226,14 +1330,39 @@ export class FinancialTransactionsService {
     const resolved: Prisma.FinancialTransactionAllocationUncheckedCreateWithoutTransactionInput[] =
       [];
     const seenReturns = new Set<string>();
+    const seenOrders = new Set<string>();
     for (const allocation of allocations) {
+      if (allocation.storeOrderId && type !== 'CUSTOMER_REFUND') {
+        throw new BadRequestException(
+          'Only a Customer Refund can pay back a store order advance — allocate this document to an invoice.',
+        );
+      }
+      if (type === 'CUSTOMER_REFUND' && allocation.storeOrderId) {
+        resolved.push(
+          await this.resolveOrderAdvanceLine(
+            partyId,
+            allocation.storeOrderId,
+            allocation.allocatedAmount,
+            refundCurrencyId,
+            seenOrders,
+            client,
+          ),
+        );
+        continue;
+      }
+      const invoiceId = allocation.invoiceId;
+      if (!invoiceId) {
+        throw new BadRequestException(
+          'Every allocation line needs the document it settles.',
+        );
+      }
       if (type === 'CUSTOMER_REFUND') {
         const salesReturn = await client.salesReturn.findFirst({
-          where: { id: allocation.invoiceId, deletedAt: null },
+          where: { id: invoiceId, deletedAt: null },
         });
         if (!salesReturn || salesReturn.partnerId !== partyId) {
           throw new BadRequestException(
-            `المرتجع غير تابع لهذا العميل — Sales Return ${allocation.invoiceId} does not belong to this customer.`,
+            `المرتجع غير تابع لهذا العميل — Sales Return ${invoiceId} does not belong to this customer.`,
           );
         }
         if (!REFUNDABLE_RETURN_STATUSES.includes(salesReturn.status)) {
@@ -1268,11 +1397,11 @@ export class FinancialTransactionsService {
       }
       if (type === 'CUSTOMER_RECEIPT') {
         const invoice = await client.salesInvoice.findFirst({
-          where: { id: allocation.invoiceId, deletedAt: null },
+          where: { id: invoiceId, deletedAt: null },
         });
         if (!invoice || invoice.partnerId !== partyId) {
           throw new BadRequestException(
-            `Invoice ${allocation.invoiceId} does not belong to this partner.`,
+            `Invoice ${invoiceId} does not belong to this partner.`,
           );
         }
         // TASK-050 — a cancelled invoice can never receive a payment allocation.
@@ -1282,16 +1411,16 @@ export class FinancialTransactionsService {
           );
         }
         resolved.push({
-          salesInvoiceId: allocation.invoiceId,
+          salesInvoiceId: invoiceId,
           allocatedAmount: allocation.allocatedAmount,
         });
       } else {
         const invoice = await client.purchaseInvoice.findFirst({
-          where: { id: allocation.invoiceId, deletedAt: null },
+          where: { id: invoiceId, deletedAt: null },
         });
         if (!invoice || invoice.partnerId !== partyId) {
           throw new BadRequestException(
-            `Invoice ${allocation.invoiceId} does not belong to this partner.`,
+            `Invoice ${invoiceId} does not belong to this partner.`,
           );
         }
         // TASK-050 — a cancelled invoice can never receive a payment allocation.
@@ -1301,7 +1430,7 @@ export class FinancialTransactionsService {
           );
         }
         resolved.push({
-          purchaseInvoiceId: allocation.invoiceId,
+          purchaseInvoiceId: invoiceId,
           allocatedAmount: allocation.allocatedAmount,
         });
       }
@@ -1480,14 +1609,17 @@ export class FinancialTransactionsService {
     );
   }
 
-  /** A refund pays back exactly what it allocates to returns — never an unallocated payout. */
+  /** A refund pays back exactly what it allocates to returns / order advances — never an unallocated payout. */
   private assertRefundFullyAllocated(
     amount: number,
-    allocations: AllocationInputDto[],
+    allocations: AllocationLineInput[],
   ) {
-    if (allocations.length === 0 || allocations.some((a) => !a.invoiceId)) {
+    if (
+      allocations.length === 0 ||
+      allocations.some((a) => !a.invoiceId === !a.storeOrderId)
+    ) {
       throw new BadRequestException(
-        'حدد المرتجع الذي يُرد مبلغه — A Customer Refund must be allocated to the posted Sales Return(s) it pays back.',
+        'حدد المرتجع أو الطلب الذي يُرد مبلغه (واحد لكل سطر) — A Customer Refund must be allocated to the posted Sales Return(s) or store order advance(s) it pays back, exactly one per line.',
       );
     }
     const total = this.round2(
@@ -1502,23 +1634,24 @@ export class FinancialTransactionsService {
 
   /**
    * Last line of defence at Confirm: the refund (valued at the refunded
-   * returns' own rates — exactly what it will debit AR) may not exceed the
-   * credit the customer actually holds on the posted ledger. A return that
-   * only offset an unpaid invoice leaves nothing to refund. The partner row
-   * is locked so two refunds for the same customer serialize.
+   * returns' / order advances' own rates — exactly what it will debit AR)
+   * may not exceed the credit the customer actually holds on the posted
+   * ledger. A return that only offset an unpaid invoice leaves nothing to
+   * refund. The caller already holds the partner row lock (`lockPartnerRow`).
    */
   private async assertRefundWithinCustomerCredit(
     refund: {
       partnerId: string | null;
       transactionNumber: string;
-      allocations: { salesReturnId: string | null; allocatedAmount: unknown }[];
+      allocations: {
+        salesReturnId: string | null;
+        storeOrderId: string | null;
+        allocatedAmount: unknown;
+      }[];
     },
     tx: Prisma.TransactionClient,
   ) {
     if (!refund.partnerId) return;
-    await tx.$queryRaw`
-      SELECT id FROM partners WHERE id = ${refund.partnerId}::uuid FOR UPDATE
-    `;
     const returnIds = refund.allocations
       .map((a) => a.salesReturnId)
       .filter((value): value is string => !!value);
@@ -1530,12 +1663,20 @@ export class FinancialTransactionsService {
         })
       ).map((r) => [r.id, r.exchangeRate != null ? Number(r.exchangeRate) : 1]),
     );
+    for (const allocation of refund.allocations) {
+      if (!allocation.storeOrderId) continue;
+      rates.set(
+        allocation.storeOrderId,
+        (await this.orderAdvanceRate(allocation.storeOrderId, tx)) ?? 1,
+      );
+    }
     const refundFunctional = this.round2(
       refund.allocations.reduce(
         (sum, a) =>
           sum +
           this.round2(
-            Number(a.allocatedAmount) * (rates.get(a.salesReturnId ?? '') ?? 1),
+            Number(a.allocatedAmount) *
+              (rates.get(a.salesReturnId ?? a.storeOrderId ?? '') ?? 1),
           ),
         0,
       ),
@@ -1550,18 +1691,134 @@ export class FinancialTransactionsService {
     }
   }
 
-  /** The currency of the first refunded return — a refund's default currency. */
-  private async firstReturnCurrency(
-    allocations: AllocationInputDto[],
+  /** The currency of the first refunded return / order — a refund's default currency. */
+  private async firstRefundCurrency(
+    allocations: AllocationLineInput[],
     client: DbClient = this.prisma,
   ): Promise<string | undefined> {
-    const first = allocations[0]?.invoiceId;
-    if (!first) return undefined;
+    const first = allocations[0];
+    if (first?.storeOrderId) {
+      const order = await client.storeOrder.findUnique({
+        where: { id: first.storeOrderId },
+        select: { currencyId: true },
+      });
+      return order?.currencyId ?? undefined;
+    }
+    if (!first?.invoiceId) return undefined;
     const salesReturn = await client.salesReturn.findFirst({
-      where: { id: first, deletedAt: null },
+      where: { id: first.invoiceId, deletedAt: null },
       select: { currencyId: true },
     });
     return salesReturn?.currencyId ?? undefined;
+  }
+
+  /** A stored refund allocation as an input line (re-validation on update / confirm). */
+  private refundLineOf(allocation: {
+    salesReturnId: string | null;
+    storeOrderId: string | null;
+    allocatedAmount: unknown;
+  }): AllocationLineInput {
+    return {
+      invoiceId: allocation.salesReturnId ?? undefined,
+      storeOrderId: allocation.storeOrderId ?? undefined,
+      allocatedAmount: Number(allocation.allocatedAmount),
+    };
+  }
+
+  private async lockPartnerRow(
+    tx: Prisma.TransactionClient,
+    partnerId: string | null,
+  ) {
+    if (!partnerId) return;
+    await tx.$queryRaw`
+      SELECT id FROM partners WHERE id = ${partnerId}::uuid FOR UPDATE
+    `;
+  }
+
+  /**
+   * R15 (D15-11) — one refund line paying back a store order's advance: the
+   * order belongs to the refund's customer, shares its currency, is a company
+   * order (an agent order's collection credited the agent, never customer
+   * AR — it is settled through the agent ledger) and appears once per
+   * refund. The amount is checked against the order's refundable advance now
+   * (fail fast) and again under the row locks at Confirm.
+   */
+  private async resolveOrderAdvanceLine(
+    partyId: string,
+    storeOrderId: string,
+    amount: number,
+    refundCurrencyId: string | null,
+    seenOrders: Set<string>,
+    client: DbClient,
+  ): Promise<Prisma.FinancialTransactionAllocationUncheckedCreateWithoutTransactionInput> {
+    const order = await client.storeOrder.findUnique({
+      where: { id: storeOrderId },
+      select: {
+        id: true,
+        internalOrderId: true,
+        partnerId: true,
+        currencyId: true,
+        agentId: true,
+      },
+    });
+    if (!order || order.partnerId !== partyId) {
+      throw new BadRequestException(
+        `الطلب غير تابع لهذا العميل — Store Order ${storeOrderId} does not belong to this customer.`,
+      );
+    }
+    if (order.agentId) {
+      throw new BadRequestException({
+        code: 'AGENT_ORDER_REFUND_NOT_SUPPORTED',
+        message: `طلب الوكيل ${order.internalOrderId} يُسوّى عبر حساب الوكيل وليس برد مبلغ للعميل — Agent order ${order.internalOrderId} is settled through the agent's ledger; its collections never credited the customer, so they are not refunded here.`,
+      });
+    }
+    if (seenOrders.has(order.id)) {
+      throw new BadRequestException(
+        `الطلب ${order.internalOrderId} مكرر في الرد — Store Order ${order.internalOrderId} appears more than once on this refund.`,
+      );
+    }
+    seenOrders.add(order.id);
+    if (order.currencyId !== refundCurrencyId) {
+      throw new BadRequestException(
+        `عملة الرد يجب أن تطابق عملة الطلب ${order.internalOrderId} — The refund currency must match the currency of Store Order ${order.internalOrderId}.`,
+      );
+    }
+    await this.assertAdvanceRefundWithin(order.id, amount, client);
+    return { storeOrderId: order.id, allocatedAmount: amount };
+  }
+
+  /**
+   * An advance line pays back only money actually collected for the order
+   * beyond what the order still owes and beyond its returns' own credit
+   * (that credit is refunded on return lines) — `advanceRefundable` of the
+   * one shared order money position.
+   */
+  private async assertAdvanceRefundWithin(
+    storeOrderId: string,
+    amount: number,
+    client: DbClient,
+  ) {
+    const position = await loadStoreOrderMoneyPosition(client, storeOrderId);
+    if (!position) {
+      throw new NotFoundException(`Store Order ${storeOrderId} not found`);
+    }
+    if (amount > position.advanceRefundable + 0.005) {
+      throw new BadRequestException({
+        code: 'REFUND_EXCEEDS_ORDER_ADVANCE',
+        message: `لا يمكن رد ${amount} على الطلب ${position.internalOrderId} — المتاح للرد ${position.advanceRefundable} فقط (المحصّل ${position.collected}، المستحق ${position.expected}، المردود ${position.refunded}). — Cannot refund ${amount} against Store Order ${position.internalOrderId}: only ${position.advanceRefundable} of its collected money is refundable (collected ${position.collected}, owed ${position.expected}, already refunded ${position.refunded}).`,
+        details: {
+          storeOrderId,
+          advanceRefundable: position.advanceRefundable,
+          refundDue: position.refundDue,
+        },
+      });
+    }
+  }
+
+  /** Rate at which the order's advance credited AR (see `advanceRateOf`). */
+  private async orderAdvanceRate(storeOrderId: string, client: DbClient) {
+    const position = await loadStoreOrderMoneyPosition(client, storeOrderId);
+    return position ? advanceRateOf(position.receipts) : null;
   }
 
   /** A confirmed refund's allocation is its whole meaning — fixed once posted. */

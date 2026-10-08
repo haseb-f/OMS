@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   AccountType,
+  FinancialTransactionStatus,
   PaymentMatchStatus,
   PaymentSettlementStatus,
   PaymentStatus,
@@ -36,6 +37,7 @@ import {
 } from './activities/payment-activity.service';
 import { PaymentNotesService } from './notes/payment-notes.service';
 import { AgentCollectionHooksService } from '../agents/finance/agent-collection-hooks.service';
+import { FinancialTransactionsService } from '../financial-transactions/financial-transactions.service';
 import { PaymentAttachmentsService } from './attachments/payment-attachments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { CreatePaymentNoteDto } from './dto/create-payment-note.dto';
@@ -50,6 +52,10 @@ import {
   lockStoreOrderRow,
   verifiedPaymentNumbers,
 } from '../store-orders/store-order-payment-settlement.util';
+import {
+  loadStoreOrderMoneyPosition,
+  roundMoney,
+} from '../financial-transactions/shared/store-order-money';
 
 export interface ConfirmClaimOptions {
   /** FX + JE date; defaults to the payment's actual date (e.g. the matched statement date for reconciled methods). */
@@ -107,6 +113,7 @@ export class PaymentsService {
     private readonly storeOrderCollection: StoreOrderCollectionService,
     private readonly exchangeRates: ExchangeRatesService,
     private readonly agentCollections: AgentCollectionHooksService,
+    private readonly financialTransactions: FinancialTransactionsService,
   ) {}
 
   /** Business operation: Create Payment. Must reference BOTH a PaymentSource (how the
@@ -447,6 +454,11 @@ export class PaymentsService {
     if (payment.status === PaymentStatus.DISPUTED) {
       throw new BadRequestException(
         `Payment ${payment.paymentNumber} is disputed${payment.disputeReason ? ` (${payment.disputeReason})` : ''} — resolve the dispute before confirming.`,
+      );
+    }
+    if (payment.status === PaymentStatus.REVERSED) {
+      throw new BadRequestException(
+        `Payment ${payment.paymentNumber} was reversed as recorded in error${payment.reversalReason ? ` (${payment.reversalReason})` : ''} and cannot be confirmed again — record the real payment as a new claim.`,
       );
     }
     const alreadyVerified = payment.status === PaymentStatus.VERIFIED;
@@ -891,6 +903,181 @@ export class PaymentsService {
     }
 
     return payment;
+  }
+
+  /**
+   * R15 (D15-12) — audited reversal of a VERIFIED payment recorded in error
+   * (including one verified through Finance review, which has no statement
+   * match to correct). In ONE transaction: the receipt is cancelled through
+   * the financial-transactions cancel path (Posting Engine reversing entry —
+   * a closed period refuses it — allocations removed, so the invoices'
+   * payment status is derived again), the payment becomes REVERSED with who /
+   * when / why, the order's other advances re-settle the reopened invoices,
+   * the order's payment and declared statuses are recomputed and both
+   * timelines record it. Nothing is ever deleted. Refused while the claim is
+   * included in a posted settlement (reverse the settlement first), matched
+   * to a provider statement (correct the match instead) or when its money
+   * was already refunded (cancel the refund first). A retry of an already
+   * reversed payment returns it unchanged.
+   */
+  async reverse(id: string, reason: string, userId: string) {
+    const trimmed = reason?.trim();
+    if (!trimmed) {
+      throw new BadRequestException(
+        'سبب العكس مطلوب — A reason is required to reverse a payment.',
+      );
+    }
+    const existing = await this.findOne(id);
+    return this.prisma.$transaction(
+      async (tx) => {
+        const current = await this.lockClaimForDecision(
+          tx,
+          id,
+          existing.storeOrderId,
+        );
+        if (!current) throw new NotFoundException(`Payment ${id} not found`);
+        if (current.status === PaymentStatus.REVERSED) return current;
+        if (current.status !== PaymentStatus.VERIFIED) {
+          throw new BadRequestException(
+            `لا يُعكس إلا دفعة مؤكدة — Only a VERIFIED payment can be reversed; ${current.paymentNumber} is ${current.status} (an unverified claim is rejected or disputed instead).`,
+          );
+        }
+        assertCompanyCashClaim(current);
+        // A settlement is undone first (it also blocks "Correct match").
+        const settledLines = await tx.paymentSettlementLine.count({
+          where: {
+            paymentId: id,
+            settlement: { status: 'POSTED' },
+          },
+        });
+        if (
+          settledLines > 0 ||
+          Number(current.settledAmount) > 0 ||
+          current.settlementStatus ===
+            PaymentSettlementStatus.PARTIALLY_SETTLED ||
+          current.settlementStatus === PaymentSettlementStatus.SETTLED
+        ) {
+          throw new ConflictException({
+            code: 'PAYMENT_IN_SETTLEMENT',
+            message: `الدفعة ${current.paymentNumber} ضمن تسوية مرحّلة — اعكس التسوية أولاً — Payment ${current.paymentNumber} is included in a posted provider settlement: reverse the settlement first (Finance → Payment settlements), then reverse the payment.`,
+          });
+        }
+        const activeMatches = await tx.paymentMatch.count({
+          where: { paymentId: id, status: PaymentMatchStatus.ACTIVE },
+        });
+        if (activeMatches > 0) {
+          throw new ConflictException({
+            code: 'PAYMENT_MATCHED_TO_STATEMENT',
+            message: `الدفعة ${current.paymentNumber} مطابقة مع كشف المزود — صحّح المطابقة من المالية ← مطابقة المدفوعات — Payment ${current.paymentNumber} is matched to the provider statement: correct the match in Finance → Payment reconciliation ("Correct match"), which reverses its receipt and returns the claim to review.`,
+          });
+        }
+
+        const receipt = await this.storeOrderCollection.findReceiptForPayment(
+          tx,
+          id,
+        );
+        if (
+          receipt?.status === FinancialTransactionStatus.CONFIRMED &&
+          current.storeOrderId
+        ) {
+          await this.assertNotRefunded(
+            tx,
+            current.paymentNumber,
+            current.storeOrderId,
+            receipt.id,
+          );
+        }
+        if (receipt?.status === FinancialTransactionStatus.CONFIRMED) {
+          await this.financialTransactions.cancelInTx(tx, receipt.id, userId, {
+            allowLinkedClaim: true,
+            note: `payment ${current.paymentNumber} reversed as recorded in error: ${trimmed}`,
+            metadata: { paymentId: id, reason: trimmed },
+          });
+          if (current.agentId) {
+            // Agents milestone: the agent's COLLECTION_RECEIVED credit is
+            // debited back (COLLECTION_REVERSAL, idempotent per receipt).
+            await this.agentCollections.onCollectionReceiptCancelled(
+              tx,
+              id,
+              receipt.id,
+              trimmed,
+              userId,
+            );
+          }
+        }
+        const reversedAt = new Date();
+        const updated = await tx.payment.update({
+          where: { id },
+          data: {
+            status: PaymentStatus.REVERSED,
+            reversedAt,
+            reversedById: userId,
+            reversalReason: trimmed,
+            settlementStatus: PaymentSettlementStatus.NOT_APPLICABLE,
+            updatedBy: userId,
+          },
+        });
+        await this.activityService.log(
+          id,
+          PaymentActivityType.REVERSED,
+          `Reversed as recorded in error: ${trimmed}${receipt ? ` — Customer Receipt ${receipt.transactionNumber} cancelled (reversing entry)` : ''}`,
+          {
+            userId,
+            reason: trimmed,
+            cancelledReceiptId: receipt?.id ?? null,
+          },
+          tx,
+        );
+        if (updated.storeOrderId) {
+          await tx.storeOrderActivity.create({
+            data: {
+              storeOrderId: updated.storeOrderId,
+              action: 'PAYMENT_REVERSED',
+              details: `Payment ${updated.paymentNumber} reversed as recorded in error: ${trimmed}${receipt ? ` (receipt ${receipt.transactionNumber} reversed)` : ''}`,
+              performedById: userId,
+            },
+          });
+          // The invoices the receipt paid are open again: the order's other
+          // advances settle them now (same transaction, order row locked).
+          await this.storeOrderCollection.allocateAdvances(
+            tx,
+            updated.storeOrderId,
+            userId,
+          );
+          await this.storeOrderPaymentSync.recompute(updated.storeOrderId, tx);
+          await recomputeDeclaredPaymentStatus(tx, updated.storeOrderId);
+        }
+        return updated;
+      },
+      { maxWait: 10_000, timeout: 30_000 },
+    );
+  }
+
+  /**
+   * Money already paid back to the customer must stay covered by what the
+   * order still collects: reversing a receipt whose money was refunded would
+   * leave a refund of cash that never came in — that refund is cancelled
+   * first (it is a separate, audited money-out document).
+   */
+  private async assertNotRefunded(
+    tx: Prisma.TransactionClient,
+    paymentNumber: string,
+    storeOrderId: string,
+    receiptId: string,
+  ) {
+    const position = await loadStoreOrderMoneyPosition(tx, storeOrderId);
+    if (!position) return;
+    // What this receipt counts for the order (where its money was applied).
+    const contribution =
+      position.receipts.find((receipt) => receipt.id === receiptId)
+        ?.contribution ?? 0;
+    const remaining = roundMoney(position.collected - contribution);
+    if (position.refunded > remaining + 0.005) {
+      throw new ConflictException({
+        code: 'PAYMENT_ALREADY_REFUNDED',
+        message: `رُدّ للعميل ${position.refunded.toFixed(2)} من الطلب ${position.internalOrderId} — ألغِ سند الرد أولاً ثم اعكس الدفعة ${paymentNumber} — ${position.refunded.toFixed(2)} of Store Order ${position.internalOrderId} was already refunded to the customer, more than would remain collected (${remaining.toFixed(2)}) without payment ${paymentNumber}: cancel the refund first, then reverse the payment.`,
+      });
+    }
   }
 
   /** Business operation: Attach Receipt. */

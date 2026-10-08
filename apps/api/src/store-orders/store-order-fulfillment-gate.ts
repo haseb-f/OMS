@@ -14,14 +14,16 @@ export interface FulfillmentGateResult {
   reason: string | null;
 }
 
-export const PREPAID_GATE_REASON =
-  'Prepaid orders need the customer payment declared as paid in full (or verified by Finance) before shipment or collection. A partial declaration is not enough.';
+const PREPAID_BASIS_MISSING =
+  'The prepaid payment is not declared paid in full or verified by Finance yet (a partial declaration is not enough). Shipping does not wait for it.';
 
 /**
- * The single prepaid fulfillment rule (payment-declaration-reconciliation §2):
- * a PREPAID order may ship / be collected once Sales declared it PAID in full
- * OR Finance verified it paid. PARTIALLY_PAID never satisfies it. COD is
- * unchanged. This only permits — it never advances any fulfillment state.
+ * The prepaid payment basis of an order (payment-declaration-reconciliation
+ * §2): Sales declared it PAID in full OR Finance verified it paid;
+ * PARTIALLY_PAID never satisfies it; COD always does. R15 (D15-3): this is
+ * information only — the package slip says whether a prepaid parcel is paid —
+ * and never gates the physical flow: reservation, the Shipping queue,
+ * dispatch, pickup, delivery and returns ignore payment status.
  */
 export function evaluateFulfillmentGate(order: {
   paymentType: StoreOrderPaymentType | null;
@@ -57,6 +59,6 @@ export function evaluateFulfillmentGate(order: {
     allowed: false,
     settlementMode: 'PREPAID',
     basis: null,
-    reason: PREPAID_GATE_REASON,
+    reason: PREPAID_BASIS_MISSING,
   };
 }

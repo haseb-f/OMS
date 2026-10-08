@@ -2,19 +2,22 @@ import { BadRequestException } from '@nestjs/common';
 import { FulfillmentRecognitionService } from './fulfillment-recognition.service';
 import {
   pickupRecognitionAction,
+  recognitionTargets,
   shipmentRecognitionAction,
   isRecognitionDue,
 } from './recognition-routing';
 import { classifyRecognitionError } from './recognition-errors';
 
 /**
- * R14 W3 — unit coverage of the delivery-time recognition (moved here from the
- * former `store-order-generate-invoice.spec.ts`: the manual "Generate invoice"
- * is now the retry of this service). Stock is delivered per inventory line,
- * never for a service line, kits deliver their components; recognition is
- * refused before delivery (never gated on payment) and failures are recorded
- * on the order. The real-DB flows are in
- * `fulfillment-recognition.integration.serial.spec.ts`.
+ * R14 W3 / R15 W5a — unit coverage of the delivery-time recognition: one
+ * invoice per delivered shipment (accepted quantities, prorated amounts,
+ * issued out of the goods-in-transit warehouse) or the whole order issued
+ * from its warehouse (pickup, pre-R15 delivery). Stock is delivered per
+ * inventory line, never for a service line, kits deliver their components;
+ * recognition is refused before delivery (never gated on payment) and
+ * failures are recorded on the order. The real-DB flows are in
+ * `fulfillment-recognition.integration.serial.spec.ts` and
+ * `stock-lifecycle.integration.serial.spec.ts`.
  */
 /** The `code` of the business error a promise rejects with. */
 async function codeOf(promise: Promise<unknown>): Promise<string | undefined> {
@@ -28,18 +31,17 @@ async function codeOf(promise: Promise<unknown>): Promise<string | undefined> {
 
 /** The `data` of every `storeOrder.update` call. */
 function updates(db: {
-  storeOrder: { update: jest.Mock; updateMany: jest.Mock };
+  storeOrder: { update: jest.Mock };
 }): Record<string, unknown>[] {
   type Call = [{ data: Record<string, unknown> }];
-  const direct = db.storeOrder.update.mock.calls as Call[];
-  const many = db.storeOrder.updateMany.mock.calls as Call[];
-  return [...direct, ...many].map(([arg]) => arg.data);
+  return (db.storeOrder.update.mock.calls as Call[]).map(([arg]) => arg.data);
 }
 
 describe('FulfillmentRecognitionService (unit)', () => {
   const orderId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
   const userId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
   const warehouseId = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+  const transitId = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 
   const product = (overrides: Record<string, unknown>) => ({
     status: 'ACTIVE',
@@ -93,6 +95,7 @@ describe('FulfillmentRecognitionService (unit)', () => {
       currentCost: null,
     }),
   };
+  /** Delivered before R15: the shipment has no lines → one whole-order invoice from the warehouse. */
   const delivered = {
     id: orderId,
     internalOrderId: 'SO-0001',
@@ -100,10 +103,13 @@ describe('FulfillmentRecognitionService (unit)', () => {
     partnerId: 'partner-1',
     currencyId: 'currency-1',
     fulfillmentMethod: 'SHIPPING',
-    recognitionStatus: 'RESERVED',
+    recognitionStatus: 'NOT_DUE',
     deletedAt: null,
     fulfillmentStatus: { code: 'DELIVERED' },
-    shipments: [{ id: 'shipment-1', status: 'DELIVERED' }],
+    shipments: [
+      { id: 'shipment-1', attemptNumber: 1, status: 'DELIVERED', lines: [] },
+    ],
+    invoices: [] as Array<Record<string, unknown>>,
     items: [inventoryItem, serviceItem],
   };
 
@@ -155,27 +161,56 @@ describe('FulfillmentRecognitionService (unit)', () => {
   };
 
   function makeService(order: Record<string, unknown> = delivered) {
+    // Once an invoice is created, re-reads of the order see it.
+    const issued: Array<Record<string, unknown>> = [];
+    const current = () => ({
+      ...order,
+      invoices: [...(order.invoices as unknown[]), ...issued],
+    });
     const db = {
       storeOrder: {
-        findFirst: jest.fn().mockResolvedValue(order),
-        findUnique: jest.fn().mockResolvedValue(order),
+        findFirst: jest.fn(() => Promise.resolve(current())),
+        findUniqueOrThrow: jest.fn(() => Promise.resolve(current())),
+        // The return-status recompute (L3) reads the order's recognition state.
+        findUnique: jest.fn(() => Promise.resolve(current())),
         update: jest.fn().mockResolvedValue(undefined),
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       salesInvoice: {
         findFirst: jest.fn().mockResolvedValue(null),
-        create: jest
-          .fn()
-          .mockResolvedValue({ id: 'invoice-1', invoiceNumber: 'SI-0001' }),
+        create: jest.fn(({ data }: { data: { shipmentId: string | null } }) => {
+          const invoice = {
+            id: 'invoice-1',
+            invoiceNumber: 'SI-0001',
+            shipmentId: data.shipmentId,
+          };
+          issued.push(invoice);
+          return Promise.resolve(invoice);
+        }),
       },
       salesInvoiceItem: { update: jest.fn().mockResolvedValue(undefined) },
       warehouse: {
         findFirst: jest.fn(),
-        findMany: jest
-          .fn()
-          .mockResolvedValue([
-            { id: warehouseId, code: 'WH', isActive: true, deletedAt: null },
-          ]),
+        // The preferred warehouse is a STOCK one (no row for the role filter).
+        findMany: jest.fn(({ where }: { where: { role?: unknown } }) =>
+          Promise.resolve(
+            where.role
+              ? []
+              : [
+                  {
+                    id: warehouseId,
+                    code: 'WH',
+                    isActive: true,
+                    deletedAt: null,
+                  },
+                  {
+                    id: transitId,
+                    code: 'WH-TRANSIT',
+                    isActive: true,
+                    deletedAt: null,
+                  },
+                ],
+          ),
+        ),
       },
       product: {
         findMany: jest.fn(({ where }: { where: { id: { in: string[] } } }) =>
@@ -190,6 +225,7 @@ describe('FulfillmentRecognitionService (unit)', () => {
             })),
           ),
         ),
+        findUnique: jest.fn().mockResolvedValue({ sku: 'SKU' }),
       },
       inventoryMovement: {
         groupBy: jest.fn(
@@ -225,8 +261,6 @@ describe('FulfillmentRecognitionService (unit)', () => {
     const activityService = { log: jest.fn().mockResolvedValue(undefined) };
     const inventoryService = {
       postSalesDelivery: jest.fn().mockResolvedValue(undefined),
-      reserve: jest.fn().mockResolvedValue(undefined),
-      release: jest.fn().mockResolvedValue(undefined),
     };
     const stockLines = {
       resolve: jest.fn((_tx: unknown, lines: ResolverLine[]) =>
@@ -239,10 +273,49 @@ describe('FulfillmentRecognitionService (unit)', () => {
     const collection = {
       syncVerifiedPayments: jest.fn().mockResolvedValue([]),
     };
+    const carrierCod = {
+      onCodShipmentDelivered: jest
+        .fn()
+        .mockResolvedValue({ status: 'NOT_APPLICABLE' }),
+    };
     const accountMapping = {
       assertSalesInvoiceMappings: jest.fn().mockResolvedValue(undefined),
       resolveCogsAccount: jest.fn().mockResolvedValue('cogs'),
       resolveInventoryAccount: jest.fn().mockResolvedValue('inventory'),
+    };
+    const stock = {
+      transitWarehouseId: jest.fn().mockResolvedValue(transitId),
+      orderTransitBalance: jest
+        .fn()
+        .mockResolvedValue(new Map([['product-inventory', 2]])),
+      releaseAllForIssueInTx: jest.fn().mockResolvedValue(undefined),
+      refreshInTx: jest.fn().mockResolvedValue(null),
+      afterOrderCancelled: jest.fn().mockResolvedValue(undefined),
+      afterPickupReady: jest.fn().mockResolvedValue(undefined),
+      goodsInTransit: jest.fn().mockResolvedValue(0),
+      // The components each shipment line carried into transit (here: the same explosion).
+      shipmentStockLines: jest.fn(
+        (
+          _client: unknown,
+          _orderId: string,
+          _shipmentId: string,
+          lines: Array<{
+            storeOrderItemId: string;
+            quantity: number;
+            lineKey: string;
+          }>,
+        ) =>
+          resolveLines(
+            lines.map((line) => ({
+              productId: (
+                order.items as Array<{ id: string; productId: string }>
+              ).find((item) => item.id === line.storeOrderItemId)!.productId,
+              quantity: line.quantity,
+              warehouseId: transitId,
+              lineKey: line.lineKey,
+            })),
+          ),
+      ),
     };
     const service = new FulfillmentRecognitionService(
       db as never,
@@ -253,7 +326,9 @@ describe('FulfillmentRecognitionService (unit)', () => {
       stockLines as never,
       fulfillmentCostService as never,
       collection as never,
+      carrierCod as never,
       accountMapping as never,
+      stock as never,
     );
     return {
       service,
@@ -262,15 +337,19 @@ describe('FulfillmentRecognitionService (unit)', () => {
       postingEngine,
       accountMapping,
       collection,
+      carrierCod,
       activityService,
+      stock,
     };
   }
 
-  it('delivers physical stock for every inventory-item line and posts invoice, fulfillment and shipment cost', async () => {
-    const { service, inventoryService, postingEngine, db } = makeService();
+  it('whole order (pre-R15 delivery): releases the reservation, issues every inventory line from its warehouse and posts invoice, fulfillment and shipment cost', async () => {
+    const { service, inventoryService, postingEngine, db, stock } =
+      makeService();
 
     await service.recognize(orderId, userId, 'MANUAL');
 
+    expect(stock.releaseAllForIssueInTx).toHaveBeenCalledTimes(1);
     expect(inventoryService.postSalesDelivery).toHaveBeenCalledTimes(1);
     expect(inventoryService.postSalesDelivery).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -286,8 +365,86 @@ describe('FulfillmentRecognitionService (unit)', () => {
     expect(
       (postingEngine.post.mock.calls as unknown[][]).map((call) => call[0]),
     ).toEqual(['SALES_INVOICE', 'FULFILLMENT_COST', 'SHIPMENT_COST']);
+    const [[createArgs]] = db.salesInvoice.create.mock
+      .calls as unknown as Array<[{ data: { shipmentId: string | null } }]>;
+    expect(createArgs.data.shipmentId).toBe('shipment-1');
     expect(
       updates(db).some((data) => data.recognitionStatus === 'RECOGNIZED'),
+    ).toBe(true);
+  });
+
+  it('per shipment: invoices the accepted quantity at its prorated amount, out of transit, after checking the order holds it there', async () => {
+    const { service, inventoryService, db, stock } = makeService({
+      ...delivered,
+      items: [{ ...inventoryItem, quantity: 3, agreedAmount: 100 }],
+      shipments: [
+        {
+          id: 'shipment-1',
+          attemptNumber: 1,
+          status: 'DELIVERED',
+          lines: [
+            { storeOrderItemId: 'item-1', quantity: 3, deliveredQuantity: 1 },
+          ],
+        },
+      ],
+    });
+
+    await service.recognize(orderId, userId, 'HOOK');
+
+    const [[created]] = db.salesInvoice.create.mock.calls as unknown as Array<
+      [
+        {
+          data: {
+            shipmentId: string;
+            grandTotal: number;
+            items: { create: Array<{ quantity: number; warehouseId: string }> };
+          };
+        },
+      ]
+    >;
+    expect(created.data.shipmentId).toBe('shipment-1');
+    expect(created.data.grandTotal).toBe(33.33);
+    expect(created.data.items.create).toEqual([
+      expect.objectContaining({ quantity: 1, warehouseId }),
+    ]);
+    expect(stock.releaseAllForIssueInTx).not.toHaveBeenCalled();
+    expect(stock.orderTransitBalance).toHaveBeenCalled();
+    expect(inventoryService.postSalesDelivery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        productId: 'product-inventory',
+        warehouseId: transitId,
+        quantity: 1,
+      }),
+      userId,
+      expect.anything(),
+    );
+  });
+
+  it('per shipment: refuses to issue more than the order holds in transit (never another order’s goods)', async () => {
+    const { service, inventoryService, stock, db } = makeService({
+      ...delivered,
+      items: [inventoryItem],
+      shipments: [
+        {
+          id: 'shipment-1',
+          attemptNumber: 1,
+          status: 'DELIVERED',
+          lines: [
+            { storeOrderItemId: 'item-1', quantity: 2, deliveredQuantity: 2 },
+          ],
+        },
+      ],
+    });
+    stock.orderTransitBalance.mockResolvedValue(
+      new Map([['product-inventory', 1]]),
+    );
+
+    await expect(service.recognize(orderId, userId, 'HOOK')).resolves.toBe(
+      null,
+    );
+    expect(inventoryService.postSalesDelivery).not.toHaveBeenCalled();
+    expect(
+      updates(db).some((data) => data.recognitionStatus === 'FAILED'),
     ).toBe(true);
   });
 
@@ -312,7 +469,8 @@ describe('FulfillmentRecognitionService (unit)', () => {
 
     await service.recognize(orderId, userId, 'MANUAL');
 
-    const [[createArgs]] = db.salesInvoice.create.mock.calls as Array<
+    const [[createArgs]] = db.salesInvoice.create.mock
+      .calls as unknown as Array<
       [
         {
           data: { items: { create: Array<{ id: string; productId: string }> } };
@@ -351,7 +509,9 @@ describe('FulfillmentRecognitionService (unit)', () => {
     const { service, db } = makeService({
       ...delivered,
       fulfillmentStatus: { code: 'SHIPPED' },
-      shipments: [{ id: 'shipment-1', status: 'SHIPPED' }],
+      shipments: [
+        { id: 'shipment-1', attemptNumber: 1, status: 'SHIPPED', lines: [] },
+      ],
     });
 
     expect(await codeOf(service.recognize(orderId, userId, 'MANUAL'))).toBe(
@@ -363,7 +523,14 @@ describe('FulfillmentRecognitionService (unit)', () => {
   it('a delivery hook before delivery is a silent no-op', async () => {
     const { service, db } = makeService({
       ...delivered,
-      shipments: [{ id: 'shipment-1', status: 'OUT_FOR_DELIVERY' }],
+      shipments: [
+        {
+          id: 'shipment-1',
+          attemptNumber: 1,
+          status: 'OUT_FOR_DELIVERY',
+          lines: [],
+        },
+      ],
     });
 
     await expect(service.recognize(orderId, userId, 'HOOK')).resolves.toBe(
@@ -406,7 +573,7 @@ describe('FulfillmentRecognitionService (unit)', () => {
     await expect(service.recognize(orderId, userId, 'HOOK')).resolves.toBe(
       null,
     );
-    expect(db.$transaction).not.toHaveBeenCalled();
+    expect(db.salesInvoice.create).not.toHaveBeenCalled();
     expect(inventoryService.postSalesDelivery).not.toHaveBeenCalled();
     const failure = updates(db).find(
       (data) => data.recognitionStatus === 'FAILED',
@@ -418,7 +585,7 @@ describe('FulfillmentRecognitionService (unit)', () => {
     });
   });
 
-  it('missing account mapping fails the preflight before any transaction and is thrown on a manual retry', async () => {
+  it('missing account mapping fails the preflight before the invoice and is thrown on a manual retry', async () => {
     const { service, db, accountMapping } = makeService();
     accountMapping.assertSalesInvoiceMappings.mockRejectedValue(
       new BadRequestException('No Inventory Asset account configured.'),
@@ -427,14 +594,15 @@ describe('FulfillmentRecognitionService (unit)', () => {
     expect(await codeOf(service.recognize(orderId, userId, 'MANUAL'))).toBe(
       'MISSING_ACCOUNT_MAPPING',
     );
-    expect(db.$transaction).not.toHaveBeenCalled();
+    expect(db.salesInvoice.create).not.toHaveBeenCalled();
   });
 
-  it('an existing invoice is DUPLICATE for a manual retry and returned as-is for a hook', async () => {
-    const { service, db } = makeService();
-    db.salesInvoice.findFirst.mockResolvedValue({
-      id: 'invoice-0',
-      invoiceNumber: 'SI-0000',
+  it('nothing left to invoice is DUPLICATE for a manual retry and returned as-is for a hook', async () => {
+    const { service, db } = makeService({
+      ...delivered,
+      invoices: [
+        { id: 'invoice-0', invoiceNumber: 'SI-0000', shipmentId: 'shipment-1' },
+      ],
     });
 
     expect(await codeOf(service.recognize(orderId, userId, 'MANUAL'))).toBe(
@@ -456,7 +624,7 @@ describe('FulfillmentRecognitionService (unit)', () => {
     await expect(service.recognize(orderId, userId, 'MANUAL')).rejects.toThrow(
       /was created, but customer receipt posting failed/,
     );
-    expect(db.$transaction).toHaveBeenCalledTimes(1);
+    expect(db.salesInvoice.create).toHaveBeenCalledTimes(1);
   });
 
   it('refuses an agent order on a manual retry and ignores it on a hook', async () => {
@@ -468,53 +636,124 @@ describe('FulfillmentRecognitionService (unit)', () => {
       null,
     );
   });
+
+  it('a delivered shipment also records the carrier COD expectation (W5b hook)', async () => {
+    const { service, carrierCod } = makeService();
+    await service.afterShipmentStatus(
+      orderId,
+      { id: 'shipment-1', status: 'DELIVERED' },
+      userId,
+    );
+    expect(carrierCod.onCodShipmentDelivered).toHaveBeenCalledWith(
+      'shipment-1',
+      userId,
+    );
+    await service.afterShipmentStatus(
+      orderId,
+      { id: 'shipment-1', status: 'SHIPPED' },
+      userId,
+    );
+    expect(carrierCod.onCodShipmentDelivered).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('recognition routing', () => {
-  it('maps shipment transitions', () => {
-    expect(shipmentRecognitionAction('SHIPPED')).toBe('RESERVE');
-    expect(shipmentRecognitionAction('OUT_FOR_DELIVERY')).toBe('RESERVE');
+  it('maps shipment transitions — the physical steps are no longer recognition actions', () => {
+    expect(shipmentRecognitionAction('SHIPPED')).toBe('NONE');
+    expect(shipmentRecognitionAction('OUT_FOR_DELIVERY')).toBe('NONE');
     expect(shipmentRecognitionAction('DELIVERED')).toBe('RECOGNIZE');
-    expect(shipmentRecognitionAction('DELIVERY_FAILED')).toBe('UNWIND');
-    expect(shipmentRecognitionAction('NEEDS_RESHIPMENT')).toBe('UNWIND');
+    expect(shipmentRecognitionAction('DELIVERY_FAILED')).toBe('NONE');
+    expect(shipmentRecognitionAction('NEEDS_RESHIPMENT')).toBe('NONE');
     expect(shipmentRecognitionAction('LABEL_CREATED')).toBe('NONE');
     expect(shipmentRecognitionAction(null, 'CUSTOM_CALLED')).toBe('NONE');
     // An administrator "returned" status keeps the previous enum status.
-    expect(shipmentRecognitionAction('DELIVERED', 'RETURNED')).toBe('UNWIND');
+    expect(shipmentRecognitionAction('DELIVERED', 'RETURNED')).toBe(
+      'RETURN_PENDING',
+    );
   });
 
   it('maps pickup transitions', () => {
     expect(pickupRecognitionAction('READY_FOR_PICKUP')).toBe('RESERVE');
     expect(pickupRecognitionAction('COLLECTED')).toBe('RECOGNIZE');
-    expect(pickupRecognitionAction('CANCELLED')).toBe('UNWIND');
-    expect(pickupRecognitionAction('RETURNED')).toBe('UNWIND');
+    expect(pickupRecognitionAction('CANCELLED')).toBe('RELEASE');
+    expect(pickupRecognitionAction('RETURNED')).toBe('RETURN_PENDING');
   });
 
-  it('judges a shipped order by its latest attempt and a pickup by COLLECTED', () => {
-    const shipped = (status: string, code = 'DELIVERED') => ({
+  it('one invoice per delivered shipment; whole order for a pickup / pre-R15 delivery', () => {
+    const shipment = (
+      id: string,
+      attemptNumber: number,
+      status: string,
+      delivered: number[] | null,
+    ) => ({
+      id,
+      attemptNumber,
+      status,
+      lines: (delivered ?? []).map((deliveredQuantity) => ({
+        deliveredQuantity,
+      })),
+    });
+    const shipping = (
+      shipments: ReturnType<typeof shipment>[],
+      invoices: { shipmentId: string | null }[] = [],
+      code = 'DELIVERED',
+    ) => ({
       fulfillmentMethod: 'SHIPPING',
       fulfillmentStatus: { code },
-      shipments: [{ status }],
+      shipments,
+      invoices,
     });
-    expect(isRecognitionDue(shipped('DELIVERED', 'SHIPPED'))).toBe(true);
-    expect(isRecognitionDue(shipped('DELIVERY_FAILED'))).toBe(false);
+
     expect(
-      isRecognitionDue({
-        fulfillmentMethod: 'SHIPPING',
-        fulfillmentStatus: { code: 'DELIVERED' },
-        shipments: [],
-      }),
-    ).toBe(true);
+      recognitionTargets(
+        shipping([
+          shipment('s1', 1, 'DELIVERED', [1]),
+          shipment('s2', 2, 'DELIVERED', [2]),
+        ]),
+      ),
+    ).toEqual([
+      { kind: 'SHIPMENT', shipmentId: 's1' },
+      { kind: 'SHIPMENT', shipmentId: 's2' },
+    ]);
+    // An invoiced shipment is done; a failed one is not due.
+    expect(
+      recognitionTargets(
+        shipping(
+          [
+            shipment('s1', 1, 'DELIVERED', [1]),
+            shipment('s2', 2, 'DELIVERY_FAILED', [2]),
+          ],
+          [{ shipmentId: 's1' }],
+        ),
+      ),
+    ).toEqual([]);
+    // Delivered before R15 (no lines) → the whole order.
+    expect(
+      recognitionTargets(shipping([shipment('s1', 1, 'DELIVERED', null)])),
+    ).toEqual([{ kind: 'WHOLE_ORDER', shipmentId: 's1' }]);
+    // An R14 whole-order invoice: nothing more.
+    expect(
+      recognitionTargets(
+        shipping([shipment('s1', 1, 'DELIVERED', [1])], [{ shipmentId: null }]),
+      ),
+    ).toEqual([]);
+    // Delivered without any shipment row.
+    expect(isRecognitionDue(shipping([]))).toBe(true);
+    expect(isRecognitionDue(shipping([], [], 'SHIPPED'))).toBe(false);
     expect(
       isRecognitionDue({
         fulfillmentMethod: 'PICKUP',
         fulfillmentStatus: { code: 'COLLECTED' },
+        shipments: [],
+        invoices: [],
       }),
     ).toBe(true);
     expect(
       isRecognitionDue({
         fulfillmentMethod: 'PICKUP',
         fulfillmentStatus: { code: 'READY_FOR_PICKUP' },
+        shipments: [],
+        invoices: [],
       }),
     ).toBe(false);
   });

@@ -35,6 +35,12 @@ export type PostSalesDeliveryInput = PostSalesDeliveryDto &
      * to the delivered quantity) does not count against availability.
      */
     ignoreReservedForReference?: OwnReservationRef;
+    /**
+     * R15 (review M3) — the store-order lifecycle delivering out of the
+     * goods-in-transit warehouse; every other caller is refused there
+     * (`system-warehouse-policy.ts`). Server-side callers only.
+     */
+    systemWarehouse?: boolean;
   };
 
 /**

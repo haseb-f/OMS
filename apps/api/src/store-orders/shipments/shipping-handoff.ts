@@ -4,7 +4,6 @@ import {
   StoreOrderActivitySource,
   StoreOrderShippingStage,
 } from '@prisma/client';
-import { evaluateFulfillmentGate } from '../store-order-fulfillment-gate';
 import { lockStoreOrderRow } from '../store-order-payment-settlement.util';
 
 /**
@@ -19,7 +18,8 @@ import { lockStoreOrderRow } from '../store-order-payment-settlement.util';
  * lead conversion, declared / verified payment recompute, amendments).
  *
  * It never advances a carrier state, never touches payments, accounting or
- * history, and never changes the fulfillment gate rules.
+ * history. R15 (D15-3): payment never gates the physical flow — a prepaid
+ * order enters the queue at creation like a COD one.
  */
 
 /** `READY_FOR_SHIPPING` is the queue's name for an attempt with `status null`. */
@@ -33,8 +33,7 @@ export type ShippingHandoffBlocker =
   | 'ORDER_CANCELLED'
   | 'ORDER_CLOSED'
   | 'PICKUP'
-  | 'NOT_SHIPPABLE'
-  | 'PAYMENT_REQUIRED';
+  | 'NOT_SHIPPABLE';
 
 export const SHIPPING_QUEUED_ACTIVITY = 'SHIPMENT_CREATED';
 export const SHIPPING_QUEUED_REPAIR_ACTIVITY = 'SHIPPING_QUEUED_REPAIR';
@@ -46,10 +45,6 @@ export const HANDOFF_ORDER_SELECT = {
   deletedAt: true,
   fulfillmentMethod: true,
   shippingStage: true,
-  paymentType: true,
-  paymentStatus: true,
-  declaredPaymentStatus: true,
-  paymentStatusDef: { select: { code: true } },
   fulfillmentStatus: { select: { code: true, isFinal: true } },
 } satisfies Prisma.StoreOrderSelect;
 
@@ -68,14 +63,14 @@ export type HandoffOrder = Prisma.StoreOrderGetPayload<{
 export interface ShippingReadiness {
   eligible: boolean;
   blocker: ShippingHandoffBlocker | null;
-  /** Human-readable reason (the fulfillment gate's own wording for payment). */
+  /** Human-readable reason. */
   reason: string | null;
 }
 
 /**
  * Pure eligibility rule. Pickup and digital-only orders (`shippingStage`
- * NOT_READY) never enter the carrier queue; the payment part is the single
- * `evaluateFulfillmentGate` rule, unchanged.
+ * NOT_READY) never enter the carrier queue. R15 (D15-3): payment is no
+ * condition — reservation, dispatch and delivery ignore it.
  */
 export function evaluateShippingReadiness(
   order: Omit<HandoffOrder, 'id' | 'internalOrderId' | 'fulfillmentStatus'> & {
@@ -107,13 +102,6 @@ export function evaluateShippingReadiness(
       'Nothing to ship (digital-only order or not ready for shipping).',
     );
   }
-  const gate = evaluateFulfillmentGate({
-    paymentType: order.paymentType,
-    declaredPaymentStatus: order.declaredPaymentStatus,
-    paymentStatus: order.paymentStatus,
-    paymentStatusCode: order.paymentStatusDef?.code ?? null,
-  });
-  if (!gate.allowed) return blocked('PAYMENT_REQUIRED', gate.reason);
   return { eligible: true, blocker: null, reason: null };
 }
 
@@ -201,8 +189,8 @@ export interface ShippingHandoffResult extends ShippingReadiness {
  * Idempotent, concurrency-safe handoff (must run inside a transaction):
  * - eligible + no live Shipment → attempt #1 with `status null` (Ready for
  *   shipping) and a SHIPMENT_CREATED activity;
- * - no longer eligible (archived, cancelled, switched to pickup, prepaid
- *   basis withdrawn) + only an UNTOUCHED attempt → that attempt is
+ * - no longer eligible (archived, cancelled, switched to pickup) + only an
+ *   UNTOUCHED attempt → that attempt is
  *   soft-deleted (audited). A worked-on attempt is never touched.
  */
 export async function ensureShippingQueued(

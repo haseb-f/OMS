@@ -44,6 +44,7 @@ import { StoreOrderActivityService } from '../activities/store-order-activity.se
 import { WorkflowStatusResolverService } from '../../workflow/workflow-status-resolver.service';
 import { FulfillmentRecognitionService } from './fulfillment-recognition.service';
 import { RecognitionRepairService } from './recognition-repair.service';
+import { StoreOrderStockService } from '../stock-lifecycle/store-order-stock.service';
 
 const D = (value: string | number | Prisma.Decimal) =>
   new Prisma.Decimal(value);
@@ -89,6 +90,7 @@ describe('Store order recognition at delivery (integration)', () => {
   let actorId: string;
   let unitId: string;
   let warehouseId: string;
+  let transitId: string;
   let customerId: string;
   let currencyId: string;
   let paymentSourceId: string;
@@ -158,6 +160,9 @@ describe('Store order recognition at delivery (integration)', () => {
 
   const onHand = async (productId: string) =>
     (await inventory.getStock(productId, warehouseId)).onHand;
+  /** R15 — goods with the carrier (the goods-in-transit system warehouse). */
+  const inTransit = async (productId: string) =>
+    (await inventory.getStock(productId, transitId)).onHand;
 
   const reservedFor = async (orderId: string, productId?: string) =>
     (
@@ -317,6 +322,12 @@ describe('Store order recognition at delivery (integration)', () => {
         data: { code: `R14W3-${tag}`, name: `R14 W3 WH ${tag}` },
       })
     ).id;
+    transitId = (
+      await prisma.warehouse.findFirstOrThrow({
+        where: { role: 'TRANSIT', isActive: true, deletedAt: null },
+        orderBy: { createdAt: 'asc' },
+      })
+    ).id;
     customerId = (
       await prisma.partner.create({
         data: {
@@ -391,7 +402,7 @@ describe('Store order recognition at delivery (integration)', () => {
     await moduleRef?.close();
   });
 
-  it('COD stocked item: shipped → reserved, delivered before payment → invoice + stock + COGS; the later receipt allocates; return after delivery → RETURN_PENDING → sales return reverses', async () => {
+  it('COD stocked item: shipped → in transit (R15), delivered before payment → invoice + stock + COGS; the later receipt allocates; return after delivery → RETURN_PENDING → sales return reverses', async () => {
     const cat = await makeCategory();
     const product = await makeProduct({ categoryId: cat.id, cost: 25 });
     await open(product, 10);
@@ -399,10 +410,13 @@ describe('Store order recognition at delivery (integration)', () => {
       { productId: product, quantity: 3, amount: 300 },
     ]);
 
+    // R15 (D15-4) — dispatch reserves what is missing, releases it and
+    // moves the goods to transit: still company inventory, no journal.
     await ship(order.id);
-    expect(await reservedFor(order.id, product)).toBe(3);
-    expect(await onHand(product)).toBe(10);
-    expect((await loadOrder(order.id)).recognitionStatus).toBe('RESERVED');
+    expect(await reservedFor(order.id, product)).toBe(0);
+    expect(await onHand(product)).toBe(7);
+    expect(await inTransit(product)).toBe(3);
+    expect((await loadOrder(order.id)).recognitionStatus).toBe('NOT_DUE');
 
     // Delivered while still unpaid (COD) — recognition never waits for payment.
     await deliver(order.id);
@@ -411,6 +425,7 @@ describe('Store order recognition at delivery (integration)', () => {
     expect(invoice.status).toBe('CONFIRMED');
     expect(Number(invoice.grandTotal)).toBe(300);
     expect(await onHand(product)).toBe(7);
+    expect(await inTransit(product)).toBe(0);
     expect(await reservedFor(order.id)).toBe(0);
     const sale = await journalOf('SALES_INVOICE', invoice.id);
     expect(sale.totals.debit.equals(sale.totals.credit)).toBe(true);
@@ -470,7 +485,7 @@ describe('Store order recognition at delivery (integration)', () => {
     expect(back.credit(cat.cogsAccountId).toString()).toBe('75');
   });
 
-  it('kit: components reserved at shipment and issued at delivery; COGS once from the components', async () => {
+  it('kit: components moved to transit at shipment and issued at delivery; COGS once from the components', async () => {
     const catA = await makeCategory();
     const catB = await makeCategory();
     const catKit = await makeCategory();
@@ -495,14 +510,17 @@ describe('Store order recognition at delivery (integration)', () => {
     ]);
 
     await ship(order.id);
-    expect(await reservedFor(order.id, a)).toBe(4);
-    expect(await reservedFor(order.id, b)).toBe(2);
-    expect(await reservedFor(order.id, kit)).toBe(0);
+    expect(await reservedFor(order.id)).toBe(0);
+    expect(await inTransit(a)).toBe(4);
+    expect(await inTransit(b)).toBe(2);
+    expect(await inTransit(kit)).toBe(0);
 
     await deliver(order.id);
     const [invoice] = await invoicesOf(order.id);
     expect(await onHand(a)).toBe(2);
     expect(await onHand(b)).toBe(1);
+    expect(await inTransit(a)).toBe(0);
+    expect(await inTransit(b)).toBe(0);
     expect(await reservedFor(order.id)).toBe(0);
     const deliveries = await prisma.inventoryMovement.findMany({
       where: { referenceId: invoice.id, type: 'SALES_DELIVERY' },
@@ -696,7 +714,7 @@ describe('Store order recognition at delivery (integration)', () => {
     );
   });
 
-  it('delivery failure before delivery releases the reservation; a reshipment reserves again', async () => {
+  it('R15 (D15-8): a failed delivery leaves the goods in transit (never released); the reshipment carries them; delivery issues them once', async () => {
     const cat = await makeCategory();
     const product = await makeProduct({ categoryId: cat.id, cost: 4 });
     await open(product, 3);
@@ -704,17 +722,22 @@ describe('Store order recognition at delivery (integration)', () => {
       { productId: product, quantity: 2, amount: 20 },
     ]);
     await ship(order.id);
-    expect(await reservedFor(order.id)).toBe(2);
+    expect(await inTransit(product)).toBe(2);
     await shipping.markDeliveryFailed(order.id, actorId);
     expect(await reservedFor(order.id)).toBe(0);
+    expect(await inTransit(product)).toBe(2);
+    expect(await onHand(product)).toBe(1);
     expect((await loadOrder(order.id)).recognitionStatus).toBe('NOT_DUE');
     await shipping.markNeedsReshipment(order.id, actorId);
     await shipping.createReshipment(order.id, actorId);
     await ship(order.id);
-    expect(await reservedFor(order.id)).toBe(2);
+    expect(await inTransit(product)).toBe(2);
+    expect(await onHand(product)).toBe(1);
     await deliver(order.id);
+    expect(await inTransit(product)).toBe(0);
     expect(await onHand(product)).toBe(1);
     expect(await reservedFor(order.id)).toBe(0);
+    expect(await invoicesOf(order.id)).toHaveLength(1);
   });
 
   it('free-of-charge delivery still posts COGS (no receivable, no zero revenue line)', async () => {
@@ -739,7 +762,7 @@ describe('Store order recognition at delivery (integration)', () => {
     expect(sale.entry.lines).toHaveLength(2);
   });
 
-  it('pickup: READY reserves, COLLECTED recognises', async () => {
+  it('pickup: READY reserves, COLLECTED recognises out of the warehouse', async () => {
     const cat = await makeCategory();
     const product = await makeProduct({ categoryId: cat.id, cost: 3 });
     await open(product, 5);
@@ -771,6 +794,7 @@ describe('Store order recognition at delivery (integration)', () => {
       moduleRef.get(AgentFulfillmentService, { strict: false }),
       recognition,
       { hasPermission: () => Promise.resolve(true) } as never,
+      moduleRef.get(StoreOrderStockService, { strict: false }),
     );
     await handler.importRow(
       {
@@ -780,7 +804,7 @@ describe('Store order recognition at delivery (integration)', () => {
       },
       actorId,
     );
-    expect(await reservedFor(order.id)).toBe(1);
+    expect(await inTransit(product)).toBe(1);
     await handler.importRow(
       {
         systemOrderId: order.internalOrderId,
@@ -897,5 +921,79 @@ describe('Store order recognition at delivery (integration)', () => {
     expect(again.orders).toHaveLength(0);
     expect(await invoicesOf(order.id)).toHaveLength(1);
     expect(await onHand(product)).toBe(1);
+  });
+
+  // ── Accounting review follow-ups (review-accounting.md M1, L3) ──
+
+  it('R15 (M1): a return code on an undelivered parcel flags no return against an earlier shipment invoice — its goods stay with the carrier', async () => {
+    const cat = await makeCategory();
+    const product = await makeProduct({ categoryId: cat.id, cost: 60 });
+    await open(product, 5);
+    const order = await makeOrder([
+      { productId: product, quantity: 3, amount: 300 },
+    ]);
+    const item = order.items[0];
+    await shipping.markShipped(order.id, actorId, undefined, {
+      lines: [{ storeOrderItemId: item.id, quantity: 2 }],
+    });
+    await deliver(order.id);
+    expect(await invoicesOf(order.id)).toHaveLength(1);
+    expect((await loadOrder(order.id)).recognitionStatus).toBe('RECOGNIZED');
+
+    await shipping.createNextShipment(order.id, actorId);
+    await ship(order.id);
+    await shipping.setShippingStatus(order.id, returnedStatusId, actorId);
+    expect((await loadOrder(order.id)).recognitionStatus).toBe('RECOGNIZED');
+    const view = await moduleRef
+      .get(StoreOrderStockService, { strict: false })
+      .view(order.id);
+    expect(view.lines[0]).toMatchObject({ delivered: 2, inTransit: 1 });
+    expect(view.canReceiveBack).toBe(true);
+    expect(await inTransit(product)).toBe(1);
+  });
+
+  it('R15 (L3): a later delivery after the first one came back in full makes the order PARTIALLY_RETURNED', async () => {
+    const cat = await makeCategory();
+    const product = await makeProduct({ categoryId: cat.id, cost: 10 });
+    await open(product, 5);
+    const order = await makeOrder([
+      { productId: product, quantity: 2, amount: 200 },
+    ]);
+    const item = order.items[0];
+    await shipping.markShipped(order.id, actorId, undefined, {
+      lines: [{ storeOrderItemId: item.id, quantity: 1 }],
+    });
+    await deliver(order.id);
+    const [first] = await invoicesOf(order.id);
+    await shipping.setShippingStatus(order.id, returnedStatusId, actorId);
+    expect((await loadOrder(order.id)).recognitionStatus).toBe(
+      'RETURN_PENDING',
+    );
+    const salesReturn = await returns.create({
+      partnerId: customerId,
+      salesInvoiceId: first.id,
+      items: [
+        {
+          productId: product,
+          warehouseId,
+          unitId,
+          quantity: 1,
+          unitPrice: 100,
+          salesInvoiceItemId: first.items[0].id,
+        },
+      ],
+    });
+    await returns.submit(salesReturn.id);
+    await returns.approve(salesReturn.id);
+    await returns.confirm(salesReturn.id, actorId);
+    expect((await loadOrder(order.id)).recognitionStatus).toBe('RETURNED');
+
+    await shipping.createNextShipment(order.id, actorId);
+    await ship(order.id);
+    await deliver(order.id);
+    expect(await invoicesOf(order.id)).toHaveLength(2);
+    expect((await loadOrder(order.id)).recognitionStatus).toBe(
+      'PARTIALLY_RETURNED',
+    );
   });
 });

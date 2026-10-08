@@ -313,7 +313,7 @@ describe('Payment declaration → fulfillment gate → confirm & post', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
-  it('PARTIAL validates limits and never satisfies the prepaid gate', async () => {
+  it('PARTIAL validates limits and never satisfies the prepaid payment basis (which never holds a shipment — R15 D15-3)', async () => {
     const order = await makeOrder();
     await expect(
       declarations.declare(
@@ -340,9 +340,8 @@ describe('Payment declaration → fulfillment gate → confirm & post', () => {
     );
     expect(partial.declaredPaymentStatus).toBe('PARTIALLY_PAID');
     expect((await storeOrders.canFulfill(order.id)).allowed).toBe(false);
-    await expect(shipments.getOrCreateCurrent(order.id)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    // R15 (D15-3): the unmet basis is reported, the shipment is not held.
+    expect((await shipments.getOrCreateCurrent(order.id)).created).toBe(true);
 
     const rest = await declarations.declare(
       order.id,
@@ -410,16 +409,17 @@ describe('Payment declaration → fulfillment gate → confirm & post', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
-  it('full declared prepaid order can ship before Finance verification; COD unchanged; pickup label ban kept', async () => {
+  it('R15 (D15-3): a prepaid order ships unpaid; the declared basis is still reported (never verified by a declaration); COD unchanged; pickup label ban kept', async () => {
     const order = await makeOrder();
-    await expect(shipments.getOrCreateCurrent(order.id)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    expect(await storeOrders.canFulfill(order.id)).toMatchObject({
+      allowed: false,
+      basis: null,
+    });
+    const { created } = await shipments.getOrCreateCurrent(order.id);
+    expect(created).toBe(true);
     await declarations.declare(order.id, paid('FULL'), randomUUID(), sales);
     const gate = await storeOrders.canFulfill(order.id);
     expect(gate).toMatchObject({ allowed: true, basis: 'DECLARED_PAID' });
-    const { created } = await shipments.getOrCreateCurrent(order.id);
-    expect(created).toBe(true);
     const fresh = await prisma.storeOrder.findUniqueOrThrow({
       where: { id: order.id },
     });
@@ -735,28 +735,24 @@ describe('Payment declaration → fulfillment gate → confirm & post', () => {
     ).toBe(1);
   });
 
-  it('L7: prepaid pickup needs the payment gate before READY_FOR_PICKUP; COD does not', async () => {
+  it('R15 (D15-3): a prepaid pickup is prepared and collected without any payment, like COD; no claim is created', async () => {
     const pickup = await makeOrder({
       fulfillmentMethod: StoreOrderFulfillmentMethod.PICKUP,
     });
-    await expect(
-      storeOrders.transitionPickup(pickup.id, 'READY_FOR_PICKUP'),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    await declarations.declare(
-      pickup.id,
-      paid('PARTIAL', { amount: 10 }),
-      randomUUID(),
-      sales,
-    );
-    await expect(
-      storeOrders.transitionPickup(pickup.id, 'READY_FOR_PICKUP'),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    await declarations.declare(pickup.id, paid('FULL'), randomUUID(), sales);
     const ready = await storeOrders.transitionPickup(
       pickup.id,
       'READY_FOR_PICKUP',
     );
     expect(ready.fulfillmentStatus?.code).toBe('READY_FOR_PICKUP');
+    expect((await storeOrders.canFulfill(pickup.id)).allowed).toBe(false);
+    const collected = await storeOrders.transitionPickup(
+      pickup.id,
+      'COLLECTED',
+    );
+    expect(collected.fulfillmentStatus?.code).toBe('COLLECTED');
+    expect(
+      await prisma.payment.count({ where: { storeOrderId: pickup.id } }),
+    ).toBe(0);
 
     const cod = await makeOrder({
       paymentType: StoreOrderPaymentType.CASH_ON_DELIVERY,

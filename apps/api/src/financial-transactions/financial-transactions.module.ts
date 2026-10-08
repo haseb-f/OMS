@@ -8,6 +8,7 @@ import { CustomerRefundsController } from './refunds/customer-refunds.controller
 import { FinancialTransactionTypesController } from './financial-transaction-types.controller';
 import { FinancialTransactionsService } from './financial-transactions.service';
 import { FinancialTransactionActivityService } from './activities/financial-transaction-activity.service';
+import { StoreOrderRefundsService } from './refunds/store-order-refunds.service';
 import { PartnersModule } from '../partners/partners.module';
 import { NumberingModule } from '../numbering/numbering.module';
 import { PostingEngineModule } from '../accounting/posting-engine/posting-engine.module';
@@ -33,7 +34,9 @@ import { PostingEngineModule } from '../accounting/posting-engine/posting-engine
   providers: [
     FinancialTransactionsService,
     FinancialTransactionActivityService,
+    // R15 (D15-11) — refunds of store orders (advance / credit notes).
+    StoreOrderRefundsService,
   ],
-  exports: [FinancialTransactionsService],
+  exports: [FinancialTransactionsService, StoreOrderRefundsService],
 })
 export class FinancialTransactionsModule {}

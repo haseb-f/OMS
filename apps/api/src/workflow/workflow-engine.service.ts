@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
@@ -19,6 +20,7 @@ import {
   WorkflowType,
 } from '@prisma/client';
 import { ensureShippingQueued } from '../store-orders/shipments/shipping-handoff';
+import { StoreOrderStockService } from '../store-orders/stock-lifecycle/store-order-stock.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsResolverService } from '../permissions/permissions-resolver.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
@@ -131,6 +133,8 @@ export class WorkflowEngineService {
     private readonly salesScope: SalesScopeService,
     private readonly attachments: AttachmentsService,
     private readonly phones: PhoneNumberService,
+    /** R15 W5a — reservation of a converted order (global module). Optional only so unit specs can omit it. */
+    @Optional() private readonly stock?: StoreOrderStockService,
   ) {}
 
   async getAvailableActions(
@@ -299,13 +303,15 @@ export class WorkflowEngineService {
       );
     }
 
-    return this.applyTransition(
+    const result = await this.applyTransition(
       entityType,
       entityId,
       transition,
       userId,
       context,
     );
+    await this.afterConversion(transition, entityId, userId);
+    return result;
   }
 
   async executeTransitionByCodes(
@@ -397,7 +403,7 @@ export class WorkflowEngineService {
       });
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const converted = await this.prisma.$transaction(async (tx) => {
       let fromCode = lead.status.code;
       if (fromCode !== 'QUALIFIED' && fromCode !== 'CONVERTED') {
         const qualified = await this.statusDefinitions.findByCode(
@@ -457,6 +463,12 @@ export class WorkflowEngineService {
         tx,
       );
     });
+    await this.afterConversion(
+      { businessAction: WorkflowBusinessAction.LEAD_CONVERT },
+      leadId,
+      userId,
+    );
+    return converted;
   }
 
   async approveTransition(
@@ -509,7 +521,7 @@ export class WorkflowEngineService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       await tx.workflowApproval.update({
         where: { id: approvalId },
         data: {
@@ -527,6 +539,33 @@ export class WorkflowEngineService {
         tx,
       );
     });
+    await this.afterConversion(
+      approval.transition,
+      approval.entityId,
+      approverId,
+    );
+    return result;
+  }
+
+  /**
+   * R15 (D15-1) — a lead conversion created a store order: its stock lines
+   * are reserved right after the conversion committed, like every other
+   * creation path. Idempotent (an evaluated order is left alone) and never
+   * throws.
+   */
+  private async afterConversion(
+    transition: { businessAction: WorkflowBusinessAction },
+    leadId: string,
+    userId: string,
+  ) {
+    if (transition.businessAction !== WorkflowBusinessAction.LEAD_CONVERT) {
+      return;
+    }
+    const order = await this.prisma.storeOrder.findFirst({
+      where: { leadId },
+      select: { id: true },
+    });
+    if (order) await this.stock?.afterOrderCreated(order.id, userId);
   }
 
   async rejectTransition(

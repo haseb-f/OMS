@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   Param,
@@ -22,10 +23,13 @@ import {
   CurrentCompanyContext,
   type CompanyContext,
 } from '../../common/decorators/current-company-context.decorator';
+import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { FinancialTransactionsService } from '../financial-transactions.service';
 import { CreateCustomerRefundDto } from './dto/create-customer-refund.dto';
 import { UpdateCustomerRefundDto } from './dto/update-customer-refund.dto';
 import { FindCustomerRefundsQueryDto } from './dto/find-customer-refunds-query.dto';
+import { RecordStoreOrderRefundDto } from './dto/record-store-order-refund.dto';
+import { StoreOrderRefundsService } from './store-order-refunds.service';
 
 const TYPE = FinancialTransactionType.CUSTOMER_REFUND;
 
@@ -33,14 +37,57 @@ const TYPE = FinancialTransactionType.CUSTOMER_REFUND;
  * Customer Refund (رد مبلغ لعميل) — the same FinancialTransaction voucher
  * workflow as Customer Receipts (Create, Update, Confirm, Cancel, Archive,
  * Search, Details) with money flowing out, allocated to posted Sales
- * Returns instead of invoices. The allocation is fixed at creation: there
- * is no Allocate/Unallocate on a refund.
+ * Returns — or (R15) to a store order's verified, not-invoiced advance —
+ * instead of invoices. The allocation is fixed at creation: there is no
+ * Allocate/Unallocate on a refund.
  */
 @Controller('financial-transactions/refunds')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @PermissionModule('customer-refunds')
 export class CustomerRefundsController {
-  constructor(private readonly transactions: FinancialTransactionsService) {}
+  constructor(
+    private readonly transactions: FinancialTransactionsService,
+    private readonly storeOrderRefunds: StoreOrderRefundsService,
+    private readonly permissions: PermissionsResolverService,
+  ) {}
+
+  /** R15 — the customer's store orders (cancelled ones included) with money to refund now. */
+  @Get('open-orders')
+  getOpenOrders(@Query('partnerId', ParseUUIDPipe) partnerId: string) {
+    return this.storeOrderRefunds.openOrders(partnerId);
+  }
+
+  /** R15 — refund due / refundable of one store order (prefills "Record refund"). */
+  @Get('store-orders/:storeOrderId')
+  getOrderRefundable(
+    @Param('storeOrderId', ParseUUIDPipe) storeOrderId: string,
+  ) {
+    return this.storeOrderRefunds.refundable(storeOrderId);
+  }
+
+  /**
+   * R15 (D15-11) — "Record refund" of a store order: create + confirm + post
+   * one Customer Refund for money already returned (no gateway integration).
+   * Needs `sales.refunds.create` AND `sales.refunds.confirm`.
+   */
+  @Post('store-orders/:storeOrderId')
+  @HttpCode(200)
+  @PermissionAction('confirm')
+  async recordOrderRefund(
+    @Param('storeOrderId', ParseUUIDPipe) storeOrderId: string,
+    @Body() dto: RecordStoreOrderRefundDto,
+    @CurrentUser() user: JwtPayload,
+    @CurrentCompanyContext() context: CompanyContext,
+  ) {
+    if (
+      !(await this.permissions.hasPermission(user.sub, 'sales.refunds.create'))
+    ) {
+      throw new ForbiddenException(
+        'Missing permission "sales.refunds.create".',
+      );
+    }
+    return this.storeOrderRefunds.record(storeOrderId, dto, user.sub, context);
+  }
 
   @Post()
   create(

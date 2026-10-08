@@ -1,10 +1,5 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import {
-  InventoryMovementType,
-  PaymentStatus,
-  Prisma,
-  SalesDocumentStatus,
-} from '@prisma/client';
+import { InventoryMovementType, PaymentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AccountMappingService } from '../../accounting/account-mapping/account-mapping.service';
 import {
@@ -12,7 +7,6 @@ import {
   type RecognitionStockNeed,
 } from './fulfillment-recognition.service';
 import { errorText, type RecognitionIssue } from './recognition-errors';
-import { isRecognitionDue } from './recognition-routing';
 
 /** Fulfillment codes / shipment status that put an order in the repair scan. */
 const DELIVERED_WHERE: Prisma.StoreOrderWhereInput = {
@@ -75,6 +69,8 @@ export interface RepairReport {
  * R14 W3 (spec-3 §6) — finds delivered / collected company store orders that
  * were never recognised (the ADR-0017 payment gate) and recognises them
  * through the SAME `FulfillmentRecognitionService` the delivery hooks use.
+ * R15: an order is a candidate while any invoice is still due (one per
+ * delivered shipment, or the whole order); its entry adds up its targets.
  * Dry run by default: lists each order's lines, required stock per warehouse,
  * on-hand, cost availability, predicted invoice total / COGS and blockers.
  * Apply recognises the unblocked ones (idempotent — a second apply is a
@@ -118,12 +114,6 @@ export class RecognitionRepairService {
         deletedAt: null,
         agentId: null,
         ...(options.orderIds ? { id: { in: options.orderIds } } : {}),
-        invoices: {
-          none: {
-            deletedAt: null,
-            status: { not: SalesDocumentStatus.CANCELLED },
-          },
-        },
         ...DELIVERED_WHERE,
       },
       select: { id: true },
@@ -144,8 +134,13 @@ export class RecognitionRepairService {
     const entries: RepairOrderEntry[] = [];
     for (const candidate of candidates) {
       const order = await this.recognition.loadOrder(this.prisma, candidate.id);
-      if (!order || !isRecognitionDue(order)) continue;
-      const preflight = await this.recognition.preflight(order);
+      const targets = order ? this.recognition.targetsOf(order) : [];
+      if (!order || targets.length === 0) continue;
+      const preflights = [];
+      for (const target of targets) {
+        preflights.push(await this.recognition.preflight(order, target));
+      }
+      const blockers = preflights.flatMap((preflight) => preflight.issues);
       entries.push({
         orderId: order.id,
         internalOrderId: order.internalOrderId,
@@ -154,11 +149,16 @@ export class RecognitionRepairService {
           sku: item.product.sku,
           quantity: item.quantity,
         })),
-        stock: preflight.stock,
-        predictedInvoiceTotal: preflight.invoiceTotal,
-        predictedCogs: preflight.estimatedCogs,
-        blockers: preflight.issues,
-        result: preflight.issues.length > 0 ? 'BLOCKED' : 'WOULD_RECOGNIZE',
+        stock: preflights.flatMap((preflight) => preflight.stock),
+        predictedInvoiceTotal:
+          Math.round(
+            preflights.reduce((sum, p) => sum + p.invoiceTotal, 0) * 100,
+          ) / 100,
+        predictedCogs: preflights
+          .reduce((sum, p) => sum.add(p.estimatedCogs), new Prisma.Decimal(0))
+          .toFixed(2),
+        blockers,
+        result: blockers.length > 0 ? 'BLOCKED' : 'WOULD_RECOGNIZE',
       });
     }
 

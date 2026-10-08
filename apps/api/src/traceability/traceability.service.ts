@@ -1,4 +1,5 @@
 import { isRecognitionDue } from '../store-orders/fulfillment-recognition/recognition-routing';
+import { STORE_ORDER_TRANSIT_REFERENCE } from '../store-orders/stock-lifecycle/stock-ledger';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -361,13 +362,27 @@ export class TraceabilityService {
   }
 
   /** Customer Refunds paying back these Sales Returns (credit notes). */
-  private async refundsFor(salesReturnIds: string[]): Promise<TraceRecord[]> {
-    if (salesReturnIds.length === 0) return [];
+  /**
+   * Customer refunds paying back the given sales returns and — R15 (D15-11)
+   * — the advance of a store order (cancelled / undelivered / overpaid),
+   * allocated to the order itself.
+   */
+  private async refundsFor(
+    salesReturnIds: string[],
+    storeOrderId?: string,
+  ): Promise<TraceRecord[]> {
+    const linked: Prisma.FinancialTransactionAllocationWhereInput[] = [
+      ...(salesReturnIds.length > 0
+        ? [{ salesReturnId: { in: salesReturnIds } }]
+        : []),
+      ...(storeOrderId ? [{ storeOrderId }] : []),
+    ];
+    if (linked.length === 0) return [];
     const rows = await this.prisma.financialTransaction.findMany({
       where: {
         deletedAt: null,
         type: 'CUSTOMER_REFUND',
-        allocations: { some: { salesReturnId: { in: salesReturnIds } } },
+        allocations: { some: { OR: linked } },
       },
       select: { id: true, transactionNumber: true, status: true },
       orderBy: { createdAt: 'asc' },
@@ -986,9 +1001,10 @@ export class TraceabilityService {
     };
   }
 
+  /** R15 — archived (cancelled) orders stay traceable, read-only. */
   private async storeOrder(id: string) {
     const order = await this.prisma.storeOrder.findFirst({
-      where: { id, deletedAt: null },
+      where: { id },
       select: {
         id: true,
         internalOrderId: true,
@@ -1010,6 +1026,7 @@ export class TraceabilityService {
           invoiceNumber: true,
           status: true,
           grandTotal: true,
+          shipmentId: true,
         },
         orderBy: { createdAt: 'asc' },
       }),
@@ -1025,6 +1042,7 @@ export class TraceabilityService {
           attemptNumber: true,
           trackingNumber: true,
           status: true,
+          lines: { select: { deliveredQuantity: true } },
         },
         orderBy: { attemptNumber: 'asc' },
       }),
@@ -1076,7 +1094,7 @@ export class TraceabilityService {
     ]);
     const returnIds = returns.map((r) => r.id);
     const receiptIds = receipts.map((r) => r.id);
-    const refunds = await this.refundsFor(returnIds);
+    const refunds = await this.refundsFor(returnIds, id);
     const refundIds = refunds.map((r) => r.id);
 
     const shipmentIds = shipments.map((s) => s.id);
@@ -1124,7 +1142,11 @@ export class TraceabilityService {
     const journalMissing = expected.some((key) => !journaled.has(key));
     // R14 W3 — a delivered company order that was never recognised has no
     // revenue / COGS journal: FAILED with the recorded reason, not PENDING.
-    const recognitionFailure = storeOrderRecognitionFailure(order, shipments);
+    const recognitionFailure = storeOrderRecognitionFailure(
+      order,
+      shipments,
+      invoices.filter((invoice) => invoice.status !== 'CANCELLED'),
+    );
     const journalState: TraceState =
       journalMissing || recognitionFailure
         ? 'FAILED'
@@ -1157,17 +1179,30 @@ export class TraceabilityService {
       })),
     ];
 
-    // Invoice deliveries and returns, plus the order's own STORE_ORDER
-    // movements: the shipment-time reservation / its release (company) and the
-    // dispatch issue of an agent order.
+    // Invoice deliveries and returns, plus the order's own movements: its
+    // reservation / releases and an agent order's issues (STORE_ORDER), the
+    // dispatch to / receipt back from goods in transit (STORE_ORDER_TRANSIT,
+    // R15) and an agent order's return receipts (AGENT_ORDER_RETURN).
+    const agentReturns = order.agentId
+      ? await this.prisma.agentOrderReturn.findMany({
+          where: { storeOrderId: id },
+          select: { id: true },
+        })
+      : [];
     const { items: movementItems, ...movementBounds } =
       await this.movementsForReferences([
         ...invoiceIds.map((refId) => ({ types: ['SALES_INVOICE'], id: refId })),
         ...returnIds.map((refId) => ({ types: ['SALES_RETURN'], id: refId })),
-        { types: ['STORE_ORDER'], id },
+        ...agentReturns.map((row) => ({
+          types: ['AGENT_ORDER_RETURN'],
+          id: row.id,
+        })),
+        { types: ['STORE_ORDER', STORE_ORDER_TRANSIT_REFERENCE], id },
       ]);
+    // R15 — dispatch only moves the goods to transit; "issued" means a
+    // delivery movement exists.
     const stockIssued = movementItems.some(
-      (m) => m.status !== 'RESERVATION' && m.status !== 'RESERVATION_RELEASE',
+      (m) => m.status === 'SALES_DELIVERY',
     );
     const stockState: TraceState = recognitionFailure
       ? 'FAILED'
@@ -1629,7 +1664,8 @@ export class TraceabilityService {
  * R14 W3 (spec-3 §3) — the reason a store order's stock / COGS is missing:
  * the recorded recognition failure, or (orders delivered before R14 / never
  * retried) a delivered company order without an invoice. Null when nothing is
- * missing yet (not delivered, recognised, or an agent order).
+ * missing yet (not delivered, recognised, or an agent order). R15: judged per
+ * delivered shipment (one invoice each).
  */
 export function storeOrderRecognitionFailure(
   order: {
@@ -1639,7 +1675,13 @@ export function storeOrderRecognitionFailure(
     recognitionError: unknown;
     fulfillmentStatus: { code: string } | null;
   },
-  shipments: { attemptNumber: number; status: string | null }[],
+  shipments: {
+    id: string;
+    attemptNumber: number;
+    status: string | null;
+    lines: { deliveredQuantity: number }[];
+  }[],
+  invoices: { shipmentId: string | null }[],
 ): TraceFailureReason | null {
   if (order.agentId) return null;
   if (order.recognitionStatus === 'FAILED') {
@@ -1656,13 +1698,11 @@ export function storeOrderRecognitionFailure(
   ) {
     return null;
   }
-  const latest = [...shipments].sort(
-    (a, b) => b.attemptNumber - a.attemptNumber,
-  )[0];
   const due = isRecognitionDue({
     fulfillmentMethod: order.fulfillmentMethod,
     fulfillmentStatus: order.fulfillmentStatus,
-    shipments: latest ? [latest] : [],
+    shipments,
+    invoices,
   });
   if (!due) return null;
   return {

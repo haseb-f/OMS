@@ -26,6 +26,7 @@ import { AddTrackingNumberDto } from './dto/add-tracking-number.dto';
 import { SetLabelDto } from './dto/set-label.dto';
 import { AddShippingCostDto } from './dto/add-shipping-cost.dto';
 import { SetShippingStatusDto } from './dto/set-shipping-status.dto';
+import { MarkDeliveredDto, MarkShippedDto } from './dto/shipment-lines.dto';
 import {
   AddShipmentNotesDto,
   resolveShipmentNotes,
@@ -118,10 +119,13 @@ export class StoreOrderShipmentsController {
   @PermissionAction('edit')
   markShipped(
     @Param('storeOrderId') storeOrderId: string,
+    @Body() dto: MarkShippedDto,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.gate(storeOrderId, user).then(() =>
-      this.operations.markShipped(storeOrderId, user.sub),
+      this.operations.markShipped(storeOrderId, user.sub, undefined, {
+        lines: dto?.lines,
+      }),
     );
   }
 
@@ -142,10 +146,13 @@ export class StoreOrderShipmentsController {
   @PermissionAction('edit')
   markDelivered(
     @Param('storeOrderId') storeOrderId: string,
+    @Body() dto: MarkDeliveredDto,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.gate(storeOrderId, user).then(() =>
-      this.operations.markDelivered(storeOrderId, user.sub),
+      this.operations.markDelivered(storeOrderId, user.sub, undefined, {
+        deliveredLines: dto?.deliveredLines,
+      }),
     );
   }
 
@@ -199,6 +206,18 @@ export class StoreOrderShipmentsController {
   ) {
     return this.gate(storeOrderId, user).then(() =>
       this.operations.createReshipment(storeOrderId, user.sub),
+    );
+  }
+
+  /** R15 (D15-5) — after a delivered attempt, a new one for the quantities still to go. */
+  @Post('next')
+  @PermissionAction('edit')
+  createNextShipment(
+    @Param('storeOrderId') storeOrderId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.gate(storeOrderId, user).then(() =>
+      this.operations.createNextShipment(storeOrderId, user.sub),
     );
   }
 

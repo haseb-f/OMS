@@ -18,7 +18,6 @@ import {
   DEFAULT_SHIPPING_STATUS_CODE,
   isOperationalShipmentStatus,
 } from '../../shipping/shipping-status.catalog';
-import { evaluateFulfillmentGate } from '../store-order-fulfillment-gate';
 import { lockStoreOrderRow } from '../store-order-payment-settlement.util';
 import {
   createOrRestoreAttempt,
@@ -191,13 +190,7 @@ export class StoreOrderShipmentsService {
     await lockStoreOrderRow(tx, storeOrderId);
     const order = await tx.storeOrder.findFirst({
       where: { id: storeOrderId, deletedAt: null },
-      select: {
-        paymentType: true,
-        paymentStatus: true,
-        declaredPaymentStatus: true,
-        paymentStatusDef: { select: { code: true } },
-        fulfillmentMethod: true,
-      },
+      select: { fulfillmentMethod: true },
     });
     if (!order) {
       throw new BadRequestException('Store Order not found.');
@@ -207,21 +200,30 @@ export class StoreOrderShipmentsService {
         'Pickup orders do not create shipping labels or enter carrier queues. Record collection on the pickup workflow instead.',
       );
     }
-    // Central fulfillment gate: PREPAID needs a full paid declaration or
-    // verified payment (a partial declaration never passes); COD may ship
-    // before payment. Finance reconciliation is NOT required.
-    const gate = evaluateFulfillmentGate({
-      paymentType: order.paymentType,
-      declaredPaymentStatus: order.declaredPaymentStatus,
-      paymentStatus: order.paymentStatus,
-      paymentStatusCode: order.paymentStatusDef?.code ?? null,
-    });
-    if (!gate.allowed) {
-      throw new BadRequestException(gate.reason);
-    }
-
+    // R15 (D15-3): payment never gates a shipment — prepaid and COD alike.
     // Restores a withdrawn untouched #1 instead of numbering a new attempt.
     return createOrRestoreAttempt(tx, storeOrderId, isReship);
+  }
+
+  /**
+   * R15 (D15-5) — partial dispatch: once the current attempt was DELIVERED,
+   * a new attempt (not a reship) ships the quantities still to go. The
+   * caller checks that something is left to dispatch.
+   */
+  async createNextShipment(storeOrderId: string, tx: Prisma.TransactionClient) {
+    await lockStoreOrderRow(tx, storeOrderId);
+    const current = await this.getCurrent(storeOrderId, tx);
+    if (!current || current.status !== ShipmentStatus.DELIVERED) {
+      throw new BadRequestException({
+        code: 'NEXT_SHIPMENT_NOT_ALLOWED',
+        message:
+          'تُفتح شحنة جديدة للكميات المتبقية بعد تسليم الشحنة الحالية فقط — استخدم إعادة الشحن للمحاولة الفاشلة — A new shipment for the remaining quantities opens only after the current one was delivered; use a reshipment for a failed attempt.',
+      });
+    }
+    const previousCount = await tx.shipment.count({ where: { storeOrderId } });
+    return tx.shipment.create({
+      data: { storeOrderId, isReship: false, attemptNumber: previousCount + 1 },
+    });
   }
 
   /** Unlimited numbered attempts (#1/#2/#3...). Requires the current shipment be at NEEDS_RESHIPMENT. */

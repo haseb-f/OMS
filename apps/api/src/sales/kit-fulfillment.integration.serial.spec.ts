@@ -35,6 +35,7 @@ import { StoreOrdersModule } from '../store-orders/store-orders.module';
 import { StoreOrdersService } from '../store-orders/store-orders.service';
 import { AgentLedgerModule } from '../agents/finance/agent-ledger.module';
 import { AgentFulfillmentService } from '../agents/finance/agent-fulfillment.service';
+import { StoreOrderStockService } from '../store-orders/stock-lifecycle/store-order-stock.service';
 import { AssemblyModule } from '../assembly/assembly.module';
 import { AssemblyService } from '../assembly/assembly.service';
 import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
@@ -693,7 +694,7 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
       expect(sale.totals.debit.equals(sale.totals.credit)).toBe(true);
     });
 
-    it('agent dispatch issues the kit components; the return uses the recipe of the dispatch', async () => {
+    it('R15: an agent kit moves its components to transit at dispatch and issues them at delivery; the return uses the recipe of the delivery', async () => {
       const cat = await makeCategory(`AG${++skuSeq}`);
       const a = await makeProduct({ categoryId: cat.id, owner: agentId });
       const b = await makeProduct({ categoryId: cat.id, owner: agentId });
@@ -733,17 +734,41 @@ describe('Kit fulfillment, returns, purchase blending and landed cost (integrati
         },
         include: { items: true },
       });
-      await prisma.$transaction(async (tx) => {
-        const loaded = await agentFulfillment.loadOrder(tx, storeOrder.id);
-        await agentFulfillment.dispatch(tx, loaded!, actorId);
+      const stock = moduleRef.get(StoreOrderStockService, { strict: false });
+      const shipment = await prisma.shipment.create({
+        data: { storeOrderId: storeOrder.id, attemptNumber: 1 },
       });
-      expect(await onHand(a)).toBe(6);
-      expect(await onHand(b)).toBe(8);
+      for (const status of ['SHIPPED', 'DELIVERED']) {
+        await prisma.$transaction(async (tx) => {
+          await stock.onShipmentStatus(
+            tx,
+            storeOrder.id,
+            { ...shipment, status },
+            {},
+            actorId,
+          );
+          const loaded = await agentFulfillment.loadOrder(tx, storeOrder.id);
+          await agentFulfillment.dispatch(tx, loaded!, actorId);
+        });
+        // Dispatch moved the components out of the warehouse (to transit).
+        expect(await onHand(a)).toBe(6);
+        expect(await onHand(b)).toBe(8);
+      }
       const issued = await prisma.inventoryMovement.findMany({
         where: { referenceId: storeOrder.id, type: 'SALES_DELIVERY' },
       });
+      expect(issued).toHaveLength(2);
       expect(issued.every((m) => m.recipeId === dispatchRecipe.id)).toBe(true);
       expect(issued.every((m) => m.ownerAgentId === agentId)).toBe(true);
+      expect(
+        await prisma.inventoryMovement.count({
+          where: {
+            referenceId: storeOrder.id,
+            type: 'TRANSFER',
+            ownerAgentId: { not: agentId },
+          },
+        }),
+      ).toBe(0);
 
       // A later recipe version must not change what comes back.
       await makeRecipe(kit, [

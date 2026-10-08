@@ -5,7 +5,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
-  InventoryMovementType,
   Prisma,
   ProductStatus,
   SalesDocumentStatus,
@@ -18,10 +17,13 @@ import { PostingEngineService } from '../../accounting/posting-engine/posting-en
 import { InventoryService } from '../../inventory/inventory.service';
 import {
   StockLineResolver,
+  isStockAffecting,
   type ResolvedStockLine,
 } from '../../inventory/stock-lines/stock-line-resolver';
+import { readStockAvailability } from '../../inventory/stock-lines/stock-availability';
 import { FulfillmentCostService } from '../../fulfillment-cost-rules/fulfillment-cost.service';
 import { StoreOrderCollectionService } from '../../accounting/store-order-collection/store-order-collection.service';
+import { CarrierCodCollectionService } from '../../accounting/store-order-collection/carrier-cod-collection.service';
 import { AccountMappingService } from '../../accounting/account-mapping/account-mapping.service';
 import {
   StoreOrderActivityService,
@@ -40,13 +42,13 @@ import {
   stockLineTrace,
 } from '../../sales/shared/stock-fulfillment';
 import { kitSnapshotJson } from '../../sales/shared/kit-snapshot';
-import {
-  releaseAllReserved,
-  reservedUnderReference,
-} from '../../sales/shared/order-reservations';
+import { recomputeStoreOrderReturnStatus } from '../../sales/returns/store-order-return-status';
 import { lockStoreOrderRow } from '../store-order-payment-settlement.util';
 import { agentUnprocessable } from '../../agents/common/agent-errors';
 import { assertCompanyOwnedProduct } from '../../products/assert-company-owned-products.util';
+import { StoreOrderStockService } from '../stock-lifecycle/store-order-stock.service';
+import { proratedLineAmount } from '../stock-lifecycle/stock-state';
+import { STORE_ORDER_REFERENCE } from '../stock-lifecycle/stock-ledger';
 import {
   classifyRecognitionError,
   errorText,
@@ -54,24 +56,18 @@ import {
   recognitionIssue,
   type RecognitionErrorRecord,
   type RecognitionIssue,
-  type RecognitionStage,
 } from './recognition-errors';
 import {
-  isRecognitionDue,
   pickupRecognitionAction,
+  recognitionTargets,
   shipmentRecognitionAction,
   type RecognitionAction,
+  type RecognitionTarget,
 } from './recognition-routing';
-
-/** Reference of a company store order's reservations (keys `STORE_ORDER:<order>:<item>[:component]:RESERVATION`). */
-export const STORE_ORDER_RESERVATION_REFERENCE = 'STORE_ORDER';
 
 /** Timeline actions written by recognition (plain strings, like every StoreOrderActivity action). */
 export const RecognitionActivity = {
   FAILED: 'RECOGNITION_FAILED',
-  RESERVED: 'STOCK_RESERVED',
-  RESERVATION_FAILED: 'STOCK_RESERVATION_FAILED',
-  RELEASED: 'STOCK_RESERVATION_RELEASED',
   RETURN_PENDING: 'RETURN_PENDING',
   RECEIPT_SYNC_FAILED: 'RECEIPT_SYNC_FAILED',
 } as const;
@@ -80,6 +76,13 @@ export const RecognitionActivity = {
 export type RecognitionTrigger = 'MANUAL' | 'HOOK' | 'REPAIR';
 
 const TX_OPTIONS = { maxWait: 15_000, timeout: 120_000 } as const;
+
+/** Recognition statuses a later shipment never overwrites (returns after delivery, D15-10). */
+const RETURN_STATUSES = new Set<StoreOrderRecognitionStatus>([
+  StoreOrderRecognitionStatus.RETURN_PENDING,
+  StoreOrderRecognitionStatus.RETURNED,
+  StoreOrderRecognitionStatus.PARTIALLY_RETURNED,
+]);
 
 const ORDER_SELECT = {
   id: true,
@@ -93,11 +96,28 @@ const ORDER_SELECT = {
   fulfillmentStatus: { select: { code: true } },
   shipments: {
     where: { deletedAt: null },
-    orderBy: { attemptNumber: 'desc' as const },
-    select: { id: true, status: true },
+    orderBy: { attemptNumber: 'asc' as const },
+    select: {
+      id: true,
+      attemptNumber: true,
+      status: true,
+      lines: {
+        select: {
+          storeOrderItemId: true,
+          quantity: true,
+          deliveredQuantity: true,
+        },
+      },
+    },
+  },
+  invoices: {
+    where: { deletedAt: null, status: { not: SalesDocumentStatus.CANCELLED } },
+    orderBy: { createdAt: 'asc' as const },
+    select: { id: true, invoiceNumber: true, shipmentId: true },
   },
   items: {
-    orderBy: { createdAt: 'asc' as const },
+    where: { deletedAt: null },
+    orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
     select: {
       id: true,
       productId: true,
@@ -128,6 +148,7 @@ const ORDER_SELECT = {
 export type RecognitionOrder = Prisma.StoreOrderGetPayload<{
   select: typeof ORDER_SELECT;
 }>;
+type RecognitionItem = RecognitionOrder['items'][number];
 
 /** One stock line the recognition will issue, with its availability (dry run / preflight). */
 export interface RecognitionStockNeed {
@@ -137,14 +158,23 @@ export interface RecognitionStockNeed {
   warehouseCode: string | null;
   required: number;
   onHand: number;
-  /** On-hand minus what other documents hold reserved (this order's own reservation counts as its own). */
+  /** Shipment: this order's goods in transit; whole order: on-hand minus what other documents hold reserved. */
   available: number;
   unitCost: string | null;
 }
 
+/** One invoice line of a target: the order line, the invoiced quantity and its share of the agreed amount. */
+interface PlannedLine {
+  item: RecognitionItem;
+  quantity: number;
+  amount: number;
+}
+
 export interface RecognitionPreflight {
+  target: RecognitionTarget;
   issues: RecognitionIssue[];
-  warehouseIds: string[] | null;
+  /** The line warehouse per order item (STOCK role) — the invoice line's warehouse. */
+  warehouseByItem: Map<string, string> | null;
   stock: RecognitionStockNeed[];
   invoiceTotal: number;
   /** Σ required × current moving average (the COGS the delivery will book, before rounding per line). */
@@ -154,20 +184,22 @@ export interface RecognitionPreflight {
 type Client = Prisma.TransactionClient | PrismaService;
 
 /**
- * R14 W3 (spec-3, decision D3-1) — revenue / stock / COGS recognition of a
- * company store order at delivery (or pickup collection), replacing the
- * ADR-0017 "fully paid" gate. One service behind every path:
- *  - the shipment operations (single, bulk, direct status), the shipping
- *    import and the pickup workflow call the post-commit hooks
- *    (`afterShipmentStatus` / `afterPickupTransition`) — they never throw, so
- *    a courier status is never lost because stock or configuration is missing;
- *  - the manual "Generate invoice" button is the retry of `recognize`;
- *  - the repair script / endpoint runs `recognize` for delivered orders.
+ * R14 W3 (spec-3, decision D3-1) / R15 W5a (D15-5, D15-6) — revenue / stock /
+ * COGS recognition of a company store order at delivery: ONE invoice per
+ * delivered shipment (`SalesInvoice.shipmentId`) for its accepted quantities
+ * (line amounts prorated), the goods issued out of the goods-in-transit
+ * warehouse; a collected pickup (and a pre-R15 delivery) is one whole-order
+ * invoice issued from the warehouse, releasing its reservation. FULFILLMENT
+ * cost once per order (first invoice), SHIPMENT cost per delivered shipment.
  *
- * Each attempt records `recognitionStatus` / `recognitionError` /
- * `recognitionAttemptedAt` on the order and a timeline entry. Idempotent: the
- * order row is locked and the invoice re-checked inside the transaction, so
- * repeated or concurrent callbacks produce one invoice and one movement set.
+ * Post-commit hooks (`afterShipmentStatus` / `afterPickupTransition`, shipment
+ * operations, bulk, direct status, shipping import, pickup workflow) never
+ * throw — a courier status is never lost; the manual "Generate invoice" is
+ * the retry; the repair runs `recognize` for delivered orders. Every attempt
+ * records `recognitionStatus` / `recognitionError` / `recognitionAttemptedAt`
+ * and a timeline entry. Idempotent: the order row is locked and the target's
+ * invoice re-checked inside the transaction (`shipmentId` is unique), so
+ * repeated or concurrent callbacks issue one invoice and one movement set.
  */
 @Injectable()
 export class FulfillmentRecognitionService {
@@ -182,7 +214,9 @@ export class FulfillmentRecognitionService {
     private readonly stockLines: StockLineResolver,
     private readonly fulfillmentCostService: FulfillmentCostService,
     private readonly storeOrderCollection: StoreOrderCollectionService,
+    private readonly carrierCod: CarrierCodCollectionService,
     private readonly accountMapping: AccountMappingService,
+    private readonly stock: StoreOrderStockService,
   ) {}
 
   // ── Hooks (post-commit, never throw) ────────────────────────────────────
@@ -191,6 +225,7 @@ export class FulfillmentRecognitionService {
   async afterShipmentStatus(
     storeOrderId: string,
     shipment: {
+      id?: string;
       status: string | null | undefined;
       catalogCode?: string | null;
     },
@@ -200,7 +235,13 @@ export class FulfillmentRecognitionService {
       storeOrderId,
       shipmentRecognitionAction(shipment.status, shipment.catalogCode),
       userId,
+      shipment.id,
     );
+    // R15 (D15-9, W5b) — a delivered COD parcel records what the carrier is
+    // expected to collect (a claim, never cash). Never throws.
+    if (shipment.status === 'DELIVERED' && shipment.id) {
+      await this.carrierCod.onCodShipmentDelivered(shipment.id, userId);
+    }
   }
 
   /** After a pickup workflow transition committed. */
@@ -226,26 +267,35 @@ export class FulfillmentRecognitionService {
     await this.postingEngine.post('SHIPMENT_COST', shipment.id, userId, tx);
   }
 
-  /** After an order was archived: nothing stays reserved for it. */
+  /**
+   * After an order was archived (cancelled): whatever is still reserved is
+   * released (goods with the carrier stay in transit until received back);
+   * an order already delivered is flagged for the sales return.
+   */
   async afterOrderArchived(storeOrderId: string, userId?: string) {
-    await this.dispatch(storeOrderId, 'UNWIND', userId);
+    await this.stock.afterOrderCancelled(storeOrderId, userId);
+    await this.dispatch(storeOrderId, 'RETURN_PENDING', userId);
   }
 
   private async dispatch(
     storeOrderId: string,
     action: RecognitionAction,
     userId?: string,
+    shipmentId?: string,
   ) {
     try {
       switch (action) {
         case 'RESERVE':
-          await this.reserve(storeOrderId, userId);
+          await this.stock.afterPickupReady(storeOrderId, userId);
           return;
         case 'RECOGNIZE':
           await this.recognize(storeOrderId, userId, 'HOOK');
           return;
-        case 'UNWIND':
-          await this.unwind(storeOrderId, userId);
+        case 'RELEASE':
+          await this.stock.afterOrderCancelled(storeOrderId, userId);
+          return;
+        case 'RETURN_PENDING':
+          await this.flagReturnPending(storeOrderId, userId, shipmentId);
           return;
         default:
           return;
@@ -262,14 +312,15 @@ export class FulfillmentRecognitionService {
   // ── Recognition ─────────────────────────────────────────────────────────
 
   /**
-   * Issues the order's company sales invoice (CONFIRMED), its stock
-   * (`SALES_DELIVERY`, kits → components), releases its reservation, applies
-   * the fulfillment cost snapshot and posts SALES_INVOICE / FULFILLMENT_COST /
-   * SHIPMENT_COST; verified receipts are then allocated to the invoice.
+   * Issues every invoice still due for the order (one per delivered
+   * shipment, or the whole order for a pickup / pre-R15 delivery), each with
+   * its stock issue, COGS and cost postings; verified receipts are then
+   * allocated (oldest invoice first).
    *
-   * MANUAL: refused for agent orders and before delivery, `DUPLICATE` when an
-   * invoice exists, failures thrown (and recorded). HOOK / REPAIR: returns the
-   * existing invoice, `null` when not due or failed (failure recorded).
+   * MANUAL: refused for agent orders and before delivery, `DUPLICATE` when
+   * nothing is left to invoice, a failure is thrown (and recorded). HOOK /
+   * REPAIR: returns the last invoice issued (or the existing one), `null`
+   * when not due or failed (failure recorded).
    */
   async recognize(
     storeOrderId: string,
@@ -285,7 +336,7 @@ export class FulfillmentRecognitionService {
     }
     if (order.agentId) {
       // Agents milestone (spec §6.4): agent merchandise is not company revenue —
-      // its stock is issued at dispatch by the agent hooks.
+      // its stock leaves transit at delivery through the agent hooks.
       if (!manual) return null;
       throw agentUnprocessable(
         'AGENT_ORDER_NO_COMPANY_INVOICE',
@@ -297,7 +348,10 @@ export class FulfillmentRecognitionService {
       // Defensive (S2): a company order never invoices agent-owned goods.
       for (const item of order.items) assertCompanyOwnedProduct(item.product);
     }
-    if (!isRecognitionDue(order)) {
+    const targets = recognitionTargets(order);
+    if (targets.length === 0) {
+      const existing = order.invoices.at(-1);
+      if (existing) return this.onExisting(order, existing, manual);
       if (!manual) return null;
       throw new BadRequestException({
         code: 'RECOGNITION_NOT_DUE',
@@ -310,96 +364,115 @@ export class FulfillmentRecognitionService {
       });
     }
 
-    const existing = await this.liveInvoice(this.prisma, storeOrderId);
-    if (existing) return this.onExisting(order, existing, manual);
-
-    const preflight = await this.preflight(order);
-    if (preflight.issues.length > 0) {
-      // A concurrent attempt may have recognised the order meanwhile (its
-      // stock then reads as consumed) — that is success, not a failure.
-      const raced = await this.liveInvoice(this.prisma, storeOrderId);
-      if (raced) return this.onExisting(order, raced, manual);
-      await this.recordFailure(
-        order.id,
-        'RECOGNITION',
-        preflight.issues,
-        userId,
-      );
-      if (manual) throw recognitionException(preflight.issues);
-      return null;
+    let last: { id: string; invoiceNumber: string } | null = null;
+    let failure: RecognitionIssue[] | null = null;
+    for (const target of targets) {
+      const outcome = await this.recognizeTarget(order.id, target, userId);
+      if ('issues' in outcome) {
+        failure ??= outcome.issues;
+        if (manual) break;
+        continue;
+      }
+      last = outcome.invoice;
     }
 
-    let outcome: {
-      invoice: { id: string; invoiceNumber: string };
-      existing: boolean;
-    };
-    try {
-      outcome = await this.prisma.$transaction(
-        (tx) => this.recognizeInTx(tx, order, preflight.warehouseIds!, userId),
-        TX_OPTIONS,
-      );
-    } catch (error) {
-      const issue = classifyRecognitionError(error);
-      await this.recordFailure(order.id, 'RECOGNITION', [issue], userId);
-      if (manual) throw recognitionException([issue]);
-      return null;
-    }
-    if (outcome.existing) {
-      // A concurrent attempt won the row lock and issued the invoice.
-      if (manual) throw this.duplicate(order, outcome.invoice);
-      return outcome.invoice;
-    }
-
-    const invoice = outcome.invoice;
-    try {
-      await this.storeOrderCollection.syncVerifiedPayments(order.id, userId);
-    } catch (error) {
-      const message =
-        errorText(error).message || 'Customer receipt posting failed.';
-      await this.activityService.log(
-        order.id,
-        RecognitionActivity.RECEIPT_SYNC_FAILED,
-        `Sales Invoice ${invoice.invoiceNumber} was created, but customer receipt posting failed: ${message}`,
-        userId,
-      );
-      if (manual) {
-        throw new BadRequestException(
-          `Sales Invoice ${invoice.invoiceNumber} was created, but customer receipt posting failed: ${message}. Open the invoice and retry the receipt — do not generate the invoice again.`,
+    if (last) {
+      try {
+        await this.storeOrderCollection.syncVerifiedPayments(order.id, userId);
+      } catch (error) {
+        const message =
+          errorText(error).message || 'Customer receipt posting failed.';
+        await this.activityService.log(
+          order.id,
+          RecognitionActivity.RECEIPT_SYNC_FAILED,
+          `Sales Invoice ${last.invoiceNumber} was created, but customer receipt posting failed: ${message}`,
+          userId,
         );
+        if (manual) {
+          throw new BadRequestException(
+            `Sales Invoice ${last.invoiceNumber} was created, but customer receipt posting failed: ${message}. Open the invoice and retry the receipt — do not generate the invoice again.`,
+          );
+        }
       }
     }
-    return invoice;
+    if (failure && manual) throw recognitionException(failure);
+    return last;
+  }
+
+  /** One target: preflight, then the locked transaction; failures recorded on the order. */
+  private async recognizeTarget(
+    storeOrderId: string,
+    target: RecognitionTarget,
+    userId: string | undefined,
+  ): Promise<
+    | { invoice: { id: string; invoiceNumber: string } }
+    | { issues: RecognitionIssue[] }
+  > {
+    const order = (await this.loadOrder(this.prisma, storeOrderId))!;
+    const preflight = await this.preflight(order, target);
+    if (preflight.issues.length > 0) {
+      // A concurrent attempt may have recognised the target meanwhile (its
+      // stock then reads as consumed) — that is success, not a failure.
+      const raced = await this.targetInvoice(this.prisma, storeOrderId, target);
+      if (raced) return { invoice: raced };
+      await this.recordFailure(storeOrderId, target, preflight.issues, userId);
+      return { issues: preflight.issues };
+    }
+    try {
+      const invoice = await this.prisma.$transaction(
+        (tx) =>
+          this.recognizeInTx(
+            tx,
+            storeOrderId,
+            target,
+            preflight.warehouseByItem!,
+            userId,
+          ),
+        TX_OPTIONS,
+      );
+      return { invoice };
+    } catch (error) {
+      const issue = classifyRecognitionError(error);
+      await this.recordFailure(storeOrderId, target, [issue], userId);
+      return { issues: [issue] };
+    }
   }
 
   private async recognizeInTx(
     tx: Prisma.TransactionClient,
-    order: RecognitionOrder,
-    warehouseIds: string[],
+    storeOrderId: string,
+    target: RecognitionTarget,
+    warehouseByItem: Map<string, string>,
     userId: string | undefined,
   ) {
-    await lockStoreOrderRow(tx, order.id);
-    const existing = await this.liveInvoice(tx, order.id);
-    if (existing) return { invoice: existing, existing: true };
+    await lockStoreOrderRow(tx, storeOrderId);
+    const existing = await this.targetInvoice(tx, storeOrderId, target);
+    if (existing) return existing;
 
-    // Re-read under the lock: lines / status may have changed since the preflight.
-    const locked = await this.loadOrder(tx, order.id);
-    if (!locked || !isRecognitionDue(locked)) {
+    // Re-read under the lock: lines / statuses may have changed since the preflight.
+    const locked = await this.loadOrder(tx, storeOrderId);
+    if (
+      !locked ||
+      !recognitionTargets(locked).some((due) => sameTarget(due, target))
+    ) {
       throw new BadRequestException(
-        `Store Order ${order.internalOrderId} is no longer delivered — recognition skipped.`,
+        `Store Order ${locked?.internalOrderId ?? storeOrderId} is no longer delivered — recognition skipped.`,
       );
     }
-    const lines = await this.invoiceLines(tx, locked);
+    const plan = this.plan(locked, target);
+    const lines = await this.invoiceLines(tx, plan);
     const invoiceNumber = await this.numberingEngine.generateNumber(
       'SALES_INVOICE',
       undefined,
       tx,
     );
-    const invoiceItemIds = locked.items.map(() => randomUUID());
+    const invoiceItemIds = plan.map(() => randomUUID());
     const created = await tx.salesInvoice.create({
       data: {
         invoiceNumber,
         partnerId: locked.partnerId,
         storeOrderId: locked.id,
+        shipmentId: target.shipmentId,
         currencyId: locked.currencyId,
         referenceNumber: locked.internalOrderId,
         status: SalesDocumentStatus.CONFIRMED,
@@ -409,14 +482,16 @@ export class FulfillmentRecognitionService {
         createdBy: userId,
         updatedBy: userId,
         items: {
-          create: locked.items.map((item, index) => ({
+          create: plan.map((line, index) => ({
             id: invoiceItemIds[index],
-            productId: item.productId,
-            warehouseId: warehouseIds[index],
-            unitId: item.product.unitId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            taxId: item.product.taxId,
+            productId: line.item.productId,
+            // The line's stock warehouse (where a return goes back to), also
+            // for goods issued out of transit.
+            warehouseId: warehouseByItem.get(line.item.id)!,
+            unitId: line.item.product.unitId,
+            quantity: line.quantity,
+            unitPrice: line.item.unitPrice,
+            taxId: line.item.product.taxId,
             taxAmount: lines.computed[index].taxAmount,
             lineTotal: lines.computed[index].lineTotal,
           })),
@@ -424,32 +499,47 @@ export class FulfillmentRecognitionService {
       },
     });
 
-    // The shipment-time reservation is consumed by this delivery: released
-    // from the reserved ledger first (exactly what was reserved, even if the
-    // lines changed since), so availability counts only other documents.
-    await releaseAllReserved(
-      tx,
-      this.inventoryService,
-      {
-        referenceType: STORE_ORDER_RESERVATION_REFERENCE,
-        referenceId: locked.id,
-      },
-      userId,
-    );
-
+    // The goods leave transit (a dispatched shipment) or their warehouse (a
+    // pickup / pre-R15 delivery, whose reservation is released first).
+    const transitId =
+      target.kind === 'SHIPMENT'
+        ? await this.stock.transitWarehouseId(tx)
+        : null;
+    if (!transitId) {
+      await this.stock.releaseAllForIssueInTx(tx, locked.id, userId);
+    }
     // R13 — kits deliver their components (snapshot kept on the invoice line
     // for COGS and returns); every product row is locked once and each
-    // movement is keyed per invoice line (+ component).
-    const resolved = await resolveAndLockStockLines(
-      tx,
-      this.stockLines,
-      locked.items.map((item, index) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        warehouseId: warehouseIds[index],
-        lineKey: invoiceItemIds[index],
-      })),
-    );
+    // movement is keyed per invoice line (+ component). Out of transit: the
+    // components the shipment carried in, never the live recipe (M4).
+    const stockPlan = plan
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => isStockAffecting(line.item.product));
+    const resolved = transitId
+      ? await this.stock.shipmentStockLines(
+          tx,
+          locked.id,
+          target.shipmentId!,
+          stockPlan.map(({ line, index }) => ({
+            storeOrderItemId: line.item.id,
+            quantity: line.quantity,
+            lineKey: invoiceItemIds[index],
+          })),
+          tx,
+        )
+      : await resolveAndLockStockLines(
+          tx,
+          this.stockLines,
+          stockPlan.map(({ line, index }) => ({
+            productId: line.item.productId,
+            quantity: line.quantity,
+            warehouseId: warehouseByItem.get(line.item.id)!,
+            lineKey: invoiceItemIds[index],
+          })),
+        );
+    if (transitId) {
+      await this.assertTransitHolds(tx, locked.id, resolved.stock);
+    }
     for (const line of resolved.stock) {
       await this.inventoryService.postSalesDelivery(
         {
@@ -465,6 +555,7 @@ export class FulfillmentRecognitionService {
             'SALES_DELIVERY',
           ),
           ...stockLineTrace(line),
+          systemWarehouse: transitId !== null,
         },
         userId,
         tx,
@@ -477,32 +568,128 @@ export class FulfillmentRecognitionService {
       });
     }
 
-    // ADR-0018 — the immutable fulfillment cost snapshot at the same moment.
+    // ADR-0018 — the immutable fulfillment cost snapshot, once per order.
     await this.fulfillmentCostService.applyStandardCost(locked.id, tx, userId);
     await this.postingEngine.post('SALES_INVOICE', created.id, userId, tx);
     await this.postingEngine.post('FULFILLMENT_COST', locked.id, userId, tx);
     for (const shipment of locked.shipments) {
-      if (shipment.status === 'DELIVERED') {
+      if (
+        shipment.status === 'DELIVERED' &&
+        (target.shipmentId === null || shipment.id === target.shipmentId)
+      ) {
         await this.postingEngine.post('SHIPMENT_COST', shipment.id, userId, tx);
       }
     }
 
+    const after = await this.loadOrder(tx, locked.id);
+    const done = after ? recognitionTargets(after).length === 0 : true;
     await tx.storeOrder.update({
       where: { id: locked.id },
       data: {
-        recognitionStatus: StoreOrderRecognitionStatus.RECOGNIZED,
-        recognitionError: Prisma.DbNull,
+        ...(done && !RETURN_STATUSES.has(locked.recognitionStatus)
+          ? {
+              recognitionStatus: StoreOrderRecognitionStatus.RECOGNIZED,
+              recognitionError: Prisma.DbNull,
+            }
+          : {}),
         recognitionAttemptedAt: new Date(),
       },
     });
+    // A return already posted on an earlier delivery: RETURNED becomes
+    // PARTIALLY_RETURNED now that more was delivered (L3, D15-10).
+    await recomputeStoreOrderReturnStatus(tx, locked.id);
     await this.activityService.log(
       locked.id,
       StoreOrderActivityType.INVOICE_GENERATED,
-      `Sales Invoice ${created.invoiceNumber} generated — stock issued and cost of goods sold recognised at delivery`,
+      `Sales Invoice ${created.invoiceNumber} generated — ${plan
+        .map((line) => `${line.item.product.sku} × ${line.quantity}`)
+        .join(', ')} issued and cost of goods sold recognised at delivery`,
       userId,
       tx,
     );
-    return { invoice: created, existing: false };
+    await this.stock.refreshInTx(tx, locked.id);
+    return { id: created.id, invoiceNumber: created.invoiceNumber };
+  }
+
+  /** The goods issued out of transit must be this order's goods in transit. */
+  private async assertTransitHolds(
+    tx: Prisma.TransactionClient,
+    storeOrderId: string,
+    stock: ResolvedStockLine[],
+  ) {
+    const held = await this.stock.orderTransitBalance(tx, storeOrderId);
+    const needed = new Map<string, number>();
+    for (const line of stock) {
+      needed.set(
+        line.productId,
+        (needed.get(line.productId) ?? 0) + line.quantity,
+      );
+    }
+    for (const [productId, quantity] of needed) {
+      const balance = held.get(productId) ?? 0;
+      if (balance < quantity) {
+        const product = await tx.product.findUnique({
+          where: { id: productId },
+          select: { sku: true },
+        });
+        throw new BadRequestException({
+          code: 'INVENTORY_AVAILABLE_INSUFFICIENT',
+          message: `Delivery of ${quantity} × ${product?.sku ?? productId} exceeds what this order holds in transit (${balance}).`,
+        });
+      }
+    }
+  }
+
+  /** The invoice lines of a target (accepted quantities and their prorated amounts). */
+  private plan(
+    order: RecognitionOrder,
+    target: RecognitionTarget,
+  ): PlannedLine[] {
+    if (target.kind === 'WHOLE_ORDER') {
+      return order.items.map((item) => ({
+        item,
+        quantity: item.quantity,
+        amount: storeOrderLineAmount(item),
+      }));
+    }
+    const shipment = order.shipments.find((s) => s.id === target.shipmentId)!;
+    const earlier = order.shipments.filter(
+      (s) => s.attemptNumber < shipment.attemptNumber,
+    );
+    // Non-stock lines (services, digital) travel with the first invoice.
+    const first = order.invoices.length === 0;
+    const planned: PlannedLine[] = [];
+    for (const item of order.items) {
+      if (!isStockAffecting(item.product)) {
+        if (first) {
+          planned.push({
+            item,
+            quantity: item.quantity,
+            amount: storeOrderLineAmount(item),
+          });
+        }
+        continue;
+      }
+      const accepted =
+        shipment.lines.find((line) => line.storeOrderItemId === item.id)
+          ?.deliveredQuantity ?? 0;
+      if (accepted <= 0) continue;
+      const before = earlier
+        .flatMap((s) => s.lines)
+        .filter((line) => line.storeOrderItemId === item.id)
+        .reduce((sum, line) => sum + line.deliveredQuantity, 0);
+      planned.push({
+        item,
+        quantity: accepted,
+        amount: proratedLineAmount(
+          storeOrderLineAmount(item),
+          item.quantity,
+          before,
+          accepted,
+        ),
+      });
+    }
+    return planned;
   }
 
   private async onExisting(
@@ -513,7 +700,7 @@ export class FulfillmentRecognitionService {
     if (manual) throw this.duplicate(order, invoice);
     if (
       order.recognitionStatus !== StoreOrderRecognitionStatus.RECOGNIZED &&
-      order.recognitionStatus !== StoreOrderRecognitionStatus.RETURN_PENDING
+      !RETURN_STATUSES.has(order.recognitionStatus)
     ) {
       await this.prisma.storeOrder.update({
         where: { id: order.id },
@@ -523,7 +710,7 @@ export class FulfillmentRecognitionService {
         },
       });
     }
-    return invoice;
+    return { id: invoice.id, invoiceNumber: invoice.invoiceNumber };
   }
 
   private duplicate(
@@ -537,195 +724,43 @@ export class FulfillmentRecognitionService {
     });
   }
 
-  // ── Reservation ─────────────────────────────────────────────────────────
-
   /**
-   * Holds the order's stock lines when the goods leave (shipped / pickup
-   * ready), so the shipped → delivered interval cannot be oversold. Idempotent:
-   * an order that already holds a reservation (or is recognised) is skipped
-   * under the row lock; a re-shipment after a released attempt reserves again
-   * under a new key cycle. Failures are recorded, never thrown.
+   * The parcel came back after delivery (a return code on a delivered
+   * parcel, pickup RETURNED, an archived delivered order): flagged
+   * RETURN_PENDING — the sales return is raised and received by the user
+   * (D15-10). Before delivery nothing is flagged: the goods are in transit.
+   * A return code on a parcel concerns that parcel only (M1): flagged when
+   * the parcel itself was delivered and invoiced (its own invoice, or the
+   * whole-order invoice of a pre-R15 delivery); an undelivered parcel's goods
+   * stay RETURNING in transit until received back.
    */
-  async reserve(storeOrderId: string, userId?: string) {
+  private async flagReturnPending(
+    storeOrderId: string,
+    userId?: string,
+    shipmentId?: string,
+  ) {
     const order = await this.loadOrder(this.prisma, storeOrderId);
-    if (!order || order.agentId || order.deletedAt) return;
-    if (this.isRecognized(order.recognitionStatus)) return;
-    if (await this.liveInvoice(this.prisma, order.id)) return;
-
-    let warehouseIds: string[];
-    try {
-      warehouseIds = await resolveStoreOrderLineWarehouses(
-        this.prisma,
-        order.items,
-      );
-    } catch {
-      await this.recordFailure(
-        order.id,
-        'RESERVATION',
-        [recognitionIssue.missingWarehouse(order.items[0]?.product.sku)],
-        userId,
-      );
-      return;
-    }
-    try {
-      const reserved = await this.prisma.$transaction(async (tx) => {
-        await lockStoreOrderRow(tx, order.id);
-        const head = await tx.storeOrder.findUniqueOrThrow({
-          where: { id: order.id },
-          select: { recognitionStatus: true },
-        });
-        if (this.isRecognized(head.recognitionStatus)) return null;
-        if (await this.liveInvoice(tx, order.id)) return null;
-        const held = await reservedUnderReference(
-          tx,
-          STORE_ORDER_RESERVATION_REFERENCE,
-          order.id,
-        );
-        if (held.size > 0) return [];
-        const resolved = await resolveAndLockStockLines(
-          tx,
-          this.stockLines,
-          order.items.map((item, index) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            warehouseId: warehouseIds[index],
-            lineKey: item.id,
-          })),
-        );
-        // Earlier reservation cycles (released after a failed attempt) used
-        // their keys; a new cycle gets its own suffix.
-        const cycle = await tx.inventoryMovement.count({
-          where: {
-            referenceType: STORE_ORDER_RESERVATION_REFERENCE,
-            referenceId: order.id,
-            type: InventoryMovementType.RESERVATION,
-          },
-        });
-        for (const line of resolved.stock) {
-          const key = stockLineMovementKey(
-            STORE_ORDER_RESERVATION_REFERENCE,
-            order.id,
-            line,
-            InventoryMovementType.RESERVATION,
-          );
-          await this.inventoryService.reserve(
-            {
-              productId: line.productId,
-              warehouseId: line.warehouseId,
-              quantity: line.quantity,
-              referenceType: STORE_ORDER_RESERVATION_REFERENCE,
-              referenceId: order.id,
-              notes: `Store Order ${order.internalOrderId} shipped — held until delivery`,
-              idempotencyKey: cycle === 0 ? key : `${key}:${cycle}`,
-              ...stockLineTrace(line),
-            },
-            userId,
-            tx,
-          );
-        }
-        await tx.storeOrder.update({
-          where: { id: order.id },
-          data: {
-            ...(resolved.stock.length > 0
-              ? { recognitionStatus: StoreOrderRecognitionStatus.RESERVED }
-              : {}),
-            recognitionError: Prisma.DbNull,
-            recognitionAttemptedAt: new Date(),
-          },
-        });
-        return resolved.stock;
-      }, TX_OPTIONS);
-      if (reserved && reserved.length > 0) {
-        await this.activityService.log(
-          order.id,
-          RecognitionActivity.RESERVED,
-          `Stock reserved until delivery: ${await this.describeLines(reserved)}`,
-          userId,
-        );
-      }
-    } catch (error) {
-      await this.recordFailure(
-        order.id,
-        'RESERVATION',
-        [classifyRecognitionError(error)],
-        userId,
-      );
-    }
-  }
-
-  /**
-   * The parcel did not (or no longer) reach the customer: before recognition
-   * the reservation is released; after it the order is flagged RETURN_PENDING
-   * (the user posts the sales return against the invoice — D3-3).
-   */
-  async unwind(storeOrderId: string, userId?: string) {
-    const order = await this.prisma.storeOrder.findUnique({
-      where: { id: storeOrderId },
-      select: { id: true, agentId: true, recognitionStatus: true },
-    });
-    if (!order || order.agentId) return;
     if (
-      order.recognitionStatus === StoreOrderRecognitionStatus.RETURN_PENDING
+      !order ||
+      order.agentId ||
+      RETURN_STATUSES.has(order.recognitionStatus)
     ) {
       return;
     }
-    const invoice = await this.liveInvoice(this.prisma, order.id);
-    if (invoice) {
-      await this.prisma.storeOrder.update({
-        where: { id: order.id },
-        data: { recognitionStatus: StoreOrderRecognitionStatus.RETURN_PENDING },
-      });
-      await this.activityService.log(
-        order.id,
-        RecognitionActivity.RETURN_PENDING,
-        `مرتجع بعد التسليم — سجّل مرتجع مبيعات على الفاتورة ${invoice.invoiceNumber} بعد فحص البضاعة — Returned after delivery: post a sales return against ${invoice.invoiceNumber} once the goods are inspected.`,
-        userId,
-      );
-      return;
-    }
-    try {
-      const released = await this.prisma.$transaction(async (tx) => {
-        await lockStoreOrderRow(tx, order.id);
-        const before = await reservedUnderReference(
-          tx,
-          STORE_ORDER_RESERVATION_REFERENCE,
-          order.id,
-        );
-        if (before.size === 0) return 0;
-        await releaseAllReserved(
-          tx,
-          this.inventoryService,
-          {
-            referenceType: STORE_ORDER_RESERVATION_REFERENCE,
-            referenceId: order.id,
-          },
-          userId,
-        );
-        await tx.storeOrder.update({
-          where: { id: order.id },
-          data: {
-            recognitionStatus: StoreOrderRecognitionStatus.NOT_DUE,
-            recognitionAttemptedAt: new Date(),
-          },
-        });
-        return before.size;
-      }, TX_OPTIONS);
-      if (released > 0) {
-        await this.activityService.log(
-          order.id,
-          RecognitionActivity.RELEASED,
-          'Stock reservation released — the order was not delivered',
-          userId,
-        );
-      }
-    } catch (error) {
-      await this.recordFailure(
-        order.id,
-        'RESERVATION',
-        [classifyRecognitionError(error)],
-        userId,
-      );
-    }
+    const invoice = shipmentId
+      ? returnedParcelInvoice(order, shipmentId)
+      : order.invoices.at(-1);
+    if (!invoice) return;
+    await this.prisma.storeOrder.update({
+      where: { id: order.id },
+      data: { recognitionStatus: StoreOrderRecognitionStatus.RETURN_PENDING },
+    });
+    await this.activityService.log(
+      order.id,
+      RecognitionActivity.RETURN_PENDING,
+      `مرتجع بعد التسليم — سجّل مرتجع مبيعات على الفاتورة ${invoice.invoiceNumber} بعد فحص البضاعة — Returned after delivery: post a sales return against ${invoice.invoiceNumber} once the goods are inspected.`,
+      userId,
+    );
   }
 
   // ── Preflight (also the repair dry run) ─────────────────────────────────
@@ -737,18 +772,33 @@ export class FulfillmentRecognitionService {
     });
   }
 
+  /** Every invoice still due for the order (oldest attempt first). */
+  targetsOf(order: RecognitionOrder): RecognitionTarget[] {
+    return recognitionTargets(order);
+  }
+
   /**
-   * Every blocker the recognition would hit, with an actionable message —
-   * checked before the transaction so the common configuration gaps are
-   * reported precisely (and the repair dry run can list them).
+   * Every blocker the recognition of one target would hit, with an
+   * actionable message — checked before the transaction so the common
+   * configuration gaps are reported precisely (and the repair dry run can
+   * list them).
    */
   async preflight(
     order: RecognitionOrder,
+    target: RecognitionTarget,
     client: Client = this.prisma,
   ): Promise<RecognitionPreflight> {
     const issues: RecognitionIssue[] = [];
-    if (order.items.length === 0) issues.push(recognitionIssue.emptyOrder());
-    for (const item of order.items) {
+    const plan = this.plan(order, target);
+    if (plan.length === 0) issues.push(recognitionIssue.emptyOrder());
+    if (target.kind === 'WHOLE_ORDER') {
+      // Issued whole from the warehouse — never while part of the order is
+      // still with the carrier (it would stay stranded in transit, H2).
+      const inTransit = await this.stock.goodsInTransit(client, order.id);
+      if (inTransit > 0)
+        issues.push(recognitionIssue.goodsInTransit(inTransit));
+    }
+    for (const { item } of plan) {
       const product = item.product;
       if (product.ownerAgentId) {
         issues.push(recognitionIssue.agentOwned(product.sku, product.id));
@@ -758,71 +808,105 @@ export class FulfillmentRecognitionService {
       }
     }
 
-    const lines = await this.invoiceLines(client, order);
+    const lines = await this.invoiceLines(client, plan);
     const result: RecognitionPreflight = {
+      target,
       issues,
-      warehouseIds: null,
+      warehouseByItem: null,
       stock: [],
       invoiceTotal: lines.totals.grandTotal,
       estimatedCogs: '0.00',
     };
 
     try {
-      result.warehouseIds = await resolveStoreOrderLineWarehouses(
+      const ids = await resolveStoreOrderLineWarehouses(
         client,
-        order.items,
+        plan.map((line) => line.item),
+      );
+      result.warehouseByItem = new Map(
+        plan.map((line, index) => [line.item.id, ids[index]]),
       );
     } catch {
-      const missing = order.items.find(
-        (item) => !item.product.preferredWarehouseId,
+      const missing = plan.find(
+        (line) => !line.item.product.preferredWarehouseId,
       );
       issues.push(
         recognitionIssue.missingWarehouse(
-          missing?.product.sku,
-          missing?.product.id,
+          missing?.item.product.sku,
+          missing?.item.product.id,
         ),
       );
       return result;
     }
+    const warehouseByItem = result.warehouseByItem;
+    const transitId =
+      target.kind === 'SHIPMENT'
+        ? await this.stock.transitWarehouseId(client).catch(() => null)
+        : null;
+    if (target.kind === 'SHIPMENT' && !transitId) {
+      issues.push(recognitionIssue.missingWarehouse());
+      return result;
+    }
     const warehouses = await client.warehouse.findMany({
-      where: { id: { in: [...new Set(result.warehouseIds)] } },
+      where: {
+        id: {
+          in: [
+            ...new Set([
+              ...warehouseByItem.values(),
+              ...(transitId ? [transitId] : []),
+            ]),
+          ],
+        },
+      },
       select: { id: true, code: true, isActive: true, deletedAt: true },
     });
     const warehouseById = new Map(warehouses.map((w) => [w.id, w]));
-    order.items.forEach((item, index) => {
-      const warehouse = warehouseById.get(result.warehouseIds![index]);
+    for (const { item } of plan) {
+      const warehouse = warehouseById.get(warehouseByItem.get(item.id)!);
       if (
-        (item.product.isInventoryItem || item.product.supplyMethod === 'KIT') &&
+        isStockAffecting(item.product) &&
         (!warehouse || !warehouse.isActive || warehouse.deletedAt)
       ) {
         issues.push(
           recognitionIssue.missingWarehouse(item.product.sku, item.product.id),
         );
       }
-    });
+    }
 
     let stock: ResolvedStockLine[] = [];
+    const stockPlan = plan.filter((line) =>
+      isStockAffecting(line.item.product),
+    );
     try {
       stock = (
-        await this.stockLines.resolve(
-          client,
-          order.items.map((item, index) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            warehouseId: result.warehouseIds![index],
-            lineKey: item.id,
-          })),
-        )
+        transitId
+          ? await this.stock.shipmentStockLines(
+              client,
+              order.id,
+              target.shipmentId!,
+              stockPlan.map((line) => ({
+                storeOrderItemId: line.item.id,
+                quantity: line.quantity,
+                lineKey: line.item.id,
+              })),
+            )
+          : await this.stockLines.resolve(
+              client,
+              stockPlan.map((line) => ({
+                productId: line.item.productId,
+                quantity: line.quantity,
+                warehouseId: warehouseByItem.get(line.item.id)!,
+                lineKey: line.item.id,
+              })),
+            )
       ).stock;
     } catch (error) {
-      const kit = order.items.find(
-        (item) => item.product.supplyMethod === 'KIT',
-      );
+      const kit = plan.find((line) => line.item.product.supplyMethod === 'KIT');
       issues.push(
         recognitionIssue.kitRecipe(
           errorText(error).message,
-          kit?.product.sku,
-          kit?.product.id,
+          kit?.item.product.sku,
+          kit?.item.product.id,
         ),
       );
     }
@@ -856,72 +940,28 @@ export class FulfillmentRecognitionService {
         })
       : [];
     const productById = new Map(products.map((p) => [p.id, p]));
-    const [onHandRows, reservedRows, ownRows] = productIds.length
-      ? await Promise.all([
-          client.inventoryMovement.groupBy({
-            by: ['productId', 'warehouseId'],
-            where: {
-              productId: { in: productIds },
-              type: {
-                notIn: [
-                  InventoryMovementType.RESERVATION,
-                  InventoryMovementType.RESERVATION_RELEASE,
-                ],
-              },
-            },
-            _sum: { quantity: true },
-          }),
-          client.inventoryMovement.groupBy({
-            by: ['productId', 'warehouseId'],
-            where: {
-              productId: { in: productIds },
-              type: {
-                in: [
-                  InventoryMovementType.RESERVATION,
-                  InventoryMovementType.RESERVATION_RELEASE,
-                ],
-              },
-            },
-            _sum: { quantity: true },
-          }),
-          client.inventoryMovement.groupBy({
-            by: ['productId', 'warehouseId'],
-            where: {
-              productId: { in: productIds },
-              referenceType: STORE_ORDER_RESERVATION_REFERENCE,
-              referenceId: order.id,
-              type: {
-                in: [
-                  InventoryMovementType.RESERVATION,
-                  InventoryMovementType.RESERVATION_RELEASE,
-                ],
-              },
-            },
-            _sum: { quantity: true },
-          }),
-        ])
-      : [[], [], []];
-    const sumOf = (
-      rows: {
-        productId: string;
-        warehouseId: string;
-        _sum: { quantity: number | null };
-      }[],
-      productId: string,
-      warehouseId: string,
-    ) =>
-      rows.find(
-        (row) => row.productId === productId && row.warehouseId === warehouseId,
-      )?._sum.quantity ?? 0;
+    const held = transitId
+      ? await this.transitHeldByOrder(client, order.id)
+      : null;
+    const ownReserved = transitId
+      ? null
+      : await this.ownReservedByProduct(client, order.id);
 
     let cogs = new Prisma.Decimal(0);
     for (const need of needs.values()) {
       const product = productById.get(need.productId);
-      const onHand = sumOf(onHandRows, need.productId, need.warehouseId);
-      const reservedOthers =
-        sumOf(reservedRows, need.productId, need.warehouseId) -
-        Math.max(sumOf(ownRows, need.productId, need.warehouseId), 0);
-      const available = onHand - reservedOthers;
+      const stockAt = (
+        await readStockAvailability(client, [need.productId], need.warehouseId)
+      ).get(need.productId)!;
+      // Shipment: what this order holds in transit. Whole order: the
+      // warehouse's availability, this order's own reservation counted as its own.
+      const available = held
+        ? (held.get(need.productId) ?? 0)
+        : stockAt.available +
+          Math.max(
+            ownReserved?.get(`${need.productId}:${need.warehouseId}`) ?? 0,
+            0,
+          );
       const warehouse = warehouseById.get(need.warehouseId);
       result.stock.push({
         productId: need.productId,
@@ -929,7 +969,7 @@ export class FulfillmentRecognitionService {
         warehouseId: need.warehouseId,
         warehouseCode: warehouse?.code ?? null,
         required: need.required,
-        onHand,
+        onHand: stockAt.onHand,
         available,
         unitCost:
           product?.currentCost == null
@@ -938,17 +978,12 @@ export class FulfillmentRecognitionService {
       });
       if (
         product &&
-        (product.status !== ProductStatus.ACTIVE || product.deletedAt)
+        (product.status !== ProductStatus.ACTIVE || product.deletedAt) &&
+        !issues.some(
+          (i) => i.code === 'INACTIVE_PRODUCT' && i.productId === product.id,
+        )
       ) {
-        if (
-          !issues.some(
-            (i) => i.code === 'INACTIVE_PRODUCT' && i.productId === product.id,
-          )
-        ) {
-          issues.push(
-            recognitionIssue.inactiveProduct(product.sku, product.id),
-          );
-        }
+        issues.push(recognitionIssue.inactiveProduct(product.sku, product.id));
       }
       if (product?.currentCost == null) {
         issues.push(recognitionIssue.missingCost(product?.sku, need.productId));
@@ -981,17 +1016,17 @@ export class FulfillmentRecognitionService {
       });
       await this.accountMapping.assertSalesInvoiceMappings({
         partnerId: order.partnerId,
-        items: order.items.map((item, index) => ({
-          categoryId: item.product.categoryId,
-          isInventoryItem: item.product.isInventoryItem,
-          sku: item.product.sku,
-          currentCost: item.product.currentCost ?? 0,
-          taxId: item.product.taxId,
+        items: plan.map((line, index) => ({
+          categoryId: line.item.product.categoryId,
+          isInventoryItem: line.item.product.isInventoryItem,
+          sku: line.item.product.sku,
+          currentCost: line.item.product.currentCost ?? 0,
+          taxId: line.item.product.taxId,
           taxAmount: lines.computed[index].taxAmount,
         })),
         includeFulfillment: Boolean(fulfillmentRule),
       });
-      for (const item of order.items) {
+      for (const { item } of plan) {
         if (item.product.supplyMethod === 'KIT') {
           await this.accountMapping.resolveCogsAccount(item.product.categoryId);
         }
@@ -1007,20 +1042,20 @@ export class FulfillmentRecognitionService {
     return result;
   }
 
-  /** The invoice lines / totals of an order — the same computation the invoice is created with. */
-  private async invoiceLines(client: Client, order: RecognitionOrder) {
+  /** Invoice lines / totals of a plan — the same computation the invoice is created with. */
+  private async invoiceLines(client: Client, plan: PlannedLine[]) {
     const taxById = await resolveTaxesById(
       client,
-      order.items.map((item) => item.product.taxId),
+      plan.map((line) => line.item.product.taxId),
     );
-    const computed = order.items.map((item) => {
-      const tax = item.product.taxId
-        ? taxById.get(item.product.taxId)
+    const computed = plan.map((line) => {
+      const tax = line.item.product.taxId
+        ? taxById.get(line.item.product.taxId)
         : undefined;
       return computeSalesLine({
-        quantity: item.quantity,
-        unitPrice: Number(item.unitPrice),
-        agreedAmount: storeOrderLineAmount(item),
+        quantity: line.quantity,
+        unitPrice: Number(line.item.unitPrice),
+        agreedAmount: line.amount,
         taxRatePercent: tax?.rate,
         taxInclusive: tax?.inclusive,
       });
@@ -1028,14 +1063,46 @@ export class FulfillmentRecognitionService {
     return { computed, totals: computeSalesDocumentTotals(computed) };
   }
 
+  /** This order's goods in transit per product (read-only preflight). */
+  private async transitHeldByOrder(client: Client, storeOrderId: string) {
+    return client === this.prisma
+      ? this.prisma.$transaction((tx) =>
+          this.stock.orderTransitBalance(tx, storeOrderId),
+        )
+      : this.stock.orderTransitBalance(client, storeOrderId);
+  }
+
+  /** What the order itself holds reserved, per `product:warehouse`. */
+  private async ownReservedByProduct(client: Client, storeOrderId: string) {
+    const rows = await client.inventoryMovement.groupBy({
+      by: ['productId', 'warehouseId'],
+      where: {
+        referenceType: STORE_ORDER_REFERENCE,
+        referenceId: storeOrderId,
+        type: { in: ['RESERVATION', 'RESERVATION_RELEASE'] },
+      },
+      _sum: { quantity: true },
+    });
+    return new Map(
+      rows.map((row) => [
+        `${row.productId}:${row.warehouseId}`,
+        row._sum.quantity ?? 0,
+      ]),
+    );
+  }
+
   // ── Helpers ─────────────────────────────────────────────────────────────
 
-  liveInvoice(client: Client, storeOrderId: string) {
-    // A cancelled (never posted) invoice — e.g. cancelled by an order
-    // amendment — does not block issuing the corrected one.
+  /** The live invoice of a target: the shipment's own, or the order's whole-order (null shipment) one. */
+  private targetInvoice(
+    client: Client,
+    storeOrderId: string,
+    target: RecognitionTarget,
+  ) {
     return client.salesInvoice.findFirst({
       where: {
         storeOrderId,
+        shipmentId: target.shipmentId,
         deletedAt: null,
         status: { not: SalesDocumentStatus.CANCELLED },
       },
@@ -1043,57 +1110,48 @@ export class FulfillmentRecognitionService {
     });
   }
 
-  private isRecognized(status: StoreOrderRecognitionStatus) {
-    return (
-      status === StoreOrderRecognitionStatus.RECOGNIZED ||
-      status === StoreOrderRecognitionStatus.RETURN_PENDING
-    );
-  }
-
   /**
-   * Records a failed attempt on the order + its timeline. A reservation
-   * failure keeps the status (the order is not due yet) but shows the error;
-   * a recognition failure sets FAILED.
+   * Records a failed attempt on the order + its timeline: FAILED with the
+   * reason (never over a return-after-delivery status), unless the target
+   * was recognised meanwhile (a late, losing attempt).
    */
   private async recordFailure(
     storeOrderId: string,
-    stage: RecognitionStage,
+    target: RecognitionTarget,
     issues: RecognitionIssue[],
     userId?: string,
   ) {
     const [first] = issues;
     const record: RecognitionErrorRecord = {
       ...first,
-      stage,
+      stage: 'RECOGNITION',
       issues,
       at: new Date().toISOString(),
     };
     try {
-      // Never overwrites a recognised order (a late, losing attempt).
-      const updated = await this.prisma.storeOrder.updateMany({
-        where: {
-          id: storeOrderId,
-          recognitionStatus: {
-            notIn: [
-              StoreOrderRecognitionStatus.RECOGNIZED,
-              StoreOrderRecognitionStatus.RETURN_PENDING,
-            ],
+      const recorded = await this.prisma.$transaction(async (tx) => {
+        await lockStoreOrderRow(tx, storeOrderId);
+        if (await this.targetInvoice(tx, storeOrderId, target)) return false;
+        const head = await tx.storeOrder.findUniqueOrThrow({
+          where: { id: storeOrderId },
+          select: { recognitionStatus: true },
+        });
+        await tx.storeOrder.update({
+          where: { id: storeOrderId },
+          data: {
+            ...(RETURN_STATUSES.has(head.recognitionStatus)
+              ? {}
+              : { recognitionStatus: StoreOrderRecognitionStatus.FAILED }),
+            recognitionError: record as unknown as Prisma.InputJsonValue,
+            recognitionAttemptedAt: new Date(),
           },
-        },
-        data: {
-          ...(stage === 'RECOGNITION'
-            ? { recognitionStatus: StoreOrderRecognitionStatus.FAILED }
-            : {}),
-          recognitionError: record as unknown as Prisma.InputJsonValue,
-          recognitionAttemptedAt: new Date(),
-        },
+        });
+        return true;
       });
-      if (updated.count === 0) return;
+      if (!recorded) return;
       await this.activityService.log(
         storeOrderId,
-        stage === 'RECOGNITION'
-          ? RecognitionActivity.FAILED
-          : RecognitionActivity.RESERVATION_FAILED,
+        RecognitionActivity.FAILED,
         issues
           .map((i) => `[${i.code}] ${i.messageAr} — ${i.messageEn}`)
           .join('\n'),
@@ -1101,22 +1159,26 @@ export class FulfillmentRecognitionService {
       );
     } catch (error) {
       this.logger.error(
-        `Could not record the ${stage} failure of store order ${storeOrderId}: ${errorText(error).message}`,
+        `Could not record the recognition failure of store order ${storeOrderId}: ${errorText(error).message}`,
       );
     }
   }
+}
 
-  private async describeLines(lines: ResolvedStockLine[]) {
-    const products = await this.prisma.product.findMany({
-      where: { id: { in: [...new Set(lines.map((l) => l.productId))] } },
-      select: { id: true, sku: true },
-    });
-    const sku = new Map(products.map((p) => [p.id, p.sku]));
-    return lines
-      .map(
-        (line) =>
-          `${sku.get(line.productId) ?? line.productId} × ${line.quantity}`,
-      )
-      .join(', ');
-  }
+function sameTarget(a: RecognitionTarget, b: RecognitionTarget) {
+  return a.kind === b.kind && a.shipmentId === b.shipmentId;
+}
+
+/** The invoice a parcel that came back was delivered under — none when it never was. */
+function returnedParcelInvoice(order: RecognitionOrder, shipmentId: string) {
+  const own = order.invoices.find(
+    (invoice) => invoice.shipmentId === shipmentId,
+  );
+  if (own) return own;
+  const delivered =
+    order.shipments.find((shipment) => shipment.id === shipmentId)?.status ===
+    'DELIVERED';
+  return delivered
+    ? order.invoices.find((invoice) => invoice.shipmentId === null)
+    : undefined;
 }

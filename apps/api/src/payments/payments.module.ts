@@ -15,6 +15,7 @@ import { PaymentsBulkService } from './payments-bulk.service';
 import { NumberingModule } from '../numbering/numbering.module';
 import { FxModule } from '../accounting/fx/fx.module';
 import { AgentLedgerModule } from '../agents/finance/agent-ledger.module';
+import { FinancialTransactionsModule } from '../financial-transactions/financial-transactions.module';
 
 @Module({
   imports: [
@@ -23,6 +24,8 @@ import { AgentLedgerModule } from '../agents/finance/agent-ledger.module';
     StoreOrderCollectionModule,
     FxModule,
     AgentLedgerModule,
+    // R15 (D15-12) — payment reversal cancels the receipt through the shared cancel path.
+    FinancialTransactionsModule,
   ],
   controllers: [
     PaymentsController,

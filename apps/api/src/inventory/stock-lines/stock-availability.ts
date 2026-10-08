@@ -1,4 +1,4 @@
-import { InventoryMovementType, Prisma } from '@prisma/client';
+import { InventoryMovementType, Prisma, WarehouseRole } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
 
 type Client = Prisma.TransactionClient | PrismaService;
@@ -17,9 +17,11 @@ export interface StockAvailability {
 
 /**
  * On-hand / reserved / available of several products in one warehouse (or across
- * every warehouse when none is given) — two grouped reads, never a query per
- * product. Read-only: the locked stock writers remain the real guard; this only
- * lets the assembly / kit logic explain a shortage before moving anything.
+ * every sellable — STOCK-role — warehouse when none is given; R15: goods in
+ * transit and damaged goods are never available to sell) — two grouped reads,
+ * never a query per product. Read-only: the locked stock writers remain the
+ * real guard; this only lets the assembly / kit / order-entry logic explain a
+ * shortage before moving anything.
  */
 export async function readStockAvailability(
   client: Client,
@@ -32,12 +34,15 @@ export async function readStockAvailability(
   );
   if (ids.length === 0) return result;
 
+  const place: Prisma.InventoryMovementWhereInput = warehouseId
+    ? { warehouseId }
+    : { warehouse: { role: WarehouseRole.STOCK } };
   const [onHandRows, reservedRows] = await Promise.all([
     client.inventoryMovement.groupBy({
       by: ['productId'],
       where: {
         productId: { in: ids },
-        warehouseId,
+        ...place,
         type: { notIn: RESERVATION_TYPES },
       },
       _sum: { quantity: true },
@@ -46,7 +51,7 @@ export async function readStockAvailability(
       by: ['productId'],
       where: {
         productId: { in: ids },
-        warehouseId,
+        ...place,
         type: { in: RESERVATION_TYPES },
       },
       _sum: { quantity: true },
