@@ -1,0 +1,1623 @@
+{
+  "tag": "R15J829140",
+  "api": "http://localhost:4505",
+  "db": "oms_r15_e2e",
+  "startedAt": "2026-10-08T09:30:29.140Z",
+  "today": "2026-10-08",
+  "currency": "SAR",
+  "agent": {
+    "number": "AG-0353",
+    "shippingAgreement": "ASA-2026-0001"
+  },
+  "j4DuplicateCompany": {
+    "kind": "PHONE",
+    "crossScope": true
+  },
+  "j5Agreement": "ASA-2026-0013",
+  "j7Product": "PRD-2026-001835",
+  "partnerLogin": "r15-partner-r15j829140@oms.local",
+  "agentResponsesScanned": 75,
+  "networkRetries": ["POST /auth/login ECONNRESET"],
+  "finishedAt": "2026-10-08T09:31:38.942Z",
+  "summary": {
+    "pass": 248,
+    "fail": 0,
+    "bySection": {
+      "S": {
+        "pass": 6,
+        "fail": 0
+      },
+      "J4": {
+        "pass": 15,
+        "fail": 0
+      },
+      "J1": {
+        "pass": 13,
+        "fail": 0
+      },
+      "J2": {
+        "pass": 24,
+        "fail": 0
+      },
+      "J3": {
+        "pass": 15,
+        "fail": 0
+      },
+      "J5": {
+        "pass": 32,
+        "fail": 0
+      },
+      "J7": {
+        "pass": 42,
+        "fail": 0
+      },
+      "J8": {
+        "pass": 22,
+        "fail": 0
+      },
+      "J9": {
+        "pass": 23,
+        "fail": 0
+      },
+      "J10": {
+        "pass": 9,
+        "fail": 0
+      },
+      "J6": {
+        "pass": 28,
+        "fail": 0
+      },
+      "J11": {
+        "pass": 19,
+        "fail": 0
+      }
+    }
+  },
+  "defects": [],
+  "results": [
+    {
+      "section": "S",
+      "name": "sales team r15-manager → r15-sales exists (previous run)",
+      "ok": true,
+      "detail": "0fe25bd6-aceb-43a0-95cb-0de441e58647"
+    },
+    {
+      "section": "S",
+      "name": "a company service product exists",
+      "ok": true,
+      "detail": "AGT-S-0293F2"
+    },
+    {
+      "section": "S",
+      "name": "R15 Carrier carries the reconciled COD method",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "S",
+      "name": "r15-agent-admin holds the ADMIN preset incl. view_team / leads.import / orders.import / records.assign",
+      "ok": true,
+      "detail": "[\"agent.dashboard.view\",\"agent.leads.view\",\"agent.leads.create\",\"agent.leads.convert\",\"agent.orders.view\",\"agent.orders.create\",\"agent.payments.declare\",\"agent.records.view_all\",\"agent.stock.view\",\"agent.statement.view\",\"agent.payouts.view\",\"agent.team.view\",\"agent.orders.edit\",\"agent.records.assign\",\"agent.orders.import\",\"agent.reports.view_team\",\"agent.leads.import\"]"
+    },
+    {
+      "section": "S",
+      "name": "r15-agent-sales holds the SALES preset + agent.orders.import + agent.leads.import, not view_team / records.assign",
+      "ok": true,
+      "detail": "[\"agent.dashboard.view\",\"agent.leads.view\",\"agent.leads.create\",\"agent.leads.convert\",\"agent.orders.view\",\"agent.orders.create\",\"agent.payments.declare\",\"agent.orders.edit\",\"agent.orders.import\",\"agent.leads.import\"]"
+    },
+    {
+      "section": "S",
+      "name": "agent tokens carry typ agent",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J4",
+      "name": "agent sales catalog lists the agent's product and no company product",
+      "ok": true,
+      "detail": "200 n=2"
+    },
+    {
+      "section": "J4",
+      "name": "agent quote with a COMPANY product → PRODUCT_NOT_AVAILABLE (refused)",
+      "ok": true,
+      "detail": "200 {\"valid\":false,\"issues\":[{\"code\":\"PRODUCT_NOT_AVAILABLE\",\"message\":\"المنتج غير متاح للبيع — The product is not available for sale.\",\"lineKey\":\"0\"}],\"agent\":{\"id\":\"5f210751-78f2-4037-8fd3-70534d77e262\",\"name\":\"R15 Acceptance Agent\",\"agentNumber\":\"AG-0353\"},\"agr"
+    },
+    {
+      "section": "J4",
+      "name": "agent create with a COMPANY product → refused (4xx, PRODUCT_NOT_AVAILABLE), no order",
+      "ok": true,
+      "detail": "422 {\"code\":\"PRODUCT_NOT_AVAILABLE\",\"message\":\"المنتج غير متاح للبيع — The product is not available for sale.\",\"issues\":[{\"code\":\"PRODUCT_NOT_AVAILABLE\",\"message\":\"المنتج غير متاح للبيع — The product is not available for sale.\",\"lineKey\":\"0\"}]}"
+    },
+    {
+      "section": "J4",
+      "name": "agent duplicate-check on a new phone → NONE",
+      "ok": true,
+      "detail": "200 {\"kind\":\"NONE\"}"
+    },
+    {
+      "section": "J4",
+      "name": "agent quote (agent product, COD, Riyadh) → 200 with a shipping charge from the shipping agreement",
+      "ok": true,
+      "detail": "200 {\"valid\":true,\"issues\":[],\"agent\":{\"id\":\"5f210751-78f2-4037-8fd3-70534d77e262\",\"name\":\"R15 Acceptance Agent\",\"agentNumber\":\"AG-0353\"},\"agreement\":{\"id\":\"c7b50c00-b45a-4b22-aa84-988d41732941\",\"agreementNumber\":\"AGR-2026-0399\",\"currencyId\":\"a02266c9-3c6b-4da0-a7"
+    },
+    {
+      "section": "J4",
+      "name": "agent sales creates an agent order (own catalog) → 201",
+      "ok": true,
+      "detail": "201 {\"id\":\"c36c0ae4-d169-443d-a817-e15202901bff\",\"internalOrderId\":\"STO-2026-027387\",\"version\":0,\"orderDate\":\"2026-10-08T09:30:38.302Z\",\"createdAt\":\"2026-10-08T09:30:38.302Z\",\"owner\":{\"id\":\"6280d9eb-594e-4024-a89f-80c076e1feef\",\"fullName\":\"R15 Acceptance Agent sal"
+    },
+    {
+      "section": "J4",
+      "name": "agent order: agent from the token, owner = the agent sales user",
+      "ok": true,
+      "detail": "{\"agent\":true,\"owner\":true}"
+    },
+    {
+      "section": "J4",
+      "name": "snapshot carries the shipping agreement number (D15-13)",
+      "ok": true,
+      "detail": "{\"city\":\"Riyadh\",\"amount\":60,\"rateId\":\"263c828b-a8d6-4db0-a73f-cf5fdc135041\",\"source\":\"RATE\",\"service\":\"COD_CARRIER\",\"byChannel\":{\"CARRIER\":{\"amount\":60,\"rateId\":\"263c828b-a8d6-4db0-a73f-cf5fdc135041\",\"service\":\"COD_CARRIER\"},\"INTERNAL_COURIER\":{\"amount\":40,\"rateId\":\"86247a82-1f54-4387-ae45-1f19d822"
+    },
+    {
+      "section": "J4",
+      "name": "agent admin creates an agent order → 201",
+      "ok": true,
+      "detail": "201 {\"id\":\"dbc00bb2-b794-44eb-96e0-cea6d35c210a\",\"internalOrderId\":\"STO-2026-027388\",\"version\":0,\"orderDate\":\"2026-10-08T09:30:40.217Z\",\"createdAt\":\"2026-10-08T09:30:40.217Z\",\"owner\":{\"id\":\"db2b9827-f113-442e-b763-32d70ef3a837\",\"fullName\":\"R15 Acceptance Agent adm"
+    },
+    {
+      "section": "J4",
+      "name": "agent duplicate-check with the same phone in Arabic digits / local form → PHONE (own agent's customer)",
+      "ok": true,
+      "detail": "200 {\"kind\":\"PHONE\",\"crossScope\":false,\"customer\":{\"id\":\"7ab7cd2f-41e1-4653-82e5-a9f7ee6d0547\",\"name\":\"R15J829140 agent customer\",\"phoneMasked\":\"+9665•••••659\"},\"orders\":[{\"id\":\"c36c0ae4-d169-443d-a817-e15202901bff\",\"orderNumber\":\"STO-2026-027387\",\"orderDate\":\"202"
+    },
+    {
+      "section": "J4",
+      "name": "company duplicate-check on the same phone (local form) → PHONE match (the shared R11 phone path)",
+      "ok": true,
+      "detail": "200 {\"kind\":\"PHONE\",\"crossScope\":true}"
+    },
+    {
+      "section": "J4",
+      "name": "company POST /store-orders with an AGENT product → refused 4xx",
+      "ok": true,
+      "detail": "422 {\"code\":\"AGENT_PRODUCT_IN_COMPANY_DOCUMENT\",\"message\":\"هذا المنتج مملوك لوكيل ويُباع فقط من خلال طلب وكيل — Product fe744f50-6147-46da-8caa-f40640afc2d3 is owned by an agent: it is sold only through an agent order and cannot appear on company leads, sales or p"
+    },
+    {
+      "section": "J4",
+      "name": "company order on the agent customer's phone without a decision → 409 DUPLICATE_ACKNOWLEDGEMENT_REQUIRED",
+      "ok": true,
+      "detail": "409 {\"code\":\"DUPLICATE_ACKNOWLEDGEMENT_REQUIRED\",\"message\":\"يوجد عميل مسجل بنفس البيانات — اختر فتح الطلب الحالي أو إنشاء طلب جديد لنفس العميل أو تعديل البيانات — A customer with these details already exists — open the existing order, create a new order for this c"
+    },
+    {
+      "section": "J4",
+      "name": "company order with the acknowledgement → 201, same customer record as the agent order (one phone = one customer)",
+      "ok": true,
+      "detail": "201 {\"id\":\"d19f5a55-dd90-47aa-9103-81298dfdf503\",\"internalOrderId\":\"STO-2026-027389\",\"externalOrderId\":null,\"partnerId\":\"7ab7cd2f-41e1-4653-82e5-a9f7ee6d0547\",\"leadId\":null,\"orderDate\":\"2026-10-08T09:30:40.948Z\",\"source\":\"MANUAL\",\"sourceChannel\":null,\"employeeId\":"
+    },
+    {
+      "section": "J4",
+      "name": "company order: owner = the company salesperson, no agent",
+      "ok": true,
+      "detail": "{\"employee_id\":\"65141748-efb3-4d07-b763-45578c834950\",\"agent_id\":null,\"source\":\"MANUAL\"}"
+    },
+    {
+      "section": "J1",
+      "name": "finance (agents.finance.view) /agents-overview → finance true, per-agent money present",
+      "ok": true,
+      "detail": "200 {\"finance\":true,\"totals\":{\"agents\":{\"total\":578,\"active\":512},\"orders\":{\"open\":1111,\"withReturns\":59},\"leads\":{\"total\":243,\"fresh\":92,\"converted\":151},\"collections\":{\"awaitingVerificationCount\":204}},\"items\":[{\"agent\":{\"id\":\"5f210751-78f2-4037-8fd3-70534d77e26"
+    },
+    {
+      "section": "J1",
+      "name": "agents.view only /agents-overview → finance false, money keys ABSENT (not zero), counts present",
+      "ok": true,
+      "detail": "{\"keys\":[\"agent\",\"fulfillment\",\"returnCount\",\"leads\"],\"totals\":[\"agents\",\"orders\",\"leads\"]}"
+    },
+    {
+      "section": "J1",
+      "name": "finance /agents/:id/overview → money present (sales, delivered, collections, position)",
+      "ok": true,
+      "detail": "200 keys=agent,finance,fulfillment,returnCount,leads,sales,delivered,returns,collections,position,payouts"
+    },
+    {
+      "section": "J1",
+      "name": "agents.view only /agents/:id/overview → stage counts present, money absent",
+      "ok": true,
+      "detail": "200 keys=agent,finance,fulfillment,returnCount,leads"
+    },
+    {
+      "section": "J1",
+      "name": "company overviews: order count includes the J4 agent orders (stage counts work without money)",
+      "ok": true,
+      "detail": "{\"total\":18,\"awaitingDispatch\":16,\"dispatched\":0,\"completed\":0,\"withReturns\":0,\"cancelled\":0}"
+    },
+    {
+      "section": "J1",
+      "name": "r15-sales (no agents.view) → /agents/:id/overview refused",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "section": "J1",
+      "name": "agent token on the company overview → refused",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "section": "J1",
+      "name": "agent admin dashboard → scope ALL with the per-employee team breakdown (incl. the sales user)",
+      "ok": true,
+      "detail": "200 scope=ALL team=[{\"user\":{\"id\":\"db2b9827-f113-442e-b763-32d70ef3a837\",\"fullName\":\"R15 Acceptance Agent admin\",\"isActive\":true},\"fulfillment\":{\"total\":7,\"awaitingDispatch\":6,\"dispatched\":0,\"completed\":0,\"withReturns\":"
+    },
+    {
+      "section": "J1",
+      "name": "agent sales dashboard → scope OWN, own figures, NO team breakdown, no agent-level money",
+      "ok": true,
+      "detail": "{\"scope\":\"OWN\",\"team\":null,\"own\":{\"orderValue\":9640,\"deliveredValue\":0,\"deliveredCount\":0,\"returnCount\":0},\"position\":null}"
+    },
+    {
+      "section": "J1",
+      "name": "agent sales dashboard never names the agent admin (other employees' figures absent)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J1",
+      "name": "agent sales own.orderValue vs admin team row",
+      "ok": true,
+      "info": true,
+      "detail": "{\"own\":9640,\"teamRow\":{\"user\":{\"id\":\"6280d9eb-594e-4024-a89f-80c076e1feef\",\"fullName\":\"R15 Acceptance Agent sales\",\"isActive\":true},\"fulfillment\":{\"total\":11,\"awaitingDispatch\":10,\"dispatched\":0,\"completed\":0,\"withReturns\":0,\"cancelled\":0},\"returnCount\":0,\"leads\":{\"total\":4,\"fresh\":4,\"converted\":0},\"sales\":{\"orderValue\":9640,\"deliveredValue\":0,\"deliveredCount\":0}}}"
+    },
+    {
+      "section": "J1",
+      "name": "agent sales own order value > 0 and excludes the admin's order (own < agent-wide total)",
+      "ok": true,
+      "detail": "{\"own\":{\"orderValue\":9640,\"deliveredValue\":0,\"deliveredCount\":0,\"returnCount\":0},\"agentSales\":{\"merchandiseSalesExShipping\":13900,\"customerShippingCharges\":1000,\"totalOrderValue\":14900}}"
+    },
+    {
+      "section": "J2",
+      "name": "company sales: lead import job created (crm.leads.import, no import-center.*)",
+      "ok": true,
+      "detail": "201 {\"id\":\"a835ddce-c1d9-44b6-8aa3-89d3a8c7d59b\",\"importType\":\"LEADS\",\"status\":\"DRAFT\",\"fileName\":\"\",\"fileContent\":\"\",\"columnMapping\":null,\"sourceConnector\":null,\"sourceUrl\":null,\"scheduleConfig\":null,\"lastSyncedAt\":null,\"lastAttemptedAt\":null,\"isSyncing\":false,\"t"
+    },
+    {
+      "section": "J2",
+      "name": "lead XLSX uploaded",
+      "ok": true,
+      "detail": "201 {\"id\":\"a835ddce-c1d9-44b6-8aa3-89d3a8c7d59b\",\"importType\":\"LEADS\",\"status\":\"MAPPING\",\"fileName\":\"R15J829140-LEADS.xlsx\",\"fileContent\":\"UEsDBAoAAAAIANRLSF2R28AJWQEAAPAEAAATAAAAW0NvbnRlbnRfVHlwZXNdLnhtbK2UTW7CMBCF9z1F5C1KDF1UVUXCorTLFqn0ANN4Qiwc2/KYv9t3EiiqKiCqY"
+    },
+    {
+      "section": "J2",
+      "name": "lead mapping saved",
+      "ok": true,
+      "detail": "200 {\"id\":\"a835ddce-c1d9-44b6-8aa3-89d3a8c7d59b\",\"importType\":\"LEADS\",\"status\":\"VALIDATING\",\"fileName\":\"R15J829140-LEADS.xlsx\",\"fileContent\":\"UEsDBAoAAAAIANRLSF2R28AJWQEAAPAEAAATAAAAW0NvbnRlbnRfVHlwZXNdLnhtbK2UTW7CMBCF9z1F5C1KDF1UVUXCorTLFqn0ANN4Qiwc2/KYv9t3EiiqKi"
+    },
+    {
+      "section": "J2",
+      "name": "lead preview: unmapped 'Agent' column → warning (never imported)",
+      "ok": true,
+      "detail": "[{\"rowNumber\":null,\"message\":\"العمود «Agent» لا يُستورد (الوكيل يُحدَّد من حساب المستخدم فقط) — Column \\\"Agent\\\" is never imported (the agent always comes from your login).\"}]"
+    },
+    {
+      "section": "J2",
+      "name": "lead import run → created 1",
+      "ok": true,
+      "detail": "200 {\"id\":\"a835ddce-c1d9-44b6-8aa3-89d3a8c7d59b\",\"importType\":\"LEADS\",\"status\":\"COMPLETED\",\"fileName\":\"R15J829140-LEADS.xlsx\",\"fileContent\":\"UEsDBAoAAAAIANRLSF2R28AJWQEAAPAEAAATAAAAW0NvbnRlbnRfVHlwZXNdLnhtbK2UTW7CMBCF9z1F5C1KDF1UVUXCorTLFqn0ANN4Qiwc2/KYv9t3EiiqKiC"
+    },
+    {
+      "section": "J2",
+      "name": "imported lead belongs to the importer (company scope), import row key stamped",
+      "ok": true,
+      "detail": "{\"id\":\"4b7300a9-dfd3-4273-8b83-3322c7eec220\",\"sales_employee_id\":\"65141748-efb3-4d07-b763-45578c834950\",\"import_row_key\":\"lead-import:company:133e2c097e48fe7d6239bcec5b54a2acb505358d86a2e2eba2100239c9b1b527\",\"agent_id\":null}"
+    },
+    {
+      "section": "J2",
+      "name": "company sales: store-order import job created (store-orders.import)",
+      "ok": true,
+      "detail": "201 {\"id\":\"af822466-1ab9-491d-86cf-529e72e1fc83\",\"importType\":\"STORE_ORDERS\",\"status\":\"DRAFT\",\"fileName\":\"\",\"fileContent\":\"\",\"columnMapping\":null,\"sourceConnector\":null,\"sourceUrl\":null,\"scheduleConfig\":null,\"lastSyncedAt\":null,\"lastAttemptedAt\":null,\"isSyncing\":f"
+    },
+    {
+      "section": "J2",
+      "name": "store-order preview: 'Carrier Cost' column → warning (never imported)",
+      "ok": true,
+      "detail": "[{\"rowNumber\":null,\"message\":\"العمود «Carrier Cost» لا يُستورد (بيانات الشحن تُسجَّل من قسم الشحن) — Column \\\"Carrier Cost\\\" is never imported (shipping details are recorded by Shipping).\"}]"
+    },
+    {
+      "section": "J2",
+      "name": "store-order import run → created 2, rejected 0",
+      "ok": true,
+      "detail": "200 {\"id\":\"af822466-1ab9-491d-86cf-529e72e1fc83\",\"importType\":\"STORE_ORDERS\",\"status\":\"COMPLETED\",\"fileName\":\"R15J829140-STORE_ORDERS.xlsx\",\"fileContent\":\"UEsDBAoAAAAIANVLSF2R28AJWQEAAPAEAAATAAAAW0NvbnRlbnRfVHlwZXNdLnhtbK2UTW7CMBCF9z1F5C1KDF1UVUXCorTLFqn0ANN4Qiwc2"
+    },
+    {
+      "section": "J2",
+      "name": "GET job → summary of created / skipped / needs review / rejected",
+      "ok": true,
+      "detail": "{\"created\":2,\"skipped\":0,\"needsReview\":0,\"rejected\":0,\"notices\":0}"
+    },
+    {
+      "section": "J2",
+      "name": "imported orders: owner = importer, source IMPORT, key import:company:<sha>",
+      "ok": true,
+      "detail": "[[true,\"IMPORT\",\"import:company:e927e\"],[true,\"IMPORT\",\"import:company:0ee31\"]]"
+    },
+    {
+      "section": "J2",
+      "name": "payment column → exactly one PENDING SALES_DECLARATION claim",
+      "ok": true,
+      "detail": "[{\"id\":\"938b7335-7d65-4d4a-a0cb-b0d4705738a9\",\"status\":\"PENDING\",\"origin\":\"SALES_DECLARATION\"}]"
+    },
+    {
+      "section": "J2",
+      "name": "…no receipt link, no financial transaction, no journal entry (declaration ≠ collection)",
+      "ok": true,
+      "detail": "{\"rl\":{\"n\":0},\"je\":{\"n\":0},\"ft\":{\"n\":0}}"
+    },
+    {
+      "section": "J2",
+      "name": "re-import of the same rows → preview says skipped (already imported), run created 0 / skipped 2",
+      "ok": true,
+      "detail": "{\"preview\":{\"totalRows\":2,\"invalidCount\":0,\"duplicateCount\":0,\"needsReviewCount\":0,\"skippedCount\":2,\"newCount\":0},\"run\":{\"created\":0,\"skipped\":2,\"needsReview\":0,\"rejected\":0,\"notices\":0}}"
+    },
+    {
+      "section": "J2",
+      "name": "no new store order rows after the re-import",
+      "ok": true,
+      "detail": "2 → 2"
+    },
+    {
+      "section": "J2",
+      "name": "agent sales: lead import (agent.leads.import) → created 1",
+      "ok": true,
+      "detail": "200 {\"id\":\"eeea697a-5869-4e58-a6d8-c78f6d1a9c44\",\"importType\":\"LEADS\",\"status\":\"COMPLETED\",\"fileName\":\"R15J829140-LEADS.xlsx\",\"fileContent\":\"UEsDBAoAAAAIANdLSF2R28AJWQEAAPAEAAATAAAAW0NvbnRlbnRfVHlwZXNdLnhtbK2UTW7CMBCF9z1F5C1KDF1UVUXCorTLFqn0ANN4Qiwc2/KYv9t3EiiqKiC"
+    },
+    {
+      "section": "J2",
+      "name": "agent-imported lead belongs to the agent from the token and to the importing agent user",
+      "ok": true,
+      "detail": "{\"agent_id\":\"5f210751-78f2-4037-8fd3-70534d77e262\",\"sales_employee_id\":\"6280d9eb-594e-4024-a89f-80c076e1feef\",\"import_row_key\":\"lead-import:agent:5f210751-78f2-4037-8fd3-70534d77e262:ea6e58a53f8b5df99b054c06fd5c913525f0792d976c704af72ff337f4d654c9\"}"
+    },
+    {
+      "section": "J2",
+      "name": "agent sales: store-order import (agent.orders.import) → created 1",
+      "ok": true,
+      "detail": "200 {\"id\":\"3b22653a-5e69-4b24-9926-a0eb280e6f93\",\"importType\":\"STORE_ORDERS\",\"status\":\"COMPLETED\",\"fileName\":\"R15J829140-STORE_ORDERS.xlsx\",\"fileContent\":\"UEsDBAoAAAAIANdLSF2R28AJWQEAAPAEAAATAAAAW0NvbnRlbnRfVHlwZXNdLnhtbK2UTW7CMBCF9z1F5C1KDF1UVUXCorTLFqn0ANN4Qiwc2"
+    },
+    {
+      "section": "J2",
+      "name": "agent-imported order: agent from the token, owner = importer, keyed agent-order:<agent>:import:<sha>",
+      "ok": true,
+      "detail": "{\"agent_id\":\"5f210751-78f2-4037-8fd3-70534d77e262\",\"employee_id\":\"6280d9eb-594e-4024-a89f-80c076e1feef\",\"creation_idempotency_key\":\"agent-order:5f210751-78f2-4037-8fd3-70534d77e262:import:3929bec3dc493d5c372a4a87aad9a94535e133795c2aa64e917474929bb5e9a8\"}"
+    },
+    {
+      "section": "J2",
+      "name": "connect step shows the OMS service-account address (share as Viewer, never public)",
+      "ok": true,
+      "detail": "200 email=<service account>"
+    },
+    {
+      "section": "J2",
+      "name": "a sheet connected by another user → 409 SHEET_CONNECTED_BY_ANOTHER_USER",
+      "ok": true,
+      "detail": "409 {\"code\":\"SHEET_CONNECTED_BY_ANOTHER_USER\",\"message\":\"هذا الجدول مربوط بواسطة مستخدم آخر — This sheet is connected by another user.\"}"
+    },
+    {
+      "section": "J2",
+      "name": "a sheet read by a continuous sync source → 400 SHEET_SYNCHRONISED (one ingestion path)",
+      "ok": true,
+      "detail": "400 {\"code\":\"SHEET_SYNCHRONISED\",\"message\":\"هذا الجدول يُزامَن باستمرار عبر «R15 fake sync R15J829140» — صفوفه تصل عبر المزامنة — This sheet is synchronised continuously by \\\"R15 fake sync R15J829140\\\"; its rows arrive through the sync.\"}"
+    },
+    {
+      "section": "J2",
+      "name": "agent: a sheet owned by a company user → 409 SHEET_CONNECTED_BY_ANOTHER_USER",
+      "ok": true,
+      "detail": "409 {\"code\":\"SHEET_CONNECTED_BY_ANOTHER_USER\",\"message\":\"هذا الجدول مربوط بواسطة مستخدم آخر — This sheet is connected by another user.\"}"
+    },
+    {
+      "section": "J2",
+      "name": "an unreadable (non-existent / not shared) sheet → clear 4xx error, no connection claimed",
+      "ok": true,
+      "detail": "400 {\"code\":\"GOOGLE_SHEET_NOT_FOUND\",\"message\":\"لم يتم العثور على جدول البيانات — تحقق من الرابط — Spreadsheet not found: check the link (and that it is shared with the OMS address).\"} connections=0"
+    },
+    {
+      "section": "J2",
+      "name": "Google Sheets real-sheet path",
+      "ok": true,
+      "info": true,
+      "detail": "not verifiable locally (no sheet shared with the service account) — ownership / sync refusals verified with fake spreadsheet ids"
+    },
+    {
+      "section": "J3",
+      "name": "r15-sales2 (no store-orders.import) → 403",
+      "ok": true,
+      "detail": "403 {\"code\":\"IMPORT_PERMISSION_REQUIRED\",\"message\":\"لا تملك صلاحية استيراد هذا النوع (store-orders.import) — You do not have permission to import this type (missing \\\"store-orders.import\\\").\"}"
+    },
+    {
+      "section": "J3",
+      "name": "r15-sales2 (no crm.leads.import) → 403",
+      "ok": true,
+      "detail": "403 {\"code\":\"IMPORT_PERMISSION_REQUIRED\",\"message\":\"لا تملك صلاحية استيراد هذا النوع (crm.leads.import) — You do not have permission to import this type (missing \\\"crm.leads.import\\\").\"}"
+    },
+    {
+      "section": "J3",
+      "name": "r15-sales: administrator types (PRODUCTS) stay behind import-center.manage → 403",
+      "ok": true,
+      "detail": "403 {\"code\":\"IMPORT_PERMISSION_REQUIRED\",\"message\":\"لا تملك صلاحية استيراد هذا النوع (import-center.manage) — You do not have permission to import this type (missing \\\"import-center.manage\\\").\"}"
+    },
+    {
+      "section": "J3",
+      "name": "r15-sales2 cannot read r15-sales's job → 404",
+      "ok": true,
+      "detail": "404"
+    },
+    {
+      "section": "J3",
+      "name": "r15-manager cannot read r15-sales's job → 404",
+      "ok": true,
+      "detail": "404"
+    },
+    {
+      "section": "J3",
+      "name": "r15-viewall cannot read r15-sales's job → 404",
+      "ok": true,
+      "detail": "404"
+    },
+    {
+      "section": "J3",
+      "name": "another user cannot run the job → 404",
+      "ok": true,
+      "detail": "404"
+    },
+    {
+      "section": "J3",
+      "name": "another user's job list never includes it",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "section": "J3",
+      "name": "agent user cannot read a company job → 404",
+      "ok": true,
+      "detail": "404"
+    },
+    {
+      "section": "J3",
+      "name": "company endpoint never returns an agent job (even super admin) → 404",
+      "ok": true,
+      "detail": "404"
+    },
+    {
+      "section": "J3",
+      "name": "agent admin cannot read the agent sales user's job (creator only) → 404",
+      "ok": true,
+      "detail": "404"
+    },
+    {
+      "section": "J3",
+      "name": "company Owner column naming a colleague (importer cannot assign) → row rejected 'cannot assign records'",
+      "ok": true,
+      "detail": "{\"summary\":{\"created\":1,\"skipped\":0,\"needsReview\":0,\"rejected\":1,\"notices\":0},\"errors\":[{\"rowNumber\":3,\"columnName\":null,\"message\":\"لا يمكنك إسناد السجلات لمستخدمين آخرين — اترك عمود المالك فارغًا أو اكتب بريدك — You cannot assign records to others; leave the Owner column empty or use your own e-mail.\"}]}"
+    },
+    {
+      "section": "J3",
+      "name": "the rejected lead does not exist; nothing assigned to r15-sales2",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J3",
+      "name": "agent sales Owner column naming the agent admin (no agent.records.assign) → row rejected",
+      "ok": true,
+      "detail": "{\"summary\":{\"created\":0,\"skipped\":0,\"needsReview\":0,\"rejected\":1,\"notices\":0},\"errors\":[{\"rowNumber\":2,\"columnName\":null,\"message\":\"لا يمكنك إسناد السجلات لمستخدمين آخرين — اترك عمود المالك فارغًا أو اكتب بريدك — You cannot assign records to others; leave the Owner column empty or use your own e-mail.\"}]}"
+    },
+    {
+      "section": "J3",
+      "name": "company token on the agent import route → refused",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "section": "J5",
+      "name": "admin creates agent \"R15 J5 Agent R15J829140\"",
+      "ok": true,
+      "detail": "201 {\"id\":\"3edea764-96ea-4e31-b1f7-58150af4cbe7\",\"agentNumber\":\"AG-0359\",\"name\":\"R15 J5 Agent R15J829140\",\"legalName\":null,\"contactName\":null,\"phone\":null,\"email\":\"r15-j5-agent-r15j829140@oms.local\",\"status\":\"ACTIVE\",\"currencyId\":\"a02266c9-3c6b-4da0-a759-b66221d88"
+    },
+    {
+      "section": "J5",
+      "name": "shipping agreement draft for \"R15 J5 Agent R15J829140\"",
+      "ok": true,
+      "detail": "201 {\"id\":\"baa3efee-4107-4676-ab31-f1190fc20336\",\"agreementNumber\":\"ASA-2026-0012\",\"agentId\":\"3edea764-96ea-4e31-b1f7-58150af4cbe7\",\"currencyId\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\",\"status\":\"DRAFT\",\"effectiveFrom\":\"2026-01-01T00:00:00.000Z\",\"effectiveTo\":null,\""
+    },
+    {
+      "section": "J5",
+      "name": "shipping agreement activated for \"R15 J5 Agent R15J829140\"",
+      "ok": true,
+      "detail": "201 {\"id\":\"baa3efee-4107-4676-ab31-f1190fc20336\",\"agreementNumber\":\"ASA-2026-0012\",\"agentId\":\"3edea764-96ea-4e31-b1f7-58150af4cbe7\",\"currencyId\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\",\"status\":\"ACTIVE\",\"effectiveFrom\":\"2026-01-01T00:00:00.000Z\",\"effectiveTo\":null,"
+    },
+    {
+      "section": "J5",
+      "name": "commission agreement (PREDETERMINED_CHARGE) for \"R15 J5 Agent R15J829140\"",
+      "ok": true,
+      "detail": "201 {\"id\":\"b140fbb3-910b-4a2d-8521-bd0e1e84d901\",\"agentId\":\"3edea764-96ea-4e31-b1f7-58150af4cbe7\",\"agreementNumber\":\"AGR-2026-0405\",\"status\":\"DRAFT\",\"effectiveFrom\":\"2026-01-01T00:00:00.000Z\",\"effectiveTo\":null,\"currencyId\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\",\""
+    },
+    {
+      "section": "J5",
+      "name": "commission agreement activated for \"R15 J5 Agent R15J829140\"",
+      "ok": true,
+      "detail": "201 {\"id\":\"b140fbb3-910b-4a2d-8521-bd0e1e84d901\",\"agentId\":\"3edea764-96ea-4e31-b1f7-58150af4cbe7\",\"agreementNumber\":\"AGR-2026-0405\",\"status\":\"ACTIVE\",\"effectiveFrom\":\"2026-01-01T00:00:00.000Z\",\"effectiveTo\":null,\"currencyId\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\","
+    },
+    {
+      "section": "J5",
+      "name": "agent-owned stocked product for \"R15 J5 Agent R15J829140\" created",
+      "ok": true,
+      "detail": "201 {\"id\":\"bdb1553e-770b-4b45-94ba-c3f2f3b9267a\",\"ownerAgentId\":\"3edea764-96ea-4e31-b1f7-58150af4cbe7\",\"itemType\":\"PRODUCT\",\"supplyMethod\":\"PURCHASED\",\"name\":\"R15 J5 Agent R15J829140 product\",\"nameEn\":null,\"internalName\":\"R15 J5 Agent R15J829140 product\",\"displayN"
+    },
+    {
+      "section": "J5",
+      "name": "setup: opening stock +50 @ 10 for PRD-2026-001834",
+      "ok": true,
+      "detail": "201 {\"id\":\"6d1b1afc-c909-4d6d-85b5-d962abead877\",\"movementNumber\":\"OPN-2026-000206\",\"type\":\"OPENING_BALANCE\",\"warehouseId\":\"bce10b3e-6022-4a2e-a5f4-1e44985b43f2\",\"productId\":\"bdb1553e-770b-4b45-94ba-c3f2f3b9267a\",\"quantity\":50,\"quantityBefore\":0,\"quantityAfter\":50"
+    },
+    {
+      "section": "J5",
+      "name": "agent user r15-j5-admin-r15j829140@oms.local created through the API (temporary password returned)",
+      "ok": true,
+      "detail": "201"
+    },
+    {
+      "section": "J5",
+      "name": "agent user r15-j5-sales-r15j829140@oms.local created through the API (temporary password returned)",
+      "ok": true,
+      "detail": "201"
+    },
+    {
+      "section": "J5",
+      "name": "J5 agent: base shipping agreement ACTIVE from 2026-01-01",
+      "ok": true,
+      "detail": "{\"id\":\"baa3efee-4107-4676-ab31-f1190fc20336\",\"agreement_number\":\"ASA-2026-0012\",\"effective_from\":\"2026-01-01\"}"
+    },
+    {
+      "section": "J5",
+      "name": "finance (agents.agreements.manage) creates a DRAFT, number generated",
+      "ok": true,
+      "detail": "201 {\"id\":\"b4e09ef4-d706-4f01-984e-0429200eebec\",\"agreementNumber\":\"ASA-2026-0013\",\"agentId\":\"3edea764-96ea-4e31-b1f7-58150af4cbe7\",\"currencyId\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\",\"status\":\"DRAFT\",\"effectiveFrom\":\"2026-10-08T00:00:00.000Z\",\"effectiveTo\":null,\""
+    },
+    {
+      "section": "J5",
+      "name": "rate added: COD_CARRIER Saudi Arabia 60",
+      "ok": true,
+      "detail": "201 {\"id\":\"b4e09ef4-d706-4f01-984e-0429200eebec\",\"agreementNumber\":\"ASA-2026-0013\",\"agentId\":\"3edea764-96ea-4e31-b1f7-58150af4cbe7\",\"currencyId\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\",\"status\":\"DRAFT\",\"effectiveFrom\":\"2026-10-08T00:00:00.000Z\",\"effectiveTo\":null,\""
+    },
+    {
+      "section": "J5",
+      "name": "rate added: COD_INTERNAL_COURIER Riyadh 40",
+      "ok": true,
+      "detail": "201 {\"id\":\"b4e09ef4-d706-4f01-984e-0429200eebec\",\"agreementNumber\":\"ASA-2026-0013\",\"agentId\":\"3edea764-96ea-4e31-b1f7-58150af4cbe7\",\"currencyId\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\",\"status\":\"DRAFT\",\"effectiveFrom\":\"2026-10-08T00:00:00.000Z\",\"effectiveTo\":null,\""
+    },
+    {
+      "section": "J5",
+      "name": "rate added: PREPAID_CARRIER all destinations 70",
+      "ok": true,
+      "detail": "201 {\"id\":\"b4e09ef4-d706-4f01-984e-0429200eebec\",\"agreementNumber\":\"ASA-2026-0013\",\"agentId\":\"3edea764-96ea-4e31-b1f7-58150af4cbe7\",\"currencyId\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\",\"status\":\"DRAFT\",\"effectiveFrom\":\"2026-10-08T00:00:00.000Z\",\"effectiveTo\":null,\""
+    },
+    {
+      "section": "J5",
+      "name": "duplicate rate (same service + destination, case-insensitive city) → refused",
+      "ok": true,
+      "detail": "409 {\"code\":\"SHIPPING_AGREEMENT_RATE_DUPLICATE\",\"message\":\"يوجد سعر مندوب داخلي (الدفع عند الاستلام) إلى السعودية / Riyadh = 40.00 في هذه الاتفاقية؛ عدّل ذلك السطر — Internal courier COD to Saudi Arabia / Riyadh already has 40.00 in this agreement; edit that row.\""
+    },
+    {
+      "section": "J5",
+      "name": "agreement detail shows the 3 rates and a coverage report (missing combinations listed)",
+      "ok": true,
+      "detail": "200 rates=3 keys=id,agreementNumber,agentId,currencyId,status,effectiveFrom,effectiveTo,notes,supersedesId,activatedAt,activatedBy,deactivatedAt,deactivatedBy,deactivationReason,createdAt,updatedAt,createdBy,updatedBy,deletedAt,currency,supersedes,supersededBy,inForceToday,createdByUser,activatedByUser,deactivatedByUser,rates,coverage,activation,activity"
+    },
+    {
+      "section": "J5",
+      "name": "activate without replaceFrom → 409 SHIPPING_AGREEMENT_OVERLAP naming the agreement in force",
+      "ok": true,
+      "detail": "409 {\"code\":\"SHIPPING_AGREEMENT_OVERLAP\",\"message\":\"فترة الاتفاقية تتداخل مع ASA-2026-0012 (2026-01-01 → ∞)؛ فعّلها مع «الاستبدال من تاريخ» لإغلاق السابقة قبل يوم من البداية — The agreement dates overlap ASA-2026-0012 (2026-01-01 → ∞); activate with \\\"replace from"
+    },
+    {
+      "section": "J5",
+      "name": "activate with replaceFrom → ACTIVE",
+      "ok": true,
+      "detail": "201 {\"id\":\"b4e09ef4-d706-4f01-984e-0429200eebec\",\"agreementNumber\":\"ASA-2026-0013\",\"agentId\":\"3edea764-96ea-4e31-b1f7-58150af4cbe7\",\"currencyId\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\",\"status\":\"ACTIVE\",\"effectiveFrom\":\"2026-10-08T00:00:00.000Z\",\"effectiveTo\":null,"
+    },
+    {
+      "section": "J5",
+      "name": "replace-from closed the previous agreement the day before (2026-10-07) and linked it",
+      "ok": true,
+      "detail": "[{\"id\":\"baa3efee-4107-4676-ab31-f1190fc20336\",\"status\":\"ACTIVE\",\"efrom\":\"2026-01-01\",\"eto\":\"2026-10-07\",\"supersedes_id\":null},{\"id\":\"b4e09ef4-d706-4f01-984e-0429200eebec\",\"status\":\"ACTIVE\",\"efrom\":\"2026-10-08\",\"eto\":null,\"supersedes_id\":\"baa3efee-4107-4676-ab31-f1190fc20336\"}]"
+    },
+    {
+      "section": "J5",
+      "name": "quote prices from the new agreement (carrier estimate 60 while the method is unknown)",
+      "ok": true,
+      "detail": "200 {\"valid\":true,\"issues\":[],\"agent\":{\"id\":\"3edea764-96ea-4e31-b1f7-58150af4cbe7\",\"name\":\"R15 J5 Agent R15J829140\",\"agentNumber\":\"AG-0359\"},\"agreement\":{\"id\":\"b140fbb3-910b-4a2d-8521-bd0e1e84d901\",\"agreementNumber\":\"AGR-2026-0405\",\"currencyId\":\"a02266c9-3c6b-4da0"
+    },
+    {
+      "section": "J5",
+      "name": "agent order created → 201",
+      "ok": true,
+      "detail": "201 {\"id\":\"4bd9af94-0a92-4897-b870-187fe17a8950\",\"internalOrderId\":\"STO-2026-027393\",\"version\":0,\"orderDate\":\"2026-10-08T09:30:55.590Z\",\"createdAt\":\"2026-10-08T09:30:55.590Z\",\"owner\":{\"id\":\"5cee8041-e263-48f1-9464-f930184a88fe\",\"fullName\":\"R15 J5 Agent R15J829140 "
+    },
+    {
+      "section": "J5",
+      "name": "snapshot: agreement number + PENDING_METHOD 60 with byChannel CARRIER 60 / INTERNAL_COURIER 40",
+      "ok": true,
+      "detail": "{\"city\":\"Riyadh\",\"amount\":60,\"rateId\":\"d74c3a4f-6db9-4f98-bacf-2d9fecc07863\",\"source\":\"RATE\",\"service\":\"COD_CARRIER\",\"byChannel\":{\"CARRIER\":{\"amount\":60,\"rateId\":\"d74c3a4f-6db9-4f98-bacf-2d9fecc07863\",\"service\":\"COD_CARRIER\"},\"INTERNAL_COURIER\":{\"amount\":40,\"rateId\":\"f5ef2c35-d9e3-4d87-91c6-d8ed22678560\",\"service\":\"COD_INTERNAL_COURIER\"}},\"countryId\":\"7a9b0c41-94b1-4fb5-bcb8-ada44be4e691\",\"resolve"
+    },
+    {
+      "section": "J5",
+      "name": "agent admin cannot assign the carrier (3.6) → refused",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "section": "J5",
+      "name": "r15-shipping assigns the external carrier → 200",
+      "ok": true,
+      "detail": "200 {\"id\":\"f13b0cd9-3007-42b8-9e0f-7ed5352ee50a\",\"salesOrderId\":null,\"storeOrderId\":\"4bd9af94-0a92-4897-b870-187fe17a8950\",\"attemptNumber\":1,\"shippingCompanyId\":\"2b7b874f-5d1b-4b89-ad77-63f54a8894ac\",\"shippingStatusId\":null,\"trackingNumber\":null,\"labelUrl\":null,\"s"
+    },
+    {
+      "section": "J5",
+      "name": "agent shipping charge CONFIRMED 60 (COD_CARRIER) from the frozen snapshot",
+      "ok": true,
+      "detail": "{\"city\":\"Riyadh\",\"amount\":60,\"rateId\":\"d74c3a4f-6db9-4f98-bacf-2d9fecc07863\",\"source\":\"TARIFF\",\"service\":\"COD_CARRIER\",\"byChannel\":{\"CARRIER\":{\"amount\":60,\"rateId\":\"d74c3a4f-6db9-4f98-bacf-2d9fecc07863\",\"service\":\"COD_CARRIER\"},\"INTERNAL_COURIER\":{\"amount\":40,\"rateId\":\"f5ef2c35-d9e3-4d87-91c6-d8ed22"
+    },
+    {
+      "section": "J5",
+      "name": "agent sales opens its carrier-assigned order (agreed charge 60 shown)",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "section": "J5",
+      "name": "deactivate without a reason → 400",
+      "ok": true,
+      "detail": "400 {\"code\":\"VALIDATION_ERROR\",\"message\":\"Validation failed.\",\"fields\":[{\"field\":\"reason\",\"constraints\":[\"reason must be shorter than or equal to 500 characters\",\"reason should not be empty\",\"reason must be a string\"]}]}"
+    },
+    {
+      "section": "J5",
+      "name": "deactivate with a reason → INACTIVE",
+      "ok": true,
+      "detail": "201 {\"id\":\"b4e09ef4-d706-4f01-984e-0429200eebec\",\"agreementNumber\":\"ASA-2026-0013\",\"agentId\":\"3edea764-96ea-4e31-b1f7-58150af4cbe7\",\"currencyId\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\",\"status\":\"INACTIVE\",\"effectiveFrom\":\"2026-10-08T00:00:00.000Z\",\"effectiveTo\":nul"
+    },
+    {
+      "section": "J5",
+      "name": "new agent order refused with AGENT_SHIPPING_AGREEMENT_MISSING (quote + create), never a silent zero",
+      "ok": true,
+      "detail": "200 {\"valid\":false,\"issues\":[{\"code\":\"AGENT_SHIPPING_AGREEMENT_MISSING\",\"message\":\"لا توجد اتفاقية شحن سارية للوكيل R15 J5 Agent R15J829140 في 2026-10-08؛ تفعّلها الشركة من الوكيل ← الإعدادات ← اتفاقية الشحن — No active shipping agreement for R15 J5 Agent R15J8291 | 422 {\"code\":\"AGENT_SHIPPING_AGREEMENT_MISSING\",\"message\":\"لا توجد اتفاقية شحن سارية للوكيل R15 J5 Agent R15J829140 في 2026-10-08؛ تفعّلها الشركة من الوكيل ← الإعدادات ← اتفاقية الشحن — No active shipping agreement for R15 J5 Agent R15J829140 on 2026-10-08; the com"
+    },
+    {
+      "section": "J5",
+      "name": "…the message tells the company where to activate one (Settings → Shipping agreement)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J5",
+      "name": "the earlier order is unchanged (CONFIRMED 60, same agreement number)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J5",
+      "name": "agent portal /me after deactivation: no shipping agreement in force today (null), never a stale one",
+      "ok": true,
+      "detail": "null"
+    },
+    {
+      "section": "J7",
+      "name": "setup: product \"J7 stocked\" created (stocked, company-owned)",
+      "ok": true,
+      "detail": "201 {\"id\":\"6676131f-3e61-44e0-aec5-06f2f8b9cf34\",\"ownerAgentId\":null,\"itemType\":\"PRODUCT\",\"supplyMethod\":\"PURCHASED\",\"name\":\"R15J829140 J7 stocked\",\"nameEn\":null,\"internalName\":\"R15J829140 J7 stocked\",\"displayName\":\"R15J829140 J7 stocked\",\"sku\":\"PRD-2026-001835\",\""
+    },
+    {
+      "section": "J7",
+      "name": "setup: opening stock +5 @ 25 for PRD-2026-001835",
+      "ok": true,
+      "detail": "201 {\"id\":\"9edfa567-83e6-49dc-930a-59fcb6b63160\",\"movementNumber\":\"OPN-2026-000207\",\"type\":\"OPENING_BALANCE\",\"warehouseId\":\"bce10b3e-6022-4a2e-a5f4-1e44985b43f2\",\"productId\":\"6676131f-3e61-44e0-aec5-06f2f8b9cf34\",\"quantity\":5,\"quantityBefore\":0,\"quantityAfter\":5,\""
+    },
+    {
+      "section": "J7",
+      "name": "stock API: on-hand 5, available 5 (STOCK warehouses only)",
+      "ok": true,
+      "detail": "{\"productId\":\"6676131f-3e61-44e0-aec5-06f2f8b9cf34\",\"warehouseId\":null,\"onHand\":5,\"reserved\":0,\"available\":5,\"inTransit\":0,\"damaged\":0,\"ownerAgentId\":null,\"ownerAgentName\":null}"
+    },
+    {
+      "section": "J7",
+      "name": "order A (3 of 5) created",
+      "ok": true,
+      "detail": "201 {\"id\":\"9c996d3e-0b83-4026-9115-57ee7f8f5c26\",\"internalOrderId\":\"STO-2026-027394\",\"externalOrderId\":null,\"partnerId\":\"522b7c03-8792-4718-99ca-d616514c4535\",\"leadId\":null,\"orderDate\":\"2026-10-08T09:30:57.434Z\",\"source\":\"MANUAL\",\"sourceChannel\":null,\"employeeId\":"
+    },
+    {
+      "section": "J7",
+      "name": "A: stockStatus RESERVED, line reserved 3 in WH-MAIN",
+      "ok": true,
+      "detail": "{\"storeOrderItemId\":\"72e5d41d-4581-4373-af59-d52bf14ad9b5\",\"productId\":\"6676131f-3e61-44e0-aec5-06f2f8b9cf34\",\"sku\":\"PRD-2026-001835\",\"name\":\"R15J829140 J7 stocked\",\"stockLine\":true,\"ordered\":3,\"reserved\":3,\"inTransit\":0,\"delivered\":0,\"returnedSaleable\":0,\"returnedDamaged\":0,\"short\":0,\"warehouse\":{\""
+    },
+    {
+      "section": "J7",
+      "name": "available drops 5 → 2 immediately; on-hand unchanged (a reservation is not a sale)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J7",
+      "name": "RESERVATION movement (STORE_ORDER:<order>) qty 3",
+      "ok": true,
+      "detail": "[{\"type\":\"RESERVATION\",\"quantity\":3}]"
+    },
+    {
+      "section": "J7",
+      "name": "B (4, only 2 available): SHORT with INSUFFICIENT_STOCK (required 4, available 2); nothing reserved",
+      "ok": true,
+      "detail": "{\"st\":\"SHORT\",\"issue\":{\"at\":\"2026-10-08T09:30:58.282Z\",\"code\":\"INSUFFICIENT_STOCK\",\"lines\":[{\"sku\":\"PRD-2026-001835\",\"required\":4,\"available\":2,\"productId\":\"6676131f-3e61-44e0-aec5-06f2f8b9cf34\",\"warehouseId\":\"bce10b3e-6022-4a2e-a5f4-1e44985b43f2\",\"warehouseCode\":\"WH-MAIN\",\"storeOrderItemId\":\"3a3ece"
+    },
+    {
+      "section": "J7",
+      "name": "available unchanged (2) — never oversold",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J7",
+      "name": "dispatch of B refused STOCK_NOT_RESERVED",
+      "ok": true,
+      "detail": "422 {\"code\":\"STOCK_NOT_RESERVED\",\"message\":\"لا يمكن الشحن — المخزون غير محجوز (PRD-2026-001835 في WH-MAIN: المطلوب 4، المتاح 2) — Cannot dispatch: stock is not reserved (PRD-2026-001835 at WH-MAIN: required 4, available 2).\",\"messageAr\":\"لا يمكن تسجيل الشحن لأن ال"
+    },
+    {
+      "section": "J7",
+      "name": "the impossible status was not recorded (B's shipment has no SHIPPED status)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J7",
+      "name": "r15-shipping dispatches A → 200",
+      "ok": true,
+      "detail": "200 {\"id\":\"275dc2c1-f9be-4d1d-893a-5946e2f2182d\",\"salesOrderId\":null,\"storeOrderId\":\"9c996d3e-0b83-4026-9115-57ee7f8f5c26\",\"attemptNumber\":1,\"shippingCompanyId\":null,\"shippingStatusId\":\"a1ccebc9-3eb8-4c18-afbe-6b67331f9cd9\",\"trackingNumber\":null,\"labelUrl\":null,\"s"
+    },
+    {
+      "section": "J7",
+      "name": "A: IN_TRANSIT, reserved 0, in transit 3",
+      "ok": true,
+      "detail": "{\"storeOrderItemId\":\"72e5d41d-4581-4373-af59-d52bf14ad9b5\",\"productId\":\"6676131f-3e61-44e0-aec5-06f2f8b9cf34\",\"sku\":\"PRD-2026-001835\",\"name\":\"R15J829140 J7 stocked\",\"stockLine\":true,\"ordered\":3,\"reserved\":0,\"inTransit\":3,\"delivered\":0,\"returnedSaleable\":0,\"returnedDamaged\":0,\"short\":0,\"warehouse\":{\""
+    },
+    {
+      "section": "J7",
+      "name": "TRANSFER pair: −3 WH-MAIN / +3 WH-TRANSIT (reference STORE_ORDER_TRANSIT)",
+      "ok": true,
+      "detail": "[{\"warehouse_id\":\"bce10b3e-6022-4a2e-a5f4-1e44985b43f2\",\"quantity\":-3,\"type\":\"TRANSFER\"},{\"warehouse_id\":\"ab19ff88-91fe-447a-998c-4e814b2a3cd0\",\"quantity\":3,\"type\":\"TRANSFER\"}]"
+    },
+    {
+      "section": "J7",
+      "name": "WH-MAIN on-hand 2, in transit 3, available still 2 (dispatch does not change available)",
+      "ok": true,
+      "detail": "{\"productId\":\"6676131f-3e61-44e0-aec5-06f2f8b9cf34\",\"warehouseId\":null,\"onHand\":5,\"reserved\":0,\"available\":2,\"inTransit\":3,\"damaged\":0,\"ownerAgentId\":null,\"ownerAgentName\":null}"
+    },
+    {
+      "section": "J7",
+      "name": "no journal entry and no financial transaction at dispatch; no payment row",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J7",
+      "name": "r15-shipping delivers A → 200",
+      "ok": true,
+      "detail": "200 {\"id\":\"275dc2c1-f9be-4d1d-893a-5946e2f2182d\",\"salesOrderId\":null,\"storeOrderId\":\"9c996d3e-0b83-4026-9115-57ee7f8f5c26\",\"attemptNumber\":1,\"shippingCompanyId\":null,\"shippingStatusId\":\"aa8b1f63-e894-4c45-ad6d-08f97b134486\",\"trackingNumber\":null,\"labelUrl\":null,\"s"
+    },
+    {
+      "section": "J7",
+      "name": "one CONFIRMED invoice linked to the delivered shipment, total 300",
+      "ok": true,
+      "detail": "[{\"id\":\"5ea46773-bd0b-4dfe-b6f5-fbeed4a13f96\",\"invoice_number\":\"INV-2026-000335\",\"status\":\"CONFIRMED\",\"grand_total\":300,\"shipment_id\":\"275dc2c1-f9be-4d1d-893a-5946e2f2182d\"}]"
+    },
+    {
+      "section": "J7",
+      "name": "SALES_DELIVERY −3 out of WH-TRANSIT",
+      "ok": true,
+      "detail": "[{\"warehouse_id\":\"ab19ff88-91fe-447a-998c-4e814b2a3cd0\",\"quantity\":-3}]"
+    },
+    {
+      "section": "J7",
+      "name": "sales JE balanced",
+      "ok": true,
+      "detail": "Dr 375 Cr 375"
+    },
+    {
+      "section": "J7",
+      "name": "COGS = qty × moving average = 3 × 25 = 75 (EXPENSE Dr) and inventory credited the same",
+      "ok": true,
+      "detail": "COGS 75 avg 25"
+    },
+    {
+      "section": "J7",
+      "name": "A: DELIVERED, postedCogs 75 (from the journal)",
+      "ok": true,
+      "detail": "{\"st\":\"DELIVERED\",\"cogs\":75}"
+    },
+    {
+      "section": "J7",
+      "name": "order stock view exposes the shipment with its lines and every movement (reservation, release, transfers, delivery) — 5.16",
+      "ok": true,
+      "detail": "{\"shipment\":[{\"id\":\"02cb4e72-41df-4941-8a84-ab206c81ef05\",\"storeOrderItemId\":\"72e5d41d-4581-4373-af59-d52bf14ad9b5\",\"quantity\":3,\"carried\":0,\"deliveredQuantity\":3,\"returnedQuantity\":0,\"withCarrier\":0}],\"types\":[\"RESERVATION\",\"RESERVATION_RELEASE\",\"TRANSFER\",\"SALES_DELIVERY\"]}"
+    },
+    {
+      "section": "J7",
+      "name": "owned stock reduced exactly once (WH-MAIN 2 + transit 0)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J7",
+      "name": "setup: opening stock +5 @ 25 for PRD-2026-001835",
+      "ok": true,
+      "detail": "201 {\"id\":\"4e6e0628-11f1-4f25-9148-d9a3a65a07b6\",\"movementNumber\":\"OPN-2026-000208\",\"type\":\"OPENING_BALANCE\",\"warehouseId\":\"bce10b3e-6022-4a2e-a5f4-1e44985b43f2\",\"productId\":\"6676131f-3e61-44e0-aec5-06f2f8b9cf34\",\"quantity\":5,\"quantityBefore\":2,\"quantityAfter\":7,\""
+    },
+    {
+      "section": "J7",
+      "name": "'Reserve now' on B after the receipt → RESERVED (4)",
+      "ok": true,
+      "detail": "200 {\"orderId\":\"c0ae5ebf-1524-44cc-bead-cd6b850193b6\",\"internalOrderId\":\"STO-2026-027395\",\"isAgentOrder\":false,\"active\":true,\"stockStatus\":\"RESERVED\",\"stockIssue\":null,\"canReserve\":false,\"postedCogs\":null,\"canReceiveBack\":false,\"lines\":[{\"storeOrderItemId\":\"3a3ece"
+    },
+    {
+      "section": "J7",
+      "name": "partial dispatch 2 of 3 → in transit 2, reserved 1",
+      "ok": true,
+      "detail": "200 {\"id\":\"e1e21a4b-36db-41c3-abb8-d40ada26f6a0\",\"salesOrderId\":null,\"storeOrderId\":\"2e3170f2-2d06-492c-938e-c74c0346a789\",\"attemptNumber\":1,\"shippingCompanyId\":null,\"shippingStatusId\":\"a1ccebc9-3eb8-4c18-afbe-6b67331f9cd9\",\"trackingNumber\":null,\"labelUrl\":null,\"s {\"storeOrderItemId\":\"288ceecb-c980-4988-8316-94e43c69c383\",\"productId\":\"6676131f-3e61-44e0-aec5-06f2f8b9cf34\",\"sku\":\"PRD-2026-001835\",\"name\":\"R15J829140 J7 stocked\",\"stockLine\":true,\"ordered\":3,\"reser"
+    },
+    {
+      "section": "J7",
+      "name": "partial acceptance 1 of 2 → invoice for the accepted quantity only (1 × 100)",
+      "ok": true,
+      "detail": "200 {\"id\":\"e1e21a4b-36db-41c3-abb8-d40ada26f6a0\",\"salesOrderId\":null,\"storeOrderId\":\"2e3170f2-2d06-492c-938e-c74c0346a789\",\"attemptNumber\":1,\"shippingCompanyId\":null,\"shippingStatusId\":\"aa8b1f63-e894-4c45-ad6d-08f97b134486\",\"trackingNumber\":null,\"labelUrl\":null,\"s [{\"id\":\"48e257c6-8fdb-4494-b681-e09a84159184\",\"invoice_number\":\"INV-2026-000336\",\"status\":\"CONFIRMED\",\"grand_total\":100,\"shipment_id\":\"e1e21a4b-36db-41c3-abb8-d40ada26f6a0\"}]"
+    },
+    {
+      "section": "J7",
+      "name": "remainder stays in transit (RETURNING / PARTIALLY_DELIVERED): delivered 1, in transit 1, reserved 1",
+      "ok": true,
+      "detail": "{\"st\":\"PARTIALLY_DELIVERED\",\"line\":{\"storeOrderItemId\":\"288ceecb-c980-4988-8316-94e43c69c383\",\"productId\":\"6676131f-3e61-44e0-aec5-06f2f8b9cf34\",\"sku\":\"PRD-2026-001835\",\"name\":\"R15J829140 J7 stocked\",\"stockLine\":true,\"ordered\":3,\"reserved\":1,\"inTransit\":1,\"delivered\":1,\"returnedSaleable\":0,\"returned"
+    },
+    {
+      "section": "J7",
+      "name": "receive-back SALEABLE → origin warehouse +1 and re-reserved for the order (reserved 2, in transit 0)",
+      "ok": true,
+      "detail": "200 {\"orderId\":\"2e3170f2-2d06-492c-938e-c74c0346a789\",\"internalOrderId\":\"STO-2026-027396\",\"isAgentOrder\":false,\"active\":true,\"stockStatus\":\"PARTIALLY_DELIVERED\",\"stockIssue\":null,\"canReserve\":false,\"postedCogs\":null,\"canReceiveBack\":false,\"lines\":[{\"storeOrderItem {\"storeOrderItemId\":\"288ceecb-c980-4988-8316-94e43c69c383\",\"productId\":\"6676131f-3e61-44e0-aec5-06f2f8b9cf34\",\"sku\":\"PRD-2026-001835\",\"name\":\"R15J829140 J7 stocked\",\"stockLine\":true,\"ordered\":3,\"reser"
+    },
+    {
+      "section": "J7",
+      "name": "same receipt replayed (same key) → no new movement",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "section": "J7",
+      "name": "receive-back needs shipping.receive_returns (r15-sales → 403)",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "section": "J7",
+      "name": "B dispatched then DELIVERY_FAILED → RETURNING, 4 still in transit, nothing released",
+      "ok": true,
+      "detail": "{\"st\":\"RETURNING\",\"line\":{\"storeOrderItemId\":\"3a3ece49-280a-4aad-9c94-6914a374318d\",\"productId\":\"6676131f-3e61-44e0-aec5-06f2f8b9cf34\",\"sku\":\"PRD-2026-001835\",\"name\":\"R15J829140 J7 stocked\",\"stockLine\":true,\"ordered\":4,\"reserved\":0,\"inTransit\":4,\"delivered\":0,\"returnedSaleable\":0,\"returnedDamaged\":0"
+    },
+    {
+      "section": "J7",
+      "name": "receive-back 3 SALEABLE + 1 DAMAGED → 200",
+      "ok": true,
+      "detail": "200 {\"orderId\":\"c0ae5ebf-1524-44cc-bead-cd6b850193b6\",\"internalOrderId\":\"STO-2026-027395\",\"isAgentOrder\":false,\"active\":true,\"stockStatus\":\"SHORT\",\"stockIssue\":{\"at\":\"2026-10-08T09:31:06.997Z\",\"code\":\"INSUFFICIENT_STOCK\",\"lines\":[{\"sku\":\"PRD-2026-001835\",\"required"
+    },
+    {
+      "section": "J7",
+      "name": "DAMAGED unit → WH-DAMAGED (+1)",
+      "ok": true,
+      "detail": "0 → 1"
+    },
+    {
+      "section": "J7",
+      "name": "damaged stock never counts as available",
+      "ok": true,
+      "detail": "{\"productId\":\"6676131f-3e61-44e0-aec5-06f2f8b9cf34\",\"warehouseId\":null,\"onHand\":6,\"reserved\":5,\"available\":0,\"inTransit\":0,\"damaged\":1,\"ownerAgentId\":null,\"ownerAgentName\":null}"
+    },
+    {
+      "section": "J7",
+      "name": "receiving more than is in transit → RECEIVE_EXCEEDS_IN_TRANSIT",
+      "ok": true,
+      "detail": "400 {\"code\":\"RECEIVE_EXCEEDS_IN_TRANSIT\",\"message\":\"الكمية المستلمة من PRD-2026-001835 تتجاوز الكمية لدى شركة الشحن (0) — Received quantity of PRD-2026-001835 exceeds what is with the carrier (0).\",\"messageAr\":\"الكمية المستلمة من PRD-2026-001835 تتجاوز الكمية لدى "
+    },
+    {
+      "section": "J7",
+      "name": "setup: opening stock +2 @ 25 for PRD-2026-001835",
+      "ok": true,
+      "detail": "201 {\"id\":\"dd48da26-b2a2-4149-b55c-300508fc1e6c\",\"movementNumber\":\"OPN-2026-000209\",\"type\":\"OPENING_BALANCE\",\"warehouseId\":\"bce10b3e-6022-4a2e-a5f4-1e44985b43f2\",\"productId\":\"6676131f-3e61-44e0-aec5-06f2f8b9cf34\",\"quantity\":2,\"quantityBefore\":5,\"quantityAfter\":7,\""
+    },
+    {
+      "section": "J7",
+      "name": "cancel (archive) in transit → order RETURNING (DB), goods stay in transit, warehouse unchanged, nothing released",
+      "ok": true,
+      "detail": "200 {\"stock_status\":\"RETURNING\",\"archived\":true}"
+    },
+    {
+      "section": "J7",
+      "name": "GET /store-orders/:id/stock on the cancelled (archived) order → 200 for super admin (5.16 visibility)",
+      "ok": true,
+      "detail": "200 {\"orderId\":\"a66cc14a-fb56-4125-86ac-6fa4bee41457\",\"internalOrderId\":\"STO-2026-027397\",\"isAgentOrder\":false,\"active\":false,\"stockStatus\":\"RETURNING\",\"stockIssue\":null,\"canReserve\":false,\"postedCogs\":null,\"canReceiveBack\":true,\"lines\":[{\"storeOrderItemId\":\"ab508"
+    },
+    {
+      "section": "J7",
+      "name": "goods of the cancelled order received back (r15-shipping) → WH-MAIN +1, out of transit, NOT re-reserved",
+      "ok": true,
+      "detail": "200 {\"orderId\":\"a66cc14a-fb56-4125-86ac-6fa4bee41457\",\"internalOrderId\":\"STO-2026-027397\",\"isAgentOrder\":false,\"active\":false,\"stockStatus\":\"RETURNED\",\"stockIssue\":null,\"canReserve\":false,\"postedCogs\":null,\"canReceiveBack\":false,\"lines\":[{\"storeOrderItemId\":\"ab508 after={\"stock_status\":\"RETURNED\"} reservedLedger=2"
+    },
+    {
+      "section": "J7",
+      "name": "traceability lists reservation, transfer and delivery movements for A",
+      "ok": true,
+      "detail": "[\"RESERVATION\",\"RESERVATION_RELEASE\",\"TRANSFER\",\"TRANSFER\",\"SALES_DELIVERY\"]"
+    },
+    {
+      "section": "J8",
+      "name": "setup: opening stock +6 @ 25 for PRD-2026-001835",
+      "ok": true,
+      "detail": "201 {\"id\":\"ff30fd72-ed9e-4ad5-b362-34490e2dad7b\",\"movementNumber\":\"OPN-2026-000210\",\"type\":\"OPENING_BALANCE\",\"warehouseId\":\"bce10b3e-6022-4a2e-a5f4-1e44985b43f2\",\"productId\":\"6676131f-3e61-44e0-aec5-06f2f8b9cf34\",\"quantity\":6,\"quantityBefore\":7,\"quantityAfter\":13,"
+    },
+    {
+      "section": "J8",
+      "name": "prepaid order E created (reserved regardless of payment)",
+      "ok": true,
+      "detail": "201 {\"id\":\"8ea14b77-297b-430d-906f-18c95b19ea29\",\"internalOrderId\":\"STO-2026-027398\",\"externalOrderId\":null,\"partnerId\":\"f61ebbf8-bd14-44b1-a432-5e357154d93e\",\"leadId\":null,\"orderDate\":\"2026-10-08T09:31:11.202Z\",\"source\":\"MANUAL\",\"sourceChannel\":null,\"employeeId\":"
+    },
+    {
+      "section": "J8",
+      "name": "salesperson declares FULL → one PENDING claim",
+      "ok": true,
+      "detail": "200 {\"payment\":{\"id\":\"8780e6d9-48bd-453b-8885-e2209ae1b205\",\"paymentNumber\":\"PAY-2026-003018\",\"leadId\":null,\"storeOrderId\":\"8ea14b77-297b-430d-906f-18c95b19ea29\",\"paymentDate\":\"2026-10-08T00:00:00.000Z\",\"receivedDate\":null,\"amount\":\"200\",\"currencyId\":\"a02266c9-3c6"
+    },
+    {
+      "section": "J8",
+      "name": "declaration posts nothing (no receipt link, no JE for the order / payment)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J8",
+      "name": "money panel: declared 200, collected 0",
+      "ok": true,
+      "detail": "{\"payable\":200,\"declared\":200,\"expectedFromCarrier\":0,\"collected\":0,\"withCarrier\":0,\"awaitingSettlement\":0,\"inBank\":0,\"invoiced\":0,\"credited\":0,\"refunded\":0,\"balanceDue\":200,\"refundDue\":0,\"refundable\":0,\"customerCreditBalance\":0}"
+    },
+    {
+      "section": "J8",
+      "name": "finance verifies → VERIFIED, one CUSTOMER_RECEIPT",
+      "ok": true,
+      "detail": "200 {\"id\":\"8780e6d9-48bd-453b-8885-e2209ae1b205\",\"paymentNumber\":\"PAY-2026-003018\",\"status\":\"VERIFIED\",\"alreadyPosted\":false,\"receipt\":{\"id\":\"5e9b3936-8bc4-408c-9c5a-f209d6e0e0c2\",\"transactionNumber\":\"CR-2026-002559\",\"status\":\"CONFIRMED\",\"journalEntry\":{\"id\":\"1c73"
+    },
+    {
+      "section": "J8",
+      "name": "receipt JE balanced, Dr bank 200",
+      "ok": true,
+      "detail": "Dr 200 Cr 200"
+    },
+    {
+      "section": "J8",
+      "name": "before delivery the receipt is an unallocated advance",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J8",
+      "name": "prepaid-before-delivery: collected 200, invoiced 0, balance due 0, refund due 0",
+      "ok": true,
+      "detail": "{\"payable\":200,\"declared\":0,\"expectedFromCarrier\":0,\"collected\":200,\"withCarrier\":0,\"awaitingSettlement\":0,\"inBank\":200,\"invoiced\":0,\"credited\":0,\"refunded\":0,\"balanceDue\":0,\"refundDue\":0,\"refundable\":0,\"customerCreditBalance\":200}"
+    },
+    {
+      "section": "J8",
+      "name": "at delivery the advance is allocated to the shipment's invoice (200)",
+      "ok": true,
+      "detail": "{\"invE\":[{\"id\":\"d0eda6aa-1e9c-4f66-a253-f58117740972\",\"invoice_number\":\"INV-2026-000337\",\"status\":\"CONFIRMED\",\"grand_total\":200,\"shipment_id\":\"c350277e-5205-4fff-9f6b-5102df0318d5\"}],\"alloc\":{\"a\":200}}"
+    },
+    {
+      "section": "J8",
+      "name": "still exactly one receipt for the payment (cash recognised once)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J8",
+      "name": "after delivery: invoiced 200, collected 200, balance due 0",
+      "ok": true,
+      "detail": "{\"payable\":200,\"declared\":0,\"expectedFromCarrier\":0,\"collected\":200,\"withCarrier\":0,\"awaitingSettlement\":0,\"inBank\":200,\"invoiced\":200,\"credited\":0,\"refunded\":0,\"balanceDue\":0,\"refundDue\":0,\"refundable\":0,\"customerCreditBalance\":0}"
+    },
+    {
+      "section": "J8",
+      "name": "COD order F: r15-shipping assigns R15 Carrier (COD method)",
+      "ok": true,
+      "detail": "200 {\"id\":\"a127ae90-b7a4-4b3e-8084-35ca580ef508\",\"salesOrderId\":null,\"storeOrderId\":\"8c7b6644-1c10-4d34-8d05-391d5e45631a\",\"attemptNumber\":1,\"shippingCompanyId\":\"2b7b874f-5d1b-4b89-ad77-63f54a8894ac\",\"shippingStatusId\":null,\"trackingNumber\":null,\"labelUrl\":null,\"s"
+    },
+    {
+      "section": "J8",
+      "name": "F delivered → 200",
+      "ok": true,
+      "detail": "200 {\"id\":\"a127ae90-b7a4-4b3e-8084-35ca580ef508\",\"salesOrderId\":null,\"storeOrderId\":\"8c7b6644-1c10-4d34-8d05-391d5e45631a\",\"attemptNumber\":1,\"shippingCompanyId\":\"2b7b874f-5d1b-4b89-ad77-63f54a8894ac\",\"shippingStatusId\":\"aa8b1f63-e894-4c45-ad6d-08f97b134486\",\"track"
+    },
+    {
+      "section": "J8",
+      "name": "delivery → one PENDING CARRIER_COD claim for 120 on the carrier's COD method",
+      "ok": true,
+      "detail": "[{\"id\":\"52f045ba-3934-468e-a624-3e364cc777e8\",\"status\":\"PENDING\",\"origin\":\"CARRIER_COD\",\"amount\":120,\"payment_method_id\":\"a63b9caa-c884-4e4b-8342-a9b7923b5f6f\"}]"
+    },
+    {
+      "section": "J8",
+      "name": "no cash posted at dispatch / delivery (no receipt, no new financial transaction besides none)",
+      "ok": true,
+      "detail": "financial transactions 3146 → 3146"
+    },
+    {
+      "section": "J8",
+      "name": "delivery-before-settlement: tracking TRACKED, expected from carrier 120, invoiced 120, collected 0, balance due 120",
+      "ok": true,
+      "detail": "{\"cod\":{\"tracking\":\"TRACKED\",\"carrierName\":\"R15 Carrier\",\"methodName\":\"R15 COD via carrier\"},\"f\":{\"payable\":120,\"declared\":0,\"expectedFromCarrier\":120,\"collected\":0,\"withCarrier\":0,\"awaitingSettlement\":0,\"inBank\":0,\"invoiced\":120,\"credited\":0,\"refunded\":0,\"balanceDue\":120,\"refundDue\":0,\"refundable\":0,\"customerCreditBalance\":0}}"
+    },
+    {
+      "section": "J8",
+      "name": "direct Finance confirm of the reconciled COD claim → 409 (must be matched to the carrier's statement)",
+      "ok": true,
+      "detail": "409 {\"code\":\"DUPLICATE\",\"message\":\"Payment PAY-2026-003019 uses \\\"R15 COD via carrier\\\", which requires reconciliation — confirm it by matching it to the provider statement in Finance → Payment reconciliation → R15 COD via carrier (Confirm Match & Post), not from "
+    },
+    {
+      "section": "J8",
+      "name": "carrier COD report line recorded on the method's statement",
+      "ok": true,
+      "detail": "201 {\"importId\":\"1962f9fb-2e38-4919-9f5d-22ecb0b8ff91\",\"totalRows\":1,\"createdRows\":1,\"duplicateRows\":0,\"updatedRows\":0,\"reopenedRows\":0,\"exceptionRows\":0,\"errorRows\":0,\"errors\":[],\"deletedAtSourceRows\":0}"
+    },
+    {
+      "section": "J8",
+      "name": "match confirmed → 200",
+      "ok": true,
+      "detail": "200 {\"statementLineId\":\"a60d18f1-bdcd-49f4-ac3c-2d7602826523\",\"lineStatus\":\"MATCHED\",\"lineMatchedAmount\":120,\"matches\":[{\"id\":\"6ed990e4-0501-4770-9695-e4b5418de653\",\"paymentId\":\"52f045ba-3934-468e-a624-3e364cc777e8\",\"amount\":120}],\"postings\":[{\"paymentId\":\"52f045b"
+    },
+    {
+      "section": "J8",
+      "name": "one receipt (replayed match adds none); Dr COD clearing (receivable from carrier) 120, balanced",
+      "ok": true,
+      "detail": "links=1 Dr 120 Cr 120"
+    },
+    {
+      "section": "J8",
+      "name": "after the match: collected 120 (with carrier / awaiting settlement), balance due 0",
+      "ok": true,
+      "detail": "{\"payable\":120,\"declared\":0,\"expectedFromCarrier\":0,\"collected\":120,\"withCarrier\":120,\"awaitingSettlement\":0,\"inBank\":0,\"invoiced\":120,\"credited\":0,\"refunded\":0,\"balanceDue\":0,\"refundDue\":0,\"refundable\":0,\"customerCreditBalance\":0}"
+    },
+    {
+      "section": "J9",
+      "name": "setup: opening stock +4 @ 25 for PRD-2026-001835",
+      "ok": true,
+      "detail": "201 {\"id\":\"8b002429-2fb3-46e8-99b5-46e7e9d1ff4e\",\"movementNumber\":\"OPN-2026-000211\",\"type\":\"OPENING_BALANCE\",\"warehouseId\":\"bce10b3e-6022-4a2e-a5f4-1e44985b43f2\",\"productId\":\"6676131f-3e61-44e0-aec5-06f2f8b9cf34\",\"quantity\":4,\"quantityBefore\":11,\"quantityAfter\":15"
+    },
+    {
+      "section": "J9",
+      "name": "prepaid order G (2 × 100) created",
+      "ok": true,
+      "detail": "201 {\"id\":\"f73ff736-d4e1-413b-bc24-9880f8af2219\",\"internalOrderId\":\"STO-2026-027400\",\"externalOrderId\":null,\"partnerId\":\"519ebbf5-1996-44fb-af7b-e5bcba6cfbfb\",\"leadId\":null,\"orderDate\":\"2026-10-08T09:31:19.136Z\",\"source\":\"MANUAL\",\"sourceChannel\":null,\"employeeId\":"
+    },
+    {
+      "section": "J9",
+      "name": "G paid (declared + verified)",
+      "ok": true,
+      "detail": "200 {\"id\":\"f8926461-5a08-4d32-a06d-6d76b5f94c10\",\"paymentNumber\":\"PAY-2026-003020\",\"status\":\"VERIFIED\",\"alreadyPosted\":false,\"receipt\":{\"id\":\"aabd0447-fbd2-4da5-a16c-10c184d4e8fb\",\"transactionNumber\":\"CR-2026-002561\",\"status\":\"CONFIRMED\",\"journalEntry\":{\"id\":\"14c2"
+    },
+    {
+      "section": "J9",
+      "name": "G delivered → invoice 200",
+      "ok": true,
+      "detail": "[{\"id\":\"a1ae2665-b8ba-4a9e-b261-b67864c71c59\",\"invoice_number\":\"INV-2026-000339\",\"status\":\"CONFIRMED\",\"grand_total\":200,\"shipment_id\":\"2ca6c20e-b1e5-4257-a884-c2678aa8748e\"}]"
+    },
+    {
+      "section": "J9",
+      "name": "return requested → DRAFT sales return linked to the order, reason kept",
+      "ok": true,
+      "detail": "201 {\"replayed\":false,\"returns\":[{\"id\":\"e9a9e174-8eab-46d8-9c13-4245c170307c\",\"returnNumber\":\"SR-2026-000013\",\"status\":\"DRAFT\",\"reason\":\"Customer changed mind (R15 acceptance)\",\"grandTotal\":\"100\",\"salesInvoiceId\":\"a1ae2665-b8ba-4a9e-b261-b67864c71c59\",\"createdAt\":"
+    },
+    {
+      "section": "J9",
+      "name": "a request moves no stock and posts nothing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J9",
+      "name": "replayed request (same key) → same return",
+      "ok": true,
+      "detail": "201 {\"replayed\":true,\"returns\":[{\"id\":\"e9a9e174-8eab-46d8-9c13-4245c170307c\",\"returnNumber\":\"SR-2026-000013\",\"status\":\"DRAFT\",\"reason\":\"Customer changed mind (R15 acceptance)\",\"grandTotal\":\"100\",\"salesInvoiceId\":\"a1ae2665-b8ba-4a9e-b261-b67864c71c59\",\"createdAt\":\""
+    },
+    {
+      "section": "J9",
+      "name": "receive & inspect (SALEABLE) → CONFIRMED",
+      "ok": true,
+      "detail": "200 {\"id\":\"e9a9e174-8eab-46d8-9c13-4245c170307c\",\"returnNumber\":\"SR-2026-000013\",\"status\":\"CONFIRMED\",\"reason\":\"Customer changed mind (R15 acceptance)\",\"grandTotal\":\"100\",\"salesInvoiceId\":\"a1ae2665-b8ba-4a9e-b261-b67864c71c59\",\"createdAt\":\"2026-10-08T09:31:21.223Z"
+    },
+    {
+      "section": "J9",
+      "name": "saleable unit back in stock (WH-MAIN +1)",
+      "ok": true,
+      "detail": "13 → 14"
+    },
+    {
+      "section": "J9",
+      "name": "credit note JE balanced: revenue reversed (Dr 100) and COGS reversed at the invoice cost (Cr 25 / Dr inventory 25)",
+      "ok": true,
+      "detail": "{\"dr\":125,\"cr\":125,\"rev\":100,\"cogs\":25}"
+    },
+    {
+      "section": "J9",
+      "name": "refund due 100 shown; refunded 0 (a credit note is not a refund)",
+      "ok": true,
+      "detail": "{\"payable\":200,\"declared\":0,\"expectedFromCarrier\":0,\"collected\":200,\"withCarrier\":0,\"awaitingSettlement\":0,\"inBank\":200,\"invoiced\":200,\"credited\":100,\"refunded\":0,\"balanceDue\":0,\"refundDue\":100,\"refundable\":100,\"customerCreditBalance\":100}"
+    },
+    {
+      "section": "J9",
+      "name": "recognition status PARTIALLY_RETURNED",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J9",
+      "name": "record refund 100 → CONFIRMED money-out document",
+      "ok": true,
+      "detail": "200 {\"id\":\"eb177b86-d998-4d1d-ae3d-d1e0388cb2f5\",\"transactionNumber\":\"CRF-2026-000012\",\"type\":\"CUSTOMER_REFUND\",\"partnerId\":\"519ebbf5-1996-44fb-af7b-e5bcba6cfbfb\",\"expenseAccountId\":null,\"currencyId\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\",\"exchangeRate\":\"1\",\"compa"
+    },
+    {
+      "section": "J9",
+      "name": "refund JE balanced: Cr bank 100",
+      "ok": true,
+      "detail": "Dr 100 Cr 100"
+    },
+    {
+      "section": "J9",
+      "name": "refund due 0, refunded 100",
+      "ok": true,
+      "detail": "{\"payable\":200,\"declared\":0,\"expectedFromCarrier\":0,\"collected\":200,\"withCarrier\":0,\"awaitingSettlement\":0,\"inBank\":200,\"invoiced\":200,\"credited\":100,\"refunded\":100,\"balanceDue\":0,\"refundDue\":0,\"refundable\":0,\"customerCreditBalance\":0}"
+    },
+    {
+      "section": "J9",
+      "name": "replayed refund (same key) → same document",
+      "ok": true,
+      "detail": "200 {\"id\":\"eb177b86-d998-4d1d-ae3d-d1e0388cb2f5\",\"transactionNumber\":\"CRF-2026-000012\",\"type\":\"CUSTOMER_REFUND\",\"partnerId\":\"519ebbf5-1996-44fb-af7b-e5bcba6cfbfb\",\"expenseAccountId\":null,\"currencyId\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\",\"exchangeRate\":\"1\",\"compa"
+    },
+    {
+      "section": "J9",
+      "name": "a second refund is refused (REFUND_EXCEEDS_DUE)",
+      "ok": true,
+      "detail": "400 {\"code\":\"REFUND_EXCEEDS_DUE\",\"message\":\"لا يمكن رد 1.00 — المتاح للرد على الطلب STO-2026-027400 هو 0.00 فقط — Cannot refund 1.00: only 0.00 can be refunded on Store Order STO-2026-027400 now (refund due 0.00, customer credit 0.00).\",\"details\":{\"refundable\":0,\""
+    },
+    {
+      "section": "J9",
+      "name": "prepaid pickup order H created",
+      "ok": true,
+      "detail": "201 {\"id\":\"b15780dc-409f-4193-8b0f-862fdaec44cc\",\"internalOrderId\":\"STO-2026-027401\",\"externalOrderId\":null,\"partnerId\":\"da86ebf2-fd64-4319-8b30-d8f15d128899\",\"leadId\":null,\"orderDate\":\"2026-10-08T09:31:24.290Z\",\"source\":\"MANUAL\",\"sourceChannel\":null,\"employeeId\":"
+    },
+    {
+      "section": "J9",
+      "name": "pickup READY → COLLECTED (no payment gate) → RETURNED",
+      "ok": true,
+      "detail": "200 {\"id\":\"b15780dc-409f-4193-8b0f-862fdaec44cc\",\"internalOrderId\":\"STO-2026-027401\",\"externalOrderId\":null,\"partnerId\":\"da86ebf2-fd64-4319-8b30-d8f15d128899\",\"leadId\":null,\"orderDate\":\"2026-10-08T09:31:24.290Z\",\"source\":\"MANUAL\",\"sourceChannel\":null,\"employeeId\": | 200 {\"id\":\"b15780dc-409f-4193-8b0f-862fdaec44cc\",\"internalOrderId\":\"STO-2026-027401\",\"externalOrderId\":null,\"partnerId\":\"da86ebf2-fd64-4319-8b30-d8f15d128899\",\"leadId\":null,\"orderDate\":\"2026-10-08T09:31:24.290Z\",\"source\":\"MANUAL\",\"sourceChannel\":null,\"employeeId\": | 200 {\"id\":\"b15780dc-409f-4193-8b0f-862fdaec44cc\",\"internalOrderId\":\"STO-2026-027401\",\"externalOrderId\":null,\"partnerId\":\"da86ebf2-fd64-4319-8b30-d8f15d128899\",\"leadId\":null,\"orderDate\":\"2026-10-08T09:31:24.290Z\",\"source\":\"MANUAL\",\"sourceChannel\":null,\"employeeId\":"
+    },
+    {
+      "section": "J9",
+      "name": "H is RETURN_PENDING after the RETURNED pickup status",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J9",
+      "name": "r15-finance return request on an order without payment activity",
+      "ok": true,
+      "info": true,
+      "detail": "404 NOT_FOUND (finance.view opens by id only orders with payment activity)"
+    },
+    {
+      "section": "J9",
+      "name": "H return requested (admin) → DRAFT",
+      "ok": true,
+      "detail": "201 {\"replayed\":false,\"returns\":[{\"id\":\"de4e93a5-607d-4fe1-8879-3fc9ab270a46\",\"returnNumber\":\"SR-2026-000014\",\"status\":\"DRAFT\",\"reason\":\"Returned at the counter\",\"grandTotal\":\"80\",\"salesInvoiceId\":\"03f5382b-62b8-471d-be6f-bcbbaa0a614f\",\"createdAt\":\"2026-10-08T09:3"
+    },
+    {
+      "section": "J9",
+      "name": "H return received → RETURN_PENDING cleared to RETURNED",
+      "ok": true,
+      "detail": "200 {\"id\":\"de4e93a5-607d-4fe1-8879-3fc9ab270a46\",\"returnNumber\":\"SR-2026-000014\",\"status\":\"CONFIRMED\",\"reason\":\"Returned at the counter\",\"grandTotal\":\"80\",\"salesInvoiceId\":\"03f5382b-62b8-471d-be6f-bcbbaa0a614f\",\"createdAt\":\"2026-10-08T09:31:25.599Z\",\"confirmedAt\":"
+    },
+    {
+      "section": "J9",
+      "name": "nothing collected on H → refund due 0 (credit note only reduces AR)",
+      "ok": true,
+      "detail": "{\"payable\":80,\"declared\":0,\"expectedFromCarrier\":0,\"collected\":0,\"withCarrier\":0,\"awaitingSettlement\":0,\"inBank\":0,\"invoiced\":80,\"credited\":80,\"refunded\":0,\"balanceDue\":0,\"refundDue\":0,\"refundable\":0,\"customerCreditBalance\":0}"
+    },
+    {
+      "section": "J9",
+      "name": "RETURN_PENDING on a SHIPPED parcel",
+      "ok": true,
+      "info": true,
+      "detail": "needs a catalog shipping status whose code contains RETURN; statuses created through the API get USR_<hex> codes, so only imports / seeded catalog codes reach it — exercised here through the pickup RETURNED path"
+    },
+    {
+      "section": "J10",
+      "name": "setup: opening stock +10 @ 25 for PRD-2026-001835",
+      "ok": true,
+      "detail": "201 {\"id\":\"cda36ad4-140b-41ee-ad51-49b075ee54dc\",\"movementNumber\":\"OPN-2026-000212\",\"type\":\"OPENING_BALANCE\",\"warehouseId\":\"bce10b3e-6022-4a2e-a5f4-1e44985b43f2\",\"productId\":\"6676131f-3e61-44e0-aec5-06f2f8b9cf34\",\"quantity\":10,\"quantityBefore\":14,\"quantityAfter\":2"
+    },
+    {
+      "section": "J10",
+      "name": "DELIVERED ×3 + catalog DELIVERED (sequential) → one invoice, one SALES_DELIVERY, one JE",
+      "ok": true,
+      "detail": "statuses 200,200,200,200 inv=1 mv=1 je=1"
+    },
+    {
+      "section": "J10",
+      "name": "Promise.all DELIVERED ×3 → one invoice, one movement set",
+      "ok": true,
+      "detail": "statuses 200,200,200 inv=1 mv=1"
+    },
+    {
+      "section": "J10",
+      "name": "Promise.all dispatch ×3 → one transfer pair",
+      "ok": true,
+      "detail": "statuses 200,200,200 transfers=2"
+    },
+    {
+      "section": "J10",
+      "name": "cancelled prepaid order: refund due = the verified advance (150), listed under open orders to refund",
+      "ok": true,
+      "detail": "200 ctx=200 {\"storeOrderId\":\"8b23f0b1-0241-4571-9717-fddbfee10caf\",\"internalOrderId\":\"STO-2026-027405\",\"partnerId\":\"6a8dc964-a450-48ac-9c15-33422ed9fb16\",\"currencyId\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\",\"active\":false,\"collected\":150,\"invoiced\":0,\"credited\":0,\"refunded open=200"
+    },
+    {
+      "section": "J10",
+      "name": "money panel of an archived (cancelled) order",
+      "ok": true,
+      "info": true,
+      "detail": "200  — archived orders are not openable by id; the refund context endpoint serves the refund"
+    },
+    {
+      "section": "J10",
+      "name": "two concurrent refunds of the full due → exactly one succeeds, total refunded 150",
+      "ok": true,
+      "detail": "200 {\"id\":\"a4058d28-b6c2-4714-9a28-4478ff99caf1\",\"transactionNumber\":\"CRF-2026-000013\",\"type\":\"CUSTOMER_REFUND\",\"partnerId\":\"6a8dc964-a450-48ac-9c15-33422ed9fb16\",\"expenseAccountId\":null,\"currencyId\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\",\"exchangeRate\":\"1\",\"compa | 400 {\"code\":\"REFUND_EXCEEDS_DUE\",\"message\":\"لا يمكن رد 150.00 — المتاح للرد على الطلب STO-2026-027405 هو 0.00 فقط — Cannot refund 150.00: only 0.00 can be refunded on Store Order STO-2026-027405 now (refund due 0.00, customer credit 0.00).\",\"details\":{\"refundable\" refunded=150"
+    },
+    {
+      "section": "J10",
+      "name": "re-running the import → created 0, no new rows",
+      "ok": true,
+      "detail": "{\"summary\":{\"created\":0,\"skipped\":2,\"needsReview\":0,\"rejected\":0,\"notices\":0},\"before\":2,\"after\":2}"
+    },
+    {
+      "section": "J10",
+      "name": "replayed create (same creationIdempotencyKey) → the same order",
+      "ok": true,
+      "detail": "201/200"
+    },
+    {
+      "section": "J10",
+      "name": "concurrent creates with one key → one order",
+      "ok": true,
+      "detail": "statuses 200,200,201 rows=1"
+    },
+    {
+      "section": "J6",
+      "name": "finance creates a company partner profile",
+      "ok": true,
+      "detail": "201 {\"id\":\"1c2e5bc2-2469-4728-b753-acbc1217c9e1\",\"partnerId\":\"49ea26e3-922c-4acf-b570-a6807f03a326\",\"name\":\"R15J829140 شريك اختبار\",\"partnerNumber\":\"PT-2026-020526\",\"phone\":null,\"email\":null,\"ownershipPercent\":null,\"notes\":\"R15J829140 acceptance partner\",\"status\":"
+    },
+    {
+      "section": "J6",
+      "name": "create login before any agreement → 409 PARTNER_LOGIN_NEEDS_AGREEMENT",
+      "ok": true,
+      "detail": "409 {\"code\":\"PARTNER_LOGIN_NEEDS_AGREEMENT\",\"message\":\"أضف اتفاقية سارية أولًا — Add an active profit-sharing agreement for R15J829140 شريك اختبار before creating a login.\"}"
+    },
+    {
+      "section": "J6",
+      "name": "agreement 1% NET_PROFIT monthly 2026-10-01 → 2026-10-31 (ACTIVE; Sep / Nov / Dec 2026 are closed periods on this DB)",
+      "ok": true,
+      "detail": "201 {\"id\":\"f18dd746-913a-44a0-b646-37da97d2af33\",\"partnerId\":\"49ea26e3-922c-4acf-b570-a6807f03a326\",\"profitSharePercent\":1,\"basis\":\"NET_PROFIT\",\"effectiveFrom\":\"2026-10-01\",\"effectiveTo\":\"2026-10-31\",\"frequency\":\"MONTHLY\",\"scope\":\"ALL\",\"status\":\"ACTIVE\",\"supersede"
+    },
+    {
+      "section": "J6",
+      "name": "r15-sales (no company-partners.users.manage) cannot create a partner login → 403",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "section": "J6",
+      "name": "finance creates the partner login through the API (temporary password returned once)",
+      "ok": true,
+      "detail": "201"
+    },
+    {
+      "section": "J6",
+      "name": "a second login for the same partner → 409 PARTNER_LOGIN_EXISTS",
+      "ok": true,
+      "detail": "409 {\"code\":\"PARTNER_LOGIN_EXISTS\",\"message\":\"R15J829140 شريك اختبار already has a login (r15-partner-r15j829140@oms.local).\"}"
+    },
+    {
+      "section": "J6",
+      "name": "PARTNER user linked to the partner profile, must change password",
+      "ok": true,
+      "detail": "{\"id\":\"4a26982b-f55e-401c-b6ee-22145a926edb\",\"user_type\":\"PARTNER\",\"company_partner_id\":\"1c2e5bc2-2469-4728-b753-acbc1217c9e1\",\"must_change_password\":true}"
+    },
+    {
+      "section": "J6",
+      "name": "partner token typ partner + companyPartnerId (the profile)",
+      "ok": true,
+      "detail": "{\"typ\":\"partner\",\"profile\":true}"
+    },
+    {
+      "section": "J6",
+      "name": "partner holds only partner.* permissions",
+      "ok": true,
+      "detail": "[\"partner.statement.view\",\"partner.dashboard.view\"]"
+    },
+    {
+      "section": "J6",
+      "name": "finance records a payment of 10 to the partner (posted)",
+      "ok": true,
+      "detail": "201 {\"id\":\"1a332102-f651-4f74-a12c-60062b9700fc\",\"paymentNumber\":\"PPY-2026-000013\",\"partnerId\":\"49ea26e3-922c-4acf-b570-a6807f03a326\",\"partnerName\":\"R15J829140 شريك اختبار\",\"amount\":10,\"date\":\"2026-10-08\",\"financialAccount\":{\"id\":\"c269ac67-9c95-40ea-a01a-249691b5f"
+    },
+    {
+      "section": "J6",
+      "name": "partner GET /partner-portal/me → 200",
+      "ok": true,
+      "detail": "200 {\"partner\":{\"name\":\"R15J829140 شريك اختبار\",\"partnerNumber\":\"PT-2026-020526\"},\"partnership\":{\"status\":\"ACTIVE\",\"startedOn\":\"2026-10-01\",\"endsOn\":\"2026-10-31\"},\"currentAgreement\":{\"profitSharePercent\":"
+    },
+    {
+      "section": "J6",
+      "name": "partner GET /partner-portal/summary → 200",
+      "ok": true,
+      "detail": "200 {\"currency\":{\"id\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\",\"code\":\"SAR\"},\"partnership\":{\"status\":\"ACTIVE\",\"startedOn\":\"2026-10-01\",\"endsOn\":\"2026-10-31\"},\"range\":{\"from\":\"2026-01-01\",\"to\":\"2026-10-08\"},"
+    },
+    {
+      "section": "J6",
+      "name": "partner GET /partner-portal/periods → 200",
+      "ok": true,
+      "detail": "200 []"
+    },
+    {
+      "section": "J6",
+      "name": "partner GET /partner-portal/statement → 200",
+      "ok": true,
+      "detail": "200 {\"partner\":{\"name\":\"R15J829140 شريك اختبار\",\"partnerNumber\":\"PT-2026-020526\"},\"range\":{\"from\":\"2026-09-01\",\"to\":\"2026-10-08\"},\"currency\":{\"id\":\"a02266c9-3c6b-4da0-a759-b66221d88c1e\",\"code\":\"SAR\"},\"par"
+    },
+    {
+      "section": "J6",
+      "name": "statement lists the payment (method label, no account / JE)",
+      "ok": true,
+      "detail": "[{\"paymentNumber\":\"PPY-2026-000013\",\"date\":\"2026-10-08\",\"amount\":10,\"method\":\"CASH\",\"reference\":\"R15J829140-P\",\"reversed\":false,\"reversedOn\":null}]"
+    },
+    {
+      "section": "J6",
+      "name": "no other partner's name in any portal response",
+      "ok": true,
+      "detail": "checked 8 names"
+    },
+    {
+      "section": "J6",
+      "name": "no journal entry id in any portal response",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "section": "J6",
+      "name": "no internal account code / name / account keys in any portal response",
+      "ok": true,
+      "detail": "{\"keys\":[],\"codes\":[\"33\",\"26\"],\"names\":[\"Cash / Bank\",\"R14J331427 توزيعات أرباح الشركاء\",\"R14J331427 أرباح الشركاء المستحقة\"]}"
+    },
+    {
+      "section": "J6",
+      "name": "partner token on internal /store-orders → 403",
+      "ok": true,
+      "detail": "403 PARTNER_ACCESS_DENIED"
+    },
+    {
+      "section": "J6",
+      "name": "partner token on internal /company-partners/profiles → 403",
+      "ok": true,
+      "detail": "403 PARTNER_ACCESS_DENIED"
+    },
+    {
+      "section": "J6",
+      "name": "partner token on internal /company-partners/profiles/49ea26e3-922c-4acf-b570-a6807f03a326/statement → 403",
+      "ok": true,
+      "detail": "403 PARTNER_ACCESS_DENIED"
+    },
+    {
+      "section": "J6",
+      "name": "partner token on internal /agents-overview → 403",
+      "ok": true,
+      "detail": "403 PARTNER_ACCESS_DENIED"
+    },
+    {
+      "section": "J6",
+      "name": "partner token on internal /sales-reports/performance → 403",
+      "ok": true,
+      "detail": "403 PARTNER_ACCESS_DENIED"
+    },
+    {
+      "section": "J6",
+      "name": "internal token on /partner-portal/me → refused",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "section": "J6",
+      "name": "after the partnership ends the login still reads its history (me + statement 200)",
+      "ok": true,
+      "detail": "201 {\"id\":\"f18dd746-913a-44a0-b646-37da97d2af33\",\"partnerId\":\"49ea26e3-922c-4acf-b570-a6807f03a326\",\"profitSharePercent\":1,\"basis\":\"NET_PROFIT\",\"effectiveFrom\":\"2026-10-01\",\"effectiveTo\":\"2026-10-07\",\"frequency\":\"MONTHLY\",\"scope\":\"ALL\",\"status\":\"ENDED\",\"supersedes me=200 statement=200 status=ENDED"
+    },
+    {
+      "section": "J6",
+      "name": "finance disables the login → 200",
+      "ok": true,
+      "detail": "200 {\"userId\":\"4a26982b-f55e-401c-b6ee-22145a926edb\",\"email\":\"r15-partner-r15j829140@oms.local\",\"fullName\":\"R15J829140 Partner\",\"isActive\":false,\"isLocked\":false,\"mustChangePassword\":false,\"lastLoginAt\":\"2026-10-08T09:31:34.336Z\",\"createdAt\":\"2026-10-08T09:31:33.6"
+    },
+    {
+      "section": "J6",
+      "name": "disabled login: live token → 401",
+      "ok": true,
+      "detail": "401 after 0s"
+    },
+    {
+      "section": "J6",
+      "name": "disabled login cannot sign in (401, or 403 ACCOUNT_DISABLED as for every user type)",
+      "ok": true,
+      "detail": "403 {\"code\":\"ACCOUNT_DISABLED\",\"message\":\"This account is inactive.\"}"
+    },
+    {
+      "section": "J11",
+      "name": "r15-sales2 creates an order this month",
+      "ok": true,
+      "detail": "201 {\"id\":\"13ac35e8-194c-4a8f-bc65-3d975e8d97d2\",\"internalOrderId\":\"STO-2026-027410\",\"externalOrderId\":null,\"partnerId\":\"5de82cce-5222-4550-9eab-7b16454cdd7c\",\"leadId\":null,\"orderDate\":\"2026-10-08T09:31:37.281Z\",\"source\":\"MANUAL\",\"sourceChannel\":null,\"employeeId\":"
+    },
+    {
+      "section": "J11",
+      "name": "r15-sales report → scope OWN, only own row",
+      "ok": true,
+      "detail": "200 scope=OWN ids=1"
+    },
+    {
+      "section": "J11",
+      "name": "r15-sales report → ownRank {position, of}, no teams / agents / unassigned rows",
+      "ok": true,
+      "detail": "{\"ownRank\":{\"position\":1,\"of\":85},\"teams\":null,\"agents\":null,\"un\":null}"
+    },
+    {
+      "section": "J11",
+      "name": "r15-sales report never contains another employee's id or name",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J11",
+      "name": "r15-sales dashboard → scope OWN, empty leaderboard, own rank",
+      "ok": true,
+      "detail": "200 {\"scope\":\"OWN\",\"ranking\":{\"self\":{\"rank\":1,\"orders\":81,\"of\":85},\"leaderboard\":[]}}"
+    },
+    {
+      "section": "J11",
+      "name": "r15-sales dashboard never contains another employee's id or name",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J11",
+      "name": "own figures: report vs dashboard",
+      "ok": true,
+      "info": true,
+      "detail": "{\"report\":{\"rank\":1,\"rankValue\":81,\"userId\":\"65141748-efb3-4d07-b763-45578c834950\",\"name\":\"موظف مبيعات R15\",\"orders\":81,\"valid\":81,\"cancelled\":0,\"returned\":6,\"amounts\":[{\"currencyCode\":\"SAR\",\"amount\":11390}]},\"dashboardSelf\":{\"rank\":1,\"orders\":81,\"of\":85}}"
+    },
+    {
+      "section": "J11",
+      "name": "dashboard own orders = report own orders (same period / orderDate basis)",
+      "ok": true,
+      "detail": "{\"dash\":{\"rank\":1,\"orders\":81,\"of\":85},\"rep\":{\"rank\":1,\"rankValue\":81,\"userId\":\"65141748-efb3-4d07-b763-45578c834950\",\"name\":\"موظف مبيعات R15\",\"orders\":81,\"valid\":81,\"cancelled\":0,\"returned\":6,\"amounts\":[{\"currencyCode\":\"SAR\",\"amount\":11390}]}}"
+    },
+    {
+      "section": "J11",
+      "name": "r15-manager report → TEAM incl. r15-sales, never r15-sales2",
+      "ok": true,
+      "detail": "200 scope=TEAM"
+    },
+    {
+      "section": "J11",
+      "name": "r15-manager dashboard → TEAM",
+      "ok": true,
+      "detail": "200 scope=TEAM"
+    },
+    {
+      "section": "J11",
+      "name": "r15-viewall report → ALL incl. r15-sales and r15-sales2",
+      "ok": true,
+      "detail": "200 scope=ALL n=85"
+    },
+    {
+      "section": "J11",
+      "name": "r15-viewall dashboard → ALL",
+      "ok": true,
+      "detail": "200 scope=ALL"
+    },
+    {
+      "section": "J11",
+      "name": "r15-browse (store-orders.view_all alone) report → OWN, no other employee",
+      "ok": true,
+      "detail": "200 scope=OWN"
+    },
+    {
+      "section": "J11",
+      "name": "r15-browse dashboard → OWN, empty leaderboard",
+      "ok": true,
+      "detail": "200 scope=OWN"
+    },
+    {
+      "section": "J11",
+      "name": "no reports.sales.view → /sales-reports/performance 403",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "section": "J11",
+      "name": "no leads / orders view → /sales/performance 403",
+      "ok": true,
+      "detail": "403"
+    },
+    {
+      "section": "J11",
+      "name": "agent sales → AGENT_OWN, own row only, never the agent admin",
+      "ok": true,
+      "detail": "200 scope=AGENT_OWN"
+    },
+    {
+      "section": "J11",
+      "name": "agent sales → ownRank present",
+      "ok": true,
+      "detail": "{\"position\":1,\"of\":2}"
+    },
+    {
+      "section": "J11",
+      "name": "agent admin → AGENT_ALL with both agent users",
+      "ok": true,
+      "detail": "200 scope=AGENT_ALL ids=2"
+    },
+    {
+      "section": "J11",
+      "name": "agent admin report never shows company employees",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "J1",
+      "name": "non-money /carrier/i keys seen by agents (labels / statuses)",
+      "ok": true,
+      "info": true,
+      "detail": "[\"POST /agent-portal/orders .fulfillment.shipments[0].carrierStatus = null\",\"GET /agent-portal/orders/4bd9af94-0a92-4897-b870-187fe17a8950 .fulfillment.shipments[0].carrierStatus = null\",\"GET /agent-portal/orders/c36c0ae4-d169-443d-a817-e15202901bff .fulfillment.shipments[0].carrierStatus = null\"]"
+    },
+    {
+      "section": "J1",
+      "name": "no cost / margin / COGS / carrier-cost key in any agent-token response (75 responses scanned with /cost|margin|cogs|carrier/i)",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "section": "J1",
+      "name": "channel-keyed agreed charges seen by agents (byChannel.CARRIER / INTERNAL_COURIER)",
+      "ok": true,
+      "info": true,
+      "detail": "[\"POST /agent-portal/orders/quote .agentShippingCharge.byChannel.CARRIER\"]"
+    },
+    {
+      "section": "J1",
+      "name": "every byChannel amount an agent sees is one of its own shipping-agreement rates (agreed charge, not carrier cost)",
+      "ok": true,
+      "detail": "{\"seen\":[60,40],\"rates\":[70,60,40,50,55]}"
+    }
+  ]
+}
