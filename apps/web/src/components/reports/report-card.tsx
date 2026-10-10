@@ -3,14 +3,14 @@
 import { useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
+  InsightCardSkeleton,
+  InsightIcon,
   InsightSurface,
   resolveInsightTone,
   type InsightTone,
 } from "@/components/shared/insight-card";
 import { MoneyValue } from "@/components/shared/money-value";
-import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/format-number";
-import { cn } from "@/lib/utils";
 import { useLocale } from "@/providers/locale-provider";
 
 /** Currencies listed before the rest fold behind "Show N more". */
@@ -82,15 +82,7 @@ export function ReportCard({
   const body = (
     <>
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        {Icon ? (
-          <span
-            data-slot="insight-icon"
-            className="flex size-7 shrink-0 items-center justify-center rounded-md"
-            aria-hidden
-          >
-            <Icon className="size-4" strokeWidth={2} />
-          </span>
-        ) : null}
+        {Icon ? <InsightIcon icon={Icon} /> : null}
         <span
           data-slot="insight-label"
           className="min-w-0 flex-1 basis-24 text-metric-label text-pretty text-muted-foreground"
@@ -158,27 +150,14 @@ export function ReportCard({
     </>
   );
 
-  if (onSelect) {
-    return (
-      <button
-        type="button"
-        data-slot="insight-card"
-        data-tone={resolvedTone}
-        data-emphasis={selected || undefined}
-        data-interactive=""
-        aria-pressed={selected}
-        onClick={onSelect}
-        className={cn(
-          "relative flex min-w-0 flex-col rounded-md border px-3 py-2.5 text-start outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-focus-ring",
-          className,
-        )}
-      >
-        {body}
-      </button>
-    );
-  }
   return (
-    <InsightSurface tone={resolvedTone} emphasis={selected} className={className}>
+    <InsightSurface
+      tone={resolvedTone}
+      emphasis={selected}
+      onSelect={onSelect}
+      pressed={onSelect ? selected : undefined}
+      className={className}
+    >
       {body}
     </InsightSurface>
   );
@@ -186,11 +165,5 @@ export function ReportCard({
 
 /** Loading placeholder with a `ReportCard`'s geometry — no figure is ever faked. */
 export function ReportCardSkeleton({ className }: { className?: string }) {
-  return (
-    <InsightSurface aria-hidden className={cn("gap-2", className)}>
-      <Skeleton className="h-4 w-24" />
-      <Skeleton className="h-6 w-14" />
-      <Skeleton className="h-4 w-28" />
-    </InsightSurface>
-  );
+  return <InsightCardSkeleton context className={className} />;
 }

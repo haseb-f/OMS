@@ -15,7 +15,7 @@ const agentOverviewAr = {
   },
   agents: {
     title: "نظرة عامة على الوكلاء",
-    description: "جميع الوكلاء الآن؛ البطاقات أدناه للوكلاء الظاهرين في هذه الصفحة من القائمة.",
+    description: "ملخص أداء جميع الوكلاء الآن، ثم أرقام كل وكيل على حدة.",
     activeAgents: "الوكلاء النشطون",
     agentsContext: "{total} وكيلًا إجمالًا",
     openOrders: "الطلبات المفتوحة",
@@ -25,6 +25,7 @@ const agentOverviewAr = {
     leadsContext: "{count} جديد",
     awaitingVerification: "مدفوعات بانتظار المالية",
     byAgentTitle: "حسب الوكيل",
+    byAgentDescription: "أرقام كل وكيل بعملته؛ افتح البطاقة لعرض صفحة الوكيل.",
     availableForPayout: "المتاح للصرف",
   },
 } as const;

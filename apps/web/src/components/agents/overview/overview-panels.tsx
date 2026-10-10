@@ -24,6 +24,7 @@ import {
 import {
   InsightBar,
   InsightCard,
+  InsightCardSkeleton,
   InsightGroup,
   InsightScope,
   type InsightTone,
@@ -39,7 +40,6 @@ import {
   CompactDetailTable,
   type CompactDetailColumn,
 } from "@/components/shared/data-table/compact-detail-table";
-import { Skeleton } from "@/components/ui/skeleton";
 import { stageShares } from "@/config/agent-portal/labels";
 import type { PortalFulfillmentCounts } from "@/services/agent-portal-service";
 import { formatDate } from "@/lib/date";
@@ -105,10 +105,7 @@ function GroupSkeleton({ tiles, className }: { tiles: number; className: string 
   return (
     <InsightGroup className={cn(GROUP, className)} aria-hidden>
       {Array.from({ length: tiles }, (_, index) => (
-        <div key={index} data-slot="insight-card" className={cn("flex flex-col gap-2", TILE)}>
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-6 w-14" />
-        </div>
+        <InsightCardSkeleton key={index} className={TILE} />
       ))}
     </InsightGroup>
   );
@@ -461,10 +458,19 @@ export interface BreakdownCard {
   currency: string;
   rows: SummaryRow[];
   tone?: InsightTone;
+  /** Drill-down of the card (e.g. the agent's own overview tab). */
+  href?: string;
 }
 
 /** One summary card per member (team) or per agent (cross-agent) — container-fit columns, one on phones. */
-export function BreakdownCards({ cards }: { cards: readonly BreakdownCard[] }) {
+export function BreakdownCards({
+  cards,
+  icon = Users,
+}: {
+  cards: readonly BreakdownCard[];
+  icon?: LucideIcon;
+}) {
+  const { direction } = useLocale();
   return (
     <InsightGroup fit className={GROUP}>
       {cards.map((card) => (
@@ -474,7 +480,9 @@ export function BreakdownCards({ cards }: { cards: readonly BreakdownCard[] }) {
           rows={card.rows}
           currency={card.currency}
           tone={card.tone}
-          icon={Users}
+          icon={icon}
+          href={card.href}
+          direction={direction}
         />
       ))}
     </InsightGroup>

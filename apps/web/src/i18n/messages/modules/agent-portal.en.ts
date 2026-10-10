@@ -7,7 +7,7 @@ const agentPortalEn = {
     stock: "Stock",
     statement: "Account statement",
     payouts: "Payouts to agent",
-    team: "Team",
+    team: "Team management",
     commission: "Commission report",
     reports: "Sales reports",
   },
@@ -501,7 +501,7 @@ const agentPortalEn = {
     },
   },
   team: {
-    title: "Team",
+    title: "Team management",
     description: "Your agent's users. You can add sales users and delegate permissions you hold.",
     new: "New sales user",
     empty: "No users yet.",

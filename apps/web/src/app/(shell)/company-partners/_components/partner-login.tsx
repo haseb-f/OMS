@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState } from "react";
 import { KeyRound, Link2, Power, PowerOff, Unlink, UserPlus } from "lucide-react";
-import { InsightSurface } from "@/components/shared/insight-card";
+import { InsightIcon, InsightSurface } from "@/components/shared/insight-card";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { CreateOperationFooter, CreateOperationLayout } from "@/components/shared/create-operation";
 import { ModalSection } from "@/components/shared/modal-section";
@@ -86,13 +86,7 @@ export function PartnerLoginCard({
   return (
     <InsightSurface tone="neutral" className="gap-2">
       <div className="flex min-w-0 items-center gap-2">
-        <span
-          data-slot="insight-icon"
-          className="flex size-7 shrink-0 items-center justify-center rounded-md"
-          aria-hidden
-        >
-          <KeyRound className="size-4" strokeWidth={2} />
-        </span>
+        <InsightIcon icon={KeyRound} />
         <h3 className="min-w-0 flex-1 text-metric-label text-muted-foreground">
           {t("companyPartners.login.title")}
         </h3>

@@ -23,18 +23,24 @@ html[dir="ltr"] :is(h1, h2) {
   letter-spacing: -0.02em;
 }
 
-/* ── Summary tiles and dashboard surfaces (design-system §12.8 / §12.17) ───
-   Round 8: the tone is a clearly visible tinted, glass-like surface — a
-   top → bottom gradient of the tone, a perceptible tone hairline and a thin
-   inner highlight (`--insight-sheen`) — not a tiny coloured icon on white.
-   Colour follows meaning only; every text pair is checked by
-   scripts/design/contrast-check.mjs.
-   Static summaries stay FLAT (no shadow, default cursor). Only a tile that
-   opens something (`data-interactive`) carries a resting lift, a chevron, and
-   reacts to hover and keyboard focus: a 1px rise, a stronger tone border and
-   gradient, a tinted shadow, the icon chip filling solid, the figure deepening
-   to the pure tone. The number never changes and nothing reflows (transforms
-   are paint-only; reduced motion removes them). */
+/* ── Report cards: summary tiles and dashboard surfaces (design-system §12.8 / §12.17; R16 S2) ───
+   ONE treatment for every report summary card (`InsightSurface` → `InsightCard`, `SummaryCard`,
+   `ReportCard`). Record-grid status cards (`renderGridCard`, `record-grid-card`) are a different,
+   flat family and are never styled here.
+   - Surface: the tone is a clearly visible tinted, glass-like surface — a top → bottom gradient
+     of the tone, a perceptible tone hairline and a thin inner highlight (`--insight-sheen`).
+     Colour follows meaning only; every text pair is checked by scripts/design/contrast-check.mjs.
+   - Static cards rest flat; on a hover-capable pointer they answer with a quiet tone edge and a
+     soft shadow (no pointer, no chevron).
+   - Interactive cards (`data-interactive`: a link or a button) carry a resting lift, a pointer and
+     a chevron, and react to hover AND keyboard focus identically: stronger tone edge and tint, a
+     tone shadow, the icon chip filling solid, the figure deepening.
+   - Paint only: no transform, no size or position change → no layout shift; nothing animates
+     continuously; `prefers-reduced-motion` removes the transitions.
+   - Hover lives under `(hover: hover)`, so a tap on a touch screen never leaves a sticky hover;
+     there the resting state (lift + chevron vs flat) already tells the two apart.
+   The visual state is carried by custom properties so hover, focus, emphasis and RTL combine
+   without duplicating whole box-shadow lists. */
 
 [data-slot="insight-card"] {
   --tone: var(--insight-neutral);
@@ -42,25 +48,36 @@ html[dir="ltr"] :is(h1, h2) {
   --tone-bottom: var(--insight-tint-bottom);
   --tone-border: var(--insight-tint-border);
   --accent-edge: 3px;
+  /* Start-edge accent of an emphasized card (set below, mirrored in RTL). */
+  --insight-card-edge: 0 0 transparent;
+  /* Resting lift (interactive cards) and the hover / focus shadow. */
+  --insight-card-lift: 0 0 transparent;
+  --insight-card-glow: 0 0 transparent;
+  --insight-card-sheen: var(--insight-sheen);
+  --insight-card-border: color-mix(in oklab, var(--tone) var(--tone-border), var(--card));
   background-color: var(--card);
   background-image: linear-gradient(
     180deg,
     color-mix(in oklab, var(--tone) var(--tone-top), var(--card)),
     color-mix(in oklab, var(--tone) var(--tone-bottom), var(--card))
   );
-  border-color: color-mix(in oklab, var(--tone) var(--tone-border), var(--card));
-  box-shadow: inset 0 1px 0 var(--insight-sheen);
+  border-color: var(--insight-card-border);
+  box-shadow:
+    var(--insight-card-edge),
+    inset 0 1px 0 var(--insight-card-sheen),
+    var(--insight-card-glow),
+    var(--insight-card-lift);
   color: var(--card-foreground);
   transition:
     border-color var(--duration-base) var(--ease-standard),
     box-shadow var(--duration-base) var(--ease-standard),
-    transform var(--duration-base) var(--ease-standard);
+    background-color var(--duration-base) var(--ease-standard);
 }
-/* Neutral tiles stay neutral: plain card, the standard hairline. */
+/* Neutral cards stay neutral: plain card, the standard hairline, no sheen. */
 [data-slot="insight-card"]:is([data-tone="neutral"], :not([data-tone])) {
+  --insight-card-sheen: transparent;
+  --insight-card-border: var(--border);
   background-image: none;
-  border-color: var(--border);
-  box-shadow: none;
 }
 [data-slot="insight-card"][data-tone="info"] {
   --tone: var(--insight-info);
@@ -87,7 +104,7 @@ html[dir="ltr"] :is(h1, h2) {
   --tone: var(--insight-loss);
 }
 
-/* Secondary text (label, unit, context, action) on a toned tile reads from the
+/* Secondary text (label, unit, context, action) on a toned card reads from the
    pulled-in muted token so the stronger tint still holds AA. */
 [data-slot="insight-card"][data-tone]:not([data-tone="neutral"]) {
   --muted-foreground: var(--insight-muted);
@@ -97,8 +114,7 @@ html[dir="ltr"] :is(h1, h2) {
   background-color: color-mix(in oklab, var(--tone) var(--insight-icon-fill), var(--card));
   transition:
     background-color var(--duration-base) var(--ease-standard),
-    color var(--duration-base) var(--ease-standard),
-    transform var(--duration-base) var(--ease-standard);
+    color var(--duration-base) var(--ease-standard);
 }
 /* The headline figure: a deep shade of the tone (neutral stays foreground). */
 [data-slot="insight-card"][data-tone]:not([data-tone="neutral"]) [data-slot="insight-value"] {
@@ -108,16 +124,12 @@ html[dir="ltr"] :is(h1, h2) {
 [data-slot="insight-card"] [data-slot="insight-bar"] {
   background-color: var(--tone);
 }
-/* Emphasis (open work / discrepancy): start-edge accent. */
+/* Emphasis (open work / discrepancy / the selected card): start-edge accent. */
 [data-slot="insight-card"][data-emphasis] {
-  box-shadow:
-    inset var(--accent-edge) 0 0 var(--tone),
-    inset 0 1px 0 var(--insight-sheen);
+  --insight-card-edge: inset var(--accent-edge) 0 0 var(--tone);
 }
 [dir="rtl"] [data-slot="insight-card"][data-emphasis] {
-  box-shadow:
-    inset calc(var(--accent-edge) * -1) 0 0 var(--tone),
-    inset 0 1px 0 var(--insight-sheen);
+  --insight-card-edge: inset calc(var(--accent-edge) * -1) 0 0 var(--tone);
 }
 [data-slot="insight-card"]:is([data-tone="destructive"], [data-tone="loss"])[data-emphasis]
   [data-slot="insight-value"] {
@@ -126,94 +138,91 @@ html[dir="ltr"] :is(h1, h2) {
 [data-slot="insight-card"] [data-slot="insight-action"],
 [data-slot="insight-card"] [data-slot="insight-go"] {
   color: var(--muted-foreground);
-  transition:
-    color var(--duration-base) var(--ease-standard),
-    transform var(--duration-base) var(--ease-standard);
+  transition: color var(--duration-base) var(--ease-standard);
 }
 
-/* Interactive tiles ONLY. Resting: a soft lift, a pointer and the chevron.
-   Hover / keyboard focus: see the header comment. */
+/* Interactive cards: resting lift and pointer (the chevron is in the markup). */
 [data-slot="insight-card"][data-interactive] {
+  --insight-card-lift: var(--insight-rest-shadow);
   cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 var(--insight-sheen),
-    var(--insight-rest-shadow);
 }
-[data-slot="insight-card"][data-interactive][data-emphasis] {
-  box-shadow:
-    inset var(--accent-edge) 0 0 var(--tone),
-    inset 0 1px 0 var(--insight-sheen),
-    var(--insight-rest-shadow);
+
+/* Static cards on a hover-capable pointer: a quiet tone edge + soft shadow. */
+@media (hover: hover) {
+  [data-slot="insight-card"]:not([data-interactive]):hover {
+    --insight-card-border: color-mix(
+      in oklab,
+      var(--tone) var(--insight-tint-border-hover),
+      var(--card)
+    );
+    --insight-card-glow: var(--insight-static-hover-shadow);
+  }
+  [data-slot="insight-card"]:not([data-interactive]):is(
+      [data-tone="neutral"],
+      :not([data-tone])
+    ):hover {
+    --insight-card-border: var(--border-strong);
+  }
 }
-[dir="rtl"] [data-slot="insight-card"][data-interactive][data-emphasis] {
-  box-shadow:
-    inset calc(var(--accent-edge) * -1) 0 0 var(--tone),
-    inset 0 1px 0 var(--insight-sheen),
-    var(--insight-rest-shadow);
+
+/* Interactive cards — keyboard focus (always) and hover (hover-capable pointers
+   only): the SAME response, declared once per trigger. */
+[data-slot="insight-card"][data-interactive]:focus-visible {
+  --tone-top: var(--insight-tint-top-hover);
+  --tone-bottom: var(--insight-tint-bottom-hover);
+  --insight-card-border: color-mix(in oklab, var(--tone) 72%, var(--card));
+  --insight-card-glow: 0 8px 18px -10px color-mix(in oklab, var(--tone) 60%, transparent);
 }
-[data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible) {
-  transform: translateY(-1px);
-  border-color: color-mix(in oklab, var(--tone) 72%, var(--card));
-  background-image: linear-gradient(
-    180deg,
-    color-mix(in oklab, var(--tone) var(--insight-tint-top-hover), var(--card)),
-    color-mix(in oklab, var(--tone) var(--insight-tint-bottom-hover), var(--card))
-  );
-  box-shadow:
-    inset 0 1px 0 var(--insight-sheen),
-    0 8px 18px -10px color-mix(in oklab, var(--tone) 60%, transparent),
-    var(--insight-rest-shadow);
+@media (hover: hover) {
+  [data-slot="insight-card"][data-interactive]:hover {
+    --tone-top: var(--insight-tint-top-hover);
+    --tone-bottom: var(--insight-tint-bottom-hover);
+    --insight-card-border: color-mix(in oklab, var(--tone) 72%, var(--card));
+    --insight-card-glow: 0 8px 18px -10px color-mix(in oklab, var(--tone) 60%, transparent);
+  }
 }
-[data-slot="insight-card"][data-interactive][data-emphasis]:is(:hover, :focus-visible) {
-  box-shadow:
-    inset var(--accent-edge) 0 0 var(--tone),
-    inset 0 1px 0 var(--insight-sheen),
-    0 8px 18px -10px color-mix(in oklab, var(--tone) 60%, transparent),
-    var(--insight-rest-shadow);
-}
-[dir="rtl"] [data-slot="insight-card"][data-interactive][data-emphasis]:is(:hover, :focus-visible) {
-  box-shadow:
-    inset calc(var(--accent-edge) * -1) 0 0 var(--tone),
-    inset 0 1px 0 var(--insight-sheen),
-    0 8px 18px -10px color-mix(in oklab, var(--tone) 60%, transparent),
-    var(--insight-rest-shadow);
-}
-/* A neutral tile that opens something: no tint, a stronger edge and a surface. */
-[data-slot="insight-card"][data-interactive]:is([data-tone="neutral"], :not([data-tone])):is(
-    :hover,
-    :focus-visible
-  ) {
-  background-image: none;
+/* A neutral card that opens something: no tint — a stronger edge and a surface. */
+[data-slot="insight-card"][data-interactive]:is(
+    [data-tone="neutral"],
+    :not([data-tone])
+  ):focus-visible {
+  --insight-card-border: var(--border-strong);
+  --insight-card-glow: var(--surface-soft-shadow-hover);
   background-color: var(--surface-soft-row-hover);
-  border-color: var(--border-strong);
-  box-shadow: var(--surface-soft-shadow-hover);
 }
-[data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible) [data-slot="insight-icon"] {
+@media (hover: hover) {
+  [data-slot="insight-card"][data-interactive]:is([data-tone="neutral"], :not([data-tone])):hover {
+    --insight-card-border: var(--border-strong);
+    --insight-card-glow: var(--surface-soft-shadow-hover);
+    background-color: var(--surface-soft-row-hover);
+  }
+}
+/* Inner response (icon chip fills, figure deepens, chevron / action darkens). */
+[data-slot="insight-card"][data-interactive]:focus-visible [data-slot="insight-icon"] {
   background-color: var(--tone);
   color: var(--card);
-  transform: scale(1.08);
 }
-[data-slot="insight-card"][data-interactive][data-tone]:not([data-tone="neutral"]):is(
-    :hover,
-    :focus-visible
-  )
+[data-slot="insight-card"][data-interactive][data-tone]:not([data-tone="neutral"]):focus-visible
   [data-slot="insight-value"] {
   color: color-mix(in oklab, var(--tone) 72%, var(--foreground));
 }
-[data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible)
+[data-slot="insight-card"][data-interactive]:focus-visible
   :is([data-slot="insight-action"], [data-slot="insight-go"]) {
   color: var(--foreground);
 }
-[data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible) [data-slot="insight-go"] {
-  transform: translateX(2px);
-}
-[dir="rtl"]
-  [data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible)
-  [data-slot="insight-go"] {
-  transform: translateX(-2px);
-}
-[data-slot="insight-card"][data-interactive]:active {
-  transform: none;
+@media (hover: hover) {
+  [data-slot="insight-card"][data-interactive]:hover [data-slot="insight-icon"] {
+    background-color: var(--tone);
+    color: var(--card);
+  }
+  [data-slot="insight-card"][data-interactive][data-tone]:not([data-tone="neutral"]):hover
+    [data-slot="insight-value"] {
+    color: color-mix(in oklab, var(--tone) 72%, var(--foreground));
+  }
+  [data-slot="insight-card"][data-interactive]:hover
+    :is([data-slot="insight-action"], [data-slot="insight-go"]) {
+    color: var(--foreground);
+  }
 }
 
 /* Round 6 (§12.13): a dashboard panel's header icon sits in a small chip
@@ -326,6 +335,7 @@ html[dir="ltr"] :is(h1, h2) {
   box-shadow: none;
 }
 
+/* Reduced motion: report cards and panel rows change state instantly. */
 @media (prefers-reduced-motion: reduce) {
   [data-slot="insight-card"],
   [data-slot="insight-card"] :is([data-slot="insight-icon"], [data-slot="insight-value"]),
@@ -334,9 +344,6 @@ html[dir="ltr"] :is(h1, h2) {
   [data-slot="panel-row"] [data-slot="panel-row-icon"] {
     transition: none;
   }
-  [data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible, :active),
-  [data-slot="insight-card"][data-interactive]:is(:hover, :focus-visible)
-    :is([data-slot="insight-icon"], [data-slot="insight-go"]),
   [data-slot="panel-row"]:is(:hover, :focus-visible) [data-slot="panel-row-icon"] {
     transform: none;
   }

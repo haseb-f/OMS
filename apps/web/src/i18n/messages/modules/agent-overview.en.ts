@@ -15,7 +15,7 @@ const agentOverviewEn = {
   },
   agents: {
     title: "Agents overview",
-    description: "Every agent now; the cards below cover the agents on this page of the list.",
+    description: "How all agents stand now, then each agent's own figures.",
     activeAgents: "Active agents",
     agentsContext: "{total} agents in total",
     openOrders: "Open orders",
@@ -25,6 +25,8 @@ const agentOverviewEn = {
     leadsContext: "{count} new",
     awaitingVerification: "Payments awaiting Finance",
     byAgentTitle: "By agent",
+    byAgentDescription:
+      "Each agent's figures in its own currency; open a card for the agent's page.",
     availableForPayout: "Available for payout",
   },
 } as const;
