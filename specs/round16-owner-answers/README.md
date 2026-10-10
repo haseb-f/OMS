@@ -10,3 +10,7 @@
 Verification (local `oms_r16`): API tsc ✓, eslint ✓, jest 221 suites / 2614 tests — 2 failures in
 `lead-eligibility.integration.spec.ts` reproduce identically on unmodified `main` (pre-existing, DB-state);
 web tsc ✓, vitest 1176 ✓. Mutation proofs: B2B split and the import implication each fail their test when removed.
+
+**Release:** Production `08bfd7d9` (2026-10-10, Vercel success); Production smoke 19/19. The R15/R14 data cleanup
+was applied by another session with the owner's approval (`d6b0860b`); the recognition repair dry run on
+Production now reports 0 candidates.
