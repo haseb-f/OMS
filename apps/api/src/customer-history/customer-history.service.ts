@@ -9,7 +9,6 @@ import { storeOrderPayableTotal } from '../store-orders/store-order-line-amount'
 import {
   customerOrderStats,
   EMPTY_ORDER_STATS,
-  isCompletedSalesDocument,
   productSummary,
 } from './customer-order-stats';
 
@@ -66,15 +65,28 @@ export interface CustomerTimelineEvent {
 
 export interface CustomerHistory {
   partner: { id: string; name: string; partnerNumber: string };
+  /** Store orders (the repeat-customer figures); `b2b` = B2B sales orders, kept apart. */
   summary: {
     placedOrders: number;
     completedPurchases: number;
     lastOrderDate: Date | null;
+    b2b: {
+      placedOrders: number;
+      completedPurchases: number;
+      lastOrderDate: Date | null;
+    };
   };
-  /** Orders the caller can open, newest first. */
+  /** Store orders the caller can open, newest first. */
   orders: CustomerHistoryOrder[];
-  /** Orders of this customer the caller cannot open — a number only. */
+  /** Store orders of this customer the caller cannot open — a number only. */
   otherOrdersCount: number;
+  /**
+   * B2B sales orders the caller can open, newest first — their own list
+   * (owner, 2026-10-10: B2B orders are not part of the store orders).
+   */
+  b2bOrders: CustomerHistoryOrder[];
+  /** B2B sales orders the caller cannot open — a number only. */
+  otherB2bOrdersCount: number;
   /** Present only with `finance.view` or `customers.view_financials`. */
   financials: {
     /** Ledger receivable in the functional currency (positive = the customer owes). */
@@ -96,11 +108,12 @@ export interface CustomerHistory {
 }
 
 /**
- * Round 14 (W4, spec-4 §3) — one customer's history: the store and B2B
- * orders the caller can open (the caller's own sales scope decides, through
- * `SalesScopeService` — never a second scope rule), how many others exist,
- * company-wide order counts, an optional financial section and a plain
- * chronological timeline. Company data only: agent orders are never read.
+ * Round 14 (W4, spec-4 §3) — one customer's history: the store orders and,
+ * as a separate list, the B2B sales orders the caller can open (the caller's
+ * own sales scope decides, through `SalesScopeService` — never a second scope
+ * rule), how many others exist, company-wide order counts per line, an
+ * optional financial section and a plain chronological timeline of the store
+ * orders and payments. Company data only: agent orders are never read.
  */
 @Injectable()
 export class CustomerHistoryService {
@@ -207,7 +220,6 @@ export class CustomerHistoryService {
               createdAt: true,
               updatedAt: true,
               confirmedAt: true,
-              cancelledAt: true,
               currency: { select: { code: true } },
               items: {
                 where: { deletedAt: null },
@@ -234,24 +246,24 @@ export class CustomerHistoryService {
         quantity: item.quantity,
       }));
 
-    const orders: CustomerHistoryOrder[] = [
-      ...storeOrders.map((order) => {
-        const products = productsOf(order.items);
-        return {
-          id: order.id,
-          type: 'STORE' as const,
-          number: order.internalOrderId,
-          date: order.orderDate,
-          productSummary: productSummary(products.map((p) => p.name)),
-          products: products.slice(0, MAX_PRODUCTS_PER_ORDER),
-          fulfillmentStatus: order.fulfillmentStatus,
-          documentStatus: null,
-          paymentStatus: order.paymentStatus,
-          total: storeOrderPayableTotal(order),
-          currencyCode: order.currency?.code ?? null,
-        };
-      }),
-      ...documents.map((document) => {
+    const orders: CustomerHistoryOrder[] = storeOrders.map((order) => {
+      const products = productsOf(order.items);
+      return {
+        id: order.id,
+        type: 'STORE' as const,
+        number: order.internalOrderId,
+        date: order.orderDate,
+        productSummary: productSummary(products.map((p) => p.name)),
+        products: products.slice(0, MAX_PRODUCTS_PER_ORDER),
+        fulfillmentStatus: order.fulfillmentStatus,
+        documentStatus: null,
+        paymentStatus: order.paymentStatus,
+        total: storeOrderPayableTotal(order),
+        currencyCode: order.currency?.code ?? null,
+      };
+    });
+    const b2bOrders: CustomerHistoryOrder[] = documents
+      .map((document) => {
         const products = productsOf(document.items);
         return {
           id: document.id,
@@ -266,8 +278,8 @@ export class CustomerHistoryService {
           total: Number(document.grandTotal),
           currencyCode: document.currency?.code ?? null,
         };
-      }),
-    ].sort((a, b) => b.date.getTime() - a.date.getTime());
+      })
+      .sort((a, b) => b.date.getTime() - a.date.getTime());
 
     const timeline: CustomerTimelineEvent[] = [];
     for (const order of storeOrders) {
@@ -299,28 +311,6 @@ export class CustomerHistoryService {
         timeline.push({ kind: 'CANCELLATION', at: order.updatedAt, ...base });
       }
     }
-    for (const document of documents) {
-      const base = {
-        reference: document.orderNumber,
-        orderId: document.id,
-        orderType: 'B2B' as const,
-      };
-      timeline.push({
-        kind: 'ORDER',
-        at: document.confirmedAt ?? document.createdAt,
-        ...base,
-      });
-      if (isCompletedSalesDocument(document.status)) {
-        timeline.push({ kind: 'DELIVERY', at: document.updatedAt, ...base });
-      }
-      if (document.status === SalesDocumentStatus.CANCELLED) {
-        timeline.push({
-          kind: 'CANCELLATION',
-          at: document.cancelledAt ?? document.updatedAt,
-          ...base,
-        });
-      }
-    }
     for (const payment of financials?.payments ?? []) {
       if (payment.status === PaymentStatus.REJECTED) continue;
       timeline.push({
@@ -342,12 +332,12 @@ export class CustomerHistoryService {
         placedOrders: counts.placedOrders,
         completedPurchases: counts.completedPurchases,
         lastOrderDate: counts.lastOrderDate,
+        b2b: counts.b2b,
       },
       orders,
-      otherOrdersCount: Math.max(
-        storeTotal - storeVisibleCount + documentTotal - documentVisibleCount,
-        0,
-      ),
+      otherOrdersCount: Math.max(storeTotal - storeVisibleCount, 0),
+      b2bOrders,
+      otherB2bOrdersCount: Math.max(documentTotal - documentVisibleCount, 0),
       financials,
       timeline,
     };
@@ -374,6 +364,10 @@ export class CustomerHistoryService {
     return {
       placedOrders: counts.placedOrders,
       completedPurchases: counts.completedPurchases,
+      b2b: {
+        placedOrders: counts.b2b.placedOrders,
+        completedPurchases: counts.b2b.completedPurchases,
+      },
     };
   }
 

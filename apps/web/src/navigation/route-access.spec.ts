@@ -139,6 +139,14 @@ const grants =
 const allowed = (path: string, ...keys: string[]) =>
   isRouteAccessAllowed(resolveRouteAccess(navigationConfig, path), grants(...keys));
 
+describe("R16 — order import is a sales employee's tool (owner, 2026-10-10)", () => {
+  it("opens /store-orders/import with store-orders.import (implied by store-orders.create) or the admin catch-all", () => {
+    expect(allowed("/store-orders/import", "store-orders.view")).toBe(false);
+    expect(allowed("/store-orders/import", "store-orders.view", "store-orders.import")).toBe(true);
+    expect(allowed("/store-orders/import", "import-center.manage")).toBe(true);
+  });
+});
+
 describe("R14 fix — shipping import needs the Import Center permission it opens", () => {
   it("hides /shipping/import from a shipping.view-only user and opens it with import-center.view", () => {
     expect(resolveRouteRequiredPermissions(navigationConfig, "/shipping/import")).toEqual([

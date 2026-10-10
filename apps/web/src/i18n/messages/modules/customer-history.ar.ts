@@ -10,12 +10,14 @@ const customerHistoryAr = {
     placedOrders: "{count} طلبات",
   },
   tabs: {
-    orders: "الطلبات",
+    orders: "طلبات المتجر",
+    b2b: "طلبات B2B",
     leads: "العملاء المحتملون",
     history: "السجل الزمني",
   },
   summary: {
-    placed: "الطلبات",
+    placed: "طلبات المتجر",
+    b2bPlaced: "طلبات B2B",
     completed: "المشتريات المكتملة",
     lastOrder: "آخر طلب",
     outstanding: "الرصيد المستحق",
@@ -23,6 +25,8 @@ const customerHistoryAr = {
   orders: {
     empty: "لا توجد طلبات لهذا العميل.",
     otherOrders: "{count} طلبات أخرى لدى موظفين آخرين",
+    b2bEmpty: "لا توجد طلبات B2B لهذا العميل.",
+    b2bStatus: "الحالة",
     loadFailed: "تعذر تحميل طلبات العميل.",
     columns: {
       number: "رقم الطلب",

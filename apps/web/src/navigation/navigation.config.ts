@@ -167,7 +167,11 @@ export const navigationConfig: NavigationItem[] = [
     route: "/store-orders/import",
     icon: "upload-cloud",
     order: 5,
-    permissions: ["store-orders.view"],
+    // Owner, 2026-10-10: every sales employee who creates orders imports them
+    // (`store-orders.create` implies `store-orders.import`); administrators
+    // keep the Import Center catch-all.
+    permissions: ["store-orders.import", "import-center.manage"],
+    permissionMatch: "any",
   },
   {
     id: "store-orders-needs-review",

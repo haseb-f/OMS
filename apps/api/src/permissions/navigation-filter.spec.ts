@@ -144,10 +144,17 @@ describe('filterByAccess', () => {
         'dashboard',
         'sales',
         'store-orders-list',
-        'store-orders-import',
         'store-orders-needs-review',
       ]),
     );
+    // R16 — the import entry follows its own key (implied by store-orders.create).
+    expect(ids).not.toContain('store-orders-import');
+    expect(
+      filterByAccess(navigationConfig, [
+        'store-orders.view',
+        'store-orders.import',
+      ]).map((item) => item.id),
+    ).toContain('store-orders-import');
     expect(ids).not.toContain('sales-quotations');
     expect(ids).not.toContain('crm');
     expect(ids).not.toContain('finance');

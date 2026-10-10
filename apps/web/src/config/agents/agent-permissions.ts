@@ -39,6 +39,8 @@ const SALES_PRESET: AgentPortalPermission[] = [
   "agent.orders.create",
   "agent.orders.edit",
   "agent.payments.declare",
+  // Owner, 2026-10-10: order import is a sales employee's tool, company or agent.
+  "agent.orders.import",
 ];
 
 export const AGENT_ROLE_PRESETS: Record<AgentRole, AgentPortalPermission[]> = {

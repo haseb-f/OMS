@@ -756,6 +756,20 @@ describe('R15 W2 — sales imports (integration)', () => {
       });
 
     it('an agent SALES user needs agent.orders.import; with it the order belongs to the token agent and an Agent column is ignored', async () => {
+      // R16 (owner, 2026-10-10): the SALES preset now carries the key — the
+      // agent admin can still withdraw it, and without it the import is refused.
+      const key = await prisma.permission.findUniqueOrThrow({
+        where: { name: 'agent.orders.import' },
+      });
+      expect(
+        await prisma.userPermission.count({
+          where: { userId: agentSales.userId, permissionId: key.id },
+        }),
+      ).toBe(1);
+      await prisma.userPermission.deleteMany({
+        where: { userId: agentSales.userId, permissionId: key.id },
+      });
+      resolver.invalidate(agentSales.userId);
       await expectHttp(
         workspace.create('STORE_ORDERS', agentActor()),
         ForbiddenException,

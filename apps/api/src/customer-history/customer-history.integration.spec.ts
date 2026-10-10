@@ -286,19 +286,21 @@ describe('R14 customer history (HTTP)', () => {
     const body = res.body as {
       orders: { id: string; type: string; number: string }[];
       otherOrdersCount: number;
+      b2bOrders: { id: string; type: string; number: string }[];
+      otherB2bOrdersCount: number;
     };
-    const listed = body.orders.map((o) => o.number).sort();
-    expect(listed).toEqual(
-      [
-        `R14H-${suffix}-A1`,
-        `R14H-${suffix}-A2`,
-        `R14H-${suffix}-A3`,
-        documentNumber.D1,
-        documentNumber.D2,
-      ].sort(),
+    // Store orders and B2B sales orders are separate lists (owner, 2026-10-10).
+    expect(body.orders.map((o) => o.number).sort()).toEqual(
+      [`R14H-${suffix}-A1`, `R14H-${suffix}-A2`, `R14H-${suffix}-A3`].sort(),
     );
-    // B1 (empB's store order) + D3 (empB's sales order) are counted, never listed.
-    expect(body.otherOrdersCount).toBe(2);
+    expect(body.orders.every((o) => o.type === 'STORE')).toBe(true);
+    expect(body.b2bOrders.map((o) => o.number).sort()).toEqual(
+      [documentNumber.D1, documentNumber.D2].sort(),
+    );
+    expect(body.b2bOrders.every((o) => o.type === 'B2B')).toBe(true);
+    // B1 (empB's store order) and D3 (empB's sales order) are counted, never listed.
+    expect(body.otherOrdersCount).toBe(1);
+    expect(body.otherB2bOrdersCount).toBe(1);
     const raw = JSON.stringify(res.body);
     expect(raw).not.toContain(order.B1);
     expect(raw).not.toContain(`R14H-${suffix}-B1`);
@@ -329,6 +331,9 @@ describe('R14 customer history (HTTP)', () => {
         }[];
       }
     ).orders;
+    const b2bOrders = (
+      res.body as { b2bOrders: { number: string; documentStatus: string }[] }
+    ).b2bOrders;
     const a1 = orders.find((o) => o.number === `R14H-${suffix}-A1`)!;
     expect(a1.productSummary).toBe(`R14 History Product ${suffix}`);
     expect(a1.products).toEqual([
@@ -337,22 +342,28 @@ describe('R14 customer history (HTTP)', () => {
     expect(a1.fulfillmentStatus?.code).toBe('DELIVERED');
     expect(a1.paymentStatus).toBe('PAYMENT_PENDING');
     expect(a1.total).toBe(80);
-    const d1 = orders.find((o) => o.number === documentNumber.D1)!;
+    const d1 = b2bOrders.find((o) => o.number === documentNumber.D1)!;
     expect(d1.documentStatus).toBe('CONFIRMED');
     const dates = orders.map((o) => new Date(o.date).getTime());
     expect([...dates].sort((x, y) => y - x)).toEqual(dates);
   });
 
-  it('counts placed / completed orders company-wide with the shared definition', async () => {
+  it('counts store orders company-wide; B2B sales orders are counted apart', async () => {
     const res = await history('empA');
-    // store placed A1 A2 B1 + B2B placed D1 D3 = 5; completed A1 B1 + D3 = 3.
+    // store placed A1 A2 B1 = 3, completed A1 B1 = 2 — the repeat label's numbers.
+    // B2B placed D1 D3 = 2, completed D3 = 1 — never added to the store figures.
     expect(res.body.summary).toMatchObject({
-      placedOrders: 5,
-      completedPurchases: 3,
+      placedOrders: 3,
+      completedPurchases: 2,
+      b2b: { placedOrders: 2, completedPurchases: 1 },
     });
     const own = await stats('empA');
     expect(own.status).toBe(200);
-    expect(own.body).toEqual({ placedOrders: 5, completedPurchases: 3 });
+    expect(own.body).toEqual({
+      placedOrders: 3,
+      completedPurchases: 2,
+      b2b: { placedOrders: 2, completedPurchases: 1 },
+    });
   });
 
   it('builds a chronological timeline of the caller’s own orders', async () => {
@@ -370,6 +381,8 @@ describe('R14 customer history (HTTP)', () => {
       'ORDER',
     ]);
     expect(kinds(`R14H-${suffix}-B1`)).toEqual([]);
+    // The timeline follows the store orders; B2B orders keep their own tab.
+    expect(kinds(documentNumber.D1)).toEqual([]);
     const times = timeline.map((e) => new Date(e.at).getTime());
     expect([...times].sort((x, y) => y - x)).toEqual(times);
   });
@@ -419,6 +432,7 @@ describe('R14 customer history (HTTP)', () => {
     expect((await stats('noPartners')).status).toBe(404);
     const res = await stats('empB');
     expect(Object.keys(res.body as object).sort()).toEqual([
+      'b2b',
       'completedPurchases',
       'placedOrders',
     ]);

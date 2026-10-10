@@ -37,12 +37,24 @@ export interface CustomerOrderStats {
   completedPurchases: number;
 }
 
+/** Store-order figures (the repeat label) — B2B sales orders are counted apart. */
+export interface CustomerOrderStatsWithB2b extends CustomerOrderStats {
+  b2b: CustomerOrderStats;
+}
+
 export interface CustomerHistory {
   partner: { id: string; name: string; partnerNumber: string };
-  summary: CustomerOrderStats & { lastOrderDate: string | null };
+  summary: CustomerOrderStats & {
+    lastOrderDate: string | null;
+    b2b: CustomerOrderStats & { lastOrderDate: string | null };
+  };
+  /** Store orders the caller can open. */
   orders: CustomerHistoryOrder[];
-  /** Orders the caller cannot open — a number only. */
+  /** Store orders the caller cannot open — a number only. */
   otherOrdersCount: number;
+  /** B2B sales orders — their own list, never mixed with the store orders. */
+  b2bOrders: CustomerHistoryOrder[];
+  otherB2bOrdersCount: number;
   /** Null without `finance.view` / `customers.view_financials`. */
   financials: {
     outstandingBalance: number;
@@ -64,7 +76,7 @@ export interface CustomerHistory {
 export const customerHistoryService = {
   history: (partnerId: string) => apiClient.get<CustomerHistory>(`/customers/${partnerId}/history`),
   orderStats: (partnerId: string) =>
-    apiClient.get<CustomerOrderStats>(`/customers/${partnerId}/order-stats`),
+    apiClient.get<CustomerOrderStatsWithB2b>(`/customers/${partnerId}/order-stats`),
 };
 
 /** Where an order of the history opens. */

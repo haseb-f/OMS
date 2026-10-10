@@ -126,6 +126,8 @@ export const AGENT_ROLE_PRESETS: Record<
     'agent.orders.create',
     'agent.orders.edit',
     'agent.payments.declare',
+    // Owner, 2026-10-10: order import is a sales employee's tool, company or agent.
+    'agent.orders.import',
   ],
   ADMIN: [
     'agent.dashboard.view',
@@ -1789,6 +1791,12 @@ export function withImpliedSectionPermissions(names: string[]): string[] {
   }
   if (expanded.has('store-orders.edit')) {
     expanded.add('store-orders.generate_invoice');
+  }
+  // Owner, 2026-10-10 — importing orders belongs to every sales employee who
+  // may create them (company side; the agent side is the SALES preset). Still
+  // revocable per user: an individual DENY is applied after this expansion.
+  if (expanded.has('store-orders.create')) {
+    expanded.add('store-orders.import');
   }
   return [...expanded];
 }

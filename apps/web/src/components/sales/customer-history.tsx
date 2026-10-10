@@ -26,6 +26,7 @@ import {
   type CustomerHistory,
   type CustomerHistoryOrder,
   type CustomerTimelineKind,
+  type HistoryOrderType,
 } from "@/services/customer-history-service";
 import type { SalesDocumentStatusValue } from "@/services/sales-orders-service";
 import { useLocale } from "@/providers/locale-provider";
@@ -40,7 +41,10 @@ import { formatMoney } from "@/lib/money";
  * `StatusBadge` with the existing status mappers, and `Timeline`.
  */
 
-/** Placed / completed / last order date / outstanding (only when the server sent financials). */
+/**
+ * Store orders placed / completed / last order date, B2B orders apart (only when
+ * the customer has any), outstanding (only when the server sent financials).
+ */
 export function CustomerHistorySummary({ history }: { history: CustomerHistory }) {
   const { t } = useLocale();
   const { summary, financials } = history;
@@ -58,6 +62,12 @@ export function CustomerHistorySummary({ history }: { history: CustomerHistory }
         label={t("customerHistory.summary.lastOrder")}
         value={summary.lastOrderDate ? formatDate(summary.lastOrderDate) : null}
       />
+      {summary.b2b.placedOrders > 0 ? (
+        <DetailField
+          label={t("customerHistory.summary.b2bPlaced")}
+          value={<span className="num">{summary.b2b.placedOrders}</span>}
+        />
+      ) : null}
       {financials ? (
         <DetailField
           label={t("customerHistory.summary.outstanding")}
@@ -70,15 +80,21 @@ export function CustomerHistorySummary({ history }: { history: CustomerHistory }
   );
 }
 
-/** Store + B2B orders the viewer can open, newest first; the rest only as a count. */
+/**
+ * One order line the viewer can open, newest first; the rest only as a count.
+ * Store orders and B2B sales orders are separate lines (owner, 2026-10-10), so
+ * the page renders this section once per line, never one mixed list.
+ */
 export function CustomerOrdersSection({
   history,
   isLoading,
   failed,
+  line = "STORE",
 }: {
   history: CustomerHistory | null;
   isLoading: boolean;
   failed: boolean;
+  line?: HistoryOrderType;
 }) {
   const { t } = useLocale();
   if (isLoading) {
@@ -91,17 +107,22 @@ export function CustomerOrdersSection({
       </p>
     );
   }
+  const b2b = line === "B2B";
+  const orders = b2b ? history.b2bOrders : history.orders;
+  const otherCount = b2b ? history.otherB2bOrdersCount : history.otherOrdersCount;
   const others =
-    history.otherOrdersCount > 0 ? (
+    otherCount > 0 ? (
       <p className="text-caption text-muted-foreground" data-testid="customer-other-orders">
-        {t("customerHistory.orders.otherOrders", { count: history.otherOrdersCount })}
+        {t("customerHistory.orders.otherOrders", { count: otherCount })}
       </p>
     ) : null;
-  if (history.orders.length === 0) {
+  if (orders.length === 0) {
     return (
       <DetailSection>
         <div className="flex flex-col gap-1">
-          <p className="text-caption text-muted-foreground">{t("customerHistory.orders.empty")}</p>
+          <p className="text-caption text-muted-foreground">
+            {t(b2b ? "customerHistory.orders.b2bEmpty" : "customerHistory.orders.empty")}
+          </p>
           {others}
         </div>
       </DetailSection>
@@ -113,7 +134,7 @@ export function CustomerOrdersSection({
         {/* One DOM for every width: a table on sm+, each row a stacked card on phones. */}
         <div className="rounded-sm sm:border sm:border-border">
           <Table
-            data-testid="customer-orders-table"
+            data-testid={b2b ? "customer-b2b-orders-table" : "customer-orders-table"}
             className="max-sm:block"
             containerClassName="max-sm:overflow-visible"
           >
@@ -122,15 +143,21 @@ export function CustomerOrdersSection({
                 <TableHead>{t("customerHistory.orders.columns.number")}</TableHead>
                 <TableHead>{t("customerHistory.orders.columns.date")}</TableHead>
                 <TableHead>{t("customerHistory.orders.columns.products")}</TableHead>
-                <TableHead>{t("customerHistory.orders.columns.fulfillment")}</TableHead>
-                <TableHead>{t("customerHistory.orders.columns.payment")}</TableHead>
+                <TableHead>
+                  {t(
+                    b2b
+                      ? "customerHistory.orders.b2bStatus"
+                      : "customerHistory.orders.columns.fulfillment",
+                  )}
+                </TableHead>
+                {b2b ? null : <TableHead>{t("customerHistory.orders.columns.payment")}</TableHead>}
                 <TableHead className="text-end">
                   {t("customerHistory.orders.columns.total")}
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody className="max-sm:flex max-sm:flex-col max-sm:gap-2">
-              {history.orders.map((order) => (
+              {orders.map((order) => (
                 <CustomerOrderRow key={`${order.type}-${order.id}`} order={order} />
               ))}
             </TableBody>
@@ -171,9 +198,6 @@ function CustomerOrderRow({ order }: { order: CustomerHistoryOrder }) {
               {order.number}
             </Link>
           </EnterpriseButton>
-          <span className="text-caption text-muted-foreground">
-            {t(`customerHistory.orders.type.${order.type}`)}
-          </span>
         </div>
       </TableCell>
       <TableCell className={cell}>
@@ -187,16 +211,18 @@ function CustomerOrderRow({ order }: { order: CustomerHistoryOrder }) {
       <TableCell className={cell}>
         {fulfillment ? <StatusBadge label={fulfillment.label} tone={fulfillment.tone} /> : "—"}
       </TableCell>
-      <TableCell className={cell}>
-        {payment ? (
-          <StatusBadge
-            label={payment.labelKey ? t(payment.labelKey) : (payment.label ?? "")}
-            tone={payment.tone}
-          />
-        ) : (
-          "—"
-        )}
-      </TableCell>
+      {order.type === "B2B" ? null : (
+        <TableCell className={cell}>
+          {payment ? (
+            <StatusBadge
+              label={payment.labelKey ? t(payment.labelKey) : (payment.label ?? "")}
+              tone={payment.tone}
+            />
+          ) : (
+            "—"
+          )}
+        </TableCell>
+      )}
       <TableCell className={`${cell} text-end max-sm:text-start`}>
         <MoneyValue value={order.total} currency={order.currencyCode} />
       </TableCell>

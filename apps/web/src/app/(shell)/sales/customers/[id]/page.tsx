@@ -408,6 +408,27 @@ export default function CustomerProfilePage() {
               />
             ),
           },
+          // B2B sales orders are their own line, never mixed into the store
+          // orders (owner, 2026-10-10) — a separate tab, only when there are any.
+          ...(history &&
+          (history.summary.b2b.placedOrders > 0 ||
+            history.b2bOrders.length > 0 ||
+            history.otherB2bOrdersCount > 0)
+            ? [
+                {
+                  value: "b2b",
+                  label: t("customerHistory.tabs.b2b"),
+                  content: (
+                    <CustomerOrdersSection
+                      history={history}
+                      isLoading={isLoadingHistory}
+                      failed={historyFailed}
+                      line="B2B"
+                    />
+                  ),
+                },
+              ]
+            : []),
           {
             value: "leads",
             label: t("customerHistory.tabs.leads"),

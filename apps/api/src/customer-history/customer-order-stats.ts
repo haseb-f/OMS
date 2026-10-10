@@ -6,11 +6,14 @@ import { Prisma, SalesDocumentStatus } from '@prisma/client';
  * repeat-customer badge and the customer history summary.
  *
  * - placedOrders: company store orders of the partner whose fulfillment is not
- *   CANCELLED (store orders have no draft state), plus B2B sales orders that
- *   are neither DRAFT nor CANCELLED.
+ *   CANCELLED (store orders have no draft state).
  * - completedPurchases: store orders fulfilled DELIVERED or COLLECTED (a
- *   RETURNED order is never completed), plus B2B sales orders DELIVERED or
- *   CLOSED.
+ *   RETURNED order is never completed).
+ * - b2b: B2B sales orders are their own business line (owner, 2026-10-10:
+ *   "B2B orders are not part of store orders — they stand on their own"), so
+ *   they are counted separately and never feed the store figures or the
+ *   repeat-customer label: placed = neither DRAFT nor CANCELLED, completed =
+ *   DELIVERED or CLOSED.
  *
  * Counted across the company (not the viewer's scope) but only the numbers
  * ever leave the server. Agent orders are the agent's business and are never
@@ -53,17 +56,27 @@ export function isRepeatCustomer(placedOrders: number) {
   return placedOrders >= REPEAT_CUSTOMER_MIN_ORDERS;
 }
 
-export interface CustomerOrderStats {
+export interface OrderLineStats {
   placedOrders: number;
   completedPurchases: number;
-  /** Latest placed order date (store or B2B), or null. */
+  /** Latest placed order date, or null. */
   lastOrderDate: Date | null;
 }
 
-export const EMPTY_ORDER_STATS: CustomerOrderStats = {
+/** Store-order figures at the top level (repeat label, lookup, duplicates); B2B apart. */
+export interface CustomerOrderStats extends OrderLineStats {
+  b2b: OrderLineStats;
+}
+
+const emptyLine = (): OrderLineStats => ({
   placedOrders: 0,
   completedPurchases: 0,
   lastOrderDate: null,
+});
+
+export const EMPTY_ORDER_STATS: CustomerOrderStats = {
+  ...emptyLine(),
+  b2b: emptyLine(),
 };
 
 type StatsClient = Pick<
@@ -79,7 +92,7 @@ export async function customerOrderStats(
   const result = new Map<string, CustomerOrderStats>();
   const ids = [...new Set(partnerIds)];
   if (ids.length === 0) return result;
-  for (const id of ids) result.set(id, { ...EMPTY_ORDER_STATS });
+  for (const id of ids) result.set(id, { ...emptyLine(), b2b: emptyLine() });
 
   const [storeGroups, documentGroups] = await Promise.all([
     client.storeOrder.groupBy({
@@ -114,13 +127,12 @@ export async function customerOrderStats(
   );
 
   const add = (
-    partnerId: string,
+    stats: OrderLineStats | undefined,
     count: number,
     placed: boolean,
     completed: boolean,
     date: Date | null,
   ) => {
-    const stats = result.get(partnerId);
     if (!stats || !placed) return;
     stats.placedOrders += count;
     if (completed) stats.completedPurchases += count;
@@ -133,7 +145,7 @@ export async function customerOrderStats(
       ? (codes.get(row.fulfillmentStatusId) ?? null)
       : null;
     add(
-      row.partnerId,
+      result.get(row.partnerId),
       row._count._all,
       isPlacedStoreOrder(code),
       isCompletedStoreOrder(code),
@@ -142,7 +154,7 @@ export async function customerOrderStats(
   }
   for (const row of documentGroups) {
     add(
-      row.partnerId,
+      result.get(row.partnerId)?.b2b,
       row._count._all,
       isPlacedSalesDocument(row.status),
       isCompletedSalesDocument(row.status),

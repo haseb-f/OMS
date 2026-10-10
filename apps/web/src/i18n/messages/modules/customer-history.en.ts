@@ -10,12 +10,14 @@ const customerHistoryEn = {
     placedOrders: "{count} orders",
   },
   tabs: {
-    orders: "Orders",
+    orders: "Store orders",
+    b2b: "B2B orders",
     leads: "Leads",
     history: "Timeline",
   },
   summary: {
-    placed: "Orders",
+    placed: "Store orders",
+    b2bPlaced: "B2B orders",
     completed: "Completed purchases",
     lastOrder: "Last order",
     outstanding: "Outstanding balance",
@@ -23,6 +25,8 @@ const customerHistoryEn = {
   orders: {
     empty: "This customer has no orders.",
     otherOrders: "{count} more orders with other employees",
+    b2bEmpty: "This customer has no B2B orders.",
+    b2bStatus: "Status",
     loadFailed: "Could not load the customer's orders.",
     columns: {
       number: "Order",

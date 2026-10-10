@@ -1,4 +1,5 @@
 import { computeEffectivePermissions } from './effective-permissions';
+import { AGENT_ROLE_PRESETS } from './permission-catalog';
 
 /** R14 W2 (spec-2 §A) — effective = expand((template ∪ GRANT) − DENY) − DENY. */
 describe('computeEffectivePermissions', () => {
@@ -30,6 +31,34 @@ describe('computeEffectivePermissions', () => {
     const effective = internal(['products.create'], [], ['products.create']);
     expect(effective.has('products.create')).toBe(false);
     expect(effective.has('products.view')).toBe(false);
+  });
+
+  it('R16 — creating store orders implies importing them; a DENY still revokes the import', () => {
+    expect(internal(['store-orders.create']).has('store-orders.import')).toBe(
+      true,
+    );
+    expect(internal(['store-orders.view']).has('store-orders.import')).toBe(
+      false,
+    );
+    const denied = internal(
+      ['store-orders.create'],
+      [],
+      ['store-orders.import'],
+    );
+    expect(denied.has('store-orders.create')).toBe(true);
+    expect(denied.has('store-orders.import')).toBe(false);
+  });
+
+  it('R16 — an agent SALES preset carries order import', () => {
+    const effective = computeEffectivePermissions({
+      isAgentUser: true,
+      agentRole: 'SALES',
+      template: [],
+      grants: AGENT_ROLE_PRESETS.SALES,
+      denies: [],
+    });
+    expect(effective.has('agent.orders.import')).toBe(true);
+    expect(effective.has('agent.leads.import')).toBe(false);
   });
 
   it('a DENY on an implied key wins while its source stays granted', () => {
