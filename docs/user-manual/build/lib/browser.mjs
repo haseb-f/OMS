@@ -1,16 +1,15 @@
 /* eslint-disable no-console */
 /**
  * Playwright helpers for the manual screenshots.
- *  - The web build has its API URL baked as http://localhost:3005; every request to it is forwarded
- *    to the manual's own API (default http://localhost:3205) so the lead's servers are never touched.
+ *  - The web build has its API URL baked in (BAKED_API, default http://localhost:4505 — the R15 build); when the
+ *    manual's API runs elsewhere (API in tmp/r15-manual/.env), every request to the baked URL is forwarded to it.
  *  - Annotations: numbered badges + highlight boxes injected into the page right before the shot.
  *  - Password inputs are always blanked/masked before a screenshot.
  */
 import { chromium } from "playwright";
-import { PW, API, WEB_URL } from "./api.mjs";
+import { PW, API, WEB_URL, BAKED_API } from "./api.mjs";
 
 export const WEB = WEB_URL;
-const BAKED_API = "http://localhost:3005";
 
 export async function launch() {
   return chromium.launch({ headless: true });

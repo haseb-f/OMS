@@ -1,12 +1,13 @@
-# OMS Arabic user manual (R14)
+# OMS Arabic user manual (R15)
 
-Branded, illustrated Arabic user manual for OMS release **R14** (final release `main` @ `0db15e41`, prepared 2026-10-07).
-Spec: `specs/round14-production-readiness/spec-7-arabic-manual.md`.
+Branded, illustrated Arabic user manual for OMS release **R15** (`main` @ `8c43566e` + capture fixes `f26b0ec5`,
+prepared 2026-10-10). R15 scope: `specs/round15-completion/` (decisions, handoff). First version (R14):
+`specs/round14-production-readiness/spec-7-arabic-manual.md`.
 
 | Output                                      | Path                                                   |
 | ------------------------------------------- | ------------------------------------------------------ |
-| Editable Word document                      | `OMS-دليل-المستخدم-R14.docx`                           |
-| PDF                                         | `OMS-دليل-المستخدم-R14.pdf`                            |
+| Editable Word document                      | `OMS-دليل-المستخدم-R15.docx`                           |
+| PDF                                         | `OMS-دليل-المستخدم-R15.pdf`                            |
 | Chapter sources (Arabic Markdown subset)    | `source/01-…13-*.md`                                   |
 | Screenshots (clean / annotated)             | `screenshots/raw/*.png`, `screenshots/annotated/*.png` |
 | Brand assets (from `apps/web/public/brand`) | `assets/oms-logo.png`, `assets/oms-icon.png`           |
@@ -36,17 +37,21 @@ Prerequisites: Docker container `oms-postgres` (:5434), the local API build `app
 the repo). Use Git Bash with `MSYS_NO_PATHCONV=1`.
 
 ```bash
-# 1. Clean demo database (generates the persona password into tmp/r14-manual/.env — git-ignored)
-bash docs/user-manual/build/prepare-db.sh
+# 1. Demo database. R15 was built by migrating the R14 manual database forward (the deployed-schema path):
+#      docker exec oms-postgres psql -U oms -d postgres -c "CREATE DATABASE oms_r15_manual TEMPLATE oms_r14_manual"
+#      (apps/api, DATABASE_URL=…/oms_r15_manual) pnpm exec prisma migrate deploy && pnpm exec ts-node prisma/provision-permissions.ts
+#      cp tmp/r14-manual/.env tmp/r14-manual/state.json tmp/r15-manual/   (then API/WEB/DB/BAKED_API in .env as below)
+#    A brand-new database instead: bash docs/user-manual/build/prepare-db.sh (writes tmp/r15-manual/.env).
+#    tmp/r15-manual/.env (git-ignored): MANUAL_PW, API=http://localhost:4505, WEB=http://localhost:4501,
+#    DB=oms_r15_manual, BAKED_API=http://localhost:4505 (the API URL baked into the web build).
 
-# 2. Servers: API on :3005 (the URL baked into the web build) and web on :3001, both on the demo DB.
-#    (If those ports are busy, run the API elsewhere and set API=/WEB= in tmp/r14-manual/.env —
-#    the screenshot scripts then forward http://localhost:3005 calls to API with Playwright routing.)
-pnpm --dir apps/api exec nest build && pnpm --dir apps/web build
-node -e "process.env.PORT='3005';process.env.WEB_APP_URL='http://localhost:3001';process.env.DATABASE_URL='postgresql://oms:oms@localhost:5434/oms_r14_manual?schema=public';process.chdir('D:/Systems/OMS/apps/api');require('D:/Systems/OMS/apps/api/dist/src/main.js')" &
-(cd apps/web && pnpm exec next start -p 3001) &
+# 2. Servers on the demo DB: API :4505 and web :4501 (web built with NEXT_PUBLIC_API_URL=http://localhost:4505).
+#    When API differs from BAKED_API the screenshot scripts forward the baked URL to API (Playwright routing).
+pnpm --dir apps/api exec nest build && NEXT_PUBLIC_API_URL=http://localhost:4505 pnpm --dir apps/web exec next build
+node -e "process.env.PORT='4505';process.env.WEB_APP_URL='http://localhost:4501';process.env.DATABASE_URL='postgresql://oms:oms@localhost:5434/oms_r15_manual?schema=public';process.chdir('D:/Systems/OMS/apps/api');require('D:/Systems/OMS/apps/api/dist/src/main.js')" &
+pnpm --dir apps/web exec next start -p 4501 &
 
-# 3. Demonstration data through the API (idempotent; progress in tmp/r14-manual/state.json)
+# 3. Demonstration data through the API (idempotent; progress in tmp/r15-manual/state.json)
 node docs/user-manual/build/demo-data.mjs
 
 # 4. Screenshots (all, or ONLY=05-03,08-04 for some) + optimisation (palette PNG, ≤ ~250 KB)
@@ -66,11 +71,13 @@ node docs/user-manual/build/contact-sheet.mjs      # build/out/sheets/*.png: 8 P
 
 ## Personas used for the screenshots
 
-All fictitious, password only in `tmp/r14-manual/.env`: `admin@oms-demo.local` (أحمد سالم, super admin),
-`sales@` (منى عادل, «موظف مبيعات»), `sales2@` (يوسف كمال, «مشرف مبيعات» + one individual grant and deny),
-`shipping@` (كريم فؤاد, «مسؤول الشحن»), `accountant@` (هالة مراد, «محاسب عام»), `agent@` (ياسر نبيل,
-agent admin of «مؤسسة الواحة للتوزيع»). Phone numbers follow `+20 10 0000 0xxx`. Password fields are blanked
-before every capture.
+All fictitious, password only in `tmp/r15-manual/.env`: `admin@oms-demo.local` (أحمد سالم, super admin),
+`sales@` (منى عادل, «موظف مبيعات» + R15 grants: lead / order import and sales reports), `sales2@` (يوسف كمال,
+«مشرف مبيعات» + one individual grant and deny), `shipping@` (كريم فؤاد, «مسؤول الشحن»), `accountant@`
+(هالة مراد, «محاسب عام» + R15 refunds / reversal / reconciliation / agents finance / partner logins),
+`agent@` (ياسر نبيل, agent admin of «مؤسسة الواحة للتوزيع»), `agent2@` (مروان سعد, agent sales — R15),
+`partner@` (خالد منصور's partner login — R15). Phone numbers follow `+20 10 0000 0xxx`. Password fields are
+blanked before every capture.
 
 ## Demo data notes
 
@@ -79,6 +86,13 @@ before every capture.
   (sales 30,000 / cost of sales 12,000) and three expense vouchers dated in September. This makes September a
   past period that can be **closed** for the partners (a period closes only after its last Cairo day), while
   October stays a saved review (تقديري) whose Close action is disabled.
+
+- R15 steps (end of `demo-data.mjs`): stock backfill of the R14 demo orders; payment-method accounts and a
+  carrier COD method; R15 store orders for every stock state (reserved, short, in transit, partially delivered,
+  failed and received back, returning, prepaid verified, returned with refund due, refunded, COD matched with the
+  carrier statement); Excel imports of leads and orders (one rejected row, one row for review); an agent sales
+  user with a lead and an order, and a duplicated shipping-agreement draft from 1 November; the partner login.
+  R15 screenshots resolve their orders by the (fictitious) customer name, not by number.
 
 ## Updating for a new release
 

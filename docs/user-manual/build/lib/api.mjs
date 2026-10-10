@@ -2,24 +2,26 @@
 /**
  * Tiny HTTP + SQL helpers shared by the manual build scripts (demo data + screenshots).
  * Local only: refuses any API that is not localhost. Passwords are read from
- * tmp/r14-manual/.env (git-ignored) and never printed.
+ * tmp/r15-manual/.env (git-ignored) and never printed.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 export const ROOT = "D:/Systems/OMS";
 const env = Object.fromEntries(
-  readFileSync(`${ROOT}/tmp/r14-manual/.env`, "utf8")
+  readFileSync(`${ROOT}/tmp/r15-manual/.env`, "utf8")
     .split(/\r?\n/)
     .filter((l) => l.includes("="))
     .map((l) => [l.slice(0, l.indexOf("=")).trim(), l.slice(l.indexOf("=") + 1).trim()]),
 );
 export const PW = env.MANUAL_PW;
-export const API = (process.env.API ?? env.API ?? "http://localhost:3205").replace(/\/$/, "");
-export const DB = process.env.DB ?? env.DB ?? "oms_r14_manual";
-export const WEB_URL = (process.env.WEB ?? env.WEB ?? "http://localhost:3001").replace(/\/$/, "");
+export const API = (process.env.API ?? env.API ?? "http://localhost:4505").replace(/\/$/, "");
+export const DB = process.env.DB ?? env.DB ?? "oms_r15_manual";
+/** The API URL baked into the web build (requests to it are forwarded to API when they differ). */
+export const BAKED_API = (process.env.BAKED_API ?? env.BAKED_API ?? "http://localhost:4505").replace(/\/$/, "");
+export const WEB_URL = (process.env.WEB ?? env.WEB ?? "http://localhost:4501").replace(/\/$/, "");
 if (!/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(API)) throw new Error("local API only");
-if (!PW) throw new Error("MANUAL_PW missing in tmp/r14-manual/.env");
+if (!PW) throw new Error("MANUAL_PW missing in tmp/r15-manual/.env");
 
 export const psql = (sql) =>
   execFileSync("docker", ["exec", "oms-postgres", "psql", "-U", "oms", "-d", DB, "-At", "-v", "ON_ERROR_STOP=1", "-c", sql], {

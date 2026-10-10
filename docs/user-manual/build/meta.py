@@ -3,11 +3,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent  # docs/user-manual
 META = {
-    "version": "R14",
-    "sha": "0db15e41",
-    "date": "2026-10-07",
+    "version": "R15",
+    "sha": "f26b0ec5",
+    "date": "2026-10-10",
     "title": "دليل مستخدم OMS",
-    "file_stem": "OMS-دليل-المستخدم-R14",
+    "file_stem": "OMS-دليل-المستخدم-R15",
 }
 
 

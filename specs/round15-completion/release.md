@@ -77,3 +77,30 @@ repeated on Production, because they create business records there: creating an 
 (reservation), dispatch → in transit → delivery (invoice / COGS), prepaid verification and COD carrier
 matching, return → receive & inspect → credit note → refund, Excel / Google Sheets imports, creating a partner
 profile + login and signing in as a partner (no company partner exists on Production yet).
+
+## Follow-up release — fixes found while capturing the user manual (`f26b0ec5`)
+
+Capturing the R15 manual on a clean demo database (all R15 flows exercised end to end) found defects the
+acceptance passes had missed; fixed before the manual's screenshots were final:
+
+| Defect                                                                                   | Fix                                                                    | Proof                                                       |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Import upload stored an Arabic file name as mojibake (busboy default Latin-1)            | `defParamCharset: 'utf8'` on the company and agent import uploads      | HTTP test in `agent-portal.integration.spec` + mutation run |
+| Agent quote issue in English in the Arabic UI («Enter the agreed amount of every line.») | issue text by code (`orderAmendments.pricingIssue.*`), server fallback | `agent-order-entry.spec` + screen                           |
+| Worked price line / list price reordered («450.00 EGP 50.00 + منتجات …»)                 | reading direction kept, amounts isolated                               | manual figure 10-07                                         |
+| Dates / phones / codes reordered inside Arabic sentences on 9 screens                    | `ltrIsolate` at the call sites                                         | manual figures (agent header, shipping agreement, stock)    |
+| Shipping-agreement activity showed both language halves                                  | UI-language half only                                                  | screen                                                      |
+| Shortage hint promised a status «بانتظار المخزون» and automatic reservation              | text matches R15 («ناقص», «احجز الآن»)                                 | i18n                                                        |
+
+Gates after the fixes: API tsc 0, ESLint 0, import-center + agent-portal + controller-authorization suites
+19 / 586 pass, `nest build`; web tsc 0, ESLint 0 errors, vitest 166 files / 1175 tests, `next build`.
+Pre-existing (not R15 screens, not changed): unisolated dates in FX settings, asset schedules and expense
+voucher rate captions.
+
+## User manual (R15)
+
+`docs/user-manual/OMS-دليل-المستخدم-R15.pdf` (110 pages) and `.docx` from the same source; 85 figures
+(20 new, 6 redefined, all recaptured) on the demo database migrated forward from the R14 manual database;
+chapters 1–13 updated to the released behaviour; QA in `docs/user-manual/QA.md` (every page rendered and
+reviewed, legends = callouts by script, DOCX invariants pass). The R14 files are removed from the folder
+(kept in git history).

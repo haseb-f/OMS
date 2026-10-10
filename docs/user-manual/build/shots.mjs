@@ -41,6 +41,18 @@ async function setSidebar(page, collapsed) {
   }
 }
 
+/** Windows: the previous file can be briefly held by the antivirus scan — retry the write. */
+async function screenshotWithRetry(page, path, clip, attempts = 8) {
+  for (let i = 1; ; i += 1) {
+    try {
+      return await page.screenshot({ path, clip: clip ?? undefined });
+    } catch (error) {
+      if (i >= attempts || !/UNKNOWN|EBUSY|EPERM/.test(String(error?.message))) throw error;
+      await page.waitForTimeout(400 * i);
+    }
+  }
+}
+
 const report = [];
 for (const shot of list) {
   const page = await pageFor(shot);
@@ -82,7 +94,7 @@ for (const shot of list) {
       } else warnings.push("clip target not found");
     }
     if (shot.clipRect) clip = { ...shot.clipRect, width: Math.min(shot.clipRect.width, width - 50) };
-    await page.screenshot({ path: `${OUT}/raw/${shot.id}.png`, clip: clip ?? undefined });
+    await screenshotWithRetry(page, `${OUT}/raw/${shot.id}.png`, clip);
     const boxes = [];
     for (const [n, fn, side] of shot.callouts ?? []) {
       try {
@@ -96,7 +108,7 @@ for (const shot of list) {
       }
     }
     await drawCallouts(page, boxes);
-    await page.screenshot({ path: `${OUT}/annotated/${shot.id}.png`, clip: clip ?? undefined });
+    await screenshotWithRetry(page, `${OUT}/annotated/${shot.id}.png`, clip);
     await clearCallouts(page);
     if (shot.after) await shot.after(page);
   } catch (e) {
@@ -108,5 +120,5 @@ for (const shot of list) {
   report.push({ id: shot.id, warnings });
   console.log(`${warnings.length ? "WARN" : "ok  "} ${shot.id}${warnings.length ? "  " + warnings.join(" | ") : ""}`);
 }
-writeFileSync(`${ROOT}/tmp/r14-manual/shots-report.json`, JSON.stringify(report, null, 2));
+writeFileSync(`${ROOT}/tmp/r15-manual/shots-report.json`, JSON.stringify(report, null, 2));
 await browser.close();

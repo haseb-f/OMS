@@ -2,19 +2,20 @@
 /**
  * Builds the clean, fictitious Arabic demonstration data used for the manual's screenshots.
  *
- *   node docs/user-manual/build/demo-data.mjs          (API on :3205, DB oms_r14_manual)
+ *   node docs/user-manual/build/demo-data.mjs          (API on :4505, DB oms_r15_manual)
  *
  * Every business record is created THROUGH THE API as the personas a real company would use.
  * SQL is used only where no API exists (company/branch display names, the one super-admin
  * persona's password hash) and for read-only lookups. Steps are idempotent: a finished step
- * is recorded in tmp/r14-manual/state.json and skipped on re-run.
+ * is recorded in tmp/r15-manual/state.json and skipped on re-run.
  * All names and phone numbers are invented (phones follow the obviously fictitious
- * +20 100 000 0xxx pattern). Persona passwords live only in tmp/r14-manual/.env.
+ * +20 100 000 0xxx pattern). Persona passwords live only in tmp/r15-manual/.env.
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { ROOT, PW, call, must, login, psql, rows, one, lit, items } from "./lib/api.mjs";
+import { createRequire } from "node:module";
+import { ROOT, PW, API, call, must, login, psql, rows, one, lit, items } from "./lib/api.mjs";
 
-const STATE_FILE = `${ROOT}/tmp/r14-manual/state.json`;
+const STATE_FILE = `${ROOT}/tmp/r15-manual/state.json`;
 const S = existsSync(STATE_FILE) ? JSON.parse(readFileSync(STATE_FILE, "utf8")) : {};
 const save = () => writeFileSync(STATE_FILE, JSON.stringify(S, null, 2));
 async function step(key, fn) {
@@ -235,7 +236,7 @@ await step("leads", async () => {
 // ───────── 6. store orders (sales persona) ─────────
 const PH = { laila: "+201000000101", mahmoud: "+201000000102", sara: "+201000000103", omar: "+201000000104", noha: "+201000000105", rana: "+201000000111" };
 async function order(key, name, phone, city, lines, extra = {}) {
-  const r = await must(T.sales, "POST", "/store-orders", {
+  const r = await must(extra.token ?? T.sales, "POST", "/store-orders", {
     partner: { name, phone, countryId: eg.id, city, address: `${city} — عنوان تجريبي` },
     source: "MANUAL", currencyId, paymentType: extra.paymentType ?? "CASH_ON_DELIVERY",
     items: lines.map(([productId, quantity, unitPrice]) => ({ productId, quantity, unitPrice })),
@@ -353,13 +354,19 @@ const agent = await step("agent", async () => {
     phone: "+201000000401", email: "agent@example.com", address: "أسيوط — عنوان تجريبي", countryId: eg.id, currencyId,
   });
   const today = new Date().toISOString().slice(0, 10);
+  // R15: the agreed shipping charges live in their own shipping agreement (Agent → Settings), created and
+  // activated before the commission agreement (R14 used PUT …/agreements/:id/shipping-rates, removed in R15).
+  const asa = await A("POST", `/agents/${ag.id}/shipping-agreements`, {
+    effectiveFrom: today,
+    rates: ["PREPAID_CARRIER", "COD_CARRIER", "COD_INTERNAL_COURIER", "PREPAID_INTERNAL_COURIER"].map((service) => ({ service, countryId: eg.id, amount: 50 })),
+  });
+  await A("POST", `/agents/${ag.id}/shipping-agreements/${asa.id}/activate`, {});
   const agr = await A("POST", `/agents/${ag.id}/agreements`, {
     effectiveFrom: today, currencyId, productCommissionRatePercent: 10, serviceCommissionRatePercent: 5,
     shippingPolicy: "PREDETERMINED_CHARGE", commissionEarningEvent: "DELIVERED", returnCommissionTreatment: "REVERSE",
     customerShippingChargeOwner: "COMPANY", providerFeesBorneBy: "COMPANY", shippingFeePerShipment: 0, returnFeePerShipment: 0,
     serviceFeePerOrder: 0, allowAgentDestinations: false, payoutHoldDays: 7, notes: "اتفاقية تجريبية",
   });
-  await A("PUT", `/agents/${ag.id}/agreements/${agr.id}/shipping-rates`, { countryId: eg.id, city: "", amount: 50 });
   await A("POST", `/agents/${ag.id}/agreements/${agr.id}/activate`);
   for (const pid of [prod.headset, prod.charger, prod.stand]) await call(T.admin, "POST", `/agents/${ag.id}/products/${pid}/link`);
   const u = await A("POST", `/agents/${ag.id}/users`, { email: EMAIL("agent"), username: "yasser.nabil", fullName: "ياسر نبيل", mobile: "+201000000402", agentRole: "ADMIN" });
@@ -497,6 +504,235 @@ await step("review-flag", async () => {
   return jt.id;
 });
 
-writeFileSync(`${ROOT}/tmp/r14-manual/state.json`, JSON.stringify(S, null, 2));
+// ═════════════════════════ R15 (released 2026-10-08) ═════════════════════════
+// Stock lifecycle (reserve → in transit → delivered / received back), collections, returns and refunds,
+// imports, the agent shipping agreement and team, the partner login and the sales-report scope.
+// Same rules as above: through the API as the personas, idempotent steps recorded in state.json.
+const todayCairo = () => new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10);
+/** First sign-in with a temporary password → change it to the build password (never printed). */
+async function adopt(email, temporaryPassword) {
+  const r = await call(null, "POST", "/auth/login", { email, password: temporaryPassword });
+  if (!r.j?.accessToken) throw new Error(`first login ${email} failed: ${r.s}`);
+  await must(r.j.accessToken, "POST", "/auth/change-password", { currentPassword: temporaryPassword, newPassword: PW }, `change-password ${email}`);
+}
+const itemIds = (orderId) => rows(`select id from store_order_items where store_order_id = ${lit(orderId)} order by created_at, id`).map((r) => r.id);
+
+// Existing demo orders get their stock state (reserve open orders, move shipped ones to transit, mark delivered).
+await step("r15-stock-backfill", async () => (await A("POST", "/store-orders/stock-backfill", { dryRun: false })).summary);
+
+// Payment methods carry their account (needed to verify a declared payment) — the dev seed left them empty.
+const pm = await step("r15-payment-method-accounts", async () => {
+  const bank = one(`select id from payment_methods where name = 'تحويل بنكي' and deleted_at is null`);
+  const cash = one(`select id from payment_methods where name = 'نقداً' and deleted_at is null`);
+  await A("PATCH", `/payment-methods/${bank.id}`, { accountId: settings.bankAccountId });
+  await A("PATCH", `/payment-methods/${cash.id}`, { accountId: settings.cashAccountId });
+  return { bank: bank.id, cash: cash.id };
+});
+
+// The carrier collects COD cash: a clearing account (receivable from the carrier) + a reconciled method on the carrier.
+const cod = await step("r15-carrier-cod", async () => {
+  const parent = one(`select id from chart_of_accounts where code = '12' and deleted_at is null`);
+  const acc = await A("POST", "/chart-of-accounts", { name: "مستحقات التحصيل لدى شركات الشحن", accountType: "ASSET", parentAccountId: parent.id, allowsPosting: true, accountKind: "POSTING" });
+  const m = await A("POST", "/payment-methods", { name: "تحصيل شركة السهم عند الاستلام", accountId: acc.id, requiresReconciliation: true });
+  await A("PATCH", `/shipping-companies/${carrier}`, { codPaymentMethodId: m.id });
+  return { accountId: acc.id, methodId: m.id };
+});
+
+// Permissions: import keys are granted to nobody by default — the administrator grants them to منى individually,
+// with the sales report. The accountant's title gains the R15 finance keys.
+const R15_ACCOUNTANT = [
+  "sales.refunds.view", "sales.refunds.create", "sales.refunds.confirm", "sales.receipts.reverse",
+  "finance.payment-reconciliation.view", "finance.payment-reconciliation.import", "finance.payment-reconciliation.match",
+  "agents.view", "agents.finance.view", "agents.agreements.manage", "company-partners.users.manage",
+];
+await step("r15-permissions", async () => {
+  await A("PUT", `/users/${users.sales}/permission-overrides`, { grants: ["crm.leads.import", "store-orders.import", "reports.sales.view"], denies: [] });
+  await A("PUT", `/job-titles/${titles.accountant}/permissions`, { permissionNames: [...PERMS.accountant, ...R15_ACCOUNTANT] });
+});
+for (const k of ["sales", "accountant"]) T[k] = await login(EMAIL(k));
+
+// A product with only two units in stock (the «ناقص» demonstration).
+const watch = await step("r15-watch-product", async () => {
+  const p = await A("POST", "/products", {
+    name: "ساعة ذكية S5", internalName: "ساعة ذكية S5", displayName: "ساعة ذكية S5", type: "PURCHASE_AND_SALE", status: "ACTIVE",
+    unitId: unitPiece.id, preferredWarehouseId: mainWh.id, categoryId: cats.audio, costingMethod: "AVERAGE",
+    isPurchasable: true, isSellable: true, isInventoryItem: true, weight: 0.2, width: 5, height: 2, length: 5, salesPrice: 1450,
+  });
+  if (p.status !== "ACTIVE") await A("POST", `/products/${p.id}/activate`);
+  await A("POST", "/inventory/opening-balance", { productId: p.id, warehouseId: mainWh.id, quantity: 2, unitCost: 900, notes: "رصيد افتتاحي" });
+  return p.id;
+});
+
+// Store orders of the R15 lifecycle (sales persona) — every one is reserved at creation, prepaid or COD.
+const O15 = await step("r15-orders", async () => ({
+  reserved: await order("r15-reserved", "هبة مصطفى", "+201000000141", "القاهرة", [[prod.headset, 1, 750], [prod.cable, 1, 90]]),
+  short: await order("r15-short", "مها رشاد", "+201000000142", "الجيزة", [[watch, 3, 1450]]),
+  transit: await order("r15-transit", "أيمن صبري", "+201000000143", "الإسكندرية", [[prod.charger, 2, 150]]),
+  partial: await order("r15-partial", "دعاء فتحي", "+201000000144", "المنصورة", [[prod.stand, 2, 120]]),
+  failed: await order("r15-failed", "شريف عادل", "+201000000145", "طنطا", [[prod.stand, 2, 120]]),
+  prepaid: await order("r15-prepaid", "نادين جمال", "+201000000146", "القاهرة", [[prod.headset, 1, 750]], { paymentType: "PREPAID" }),
+  refundDue: await order("r15-refund-due", "وليد حسني", "+201000000147", "الجيزة", [[prod.charger, 2, 150]], { paymentType: "PREPAID" }),
+  refunded: await order("r15-refunded", "منة الله سامي", "+201000000148", "القاهرة", [[prod.stand, 1, 120]], { paymentType: "PREPAID" }),
+  cod: await order("r15-cod", "إسلام فوزي", "+201000000149", "الإسكندرية", [[prod.headset, 1, 750]]),
+}));
+// A second salesperson's order this month (the own-rank demonstration).
+await step("r15-order-sales2", async () => {
+  T.sales2 = T.sales2 ?? (await login(EMAIL("sales2")));
+  return order("r15-sales2", "سامح نبيل", "+201000000150", "القاهرة", [[prod.headset, 2, 750]], { token: T.sales2 });
+});
+
+const TRACK = { transit: "SH-48213146", partial: "SH-48213153", failed: "SH-48213161", refundDue: "SH-48213179", refunded: "SH-48213187", cod: "SH-48213195" };
+async function dispatch(key, body = {}) {
+  const id = O15[key].id;
+  await ship(id, "shipping-company", { shippingCompanyId: carrier });
+  await ship(id, "tracking-number", { trackingNumber: TRACK[key] });
+  await ship(id, "ship", body);
+}
+// Prepaid: the salesperson declares (a claim), Finance verifies (the receipt = an advance until the invoice).
+async function declareAndVerify(key) {
+  await must(T.sales, "POST", `/store-orders/${O15[key].id}/payment-declaration`, {
+    kind: "FULL", paymentMethodId: pm.bank, currencyId, paymentDate: todayCairo(), referenceNumber: `تحويل ${TRACK[key] ?? "مسبق"}`.replace("SH-", ""),
+    idempotencyKey: `manual-decl-${key}`,
+  });
+  const pay = one(`select id from payments where store_order_id = ${lit(O15[key].id)} and deleted_at is null and status = 'PENDING' order by created_at limit 1`);
+  await must(T.accountant, "POST", `/payments/${pay.id}/confirm`);
+  return pay.id;
+}
+await step("r15-ship-transit", async () => dispatch("transit"));
+await step("r15-ship-partial", async () => {
+  await dispatch("partial");
+  const [item] = itemIds(O15.partial.id);
+  await ship(O15.partial.id, "deliver", { deliveredLines: [{ storeOrderItemId: item, quantity: 1 }] });
+});
+await step("r15-ship-failed", async () => {
+  await dispatch("failed");
+  await ship(O15.failed.id, "delivery-failed", {});
+  const [item] = itemIds(O15.failed.id);
+  await must(T.shipping, "POST", `/store-orders/${O15.failed.id}/stock/receive-back`, {
+    idempotencyKey: "manual-receive-failed",
+    lines: [{ storeOrderItemId: item, quantity: 1, condition: "SALEABLE" }, { storeOrderItemId: item, quantity: 1, condition: "DAMAGED" }],
+  });
+});
+await step("r15-prepaid-verified", async () => declareAndVerify("prepaid"));
+async function deliveredReturn(key, reason, condition) {
+  await declareAndVerify(key);
+  await dispatch(key);
+  await ship(O15[key].id, "deliver", {});
+  const inv = one(`select id from sales_invoices where store_order_id = ${lit(O15[key].id)} and deleted_at is null and status <> 'CANCELLED' limit 1`);
+  const line = one(`select id from sales_invoice_items where sales_invoice_id = ${lit(inv.id)} limit 1`);
+  const rq = await must(T.accountant, "POST", `/store-orders/${O15[key].id}/returns`, { reason, lines: [{ salesInvoiceItemId: line.id, quantity: 1 }], idempotencyKey: `manual-return-${key}` });
+  const ret = rq.returns[0];
+  await must(T.accountant, "POST", `/store-orders/${O15[key].id}/returns/${ret.id}/receive`, { lines: [{ salesReturnItemId: ret.items[0].id, condition }] });
+  return ret.id;
+}
+await step("r15-return-refund-due", async () => deliveredReturn("refundDue", "العميل لم يعد يحتاج القطعة الثانية", "SALEABLE"));
+await step("r15-return-refunded", async () => {
+  const id = await deliveredReturn("refunded", "وصلت القطعة مكسورة", "DAMAGED");
+  const r = await must(T.accountant, "POST", `/financial-transactions/refunds/store-orders/${O15.refunded.id}`, {
+    amount: 120, receivingAccountId: recvBank.id, referenceNumber: "تحويل بنكي 90544", idempotencyKey: "manual-refund-refunded",
+  });
+  return { returnId: id, refundId: r.id };
+});
+// COD through the carrier: delivery records the amount expected from the carrier; the carrier's COD report is matched.
+await step("r15-cod-carrier", async () => {
+  await dispatch("cod");
+  await ship(O15.cod.id, "deliver", {});
+  const claim = one(`select id, amount from payments where store_order_id = ${lit(O15.cod.id)} and deleted_at is null and origin = 'CARRIER_COD'`);
+  const line = await must(T.accountant, "POST", `/payment-reconciliation/methods/${cod.methodId}/lines`, {
+    amount: Number(claim.amount), currencyId, transactionDate: todayCairo(), orderReference: O15.cod.number, providerReference: "كشف السهم 1007",
+  });
+  const lineId = one(`select id from payment_statement_lines where import_id = ${lit(line.importId)} order by created_at limit 1`).id;
+  await must(T.accountant, "POST", `/payment-reconciliation/methods/${cod.methodId}/matches`, {
+    statementLineId: lineId, allocations: [{ paymentId: claim.id, amount: Number(claim.amount) }], idempotencyKey: "manual-match-cod",
+  });
+  return claim.id;
+});
+
+// Ready for hand-over: carrier + tracking set, not yet dispatched (the «تسليم لشركة الشحن» action).
+await step("r15-handover-ready", async () => {
+  await ship(O15.reserved.id, "shipping-company", { shippingCompanyId: carrier });
+  await ship(O15.reserved.id, "tracking-number", { trackingNumber: "SH-48213203" });
+});
+// A failed parcel still on its way back (in transit, «في طريق العودة») — not received yet.
+const returning = await step("r15-returning", async () => {
+  const o = await order("r15-returning", "كريم سعيد", "+201000000151", "أسوان", [[prod.cable, 1, 90]]);
+  await ship(o.id, "shipping-company", { shippingCompanyId: carrier });
+  await ship(o.id, "tracking-number", { trackingNumber: "SH-48213211" });
+  await ship(o.id, "ship", {});
+  await ship(o.id, "delivery-failed", {});
+  return o;
+});
+
+// Imports (منى): leads and store orders from Excel — one rejected lead row, one order row for an existing customer
+// that waits for review («يحتاج مراجعة»), one paid row (a declaration only).
+const ExcelJS = createRequire(`${ROOT}/apps/api/package.json`)("exceljs");
+async function importRows(token, base, type, data) {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Import Data");
+  const headers = [...new Set(data.flatMap((r) => Object.keys(r)))];
+  ws.addRow(headers);
+  for (const r of data) ws.addRow(headers.map((h) => r[h] ?? ""));
+  const buf = Buffer.from(await wb.xlsx.writeBuffer());
+  const job = await must(token, "POST", `${base}/jobs`, { importType: type });
+  const fd = new FormData();
+  fd.append("file", new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), type === "LEADS" ? "عملاء-محتملون-أكتوبر.xlsx" : "طلبات-المتجر-أكتوبر.xlsx");
+  const up = await fetch(`${API}${base}/jobs/${job.id}/upload`, { method: "POST", headers: { Authorization: "Bearer " + token }, body: fd });
+  if (!up.ok) throw new Error(`upload ${type} → ${up.status}`);
+  await must(token, "POST", `${base}/jobs/${job.id}/mapping`, { columnMapping: Object.fromEntries(headers.map((h) => [h, h])) });
+  await must(token, "POST", `${base}/jobs/${job.id}/validate`);
+  const run = await must(token, "POST", `${base}/jobs/${job.id}/run`);
+  return { jobId: job.id, summary: run.summary };
+}
+await step("r15-import-leads", async () =>
+  importRows(T.sales, "/import-center", "LEADS", [
+    { customerName: "عبير السيد", mobileNumber: "01000000151", countryName: "مصر", city: "القاهرة", productSku: "PRD-2026-000001", notes: "من حملة أكتوبر" },
+    { customerName: "حازم ممدوح", mobileNumber: "", countryName: "مصر", city: "الجيزة", productSku: "PRD-2026-000002", notes: "من حملة أكتوبر" },
+  ]));
+await step("r15-import-orders", async () => {
+  const d = todayCairo();
+  const base = { orderDate: d, countryName: "مصر", currencyCode: "EGP" };
+  return importRows(T.sales, "/import-center", "STORE_ORDERS", [
+    { ...base, externalOrderId: "WEB-1001", customerName: "رامي عزت", customerPhone: "01000000152", city: "الجيزة", address: "الجيزة — عنوان تجريبي", productSku: "PRD-2026-000002", quantity: "1", unitPrice: "150" },
+    { ...base, externalOrderId: "WEB-1002", customerName: "سلوى حامد", customerPhone: "01000000153", city: "القاهرة", address: "القاهرة — عنوان تجريبي", productSku: "PRD-2026-000003", quantity: "2", unitPrice: "120", paidAmount: "240", paymentMethodLabel: "تحويل بنكي", paymentDate: d },
+    { ...base, externalOrderId: "WEB-1003", customerName: "ليلى حسن", customerPhone: "01000000101", city: "القاهرة", address: "القاهرة — عنوان تجريبي", productSku: "PRD-2026-000004", quantity: "1", unitPrice: "90" },
+  ]);
+});
+
+// Agent: a sales user for the team breakdown, his order and lead, and a new shipping agreement kept as a draft.
+const agentSales = await step("r15-agent-sales-user", async () => {
+  const u = await A("POST", `/agents/${agent.id}/users`, { email: EMAIL("agent2"), username: "marwan.saad", fullName: "مروان سعد", mobile: "+201000000403", agentRole: "SALES" });
+  await adopt(EMAIL("agent2"), u.temporaryPassword);
+  return u.id ?? one(`select id from users where email = ${lit(EMAIL("agent2"))}`).id;
+});
+T.agent2 = await login(EMAIL("agent2"));
+await step("r15-agent-team-records", async () => {
+  await must(T.agent2, "POST", "/agent-portal/leads", { customerName: "طه سليم", mobileNumber: "+201000000123", countryId: eg.id, city: "أسيوط", address: "أسيوط — عنوان تجريبي", source: "MANUAL" });
+  const r = await must(T.agent2, "POST", "/agent-portal/orders", {
+    pricingMode: "SHIPPING_ADDED", paymentType: "CASH_ON_DELIVERY", fulfillmentMethod: "SHIPPING",
+    customer: { name: "عزة مختار", mobile: "+201000000122", countryId: eg.id, city: "سوهاج", address: "سوهاج — عنوان تجريبي" },
+    countryId: eg.id, city: "سوهاج", address: "سوهاج — عنوان تجريبي",
+    lines: [{ productId: agentGoods.incense, quantity: 3, lineAmount: 360 }],
+    idempotencyKey: "manual-agent-order-2",
+  });
+  return r.id ?? true;
+});
+await step("r15-agent-shipping-draft", async () => {
+  const active = one(`select id from agent_shipping_agreements where agent_id = ${lit(agent.id)} and status = 'ACTIVE' and deleted_at is null order by effective_from desc limit 1`);
+  const d = await A("POST", `/agents/${agent.id}/shipping-agreements/${active.id}/duplicate`, { effectiveFrom: "2026-11-01" });
+  const draft = await A("GET", `/agents/${agent.id}/shipping-agreements/${d.id}`);
+  const codCarrier = draft.rates.find((r) => r.service === "COD_CARRIER");
+  await A("PATCH", `/agents/${agent.id}/shipping-agreements/${d.id}/rates/${codCarrier.id}`, { service: "COD_CARRIER", countryId: eg.id, amount: 60 });
+  await A("POST", `/agents/${agent.id}/shipping-agreements/${d.id}/rates`, { service: "COD_INTERNAL_COURIER", countryId: eg.id, city: "أسيوط", amount: 40 });
+  return d.id;
+});
+
+// Partner login for خالد منصور (after his agreement): the accountant creates it; the temporary password is replaced.
+await step("r15-partner-login", async () => {
+  const r = await must(T.accountant, "POST", `/company-partners/profiles/${partners.a}/login`, { email: EMAIL("partner"), fullName: "خالد منصور" });
+  await adopt(EMAIL("partner"), r.temporaryPassword);
+  return r.id ?? r.userId ?? true;
+});
+
+writeFileSync(`${ROOT}/tmp/r15-manual/state.json`, JSON.stringify(S, null, 2));
 console.log("demo data complete");
 export { S, T, A, prod, users, titles, supplier, noCost, currencyId, eg, mainWh, unitPiece, recvBank, recvCash, srcBank, srcCash, settings };

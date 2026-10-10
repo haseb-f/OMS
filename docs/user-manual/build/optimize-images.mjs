@@ -6,11 +6,24 @@
  */
 import { createRequire } from "node:module";
 import { readdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
+import { setTimeout as sleep } from "node:timers/promises";
 import { ROOT } from "./lib/api.mjs";
 
 const require = createRequire(import.meta.url);
 const sharp = require(`${ROOT}/node_modules/.pnpm/sharp@0.34.5/node_modules/sharp`);
 const DIRS = [`${ROOT}/docs/user-manual/screenshots/raw`, `${ROOT}/docs/user-manual/screenshots/annotated`];
+
+/** Windows: a freshly written PNG can be briefly held by the antivirus scan — retry instead of failing. */
+async function writeWithRetry(path, data, attempts = 8) {
+  for (let i = 1; ; i += 1) {
+    try {
+      return writeFileSync(path, data);
+    } catch (error) {
+      if (i >= attempts || !["UNKNOWN", "EBUSY", "EPERM"].includes(error.code)) throw error;
+      await sleep(400 * i);
+    }
+  }
+}
 
 let total = 0;
 for (const dir of DIRS) {
@@ -22,7 +35,7 @@ for (const dir of DIRS) {
     if (meta.width > 1600) pipeline = pipeline.resize({ width: 1600 });
     let out = await pipeline.png({ palette: true, quality: 92, effort: 10, compressionLevel: 9 }).toBuffer();
     if (out.length > 250_000) out = await sharp(input).resize({ width: Math.min(meta.width, 1400) }).png({ palette: true, quality: 80, colours: 128, effort: 10 }).toBuffer();
-    if (out.length < input.length) writeFileSync(path, out);
+    if (out.length < input.length) await writeWithRetry(path, out);
     total += statSync(path).size;
   }
 }

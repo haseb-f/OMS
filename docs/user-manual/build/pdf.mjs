@@ -14,7 +14,7 @@ import { chromium } from "playwright";
 
 const ROOT = "D:/Systems/OMS/docs/user-manual";
 const OUT = `${ROOT}/build/out`;
-const PDF = `${ROOT}/OMS-دليل-المستخدم-R14.pdf`;
+const PDF = `${ROOT}/OMS-دليل-المستخدم-R15.pdf`;
 const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174";
 
 const browser = await chromium.launch();

@@ -94,7 +94,7 @@ def block_html(b):
 CSS = """
 @page { size: A4; margin: 22mm 18mm 20mm 18mm;
   @top-right { content: "دليل مستخدم OMS"; font: 700 8.5pt Arial; color: #0F2747; }
-  @top-left { content: "OMS R14 · __DATE__"; font: 8.5pt Arial; color: #5B6B82; }
+  @top-left { content: "OMS R15 · __DATE__"; font: 8.5pt Arial; color: #5B6B82; }
   @bottom-center { content: "صفحة " counter(page) " من " counter(pages); font: 8.5pt Arial; color: #5B6B82; }
   @bottom-left { content: "SHA __SHA__"; font: 7.5pt Arial; color: #8A97AA; }
 }

@@ -14,6 +14,7 @@ from docx.oxml.ns import qn
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from meta import META, ROOT  # noqa: E402
 
+FIGURES = json.loads((ROOT / "build" / "out" / "manual.json").read_text(encoding="utf-8"))["figures"]
 path = ROOT / f"{META['file_stem']}.docx"
 doc = Document(str(path))
 body = doc.element.body
@@ -78,7 +79,7 @@ checks = {
     "every Arabic run is rtl with a cs font": report["arabic_runs_rtl"] == report["arabic_runs"] == report["arabic_runs_cs_font"],
     "every table is bidiVisual": report["tables_bidiVisual"] == report["tables"],
     "TOC hyperlinks == PAGEREF fields == bookmarked TOC headings": report["toc_hyperlinks"] == report["toc_pageref_fields"] == report["toc_links_resolving_to_bookmarks"],
-    "all images present (64 figures + cover logo + header icon)": report["images"] >= 64,
+    "all images present (every figure + cover logo)": report["images"] >= FIGURES + 1,
     "PAGE and NUMPAGES in footer": "PAGE" in hdr_fields and "NUMPAGES" in hdr_fields,
 }
 report["checks"] = checks

@@ -17,6 +17,8 @@ const id = {
   product: (name) => one(`select id from products where name = '${name}'`).id,
   doc: (table, col, no) => one(`select id from ${table} where ${col} = '${no}'`).id,
   agent: () => one(`select id from agents limit 1`).id,
+  /** R15 demo orders by their (fictitious) customer — numbers depend on the build order. */
+  orderOf: (name) => one(`select o.id from store_orders o join partners p on p.id = o.partner_id where p.name = '${name}' order by o.created_at desc limit 1`).id,
 };
 
 const wrap = (f) => Object.assign(f, { first: () => wrap((p) => f(p).first()), last: () => wrap((p) => f(p).last()), nth: (i) => wrap((p) => f(p).nth(i)) });
@@ -195,10 +197,10 @@ export const SHOTS = [
     },
     clip: "[role=dialog]",
     callouts: [
-      [1, inDialog((d) => d.getByRole("combobox").nth(0))],
+      [1, inDialog((d) => d.getByRole("radiogroup", { name: "طريقة التسليم" }))],
       [2, inDialog((d) => d.getByText("دولة توصيل مختلفة"))],
-      [3, inDialog((d) => d.getByRole("combobox").nth(1))],
-      [4, inDialog((d) => d.getByRole("combobox").nth(2))],
+      [3, inDialog((d) => d.getByRole("combobox").first())],
+      [4, inDialog((d) => d.getByRole("radiogroup", { name: "نوع الدفع" }))],
       [5, inDialog((d) => d.getByRole("radio", { name: "لم يدفع بعد" }).locator("xpath=.."))],
     ],
   },
@@ -371,7 +373,8 @@ export const SHOTS = [
   {
     id: "05-01-order-recognized",
     persona: "admin",
-    path: () => `/store-orders/${id.order(1)}`,
+    // R15: a COD order delivered through the carrier (reserve → transit → delivery, matched collection).
+    path: () => `/store-orders/${id.orderOf("إسلام فوزي")}`,
     height: 1100,
     before: async (p) => {
       await expand(p, ["الدفعات والسجل المالي"]);
@@ -379,18 +382,19 @@ export const SHOTS = [
       await p.evaluate(() => document.querySelectorAll("main, main *").forEach((el) => { if (el.scrollHeight > el.clientHeight + 4 && getComputedStyle(el).overflowY !== "visible") el.scrollTop -= 80; }));
       await p.waitForTimeout(300);
     },
-    clip: (p) => p.getByText("السجلات المرتبطة").locator("xpath=ancestor::div[contains(@class,'border')][1]"),
+    clip: (p) => p.locator('section[aria-label="السجلات المرتبطة"]').first(),
     clipPad: 10,
     trim: false,
     callouts: [
-      [1, txt(/^فاتورة مبيعات/).first()],
-      [2, txt(/^دفعة/).first()],
-      [3, txt(/^سند قبض/).first()],
-      [4, txt(/^قيد يومية/).first()],
-      [5, txt(/^شحنة/).first()],
-      [6, txt("حجز", true).first()],
-      [7, txt("إلغاء حجز", true).first()],
-      [8, txt("تسليم مبيعات", true).first()],
+      [1, (p) => p.locator('section[aria-label="السجلات المرتبطة"]').getByText(/^فاتورة مبيعات/).first()],
+      [2, (p) => p.locator('section[aria-label="السجلات المرتبطة"]').getByText(/^دفعة/).first()],
+      [3, (p) => p.locator('section[aria-label="السجلات المرتبطة"]').getByText(/^سند قبض/).first()],
+      [4, (p) => p.locator('section[aria-label="السجلات المرتبطة"]').getByText(/^قيد يومية/).first()],
+      [5, (p) => p.locator('section[aria-label="السجلات المرتبطة"]').getByText(/^شحنة/).first()],
+      [6, (p) => p.locator('section[aria-label="السجلات المرتبطة"]').getByText("حجز", { exact: true }).first()],
+      [7, (p) => p.locator('section[aria-label="السجلات المرتبطة"]').getByText("إلغاء حجز", { exact: true }).first()],
+      [8, (p) => p.locator('section[aria-label="السجلات المرتبطة"]').getByText("تحويل", { exact: true }).first()],
+      [9, (p) => p.locator('section[aria-label="السجلات المرتبطة"]').getByText("تسليم مبيعات", { exact: true }).first()],
     ],
   },
   {
@@ -403,9 +407,9 @@ export const SHOTS = [
   {
     id: "05-02-order-reserved",
     persona: "admin",
-    path: () => `/store-orders/${id.order(2)}`,
+    path: () => `/store-orders/${id.orderOf("هبة مصطفى")}`,
     clipRect: { x: 0, y: 48, width: 1150, height: 380 },
-    callouts: [[1, txt(/^إثبات البيع:/)], [2, txt(/^التنفيذ:/)]],
+    callouts: [[1, (p) => p.locator("[data-testid=order-status-badges]").getByText("محجوز", { exact: true })], [2, txt(/^التنفيذ:/)]],
   },
   {
     id: "05-03-order-failed",
@@ -741,12 +745,13 @@ export const SHOTS = [
     clipPad: 0,
     callouts: [
       [1, txt("النسبة الحالية").first()],
-      [2, txt("الاستحقاق التقديري").first()],
-      [3, txt("الأرباح المعتمدة").first()],
-      [4, txt("المدفوع", true).first()],
-      [5, txt("الموقف حتى اليوم").last()],
-      [6, btn("تسجيل دفعة")],
-      [7, btn("تغيير النسبة")],
+      [2, txt("حساب دخول الشريك").first()],
+      [3, (p) => p.locator('main [data-slot="insight-label"]', { hasText: /^تقديري$/ }).first()],
+      [4, (p) => p.locator('main [data-slot="insight-label"]', { hasText: /^المستحق المعتمد$/ }).first()],
+      [5, (p) => p.locator('main [data-slot="insight-label"]', { hasText: /^المتبقي$/ }).first()],
+      [6, tab("الفترات")],
+      [7, btn("تسجيل دفعة")],
+      [8, btn("تغيير النسبة")],
     ],
   },
   {
@@ -835,7 +840,20 @@ export const SHOTS = [
 
   // ───────────── 10. Agent portal ─────────────
   { id: "10-01-agent-home", persona: "agent", path: "/agent", sidebar: true, callouts: [[1, (p) => p.locator("[data-slot=sidebar]")], [2, txt("الوحدات", true)]] },
-  { id: "10-02-agent-dashboard", persona: "agent", path: "/agent/dashboard", clip: main, clipPad: 0, callouts: [] },
+  {
+    id: "10-02-agent-dashboard",
+    persona: "agent",
+    path: "/agent/dashboard",
+    height: 1700,
+    clip: main,
+    clipPad: 0,
+    callouts: [
+      [1, txt("الطلبات والتنفيذ", true).first()],
+      [2, txt("المبيعات والتحصيل", true).first()],
+      [3, (p) => p.locator('[role="region"][aria-labelledby="agent-team"]')],
+      [4, btn("طلب جديد").first()],
+    ],
+  },
   { id: "10-03-agent-leads", persona: "agent", path: "/agent/leads", clip: main, clipPad: 0, callouts: [[1, (p) => p.locator("main").getByRole("button", { name: /جديد|إضافة/ })]] },
   { id: "10-04-agent-orders", persona: "agent", path: "/agent/orders", clip: main, clipPad: 0, callouts: [[1, (p) => p.locator("main").getByRole("button", { name: /جديد|إضافة/ })], [2, col(/حالة المالية/)], [3, col(/^التنفيذ/)]] },
   { id: "10-06-agent-stock", persona: "agent", path: "/agent/stock", clip: main, clipPad: 0, callouts: [[1, col(/الرصيد الفعلي/)], [2, col(/المحجوز/)]] },
@@ -844,35 +862,38 @@ export const SHOTS = [
     persona: "agent",
     path: "/agent/orders/new",
     height: 1250,
+    // R15: the shared four-step flow — customer step filled, then the products step with the live quote.
     before: async (p) => {
-      const m = p.locator("main");
+      const m = p.locator("[data-testid=agent-order-entry]");
       await m.locator("input").first().fill("سلوى رمضان");
       await m.getByRole("combobox").first().click();
       await p.keyboard.type("مصر");
-      await p.waitForTimeout(500);
+      await p.waitForTimeout(600);
       await p.keyboard.press("Enter");
-      await p.waitForTimeout(300);
-      await m.getByPlaceholder(/\d/).first().fill("1000000122");
-      await p.keyboard.press("Tab");
-      await p.waitForTimeout(300);
-      await p.locator("main").getByRole("combobox", { name: /اختر المنتج/ }).first().click().catch(() => p.locator("main").getByText("اختر المنتج").first().click());
-      await p.keyboard.type("عطر");
-      await p.waitForTimeout(1000);
-      await p.getByRole("option", { name: /عطر/ }).first().click();
       await p.waitForTimeout(400);
-      await p.locator("main").getByPlaceholder("مبلغ السطر").first().fill("450");
+      await m.getByPlaceholder(/\d/).first().fill("1000000160");
       await p.keyboard.press("Tab");
+      await p.waitForTimeout(2500);
+      await m.locator("[data-testid=step-flow-next]").click();
+      await p.waitForTimeout(1500);
+      await m.getByRole("combobox").first().click();
       await p.waitForTimeout(800);
+      await p.keyboard.type("بخور");
+      await p.waitForTimeout(1200);
+      await p.getByRole("option").first().click();
+      await p.waitForTimeout(800);
+      await m.getByPlaceholder("مبلغ السطر").first().fill("450");
+      await p.keyboard.press("Tab");
+      await p.waitForTimeout(2000);
     },
-    clip: main,
-    clipPad: 0,
+    clip: (p) => p.locator("[data-testid=agent-order-entry]"),
+    clipPad: 8,
     callouts: [
-      [1, txt("العميل", true).first()],
-      [2, txt("التنفيذ والدفع", true)],
-      [3, txt("التسعير", true)],
-      [4, txt("المنتجات", true).first()],
-      [5, txt("تفصيل السعر", true)],
-      [6, btn("إنشاء الطلب")],
+      [1, (p) => p.locator("[data-testid=step-flow-list]")],
+      [2, (p) => p.getByRole("radiogroup", { name: "التسعير" })],
+      [3, (p) => p.locator("[data-testid=agent-order-entry]").getByRole("combobox").first()],
+      [4, (p) => p.getByPlaceholder("مبلغ السطر").first()],
+      [5, (p) => p.locator("[data-testid=agent-quote]")],
     ],
   },
   { id: "10-05-agent-team", persona: "agent", path: "/agent/team", clip: main, clipPad: 0, callouts: [] },
@@ -881,6 +902,263 @@ export const SHOTS = [
   { id: "11-01-numbering", persona: "admin", path: "/settings/document-numbering", clip: main, clipPad: 0, callouts: [[1, col(/القالب/)], [2, col(/معاينة الرقم التالي/)]] },
   { id: "11-02-carriers", persona: "admin", path: "/master-data/shipping-companies", clip: main, clipPad: 0, callouts: [[1, (p) => p.locator("main").getByRole("button", { name: /جديد|إضافة/ })]] },
   { id: "11-03-accounting-settings", persona: "admin", path: "/finance/accounting-settings", clip: main, clipPad: 0, callouts: [[1, txt("العملة الرئيسية للنظام والقوائم المالية")]] },
+
+  // ───────────── R15 additions ─────────────
+  {
+    id: "03-13-orders-stock",
+    persona: "sales",
+    path: "/store-orders",
+    width: 1440,
+    clip: main,
+    clipPad: 0,
+    callouts: [
+      [1, (p) => p.locator("main table thead th", { hasText: /^المخزون$/ }).first()],
+      [2, (p) => p.locator("main button[aria-expanded]", { hasText: /^المخزون/ }).first()],
+      [3, (p) => p.locator("main table tbody").getByText("ناقص", { exact: true }).first()],
+      [4, (p) => p.locator("main button").filter({ has: p.locator('[data-slot="action-label"]', { hasText: /^استيراد$/ }) }).first()],
+    ],
+  },
+  {
+    id: "03-14-order-short",
+    persona: "sales",
+    path: () => `/store-orders/${id.orderOf("مها رشاد")}`,
+    height: 1100,
+    clip: main,
+    clipPad: 0,
+    callouts: [
+      [1, (p) => p.locator("[data-testid=order-status-badges]").getByText("ناقص", { exact: true })],
+      [2, col(/^الناقص$/)],
+      [3, txt("الرصيد المتاح غير كافٍ").first()],
+      [4, (p) => p.locator("[data-testid=stock-reserve-now]")],
+    ],
+  },
+  { id: "03-15-import-page", persona: "sales", path: "/store-orders/import", clip: main, clipPad: 0, callouts: [[1, btn("بدء الاستيراد")]] },
+  {
+    id: "03-16-import-menu",
+    persona: "sales",
+    path: "/crm/leads",
+    before: async (p) => {
+      await p.locator('[data-slot="action-label"]', { hasText: /^استيراد$/ }).first().click();
+      await p.waitForTimeout(600);
+    },
+    clip: (p) => p.getByRole("menu").first(),
+    clipPad: 40,
+    callouts: [],
+    after: async (p) => p.keyboard.press("Escape"),
+  },
+  {
+    id: "03-17-sales-rank",
+    persona: "sales",
+    path: "/dashboard",
+    clip: (p) => p.locator('[role="region"][aria-labelledby="dash-ranking"]'),
+    clipPad: 12,
+    callouts: [[1, (p) => p.locator('[role="region"][aria-labelledby="dash-ranking"] [data-slot="insight-value"]').first()]],
+  },
+  {
+    id: "04-04-handover",
+    persona: "shipping",
+    path: () => `/store-orders/${id.orderOf("هبة مصطفى")}`,
+    before: async (p) => {
+      await p.locator("[data-testid=order-next-action]").first().click();
+      await p.waitForTimeout(1200);
+    },
+    clip: "[role=dialog]",
+    callouts: [
+      [1, inDialog((d) => d.locator("input").first())],
+      [2, inDialog((d) => d.getByRole("button", { name: "شحن", exact: true }))],
+    ],
+    after: async (p) => p.keyboard.press("Escape"),
+  },
+  {
+    id: "04-05-in-transit",
+    persona: "shipping",
+    path: () => `/store-orders/${id.orderOf("أيمن صبري")}`,
+    height: 1100,
+    clip: main,
+    clipPad: 0,
+    callouts: [
+      [1, (p) => p.locator("[data-testid=order-status-badges]").getByText("في الطريق", { exact: true })],
+      [2, col(/^في الطريق$/)],
+      [3, (p) => p.locator("[data-testid=stock-movements]").first()],
+    ],
+  },
+  {
+    id: "04-06-record-delivery",
+    persona: "shipping",
+    path: () => `/store-orders/${id.orderOf("أيمن صبري")}`,
+    before: async (p) => {
+      await p.locator("[data-testid=header-actions-more]").first().click();
+      await p.waitForTimeout(500);
+      await p.locator("[data-testid=order-record-delivery]").first().click();
+      await p.waitForTimeout(1200);
+    },
+    clip: "[role=dialog]",
+    callouts: [
+      [1, inDialog((d) => d.locator("input").first())],
+      [2, inDialog((d) => d.getByRole("button", { name: "تسجيل التسليم" }))],
+    ],
+    after: async (p) => p.keyboard.press("Escape"),
+  },
+  {
+    id: "04-07-receive-back",
+    persona: "shipping",
+    path: () => `/store-orders/${id.orderOf("كريم سعيد")}`,
+    before: async (p) => {
+      await p.locator("[data-testid=stock-receive-back]").first().click();
+      await p.waitForTimeout(1200);
+    },
+    clip: "[role=dialog]",
+    callouts: [
+      [1, inDialog((d) => d.locator("input").first())],
+      [2, inDialog((d) => d.getByText("الحالة", { exact: true }).first())],
+      [3, inDialog((d) => d.getByRole("button", { name: "استلام", exact: true }))],
+    ],
+    after: async (p) => p.keyboard.press("Escape"),
+  },
+  {
+    id: "05-09-stock-transit",
+    persona: "admin",
+    path: "/inventory/stock",
+    clip: main,
+    clipPad: 0,
+    callouts: [[1, (p) => p.locator("main table thead th", { hasText: /^المتاح$/ }).first()], [2, (p) => p.locator("main table thead th", { hasText: /^في الطريق$/ }).first()], [3, (p) => p.locator("main table thead th", { hasText: /^قيمة المخزون$/ }).first()]],
+  },
+  {
+    id: "05-10-warehouses",
+    persona: "admin",
+    path: "/master-data/warehouses",
+    clip: main,
+    clipPad: 0,
+    callouts: [
+      [1, (p) => p.locator("main table tbody").getByText(/^بضاعة في الطريق$/).first()],
+      [2, (p) => p.locator("main table tbody").getByText(/^بضاعة تالفة$/).first()],
+    ],
+  },
+  {
+    id: "07-08-collection-refund",
+    persona: "accountant",
+    path: () => `/store-orders/${id.orderOf("وليد حسني")}`,
+    height: 1200,
+    before: async (p) => {
+      await expand(p, ["الدفعات والسجل المالي"]);
+      await scrollTo(p, p.locator('main [data-slot="card-title"]', { hasText: /^التحصيل$/ }));
+      await p.mouse.wheel(0, -160);
+      await p.waitForTimeout(400);
+    },
+    clip: main,
+    clipPad: 0,
+    callouts: [
+      [1, (p) => p.locator('main [data-slot="card-title"]', { hasText: /^التحصيل$/ })],
+      [2, txt("مستحق الرد", true).first()],
+      [3, txt(/^رد مستحق:/).first()],
+      [4, btn("تسجيل رد مبلغ").first()],
+    ],
+  },
+  {
+    id: "07-09-collection-cod",
+    persona: "accountant",
+    path: () => `/store-orders/${id.orderOf("إسلام فوزي")}`,
+    height: 1200,
+    before: async (p) => {
+      await expand(p, ["الدفعات والسجل المالي"]);
+      await scrollTo(p, p.locator('main [data-slot="card-title"]', { hasText: /^التحصيل$/ }));
+    },
+    clip: main,
+    clipPad: 0,
+    callouts: [
+      [1, txt("المحصّل (مؤكد)", true).first()],
+      [2, txt("لدى شركة الشحن", true).first()],
+      [3, txt(/^تحصّل /).first()],
+    ],
+  },
+  {
+    id: "07-10-refund-dialog",
+    persona: "accountant",
+    path: () => `/store-orders/${id.orderOf("وليد حسني")}`,
+    before: async (p) => {
+      await expand(p, ["الدفعات والسجل المالي"]);
+      await p.getByRole("button", { name: "تسجيل رد مبلغ" }).first().click();
+      await p.waitForTimeout(1200);
+    },
+    clip: "[role=dialog]",
+    callouts: [
+      [1, inDialog((d) => d.getByText(/لا توجد بوابة دفع مربوطة/).first())],
+      [2, inDialog((d) => d.locator("input[type=number]").first())],
+      [3, inDialog((d) => d.getByRole("combobox", { name: /يُصرف من/ }))],
+      [4, inDialog((d) => d.getByRole("button", { name: "تأكيد الرد" }))],
+    ],
+    after: async (p) => p.keyboard.press("Escape"),
+  },
+  {
+    id: "09-07-partner-overview",
+    persona: "partner",
+    path: "/partner/overview",
+    clip: main,
+    clipPad: 0,
+    callouts: [
+      [1, (p) => p.locator('main [data-slot="insight-label"]', { hasText: /^الفترة الحالية/ }).first()],
+      [2, (p) => p.locator('main [data-slot="insight-label"]', { hasText: /^المعتمد حتى الآن$/ }).first()],
+      [3, (p) => p.locator('main [data-slot="insight-label"]', { hasText: /^المتبقي لك$/ }).first()],
+      [4, txt("اتفاقيتك", true).first()],
+      [5, txt("أحدث الفترات", true).first()],
+    ],
+  },
+  {
+    id: "09-08-partner-portal-statement",
+    persona: "partner",
+    path: "/partner/statement",
+    clip: main,
+    clipPad: 0,
+    callouts: [
+      [1, txt(/^صفوف التقدير/).first()],
+      [2, (p) => p.locator('main [data-slot="insight-label"]', { hasText: /^تقديري$/ }).first()],
+      [3, (p) => p.locator('main [data-slot="insight-label"]', { hasText: /^المستحق المعتمد$/ }).first()],
+      [4, tab("الفترات")],
+      [5, btn("طباعة الكشف")],
+    ],
+  },
+  {
+    id: "10-08-agent-imports",
+    persona: "agent",
+    path: "/agent/imports",
+    clip: main,
+    clipPad: 0,
+    callouts: [[1, (p) => p.locator("main button").filter({ has: p.locator('[data-slot="action-label"]', { hasText: /^استيراد$/ }) }).first()]],
+  },
+  {
+    id: "10-09-agents-overview",
+    persona: "admin",
+    path: "/agents",
+    height: 1200,
+    before: async (p) => scrollTo(p, p.locator("#agents-overview")),
+    clip: (p) => p.locator('[role="region"][aria-labelledby="agents-overview"]'),
+    clipPad: 12,
+    callouts: [[1, (p) => p.locator('[data-slot="insight-label"]', { hasText: /^الوكلاء النشطون$/ }).first()], [2, txt("حسب الوكيل", true).first()]],
+  },
+  {
+    id: "10-10-agent-overview-tab",
+    persona: "accountant",
+    path: () => `/agents/${id.agent()}?tab=overview`,
+    height: 1200,
+    clip: main,
+    clipPad: 0,
+    callouts: [],
+  },
+  {
+    id: "10-11-agent-shipping-agreement",
+    persona: "admin",
+    path: () => `/agents/${id.agent()}?tab=settings`,
+    height: 1300,
+    before: async (p) => scrollTo(p, p.getByText("اتفاقية الشحن", { exact: true }).first()),
+    clip: main,
+    clipPad: 0,
+    callouts: [
+      [1, btn("اتفاقية جديدة").first()],
+      [2, txt(/^ASA-/).first()],
+      [3, txt("مفعّلة", true).first()],
+      [4, txt("الوجهة", true).first()],
+    ],
+  },
 ];
 
 // Resolve lazy paths.
