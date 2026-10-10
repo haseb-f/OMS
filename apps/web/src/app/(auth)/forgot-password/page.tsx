@@ -49,13 +49,9 @@ export default function ForgotPasswordPage() {
 
   return (
     <div>
-      <header className="mb-8">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          {t("auth.forgotTitle")}
-        </h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-          {t("auth.forgotSubtitle")}
-        </p>
+      <header className="oms-auth-header">
+        <h1 className="oms-auth-title">{t("auth.forgotTitle")}</h1>
+        <p className="oms-auth-subtitle">{t("auth.forgotSubtitle")}</p>
       </header>
       <Form {...form}>
         <form
@@ -77,7 +73,7 @@ export default function ForgotPasswordPage() {
           />
           <SubmitButton
             isSubmitting={isSubmitting}
-            className="w-full bg-brand-navy text-brand-navy-foreground not-disabled:hover:bg-brand-navy/90"
+            className="oms-auth-submit w-full bg-brand-navy text-brand-navy-foreground not-disabled:hover:bg-brand-navy/90"
           >
             {isSubmitting ? t("auth.sendingResetLink") : t("auth.sendResetLink")}
           </SubmitButton>

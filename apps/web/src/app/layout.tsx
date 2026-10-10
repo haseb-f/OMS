@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Geist, Geist_Mono, IBM_Plex_Sans_Arabic } from "next/font/google";
 import { cn } from "@/lib/utils";
@@ -41,6 +41,19 @@ export const metadata: Metadata = {
     icon: "/brand/oms-app-icon.png",
     apple: "/brand/oms-app-icon.png",
   },
+};
+
+/**
+ * R16 (spec-1) — explicit viewport. Never `maximum-scale` / `user-scalable=no`
+ * (pinch-zoom stays available); `interactiveWidget: "resizes-content"` lets the
+ * on-screen keyboard shrink the layout so focused fields and actions stay
+ * reachable. Focus-zoom is prevented by ≥16px touch inputs (theme/recipes.css).
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

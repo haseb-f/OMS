@@ -119,6 +119,10 @@
   --control-height-sm: 1.75rem; /* 28px — toolbar/filter chips, table row actions */
   --control-height-md: 2rem; /* 32px — default for Button/Input/Select/pickers */
   --control-height-lg: 2.5rem; /* 40px — primary page CTA on touch, auth */
+  /* R16 (spec-1) — sign-in pages: comfortable 50px fields + a ~26rem card. */
+  --auth-control-height: 3.125rem;
+  --auth-card-width: 26rem;
+  --auth-card-shadow: 0 1px 2px rgb(15 30 60 / 0.04), 0 18px 40px -18px rgb(15 30 60 / 0.22);
 
   /* Dropdown triggers (Kumo refinement, kumo-research.md §4) — one weight
      and one chevron size for every select, combobox, filter, picker and
@@ -232,6 +236,7 @@
 }
 
 .dark {
+  --auth-card-shadow: 0 1px 0 rgb(255 255 255 / 0.04), 0 18px 40px -20px rgb(0 0 0 / 0.6);
   --menu-tone-success: #6fd18a;
   --menu-tone-success-bg: #12301b;
   --menu-tone-warning: #f5b544;

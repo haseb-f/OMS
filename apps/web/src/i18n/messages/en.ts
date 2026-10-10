@@ -1021,6 +1021,7 @@ const en = {
     showPassword: "Show password",
     hidePassword: "Hide password",
     sessionNote: "Your session ends when the browser closes or after 2 hours of inactivity.",
+    brandTagline: "One platform to run orders, inventory and accounting with confidence.",
     forgotPassword: "Forgot password?",
     signIn: "Sign in",
     signingIn: "Signing in…",

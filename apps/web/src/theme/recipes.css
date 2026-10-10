@@ -789,10 +789,119 @@ html[dir="ltr"] :is(h1, h2) {
   color: var(--destructive-text);
 }
 
-/* Sign-in: the brand-navy focus ring on auth fields. */
-.oms-auth-form [data-slot="input"]:focus-visible {
+/* ── Sign-in pages (R16 spec-1) ─────────────────────────────────────────
+   A soft raised card, a clear title / subtitle hierarchy, 50px fields with
+   16px text (no focus zoom on phones) and a brand-navy focus halo. Colour,
+   shadow and border only on focus — never a size change. */
+.oms-auth-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-overlay);
+  box-shadow: var(--auth-card-shadow);
+  padding: 2rem 1.75rem 1.75rem;
+}
+@media (max-width: 639px) {
+  .oms-auth-card {
+    padding: 1.5rem 1.25rem 1.25rem;
+  }
+}
+.oms-auth-header {
+  margin-block-end: 1.75rem;
+}
+.oms-auth-title {
+  color: var(--foreground);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.oms-auth-subtitle {
+  margin-block-start: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: var(--text-body);
+  line-height: 1.65;
+}
+.oms-auth-form [data-slot="field-label"],
+.oms-auth-form label {
+  font-size: var(--text-body);
+  font-weight: 500;
+}
+.oms-auth-form input:not([type="checkbox"]) {
+  height: var(--auth-control-height);
+  padding-inline-start: 0.875rem;
+  border-radius: var(--radius-surface);
+  background-color: var(--card);
+  font-size: 1rem;
+}
+.oms-auth-form [data-slot="password-input"] button {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+.oms-auth-form input:not([type="checkbox"]):focus-visible {
   border-color: var(--brand-navy);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand-navy) 20%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand-navy) 18%, transparent);
+}
+.dark .oms-auth-form input:not([type="checkbox"]):focus-visible {
+  border-color: var(--brand-teal);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand-teal) 28%, transparent);
+}
+.oms-auth-submit {
+  height: var(--auth-control-height);
+  border-radius: var(--radius-surface);
+  font-size: 1rem;
+  font-weight: 600;
+  box-shadow: 0 8px 18px -10px color-mix(in oklab, var(--brand-navy) 60%, transparent);
+}
+/* Dark theme: navy would sink into the dark card — the medium step of the
+   one-blue control family keeps the primary action prominent (white text, AA). */
+.dark .oms-auth-submit {
+  background-color: var(--toolbar-tone-3);
+  color: #ffffff;
+  box-shadow: 0 8px 18px -10px rgb(0 0 0 / 0.7);
+}
+.dark .oms-auth-submit:not(:disabled):hover {
+  background-color: color-mix(in oklab, var(--toolbar-tone-3) 86%, #ffffff);
+}
+.oms-auth-link {
+  color: var(--brand-navy);
+  font-size: var(--text-caption);
+  font-weight: 500;
+  text-underline-offset: 3px;
+}
+.oms-auth-link:hover {
+  text-decoration: underline;
+}
+.oms-auth-link:focus-visible {
+  border-radius: 2px;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.dark .oms-auth-link {
+  color: var(--brand-teal);
+}
+
+/* Touch devices (R16 spec-1): iOS Safari zooms the page when a text field
+   under 16px receives focus and keeps the zoom after navigation (the
+   "enlarged page after sign-in" report). Every text-entry control renders at
+   ≥16px on coarse pointers; desktop density is unchanged and pinch-zoom stays
+   available (no viewport scale limits). */
+@media (pointer: coarse) {
+  :is(
+    input:not(
+      [type="checkbox"],
+      [type="radio"],
+      [type="range"],
+      [type="color"],
+      [type="file"],
+      [type="button"],
+      [type="submit"],
+      [type="reset"],
+      [type="image"]
+    ),
+    textarea,
+    select
+  ) {
+    font-size: max(1rem, 16px);
+  }
 }
 
 /* ── Tables: row states (tables-selection.md) ─────────────────────────────
