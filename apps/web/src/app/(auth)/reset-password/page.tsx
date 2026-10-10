@@ -87,13 +87,9 @@ function ResetPasswordForm() {
 
   return (
     <div>
-      <header className="mb-8">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          {t("auth.resetTitle")}
-        </h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-          {t("auth.resetSubtitle")}
-        </p>
+      <header className="oms-auth-header">
+        <h1 className="oms-auth-title">{t("auth.resetTitle")}</h1>
+        <p className="oms-auth-subtitle">{t("auth.resetSubtitle")}</p>
       </header>
       <Form {...form}>
         <form
@@ -123,7 +119,7 @@ function ResetPasswordForm() {
           )}
           <SubmitButton
             isSubmitting={isSubmitting}
-            className="w-full bg-brand-navy text-brand-navy-foreground not-disabled:hover:bg-brand-navy/90"
+            className="oms-auth-submit w-full bg-brand-navy text-brand-navy-foreground not-disabled:hover:bg-brand-navy/90"
           >
             {isSubmitting ? t("auth.resetSubmitting") : t("auth.resetSubmit")}
           </SubmitButton>

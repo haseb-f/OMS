@@ -1,0 +1,104 @@
+{
+  "at": "2026-10-10T15:08:24.329Z",
+  "phase": "before",
+  "metrics": {
+    "login-desktop-ar-light": {
+      "inputHeight": 32,
+      "copyButtons": 1,
+      "revealButtons": 1
+    },
+    "login-desktop-ar-dark": {
+      "inputHeight": 32,
+      "copyButtons": 1,
+      "revealButtons": 1
+    },
+    "login-desktop-en-light": {
+      "inputHeight": 32,
+      "copyButtons": 1,
+      "revealButtons": 1
+    },
+    "login-mobile-portrait": {
+      "before": {
+        "scale": 1,
+        "innerWidth": 412,
+        "scrollWidth": 412,
+        "overflowX": 0
+      },
+      "fontEmail": 14,
+      "fontPassword": 14,
+      "submitVisibleWithKeyboard": true,
+      "afterLogin": {
+        "scale": 1,
+        "innerWidth": 412,
+        "scrollWidth": 412,
+        "overflowX": 0
+      },
+      "landedOn": "/"
+    },
+    "login-mobile-landscape": {
+      "before": {
+        "scale": 1,
+        "innerWidth": 863,
+        "scrollWidth": 863,
+        "overflowX": 0
+      },
+      "fontEmail": 14,
+      "fontPassword": 14,
+      "submitVisibleWithKeyboard": true,
+      "afterLogin": {
+        "scale": 1,
+        "innerWidth": 863,
+        "scrollWidth": 863,
+        "overflowX": 0
+      },
+      "landedOn": "/"
+    },
+    "company/agents": {
+      "status": 200,
+      "final": "/agents"
+    },
+    "company/agents/overview": {
+      "status": 200,
+      "final": "/agents/overview"
+    },
+    "order-entry-agent-admin-desktop": {
+      "url": "/agent/orders/new",
+      "dialogWidth": null,
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "overflowX": 0
+    },
+    "order-entry-agent-admin-phone": {
+      "url": "/agent/orders/new",
+      "dialogWidth": null,
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "overflowX": 0
+    },
+    "order-entry-agent-sales-desktop": {
+      "url": "/agent/orders/new",
+      "dialogWidth": null,
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "overflowX": 0
+    },
+    "order-entry-agent-sales-phone": {
+      "url": "/agent/orders/new",
+      "dialogWidth": null,
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "overflowX": 0
+    },
+    "order-entry-company-reference": {
+      "dialogWidth": 768
+    }
+  }
+}

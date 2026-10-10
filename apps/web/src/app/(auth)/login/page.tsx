@@ -65,20 +65,16 @@ function LoginForm() {
 
   return (
     <div>
-      <header className="mb-8">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          {t("auth.loginTitle")}
-        </h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-          {t("auth.loginSubtitle")}
-        </p>
+      <header className="oms-auth-header">
+        <h1 className="oms-auth-title">{t("auth.loginTitle")}</h1>
+        <p className="oms-auth-subtitle">{t("auth.loginSubtitle")}</p>
       </header>
 
       <Form {...form}>
         <form
           onSubmit={onSubmit}
           aria-busy={isSubmitting}
-          className="oms-auth-form flex flex-col gap-4"
+          className="oms-auth-form flex flex-col gap-5"
         >
           <TextFormField
             control={form.control}
@@ -100,14 +96,12 @@ function LoginForm() {
             required
             placeholder={t("auth.passwordPlaceholder")}
             autoComplete="current-password"
+            // R16 (spec-1) — no copy action on a sign-in field; reveal / hide stays.
+            copyable={false}
           />
 
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-caption text-muted-foreground">{t("auth.sessionNote")}</p>
-            <Link
-              href="/forgot-password"
-              className="shrink-0 text-caption font-medium text-brand-navy hover:underline dark:text-brand-teal"
-            >
+          <div className="-mt-2 flex justify-end">
+            <Link href="/forgot-password" className="oms-auth-link">
               {t("auth.forgotPassword")}
             </Link>
           </div>
@@ -123,10 +117,14 @@ function LoginForm() {
 
           <SubmitButton
             isSubmitting={isSubmitting}
-            className="mt-1 w-full bg-brand-navy text-brand-navy-foreground not-disabled:hover:bg-brand-navy/90"
+            className="oms-auth-submit w-full bg-brand-navy text-brand-navy-foreground not-disabled:hover:bg-brand-navy/90"
           >
             {isSubmitting ? t("auth.signingIn") : t("auth.signIn")}
           </SubmitButton>
+
+          <p className="text-center text-caption leading-relaxed text-muted-foreground">
+            {t("auth.sessionNote")}
+          </p>
         </form>
       </Form>
     </div>
