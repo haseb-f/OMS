@@ -1,0 +1,41 @@
+{
+  "at": "2026-10-10T19:41:10.573Z",
+  "base": "https://oms.haseb.org",
+  "results": [
+    {
+      "name": "login fields ≈50px",
+      "ok": true,
+      "detail": "50px"
+    },
+    {
+      "name": "no copy action on the sign-in password",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "reveal / hide kept",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/agents/overview renders its own page",
+      "ok": true,
+      "detail": "نظرة عامة على الوكلاء"
+    },
+    {
+      "name": "/agents renders its own page",
+      "ok": true,
+      "detail": "إدارة الوكلاء"
+    },
+    {
+      "name": "touch inputs are 16px (no focus zoom)",
+      "ok": true,
+      "detail": "16px"
+    },
+    {
+      "name": "after sign-in on a phone: scale 1, no horizontal overflow",
+      "ok": true,
+      "detail": "{\"scale\":1,\"overflowX\":0}"
+    }
+  ]
+}
