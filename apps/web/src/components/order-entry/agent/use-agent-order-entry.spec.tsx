@@ -175,7 +175,12 @@ function Harness({
   return (
     <TooltipProvider>
       <div dir="rtl">
-        <OrderEntryFlow flow={flow} adapter={adapter} container="page" onCancel={() => undefined} />
+        <OrderEntryFlow
+          flow={flow}
+          adapter={adapter}
+          onOpenChange={() => undefined}
+          title="agent order"
+        />
       </div>
     </TooltipProvider>
   );

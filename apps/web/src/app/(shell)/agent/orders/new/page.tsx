@@ -1,106 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageWorkspace } from "@/components/shared/page-workspace";
-import { PageLoading } from "@/components/shared/page-loading";
-import { ErrorState } from "@/components/shared/error-state";
-import { OrderEntryFlow, useOrderEntryFlow } from "@/components/order-entry/order-entry-flow";
-import { useAgentOrderEntry } from "@/components/order-entry/agent/use-agent-order-entry";
-import { portalAgentEntrySource } from "@/components/order-entry/agent/agent-entry-source";
-import { usePortalProfile } from "@/components/agent-portal/use-portal-profile";
 import {
-  agentPortalService,
-  type CountryRef,
-  type CurrencyRef,
-  type FulfillmentMethod,
-  type PortalLead,
-} from "@/services/agent-portal-service";
-import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
+  AgentPortalOrderEntryDialog,
+  fulfillmentMethodParam,
+} from "@/components/order-entry/agent/agent-order-entry-dialog";
+import { AGENT_PORTAL_HOME } from "@/navigation/route-access";
 import { useLocale } from "@/providers/locale-provider";
-import { apiErrorMessage } from "@/lib/toast";
 
 /**
- * New agent order, or — with `?leadId=` — the conversion of one of the
- * agent's leads (customer from the lead, pricing entered here): the agent
- * adapter of the one order-entry flow (R15 D15-19), as a page. Route access:
- * `agent.orders.create` (reviewed create override); conversion additionally
- * needs `agent.leads.convert`, which the API enforces.
+ * Deep link to a new agent order (`?leadId=` converts one of the agent's
+ * leads, `?method=PICKUP|SHIPPING` starts with that method) — Home tile,
+ * dashboard shortcut, "convert" links in toasts. It opens the same compact
+ * order-entry dialog the lists open in place (R16 S3), never a full-page
+ * form. Closing returns to where the user came from; a created order opens
+ * its detail (replacing this URL, so Back never reopens the form). Route
+ * access: `agent.orders.create`.
  */
 export default function AgentNewOrderPage() {
   const { t } = useLocale();
+  const router = useRouter();
   const params = useSearchParams();
-  const leadId = params.get("leadId");
-  const methodParam = params.get("method");
-  const { profile, countries, loading } = usePortalProfile();
-  const [lead, setLead] = useState<PortalLead | null>(null);
-  const [leadError, setLeadError] = useState<string | null>(null);
 
-  useBreadcrumbLabel(lead ? lead.leadNumber : null);
-
-  useEffect(() => {
-    if (!leadId) return;
-    agentPortalService.leads
-      .get(leadId)
-      .then(setLead)
-      .catch((error) => setLeadError(apiErrorMessage(error, "agentPortal.common.loadFailed")));
-  }, [leadId]);
-
-  const title = lead
-    ? t("agentPortal.orderForm.convertTitle", { number: lead.leadNumber })
-    : t("agentPortal.orderForm.title");
-
-  if (leadError) return <ErrorState description={leadError} />;
-  if (loading || (leadId && !lead)) return <PageLoading />;
+  const leave = () => {
+    if (window.history.length > 1) router.back();
+    else router.replace(AGENT_PORTAL_HOME);
+  };
 
   return (
-    <PageWorkspace title={title} description={t("agentPortal.orderForm.description")}>
-      <AgentPortalOrderEntry
-        lead={lead}
-        initialMethod={
-          methodParam === "PICKUP" || methodParam === "SHIPPING"
-            ? methodParam
-            : (lead?.fulfillmentMethod ?? "SHIPPING")
-        }
-        countries={countries}
-        currency={profile?.agent.currency ?? null}
+    <PageWorkspace title={t("agentPortal.orderForm.title")}>
+      <AgentPortalOrderEntryDialog
+        leadId={params.get("leadId")}
+        method={fulfillmentMethodParam(params.get("method"))}
+        onClose={leave}
+        onCreated={(created) => router.replace(`/agent/orders/${created.id}`)}
       />
     </PageWorkspace>
-  );
-}
-
-function AgentPortalOrderEntry({
-  lead,
-  initialMethod,
-  countries,
-  currency,
-}: {
-  lead: PortalLead | null;
-  initialMethod: FulfillmentMethod;
-  countries: Array<CountryRef & { code: string }>;
-  currency: CurrencyRef | null;
-}) {
-  const router = useRouter();
-  const flow = useOrderEntryFlow(true);
-  const adapter = useAgentOrderEntry({
-    source: portalAgentEntrySource,
-    open: true,
-    lead,
-    onOpenLead: lead ? () => router.push(`/agent/leads/${lead.id}`) : undefined,
-    initialMethod,
-    countries,
-    currency,
-    flow,
-    onCreated: (created) => router.push(`/agent/orders/${created.id}`),
-    onCancel: () => router.back(),
-  });
-  return (
-    <OrderEntryFlow
-      flow={flow}
-      adapter={adapter}
-      container="page"
-      onCancel={() => router.back()}
-      testId="agent-order-entry"
-    />
   );
 }

@@ -488,6 +488,9 @@
   --surface-soft-row-hover: color-mix(in oklab, var(--brand-canvas) 55%, var(--card));
   --form-card-width-narrow: 32.5rem;
   --form-card-width: 40rem;
+  /* R16 S3 — the one order-entry dialog (company store order, agent portal order /
+     lead conversion, staff entering an agent order): the company reference width. */
+  --order-entry-width: 48rem;
 }
 
 .dark {

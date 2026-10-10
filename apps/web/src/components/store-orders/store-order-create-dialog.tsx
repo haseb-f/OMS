@@ -34,7 +34,6 @@ export function StoreOrderCreateDialog({
     <OrderEntryFlow
       flow={flow}
       adapter={adapter}
-      container="dialog"
       open={open}
       onOpenChange={onOpenChange}
       title={t("storeOrders.createDialog.title")}
