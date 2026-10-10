@@ -11,6 +11,7 @@ import {
   exportRowsToCsv,
 } from "@/components/master-data/enterprise-data-table";
 import { SelectFilter } from "@/components/shared/data-table";
+import { AgentPortalOrderEntryDialog } from "@/components/order-entry/agent/agent-order-entry-dialog";
 import { PortalOrderGridCard } from "@/components/store-orders/store-order-grid-card";
 import {
   EnterpriseDateRangePicker,
@@ -59,6 +60,7 @@ export default function AgentOrdersPage() {
   const [range, setRange] = usePathRestorableState<DateRangeValue>("range", EMPTY_RANGE);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const filters = useMemo(
     () => ({
@@ -125,7 +127,7 @@ export default function AgentOrdersPage() {
             label: t("agentPortal.orders.new"),
             icon: Plus,
             hidden: !hasPermission("agent.orders.create"),
-            onSelect: () => router.push("/agent/orders/new"),
+            onSelect: () => setCreateOpen(true),
           }}
         />
       }
@@ -256,6 +258,15 @@ export default function AgentOrdersPage() {
           />
         )}
       />
+      {createOpen ? (
+        <AgentPortalOrderEntryDialog
+          onClose={() => setCreateOpen(false)}
+          onCreated={(created) => {
+            setCreateOpen(false);
+            router.push(`/agent/orders/${created.id}`);
+          }}
+        />
+      ) : null}
     </PageWorkspace>
   );
 }

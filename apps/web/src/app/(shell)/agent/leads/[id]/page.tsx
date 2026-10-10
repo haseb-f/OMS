@@ -14,6 +14,7 @@ import { PageLoading } from "@/components/shared/page-loading";
 import { ErrorState } from "@/components/shared/error-state";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { EnterpriseButton } from "@/components/ui/button";
+import { AgentPortalOrderEntryDialog } from "@/components/order-entry/agent/agent-order-entry-dialog";
 import { LeadStatusBadge } from "@/components/agent-portal/portal-badges";
 import { FollowUpOutcomeBadge } from "@/components/crm/follow-up-outcome-badge";
 import { canConvertLead, localizedName } from "@/config/agent-portal/labels";
@@ -32,6 +33,7 @@ export default function AgentLeadDetailPage() {
   const { hasPermission } = useUserContext();
   const [lead, setLead] = useState<PortalLead | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [convertOpen, setConvertOpen] = useState(false);
 
   useBreadcrumbLabel(lead?.leadNumber ?? null);
 
@@ -65,10 +67,7 @@ export default function AgentLeadDetailPage() {
       status={<LeadStatusBadge status={lead.status} />}
       actions={
         mayConvert && convertible ? (
-          <EnterpriseButton
-            type="button"
-            onClick={() => router.push(`/agent/orders/new?leadId=${lead.id}`)}
-          >
+          <EnterpriseButton type="button" onClick={() => setConvertOpen(true)}>
             <ArrowLeftRight />
             {t("agentPortal.leads.detail.convert")}
           </EnterpriseButton>
@@ -148,6 +147,18 @@ export default function AgentLeadDetailPage() {
           </DetailFieldGrid>
         </DetailSection>
       </div>
+      {convertOpen ? (
+        <AgentPortalOrderEntryDialog
+          leadId={lead.id}
+          onClose={() => setConvertOpen(false)}
+          // "Open lead" from the dialog: this page is the lead.
+          onOpenLead={() => setConvertOpen(false)}
+          onCreated={(created) => {
+            setConvertOpen(false);
+            router.push(`/agent/orders/${created.id}`);
+          }}
+        />
+      ) : null}
     </DetailWorkspace>
   );
 }

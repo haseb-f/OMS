@@ -11,6 +11,7 @@ import { SelectFilter } from "@/components/shared/data-table";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { LeadCreateDialog } from "@/components/agent-portal/lead-create-dialog";
+import { AgentPortalOrderEntryDialog } from "@/components/order-entry/agent/agent-order-entry-dialog";
 import { LeadStatusBadge } from "@/components/agent-portal/portal-badges";
 import { FollowUpOutcomeBadge } from "@/components/crm/follow-up-outcome-badge";
 import { followUpOutcomeLabel } from "@/config/crm/follow-up-outcomes";
@@ -152,6 +153,7 @@ export default function AgentLeadsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [convertLeadId, setConvertLeadId] = useState<string | null>(null);
   const canConvert = hasPermission("agent.leads.convert") && hasPermission("agent.orders.create");
 
   const load = useCallback(async () => {
@@ -261,7 +263,7 @@ export default function AgentLeadsPage() {
                 label: t("agentPortal.leads.detail.convert"),
                 icon: ShoppingCart,
                 hidden: !canConvert || !canConvertLead(row),
-                onSelect: () => router.push(`/agent/orders/new?leadId=${row.id}`),
+                onSelect: () => setConvertLeadId(row.id),
               },
             ]}
           />
@@ -282,6 +284,16 @@ export default function AgentLeadsPage() {
           void load();
         }}
       />
+      {convertLeadId ? (
+        <AgentPortalOrderEntryDialog
+          leadId={convertLeadId}
+          onClose={() => setConvertLeadId(null)}
+          onCreated={(created) => {
+            setConvertLeadId(null);
+            router.push(`/agent/orders/${created.id}`);
+          }}
+        />
+      ) : null}
     </PageWorkspace>
   );
 }

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { FieldValues, UseFormReturn } from "react-hook-form";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
-import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import {
   FormErrorSummary,
   findFieldElement,
@@ -12,8 +11,6 @@ import {
   type FormErrorItem,
 } from "@/components/shared/form-error-summary";
 import { StepFlow, StepFlowFooter } from "@/components/shared/step-flow";
-import { EnterpriseCard, EnterpriseCardContent, EnterpriseCardFooter } from "@/components/ui/card";
-import { ControlSurface } from "@/components/ui/control-surface";
 import { Form } from "@/components/ui/form";
 import {
   ORDER_CREATE_STEPS,
@@ -33,9 +30,15 @@ import { useLocale } from "@/providers/locale-provider";
  * `useAgentOrderEntry`). This file is the shell they share: step state and
  * focus, "Next" validating only the current step, the error summary that
  * returns to the step holding a field, one submit at a time, and the
- * container — a dialog (bottom sheet on phones) or a page with a sticky
- * footer.
+ * container: ONE compact dialog for every entry point (R16 S3) — centered
+ * at the shared `--order-entry-width` on desktop / tablet, a near-full-width
+ * bottom sheet on phones, the header / step navigation / actions fixed while
+ * the body scrolls, and the actions lifted above the on-screen keyboard
+ * (`EnterpriseModal`). There is no full-page variant.
  */
+
+/** The shared width of the order-entry dialog (design token, `app/globals.css`). */
+export const ORDER_ENTRY_DIALOG_CLASS = "sm:max-w-(--order-entry-width)";
 
 export interface OrderEntryFlowState {
   stepIndex: number;
@@ -127,24 +130,18 @@ export interface OrderEntryAdapter<TValues extends FieldValues = FieldValues> {
 export function OrderEntryFlow<TValues extends FieldValues>({
   flow,
   adapter,
-  container,
   open = true,
   onOpenChange,
-  onCancel,
   title,
   description,
   testId,
 }: {
   flow: OrderEntryFlowState;
   adapter: OrderEntryAdapter<TValues>;
-  container: "dialog" | "page";
-  /** Dialog only. */
   open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  /** Page only: leaving the page (asked first when there are unsaved changes). */
-  onCancel?: () => void;
-  /** Dialog only (a page shows its own header). */
-  title?: string;
+  /** Closing (ESC, overlay, the close button, Cancel) — asked first when there are unsaved changes. */
+  onOpenChange: (open: boolean) => void;
+  title: string;
   description?: string;
   testId?: string;
 }) {
@@ -152,7 +149,6 @@ export function OrderEntryFlow<TValues extends FieldValues>({
   // Plain values for render; the element setters only ever go to `ref` props.
   const { stepIndex, step, setBody, setStepPanel, goToStep, focusFirstInvalid, getBody } = flow;
   const [checkingStep, setCheckingStep] = useState(false);
-  const [discardOpen, setDiscardOpen] = useState(false);
   const submittingRef = useRef(false);
   const lastIndex = ORDER_CREATE_STEPS.length - 1;
   const stepItems = ORDER_CREATE_STEPS.map((id) => ({
@@ -246,54 +242,21 @@ export function OrderEntryFlow<TValues extends FieldValues>({
     </Form>
   );
 
-  if (container === "dialog") {
-    return (
-      <EnterpriseModal
-        open={open}
-        onOpenChange={onOpenChange ?? (() => undefined)}
-        size="lg"
-        title={title ?? ""}
-        description={description}
-        isDirty={adapter.isDirty}
-        testId={testId}
-        subheader={header}
-        errorSummary={errorSummary}
-        footer={footer}
-      >
-        {body}
-      </EnterpriseModal>
-    );
-  }
-
-  // A page: the same header, body and footer on one card; the footer stays reachable on phones.
-  const requestLeave = () => {
-    if (adapter.isDirty) setDiscardOpen(true);
-    else onCancel?.();
-  };
   return (
-    <ControlSurface surface="form">
-      <EnterpriseCard size="sm" className="@container min-w-0 gap-0 py-0" data-testid={testId}>
-        <div className="border-b border-border px-(--card-spacing) py-3">{header}</div>
-        <EnterpriseCardContent className="flex min-w-0 flex-col gap-3 py-4">
-          {errorSummary}
-          {body}
-        </EnterpriseCardContent>
-        <EnterpriseCardFooter className="sticky bottom-0 z-(--z-sticky)">
-          {footer(requestLeave)}
-        </EnterpriseCardFooter>
-      </EnterpriseCard>
-      <ConfirmationDialog
-        open={discardOpen}
-        onOpenChange={setDiscardOpen}
-        title={t("common.confirmDiscardTitle")}
-        description={t("common.confirmDiscardDescription")}
-        confirmLabel={t("common.discard")}
-        tone="destructive"
-        onConfirm={() => {
-          setDiscardOpen(false);
-          onCancel?.();
-        }}
-      />
-    </ControlSurface>
+    <EnterpriseModal
+      open={open}
+      onOpenChange={onOpenChange}
+      size="lg"
+      className={ORDER_ENTRY_DIALOG_CLASS}
+      title={title}
+      description={description}
+      isDirty={adapter.isDirty}
+      testId={testId}
+      subheader={header}
+      errorSummary={errorSummary}
+      footer={footer}
+    >
+      {body}
+    </EnterpriseModal>
   );
 }
