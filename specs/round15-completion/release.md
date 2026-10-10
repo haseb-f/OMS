@@ -104,3 +104,9 @@ voucher rate captions.
 chapters 1–13 updated to the released behaviour; QA in `docs/user-manual/QA.md` (every page rendered and
 reviewed, legends = callouts by script, DOCX invariants pass). The R14 files are removed from the folder
 (kept in git history).
+
+### Production data applied (owner approval 2026-10-10)
+
+`APPLY=1 r15-prod-smoke.mjs` 28/28 → `evidence/prod-smoke-apply.json`: stock backfill reserved 6 open orders
+(none short) and marked 1 delivered; R14 recognition repair recognised `STO-2026-000156` (invoice, stock issue,
+COGS). Re-runs are no-ops. Stock states now: 5 reserved, 2 delivered, 0 pending.

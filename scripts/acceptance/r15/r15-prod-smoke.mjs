@@ -82,7 +82,11 @@ for (const [code, role] of [
   ["WH-DAMAGED", "DAMAGED"],
 ]) {
   const w = warehouses.find((x) => x.code === code);
-  check(`${code} exists with role ${role}`, w?.role === role, w ? `${w.code} ${w.role}` : "missing");
+  check(
+    `${code} exists with role ${role}`,
+    w?.role === role,
+    w ? `${w.code} ${w.role}` : "missing",
+  );
 }
 
 // 3. Agent shipping agreements migrated from the commission tariffs (D15-13).
@@ -95,10 +99,16 @@ for (const a of agents) {
     agent: a.agentNumber,
     status: a.status,
     http: r.s,
-    agreements: items.map((x) => `${x.agreementNumber}/${x.status}/rates=${x.rates?.length ?? x.rateCount ?? "?"}`),
+    agreements: items.map(
+      (x) => `${x.agreementNumber}/${x.status}/rates=${x.rates?.length ?? x.rateCount ?? "?"}`,
+    ),
   });
 }
-check("shipping agreements readable for every agent", agentReport.every((a) => a.http === 200), agentReport);
+check(
+  "shipping agreements readable for every agent",
+  agentReport.every((a) => a.http === 200),
+  agentReport,
+);
 for (const code of ["AG-0001", "AG-0002"]) {
   const a = agentReport.find((x) => x.agent === code);
   check(
@@ -114,7 +124,11 @@ for (const st of ["PENDING", "RESERVED", "SHORT", "IN_TRANSIT", "DELIVERED", "NO
   const r = await get(`/store-orders?page=1&pageSize=1&stockStatus=${st}`);
   totals[st] = r.j?.total ?? null;
 }
-check("store-order stock-status filter answers", Object.values(totals).every((v) => v !== null), totals);
+check(
+  "store-order stock-status filter answers",
+  Object.values(totals).every((v) => v !== null),
+  totals,
+);
 
 const dry = await call("POST", "/store-orders/stock-backfill", { dryRun: true });
 const summarize = (rep) => ({
@@ -144,6 +158,27 @@ if (APPLY) {
     again.s === 200 && again.j?.summary?.candidates === 0,
     again.j?.summary,
   );
+  // D15-20 (owner approved 2026-10-10): the R14 recognition repair — a delivered, never-recognised order is
+  // invoiced and issued from its warehouse (its backfill reservation released).
+  const rp = await call("POST", "/store-orders/recognition-repair", { dryRun: false });
+  applied.repair = {
+    summary: rp.j?.summary,
+    orders: (rp.j?.orders ?? []).map((e) => ({ order: e.internalOrderId, result: e.result })),
+  };
+  check("recognition repair APPLY 200", rp.s === 200, rp.s);
+  check("repair reports no failure", (rp.j?.summary?.failed ?? 1) === 0, rp.j?.summary);
+  const rpAgain = await call("POST", "/store-orders/recognition-repair", { dryRun: true });
+  check(
+    "after the repair: nothing left to recognise",
+    rpAgain.s === 200 && (rpAgain.j?.summary?.recognizable ?? 1) === 0,
+    rpAgain.j?.summary,
+  );
+  const after = {};
+  for (const st of ["PENDING", "RESERVED", "SHORT", "IN_TRANSIT", "DELIVERED", "NOT_REQUIRED"]) {
+    after[st] = (await get(`/store-orders?page=1&pageSize=1&stockStatus=${st}`)).j?.total ?? null;
+  }
+  applied.stockTotalsAfter = after;
+  check("after apply: no order left PENDING", after.PENDING === 0, after);
 }
 
 // 5. Boundaries that need no data.
@@ -172,4 +207,6 @@ writeFileSync(
   ),
 );
 const failed = results.filter((r) => !r.ok).length;
-console.log(`\n${results.length - failed}/${results.length} passed${APPLY ? " (APPLY)" : " (dry run)"}`);
+console.log(
+  `\n${results.length - failed}/${results.length} passed${APPLY ? " (APPLY)" : " (dry run)"}`,
+);
