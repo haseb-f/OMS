@@ -3,7 +3,7 @@ const orderEntryEn = {
   availability: {
     title: "Some products are short of stock",
     line: "{product}: {requested} ordered, {available} available",
-    hint: "The order is still saved — as awaiting stock — and is reserved as soon as stock arrives.",
+    hint: "The order is still saved with stock status “Short” (the short line is not reserved); once stock arrives, use “Reserve now” on the order page.",
     available: "Available {count}",
   },
   agent: {

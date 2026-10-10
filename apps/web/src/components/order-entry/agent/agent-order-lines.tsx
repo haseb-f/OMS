@@ -12,13 +12,14 @@ import { MoneyValue } from "@/components/shared/money-value";
 import { IconActionButton } from "@/components/shared/icon-action-button";
 import { localizedName } from "@/config/agent-portal/labels";
 import {
-  localizedApiMessage,
+  quoteIssueText,
   newAgentLine,
   type AgentLineDraft,
   type AgentLineError,
 } from "@/config/orders/agent-order-entry";
 import type { OrderQuote, PricingMode } from "@/services/agent-portal-service";
 import { formatMoney } from "@/lib/money";
+import { ltrIsolate } from "@/lib/bidi";
 import { useLocale } from "@/providers/locale-provider";
 import type { AgentEntryProduct } from "./agent-entry-source";
 
@@ -119,7 +120,7 @@ export function AgentOrderLines({
                     {[
                       product.listPrice != null
                         ? t("agentPortal.orderForm.fields.listPrice", {
-                            amount: formatMoney(product.listPrice, currencyCode),
+                            amount: ltrIsolate(formatMoney(product.listPrice, currencyCode)),
                           })
                         : null,
                       productAvailable != null
@@ -170,7 +171,7 @@ export function AgentOrderLines({
               </IconActionButton>
               {issues.length > 0 ? (
                 <p className="text-caption text-destructive @md:col-span-4">
-                  {issues.map((issue) => localizedApiMessage(issue.message, locale)).join(" ")}
+                  {issues.map((issue) => quoteIssueText(issue, t, locale)).join(" ")}
                 </p>
               ) : null}
             </li>

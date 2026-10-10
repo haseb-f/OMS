@@ -27,6 +27,7 @@ import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { useLocale } from "@/providers/locale-provider";
 import { formatDate } from "@/lib/date";
 import { apiErrorMessage } from "@/lib/toast";
+import { ltrIsolate } from "@/lib/bidi";
 
 type Allocation = PortalPayoutDetail["allocations"][number];
 
@@ -131,7 +132,9 @@ export default function AgentPayoutDetailPage() {
             label={t("agentPortal.status.payout.REVERSED")}
             value={
               <>
-                {t("agentPortal.payouts.detail.reversed", { date: formatDate(payout.reversedAt) })}
+                {t("agentPortal.payouts.detail.reversed", {
+                  date: ltrIsolate(formatDate(payout.reversedAt)),
+                })}
                 {payout.reversalReason ? ` — ${payout.reversalReason}` : ""}
               </>
             }

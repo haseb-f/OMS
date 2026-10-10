@@ -1095,6 +1095,25 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
 
   // ── review fixes (S1, S6, S7, S8, countries, lead fulfillment) ─────────
 
+  describe('imports', () => {
+    it('an uploaded import file keeps its Arabic name (UTF-8 multipart file name, R15)', async () => {
+      const job = await post(users.adminA.token, '/agent-portal/imports/jobs', {
+        importType: 'LEADS',
+      });
+      expect(job.status).toBe(201);
+      const upload = await request(http)
+        .post(`/agent-portal/imports/jobs/${job.body.id}/upload`)
+        .set('Authorization', `Bearer ${users.adminA.token}`)
+        .attach(
+          'file',
+          Buffer.from('customerName,mobileNumber\nعميل تجريبي,01000000999\n'),
+          { filename: 'عملاء-أكتوبر.csv', contentType: 'text/csv' },
+        );
+      expect(upload.status).toBe(201);
+      expect(upload.body.fileName).toBe('عملاء-أكتوبر.csv');
+    });
+  });
+
   describe('review fixes', () => {
     // O3 (owner decision 2026-10-01): the order now joins the company
     // customer holding the phone (was: a new customer); S1 still holds — the

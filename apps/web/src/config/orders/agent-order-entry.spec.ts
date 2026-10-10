@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { messages } from "@/i18n/messages";
+import { translate, type MessageKey } from "@/i18n/translate";
 import {
   agentLineErrors,
   agentOrderEntryDefaults,
@@ -10,6 +12,7 @@ import {
   localizedApiMessage,
   newAgentLine,
   parseAmount,
+  quoteIssueText,
   workedHint,
   type AgentLineDraft,
   type AgentOrderEntryValues,
@@ -217,6 +220,24 @@ describe("agent order entry (R15 W1 agent adapter)", () => {
     expect(localizedApiMessage(message, "ar")).toBe("حدد دولة الشحن");
     expect(localizedApiMessage(message, "en")).toBe("Choose the shipping destination country.");
     expect(localizedApiMessage("plain", "en")).toBe("plain");
+  });
+
+  it("names a quote issue by its code, never an English-only server message in Arabic", () => {
+    const tAr = (key: MessageKey) => translate(messages.ar, key);
+    const tEn = (key: MessageKey) => translate(messages.en, key);
+    const issue = {
+      code: "LINE_AMOUNT_REQUIRED",
+      message: "Enter the agreed amount of every line.",
+    };
+    expect(quoteIssueText(issue, tAr, "ar")).toBe("أدخل المبلغ المتفق عليه لكل سطر.");
+    expect(quoteIssueText(issue, tEn, "en")).toBe("Enter the agreed amount of every line.");
+    // A text that needs parameters, or an unknown code, falls back to the server's UI-language half.
+    const withParams = {
+      code: "AGENT_SHIPPING_EXCEEDS_TOTAL",
+      message: "الرسم يتجاوز — Fee exceeds",
+    };
+    expect(quoteIssueText(withParams, tAr, "ar")).toBe("الرسم يتجاوز");
+    expect(quoteIssueText({ code: "NEW_CODE", message: "عربي — English" }, tAr, "ar")).toBe("عربي");
   });
 
   it("explains the included-shipping arithmetic from the quote", () => {

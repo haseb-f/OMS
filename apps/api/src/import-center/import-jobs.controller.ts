@@ -79,6 +79,9 @@ export class ImportJobsController {
     FileInterceptor('file', {
       storage: memoryStorage(),
       limits: { fileSize: IMPORT_FILE_MAX_BYTES },
+      // Browsers send the file name as UTF-8; busboy's default (latin1) turns an
+      // Arabic name into mojibake in the import history.
+      defParamCharset: 'utf8',
     }),
   )
   upload(

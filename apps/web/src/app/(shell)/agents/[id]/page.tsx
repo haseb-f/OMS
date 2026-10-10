@@ -30,6 +30,7 @@ import { useUserContext } from "@/providers/user-context";
 import { apiErrorMessage, reportApiError, toast } from "@/lib/toast";
 import { invalidateLookups } from "@/lib/lookup-cache";
 import type { MessageKey } from "@/i18n/translate";
+import { ltrIsolate } from "@/lib/bidi";
 
 export default function AgentWorkspacePage() {
   return (
@@ -223,7 +224,14 @@ function AgentWorkspace() {
           tone={agent.status === "ACTIVE" ? "success" : "neutral"}
         />
       }
-      meta={[currency, agent.contactName, agent.phone].filter(Boolean).join(" · ")}
+      // Codes and the phone are isolated left-to-right runs ("+2010…" never reads "…2010+").
+      meta={[
+        currency && ltrIsolate(currency),
+        agent.contactName,
+        agent.phone && ltrIsolate(agent.phone),
+      ]
+        .filter(Boolean)
+        .join(" · ")}
       actions={
         <HeaderActions
           primary={{

@@ -9,6 +9,7 @@ import type {
   StoreOrderRecognitionError,
   StoreOrderRecognitionStatus,
 } from "@/services/store-orders-service";
+import { ltrIsolate } from "@/lib/bidi";
 
 /**
  * R14 W3 — the order card notice for its delivery-time recognition:
@@ -91,7 +92,7 @@ export function StoreOrderRecognitionNotice({
           {attemptedAt ? (
             <span className="text-muted-foreground">
               {t("storeOrderRecognition.failed.lastAttempt", {
-                date: formatDateTime(attemptedAt),
+                date: ltrIsolate(formatDateTime(attemptedAt)),
               })}
             </span>
           ) : null}

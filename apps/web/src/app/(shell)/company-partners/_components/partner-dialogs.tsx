@@ -34,6 +34,7 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { formatDate, fromISODate, toISODate } from "@/lib/date";
 import { reportApiError, toast } from "@/lib/toast";
+import { ltrIsolate } from "@/lib/bidi";
 
 const BASES: PartnerProfitBasis[] = ["NET_PROFIT", "GROSS_PROFIT"];
 const FREQUENCIES: PartnerAgreementFrequency[] = ["MONTHLY", "QUARTERLY", "ANNUAL"];
@@ -112,7 +113,9 @@ function AgreementEndField({
       label={t(`companyPartners.agreementDialog.endMode.${mode}`)}
       hint={
         mode === "months" && fromMonths
-          ? t("companyPartners.agreementDialog.endsOn", { date: formatDate(fromMonths) })
+          ? t("companyPartners.agreementDialog.endsOn", {
+              date: ltrIsolate(formatDate(fromMonths)),
+            })
           : effectiveTo
             ? undefined
             : t("companyPartners.agreementDialog.openEnded")

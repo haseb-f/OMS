@@ -30,6 +30,7 @@ import {
   buildPeriodColumns,
   statementPeriodName,
 } from "./statement-columns";
+import { ltrIsolate } from "@/lib/bidi";
 
 /** A period's own adjustments, as the detail dialog lists them. */
 export interface PeriodAdjustmentLine {
@@ -232,7 +233,9 @@ export function PartnershipEndedNotice({ partnership }: { partnership: Partnersh
       className="flex items-start gap-2 rounded-md border border-border bg-muted px-3 py-2 text-caption"
     >
       <CalendarX className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-      {t("companyPartners.partnership.endedOn", { date: formatDate(partnership.endsOn) })}
+      {t("companyPartners.partnership.endedOn", {
+        date: ltrIsolate(formatDate(partnership.endsOn)),
+      })}
     </p>
   );
 }

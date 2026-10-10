@@ -2,13 +2,10 @@
 
 import { AlertCircle, Loader2 } from "lucide-react";
 import { OrderBreakdown } from "@/components/agent-portal/order-breakdown";
-import {
-  localizedApiMessage,
-  workedHint,
-  type WorkedHintKind,
-} from "@/config/orders/agent-order-entry";
+import { quoteIssueText, workedHint, type WorkedHintKind } from "@/config/orders/agent-order-entry";
 import type { OrderQuote } from "@/services/agent-portal-service";
 import type { MessageKey } from "@/i18n/translate";
+import { ltrIsolate } from "@/lib/bidi";
 import { formatMoney } from "@/lib/money";
 import { useLocale } from "@/providers/locale-provider";
 
@@ -77,15 +74,14 @@ export function AgentQuoteSummary({
         />
       ) : null}
       {hint ? (
-        <p
-          className="rounded-sm bg-muted/50 px-2 py-1.5 text-caption text-muted-foreground"
-          dir="auto"
-        >
+        // The sentence keeps the reading direction; every amount is an isolated
+        // left-to-right run (a leading "450.00 EGP" would otherwise flip it).
+        <p className="rounded-sm bg-muted/50 px-2 py-1.5 text-caption text-muted-foreground">
           {t(HINT_KEYS[hint.kind], {
-            total: money(hint.total),
-            shipping: money(hint.shipping),
-            merchandise: money(hint.merchandise),
-            service: money(hint.service),
+            total: ltrIsolate(money(hint.total)),
+            shipping: ltrIsolate(money(hint.shipping)),
+            merchandise: ltrIsolate(money(hint.merchandise)),
+            service: ltrIsolate(money(hint.service)),
           })}
         </p>
       ) : null}
@@ -104,7 +100,7 @@ export function AgentQuoteSummary({
                 className="flex items-start gap-1.5 text-caption text-destructive-soft-foreground"
               >
                 <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                <span>{localizedApiMessage(issue.message, locale)}</span>
+                <span>{quoteIssueText(issue, t, locale)}</span>
               </li>
             ))}
           </ul>

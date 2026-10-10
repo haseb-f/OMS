@@ -5,6 +5,7 @@ import type { MessageKey } from "@/i18n/translate";
 import { formatDateTime } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
 import type { AmendmentHistoryRow } from "@/services/order-amendments-service";
+import { ltrIsolate } from "@/lib/bidi";
 
 const FIELD_KEYS: Record<string, MessageKey> = {
   currency: "orderAmendments.detail.amendments.fields.currency",
@@ -60,7 +61,7 @@ export function OrderAmendmentHistory({ rows }: { rows: AmendmentHistoryRow[] | 
                 actor:
                   row.actorName ??
                   (row.actorType === "AGENT" ? t("orderAmendments.detail.amendments.agent") : "—"),
-                date: formatDateTime(row.createdAt),
+                date: ltrIsolate(formatDateTime(row.createdAt)),
               })}
             </span>
           </div>

@@ -22,6 +22,7 @@ import { useLocale } from "@/providers/locale-provider";
 import { apiErrorMessage, reportApiError, reportSuccess } from "@/lib/toast";
 import { formatDate } from "@/lib/date";
 import { formatMoney } from "@/lib/money";
+import { ltrIsolate } from "@/lib/bidi";
 
 /**
  * Round 5 Spec 1B — the internal reviewer's dialog for an order flagged by a
@@ -129,7 +130,7 @@ export function DuplicateReviewDialog({
                 {detail.order.reviewedBy
                   ? ` · ${t("orderDuplicates.review.alreadyResolved", {
                       name: detail.order.reviewedBy.fullName,
-                      date: formatDate(detail.order.reviewedAt),
+                      date: ltrIsolate(formatDate(detail.order.reviewedAt)),
                     })}`
                   : null}
               </p>

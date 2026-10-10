@@ -16,8 +16,10 @@ import { tableIdentityCellClass } from "@/components/ui/table";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { addDays, formatDate, formatDateTime, toISODate } from "@/lib/date";
+import { ltrIsolate } from "@/lib/bidi";
 import { apiErrorMessage, reportApiError, reportDestructiveDone, toast } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
+import { localizedApiMessage } from "@/config/orders/agent-order-entry";
 import {
   shippingAgreementsApi,
   type ShippingAgreementActivity,
@@ -60,7 +62,7 @@ export function ShippingAgreementSection({
   /** The agent's settlement currency — every shipping agreement is in it. */
   currencyCode: string;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { hasPermission } = useUserContext();
   const canManage = hasPermission("agents.agreements.manage");
   const [list, setList] = useState<ShippingAgreementList | null>(null);
@@ -186,7 +188,7 @@ export function ShippingAgreementSection({
   const isDraft = detail?.status === "DRAFT";
   const phase = detail ? activePhase(detail, today) : null;
   const userLine = (user: { fullName: string } | null, at: string | null) =>
-    user ? `${user.fullName}${at ? ` · ${formatDate(at)}` : ""}` : null;
+    user ? `${user.fullName}${at ? ` · ${ltrIsolate(formatDate(at))}` : ""}` : null;
 
   const historyColumns: CompactDetailColumn<ShippingAgreementListItem>[] = [
     {
@@ -267,9 +269,10 @@ export function ShippingAgreementSection({
       id: "details",
       header: t("agentShippingAgreements.activity.details"),
       cell: (row) => (
-        // Stored bilingual ("العربية — English"); the reading direction follows the text.
+        // Stored bilingual ("العربية — English"): only the UI-language half is shown (rows
+        // written before R15 are English only and read as they are).
         <span dir="auto" className="text-caption text-muted-foreground">
-          {row.description}
+          {localizedApiMessage(row.description, locale)}
         </span>
       ),
     },

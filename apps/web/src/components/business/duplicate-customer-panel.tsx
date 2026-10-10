@@ -22,6 +22,7 @@ import type {
 import { useLocale } from "@/providers/locale-provider";
 import { formatDate } from "@/lib/date";
 import { formatMoney } from "@/lib/money";
+import { ltrIsolate } from "@/lib/bidi";
 
 const MAX_ORDERS_SHOWN = 5;
 
@@ -197,7 +198,7 @@ export function DuplicateCustomerPanel({
                         {candidate.orderCount != null
                           ? t("orderDuplicates.name.candidate", {
                               count: candidate.orderCount,
-                              date: formatDate(candidate.lastOrderDate),
+                              date: ltrIsolate(formatDate(candidate.lastOrderDate)),
                             })
                           : null}
                       </span>

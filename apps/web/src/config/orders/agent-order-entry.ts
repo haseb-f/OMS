@@ -378,6 +378,23 @@ export function localizedApiMessage(message: string, locale: "ar" | "en"): strin
   return locale === "ar" ? parts[0].trim() : parts.slice(1).join(" — ").trim();
 }
 
+/**
+ * A quote issue in the UI language: the code's own text
+ * (`orderAmendments.pricingIssue.<CODE>`) when it needs no parameters,
+ * otherwise the UI-language half of the server's message — the pricing
+ * service raises some issues in English only, never shown in the Arabic UI.
+ */
+export function quoteIssueText(
+  issue: { code: string; message: string },
+  t: (key: MessageKey) => string,
+  locale: "ar" | "en",
+): string {
+  const key = `orderAmendments.pricingIssue.${issue.code}` as MessageKey;
+  const text = t(key);
+  if (text !== key && !/\{\w+\}/.test(text)) return text;
+  return localizedApiMessage(issue.message, locale);
+}
+
 export type WorkedHintKind = "included" | "includedService" | "added" | "addedService";
 
 /**

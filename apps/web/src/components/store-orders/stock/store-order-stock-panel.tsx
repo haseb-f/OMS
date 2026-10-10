@@ -21,6 +21,7 @@ import { useUserContext } from "@/providers/user-context";
 import { reportApiError, toast } from "@/lib/toast";
 import { formatDateTime } from "@/lib/date";
 import { formatAmount } from "@/lib/money";
+import { ltrIsolate } from "@/lib/bidi";
 import type { MessageKey } from "@/i18n/translate";
 import { StockStatusChip } from "./stock-status-chip";
 import { WarehouseRoleBadge } from "./warehouse-role-badge";
@@ -317,9 +318,11 @@ export function StoreOrderStockPanel({
                   {shipment.lines.map((line) => (
                     <span key={line.id}>
                       {t("storeOrderStock.shipments.line", {
-                        sku:
+                        // An isolated code: "PRD-…: 2" would otherwise read as one run in Arabic.
+                        sku: ltrIsolate(
                           view.lines.find((l) => l.storeOrderItemId === line.storeOrderItemId)
                             ?.sku ?? "",
+                        ),
                         quantity: line.quantity,
                         delivered: line.deliveredQuantity,
                         returned: line.returnedQuantity,
