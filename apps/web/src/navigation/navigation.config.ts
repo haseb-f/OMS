@@ -618,13 +618,25 @@ export const navigationConfig: NavigationItem[] = [
     order: 57,
     permissions: ["agents.view"],
   },
+  // R16 S2 — the agent experience is two destinations: the Overview
+  // (summaries, metrics, reporting — read-only) and Management (the table,
+  // search / filters, create / edit). Same permission; nothing is shown twice.
+  {
+    id: "agents-overview",
+    titleKey: "agents.nav.overview",
+    parent: "agents",
+    route: "/agents/overview",
+    icon: "bar-chart",
+    order: 0,
+    permissions: ["agents.view"],
+  },
   {
     id: "agents-list",
     titleKey: "agents.nav.list",
     parent: "agents",
     route: "/agents",
     icon: "handshake",
-    order: 0,
+    order: 1,
     permissions: ["agents.view"],
   },
   {
@@ -633,7 +645,7 @@ export const navigationConfig: NavigationItem[] = [
     parent: "agents",
     route: "/agents/collections",
     icon: "hand-coins",
-    order: 1,
+    order: 2,
     permissions: ["agents.finance.view"],
   },
 

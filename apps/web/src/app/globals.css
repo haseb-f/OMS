@@ -468,6 +468,10 @@
      stronger tint keeps >= 4.5:1 (checked per tone in contrast-check.mjs). */
   --insight-muted: color-mix(in oklab, var(--muted-foreground) 55%, var(--foreground));
   --insight-rest-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 10px -6px rgb(0 0 0 / 0.12);
+  /* R16 S2 — a static report card under a hover-capable pointer: a quiet tone
+     edge and a soft shadow (paint only; interactive cards respond more). */
+  --insight-tint-border-hover: 64%;
+  --insight-static-hover-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 14px -10px rgb(0 0 0 / 0.2);
   --panel-header-tint: 20%;
   --panel-edge-tint: 34%;
 
@@ -709,6 +713,9 @@
   --insight-tint-bottom-hover: 15%;
   --insight-muted: color-mix(in oklab, var(--muted-foreground) 55%, var(--foreground));
   --insight-rest-shadow: 0 0 0 1px rgb(255 255 255 / 0.03);
+  --insight-tint-border-hover: 68%;
+  --insight-static-hover-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.04), 0 6px 14px -8px rgb(0 0 0 / 0.6);
   --hue-blue: oklch(0.76 0.12 255);
   --hue-sky: oklch(0.78 0.1 232);
   --hue-teal: oklch(0.77 0.09 190);

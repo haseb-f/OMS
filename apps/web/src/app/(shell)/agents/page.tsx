@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { BarChart3, Plus } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
 import { HeaderActions } from "@/components/shared/header-actions";
 import { PermissionGate } from "@/components/shared/permission-gate";
@@ -12,7 +12,6 @@ import {
 } from "@/components/master-data/enterprise-data-table";
 import { SelectFilter } from "@/components/shared/data-table";
 import { AgentFormDialog } from "@/components/agents/agent-form-dialog";
-import { AgentsOverviewPanel } from "@/components/agents/overview/agents-overview-panel";
 import {
   agentExportColumns,
   agentExportRow,
@@ -86,15 +85,14 @@ function AgentsPageContent() {
   );
 
   const columns = useMemo(() => buildAgentColumns(), []);
-  const pageAgentIds = useMemo(() => items.map((row) => row.id), [items]);
 
+  // R16 S2 — Agent management: the table, search / filters, create and edit.
+  // The cross-agent summaries are their own destination (/agents/overview).
   return (
     <PageWorkspace
       dense
       title={t("agents.list.title")}
       description={t("agents.list.description")}
-      // R15 W1 — the cross-agent overview of the agents on this page (supporting panel).
-      secondary={<AgentsOverviewPanel agentIds={pageAgentIds} ready={!isLoading && !loadError} />}
       actions={
         <HeaderActions
           primary={{
@@ -104,6 +102,14 @@ function AgentsPageContent() {
             hidden: !hasPermission("agents.create"),
             onSelect: () => setCreateOpen(true),
           }}
+          secondary={[
+            {
+              key: "overview",
+              label: t("agents.list.overview"),
+              icon: BarChart3,
+              href: "/agents/overview",
+            },
+          ]}
         />
       }
     >

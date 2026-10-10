@@ -55,24 +55,89 @@ export function resolveInsightTone(
  * summary tile and summary card shares. `InsightCard` is a figure inside it;
  * `SummaryCard` (agent statements, commission report) is a titled list of
  * figures inside it. One surface, so a token change moves them together.
+ *
+ * R16 S2 — the surface is also the ONE interactive wrapper of the family:
+ * `href` renders a link, `onSelect` a button (`pressed` → `aria-pressed`);
+ * both carry `data-interactive` and the shared keyboard-focus ring, so every
+ * report card that opens something reacts identically to hover and focus
+ * (theme/recipes.css "Summary tiles" block). Without either it is a plain,
+ * static `div`. Record-grid status cards (`renderGridCard`) are a different
+ * family and never use this surface.
  */
 export function InsightSurface({
   tone = "neutral",
   emphasis = false,
+  href,
+  onSelect,
+  pressed,
   className,
   children,
   ...props
-}: ComponentProps<"div"> & { tone?: InsightTone; emphasis?: boolean }) {
+}: Omit<ComponentProps<"div">, "onSelect"> & {
+  tone?: InsightTone;
+  emphasis?: boolean;
+  /** Opens a page: the whole card is one link. */
+  href?: string;
+  /** Selects something on the page: the whole card is one button. */
+  onSelect?: () => void;
+  /** With `onSelect`: the card is the current choice. */
+  pressed?: boolean;
+}) {
+  const data = {
+    "data-slot": "insight-card",
+    "data-tone": tone,
+    "data-emphasis": emphasis || undefined,
+  } as const;
+  if (href) {
+    return (
+      <Link
+        href={href}
+        {...data}
+        data-interactive=""
+        className={cn(INSIGHT_SURFACE_CLASS, INSIGHT_FOCUS_CLASS, className)}
+      >
+        {children}
+      </Link>
+    );
+  }
+  if (onSelect) {
+    return (
+      <button
+        type="button"
+        {...data}
+        data-interactive=""
+        aria-pressed={pressed}
+        onClick={onSelect}
+        className={cn(INSIGHT_SURFACE_CLASS, "text-start", INSIGHT_FOCUS_CLASS, className)}
+      >
+        {children}
+      </button>
+    );
+  }
   return (
-    <div
-      data-slot="insight-card"
-      data-tone={tone}
-      data-emphasis={emphasis || undefined}
-      className={cn("relative flex min-w-0 flex-col rounded-md border px-3 py-2.5", className)}
-      {...props}
-    >
+    <div {...data} className={cn(INSIGHT_SURFACE_CLASS, className)} {...props}>
       {children}
     </div>
+  );
+}
+
+/** Geometry of every card of the family (visuals come from the theme recipe). */
+const INSIGHT_SURFACE_CLASS = "relative flex min-w-0 flex-col rounded-md border px-3 py-2.5";
+
+/** The keyboard-focus ring of an interactive card — the same for links and buttons. */
+export const INSIGHT_FOCUS_CLASS =
+  "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-focus-ring";
+
+/** The tone icon chip at the start of a card's title row (one implementation for every card). */
+export function InsightIcon({ icon: Icon }: { icon: LucideIcon }) {
+  return (
+    <span
+      data-slot="insight-icon"
+      className="flex size-7 shrink-0 items-center justify-center rounded-md"
+      aria-hidden
+    >
+      <Icon className="size-4" strokeWidth={2} />
+    </span>
   );
 }
 
@@ -81,10 +146,11 @@ export function InsightSurface({
  * figure with its unit on one line, and at most one line of essential
  * context. Round 8: the tone is a clearly visible tinted, glass-like surface
  * with a larger figure; the label carries the meaning, never the colour alone.
- * Only tiles with an `href` are interactive: a resting lift, a chevron, and a
- * restrained hover / keyboard-focus response (rise, tone edge, icon chip fill,
- * figure deepens — the number never changes, nothing reflows). Static
- * summaries stay flat and still, so the two are never confused.
+ * Only tiles with an `href` are interactive: a resting lift, a chevron, a
+ * pointer, and a hover / keyboard-focus response (tone shadow, stronger tone
+ * edge and tint, icon chip fill, figure deepens — the number never changes,
+ * nothing moves or resizes). R16 S2: static summaries rest flat and answer
+ * hover only with a quiet edge + shadow, so the two are never confused.
  */
 export function InsightCard({
   label,
@@ -141,15 +207,7 @@ export function InsightCard({
       {/* R15 — the scope chip wraps under the label when the tile is narrow,
           so a label never breaks mid-word around it. */}
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        {Icon ? (
-          <span
-            data-slot="insight-icon"
-            className="flex size-7 shrink-0 items-center justify-center rounded-md"
-            aria-hidden
-          >
-            <Icon className="size-4" strokeWidth={2} />
-          </span>
-        ) : null}
+        {Icon ? <InsightIcon icon={Icon} /> : null}
         {/* Round 6: a label is never truncated — it wraps (labels are kept
             concise; the period / scope lives in the group header). */}
         <span
@@ -200,38 +258,29 @@ export function InsightCard({
     </>
   );
 
-  const shared = cn("relative flex min-w-0 flex-col rounded-md border px-3 py-2.5", className);
-
-  if (href) {
-    return (
-      <Link
-        href={href}
-        data-slot="insight-card"
-        data-tone={resolvedTone}
-        data-emphasis={emphasis || undefined}
-        data-interactive=""
-        className={cn(
-          shared,
-          "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-focus-ring",
-        )}
-      >
-        {body}
-      </Link>
-    );
-  }
   return (
-    <InsightSurface tone={resolvedTone} emphasis={emphasis} className={className}>
+    <InsightSurface tone={resolvedTone} emphasis={emphasis} href={href} className={className}>
       {body}
     </InsightSurface>
   );
 }
 
-/** Loading placeholder with the geometry of an `InsightCard` (no figure is ever faked). */
-export function InsightCardSkeleton({ className }: { className?: string }) {
+/**
+ * Loading placeholder with the geometry of an `InsightCard` (no figure is ever
+ * faked); `context` adds the line a tile with a context sentence carries.
+ */
+export function InsightCardSkeleton({
+  className,
+  context = false,
+}: {
+  className?: string;
+  context?: boolean;
+}) {
   return (
     <InsightSurface aria-hidden className={cn("gap-2", className)}>
       <Skeleton className="h-4 w-24" />
       <Skeleton className="h-6 w-14" />
+      {context ? <Skeleton className="h-3 w-32" /> : null}
     </InsightSurface>
   );
 }

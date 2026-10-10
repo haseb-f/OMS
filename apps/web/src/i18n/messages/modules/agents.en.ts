@@ -2,15 +2,17 @@
 const agentsEn = {
   nav: {
     section: "Agents",
-    list: "Agents",
+    overview: "Agents overview",
+    list: "Agent management",
     collections: "Agent collections",
   },
   signNote:
     "Balance = what we owe the agent. A positive balance is owed to the agent; a negative balance means the agent owes us.",
   list: {
-    title: "Agents",
+    title: "Agent management",
     description:
       "External fulfillment partners who sell through us and keep their own goods in our warehouses.",
+    overview: "Overview",
     new: "New agent",
     empty: "No agents yet",
     searchPlaceholder: "Search by name, number, phone or email…",

@@ -16,6 +16,7 @@ import {
 import {
   InsightBar,
   InsightCard,
+  InsightCardSkeleton,
   InsightGroup,
   InsightScope,
   type InsightTone,
@@ -192,11 +193,7 @@ export function SalesOverviewPanel({
               </InsightCard>
             ))
           : Array.from({ length: 6 }, (_, index) => (
-              <div key={index} data-slot="insight-card" className="flex flex-col gap-2 px-4 py-3">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-6 w-14" />
-                <Skeleton className="h-3 w-32" />
-              </div>
+              <InsightCardSkeleton key={index} context className="px-4 py-3" />
             ))}
       </InsightGroup>
     </DashboardPanel>
