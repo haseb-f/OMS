@@ -64,7 +64,7 @@ function LeadTable({ rows }: { rows: LeadRow[] }) {
         {table.getRowModel().rows.map((row) => (
           <TableRow key={row.id} data-row-id={row.id}>
             {row.getVisibleCells().map((cell) => (
-              <TableCell key={cell.id}>
+              <TableCell key={cell.id} data-column-id={cell.column.id}>
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </TableCell>
             ))}
@@ -84,6 +84,15 @@ describe("unopened lead — table", () => {
     expect(markers).toHaveLength(1);
     const marker = markers[0];
     expect(marker.closest('[data-row-id="a"]')).not.toBeNull();
+    // Its own line under the lead number — never beside the customer name (which it would squeeze).
+    expect(marker.closest('[data-column-id="leadNumber"]')).not.toBeNull();
+    const stacked = marker.closest('[data-slot="stacked-cell"]')!;
+    expect(stacked.children).toHaveLength(2);
+    expect(stacked.children[0].textContent).toBe("LD-a");
+    expect(stacked.children[1].contains(marker)).toBe(true);
+    const customer = container.querySelector('[data-row-id="a"] [data-column-id="customerName"]')!;
+    expect(customer.querySelector("[data-new-to-you]")).toBeNull();
+    expect(customer.textContent).toContain("Customer a");
     // Semantic info badge, with a visible label and an icon (never colour alone).
     expect(marker.getAttribute("data-slot")).toBe("badge");
     expect(marker.getAttribute("data-variant")).toBe("info");

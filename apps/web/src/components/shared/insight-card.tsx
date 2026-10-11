@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from "react";
+import { Children, Fragment, isValidElement, type ComponentProps, type ReactNode } from "react";
 import Link from "next/link";
 import {
   CalendarRange,
@@ -321,9 +321,39 @@ export function InsightCardSkeleton({
   );
 }
 
-/** Container-driven columns: one per phone row, otherwise as many ≥ 12rem tiles as the content area fits. */
-export const INSIGHT_GROUP_FIT_CLASS =
-  "grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(12rem,1fr))]";
+/** Card counts the balanced fit layout is generated for (theme/recipes.css "Balanced fit groups"). */
+export const INSIGHT_GROUP_BALANCED_MAX = 12;
+
+/**
+ * R17 — the balanced column count of a fit group: `count` cards with room for
+ * `room` tiles of 12rem fill ceil(count / room) rows, spread as evenly as
+ * possible (6 cards with room for 5 → 3 + 3, never 5 + 1; 5 with room for 4 →
+ * 3 + 2). `spanLast`: one card would still be alone on the last row (a prime
+ * count in a narrow group) — it then spans that row. The CSS recipe applies
+ * exactly this rule per container width (checked by insight-card.spec.tsx).
+ */
+export function balancedInsightColumns(
+  count: number,
+  room: number,
+): { columns: number; spanLast: boolean } {
+  const fit = Math.max(1, Math.min(room, count));
+  const rows = Math.ceil(count / fit);
+  const columns = Math.ceil(count / rows);
+  return { columns, spanLast: columns > 1 && count % columns === 1 };
+}
+
+/** The rendered cards of a group (fragments flattened, empty slots skipped). */
+function countCards(children: ReactNode): number {
+  let count = 0;
+  Children.forEach(children, (child) => {
+    if (isValidElement<{ children?: ReactNode }>(child) && child.type === Fragment) {
+      count += countCards(child.props.children);
+    } else if (child !== null && child !== undefined && typeof child !== "boolean") {
+      count += 1;
+    }
+  });
+  return count;
+}
 
 /**
  * Related `InsightCard`s as one metric row (design-system §12.8 / §12.13).
@@ -332,6 +362,11 @@ export const INSIGHT_GROUP_FIT_CLASS =
  * and, inside a panel, the inset padding — or passes `fit`: the columns
  * follow the width the group actually gets (sidebar open or not), so long
  * figures never squeeze into vertical text and nothing scrolls sideways.
+ *
+ * R17: a fit group is also BALANCED — a frame (`insight-group-frame`, the
+ * container the recipe queries; it takes the caller's `className`) holds the
+ * grid, which carries its card count, so the rows never end on a lone orphan
+ * (`balancedInsightColumns`).
  */
 export function InsightGroup({
   children,
@@ -339,12 +374,24 @@ export function InsightGroup({
   fit = false,
   ...props
 }: ComponentProps<"div"> & { fit?: boolean }) {
+  if (fit) {
+    const count = countCards(children);
+    return (
+      <div data-slot="insight-group-frame" className={cn("min-w-0", className)}>
+        <div
+          data-slot="insight-group"
+          data-fit=""
+          data-count={count > 0 && count <= INSIGHT_GROUP_BALANCED_MAX ? count : undefined}
+          className="grid min-w-0 gap-2"
+          {...props}
+        >
+          {children}
+        </div>
+      </div>
+    );
+  }
   return (
-    <div
-      data-slot="insight-group"
-      className={cn("grid min-w-0 gap-2", fit && INSIGHT_GROUP_FIT_CLASS, className)}
-      {...props}
-    >
+    <div data-slot="insight-group" className={cn("grid min-w-0 gap-2", className)} {...props}>
       {children}
     </div>
   );
