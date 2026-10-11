@@ -340,7 +340,7 @@ export default function AgentStatementPage() {
             />
           </InsightGroup>
 
-          <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2">
+          <InsightGroup className="grid-cols-1 lg:grid-cols-2">
             <SummaryCard
               tone="revenue"
               icon={ShoppingBag}
@@ -433,7 +433,7 @@ export default function AgentStatementPage() {
                 }))}
               />
             </div>
-          </div>
+          </InsightGroup>
         </>
       ) : null}
 

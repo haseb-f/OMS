@@ -64,7 +64,6 @@ import type {
 
 /** Figures of one panel on the panel's soft surface. */
 const GROUP = "p-3";
-const TILE = "px-4 py-3";
 /** Groups whose tile count leaves a gap: the last tile takes the rest of its row. */
 const FILL_LAST_2 = "sm:[&>*:last-child:nth-child(odd)]:col-span-2";
 
@@ -98,14 +97,14 @@ function Tile(props: {
   href?: string;
 }) {
   const { direction } = useLocale();
-  return <InsightCard direction={direction} className={TILE} {...props} />;
+  return <InsightCard direction={direction} {...props} />;
 }
 
 function GroupSkeleton({ tiles, className }: { tiles: number; className: string }) {
   return (
     <InsightGroup className={cn(GROUP, className)} aria-hidden>
       {Array.from({ length: tiles }, (_, index) => (
-        <InsightCardSkeleton key={index} className={TILE} />
+        <InsightCardSkeleton key={index} />
       ))}
     </InsightGroup>
   );

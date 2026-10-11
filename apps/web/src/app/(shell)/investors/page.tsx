@@ -7,7 +7,7 @@ import { PageWorkspace } from "@/components/shared/page-workspace";
 import { DetailSection } from "@/components/shared/detail-workspace";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
-import { KpiCard } from "@/components/shared/kpi-card";
+import { InsightCard, InsightGroup } from "@/components/shared/insight-card";
 import {
   CompactDetailTable,
   type CompactDetailColumn,
@@ -67,7 +67,7 @@ interface DashboardData {
 }
 
 export default function InvestorDashboardPage() {
-  const { t } = useLocale();
+  const { t, direction } = useLocale();
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -134,34 +134,38 @@ export default function InvestorDashboardPage() {
         <ErrorState description={loadError} onRetry={() => void load()} />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <KpiCard
+          <InsightGroup fit>
+            <InsightCard
               label={t("investors.dashboard.stats.activeOpportunities")}
               value={opportunities.length}
-              description={t("investors.dashboard.stats.activeScope")}
-              isLoading={isLoading}
+              context={t("investors.dashboard.stats.activeScope")}
+              loading={isLoading}
               href="/investors/opportunities"
+              direction={direction}
             />
-            <KpiCard
+            <InsightCard
+              tone="info"
               label={t("investors.dashboard.stats.targetCapital")}
               value={formatAmount(targetCapital)}
-              description={t("investors.dashboard.stats.activeScope")}
-              isLoading={isLoading}
+              context={t("investors.dashboard.stats.activeScope")}
+              loading={isLoading}
             />
-            <KpiCard
+            <InsightCard
+              tone="success"
               label={t("investors.dashboard.stats.confirmedCapital")}
               value={formatAmount(confirmedCapital)}
-              description={t("investors.dashboard.stats.activeScope")}
-              isLoading={isLoading}
+              context={t("investors.dashboard.stats.activeScope")}
+              loading={isLoading}
             />
-            <KpiCard
+            <InsightCard
               label={t("investors.dashboard.stats.totalInvestors")}
               value={totalInvestors}
-              description={t("investors.dashboard.stats.activeScope")}
-              isLoading={isLoading}
+              context={t("investors.dashboard.stats.activeScope")}
+              loading={isLoading}
               href="/investors/list"
+              direction={direction}
             />
-          </div>
+          </InsightGroup>
 
           {data ? (
             <>

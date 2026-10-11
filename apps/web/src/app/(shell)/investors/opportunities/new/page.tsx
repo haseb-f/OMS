@@ -19,7 +19,7 @@ import {
 import { useLocale } from "@/providers/locale-provider";
 import { toast, reportApiError } from "@/lib/toast";
 import { formatAmount } from "@/lib/money";
-import { KpiCard } from "@/components/shared/kpi-card";
+import { InsightCard, InsightGroup } from "@/components/shared/insight-card";
 import { Label } from "@/components/ui/label";
 
 interface ProductLine {
@@ -287,16 +287,16 @@ export default function NewInvestmentOpportunityPage() {
       </DetailSection>
 
       <DetailSection title={t("investors.opportunities.create.sectionSummary")}>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <KpiCard
+        <InsightGroup fit>
+          <InsightCard
             label={t("investors.opportunities.fields.targetCapital")}
             value={formatAmount(targetCapital, { currency: selectedCurrency?.code })}
           />
-          <KpiCard
+          <InsightCard
             label={t("investors.opportunities.create.productsCount")}
             value={products.filter((line) => line.product).length}
           />
-        </div>
+        </InsightGroup>
       </DetailSection>
     </EditorWorkspace>
   );

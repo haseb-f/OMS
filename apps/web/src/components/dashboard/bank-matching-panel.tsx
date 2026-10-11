@@ -1,10 +1,14 @@
 "use client";
 
 import { ArrowDownToLine, ArrowUpFromLine, Landmark } from "lucide-react";
-import { InsightBar, InsightCard, InsightGroup } from "@/components/shared/insight-card";
+import {
+  InsightBar,
+  InsightCard,
+  InsightCardSkeleton,
+  InsightGroup,
+} from "@/components/shared/insight-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
-import { Skeleton } from "@/components/ui/skeleton";
 import { DashboardPanel, PanelLink } from "@/components/dashboard/dashboard-panel";
 import type { BankMatchingSummary } from "@/components/dashboard/dashboard-data";
 import { useLocale } from "@/providers/locale-provider";
@@ -73,11 +77,10 @@ export function BankMatchingPanel({
       {failed ? (
         <ErrorState description={t("docUi.dashboard.loadFailed")} onRetry={onRetry} />
       ) : !summary ? (
-        <div className="flex flex-col gap-2 px-4 py-3" aria-hidden>
-          <Skeleton className="h-4 w-1/2" />
-          <Skeleton className="h-3 w-3/4" />
-          <Skeleton className="h-3 w-2/3" />
-        </div>
+        <InsightGroup className="p-3 grid-cols-1 sm:grid-cols-2" aria-hidden>
+          <InsightCardSkeleton context />
+          <InsightCardSkeleton context />
+        </InsightGroup>
       ) : summary.empty ? (
         <EmptyState
           icon={Landmark}
@@ -92,7 +95,6 @@ export function BankMatchingPanel({
             label={t("masterData.bankTransactions.tabs.incoming")}
             value={`${summary.incoming.matchedShare}%`}
             unit={t("masterData.bankTransactions.summary.matched")}
-            className="px-4 py-3"
           >
             <InsightBar
               value={summary.incoming.matchedShare}
@@ -133,7 +135,6 @@ export function BankMatchingPanel({
             label={t("masterData.bankTransactions.tabs.outgoing")}
             value={`${summary.outgoing.postedShare}%`}
             unit={t("masterData.bankTransactions.summary.posted")}
-            className="px-4 py-3"
           >
             <InsightBar
               value={summary.outgoing.postedShare}

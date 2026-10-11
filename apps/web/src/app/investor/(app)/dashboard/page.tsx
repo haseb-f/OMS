@@ -17,7 +17,7 @@ import { useInvestorPortalAuth } from "@/providers/investor-portal-auth-provider
 import { investorPortalService } from "@/services/investor-portal-service";
 import { usePortalQuery } from "../_components/use-portal-query";
 import { PortalPageState } from "../_components/portal-page-state";
-import { KpiCard } from "@/components/shared/kpi-card";
+import { InsightCard, InsightGroup } from "@/components/shared/insight-card";
 import { OpportunityStatusBadge } from "../_components/portal-status-badge";
 
 export default function InvestorPortalDashboardPage() {
@@ -40,32 +40,37 @@ export default function InvestorPortalDashboardPage() {
       <PortalPageState isLoading={isLoading} error={error} onRetry={reload}>
         {data && (
           <>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-              <KpiCard
+            <InsightGroup fit>
+              <InsightCard
+                tone="info"
                 label={t("investors.ledger.summary.totalConfirmedCapital")}
                 value={formatAmount(data.totalConfirmedCapital)}
               />
-              <KpiCard
+              <InsightCard
+                tone="success"
                 label={t("investors.ledger.summary.capitalReturned")}
                 value={formatAmount(data.capitalReturned)}
               />
-              <KpiCard
+              <InsightCard
                 label={t("investors.ledger.summary.remainingCapitalPosition")}
                 value={formatAmount(data.remainingCapitalPosition)}
               />
-              <KpiCard
+              <InsightCard
+                tone="profit"
                 label={t("investors.ledger.summary.totalApprovedProfit")}
                 value={formatAmount(data.totalApprovedProfit)}
               />
-              <KpiCard
+              <InsightCard
+                tone="success"
                 label={t("investors.ledger.summary.totalProfitPaid")}
                 value={formatAmount(data.totalProfitPaid)}
               />
-              <KpiCard
+              <InsightCard
+                tone="warning"
                 label={t("investors.ledger.summary.outstandingProfit")}
                 value={formatAmount(data.outstandingProfit)}
               />
-            </div>
+            </InsightGroup>
 
             <EnterpriseCard>
               <EnterpriseCardHeader className="flex flex-row items-center justify-between">

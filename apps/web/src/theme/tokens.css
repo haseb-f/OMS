@@ -214,6 +214,69 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Report cards (design-system §12.8 / §12.17; R16 S2; R17 §4) — the ONE token
+   set of every report summary card (`InsightSurface` → `InsightCard`,
+   `SummaryCard`, `ReportCard`; recipe: theme/recipes.css "Report cards").
+   Record-grid status cards (`renderGridCard`) have their own tokens.
+   - tones: each semantic tone resolves to an AA soft-foreground colour;
+   - surface: tone share of the gradient (top → bottom), hairline, icon chip
+     and the inner sheen — every text pair stays AA (contrast-check.mjs);
+   - states: hover / focus raise the tint, the edge and a restrained shadow
+     (paint only — never a size or position change);
+   - geometry: one padding for every card (no local padding).
+   --------------------------------------------------------------------------- */
+:root {
+  --insight-neutral: var(--muted-foreground);
+  --insight-info: var(--info-soft-foreground);
+  --insight-success: var(--success-soft-foreground);
+  --insight-warning: var(--warning-soft-foreground);
+  --insight-destructive: var(--destructive-soft-foreground);
+  --insight-revenue: var(--report-revenue);
+  --insight-expense: var(--report-expense);
+  --insight-profit: var(--report-profit);
+  --insight-loss: var(--report-loss);
+  --insight-tint-top: 24%;
+  --insight-tint-bottom: 9%;
+  --insight-tint-border: 50%;
+  --insight-icon-fill: 30%;
+  --insight-sheen: rgb(255 255 255 / 0.65);
+  /* Interactive card under hover / keyboard focus. */
+  --insight-tint-top-hover: 32%;
+  --insight-tint-bottom-hover: 13%;
+  /* Informational card under a hover-capable pointer: a gentle tint step only
+     (no pointer, no chevron, no focus) — it must never read as clickable. */
+  --insight-tint-top-static-hover: 28%;
+  /* Secondary text on a tone-tinted surface: pulled toward the foreground so the
+     stronger tint keeps >= 4.5:1 (checked per tone in contrast-check.mjs). */
+  --insight-muted: color-mix(in oklab, var(--muted-foreground) 55%, var(--foreground));
+  --insight-rest-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 10px -6px rgb(0 0 0 / 0.12);
+  --insight-tint-border-hover: 64%;
+  --insight-static-hover-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 14px -10px rgb(0 0 0 / 0.2);
+  /* Tone share of an interactive card's edge and its hover / focus shadow. */
+  --insight-tint-border-active: 72%;
+  --insight-hover-shadow-tone: 60%;
+  --insight-card-padding-inline: 0.875rem; /* 14px */
+  --insight-card-padding-block: 0.75rem; /* 12px */
+  /* Short, paint-only state transition (removed under prefers-reduced-motion). */
+  --insight-card-duration: var(--duration-base);
+}
+.dark {
+  --insight-tint-top: 30%;
+  --insight-tint-bottom: 11%;
+  --insight-tint-border: 52%;
+  --insight-icon-fill: 38%;
+  --insight-sheen: rgb(255 255 255 / 0.1);
+  --insight-tint-top-hover: 38%;
+  --insight-tint-bottom-hover: 15%;
+  --insight-tint-top-static-hover: 34%;
+  --insight-muted: color-mix(in oklab, var(--muted-foreground) 55%, var(--foreground));
+  --insight-rest-shadow: 0 0 0 1px rgb(255 255 255 / 0.03);
+  --insight-tint-border-hover: 68%;
+  --insight-static-hover-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.04), 0 6px 14px -8px rgb(0 0 0 / 0.6);
+}
+
+/* ---------------------------------------------------------------------------
    R14 W1 (spec-1 §3) — semantic menu-item tones. Applied to menu ITEMS only
    (row actions, header overflow actions, status filters / status-change
    menus) — never to triggers and never to catalogue selectors (products,

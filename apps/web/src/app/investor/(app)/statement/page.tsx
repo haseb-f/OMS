@@ -24,7 +24,7 @@ import {
 import { usePortalQuery } from "../_components/use-portal-query";
 import { PortalPageState } from "../_components/portal-page-state";
 import { PortalPager } from "../_components/portal-pager";
-import { KpiCard } from "@/components/shared/kpi-card";
+import { InsightCard, InsightGroup } from "@/components/shared/insight-card";
 import type { MessageKey } from "@/i18n/translate";
 
 const ENTRY_TYPES: InvestorLedgerEntryType[] = [
@@ -57,32 +57,37 @@ export default function InvestorPortalStatementPage() {
       <h1 className="text-ui-title text-foreground">{t("investorPortal.statement.title")}</h1>
 
       {data && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-          <KpiCard
+        <InsightGroup fit>
+          <InsightCard
+            tone="info"
             label={t("investors.ledger.summary.totalConfirmedCapital")}
             value={formatAmount(data.summary.totalConfirmedCapital)}
           />
-          <KpiCard
+          <InsightCard
+            tone="success"
             label={t("investors.ledger.summary.capitalReturned")}
             value={formatAmount(data.summary.capitalReturned)}
           />
-          <KpiCard
+          <InsightCard
             label={t("investors.ledger.summary.remainingCapitalPosition")}
             value={formatAmount(data.summary.remainingCapitalPosition)}
           />
-          <KpiCard
+          <InsightCard
+            tone="profit"
             label={t("investors.ledger.summary.totalApprovedProfit")}
             value={formatAmount(data.summary.totalApprovedProfit)}
           />
-          <KpiCard
+          <InsightCard
+            tone="success"
             label={t("investors.ledger.summary.totalProfitPaid")}
             value={formatAmount(data.summary.totalProfitPaid)}
           />
-          <KpiCard
+          <InsightCard
+            tone="warning"
             label={t("investors.ledger.summary.outstandingProfit")}
             value={formatAmount(data.summary.outstandingProfit)}
           />
-        </div>
+        </InsightGroup>
       )}
 
       <div className="flex flex-wrap items-center gap-3">

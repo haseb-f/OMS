@@ -185,16 +185,13 @@ export function SalesOverviewPanel({
                     <InsightScope kind="current">{t("insights.scope.current")}</InsightScope>
                   ) : undefined
                 }
-                className="px-4 py-3"
               >
                 {figure.bar !== undefined ? (
                   <InsightBar value={figure.bar} label={`${t(figure.label)} ${figure.value}`} />
                 ) : null}
               </InsightCard>
             ))
-          : Array.from({ length: 6 }, (_, index) => (
-              <InsightCardSkeleton key={index} context className="px-4 py-3" />
-            ))}
+          : Array.from({ length: 6 }, (_, index) => <InsightCardSkeleton key={index} context />)}
       </InsightGroup>
     </DashboardPanel>
   );

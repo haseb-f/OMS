@@ -27,7 +27,8 @@ afterEach(cleanup);
  */
 const SRC = resolve(process.cwd(), "src");
 const recipes = readFileSync(join(SRC, "theme/recipes.css"), "utf8").replace(/\r\n/g, "\n");
-const globals = readFileSync(join(SRC, "app/globals.css"), "utf8").replace(/\r\n/g, "\n");
+// R17 §4: the report-card tokens moved from globals.css to theme/tokens.css.
+const tokens = readFileSync(join(SRC, "theme/tokens.css"), "utf8").replace(/\r\n/g, "\n");
 
 const stripComments = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, "");
 
@@ -176,7 +177,7 @@ describe("report-card recipe — hover, focus, touch and motion", () => {
   it("uses tokens only (no literal colours) and defines the new tokens for light and dark", () => {
     expect(block).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(|oklch\(/i);
     for (const token of ["--insight-tint-border-hover", "--insight-static-hover-shadow"]) {
-      expect(globals.match(new RegExp(`${token}:`, "g")), token).toHaveLength(2);
+      expect(tokens.match(new RegExp(`${token}:`, "g")), token).toHaveLength(2);
     }
   });
 
@@ -200,7 +201,8 @@ describe("record-grid status cards stay a separate, flat family", () => {
     // Every selector of the block targets the report-card family only.
     const selectors = withoutMedia(block, "(hover: hover)")
       .split("}")
-      .map((chunk) => chunk.split("{")[0].trim())
+      // The selector right before the last "{" (an @media wrapper header is skipped).
+      .map((chunk) => chunk.split("{").at(-2)?.trim() ?? "")
       .filter(Boolean);
     for (const selector of selectors) expect(selector).toMatch(/data-slot="insight-card"/);
   });

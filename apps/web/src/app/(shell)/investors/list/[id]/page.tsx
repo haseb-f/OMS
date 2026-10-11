@@ -29,7 +29,7 @@ import {
 } from "@/components/shared/data-table/compact-detail-table";
 import { tableIdentityCellClass } from "@/components/ui/table";
 import { StatusBadge } from "@/components/business/status-badge";
-import { KpiCard } from "@/components/shared/kpi-card";
+import { InsightCard, InsightGroup } from "@/components/shared/insight-card";
 import { investorsService, type InvestorRow } from "@/services/investors-service";
 import {
   investorSubscriptionsService,
@@ -252,49 +252,54 @@ export default function InvestorProfilePage() {
           />
         }
       >
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-          <KpiCard
+        <InsightGroup fit>
+          <InsightCard
             size="compact"
+            tone="info"
             label={t("investors.ledger.summary.totalConfirmedCapital")}
             value={formatAmount(
               ledgerSummary?.totalConfirmedCapital ?? investor.totalConfirmedFunding,
             )}
           />
-          <KpiCard
+          <InsightCard
             size="compact"
+            tone="success"
             label={t("investors.ledger.summary.capitalReturned")}
             value={ledgerSummary ? formatAmount(ledgerSummary.capitalReturned) : undefined}
-            isLoading={!ledgerSummary}
+            loading={!ledgerSummary}
           />
-          <KpiCard
+          <InsightCard
             size="compact"
+            tone="profit"
             label={t("investors.ledger.summary.totalApprovedProfit")}
             value={ledgerSummary ? formatAmount(ledgerSummary.totalApprovedProfit) : undefined}
-            isLoading={!ledgerSummary}
+            loading={!ledgerSummary}
           />
-          <KpiCard
+          <InsightCard
             size="compact"
+            tone="success"
             label={t("investors.ledger.summary.totalProfitPaid")}
             value={ledgerSummary ? formatAmount(ledgerSummary.totalProfitPaid) : undefined}
-            isLoading={!ledgerSummary}
+            loading={!ledgerSummary}
           />
-          <KpiCard
+          <InsightCard
             size="compact"
+            tone="warning"
             label={t("investors.ledger.summary.outstandingProfit")}
             value={ledgerSummary ? formatAmount(ledgerSummary.outstandingProfit) : undefined}
-            isLoading={!ledgerSummary}
+            loading={!ledgerSummary}
           />
-          <KpiCard
+          <InsightCard
             size="compact"
             label={t("investors.profile.summary.activeOpportunities")}
             value={investor.activeInvestmentsCount}
           />
-          <KpiCard
+          <InsightCard
             size="compact"
             label={t("investors.profile.summary.completedOpportunities")}
             value={investor.completedInvestmentsCount}
           />
-        </div>
+        </InsightGroup>
 
         <EntityTabs
           tabs={[

@@ -18,7 +18,7 @@ import {
   DetailFieldGrid,
   RecordHighlightsHeader,
 } from "@/components/shared/detail-workspace";
-import { KpiCard } from "@/components/shared/kpi-card";
+import { InsightCard, InsightGroup } from "@/components/shared/insight-card";
 import { MoneyValue } from "@/components/shared/money-value";
 import { DocumentTotalsBlock } from "@/components/documents/document-totals";
 import { useLocale } from "@/providers/locale-provider";
@@ -125,11 +125,11 @@ export default function BusinessComponentsPage() {
       </Section>
 
       <Section title={t("businessComponents.quickStatsCard")}>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <KpiCard size="compact" label="Orders" value={128} icon={ShoppingBag} />
-          <KpiCard size="compact" label="Shipments" value={42} icon={Truck} tone="info" />
-          <KpiCard size="compact" label="Countries" value={6} icon={Globe} tone="muted" />
-        </div>
+        <InsightGroup className="grid-cols-2 sm:grid-cols-3">
+          <InsightCard size="compact" label="Orders" value={128} icon={ShoppingBag} />
+          <InsightCard size="compact" label="Shipments" value={42} icon={Truck} tone="info" />
+          <InsightCard size="compact" label="Countries" value={6} icon={Globe} tone="neutral" />
+        </InsightGroup>
       </Section>
 
       <Section title={t("businessComponents.infoSection")}>

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Landmark, Scale } from "lucide-react";
 import { RowIdentityLink } from "@/components/shared/data-table/row-identity-link";
 import { CompactDetailTable } from "@/components/shared/data-table/compact-detail-table";
-import { KpiCard } from "@/components/shared/kpi-card";
+import { InsightCard, InsightGroup } from "@/components/shared/insight-card";
 import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
@@ -179,35 +179,35 @@ export function ProviderBalanceCard({
   const reconciled = Number(balance.difference ?? 0) === 0;
   return (
     <section aria-label={t("paymentSettlement.balance.title")} className="flex flex-col gap-2">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <KpiCard
+      <InsightGroup fit>
+        <InsightCard
           icon={Landmark}
           tone="info"
           label={t("paymentSettlement.balance.gl")}
           value={formatMoney(balance.glBalance ?? 0, code)}
-          description={
+          context={
             balance.clearingAccount
               ? `${balance.clearingAccount.code} ${balance.clearingAccount.name}`
               : undefined
           }
         />
-        <KpiCard
+        <InsightCard
           icon={Scale}
-          tone="primary"
+          tone="info"
           label={t("paymentSettlement.balance.unsettled")}
           value={formatMoney(balance.unsettledCarrying ?? 0, code)}
-          description={balance.unsettledByCurrency
+          context={balance.unsettledByCurrency
             .map((row) => formatMoney(row.remainingAmount, row.currency.code))
             .join(" · ")}
         />
-        <KpiCard
+        <InsightCard
           icon={reconciled ? CheckCircle2 : AlertTriangle}
           tone={reconciled ? "success" : "warning"}
           label={t("paymentSettlement.balance.difference")}
           value={formatMoney(balance.difference ?? 0, code)}
-          description={reconciled ? t("paymentSettlement.balance.reconciled") : undefined}
+          context={reconciled ? t("paymentSettlement.balance.reconciled") : undefined}
         />
-      </div>
+      </InsightGroup>
       {!reconciled ? (
         <p className="text-caption text-warning-foreground">
           {t("paymentSettlement.balance.notReconciled")}

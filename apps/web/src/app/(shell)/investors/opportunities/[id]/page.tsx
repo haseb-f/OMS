@@ -27,7 +27,7 @@ import { EntityTabs } from "@/components/business/entity-tabs";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/business/status-badge";
-import { KpiCard } from "@/components/shared/kpi-card";
+import { InsightCard, InsightGroup } from "@/components/shared/insight-card";
 import {
   CompactDetailTable,
   type CompactDetailColumn,
@@ -287,30 +287,32 @@ export default function OpportunityWorkspacePage() {
           />
         }
       >
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-          <KpiCard
+        <InsightGroup fit>
+          <InsightCard
             size="compact"
+            tone="info"
             label={t("investors.opportunities.fields.targetCapital")}
             value={formatAmount(opportunity.targetCapital, { currency: opportunity.currency.code })}
           />
-          <KpiCard
+          <InsightCard
             size="compact"
+            tone="success"
             label={t("investors.opportunities.fields.confirmedFundedCapital")}
             value={formatAmount(opportunity.confirmedFundedCapital, {
               currency: opportunity.currency.code,
             })}
           />
-          <KpiCard
+          <InsightCard
             size="compact"
             label={t("investors.opportunities.fields.fundingPercent")}
             value={`${formatAmount(opportunity.fundingPercent, { decimals: 0, zero: "zero" })}%`}
           />
-          <KpiCard
+          <InsightCard
             size="compact"
             label={t("investors.opportunities.fields.investorsCount")}
             value={opportunity.investorsCount}
           />
-          <KpiCard
+          <InsightCard
             size="compact"
             label={t("investors.opportunities.overview.daysRemaining")}
             value={
@@ -319,53 +321,59 @@ export default function OpportunityWorkspacePage() {
                 : opportunity.daysRemaining
             }
           />
-        </div>
+        </InsightGroup>
 
         {financialSummary && financialSummary.approvedNetProfit != null ? (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-            <KpiCard
+          <InsightGroup fit>
+            <InsightCard
               size="compact"
+              tone="profit"
               label={t("investors.opportunities.financialSummary.approvedNetProfit")}
               value={formatAmount(financialSummary.approvedNetProfit, {
                 currency: opportunity.currency.code,
               })}
             />
-            <KpiCard
+            <InsightCard
               size="compact"
+              tone="profit"
               label={t("investors.opportunities.financialSummary.investorProfitPool")}
               value={formatAmount(financialSummary.investorProfitPool ?? 0, {
                 currency: opportunity.currency.code,
               })}
             />
-            <KpiCard
+            <InsightCard
               size="compact"
+              tone="success"
               label={t("investors.opportunities.financialSummary.distributedProfit")}
               value={formatAmount(financialSummary.distributedProfit, {
                 currency: opportunity.currency.code,
               })}
             />
-            <KpiCard
+            <InsightCard
               size="compact"
+              tone="success"
               label={t("investors.opportunities.financialSummary.paidProfit")}
               value={formatAmount(financialSummary.paidProfit, {
                 currency: opportunity.currency.code,
               })}
             />
-            <KpiCard
+            <InsightCard
               size="compact"
+              tone="warning"
               label={t("investors.opportunities.financialSummary.outstandingInvestorProfit")}
               value={formatAmount(financialSummary.outstandingInvestorProfit, {
                 currency: opportunity.currency.code,
               })}
             />
-            <KpiCard
+            <InsightCard
               size="compact"
+              tone="success"
               label={t("investors.opportunities.financialSummary.capitalReturned")}
               value={formatAmount(financialSummary.capitalReturned, {
                 currency: opportunity.currency.code,
               })}
             />
-          </div>
+          </InsightGroup>
         ) : null}
 
         <EntityTabs
@@ -1139,35 +1147,37 @@ function SalesTab({
         ) : undefined
       }
     >
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        <KpiCard
+      <InsightGroup fit className="mb-4">
+        <InsightCard
           size="compact"
           label={t("investors.sales.metrics.fundedUnits")}
           value={summary.totals.fundedUnits}
         />
-        <KpiCard
+        <InsightCard
           size="compact"
           label={t("investors.sales.metrics.netSoldUnits")}
           value={summary.totals.netSoldUnits}
         />
-        <KpiCard
+        <InsightCard
           size="compact"
           label={t("investors.sales.metrics.remainingUnits")}
           value={summary.totals.remainingUnits}
         />
-        <KpiCard
+        <InsightCard
           size="compact"
+          tone="revenue"
           label={t("investors.sales.metrics.attributableRevenue")}
           value={formatAmount(summary.totals.attributableRevenue, {
             currency: opportunity.currency.code,
           })}
         />
-        <KpiCard
+        <InsightCard
           size="compact"
+          tone="expense"
           label={t("investors.sales.metrics.cogs")}
           value={formatAmount(summary.totals.cogs, { currency: opportunity.currency.code })}
         />
-      </div>
+      </InsightGroup>
 
       {allocations.length === 0 ? (
         <EmptyState icon={CheckCircle2} title={t("common.noDataAvailable")} />

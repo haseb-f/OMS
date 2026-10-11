@@ -133,7 +133,8 @@ describe("InsightGroup fit (R14 fix — partner statement summary)", () => {
     ]) {
       const source = readFileSync(join(process.cwd(), file), "utf8");
       expect(source).toContain("<InsightGroup fit>");
-      expect(source).not.toMatch(/<InsightGroup className="[^"]*grid-cols-/);
+      // R17: a fixed few-column row (e.g. two summary cards) is fine; never 5+ fixed columns.
+      expect(source).not.toMatch(/<InsightGroup className="[^"]*grid-cols-[5-9]/);
     }
   });
 });

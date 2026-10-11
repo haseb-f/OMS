@@ -22,7 +22,7 @@ import { HeaderActions, type ActionSpec } from "@/components/shared/header-actio
 import { EnterpriseModal, type EnterpriseModalSize } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { LoadingOverlay } from "@/components/shared/loading-overlay";
-import { KpiCard } from "@/components/shared/kpi-card";
+import { InsightCard, InsightGroup } from "@/components/shared/insight-card";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import {
   EnterpriseDataTable,
@@ -722,11 +722,11 @@ export function MasterDataPage<TEntity extends MasterDataEntity>({
       }
     >
       {stats && stats.length > 0 && (
-        <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <InsightGroup className="mb-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => (
-            <KpiCard key={stat.label} icon={stat.icon} label={stat.label} value={stat.value} />
+            <InsightCard key={stat.label} icon={stat.icon} label={stat.label} value={stat.value} />
           ))}
-        </div>
+        </InsightGroup>
       )}
 
       {/* Flex column so the table can take the viewport-fill height on lg+. */}

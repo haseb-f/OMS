@@ -121,8 +121,13 @@ export function InsightSurface({
   );
 }
 
-/** Geometry of every card of the family (visuals come from the theme recipe). */
-const INSIGHT_SURFACE_CLASS = "relative flex min-w-0 flex-col rounded-md border px-3 py-2.5";
+/**
+ * Geometry of every card of the family (visuals come from the theme recipe).
+ * R17: ONE padding for every report card (`--insight-card-padding-*`,
+ * theme/tokens.css) — callers never pad a card locally.
+ */
+const INSIGHT_SURFACE_CLASS =
+  "relative flex min-w-0 flex-col rounded-md border px-(--insight-card-padding-inline) py-(--insight-card-padding-block)";
 
 /** The keyboard-focus ring of an interactive card — the same for links and buttons. */
 export const INSIGHT_FOCUS_CLASS =
@@ -146,11 +151,12 @@ export function InsightIcon({ icon: Icon }: { icon: LucideIcon }) {
  * figure with its unit on one line, and at most one line of essential
  * context. Round 8: the tone is a clearly visible tinted, glass-like surface
  * with a larger figure; the label carries the meaning, never the colour alone.
- * Only tiles with an `href` are interactive: a resting lift, a chevron, a
- * pointer, and a hover / keyboard-focus response (tone shadow, stronger tone
- * edge and tint, icon chip fill, figure deepens — the number never changes,
- * nothing moves or resizes). R16 S2: static summaries rest flat and answer
- * hover only with a quiet edge + shadow, so the two are never confused.
+ * Only tiles with an `href` (a link, with a chevron) or `onSelect` (a filter
+ * button) are interactive: a resting lift, a pointer, and a hover /
+ * keyboard-focus response (tone shadow, stronger tone edge and tint, icon chip
+ * fill, figure deepens — the number never changes, nothing moves or resizes).
+ * Informational tiles are plain, unfocusable `div`s: no pointer, no chevron,
+ * only a gentle hover tint (R16 S2 / R17 §4), so the two are never confused.
  */
 export function InsightCard({
   label,
@@ -160,6 +166,8 @@ export function InsightCard({
   icon: Icon,
   tone = "neutral",
   href,
+  onSelect,
+  pressed,
   actionLabel,
   meta,
   children,
@@ -169,6 +177,8 @@ export function InsightCard({
   amount,
   keepToneAtZero = false,
   phrase = false,
+  size = "default",
+  loading = false,
 }: {
   label: string;
   value: ReactNode;
@@ -179,6 +189,13 @@ export function InsightCard({
   icon?: LucideIcon;
   tone?: InsightTone;
   href?: string;
+  /**
+   * R17: the tile selects something on the page (a filter): the whole tile is
+   * one button; `pressed` marks the current choice (`aria-pressed` + the
+   * emphasis edge). Mutually exclusive with `href`.
+   */
+  onSelect?: () => void;
+  pressed?: boolean;
   /** Verb phrase for the drill-down, e.g. «مراجعة المدفوعات». Needs `href`. */
   actionLabel?: string;
   /** Small chip at the end of the label row (period, status). */
@@ -199,7 +216,15 @@ export function InsightCard({
    * number run, so Arabic words stay in order.
    */
   phrase?: boolean;
+  /**
+   * `compact` — dense strips of many figures (detail headers): the figure one
+   * step smaller (`text-metric`); surface, padding and states are identical.
+   */
+  size?: "default" | "compact";
+  /** The figure is still loading: the tile's skeleton (no figure is ever faked). */
+  loading?: boolean;
 }) {
+  if (loading) return <InsightCardSkeleton context={Boolean(context)} className={className} />;
   const resolvedTone = resolveInsightTone(tone, value, amount, keepToneAtZero);
   const Chevron = direction === "rtl" ? ChevronLeft : ChevronRight;
   const body = (
@@ -222,7 +247,11 @@ export function InsightCard({
         <div className="flex min-w-0 items-baseline gap-1.5">
           <span
             data-slot="insight-value"
-            className={cn("text-metric-lg tracking-tight", phrase ? "tabular-nums" : "num")}
+            className={cn(
+              size === "compact" ? "text-metric" : "text-metric-lg",
+              "tracking-tight",
+              phrase ? "tabular-nums" : "num",
+            )}
           >
             {value}
           </span>
@@ -259,7 +288,14 @@ export function InsightCard({
   );
 
   return (
-    <InsightSurface tone={resolvedTone} emphasis={emphasis} href={href} className={className}>
+    <InsightSurface
+      tone={resolvedTone}
+      emphasis={emphasis || Boolean(onSelect && pressed)}
+      href={href}
+      onSelect={href ? undefined : onSelect}
+      pressed={!href && onSelect ? Boolean(pressed) : undefined}
+      className={className}
+    >
       {body}
     </InsightSurface>
   );
