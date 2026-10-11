@@ -11,6 +11,7 @@ import {
   type CompactDetailColumn,
 } from "@/components/shared/data-table/compact-detail-table";
 import { StatusBadge } from "@/components/business/status-badge";
+import { MoneyValue } from "@/components/shared/money-value";
 import { EnterpriseButton } from "@/components/ui/button";
 import { tableIdentityCellClass } from "@/components/ui/table";
 import { useLocale } from "@/providers/locale-provider";
@@ -34,7 +35,10 @@ import {
   defaultSelectedAgreement,
 } from "./shipping-agreement-view";
 import { ShippingCoverageTable } from "./shipping-coverage-table";
-import { ShippingAgreementEditorDialog } from "./shipping-agreement-editor-dialog";
+import {
+  ShippingAgreementEditorDialog,
+  type ShippingEditorTarget,
+} from "./shipping-agreement-editor-dialog";
 import {
   ActivateShippingAgreementDialog,
   DeactivateShippingAgreementDialog,
@@ -48,11 +52,12 @@ const PHASE_LABEL = {
 
 /**
  * Agent → Settings → Shipping agreement (R15 D15-13): the agreement shown
- * (in force today by default) with its service × destination charges and
- * its actions — New / Duplicate / Edit draft / Activate / Deactivate /
- * Discard draft — and the history of every agreement of the agent. Reads
- * need `agents.view` (the page), changes `agents.agreements.manage`; every
- * rule (overlap, coverage, immutability) is enforced by the API.
+ * (in force now by default) with its service × destination charges and its
+ * actions — New / Duplicate / Edit (a draft in place; the version in force
+ * as a new version from the save instant, R17 §2) / Activate / Deactivate /
+ * Discard draft — and the history of every version of the agent. Reads need
+ * `agents.view` (the page), changes `agents.agreements.manage`; every rule
+ * (overlap, coverage, versions) is enforced by the API.
  */
 export function ShippingAgreementSection({
   agentId,
@@ -69,7 +74,7 @@ export function ShippingAgreementSection({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<ShippingAgreementDetail | null>(null);
-  const [editor, setEditor] = useState<{ draft: ShippingAgreementDetail | null } | null>(null);
+  const [editor, setEditor] = useState<ShippingEditorTarget | null>(null);
   const [dialog, setDialog] = useState<"activate" | "deactivate" | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const today = toISODate(new Date());
@@ -140,7 +145,7 @@ export function ShippingAgreementSection({
           source: source.agreementNumber,
         }),
       );
-      setEditor({ draft: copy });
+      setEditor({ kind: "draft", agreement: copy });
     });
 
   const activate = (draft: ShippingAgreementDetail, replaceFrom: boolean) =>
@@ -187,8 +192,21 @@ export function ShippingAgreementSection({
 
   const isDraft = detail?.status === "DRAFT";
   const phase = detail ? activePhase(detail, today) : null;
+  // R17 §2 — the version in force now is edited as a new version.
+  const isEditableVersion = detail?.status === "ACTIVE" && detail.inForceToday;
   const userLine = (user: { fullName: string } | null, at: string | null) =>
     user ? `${user.fullName}${at ? ` · ${ltrIsolate(formatDate(at))}` : ""}` : null;
+  /** R17 §2 — the instants a version was in force ("from 10:15 → 14:02"), when it has them. */
+  const versionWindow = (row: {
+    versionNumber: number;
+    activeFrom: string | null;
+    activeTo: string | null;
+  }) =>
+    row.activeTo || (row.activeFrom && row.versionNumber > 1)
+      ? `${row.activeFrom ? ltrIsolate(formatDateTime(row.activeFrom)) : "…"} → ${
+          row.activeTo ? ltrIsolate(formatDateTime(row.activeTo)) : openEnded
+        }`
+      : null;
 
   const historyColumns: CompactDetailColumn<ShippingAgreementListItem>[] = [
     {
@@ -210,9 +228,21 @@ export function ShippingAgreementSection({
         ),
     },
     {
+      id: "version",
+      header: t("agentShippingAgreements.version"),
+      cell: (row) => <span className="num">{`v${row.versionNumber}`}</span>,
+    },
+    {
       id: "period",
       header: t("agentShippingAgreements.period"),
-      cell: (row) => <span className="num">{agreementPeriod(row, openEnded)}</span>,
+      cell: (row) => (
+        <span className="flex flex-col">
+          <span className="num">{agreementPeriod(row, openEnded)}</span>
+          {versionWindow(row) ? (
+            <span className="num text-caption text-muted-foreground">{versionWindow(row)}</span>
+          ) : null}
+        </span>
+      ),
     },
     {
       id: "status",
@@ -284,7 +314,7 @@ export function ShippingAgreementSection({
         title={t("agentShippingAgreements.title")}
         actions={
           canManage ? (
-            <EnterpriseButton type="button" size="sm" onClick={() => setEditor({ draft: null })}>
+            <EnterpriseButton type="button" size="sm" onClick={() => setEditor({ kind: "new" })}>
               <Plus />
               {t("agentShippingAgreements.new")}
             </EnterpriseButton>
@@ -329,7 +359,14 @@ export function ShippingAgreementSection({
                       label: t("agentShippingAgreements.actions.edit"),
                       icon: Pencil,
                       hidden: !isDraft,
-                      onSelect: () => setEditor({ draft: detail }),
+                      onSelect: () => setEditor({ kind: "draft", agreement: detail }),
+                    },
+                    {
+                      key: "editVersion",
+                      label: t("agentShippingAgreements.actions.editVersion"),
+                      icon: Pencil,
+                      hidden: !isEditableVersion,
+                      onSelect: () => setEditor({ kind: "version", agreement: detail }),
                     },
                     {
                       key: "duplicate",
@@ -373,6 +410,29 @@ export function ShippingAgreementSection({
               <DetailField
                 label={t("agentShippingAgreements.currency")}
                 value={detail.currency.code}
+              />
+              <DetailField
+                label={t("agentShippingAgreements.version")}
+                value={
+                  <span className="flex flex-col">
+                    <span className="num">{`v${detail.versionNumber}`}</span>
+                    {versionWindow(detail) ? (
+                      <span className="num text-caption text-muted-foreground">
+                        {versionWindow(detail)}
+                      </span>
+                    ) : null}
+                  </span>
+                }
+              />
+              <DetailField
+                label={t("agentShippingAgreements.codFee")}
+                value={
+                  detail.codCollectionFee ? (
+                    <MoneyValue value={detail.codCollectionFee} currency={detail.currency.code} />
+                  ) : (
+                    t("agentShippingAgreements.noCodFee")
+                  )
+                }
               />
               <DetailField
                 label={t("agentShippingAgreements.createdBy")}
@@ -461,7 +521,7 @@ export function ShippingAgreementSection({
         <ShippingAgreementEditorDialog
           agentId={agentId}
           currencyCode={currencyCode}
-          draft={editor.draft}
+          target={editor}
           // A first agreement starts today; a new version from tomorrow (replace from).
           defaultFrom={list.inForceId ? toISODate(addDays(new Date(), 1)) : today}
           onOpenChange={(open) => !open && setEditor(null)}

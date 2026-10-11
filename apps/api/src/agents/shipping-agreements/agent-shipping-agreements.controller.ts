@@ -22,6 +22,7 @@ import {
   DeactivateShippingAgreementDto,
   DuplicateShippingAgreementDto,
   ShippingAgreementRateDto,
+  ShippingAgreementVersionDto,
   UpdateShippingAgreementDto,
 } from './dto/shipping-agreement.dto';
 
@@ -134,6 +135,18 @@ export class AgentShippingAgreementsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.agreements.activate(agentId, id, dto, user.sub);
+  }
+
+  /** R17 §2 — "Edit" on the ACTIVE agreement: a new version from the save instant. */
+  @Post(':id/versions')
+  @PermissionAction('manage')
+  createVersion(
+    @Param('agentId', ParseUUIDPipe) agentId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ShippingAgreementVersionDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.agreements.createVersion(agentId, id, dto, user.sub);
   }
 
   @Post(':id/deactivate')

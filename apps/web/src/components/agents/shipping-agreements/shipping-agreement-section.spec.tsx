@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import type {
   ShippingAgreementDetail,
   ShippingAgreementList,
@@ -42,7 +43,17 @@ import { ShippingAgreementSection } from "./shipping-agreement-section";
 const egypt = { id: "eg", code: "EG", name: "مصر", nameEn: "Egypt" };
 const cells = (amount: number | null) => ({
   PREPAID_CARRIER: null,
-  COD_CARRIER: amount == null ? null : { rateId: "r1", amount, inherited: false },
+  COD_CARRIER:
+    amount == null
+      ? null
+      : {
+          rateId: "r1",
+          amount,
+          base: amount,
+          codFeeMode: "INCLUDED" as const,
+          inherited: false,
+          rowService: "COD_CARRIER" as const,
+        },
   COD_INTERNAL_COURIER: null,
   PREPAID_INTERNAL_COURIER: null,
 });
@@ -55,6 +66,10 @@ const detail = (over: Partial<ShippingAgreementDetail>): ShippingAgreementDetail
   status: "ACTIVE",
   effectiveFrom: "2020-01-01T00:00:00.000Z",
   effectiveTo: null,
+  activeFrom: "2020-01-01T00:00:00.000Z",
+  activeTo: null,
+  versionNumber: 1,
+  codCollectionFee: null,
   notes: null,
   activatedAt: "2026-01-01T10:00:00.000Z",
   deactivatedAt: null,
@@ -76,6 +91,7 @@ const detail = (over: Partial<ShippingAgreementDetail>): ShippingAgreementDetail
       city: "",
       scope: "COUNTRY",
       amount: 60,
+      codFee: "INCLUDED",
     },
   ],
   coverage: {
@@ -157,9 +173,29 @@ describe("ShippingAgreementSection", () => {
     expect(within(coverage).getAllByText("agentShippingAgreements.missing")).toHaveLength(3);
     expect(within(coverage).getByText("Egypt")).toBeTruthy();
     expect(screen.getByText("agentShippingAgreements.coverageMissing:1")).toBeTruthy();
-    // Read-only without agents.agreements.manage: no New, no Duplicate.
+    // Read-only without agents.agreements.manage: no New, no Duplicate, no Edit.
     expect(screen.queryByText("agentShippingAgreements.new")).toBeNull();
     expect(screen.queryByText("agentShippingAgreements.actions.duplicate")).toBeNull();
+    expect(screen.queryByText("agentShippingAgreements.actions.editVersion")).toBeNull();
+  });
+
+  it("R17 §2: Edit on the agreement in force opens the new-version form (managers only)", async () => {
+    granted.add("agents.agreements.manage");
+    render(
+      <TooltipProvider>
+        <ShippingAgreementSection agentId="agent" currencyCode="EGP" />
+      </TooltipProvider>,
+    );
+    await screen.findAllByText("agentShippingAgreements.inForceToday");
+    fireEvent.click(
+      await screen.findByRole("button", { name: "agentShippingAgreements.actions.editVersion" }),
+    );
+    expect(
+      await screen.findByText("agentShippingAgreements.editor.versionTitle:ASA-2026-0001"),
+    ).toBeTruthy();
+    expect(screen.getByText("agents.agreements.version.notice")).toBeTruthy();
+    // The draft-only action is not offered on an ACTIVE agreement.
+    expect(screen.queryByText("agentShippingAgreements.actions.edit")).toBeNull();
   });
 
   it("activating a draft that overlaps needs 'replace from' before it can be confirmed", async () => {

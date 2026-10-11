@@ -10110,7 +10110,9 @@ model Agent {
 }
 
 /// Effective-dated contract terms (spec §2). An ACTIVE agreement's terms are
-/// immutable; orders snapshot the terms they used.
+/// immutable; orders snapshot the terms they used. R17 §2: "Edit" on the
+/// ACTIVE agreement creates a new version in force from the save instant —
+/// the previous one is ENDED at that same instant (`activeTo`) and kept.
 model AgentAgreement {
   id      String @id @default(uuid()) @db.Uuid
   agentId String @map("agent_id") @db.Uuid
@@ -10122,6 +10124,15 @@ model AgentAgreement {
   effectiveFrom   DateTime             @map("effective_from") @db.Date
   /// Inclusive; null = open-ended.
   effectiveTo     DateTime?            @map("effective_to") @db.Date
+  /// R17 §2 — instant bounds inside the day range: in force at t when
+  /// activeFrom ≤ t < activeTo (null = the day bound alone).
+  activeFrom      DateTime?            @map("active_from")
+  activeTo        DateTime?            @map("active_to")
+  /// R17 §2 — version chain: 1 for an original agreement, +1 per edit.
+  versionNumber   Int                  @default(1) @map("version_number")
+  supersedesId    String?              @unique @map("supersedes_id") @db.Uuid
+  supersedes      AgentAgreement?      @relation("AgentAgreementVersion", fields: [supersedesId], references: [id])
+  supersededBy    AgentAgreement?      @relation("AgentAgreementVersion")
 
   currencyId String   @map("currency_id") @db.Uuid
   currency   Currency @relation(fields: [currencyId], references: [id])
@@ -10166,21 +10177,30 @@ model AgentAgreement {
 /// in force on the order date is frozen into the order's terms snapshot, so a
 /// later change never reprices history.
 model AgentShippingAgreement {
-  id              String                       @id @default(uuid()) @db.Uuid
+  id               String                       @id @default(uuid()) @db.Uuid
   /// Numbering Engine "AGENT_SHIPPING_AGREEMENT" ("ASA-2026-0001"); never typed.
-  agreementNumber String                       @unique @map("agreement_number")
-  agentId         String                       @map("agent_id") @db.Uuid
-  agent           Agent                        @relation(fields: [agentId], references: [id])
+  agreementNumber  String                       @unique @map("agreement_number")
+  agentId          String                       @map("agent_id") @db.Uuid
+  agent            Agent                        @relation(fields: [agentId], references: [id])
   /// Always the agent's settlement currency (validated).
-  currencyId      String                       @map("currency_id") @db.Uuid
-  currency        Currency                     @relation(fields: [currencyId], references: [id])
-  status          AgentShippingAgreementStatus @default(DRAFT)
+  currencyId       String                       @map("currency_id") @db.Uuid
+  currency         Currency                     @relation(fields: [currencyId], references: [id])
+  status           AgentShippingAgreementStatus @default(DRAFT)
   /// Cairo business dates, inclusive; effectiveTo null = open-ended.
-  effectiveFrom   DateTime                     @map("effective_from") @db.Date
-  effectiveTo     DateTime?                    @map("effective_to") @db.Date
-  notes           String?
+  effectiveFrom    DateTime                     @map("effective_from") @db.Date
+  effectiveTo      DateTime?                    @map("effective_to") @db.Date
+  /// R17 §2 — instant bounds inside the day range: in force at t when
+  /// activeFrom ≤ t < activeTo (null = the day bound alone).
+  activeFrom       DateTime?                    @map("active_from")
+  activeTo         DateTime?                    @map("active_to")
+  /// R17 §2 — version chain position (1 = original; +1 per replacement / edit).
+  versionNumber    Int                          @default(1) @map("version_number")
+  /// R17 §3 — fixed fee a COD order pays on top of an ADDED row (agreement
+  /// currency); null = no fee. Prepaid orders never pay it.
+  codCollectionFee Decimal?                     @map("cod_collection_fee") @db.Decimal(12, 2)
+  notes            String?
 
-  /// The agreement this one replaced from its effectiveFrom ("replace from date").
+  /// The agreement this one replaced ("replace from date", or an R17 edit from the save instant).
   supersedesId String?                 @unique @map("supersedes_id") @db.Uuid
   supersedes   AgentShippingAgreement? @relation("AgentShippingAgreementSupersede", fields: [supersedesId], references: [id])
   supersededBy AgentShippingAgreement? @relation("AgentShippingAgreementSupersede")
@@ -10209,16 +10229,19 @@ model AgentShippingAgreement {
 /// most specific row wins (city → country → all). `destinationKey` makes the
 /// combination unique ("*", "<countryId>", "<countryId>|<lower(city)>").
 model AgentShippingAgreementRate {
-  id                  String                 @id @default(uuid()) @db.Uuid
-  shippingAgreementId String                 @map("shipping_agreement_id") @db.Uuid
-  shippingAgreement   AgentShippingAgreement @relation(fields: [shippingAgreementId], references: [id], onDelete: Cascade)
+  id                  String                  @id @default(uuid()) @db.Uuid
+  shippingAgreementId String                  @map("shipping_agreement_id") @db.Uuid
+  shippingAgreement   AgentShippingAgreement  @relation(fields: [shippingAgreementId], references: [id], onDelete: Cascade)
   service             AgentShippingService
-  countryId           String?                @map("country_id") @db.Uuid
-  country             Country?               @relation(fields: [countryId], references: [id])
+  countryId           String?                 @map("country_id") @db.Uuid
+  country             Country?                @relation(fields: [countryId], references: [id])
   /// Empty = the whole country (or all destinations when countryId is null).
-  city                String                 @default("")
-  destinationKey      String                 @map("destination_key")
-  amount              Decimal                @db.Decimal(12, 2)
+  city                String                  @default("")
+  destinationKey      String                  @map("destination_key")
+  amount              Decimal                 @db.Decimal(12, 2)
+  /// R17 §3 — COD orders priced by this row: ADDED = amount + the agreement's
+  /// COD collection fee; INCLUDED = the amount is all-inclusive.
+  codFee              AgentShippingCodFeeMode @default(ADDED) @map("cod_fee")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -10240,10 +10263,20 @@ enum AgentShippingAgreementStatus {
 /// R15 (D15-13) — the shipping / payment-service combination a charge applies to.
 /// Carrier = ShippingCompany.type EXTERNAL_COMPANY; internal courier = INTERNAL_DELIVERY.
 enum AgentShippingService {
+  /// R17 §3 — every service (the agreement's default row).
+  ANY
   PREPAID_CARRIER
   COD_CARRIER
   COD_INTERNAL_COURIER
   PREPAID_INTERNAL_COURIER
+}
+
+/// R17 §3 — how a shipping agreement row treats the COD collection fee.
+enum AgentShippingCodFeeMode {
+  /// COD orders pay the row amount + the agreement's COD collection fee.
+  ADDED
+  /// The row amount already includes collection (never charged again).
+  INCLUDED
 }
 
 /// Spec 2 — whether an agent order's contractual shipping fee is final.

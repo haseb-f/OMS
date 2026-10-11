@@ -5,13 +5,11 @@ import type {
   ShippingAgreementListItem,
 } from "./shipping-agreements-api";
 import {
-  EMPTY_RATE_FORM,
   activePhase,
   agreementPeriod,
   canConfirmActivation,
   defaultSelectedAgreement,
   destinationName,
-  rateInputFrom,
 } from "./shipping-agreement-view";
 
 const item = (id: string, status: ShippingAgreementListItem["status"]) =>
@@ -51,6 +49,27 @@ describe("shipping agreement view rules", () => {
     ).toBeNull();
   });
 
+  it("R17 §2: a version closed at an instant earlier today is ended; its successor is in force", () => {
+    const now = new Date("2026-10-07T10:00:00.000Z");
+    const closed = {
+      status: "ACTIVE" as const,
+      effectiveFrom: "2026-01-01T00:00:00.000Z",
+      effectiveTo: "2026-10-07T00:00:00.000Z",
+      activeTo: "2026-10-07T09:00:00.000Z",
+    };
+    const successor = {
+      status: "ACTIVE" as const,
+      effectiveFrom: "2026-10-07T00:00:00.000Z",
+      effectiveTo: null,
+      activeFrom: "2026-10-07T09:00:00.000Z",
+    };
+    expect(activePhase(closed, "2026-10-07", now)).toBe("ENDED");
+    expect(activePhase(successor, "2026-10-07", now)).toBe("IN_FORCE");
+    expect(activePhase(successor, "2026-10-07", new Date("2026-10-07T08:00:00.000Z"))).toBe(
+      "SCHEDULED",
+    );
+  });
+
   it("formats the period with an open end", () => {
     expect(
       agreementPeriod({ effectiveFrom: "2026-01-01T00:00:00.000Z", effectiveTo: null }, "open"),
@@ -72,23 +91,6 @@ describe("shipping agreement view rules", () => {
     const replaceable = activation({ overlapping, replaceCloses: "2026-10-07" });
     expect(canConfirmActivation(replaceable, false)).toBe(false);
     expect(canConfirmActivation(replaceable, true)).toBe(true);
-  });
-
-  it("validates a rate row: service required, 0 allowed, two decimals, a city needs its country", () => {
-    expect(rateInputFrom({ ...EMPTY_RATE_FORM, amount: "10" }).error).toBe("service");
-    const base = { ...EMPTY_RATE_FORM, service: "COD_CARRIER" as const };
-    expect(rateInputFrom({ ...base, amount: "0" })).toEqual({
-      input: { service: "COD_CARRIER", amount: 0 },
-      error: null,
-    });
-    expect(rateInputFrom({ ...base, amount: "" }).error).toBe("amount");
-    expect(rateInputFrom({ ...base, amount: "-1" }).error).toBe("amount");
-    expect(rateInputFrom({ ...base, amount: "1.005" }).error).toBe("amount");
-    expect(rateInputFrom({ ...base, city: "Cairo", amount: "40" }).error).toBe("cityNeedsCountry");
-    expect(rateInputFrom({ ...base, countryId: "eg", city: " Cairo ", amount: "40.5" })).toEqual({
-      input: { service: "COD_CARRIER", countryId: "eg", city: "Cairo", amount: 40.5 },
-      error: null,
-    });
   });
 
   it("names a destination in the UI language; no country = all destinations (null)", () => {

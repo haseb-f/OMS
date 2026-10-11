@@ -1,5 +1,9 @@
 import { apiClient } from "@/services/api-client";
-import type { AgentShippingService } from "@/services/agents-service";
+import type {
+  AgentShippingCodFeeMode,
+  AgentShippingRateService,
+  AgentShippingService,
+} from "@/services/agents-service";
 
 /**
  * Agent shipping agreement API (R15 D15-13) — `agents/:agentId/shipping-agreements`,
@@ -26,6 +30,7 @@ export interface ShippingAgreementUserRef {
 export interface ShippingAgreementRef {
   id: string;
   agreementNumber: string;
+  versionNumber?: number;
 }
 
 interface ShippingAgreementHead {
@@ -36,6 +41,12 @@ interface ShippingAgreementHead {
   status: ShippingAgreementStatus;
   effectiveFrom: string;
   effectiveTo: string | null;
+  /** R17 §2 — instant bounds of the version (null = the day range alone). */
+  activeFrom: string | null;
+  activeTo: string | null;
+  versionNumber: number;
+  /** R17 §3 — fixed fee COD orders pay on top of an ADDED row (null = none). */
+  codCollectionFee: number | null;
   notes: string | null;
   activatedAt: string | null;
   deactivatedAt: string | null;
@@ -59,21 +70,27 @@ export interface ShippingAgreementList {
 
 export interface ShippingAgreementRate {
   id: string;
-  service: AgentShippingService;
+  service: AgentShippingRateService;
   countryId: string | null;
   country: ShippingCountryRef | null;
   /** '' = the whole country (or all destinations). */
   city: string;
   scope: ShippingDestinationScope;
   amount: number;
+  codFee: AgentShippingCodFeeMode;
 }
 
 /** What an order to a destination is charged per service (null = missing). */
 export interface ShippingCoverageCell {
   rateId: string;
+  /** The charge (base + COD fee when ADDED). */
   amount: number;
+  base: number;
+  codFeeMode: AgentShippingCodFeeMode | "NONE";
   /** Charged by a broader row (country / all destinations), not its own. */
   inherited: boolean;
+  /** The winning row's service (ANY = the default rate). */
+  rowService: AgentShippingRateService;
 }
 
 export interface ShippingCoverageDestination {
@@ -111,7 +128,8 @@ export interface ShippingAgreementActivity {
 
 export interface ShippingAgreementDetail extends ShippingAgreementHead {
   currency: { id: string; code: string; name: string; symbol: string | null };
-  supersededBy: (ShippingAgreementRef & { effectiveFrom: string }) | null;
+  supersededBy:
+    (ShippingAgreementRef & { effectiveFrom: string; activeFrom: string | null }) | null;
   inForceToday: boolean;
   createdByUser: ShippingAgreementUserRef | null;
   activatedByUser: ShippingAgreementUserRef | null;
@@ -133,12 +151,13 @@ export interface ShippingAgreementDetail extends ShippingAgreementHead {
 }
 
 export interface ShippingAgreementRateInput {
-  service: AgentShippingService;
+  service: AgentShippingRateService;
   /** Omitted = all destinations. */
   countryId?: string;
   /** Omitted = the whole country. */
   city?: string;
   amount: number;
+  codFee?: AgentShippingCodFeeMode;
 }
 
 export interface ShippingAgreementPeriodInput {
@@ -148,20 +167,45 @@ export interface ShippingAgreementPeriodInput {
   notes: string | null;
 }
 
+/** R17 — the compact form's terms: every rate row + the COD collection fee. */
+export interface ShippingAgreementTermsInput {
+  rates: ShippingAgreementRateInput[];
+  codCollectionFee: number | null;
+}
+
 const base = (agentId: string) => `/agents/${agentId}/shipping-agreements`;
 
 export const shippingAgreementsApi = {
   list: (agentId: string) => apiClient.get<ShippingAgreementList>(base(agentId)),
   get: (agentId: string, id: string) =>
     apiClient.get<ShippingAgreementDetail>(`${base(agentId)}/${id}`),
-  create: (agentId: string, dto: ShippingAgreementPeriodInput) =>
+  /** A new DRAFT with its terms (number generated). */
+  create: (
+    agentId: string,
+    dto: ShippingAgreementPeriodInput & Partial<ShippingAgreementTermsInput>,
+  ) =>
     apiClient.post<ShippingAgreementDetail>(base(agentId), {
       effectiveFrom: dto.effectiveFrom,
       effectiveTo: dto.effectiveTo ?? undefined,
       notes: dto.notes ?? undefined,
+      ...(dto.rates ? { rates: dto.rates } : {}),
+      ...(dto.codCollectionFee !== undefined ? { codCollectionFee: dto.codCollectionFee } : {}),
     }),
-  update: (agentId: string, id: string, dto: ShippingAgreementPeriodInput) =>
-    apiClient.patch<ShippingAgreementDetail>(`${base(agentId)}/${id}`, dto),
+  /** DRAFT only; `rates` (when given) replaces every row. */
+  update: (
+    agentId: string,
+    id: string,
+    dto: ShippingAgreementPeriodInput & Partial<ShippingAgreementTermsInput>,
+  ) => apiClient.patch<ShippingAgreementDetail>(`${base(agentId)}/${id}`, dto),
+  /**
+   * R17 §2 — "Edit" on the ACTIVE agreement: a new version in force from the
+   * save instant; the current version closes at that instant.
+   */
+  createVersion: (
+    agentId: string,
+    id: string,
+    dto: ShippingAgreementTermsInput & { notes: string | null },
+  ) => apiClient.post<ShippingAgreementDetail>(`${base(agentId)}/${id}/versions`, dto),
   addRate: (agentId: string, id: string, dto: ShippingAgreementRateInput) =>
     apiClient.post<ShippingAgreementDetail>(`${base(agentId)}/${id}/rates`, dto),
   updateRate: (agentId: string, id: string, rateId: string, dto: ShippingAgreementRateInput) =>

@@ -60,7 +60,11 @@ describe('agent shipping agreement resolution (R15 D15-13)', () => {
     expect(resolveTariff(rows, dest, 'COD_CARRIER')).toEqual({
       id: 'city',
       amount: 40,
+      base: 40,
+      codFee: 0,
+      codFeeMode: 'NONE',
       service: 'COD_CARRIER',
+      rowService: 'COD_CARRIER',
       scope: 'CITY',
     });
     const jeddah = { countryId: SA, city: 'Jeddah' };
@@ -164,12 +168,18 @@ describe('agent shipping agreement resolution (R15 D15-13)', () => {
     expect(cairo.COD_INTERNAL_COURIER).toEqual({
       rateId: 'cairo',
       amount: 40,
+      base: 40,
+      codFeeMode: 'NONE',
       inherited: false,
+      rowService: 'COD_INTERNAL_COURIER',
     });
     expect(cairo.COD_CARRIER).toEqual({
       rateId: 'eg',
       amount: 60,
+      base: 60,
+      codFeeMode: 'NONE',
       inherited: true,
+      rowService: 'COD_CARRIER',
     });
     expect(cairo.PREPAID_CARRIER).toMatchObject({
       amount: 70,

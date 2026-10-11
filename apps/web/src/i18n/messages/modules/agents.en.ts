@@ -118,9 +118,26 @@ const agentsEn = {
     orders: "Orders",
     activeTerms: "Active terms",
     readOnly:
-      "Active and ended agreements are read-only. To change terms, end this agreement and create a new one.",
+      "Activated versions are read-only. The version in force is changed with Edit — a new version from the moment of saving.",
     formTitleNew: "New agreement (draft)",
     formTitleEdit: "Edit draft agreement",
+    formTitleVersion: "Edit agreement {number} — new version",
+    version: {
+      column: "Version",
+      editing: "Editing {number} (version {version})",
+      notice:
+        "The change applies from the moment of saving to new orders only; orders already registered keep the charges and commission calculated when they were created.",
+      inForce: "In force now",
+      save: "Save as new version",
+      when: "When",
+      event: "Event",
+      by: "By",
+      details: "Details",
+      types: {
+        VERSION_CREATED: "New version",
+        VERSION_CLOSED: "Closed by a new version",
+      },
+    },
     validation: "Complete every term before saving.",
     choose: "Choose…",
     yes: "Yes",
@@ -185,6 +202,7 @@ const agentsEn = {
     },
     actions: {
       edit: "Edit draft",
+      editVersion: "Edit",
       activate: "Activate",
       end: "End agreement",
       view: "View terms",
@@ -201,6 +219,7 @@ const agentsEn = {
     toasts: {
       created: "Draft agreement {number} created",
       saved: "Agreement saved",
+      versioned: "{number} saved — version {version} is in force from now",
       activated: "Agreement activated",
       ended: "Agreement ended",
     },

@@ -29,11 +29,14 @@ import { fromISODate, toISODate } from "@/lib/date";
 import { reportApiError, toast } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 import { FieldNote } from "./field-note";
+import { AgreementVersionNotice } from "./agreement-version-notice";
 
 /**
- * Create / edit a DRAFT agreement (spec §2, decision D3). Every term is
- * explicit — nothing is pre-selected; ACTIVE and ENDED agreements never open
- * here (their terms are immutable).
+ * Create / edit a DRAFT agreement (spec §2, decision D3), or — R17 §2 —
+ * "Edit" the ACTIVE agreement in force: the same terms form without the
+ * period, saved as a new version in force from the save instant (the API
+ * closes the current version then and audits the field diff). Every term is
+ * explicit — nothing is pre-selected; ENDED versions never open here.
  */
 export function AgreementFormDialog({
   agentId,
@@ -51,6 +54,7 @@ export function AgreementFormDialog({
 }) {
   const { t } = useLocale();
   const fieldId = useId();
+  const isVersion = agreement?.status === "ACTIVE";
   const [initial] = useState<AgreementFormState>(() =>
     agreement ? agreementFormFrom(agreement) : emptyAgreementForm(),
   );
@@ -82,7 +86,19 @@ export function AgreementFormDialog({
     }
     setIsSaving(true);
     try {
-      if (agreement) {
+      if (agreement && isVersion) {
+        // The dates and currency follow the current version; only terms change.
+        const terms: Partial<typeof payload> = { ...payload };
+        delete terms.effectiveFrom;
+        delete terms.effectiveTo;
+        const saved = await agentsService.agreements.createVersion(agentId, agreement.id, terms);
+        toast.success(
+          t("agents.agreements.toasts.versioned", {
+            number: saved.agreementNumber,
+            version: saved.versionNumber,
+          }),
+        );
+      } else if (agreement) {
         await agentsService.agreements.update(agentId, agreement.id, payload);
         toast.success(t("agents.agreements.toasts.saved"));
       } else {
@@ -140,7 +156,13 @@ export function AgreementFormDialog({
       onOpenChange={onOpenChange}
       size="lg"
       layout="form-card"
-      title={agreement ? t("agents.agreements.formTitleEdit") : t("agents.agreements.formTitleNew")}
+      title={
+        isVersion
+          ? t("agents.agreements.formTitleVersion", { number: agreement.agreementNumber })
+          : agreement
+            ? t("agents.agreements.formTitleEdit")
+            : t("agents.agreements.formTitleNew")
+      }
       description={agreement?.agreementNumber}
       isDirty={JSON.stringify(form) !== JSON.stringify(initial)}
       footer={(requestClose) => (
@@ -148,46 +170,57 @@ export function AgreementFormDialog({
           requestClose={requestClose}
           onSubmit={() => void submit()}
           isSubmitting={isSaving}
+          // A version without a change is never created.
+          submitDisabled={isVersion && JSON.stringify(form) === JSON.stringify(initial)}
+          submitLabel={isVersion ? t("agents.agreements.version.save") : undefined}
         />
       )}
     >
       <FormCardStack>
-        <FormCardSection title={t("agents.agreements.sections.period")}>
-          <FormCardRow>
-            <FormCardField
-              size="sm"
-              required
-              label={t("agents.agreements.fields.effectiveFrom")}
-              htmlFor={`${fieldId}-from`}
-              message={<FieldNote error={errorText("effectiveFrom")} />}
-            >
-              <EnterpriseDatePicker
-                id={`${fieldId}-from`}
-                value={fromISODate(form.effectiveFrom)}
-                aria-invalid={invalid("effectiveFrom")}
-                onChange={(date) => set("effectiveFrom")(date ? toISODate(date) : "")}
-              />
-            </FormCardField>
-            <FormCardField
-              size="sm"
-              label={t("agents.agreements.fields.effectiveTo")}
-              htmlFor={`${fieldId}-to`}
-              message={
-                <FieldNote
-                  error={errorText("effectiveTo")}
-                  hint={t("agents.agreements.fields.effectiveToHint")}
+        {isVersion ? (
+          <AgreementVersionNotice
+            agreementNumber={agreement.agreementNumber}
+            versionNumber={agreement.versionNumber}
+          />
+        ) : null}
+        {isVersion ? null : (
+          <FormCardSection title={t("agents.agreements.sections.period")}>
+            <FormCardRow>
+              <FormCardField
+                size="sm"
+                required
+                label={t("agents.agreements.fields.effectiveFrom")}
+                htmlFor={`${fieldId}-from`}
+                message={<FieldNote error={errorText("effectiveFrom")} />}
+              >
+                <EnterpriseDatePicker
+                  id={`${fieldId}-from`}
+                  value={fromISODate(form.effectiveFrom)}
+                  aria-invalid={invalid("effectiveFrom")}
+                  onChange={(date) => set("effectiveFrom")(date ? toISODate(date) : "")}
                 />
-              }
-            >
-              <EnterpriseDatePicker
-                id={`${fieldId}-to`}
-                value={fromISODate(form.effectiveTo)}
-                aria-invalid={invalid("effectiveTo")}
-                onChange={(date) => set("effectiveTo")(date ? toISODate(date) : "")}
-              />
-            </FormCardField>
-          </FormCardRow>
-        </FormCardSection>
+              </FormCardField>
+              <FormCardField
+                size="sm"
+                label={t("agents.agreements.fields.effectiveTo")}
+                htmlFor={`${fieldId}-to`}
+                message={
+                  <FieldNote
+                    error={errorText("effectiveTo")}
+                    hint={t("agents.agreements.fields.effectiveToHint")}
+                  />
+                }
+              >
+                <EnterpriseDatePicker
+                  id={`${fieldId}-to`}
+                  value={fromISODate(form.effectiveTo)}
+                  aria-invalid={invalid("effectiveTo")}
+                  onChange={(date) => set("effectiveTo")(date ? toISODate(date) : "")}
+                />
+              </FormCardField>
+            </FormCardRow>
+          </FormCardSection>
+        )}
 
         <FormCardSection
           title={t("agents.agreements.sections.commission")}

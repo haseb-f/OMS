@@ -49,6 +49,10 @@ export function agentShippingPricingView(
           deliveryChannel: fee.deliveryChannel ?? null,
           paymentType: fee.paymentType ?? null,
           resolvedAt: fee.resolvedAt ?? null,
+          // R17 §3 — how the agent's charge is made up (its tariff only).
+          base: fee.base ?? fee.amount,
+          codFee: fee.codFee ?? 0,
+          codFeeMode: fee.codFeeMode ?? 'NONE',
         }
       : null,
     merchandiseAmount: num(order.merchandiseAmount),

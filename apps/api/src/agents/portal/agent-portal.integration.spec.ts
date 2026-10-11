@@ -460,12 +460,15 @@ describe('Agents B3 — agent portal API (HTTP integration)', () => {
       expect(me.body.user.agentRole).toBe('SALES');
       expect(me.body.agreement.productCommissionRatePercent).toBe(10);
       expect(me.body.agreement.serviceCommissionRatePercent).toBe(10);
-      // R15 D15-13 — the shipping agreement in force today, charges only.
+      // R15 D15-13 — the shipping agreement in force today, charges only;
+      // R17 §3 — with the COD fee mode (a prepaid-only row has no COD amount).
       expect(me.body.shippingAgreement.rates[0]).toEqual({
         service: 'PREPAID_CARRIER',
         country: expect.objectContaining({ id: egId }),
         city: null,
         amount: 100,
+        codFee: 'ADDED',
+        codAmount: null,
       });
       expect(me.body.user.permissions).toContain('agent.orders.create');
 

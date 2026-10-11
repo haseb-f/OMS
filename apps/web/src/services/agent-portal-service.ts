@@ -5,7 +5,8 @@ import { orderAmendmentsClient } from "./order-amendments-service";
 import { buildQueryString as buildQuery } from "@/lib/query-string";
 import type {
   AgentCommissionReport,
-  AgentShippingService,
+  AgentShippingCodFeeMode,
+  AgentShippingRateService,
   ShippingPricingView,
 } from "./agents-service";
 
@@ -95,14 +96,23 @@ export interface CatalogStatus {
  */
 export interface PortalShippingAgreement {
   agreementNumber: string;
+  /** R17 §2 — the version in force now. */
+  versionNumber: number;
   effectiveFrom: string;
   effectiveTo: string | null;
+  activeFrom: string | null;
   currency: CurrencyRef;
+  /** R17 §3 — fixed fee a COD order pays on top of an ADDED row (null = none). */
+  codCollectionFee: number | null;
   rates: Array<{
-    service: AgentShippingService;
+    service: AgentShippingRateService;
     country: (CountryRef & { code: string }) | null;
     city: string | null;
+    /** The base charge (what a prepaid order pays). */
     amount: number;
+    codFee: AgentShippingCodFeeMode;
+    /** What a COD order pays by this row (null = a prepaid-only row). */
+    codAmount: number | null;
   }>;
 }
 
