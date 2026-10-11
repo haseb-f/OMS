@@ -1,0 +1,35 @@
+{
+  "at": "2026-10-11T09:22:05.744Z",
+  "phase": "after",
+  "metrics": {
+    "login-desktop": {
+      "inputHeight": 46,
+      "fontSize": "16px",
+      "copy": 0
+    },
+    "login-mobile": {
+      "inputHeight": 46,
+      "fontSize": "16px",
+      "copy": 0
+    },
+    "cards-agents-overview": {
+      "transition": "0.17s, 0.17s, 0.17s",
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inse",
+      "tabIndex": -1,
+      "tag": "DIV"
+    },
+    "cards-partners": {
+      "transition": "0.17s, 0.17s, 0.17s",
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inse",
+      "tabIndex": -1,
+      "tag": "DIV"
+    },
+    "cards-dashboard": {
+      "transition": "0.17s, 0.17s, 0.17s",
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inse",
+      "tabIndex": 0,
+      "tag": "A"
+    },
+    "cards-reduced-motion": "1e-05s"
+  }
+}
