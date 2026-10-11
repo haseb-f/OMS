@@ -20,11 +20,15 @@ import { tableIdentityCellClass } from "@/components/ui/table";
 import {
   agentsService,
   type AgentAgreement,
+  type AgentAgreementDetail,
   type AgreementPreview,
 } from "@/services/agents-service";
 import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
-import { formatDate, toISODate } from "@/lib/date";
+import { formatDate, formatDateTime, toISODate } from "@/lib/date";
+import { ltrIsolate } from "@/lib/bidi";
+import type { MessageKey } from "@/i18n/translate";
+import { localizedApiMessage } from "@/config/orders/agent-order-entry";
 import { apiErrorMessage, reportApiError, toast } from "@/lib/toast";
 import { uiLanguagePart } from "@/services/api-client";
 import { AgreementFormDialog } from "./agreement-form-dialog";
@@ -52,6 +56,8 @@ export function AgentAgreementsTab({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [formTarget, setFormTarget] = useState<AgentAgreement | "new" | null>(null);
   const [viewTarget, setViewTarget] = useState<AgentAgreement | null>(null);
+  // R17 §2 — the viewed version's audit trail (who / when / field diff).
+  const [viewDetail, setViewDetail] = useState<AgentAgreementDetail | null>(null);
   const [activateTarget, setActivateTarget] = useState<AgentAgreement | null>(null);
   // Activation waits for the preview; a product without a rate blocks it (A3/A4).
   const [previewBlocked, setPreviewBlocked] = useState(true);
@@ -76,6 +82,18 @@ export function AgentAgreementsTab({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!viewTarget) return;
+    let cancelled = false;
+    agentsService.agreements
+      .get(agentId, viewTarget.id)
+      .then((detail) => !cancelled && setViewDetail(detail))
+      .catch((error: unknown) => reportApiError(error, "errors.loadFailed"));
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId, viewTarget]);
 
   const refresh = () => {
     void load();
@@ -123,6 +141,14 @@ export function AgentAgreementsTab({
   if (loadError) return <ErrorState description={loadError} onRetry={() => void load()} />;
   if (!agreements) return null;
 
+  /** R17 §2 — the instants a version was in force, when it has them. */
+  const versionWindow = (row: AgentAgreement) =>
+    row.activeTo || (row.activeFrom && row.versionNumber > 1)
+      ? `${row.activeFrom ? ltrIsolate(formatDateTime(row.activeFrom)) : "…"} → ${
+          row.activeTo ? ltrIsolate(formatDateTime(row.activeTo)) : t("agents.agreements.openEnded")
+        }`
+      : null;
+
   const columns: CompactDetailColumn<AgentAgreement>[] = [
     {
       id: "number",
@@ -130,12 +156,22 @@ export function AgentAgreementsTab({
       cell: (row) => <span className={`num ${tableIdentityCellClass}`}>{row.agreementNumber}</span>,
     },
     {
+      id: "version",
+      header: t("agents.agreements.version.column"),
+      cell: (row) => <span className="num">{`v${row.versionNumber}`}</span>,
+    },
+    {
       id: "period",
       header: t("agents.agreements.period"),
       cell: (row) => (
-        <span className="num">
-          {formatDate(row.effectiveFrom)} –{" "}
-          {row.effectiveTo ? formatDate(row.effectiveTo) : t("agents.agreements.openEnded")}
+        <span className="flex flex-col">
+          <span className="num">
+            {formatDate(row.effectiveFrom)} –{" "}
+            {row.effectiveTo ? formatDate(row.effectiveTo) : t("agents.agreements.openEnded")}
+          </span>
+          {versionWindow(row) ? (
+            <span className="num text-caption text-muted-foreground">{versionWindow(row)}</span>
+          ) : null}
         </span>
       ),
     },
@@ -149,10 +185,15 @@ export function AgentAgreementsTab({
       id: "status",
       header: t("agents.fields.status"),
       cell: (row) => (
-        <StatusBadge
-          label={t(`agents.agreements.status.${row.status}`)}
-          tone={STATUS_TONE[row.status]}
-        />
+        <span className="flex flex-wrap items-center gap-1">
+          <StatusBadge
+            label={t(`agents.agreements.status.${row.status}`)}
+            tone={STATUS_TONE[row.status]}
+          />
+          {row.inForceNow ? (
+            <StatusBadge label={t("agents.agreements.version.inForce")} tone="info" />
+          ) : null}
+        </span>
       ),
     },
     {
@@ -174,6 +215,14 @@ export function AgentAgreementsTab({
               label: t("agents.agreements.actions.edit"),
               icon: Pencil,
               hidden: !canManage || row.status !== "DRAFT",
+              onSelect: () => setFormTarget(row),
+            },
+            {
+              // R17 §2 — the version in force is edited as a new version.
+              key: "editVersion",
+              label: t("agents.agreements.actions.editVersion"),
+              icon: Pencil,
+              hidden: !canManage || row.status !== "ACTIVE" || !row.inForceNow,
               onSelect: () => setFormTarget(row),
             },
             {
@@ -240,7 +289,11 @@ export function AgentAgreementsTab({
       {viewTarget ? (
         <EnterpriseModal
           open
-          onOpenChange={(open) => !open && setViewTarget(null)}
+          onOpenChange={(open) => {
+            if (open) return;
+            setViewTarget(null);
+            setViewDetail(null);
+          }}
           size="lg"
           title={viewTarget.agreementNumber}
           description={t(`agents.agreements.status.${viewTarget.status}`)}
@@ -249,7 +302,10 @@ export function AgentAgreementsTab({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setViewTarget(null)}
+              onClick={() => {
+                setViewTarget(null);
+                setViewDetail(null);
+              }}
             >
               {t("common.close")}
             </EnterpriseButton>
@@ -262,6 +318,43 @@ export function AgentAgreementsTab({
               </p>
             ) : null}
             <AgreementTerms agreement={viewTarget} />
+            {viewDetail && viewDetail.id === viewTarget.id && viewDetail.activity.length > 0 ? (
+              <CompactDetailTable
+                columns={[
+                  {
+                    id: "when",
+                    header: t("agents.agreements.version.when"),
+                    cell: (row) => <span className="num">{formatDateTime(row.createdAt)}</span>,
+                  },
+                  {
+                    id: "event",
+                    header: t("agents.agreements.version.event"),
+                    cell: (row) => {
+                      const key = `agents.agreements.version.types.${row.type}` as MessageKey;
+                      const label = t(key);
+                      return label === key ? row.type : label;
+                    },
+                  },
+                  {
+                    id: "by",
+                    header: t("agents.agreements.version.by"),
+                    cell: (row) => row.user?.fullName ?? "—",
+                  },
+                  {
+                    id: "details",
+                    header: t("agents.agreements.version.details"),
+                    cell: (row) => (
+                      <span dir="auto" className="text-caption text-muted-foreground">
+                        {localizedApiMessage(row.description, locale)}
+                      </span>
+                    ),
+                  },
+                ]}
+                rows={viewDetail.activity}
+                rowKey={(row) => row.id}
+                stacked
+              />
+            ) : null}
           </div>
         </EnterpriseModal>
       ) : null}

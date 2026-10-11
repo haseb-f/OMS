@@ -69,6 +69,10 @@ export type AgentShippingPolicy = "PREDETERMINED_CHARGE" | "FLAT_FEE_PER_SHIPMEN
  */
 export type AgentShippingService =
   "PREPAID_CARRIER" | "COD_CARRIER" | "COD_INTERNAL_COURIER" | "PREPAID_INTERNAL_COURIER";
+/** R17 §3 — a rate row's service: one of the four, or ANY (the default row). */
+export type AgentShippingRateService = AgentShippingService | "ANY";
+/** R17 §3 — COD orders pay row + COD collection fee (ADDED) or the row alone (INCLUDED). */
+export type AgentShippingCodFeeMode = "ADDED" | "INCLUDED";
 
 export interface AgentActiveAgreementRef {
   id: string;
@@ -123,7 +127,34 @@ export interface AgentAgreement {
   activatedAt: string | null;
   endedAt: string | null;
   createdAt: string;
+  /** R17 §2 — version chain and instant bounds (null = the day range alone). */
+  versionNumber: number;
+  activeFrom: string | null;
+  activeTo: string | null;
+  supersedes: AgentAgreementVersionRef | null;
+  supersededBy: (AgentAgreementVersionRef & { activeFrom: string | null }) | null;
+  /** The version in force now (list only). */
+  inForceNow?: boolean;
   _count?: { storeOrders: number };
+}
+
+export interface AgentAgreementVersionRef {
+  id: string;
+  agreementNumber: string;
+  versionNumber: number;
+}
+
+/** One audit entry of an agreement version (bilingual description). */
+export interface AgentAgreementActivity {
+  id: string;
+  type: string;
+  description: string;
+  createdAt: string;
+  user: { id: string; fullName: string } | null;
+}
+
+export interface AgentAgreementDetail extends AgentAgreement {
+  activity: AgentAgreementActivity[];
 }
 
 /**
@@ -712,6 +743,10 @@ export interface ShippingPricingView {
     deliveryChannel: "CARRIER" | "INTERNAL_COURIER" | null;
     paymentType: "PREPAID" | "CASH_ON_DELIVERY" | null;
     resolvedAt: string | null;
+    /** R17 §3 — the charge make-up: base + COD collection fee (ADDED) or all-inclusive. */
+    base: number;
+    codFee: number;
+    codFeeMode: AgentShippingCodFeeMode | "NONE";
   } | null;
   merchandiseAmount: number | null;
   customerShipping: number | null;
@@ -770,6 +805,22 @@ export const agentsService = {
       apiClient.post<AgentAgreement>(`${base}/${agentId}/agreements`, dto),
     update: (agentId: string, agreementId: string, dto: Partial<AgreementInput>) =>
       apiClient.patch<AgentAgreement>(`${base}/${agentId}/agreements/${agreementId}`, dto),
+    /** One version with its audit trail (R17 §2). */
+    get: (agentId: string, agreementId: string) =>
+      apiClient.get<AgentAgreementDetail>(`${base}/${agentId}/agreements/${agreementId}`),
+    /**
+     * R17 §2 — "Edit" on the ACTIVE agreement: a new version in force from the
+     * save instant (the current one closes then); dates and currency follow.
+     */
+    createVersion: (
+      agentId: string,
+      agreementId: string,
+      dto: Partial<Omit<AgreementInput, "effectiveFrom" | "effectiveTo">>,
+    ) =>
+      apiClient.post<AgentAgreementDetail>(
+        `${base}/${agentId}/agreements/${agreementId}/versions`,
+        dto,
+      ),
     /** Rates per agent product + the worked example, shown before Activate (A3). */
     preview: (agentId: string, agreementId: string, sample: AgreementPreviewSample = {}) =>
       apiClient.get<AgreementPreview>(

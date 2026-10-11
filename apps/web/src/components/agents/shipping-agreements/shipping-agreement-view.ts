@@ -4,7 +4,6 @@ import type { AgentShippingService } from "@/services/agents-service";
 import type {
   ShippingAgreementActivation,
   ShippingAgreementList,
-  ShippingAgreementRateInput,
   ShippingAgreementStatus,
   ShippingCountryRef,
 } from "./shipping-agreements-api";
@@ -42,15 +41,25 @@ export function agreementPeriod(
 }
 
 /**
- * Where an ACTIVE agreement stands against `today` ("YYYY-MM-DD"): in force,
- * not started yet, or past its end date (closed by a newer version).
+ * Where an ACTIVE agreement stands against `today` ("YYYY-MM-DD") and `now`:
+ * in force, not started yet, or ended — past its end date, or (R17 §2)
+ * closed at an instant by a newer version saved later the same day.
  */
 export function activePhase(
-  agreement: { status: ShippingAgreementStatus; effectiveFrom: string; effectiveTo: string | null },
+  agreement: {
+    status: ShippingAgreementStatus;
+    effectiveFrom: string;
+    effectiveTo: string | null;
+    activeFrom?: string | null;
+    activeTo?: string | null;
+  },
   today: string,
+  now: Date = new Date(),
 ): "IN_FORCE" | "SCHEDULED" | "ENDED" | null {
   if (agreement.status !== "ACTIVE") return null;
+  if (agreement.activeTo && new Date(agreement.activeTo) <= now) return "ENDED";
   if (calendarDay(agreement.effectiveFrom) > today) return "SCHEDULED";
+  if (agreement.activeFrom && new Date(agreement.activeFrom) > now) return "SCHEDULED";
   if (agreement.effectiveTo && calendarDay(agreement.effectiveTo) < today) return "ENDED";
   return "IN_FORCE";
 }
@@ -86,43 +95,4 @@ export function canConfirmActivation(
 ): boolean {
   if (!activation?.ready) return false;
   return activation.overlapping.length === 0 || replaceFrom;
-}
-
-export interface RateFormState {
-  service: AgentShippingService | "";
-  /** '' = all destinations. */
-  countryId: string;
-  city: string;
-  amount: string;
-}
-
-export const EMPTY_RATE_FORM: RateFormState = { service: "", countryId: "", city: "", amount: "" };
-
-export type RateFormError = "service" | "amount" | "cityNeedsCountry";
-
-/**
- * The rate form → the API input, or the first field error. 0 is a valid
- * (explicitly free) charge; a city needs its country.
- */
-export function rateInputFrom(
-  form: RateFormState,
-): { input: ShippingAgreementRateInput; error: null } | { input: null; error: RateFormError } {
-  if (!form.service) return { input: null, error: "service" };
-  const city = form.city.trim();
-  if (city && !form.countryId) return { input: null, error: "cityNeedsCountry" };
-  const raw = form.amount.trim();
-  const amount = Number(raw);
-  // Plain non-negative decimal with at most two decimals ("60", "60.5", ".5").
-  if (!/^(\d+\.?\d{0,2}|\.\d{1,2})$/.test(raw) || !Number.isFinite(amount)) {
-    return { input: null, error: "amount" };
-  }
-  return {
-    input: {
-      service: form.service,
-      ...(form.countryId ? { countryId: form.countryId } : {}),
-      ...(city ? { city } : {}),
-      amount,
-    },
-    error: null,
-  };
 }
