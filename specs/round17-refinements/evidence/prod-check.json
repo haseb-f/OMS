@@ -1,0 +1,41 @@
+{
+  "at": "2026-10-11T09:47:29.128Z",
+  "base": "https://oms.haseb.org",
+  "results": [
+    {
+      "name": "GET /agents 200",
+      "ok": true,
+      "detail": "3 agents"
+    },
+    {
+      "name": "shipping agreement exposes versionNumber / activeFrom / codCollectionFee",
+      "ok": true,
+      "detail": "{\"v\":1,\"activeFrom\":\"2026-09-28T21:00:00.000Z\",\"cod\":null}"
+    },
+    {
+      "name": "login fields 46 px, 16 px text",
+      "ok": true,
+      "detail": "46px / 16px"
+    },
+    {
+      "name": "no copy action on the sign-in password",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/crm/leads renders",
+      "ok": true,
+      "detail": "الليدز"
+    },
+    {
+      "name": "/company-partners renders",
+      "ok": true,
+      "detail": "الشركاء"
+    },
+    {
+      "name": "/agents/overview renders",
+      "ok": true,
+      "detail": "نظرة عامة على الوكلاء"
+    }
+  ]
+}
