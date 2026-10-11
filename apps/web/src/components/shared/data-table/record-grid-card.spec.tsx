@@ -107,7 +107,7 @@ describe("RecordGridCard (design-system §12.19)", () => {
     expect(container.querySelector("[data-record-figure]")?.textContent).toBe("1,500.00 SAR");
   });
 
-  it("the marker sits in the badge row, not beside the title", () => {
+  it("R17: the marker sits in the card header, outside the record link and the badge row", () => {
     const { container } = render(
       <RecordGridCard
         {...base}
@@ -116,7 +116,11 @@ describe("RecordGridCard (design-system §12.19)", () => {
       />,
     );
     const marker = container.querySelector('[data-testid="m"]')!;
-    expect(marker.closest("div")?.textContent).toContain("b");
+    const slot = marker.closest("[data-record-marker]")!;
+    expect(slot).not.toBeNull();
+    // Same header row as the identity (the first child of the card).
+    expect(container.querySelector("article")?.firstElementChild?.contains(slot)).toBe(true);
+    expect(slot.textContent).not.toContain("b");
     expect(marker.closest("[data-record-link]")).toBeNull();
   });
 

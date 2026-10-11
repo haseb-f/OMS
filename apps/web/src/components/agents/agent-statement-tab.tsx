@@ -46,6 +46,7 @@ import type { MessageKey } from "@/i18n/translate";
 import { PayoutDetailDialog } from "./agent-payouts";
 import { SummaryCard } from "./summary-card";
 import { AdjustmentDialog } from "./agent-finance-dialogs";
+import { InsightGroup } from "@/components/shared/insight-card";
 
 const EMPTY_RANGE: DateRangeValue = { from: null, to: null };
 
@@ -345,7 +346,7 @@ export function AgentStatementTab({ agentId }: { agentId: string }) {
         <ErrorState description={loadError} onRetry={() => void load()} />
       ) : statement && summary && deductions ? (
         <>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <InsightGroup className="grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
             <SummaryCard
               tone="revenue"
               icon={ShoppingBag}
@@ -462,7 +463,7 @@ export function AgentStatementTab({ agentId }: { agentId: string }) {
                 },
               ]}
             />
-          </div>
+          </InsightGroup>
 
           <EnterpriseDataTable
             tableId="agent-statement"

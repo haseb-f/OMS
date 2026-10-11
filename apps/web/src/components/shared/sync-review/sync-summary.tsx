@@ -8,10 +8,8 @@ import {
   RotateCcw,
   SkipForward,
 } from "lucide-react";
-import { KpiCard } from "@/components/shared/kpi-card";
-import { EnterpriseButton } from "@/components/ui/button";
+import { InsightCard, InsightGroup } from "@/components/shared/insight-card";
 import { useLocale } from "@/providers/locale-provider";
-import { cn } from "@/lib/utils";
 import { countByStatus, type SyncReviewRow, type SyncReviewStatusFilter } from "./types";
 import type { SyncPreviewIncremental } from "@/services/sync-service";
 
@@ -26,14 +24,14 @@ export function SyncSummary({
   onFilterChange: (next: SyncReviewStatusFilter) => void;
   incremental?: SyncPreviewIncremental | null;
 }) {
-  const { t } = useLocale();
+  const { t, direction } = useLocale();
   const counts = countByStatus(rows);
 
   const cards: Array<{
     id: SyncReviewStatusFilter | "SKIPPED";
     label: string;
     value: number;
-    tone: "muted" | "success" | "warning" | "destructive" | "info";
+    tone: "neutral" | "success" | "warning" | "destructive" | "info";
     icon: typeof FileSpreadsheet;
     filterable: boolean;
   }> = incremental
@@ -74,7 +72,7 @@ export function SyncSummary({
           id: "SKIPPED",
           label: t("importCenter.sync.review.kpiSkipped"),
           value: incremental.importedSkippedCount + incremental.unchangedSkippedCount,
-          tone: "muted",
+          tone: "neutral",
           icon: SkipForward,
           filterable: false,
         },
@@ -84,7 +82,7 @@ export function SyncSummary({
           id: "ALL",
           label: t("importCenter.sync.review.kpiTotal"),
           value: counts.total,
-          tone: "muted",
+          tone: "neutral",
           icon: FileSpreadsheet,
           filterable: true,
         },
@@ -122,26 +120,26 @@ export function SyncSummary({
         },
       ];
 
+  // R17 §4: the shared report card — a filterable count is one button (`onSelect`; the active
+  // filter is `pressed`: aria-pressed + the emphasis edge); a count that filters nothing is an
+  // informational, unfocusable tile.
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-      {cards.map((card) => (
-        <EnterpriseButton
-          key={card.id}
-          type="button"
-          variant="ghost"
-          disabled={!card.filterable}
-          onClick={() => {
-            if (card.filterable && card.id !== "SKIPPED") onFilterChange(card.id);
-          }}
-          className={cn(
-            "h-auto rounded-lg p-0 text-start font-normal",
-            card.filterable && filter === card.id && "ring-2 ring-primary",
-            !card.filterable && "cursor-default",
-          )}
-        >
-          <KpiCard icon={card.icon} label={card.label} value={card.value} tone={card.tone} />
-        </EnterpriseButton>
-      ))}
-    </div>
+    <InsightGroup fit>
+      {cards.map((card) => {
+        const filterId = card.filterable && card.id !== "SKIPPED" ? card.id : null;
+        return (
+          <InsightCard
+            key={card.id}
+            icon={card.icon}
+            label={card.label}
+            value={card.value}
+            tone={card.tone}
+            direction={direction}
+            onSelect={filterId ? () => onFilterChange(filterId) : undefined}
+            pressed={filterId ? filter === filterId : undefined}
+          />
+        );
+      })}
+    </InsightGroup>
   );
 }

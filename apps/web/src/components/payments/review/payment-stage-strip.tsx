@@ -1,6 +1,6 @@
 "use client";
 
-import { InsightCard } from "@/components/shared/insight-card";
+import { InsightCard, InsightGroup } from "@/components/shared/insight-card";
 import { StatusBadge } from "@/components/business/status-badge";
 import { paymentTerm, type PaymentTerm } from "@/config/payments/payment-vocabulary";
 import type { MessageKey } from "@/i18n/translate";
@@ -54,10 +54,10 @@ export function PaymentStageStrip({
   const { hasPermission } = useUserContext();
   const canOpenWorkspace = hasPermission("finance.payment-reconciliation.view");
   return (
-    <div
+    <InsightGroup
       role="group"
       aria-label={t("paymentVocabulary.strip.label")}
-      className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6"
+      className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6"
       data-testid="payment-stage-strip"
     >
       {STRIP.map(({ stage, term, workspaceTab }) => {
@@ -117,6 +117,6 @@ export function PaymentStageStrip({
           </InsightCard>
         );
       })}
-    </div>
+    </InsightGroup>
   );
 }

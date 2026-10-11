@@ -6,7 +6,7 @@ import { PageWorkspace } from "@/components/shared/page-workspace";
 import { HeaderActions } from "@/components/shared/header-actions";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { EmptyState } from "@/components/shared/empty-state";
-import { InsightCard } from "@/components/shared/insight-card";
+import { InsightCard, InsightGroup } from "@/components/shared/insight-card";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { DisclosureTrigger } from "@/components/shared/disclosure-trigger";
 import { CompactDetailTable, SelectFilter } from "@/components/shared/data-table";
@@ -245,10 +245,11 @@ function InventoryIntegrityPageContent() {
 
           {report ? (
             <>
-              <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <InsightGroup className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                 <InsightCard
                   label={t("inventoryIntegrity.overall")}
                   value={t(`inventoryIntegrity.summary.${report.status}`)}
+                  phrase
                   tone={INTEGRITY_STATUS_TONE[report.status]}
                   icon={ShieldCheck}
                   keepToneAtZero
@@ -263,7 +264,7 @@ function InventoryIntegrityPageContent() {
                     tone={INTEGRITY_STATUS_TONE[status]}
                   />
                 ))}
-              </div>
+              </InsightGroup>
               <div className="flex min-w-0 flex-col gap-3">
                 {report.invariants.map((invariant) => (
                   <InvariantCard key={invariant.id} invariant={invariant} />

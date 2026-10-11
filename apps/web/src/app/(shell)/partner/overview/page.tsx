@@ -200,7 +200,7 @@ function PartnerOverviewContent() {
         </InsightGroup>
       )}
 
-      <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2">
+      <InsightGroup className="grid-cols-1 lg:grid-cols-2">
         {me ? (
           terms ? (
             <SummaryCard
@@ -296,7 +296,7 @@ function PartnerOverviewContent() {
             )}
           </DashboardPanel>
         ) : null}
-      </div>
+      </InsightGroup>
 
       {me?.login ? (
         <p className="text-caption text-muted-foreground">

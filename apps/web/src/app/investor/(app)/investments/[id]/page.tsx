@@ -24,7 +24,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ApiError } from "@/services/api-client";
 import { formatAmount } from "@/lib/money";
-import { KpiCard } from "@/components/shared/kpi-card";
+import { InsightCard, InsightGroup } from "@/components/shared/insight-card";
 import { ErrorState } from "@/components/shared/error-state";
 import { formatDate } from "@/lib/date";
 import { useLocale } from "@/providers/locale-provider";
@@ -107,24 +107,24 @@ export default function InvestorPortalInvestmentDetailPage() {
       </div>
 
       {/* Overview + Performance */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard
+      <InsightGroup className="grid-cols-2 lg:grid-cols-4">
+        <InsightCard
           label={t("investorPortal.investments.detail.fundedUnits")}
           value={data.performance.fundedUnits}
         />
-        <KpiCard
+        <InsightCard
           label={t("investorPortal.investments.detail.soldUnits")}
           value={data.performance.soldUnits}
         />
-        <KpiCard
+        <InsightCard
           label={t("investorPortal.investments.detail.remainingUnits")}
           value={data.performance.remainingUnits}
         />
-        <KpiCard
+        <InsightCard
           label={t("investorPortal.investments.detail.sellThroughPercent")}
           value={`${formatAmount(data.performance.sellThroughPercent)}%`}
         />
-      </div>
+      </InsightGroup>
 
       {/* My Funding */}
       <EnterpriseCard>

@@ -37,7 +37,7 @@ import { EnterpriseBadge } from "@/components/ui/badge";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
-import { KpiCard } from "@/components/shared/kpi-card";
+import { InsightCard } from "@/components/shared/insight-card";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
 import { FadeInStagger, FadeInItem } from "@/components/shared/fade-in";
 import { LoadingOverlay } from "@/components/shared/loading-overlay";
@@ -235,7 +235,7 @@ export default function DesignSystemPage() {
                 </EnterpriseButton>
               </EnterpriseCardFooter>
             </EnterpriseCard>
-            <KpiCard icon={ShoppingCart} label="KPI Label" value={128} tone="success" />
+            <InsightCard icon={ShoppingCart} label="KPI Label" value={128} tone="success" />
           </div>
         </Section>
 

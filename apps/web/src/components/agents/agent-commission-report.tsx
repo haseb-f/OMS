@@ -39,6 +39,7 @@ import { formatAmount } from "@/lib/money";
 import { apiErrorMessage } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 import { SummaryCard } from "./summary-card";
+import { InsightGroup } from "@/components/shared/insight-card";
 
 const EMPTY_RANGE: DateRangeValue = { from: null, to: null };
 const EXPORT_KEYS = [
@@ -237,7 +238,7 @@ export function AgentCommissionReportView({
       </div>
 
       {summary && cash ? (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <InsightGroup className="grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
           <SummaryCard
             tone="info"
             icon={Package}
@@ -332,7 +333,7 @@ export function AgentCommissionReportView({
               },
             ]}
           />
-        </div>
+        </InsightGroup>
       ) : null}
       {summary ? (
         <p className="text-caption text-muted-foreground">

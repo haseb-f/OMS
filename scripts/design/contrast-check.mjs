@@ -5,7 +5,8 @@
  *   node scripts/design/contrast-check.mjs
  *
  * Parses the light (:root) and dark (.dark) color tokens from
- * apps/web/src/app/globals.css, resolves var()/color-mix(in oklab, …) chains,
+ * apps/web/src/theme/tokens.css + apps/web/src/app/globals.css (cascade order;
+ * R17 moved the report-card tokens to tokens.css), resolves var()/color-mix(in oklab, …) chains,
  * composites translucent colors over their surface, and checks the WCAG pairs
  * the design system promises (design-system.md §3). Exits 1 on any failure.
  */
@@ -14,27 +15,41 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const css = readFileSync(resolve(ROOT, "apps/web/src/app/globals.css"), "utf8");
+const SOURCES = ["apps/web/src/theme/tokens.css", "apps/web/src/app/globals.css"].map((path) =>
+  readFileSync(resolve(ROOT, path), "utf8").replace(/\r\n/g, "\n"),
+);
 
+/** Every top-level `selector { … }` block of every source, merged in cascade order. */
 function block(selector) {
-  const i = css.indexOf(`${selector} {`);
-  if (i < 0) throw new Error(`block ${selector} not found`);
-  let depth = 0;
-  let j = css.indexOf("{", i);
-  const start = j + 1;
-  for (; j < css.length; j += 1) {
-    if (css[j] === "{") depth += 1;
-    else if (css[j] === "}") {
-      depth -= 1;
-      if (depth === 0) break;
+  const vars = {};
+  let found = false;
+  const escaped = selector.replace(/[.:]/g, (char) => `\\${char}`);
+  for (const css of SOURCES) {
+    // Top-level blocks only (a rule nested in @media is indented).
+    for (const hit of css.matchAll(new RegExp(`^${escaped} \\{`, "gm"))) {
+      found = true;
+      let depth = 0;
+      let j = css.indexOf("{", hit.index);
+      const start = j + 1;
+      for (; j < css.length; j += 1) {
+        if (css[j] === "{") depth += 1;
+        else if (css[j] === "}") {
+          depth -= 1;
+          if (depth === 0) break;
+        }
+      }
+      const body = css.slice(start, j).replace(/\/\*[\s\S]*?\*\//g, "");
+      for (const m of body.matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)) {
+        // Prettier wraps long color-mix() values over several lines — flatten them.
+        vars[m[1]] = m[2]
+          .replace(/\s+/g, " ")
+          .replace(/\(\s+/g, "(")
+          .replace(/\s+\)/g, ")")
+          .trim();
+      }
     }
   }
-  const body = css.slice(start, j).replace(/\/\*[\s\S]*?\*\//g, "");
-  const vars = {};
-  for (const m of body.matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)) {
-    // Prettier wraps long color-mix() values over several lines — flatten them.
-    vars[m[1]] = m[2].replace(/\s+/g, " ").replace(/\(\s+/g, "(").replace(/\s+\)/g, ")").trim();
-  }
+  if (!found) throw new Error(`block ${selector} not found`);
   return vars;
 }
 
@@ -158,6 +173,8 @@ const PAIRS = [
   ["success button", "var(--success-foreground)", "var(--success)", TEXT],
   ["warning button", "var(--warning-foreground)", "var(--warning)", TEXT],
   ["info button", "var(--info-foreground)", "var(--info)", TEXT],
+  // R17 §1 — the unopened-lead row's start-edge accent (the badge is the "info badge" pair).
+  ["unopened lead row accent", "var(--row-unopened-accent)", "var(--card)", UI],
   ...["success", "warning", "info", "destructive", "neutral"].map((t) => [
     `${t} badge`,
     `var(--${t}-soft-foreground)`,

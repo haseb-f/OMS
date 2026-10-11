@@ -7,11 +7,7 @@ import { formatAmountParts } from "@/lib/money";
 import { useLocale } from "@/providers/locale-provider";
 import { EnterpriseBadge } from "@/components/ui/badge";
 import { InsightCard, InsightGroup } from "@/components/shared/insight-card";
-import {
-  resolveReconciliationState,
-  resolveSummaryTone,
-  type ResolvedSummaryTone,
-} from "./summary-format";
+import { resolveReconciliationState, resolveSummaryTone } from "./summary-format";
 import { STATE_ICON, TONE, VERDICT_KEY } from "./summary-meta";
 import type {
   FinancialReportCheck,
@@ -32,34 +28,19 @@ import type {
  * to a text color.
  */
 
-/**
- * Figure colors that pass AA as text in light and dark: the category color
- * stays on the icon tile; only a result carries its verdict color on the
- * figure (profit green, loss red — §7 "red only for a net loss").
- */
-const FIGURE_TONE: Record<ResolvedSummaryTone, string> = {
-  revenue: "text-foreground",
-  expense: "text-foreground",
-  profit: "text-success-soft-foreground",
-  loss: "text-destructive-soft-foreground",
-  neutral: "text-foreground",
-};
-
 /** A grid cell that stretches its tile (equal heights across a row). */
 const SLOT = "flex min-w-0 [&>*]:w-full";
 
-function Figure({
-  figure,
-  className,
-  summaryId,
-}: {
-  figure: string;
-  className?: string;
-  summaryId?: string;
-}) {
+/**
+ * The figure inside the shared card. R17 §4: its colour comes from the card
+ * recipe only (the tone's deep figure colour; a zero resolves neutral; an
+ * adverse result is a `loss` card — §7 "red only for a net loss") — never a
+ * local text colour.
+ */
+function Figure({ figure, summaryId }: { figure: string; summaryId?: string }) {
   return (
     <span data-summary-id={summaryId} className="flex flex-wrap items-baseline gap-x-1.5">
-      <span className={className}>{figure}</span>
+      <span>{figure}</span>
     </span>
   );
 }
@@ -69,8 +50,9 @@ const joinContext = (...parts: Array<string | undefined>) =>
 
 function ItemCard({ item, currency }: { item: FinancialReportSummaryItem; currency: string }) {
   const { direction } = useLocale();
-  const tone = resolveSummaryTone(item.tone, item.value);
+  const resolved = resolveSummaryTone(item.tone, item.value);
   const parts = formatAmountParts(item.value, { negative: item.negative ?? "minus" });
+  const tone = item.adverse && !parts.isZero ? "loss" : resolved;
   return (
     <div
       id={`report-summary-${item.id}`}
@@ -85,18 +67,7 @@ function ItemCard({ item, currency }: { item: FinancialReportSummaryItem; curren
         tone={tone}
         icon={TONE[tone].icon ?? undefined}
         label={item.cardLabel ?? item.label}
-        value={
-          <Figure
-            figure={parts.figure}
-            className={
-              parts.isZero
-                ? "text-muted-foreground"
-                : item.adverse
-                  ? FIGURE_TONE.loss
-                  : FIGURE_TONE[tone]
-            }
-          />
-        }
+        value={<Figure figure={parts.figure} />}
         unit={item.currency ?? currency}
         amount={item.value}
       />
@@ -124,12 +95,7 @@ function SideCard({
         direction={direction}
         icon={Sigma}
         label={side.cardLabel ?? side.label}
-        value={
-          <Figure
-            figure={parts.figure}
-            className={parts.isZero ? "text-muted-foreground" : "text-foreground"}
-          />
-        }
+        value={<Figure figure={parts.figure} />}
         unit={currency}
       />
     </div>
@@ -199,9 +165,8 @@ export function ReconciliationCard({
         direction={direction}
         icon={STATE_ICON["not-applicable"]}
         label={check.label}
-        value={
-          <span className="text-muted-foreground">{t("reports.finance.checkNotApplicable")}</span>
-        }
+        value={t("reports.finance.checkNotApplicable")}
+        phrase
         context={check.notApplicable}
       />
     );

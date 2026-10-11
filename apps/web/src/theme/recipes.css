@@ -23,22 +23,27 @@ html[dir="ltr"] :is(h1, h2) {
   letter-spacing: -0.02em;
 }
 
-/* ── Report cards: summary tiles and dashboard surfaces (design-system §12.8 / §12.17; R16 S2) ───
+/* ── Report cards: summary tiles and dashboard surfaces (design-system §12.8 / §12.17; R16 S2; R17 §4) ───
    ONE treatment for every report summary card (`InsightSurface` → `InsightCard`, `SummaryCard`,
-   `ReportCard`). Record-grid status cards (`renderGridCard`, `record-grid-card`) are a different,
-   flat family and are never styled here.
+   `ReportCard`), driven only by the report-card tokens (theme/tokens.css). Record-grid status
+   cards (`renderGridCard`, `record-grid-card`) are a different, flat family and are never styled
+   here; no screen styles a card locally (guarded by report-card-consumers.spec.ts).
    - Surface: the tone is a clearly visible tinted, glass-like surface — a top → bottom gradient
      of the tone, a perceptible tone hairline and a thin inner highlight (`--insight-sheen`).
      Colour follows meaning only; every text pair is checked by scripts/design/contrast-check.mjs.
-   - Static cards rest flat; on a hover-capable pointer they answer with a quiet tone edge and a
-     soft shadow (no pointer, no chevron).
-   - Interactive cards (`data-interactive`: a link or a button) carry a resting lift, a pointer and
-     a chevron, and react to hover AND keyboard focus identically: stronger tone edge and tint, a
-     tone shadow, the icon chip filling solid, the figure deepening.
-   - Paint only: no transform, no size or position change → no layout shift; nothing animates
-     continuously; `prefers-reduced-motion` removes the transitions.
+   - Informational cards (a plain `div`) are not focusable and show no pointer and no chevron; on
+     a hover-capable pointer they answer only with a gentle tint step, a quiet tone edge and a soft
+     shadow — never the actionable response.
+   - Actionable cards (`data-interactive`: a link or a button) carry a resting lift, a pointer and
+     (links) a chevron, and react to hover AND keyboard focus identically: stronger tone edge and
+     tint, a restrained tone shadow (subtle elevation), the icon chip filling solid, the figure
+     deepening.
+   - Paint only: no transform, no size or position change → no layout shift; a short transition
+     (`--insight-card-duration`); nothing animates continuously; `prefers-reduced-motion` removes
+     every transition.
    - Hover lives under `(hover: hover)`, so a tap on a touch screen never leaves a sticky hover;
-     there the resting state (lift + chevron vs flat) already tells the two apart.
+     under `(hover: none)` an actionable card keeps a stronger resting edge, so the resting state
+     alone tells the two apart.
    The visual state is carried by custom properties so hover, focus, emphasis and RTL combine
    without duplicating whole box-shadow lists. */
 
@@ -69,9 +74,9 @@ html[dir="ltr"] :is(h1, h2) {
     var(--insight-card-lift);
   color: var(--card-foreground);
   transition:
-    border-color var(--duration-base) var(--ease-standard),
-    box-shadow var(--duration-base) var(--ease-standard),
-    background-color var(--duration-base) var(--ease-standard);
+    border-color var(--insight-card-duration) var(--ease-standard),
+    box-shadow var(--insight-card-duration) var(--ease-standard),
+    background-color var(--insight-card-duration) var(--ease-standard);
 }
 /* Neutral cards stay neutral: plain card, the standard hairline, no sheen. */
 [data-slot="insight-card"]:is([data-tone="neutral"], :not([data-tone])) {
@@ -113,13 +118,13 @@ html[dir="ltr"] :is(h1, h2) {
   color: var(--tone);
   background-color: color-mix(in oklab, var(--tone) var(--insight-icon-fill), var(--card));
   transition:
-    background-color var(--duration-base) var(--ease-standard),
-    color var(--duration-base) var(--ease-standard);
+    background-color var(--insight-card-duration) var(--ease-standard),
+    color var(--insight-card-duration) var(--ease-standard);
 }
 /* The headline figure: a deep shade of the tone (neutral stays foreground). */
 [data-slot="insight-card"][data-tone]:not([data-tone="neutral"]) [data-slot="insight-value"] {
   color: color-mix(in oklab, var(--tone) 55%, var(--foreground));
-  transition: color var(--duration-base) var(--ease-standard);
+  transition: color var(--insight-card-duration) var(--ease-standard);
 }
 [data-slot="insight-card"] [data-slot="insight-bar"] {
   background-color: var(--tone);
@@ -138,18 +143,24 @@ html[dir="ltr"] :is(h1, h2) {
 [data-slot="insight-card"] [data-slot="insight-action"],
 [data-slot="insight-card"] [data-slot="insight-go"] {
   color: var(--muted-foreground);
-  transition: color var(--duration-base) var(--ease-standard);
+  transition: color var(--insight-card-duration) var(--ease-standard);
 }
 
-/* Interactive cards: resting lift and pointer (the chevron is in the markup). */
+/* Informational cards: never clickable-looking (no pointer, whatever the markup inside). */
+[data-slot="insight-card"]:not([data-interactive]) {
+  cursor: default;
+}
+/* Actionable cards: resting lift and pointer (the chevron is in the markup). */
 [data-slot="insight-card"][data-interactive] {
   --insight-card-lift: var(--insight-rest-shadow);
   cursor: pointer;
 }
 
-/* Static cards on a hover-capable pointer: a quiet tone edge + soft shadow. */
+/* Informational cards on a hover-capable pointer: a gentle tint step, a quiet tone edge and a
+   soft shadow. */
 @media (hover: hover) {
   [data-slot="insight-card"]:not([data-interactive]):hover {
+    --tone-top: var(--insight-tint-top-static-hover);
     --insight-card-border: color-mix(
       in oklab,
       var(--tone) var(--insight-tint-border-hover),
@@ -165,20 +176,45 @@ html[dir="ltr"] :is(h1, h2) {
   }
 }
 
-/* Interactive cards — keyboard focus (always) and hover (hover-capable pointers
+/* Touch (no hover): an actionable card keeps a stronger resting edge, so the resting state alone
+   separates it from an informational one (with the lift and the chevron). */
+@media (hover: none) {
+  [data-slot="insight-card"][data-interactive] {
+    --insight-card-border: color-mix(
+      in oklab,
+      var(--tone) var(--insight-tint-border-hover),
+      var(--card)
+    );
+  }
+  [data-slot="insight-card"][data-interactive]:is([data-tone="neutral"], :not([data-tone])) {
+    --insight-card-border: var(--border-strong);
+  }
+}
+
+/* Actionable cards — keyboard focus (always) and hover (hover-capable pointers
    only): the SAME response, declared once per trigger. */
 [data-slot="insight-card"][data-interactive]:focus-visible {
   --tone-top: var(--insight-tint-top-hover);
   --tone-bottom: var(--insight-tint-bottom-hover);
-  --insight-card-border: color-mix(in oklab, var(--tone) 72%, var(--card));
-  --insight-card-glow: 0 8px 18px -10px color-mix(in oklab, var(--tone) 60%, transparent);
+  --insight-card-border: color-mix(
+    in oklab,
+    var(--tone) var(--insight-tint-border-active),
+    var(--card)
+  );
+  --insight-card-glow: 0 8px 18px -10px
+    color-mix(in oklab, var(--tone) var(--insight-hover-shadow-tone), transparent);
 }
 @media (hover: hover) {
   [data-slot="insight-card"][data-interactive]:hover {
     --tone-top: var(--insight-tint-top-hover);
     --tone-bottom: var(--insight-tint-bottom-hover);
-    --insight-card-border: color-mix(in oklab, var(--tone) 72%, var(--card));
-    --insight-card-glow: 0 8px 18px -10px color-mix(in oklab, var(--tone) 60%, transparent);
+    --insight-card-border: color-mix(
+      in oklab,
+      var(--tone) var(--insight-tint-border-active),
+      var(--card)
+    );
+    --insight-card-glow: 0 8px 18px -10px
+      color-mix(in oklab, var(--tone) var(--insight-hover-shadow-tone), transparent);
   }
 }
 /* A neutral card that opens something: no tint — a stronger edge and a surface. */
@@ -222,6 +258,15 @@ html[dir="ltr"] :is(h1, h2) {
   [data-slot="insight-card"][data-interactive]:hover
     :is([data-slot="insight-action"], [data-slot="insight-go"]) {
     color: var(--foreground);
+  }
+}
+
+/* Reduced motion: every report-card state changes instantly. */
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="insight-card"],
+  [data-slot="insight-card"] :is([data-slot="insight-icon"], [data-slot="insight-value"]),
+  [data-slot="insight-card"] :is([data-slot="insight-action"], [data-slot="insight-go"]) {
+    transition: none;
   }
 }
 
@@ -335,11 +380,8 @@ html[dir="ltr"] :is(h1, h2) {
   box-shadow: none;
 }
 
-/* Reduced motion: report cards and panel rows change state instantly. */
+/* Reduced motion: panel rows change state instantly (report cards: see their block). */
 @media (prefers-reduced-motion: reduce) {
-  [data-slot="insight-card"],
-  [data-slot="insight-card"] :is([data-slot="insight-icon"], [data-slot="insight-value"]),
-  [data-slot="insight-card"] :is([data-slot="insight-action"], [data-slot="insight-go"]),
   [data-slot="panel-row"],
   [data-slot="panel-row"] [data-slot="panel-row-icon"] {
     transition: none;
@@ -932,6 +974,17 @@ html[dir="ltr"] :is(h1, h2) {
   )
   > td {
   background-color: var(--table-row-selected-hover);
+}
+/* R17 — unopened lead (`LeadNewToYouMarker`, `data-new-to-you`): the row's start edge carries the
+   info accent next to the «لم يُفتح» / "Unopened" badge in the row (never colour alone). Declared
+   before the selected marker so a selected row still shows the selection edge. */
+[data-slot="table-row"]:has([data-new-to-you]) > td:first-child,
+[data-mobile-row]:has([data-new-to-you]) {
+  box-shadow: inset var(--row-unopened-accent-width) 0 0 var(--row-unopened-accent);
+}
+[dir="rtl"] [data-slot="table-row"]:has([data-new-to-you]) > td:first-child,
+[dir="rtl"] [data-mobile-row]:has([data-new-to-you]) {
+  box-shadow: inset calc(var(--row-unopened-accent-width) * -1) 0 0 var(--row-unopened-accent);
 }
 [data-slot="table-row"][data-state="selected"] > td:first-child {
   box-shadow: inset 2px 0 0 var(--focus-ring);

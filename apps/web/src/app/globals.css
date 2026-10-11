@@ -422,16 +422,6 @@
   --shadow-modal:
     0 1px 1px rgb(0 0 0 / 0.02), 0 8px 16px -4px rgb(0 0 0 / 0.05),
     0 24px 32px -8px rgb(0 0 0 / 0.1);
-  --insight-neutral: var(--muted-foreground);
-  --insight-info: var(--info-soft-foreground);
-  --insight-success: var(--success-soft-foreground);
-  --insight-warning: var(--warning-soft-foreground);
-  --insight-destructive: var(--destructive-soft-foreground);
-  --insight-revenue: var(--report-revenue);
-  --insight-expense: var(--report-expense);
-  --insight-profit: var(--report-profit);
-  --insight-loss: var(--report-loss);
-  --insight-lift: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 14px -6px rgb(0 0 0 / 0.14);
   /* Soft surfaces (Round 5, design-system §12.12) — Clarity-like calm panels
      on the white canvas: a 2-3% cool tint of the brand canvas, a translucent
      navy hairline and a top-to-bottom gradient of at most 3%. Translucency
@@ -449,29 +439,7 @@
   --surface-soft-tone-strength: 5%;
   /* Tone share of a toned tile's hairline (Round 6). */
   --surface-soft-tone-border-strength: 14%;
-  /* Round 6 metric tile (§12.13): tone share of the tile gradient (top →
-     bottom), of its hairline and of its icon chip. */
-  /* Round 7: tone accents one step stronger (blue = activity / new, green =
-     success, amber = pending, red = overdue / error) — still tinted, never a
-     saturated block; every text pair stays AA (contrast-check.mjs). */
-  /* Round 8 (§12.17): the tone is now clearly visible on the surface — a
-     tinted, glass-like gradient (top → bottom) with a perceptible hairline —
-     while every text pair stays AA (contrast-check.mjs). */
-  --insight-tint-top: 24%;
-  --insight-tint-bottom: 9%;
-  --insight-tint-border: 50%;
-  --insight-icon-fill: 30%;
-  --insight-sheen: rgb(255 255 255 / 0.65);
-  --insight-tint-top-hover: 32%;
-  --insight-tint-bottom-hover: 13%;
-  /* Secondary text on a tone-tinted surface: pulled toward the foreground so the
-     stronger tint keeps >= 4.5:1 (checked per tone in contrast-check.mjs). */
-  --insight-muted: color-mix(in oklab, var(--muted-foreground) 55%, var(--foreground));
-  --insight-rest-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 10px -6px rgb(0 0 0 / 0.12);
-  /* R16 S2 — a static report card under a hover-capable pointer: a quiet tone
-     edge and a soft shadow (paint only; interactive cards respond more). */
-  --insight-tint-border-hover: 64%;
-  --insight-static-hover-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 14px -10px rgb(0 0 0 / 0.2);
+  /* Report-card (insight) tokens live in theme/tokens.css (R17 §4). */
   --panel-header-tint: 20%;
   --panel-edge-tint: 34%;
 
@@ -700,7 +668,6 @@
   --segment-track: #0d0d0d;
   --segment-on: #262626;
   --shadow-modal: 0 0 0 1px rgb(255 255 255 / 0.05), 0 24px 48px -12px rgb(0 0 0 / 0.8);
-  --insight-lift: 0 0 0 1px rgb(255 255 255 / 0.03), 0 8px 18px -8px rgb(0 0 0 / 0.75);
   --surface-soft: color-mix(in oklab, #52a8ff 3%, var(--card));
   --surface-soft-border: color-mix(in oklab, white 8%, transparent);
   --surface-soft-hover-border: color-mix(in oklab, white 15%, transparent);
@@ -708,17 +675,6 @@
   --surface-soft-shadow-hover: 0 0 0 1px rgb(255 255 255 / 0.03), 0 8px 18px -8px rgb(0 0 0 / 0.75);
   --surface-soft-tone-strength: 7%;
   --surface-soft-tone-border-strength: 18%;
-  --insight-tint-top: 30%;
-  --insight-tint-bottom: 11%;
-  --insight-tint-border: 52%;
-  --insight-sheen: rgb(255 255 255 / 0.1);
-  --insight-tint-top-hover: 38%;
-  --insight-tint-bottom-hover: 15%;
-  --insight-muted: color-mix(in oklab, var(--muted-foreground) 55%, var(--foreground));
-  --insight-rest-shadow: 0 0 0 1px rgb(255 255 255 / 0.03);
-  --insight-tint-border-hover: 68%;
-  --insight-static-hover-shadow:
-    0 0 0 1px rgb(255 255 255 / 0.04), 0 6px 14px -8px rgb(0 0 0 / 0.6);
   --hue-blue: oklch(0.76 0.12 255);
   --hue-sky: oklch(0.78 0.1 232);
   --hue-teal: oklch(0.77 0.09 190);
@@ -730,7 +686,6 @@
   --hue-indigo: oklch(0.75 0.13 275);
   --hue-slate: oklch(0.75 0.03 255);
   --launcher-sheen: rgb(255 255 255 / 0.1);
-  --insight-icon-fill: 38%;
   --panel-header-tint: 24%;
   --panel-edge-tint: 38%;
   --surface-soft-row-hover: color-mix(in oklab, #52a8ff 6%, var(--card));

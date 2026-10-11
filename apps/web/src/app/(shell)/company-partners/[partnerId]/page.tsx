@@ -50,6 +50,7 @@ import {
 } from "../_components/partner-dialogs";
 import { PartnerLoginCard } from "../_components/partner-login";
 import { ltrIsolate } from "@/lib/bidi";
+import { InsightGroup } from "@/components/shared/insight-card";
 
 const yearToDate = (): DateRangeValue => {
   const today = new Date();
@@ -482,7 +483,7 @@ function PartnerStatementContent() {
       ) : null}
 
       {profile && statement && estimate ? (
-        <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-3">
+        <InsightGroup className="grid-cols-1 lg:grid-cols-3">
           <SummaryCard
             tone="info"
             icon={Handshake}
@@ -554,7 +555,7 @@ function PartnerStatementContent() {
             hasAgreement={Boolean(partnership && partnership.status !== "NO_AGREEMENT")}
             onChanged={() => void load()}
           />
-        </div>
+        </InsightGroup>
       ) : null}
 
       <PeriodStatementView
