@@ -80,12 +80,19 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
     id: "leadNumber",
     meta: { titleKey: "crm.leads.fields.leadNumber", identity: true, type: "code" },
     accessorFn: (row) => row.leadNumber,
+    // R17: the «لم يُفتح» badge has its own line under the lead number — never in the customer
+    // cell, where it would squeeze the name.
     cell: ({ row }) => (
-      <span title={row.original.leadNumber} className="inline-flex min-w-0 max-w-full">
-        <SemanticValue kind="id" className="text-body font-medium">
-          {row.original.leadNumber}
-        </SemanticValue>
-      </span>
+      <StackedCell
+        primary={
+          <span title={row.original.leadNumber} className="inline-flex min-w-0 max-w-full">
+            <SemanticValue kind="id" className="text-body font-medium">
+              {row.original.leadNumber}
+            </SemanticValue>
+          </span>
+        }
+        secondary={isNewToViewer(row.original) ? <LeadNewToYouMarker /> : undefined}
+      />
     ),
   },
   {
@@ -94,12 +101,7 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
     accessorFn: (row) => row.customerName,
     cell: ({ row }) => (
       <StackedCell
-        primary={
-          <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
-            <LocaleText>{row.original.customerName}</LocaleText>
-            {isNewToViewer(row.original) ? <LeadNewToYouMarker /> : null}
-          </span>
-        }
+        primary={<LocaleText>{row.original.customerName}</LocaleText>}
         secondary={
           row.original.mobileNumber ? (
             <SemanticValue kind="phone">{row.original.mobileNumber}</SemanticValue>

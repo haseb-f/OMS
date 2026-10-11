@@ -93,6 +93,20 @@ switch, not a report card), `PageHeaderStat` (header chip), `MethodSummaryStrip`
 - `next build` OK.
 - No browser pass (lead's single pass: ar/en, light/dark, desktop/390px, keyboard focus, reduced motion).
 
+## Follow-up (lead review of the integrated build)
+
+1. Leads table: the badge squeezed the customer name («عبير ا…» at 1440 px). The badge now has its own
+   line under the lead number (`StackedCell` in the `leadNumber` cell); the customer cell is the name +
+   phone only; the start-edge row accent is unchanged. Grid unchanged.
+2. Card groups left a lone orphan (6 partner cards → 5 + 1 at 1440 px). `InsightGroup fit` is now
+   balanced, once for every screen: a frame (`insight-group-frame`, CSS container `insight-group`, takes the
+   caller's className) holds the grid with its card count (`data-count`, fragments flattened); generated
+   container-query rules in `theme/recipes.css` ("Balanced fit groups") apply `balancedInsightColumns` —
+   rows = ceil(n / room), columns = ceil(n / rows) (6 → 6 or 3 + 3, 5 → 5 or 3 + 2); a lone last card
+   that cannot be avoided (prime count, narrow group) spans its row. 1–12 cards; more fall back to auto-fit.
+   Tests: `insight-card.spec.tsx` (rule, fragment counting, CSS ≡ rule for every count × width),
+   `lead-new-to-you.spec.tsx` (badge under the lead number, customer cell clean).
+
 ## Open
 
 - Visual review + owner approval: unopened badge/accent, report-card hover/focus/touch, investor tiles now

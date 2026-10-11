@@ -379,6 +379,174 @@ html[dir="ltr"] :is(h1, h2) {
   border: 0;
   box-shadow: none;
 }
+/* Balanced fit groups (R17 §4): `InsightGroup fit` sizes its columns from the width it gets
+   (container query on the `insight-group-frame`, never the viewport) AND from its card count, so a
+   row never leaves a lone orphan (6 cards → 3 + 3 or 6, never 5 + 1; 5 → 5 or 3 + 2). For n cards
+   and room for m tiles of 12rem: rows = ceil(n / m), columns = ceil(n / rows); when a single card
+   would still be left alone on the last row (a prime count in a narrow group), it spans that row.
+   Same rule as `balancedInsightColumns` (insight-card.tsx; the spec checks the two agree).
+   Generated for 1–12 cards; more cards fall back to auto-fit. */
+[data-slot="insight-group-frame"] {
+  container: insight-group / inline-size;
+}
+[data-slot="insight-group"][data-fit] {
+  grid-template-columns: minmax(0, 1fr);
+}
+@container insight-group (min-width: 24.5rem) {
+  [data-slot="insight-group"][data-fit]:not([data-count]) {
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="3"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="3"] > :last-child {
+    grid-column: 1 / -1;
+  }
+  [data-slot="insight-group"][data-fit][data-count="4"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="5"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="5"] > :last-child {
+    grid-column: 1 / -1;
+  }
+  [data-slot="insight-group"][data-fit][data-count="6"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="7"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="7"] > :last-child {
+    grid-column: 1 / -1;
+  }
+  [data-slot="insight-group"][data-fit][data-count="8"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="9"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="9"] > :last-child {
+    grid-column: 1 / -1;
+  }
+  [data-slot="insight-group"][data-fit][data-count="10"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="11"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="11"] > :last-child {
+    grid-column: 1 / -1;
+  }
+  [data-slot="insight-group"][data-fit][data-count="12"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container insight-group (min-width: 37rem) {
+  [data-slot="insight-group"][data-fit][data-count="3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="3"] > :last-child {
+    grid-column: auto;
+  }
+  [data-slot="insight-group"][data-fit][data-count="5"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="5"] > :last-child {
+    grid-column: auto;
+  }
+  [data-slot="insight-group"][data-fit][data-count="6"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="7"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="8"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="9"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="9"] > :last-child {
+    grid-column: auto;
+  }
+  [data-slot="insight-group"][data-fit][data-count="10"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="10"] > :last-child {
+    grid-column: 1 / -1;
+  }
+  [data-slot="insight-group"][data-fit][data-count="11"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="11"] > :last-child {
+    grid-column: auto;
+  }
+  [data-slot="insight-group"][data-fit][data-count="12"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@container insight-group (min-width: 49.5rem) {
+  [data-slot="insight-group"][data-fit][data-count="4"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="7"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="7"] > :last-child {
+    grid-column: auto;
+  }
+  [data-slot="insight-group"][data-fit][data-count="8"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="10"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="10"] > :last-child {
+    grid-column: auto;
+  }
+  [data-slot="insight-group"][data-fit][data-count="11"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="12"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@container insight-group (min-width: 62rem) {
+  [data-slot="insight-group"][data-fit][data-count="5"] {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="9"] {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="10"] {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+@container insight-group (min-width: 74.5rem) {
+  [data-slot="insight-group"][data-fit][data-count="6"] {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="11"] {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  [data-slot="insight-group"][data-fit][data-count="12"] {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+@container insight-group (min-width: 87rem) {
+  [data-slot="insight-group"][data-fit][data-count="7"] {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+}
+@container insight-group (min-width: 99.5rem) {
+  [data-slot="insight-group"][data-fit][data-count="8"] {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+}
 
 /* Reduced motion: panel rows change state instantly (report cards: see their block). */
 @media (prefers-reduced-motion: reduce) {

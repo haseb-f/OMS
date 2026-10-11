@@ -3,7 +3,14 @@ import { cleanup, render } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { UserPlus } from "lucide-react";
-import { InsightCard, InsightGroup, InsightScope, resolveInsightTone } from "./insight-card";
+import {
+  INSIGHT_GROUP_BALANCED_MAX,
+  InsightCard,
+  InsightGroup,
+  InsightScope,
+  balancedInsightColumns,
+  resolveInsightTone,
+} from "./insight-card";
 
 afterEach(cleanup);
 
@@ -112,16 +119,19 @@ describe("InsightCard interactivity (Round 8)", () => {
 });
 
 describe("InsightGroup fit (R14 fix — partner statement summary)", () => {
-  it("sizes columns from the space it gets, never from viewport breakpoints", () => {
+  it("sizes columns from the space it gets (a container frame), never from viewport breakpoints", () => {
     const { container } = render(
-      <InsightGroup fit>
+      <InsightGroup fit className="flex-1" aria-busy="true">
         <InsightCard label="A" value="1" tone="info" />
       </InsightGroup>,
     );
-    const group = container.querySelector('[data-slot="insight-group"]')!;
-    expect(group.className).toContain("grid-cols-1");
-    expect(group.className).toContain("sm:grid-cols-[repeat(auto-fit,minmax(12rem,1fr))]");
-    expect(group.className).not.toMatch(/\b(md|lg|xl):grid-cols-\d/);
+    const frame = container.querySelector('[data-slot="insight-group-frame"]')!;
+    const group = frame.querySelector('[data-slot="insight-group"]')!;
+    // The caller's placement goes on the frame (the queried container); props on the grid.
+    expect(frame.className).toContain("flex-1");
+    expect(group.getAttribute("aria-busy")).toBe("true");
+    expect(group.hasAttribute("data-fit")).toBe(true);
+    expect(group.className).not.toMatch(/grid-cols-/);
   });
 
   it("company partner summaries use the fit layout (no fixed 5–6 column rows)", () => {
@@ -135,6 +145,93 @@ describe("InsightGroup fit (R14 fix — partner statement summary)", () => {
       expect(source).toContain("<InsightGroup fit>");
       // R17: a fixed few-column row (e.g. two summary cards) is fine; never 5+ fixed columns.
       expect(source).not.toMatch(/<InsightGroup className="[^"]*grid-cols-[5-9]/);
+    }
+  });
+});
+
+describe("InsightGroup fit — balanced rows, no lone orphan (R17)", () => {
+  it("chooses a column count that never leaves one card alone on the last row", () => {
+    // 6 cards: 6 in one row, else 3 + 3 — never 5 + 1 or 4 + 2.
+    expect(balancedInsightColumns(6, 8).columns).toBe(6);
+    expect(balancedInsightColumns(6, 6).columns).toBe(6);
+    expect(balancedInsightColumns(6, 5).columns).toBe(3);
+    expect(balancedInsightColumns(6, 4).columns).toBe(3);
+    expect(balancedInsightColumns(6, 2).columns).toBe(2);
+    // 5 cards: 5, else 3 + 2.
+    expect(balancedInsightColumns(5, 5).columns).toBe(5);
+    expect(balancedInsightColumns(5, 4).columns).toBe(3);
+    expect(balancedInsightColumns(4, 3).columns).toBe(2);
+    for (let count = 2; count <= INSIGHT_GROUP_BALANCED_MAX; count += 1) {
+      for (let room = 1; room <= 8; room += 1) {
+        const { columns, spanLast } = balancedInsightColumns(count, room);
+        expect(columns).toBeLessThanOrEqual(room);
+        const last = count % columns || columns;
+        // A lone last card only when unavoidable — and then it spans its row.
+        expect(spanLast).toBe(columns > 1 && last === 1);
+        // Rows are as even as possible: the last row is short by less than one card per row.
+        expect(columns - last).toBeLessThan(Math.ceil(count / columns));
+      }
+    }
+  });
+
+  it("counts the rendered cards (fragments flattened, empty slots skipped)", () => {
+    const show = false;
+    const { container } = render(
+      <InsightGroup fit>
+        <>
+          <InsightCard label="A" value="1" />
+          <InsightCard label="B" value="2" />
+        </>
+        {[3, 4, 5].map((n) => (
+          <InsightCard key={n} label={`C${n}`} value={n} />
+        ))}
+        {show ? <InsightCard label="X" value="0" /> : null}
+        <InsightCard label="F" value="6" />
+      </InsightGroup>,
+    );
+    const group = container.querySelector('[data-slot="insight-group"]')!;
+    expect(group.getAttribute("data-count")).toBe("6");
+  });
+
+  it("the recipe applies exactly the balanced rule per container width", () => {
+    const css = readFileSync(join(process.cwd(), "src/theme/recipes.css"), "utf8").replace(
+      /\r\n/g,
+      "\n",
+    );
+    expect(css).toMatch(
+      /\[data-slot="insight-group-frame"\] \{\s*container: insight-group \/ inline-size;/,
+    );
+    const queries = [
+      ...css.matchAll(/@container insight-group \(min-width: ([\d.]+)rem\) \{([\s\S]*?)\n\}/g),
+    ];
+    expect(queries.length).toBeGreaterThan(0);
+    for (let count = 2; count <= INSIGHT_GROUP_BALANCED_MAX; count += 1) {
+      // Simulate the cascade: queries are min-width, so the widest matching one wins.
+      let columns = 1;
+      let span = false;
+      for (let room = 2; room <= 8; room += 1) {
+        const minWidth = room * 12 + (room - 1) * 0.5;
+        for (const [, width, body] of queries) {
+          if (Number(width) !== minWidth) continue;
+          const cols = body.match(
+            new RegExp(
+              `\\[data-count="${count}"\\] \\{\\s*grid-template-columns: repeat\\((\\d+),`,
+            ),
+          );
+          if (cols) columns = Number(cols[1]);
+          const last = body.match(
+            new RegExp(`\\[data-count="${count}"\\] > :last-child \\{\\s*grid-column: ([^;]+);`),
+          );
+          if (last) span = last[1] === "1 / -1";
+        }
+        const expected = balancedInsightColumns(count, room);
+        expect({ count, room, columns, span }).toEqual({
+          count,
+          room,
+          columns: expected.columns,
+          span: expected.spanLast,
+        });
+      }
     }
   });
 });
