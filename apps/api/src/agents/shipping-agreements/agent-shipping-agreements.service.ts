@@ -5,6 +5,7 @@ import { NumberingEngineService } from '../../numbering/numbering-engine.service
 import { MasterDataActivityLogService } from '../../master-data/master-data-activity-log.service';
 import {
   addCalendarDays,
+  businessDayStart,
   todayBusinessDate,
 } from '../../common/time/business-date';
 import {
@@ -14,6 +15,7 @@ import {
 } from '../common/agent-errors';
 import {
   destinationKeyOf,
+  isCodService,
   shippingAgreementCoverage,
   tariffScopeOf,
 } from '../pricing/agent-shipping-tariff';
@@ -23,7 +25,7 @@ import {
   dateOnly,
   dayString,
   describeDestination,
-  inForceWhere,
+  inForceAtWhere,
   overlappingRangeWhere,
   shippingAgreementDay,
 } from './shipping-agreement-resolution';
@@ -33,6 +35,7 @@ import type {
   DeactivateShippingAgreementDto,
   DuplicateShippingAgreementDto,
   ShippingAgreementRateDto,
+  ShippingAgreementVersionDto,
   UpdateShippingAgreementDto,
 } from './dto/shipping-agreement.dto';
 
@@ -53,9 +56,17 @@ const DETAIL_INCLUDE = {
       { service: 'asc' },
     ],
   },
-  supersedes: { select: { id: true, agreementNumber: true } },
+  supersedes: {
+    select: { id: true, agreementNumber: true, versionNumber: true },
+  },
   supersededBy: {
-    select: { id: true, agreementNumber: true, effectiveFrom: true },
+    select: {
+      id: true,
+      agreementNumber: true,
+      versionNumber: true,
+      effectiveFrom: true,
+      activeFrom: true,
+    },
   },
 } satisfies Prisma.AgentShippingAgreementInclude;
 
@@ -69,9 +80,15 @@ interface NormalizedRate {
   city: string;
   destinationKey: string;
   amount: number;
+  codFee: DetailRow['rates'][number]['codFee'];
 }
 
 const money = (value: number) => value.toFixed(2);
+const decimalOrNull = (value: Prisma.Decimal | null) =>
+  value == null ? null : Number(value);
+/** First instant of a shipping agreement's (Cairo) start day. */
+const dayStartOf = (effectiveFrom: Date) =>
+  businessDayStart(dayString(effectiveFrom));
 
 /**
  * The agent's shipping agreement document (R15 D15-13, spec-w3 §1):
@@ -131,10 +148,14 @@ export class AgentShippingAgreementsService {
           supersededBy: { select: { id: true, agreementNumber: true } },
           _count: { select: { rates: true } },
         },
-        orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [
+          { effectiveFrom: 'desc' },
+          { versionNumber: 'desc' },
+          { createdAt: 'desc' },
+        ],
       }),
       this.prisma.agentShippingAgreement.findFirst({
-        where: inForceWhere(agentId, shippingAgreementDay(new Date())),
+        where: inForceAtWhere(agentId, new Date()),
         select: { id: true },
       }),
     ]);
@@ -142,6 +163,7 @@ export class AgentShippingAgreementsService {
       inForceId: inForce?.id ?? null,
       items: items.map(({ _count, ...row }) => ({
         ...row,
+        codCollectionFee: decimalOrNull(row.codCollectionFee),
         rateCount: _count.rates,
       })),
     };
@@ -183,6 +205,7 @@ export class AgentShippingAgreementsService {
           effectiveFrom,
           effectiveTo,
           notes: dto.notes ?? null,
+          codCollectionFee: dto.codCollectionFee ?? null,
           createdBy: userId,
           updatedBy: userId,
           rates: {
@@ -229,20 +252,63 @@ export class AgentShippingAgreementsService {
     assertRange(effectiveFrom, effectiveTo);
     const notes =
       dto.notes === undefined ? existing.notes : dto.notes?.trim() || null;
+    const codCollectionFee =
+      dto.codCollectionFee === undefined
+        ? decimalOrNull(existing.codCollectionFee)
+        : dto.codCollectionFee;
+    // R17 compact form: the complete rate list replaces the draft's rows.
+    const rates = dto.rates ? await this.normalizeRates(dto.rates) : null;
+    const before = rates
+      ? await this.prisma.agentShippingAgreementRate.findMany({
+          where: { shippingAgreementId: id },
+        })
+      : [];
+    const diff = rates
+      ? await this.termsDiff(
+          {
+            codCollectionFee: decimalOrNull(existing.codCollectionFee),
+            notes: existing.notes,
+            rates: before.map(normalizedFromRow),
+          },
+          { codCollectionFee, notes, rates },
+        )
+      : null;
     await this.prisma.$transaction(async (tx) => {
       await tx.agentShippingAgreement.update({
         where: { id },
-        data: { effectiveFrom, effectiveTo, notes, updatedBy: userId },
+        data: {
+          effectiveFrom,
+          effectiveTo,
+          notes,
+          codCollectionFee,
+          updatedBy: userId,
+        },
       });
+      if (rates) {
+        await tx.agentShippingAgreementRate.deleteMany({
+          where: { shippingAgreementId: id },
+        });
+        await tx.agentShippingAgreementRate.createMany({
+          data: rates.map((rate) => ({
+            ...rate,
+            shippingAgreementId: id,
+            createdBy: userId,
+            updatedBy: userId,
+          })),
+        });
+      }
+      const feeChanged =
+        codCollectionFee !== decimalOrNull(existing.codCollectionFee);
       await this.audit(
         tx,
         id,
         'UPDATED',
         bilingual(
-          `الفترة ${period(effectiveFrom, effectiveTo).ar}${notes !== existing.notes ? '، وتغيّرت الملاحظات' : ''}`,
-          `Dates ${period(effectiveFrom, effectiveTo).en}${notes !== existing.notes ? ', notes changed' : ''}`,
+          `الفترة ${period(effectiveFrom, effectiveTo).ar}${notes !== existing.notes ? '، وتغيّرت الملاحظات' : ''}${feeChanged ? `، رسوم التحصيل ${feeText(codCollectionFee).ar}` : ''}${diff?.text.length ? `؛ ${diff.text.map((t) => t.ar).join('؛ ')}` : ''}`,
+          `Dates ${period(effectiveFrom, effectiveTo).en}${notes !== existing.notes ? ', notes changed' : ''}${feeChanged ? `, COD collection fee ${feeText(codCollectionFee).en}` : ''}${diff?.text.length ? `; ${diff.text.map((t) => t.en).join('; ')}` : ''}`,
         ),
         userId,
+        diff ? { changes: diff.changes } : undefined,
       );
     });
     return this.findOne(agentId, id);
@@ -270,7 +336,7 @@ export class AgentShippingAgreementsService {
         tx,
         id,
         'RATE_ADDED',
-        bilingual(await this.rateText(rate, money(rate.amount))),
+        bilingual(await this.rateText(rate, rateAmountText(rate))),
         userId,
       );
     });
@@ -298,8 +364,11 @@ export class AgentShippingAgreementsService {
         id,
         'RATE_UPDATED',
         joinBilingual(
-          await this.rateText(current, money(Number(current.amount))),
-          await this.rateText(rate, money(rate.amount)),
+          await this.rateText(
+            normalizedFromRow(current),
+            rateAmountText(normalizedFromRow(current)),
+          ),
+          await this.rateText(rate, rateAmountText(rate)),
           ' ← ',
           ' → ',
         ),
@@ -391,6 +460,7 @@ export class AgentShippingAgreementsService {
           effectiveFrom,
           effectiveTo: null,
           notes: source.notes,
+          codCollectionFee: source.codCollectionFee,
           createdBy: userId,
           updatedBy: userId,
           rates: {
@@ -400,6 +470,7 @@ export class AgentShippingAgreementsService {
               city: rate.city,
               destinationKey: rate.destinationKey,
               amount: rate.amount,
+              codFee: rate.codFee,
               createdBy: userId,
               updatedBy: userId,
             })),
@@ -504,6 +575,9 @@ export class AgentShippingAgreementsService {
           status: 'ACTIVE',
           activatedAt: new Date(),
           activatedBy: userId,
+          // R17 §2 — a day-dated version is in force from its first instant.
+          activeFrom: dayStartOf(agreement.effectiveFrom),
+          versionNumber: replaced ? replaced.versionNumber + 1 : 1,
           supersedesId: replaced?.id ?? null,
           updatedBy: userId,
         },
@@ -521,6 +595,177 @@ export class AgentShippingAgreementsService {
       );
     });
     return this.findOne(agentId, id);
+  }
+
+  /**
+   * R17 §2 — "Edit" on the ACTIVE agreement in force now. Under the agent
+   * row lock, at the save instant t: a new ACTIVE version (copy + the new
+   * terms, version + 1, `supersedes` = the current one) is in force from t
+   * (`activeFrom = t`, Cairo day of t → the current end date); the current
+   * version closes at t (`activeTo = t`, last day = the day of t) and stays
+   * read-only with its full content. A planned successor of the current
+   * version moves onto the new one. Exactly one version is in force at t
+   * before and after (validated). Orders already submitted keep their
+   * snapshot — nothing is repriced. Both versions are audited with the field
+   * diff (MasterDataActivityLog).
+   */
+  async createVersion(
+    agentId: string,
+    id: string,
+    dto: ShippingAgreementVersionDto,
+    userId: string,
+  ) {
+    const rates = await this.normalizeRates(dto.rates);
+    const newId = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM agents WHERE id = ${agentId}::uuid FOR UPDATE`;
+      const agent = await tx.agent.findFirst({
+        where: { id: agentId, deletedAt: null },
+        select: { currencyId: true },
+      });
+      if (!agent) throw agentNotFoundError('Agent', 'الوكيل');
+      const current = await tx.agentShippingAgreement.findFirst({
+        where: { id, agentId, deletedAt: null },
+        include: {
+          rates: true,
+          supersededBy: { select: { id: true } },
+        },
+      });
+      if (!current) throw notFound();
+      const at = new Date();
+      const inForce = await tx.agentShippingAgreement.findMany({
+        where: inForceAtWhere(agentId, at),
+        select: { id: true },
+      });
+      if (
+        current.status !== 'ACTIVE' ||
+        !inForce.some((row) => row.id === id)
+      ) {
+        throw agentConflict(
+          'SHIPPING_AGREEMENT_NOT_IN_FORCE',
+          'يُعدَّل فقط إصدار اتفاقية الشحن الساري الآن؛ المسودات تُعدَّل مباشرة والإصدارات المغلقة للقراءة فقط',
+          'Only the shipping agreement version in force now can be edited; drafts are edited directly and closed versions are read-only.',
+        );
+      }
+      if (inForce.length !== 1) {
+        throw agentConflict(
+          'SHIPPING_AGREEMENT_VERSION_OVERLAP',
+          'أكثر من إصدار ساري في اللحظة نفسها؛ راجع الاتفاقيات قبل التعديل',
+          'More than one version is in force at this instant; review the agreements before editing.',
+        );
+      }
+      const notes =
+        dto.notes === undefined ? current.notes : dto.notes?.trim() || null;
+      const codCollectionFee =
+        dto.codCollectionFee === undefined
+          ? decimalOrNull(current.codCollectionFee)
+          : dto.codCollectionFee;
+      const diff = await this.termsDiff(
+        {
+          codCollectionFee: decimalOrNull(current.codCollectionFee),
+          notes: current.notes,
+          rates: current.rates.map(normalizedFromRow),
+        },
+        { codCollectionFee, notes, rates },
+      );
+      if (diff.changes.length === 0) {
+        throw agentUnprocessable(
+          'AGREEMENT_NO_CHANGES',
+          'لا توجد تغييرات لحفظها في إصدار جديد',
+          'Nothing changed — no new version was created.',
+        );
+      }
+      const day = shippingAgreementDay(at);
+      const agreementNumber = await this.numberingEngine.generateNumber(
+        'AGENT_SHIPPING_AGREEMENT',
+        undefined,
+        tx,
+      );
+      // A planned successor ("replace from date") follows the new version.
+      if (current.supersededBy) {
+        await tx.agentShippingAgreement.update({
+          where: { id: current.supersededBy.id },
+          data: { supersedesId: null },
+        });
+      }
+      await tx.agentShippingAgreement.update({
+        where: { id },
+        data: { effectiveTo: day, activeTo: at, updatedBy: userId },
+      });
+      const created = await tx.agentShippingAgreement.create({
+        data: {
+          agreementNumber,
+          agentId,
+          currencyId: agent.currencyId,
+          status: 'ACTIVE',
+          effectiveFrom: day,
+          effectiveTo: current.effectiveTo,
+          activeFrom: at,
+          versionNumber: current.versionNumber + 1,
+          supersedesId: id,
+          codCollectionFee,
+          notes,
+          activatedAt: at,
+          activatedBy: userId,
+          createdBy: userId,
+          updatedBy: userId,
+          rates: {
+            create: rates.map((rate) => ({
+              ...rate,
+              createdBy: userId,
+              updatedBy: userId,
+            })),
+          },
+        },
+      });
+      if (current.supersededBy) {
+        await tx.agentShippingAgreement.update({
+          where: { id: current.supersededBy.id },
+          data: { supersedesId: created.id },
+        });
+      }
+      const still = await tx.agentShippingAgreement.findMany({
+        where: inForceAtWhere(agentId, at),
+        select: { id: true },
+      });
+      if (still.length !== 1 || still[0].id !== created.id) {
+        throw agentConflict(
+          'SHIPPING_AGREEMENT_VERSION_OVERLAP',
+          'تعذر إنشاء الإصدار دون تداخل؛ لم يُحفظ شيء',
+          'The version could not be created without an overlap; nothing was saved.',
+        );
+      }
+      const when = LTR(at.toISOString());
+      const ar = diff.text.map((t) => t.ar).join('؛ ');
+      const en = diff.text.map((t) => t.en).join('; ');
+      await this.audit(
+        tx,
+        id,
+        'VERSION_CLOSED',
+        bilingual(
+          `أُغلق الإصدار ${current.versionNumber} عند ${when}، ويحل محله الإصدار ${created.versionNumber} (${agreementNumber}): ${ar}`,
+          `Version ${current.versionNumber} closed at ${when}, replaced by version ${created.versionNumber} (${agreementNumber}): ${en}`,
+        ),
+        userId,
+        { activeTo: at.toISOString(), supersededBy: created.id },
+      );
+      await this.audit(
+        tx,
+        created.id,
+        'VERSION_CREATED',
+        bilingual(
+          `الإصدار ${created.versionNumber} ساري من ${when} بدلًا من ${current.agreementNumber}: ${ar}`,
+          `Version ${created.versionNumber} in force from ${when}, replacing ${current.agreementNumber}: ${en}`,
+        ),
+        userId,
+        {
+          activeFrom: at.toISOString(),
+          supersedes: id,
+          changes: diff.changes,
+        },
+      );
+      return created.id;
+    });
+    return this.findOne(agentId, newId);
   }
 
   /**
@@ -577,13 +822,15 @@ export class AgentShippingAgreementsService {
       countryId: rate.countryId,
       city: rate.city,
       amount: Number(rate.amount),
+      codFee: rate.codFee,
     }));
+    const codCollectionFee = decimalOrNull(agreement.codCollectionFee);
     const [activity, inForce, activation] = await Promise.all([
       this.activityLog.findForEntity(SHIPPING_AGREEMENT_ENTITY, agreement.id),
       this.prisma.agentShippingAgreement.findFirst({
         where: {
           id: agreement.id,
-          ...inForceWhere(agreement.agentId, shippingAgreementDay(new Date())),
+          ...inForceAtWhere(agreement.agentId, new Date()),
         },
         select: { id: true },
       }),
@@ -605,7 +852,7 @@ export class AgentShippingAgreementsService {
     );
     const countryOf = (countryId: string | null) =>
       countryId ? (countries.get(countryId) ?? null) : null;
-    const coverage = shippingAgreementCoverage(rows);
+    const coverage = shippingAgreementCoverage(rows, codCollectionFee);
     // All destinations first, then by country name and city.
     const order = (d: { countryId: string | null; city: string }) =>
       d.countryId
@@ -613,6 +860,7 @@ export class AgentShippingAgreementsService {
         : '0';
     return {
       ...head,
+      codCollectionFee,
       inForceToday: inForce != null,
       createdByUser: people.get(agreement.createdBy ?? '') ?? null,
       activatedByUser: people.get(agreement.activatedBy ?? '') ?? null,
@@ -625,6 +873,7 @@ export class AgentShippingAgreementsService {
         city: rate.city,
         scope: tariffScopeOf(rate),
         amount: Number(rate.amount),
+        codFee: rate.codFee,
       })),
       coverage: {
         complete: coverage.complete,
@@ -691,6 +940,7 @@ export class AgentShippingAgreementsService {
       select: {
         id: true,
         agreementNumber: true,
+        versionNumber: true,
         effectiveFrom: true,
         effectiveTo: true,
         supersededBy: { select: { id: true } },
@@ -752,8 +1002,98 @@ export class AgentShippingAgreementsService {
         city,
         destinationKey,
         amount: dto.amount,
+        // Prepaid-only rows never see the fee: always ADDED (the neutral mode).
+        codFee:
+          dto.service === 'PREPAID_CARRIER' ||
+          dto.service === 'PREPAID_INTERNAL_COURIER'
+            ? 'ADDED'
+            : (dto.codFee ?? 'ADDED'),
       };
     });
+  }
+
+  /**
+   * Field diff between two term sets (R17 §2 audit): the COD collection
+   * fee, the notes and every rate row by service × destination (added /
+   * removed / amount or COD-fee mode changed).
+   */
+  private async termsDiff(
+    before: {
+      codCollectionFee: number | null;
+      notes: string | null;
+      rates: NormalizedRate[];
+    },
+    after: {
+      codCollectionFee: number | null;
+      notes: string | null;
+      rates: NormalizedRate[];
+    },
+  ) {
+    const changes: Array<{
+      field: string;
+      key?: string;
+      from: unknown;
+      to: unknown;
+    }> = [];
+    const text: Bilingual[] = [];
+    if (before.codCollectionFee !== after.codCollectionFee) {
+      changes.push({
+        field: 'codCollectionFee',
+        from: before.codCollectionFee,
+        to: after.codCollectionFee,
+      });
+      text.push({
+        ar: `رسوم التحصيل ${feeText(before.codCollectionFee).ar} ← ${feeText(after.codCollectionFee).ar}`,
+        en: `COD collection fee ${feeText(before.codCollectionFee).en} → ${feeText(after.codCollectionFee).en}`,
+      });
+    }
+    if ((before.notes ?? '') !== (after.notes ?? '')) {
+      changes.push({ field: 'notes', from: before.notes, to: after.notes });
+      text.push({ ar: 'تغيّرت الملاحظات', en: 'notes changed' });
+    }
+    const keyOf = (rate: NormalizedRate) =>
+      `${rate.service}#${rate.destinationKey}`;
+    const old = new Map(before.rates.map((rate) => [keyOf(rate), rate]));
+    const next = new Map(after.rates.map((rate) => [keyOf(rate), rate]));
+    for (const [key, rate] of next) {
+      const was = old.get(key);
+      if (
+        was &&
+        money(was.amount) === money(rate.amount) &&
+        was.codFee === rate.codFee
+      ) {
+        continue;
+      }
+      changes.push({
+        field: 'rate',
+        key,
+        from: was ? { amount: was.amount, codFee: was.codFee } : null,
+        to: { amount: rate.amount, codFee: rate.codFee },
+      });
+      const now = await this.rateText(rate, rateAmountText(rate));
+      text.push(
+        was
+          ? joinParts(
+              await this.rateText(was, rateAmountText(was)),
+              now,
+              ' ← ',
+              ' → ',
+            )
+          : { ar: `أُضيف ${now.ar}`, en: `added ${now.en}` },
+      );
+    }
+    for (const [key, rate] of old) {
+      if (next.has(key)) continue;
+      changes.push({
+        field: 'rate',
+        key,
+        from: { amount: rate.amount, codFee: rate.codFee },
+        to: null,
+      });
+      const was = await this.rateText(rate, rateAmountText(rate));
+      text.push({ ar: `حُذف ${was.ar}`, en: `removed ${was.en}` });
+    }
+    return { changes, text };
   }
 
   /** One row per service × destination; the existing row is named. */
@@ -846,8 +1186,8 @@ export class AgentShippingAgreementsService {
     if (agreement.status !== 'DRAFT') {
       throw agentConflict(
         'SHIPPING_AGREEMENT_NOT_DRAFT',
-        'اتفاقية الشحن المفعّلة لا تُعدَّل؛ انسخها كمسودة جديدة ثم فعّلها مع «الاستبدال من تاريخ»',
-        'An activated shipping agreement is never edited; duplicate it as a new draft, then activate it with "replace from".',
+        'اتفاقية الشحن المفعّلة لا تُعدَّل في مكانها؛ استخدم «تعديل» لإنشاء إصدار جديد يسري من لحظة الحفظ',
+        'An activated shipping agreement is never changed in place; use Edit to create a new version in force from the save instant.',
       );
     }
     return agreement;
@@ -865,6 +1205,48 @@ export class AgentShippingAgreementsService {
 const notFound = () =>
   agentNotFoundError('Shipping agreement', 'اتفاقية الشحن');
 
+/** A stored rate row in the normalized shape (for diffs). */
+const normalizedFromRow = (rate: {
+  service: NormalizedRate['service'];
+  countryId: string | null;
+  city: string;
+  destinationKey: string;
+  amount: Prisma.Decimal;
+  codFee: NormalizedRate['codFee'];
+}): NormalizedRate => ({
+  service: rate.service,
+  countryId: rate.countryId,
+  city: rate.city,
+  destinationKey: rate.destinationKey,
+  amount: Number(rate.amount),
+  codFee: rate.codFee,
+});
+
+/** "35.00" or "35.00 (شامل رسوم التحصيل / incl. COD fee)" for a COD-capable INCLUDED row. */
+function rateAmountText(rate: NormalizedRate): string {
+  const included =
+    rate.codFee === 'INCLUDED' &&
+    (rate.service === 'ANY' || isCodService(rate.service));
+  return included
+    ? `${money(rate.amount)} (شامل رسوم التحصيل / incl. COD fee)`
+    : money(rate.amount);
+}
+
+const feeText = (fee: number | null): Bilingual =>
+  fee == null || fee === 0
+    ? { ar: 'بدون', en: 'none' }
+    : { ar: money(fee), en: money(fee) };
+
+const joinParts = (
+  a: Bilingual,
+  b: Bilingual,
+  arrowAr: string,
+  arrowEn: string,
+): Bilingual => ({
+  ar: `${a.ar}${arrowAr}${b.ar}`,
+  en: `${a.en}${arrowEn}${b.en}`,
+});
+
 function assertRange(from: Date, to: Date | null) {
   if (to && to < from) {
     throw agentUnprocessable(
@@ -878,6 +1260,7 @@ function assertRange(from: Date, to: Date | null) {
 interface OverlapRow {
   id: string;
   agreementNumber: string;
+  versionNumber: number;
   effectiveFrom: Date;
   effectiveTo: Date | null;
   supersededBy: { id: string } | null;

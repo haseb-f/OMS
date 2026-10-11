@@ -14,6 +14,14 @@ import type { AgentLineCommissionRate } from '../commission/agent-commission';
 export interface AgentTermsSnapshot {
   agreementId: string;
   agreementNumber: string;
+  /** R17 §2 — the agreement version (absent on earlier snapshots = 1). */
+  agreementVersion?: number;
+  /**
+   * R17 §2 — the assessment instant (order submission): the versions in
+   * force then priced the order. Absent on earlier snapshots (the order
+   * date applies).
+   */
+  assessedAt?: string;
   currencyId: string;
   /** commission-policy.md A3 — per-class defaults. Absent on legacy snapshots. */
   productCommissionRatePercent?: number;
@@ -85,7 +93,18 @@ export interface AgentShippingChargeSnapshot {
    */
   shippingAgreementId?: string | null;
   shippingAgreementNumber?: string | null;
+  /** R17 §2 — the shipping agreement version that priced it. */
+  shippingAgreementVersion?: number;
   service?: AgentShippingService | null;
+  /**
+   * R17 §3 — how `amount` is made up: the row's `base`, the COD collection
+   * fee added on top (`codFee`) and its mode (NONE = prepaid / no fee;
+   * INCLUDED = the row amount is all-inclusive). Absent on earlier snapshots
+   * (amount = base). `amount` stays what the ledger / commission flows use.
+   */
+  base?: number;
+  codFee?: number;
+  codFeeMode?: AgentShippingCodFeeApplication;
   /** Spec 2 — true while the delivery method is unknown (estimate only). */
   provisional?: boolean;
   /** Channel the amount was resolved for (null = same fee for every channel). */
@@ -105,9 +124,19 @@ export interface AgentShippingChargeSnapshot {
    */
   byChannel?: Record<
     'CARRIER' | 'INTERNAL_COURIER',
-    { rateId: string; amount: number; service?: AgentShippingService } | null
+    {
+      rateId: string;
+      amount: number;
+      service?: AgentShippingService;
+      base?: number;
+      codFee?: number;
+      codFeeMode?: AgentShippingCodFeeApplication;
+    } | null
   >;
 }
+
+/** R17 §3 — how the COD collection fee entered a frozen charge. */
+export type AgentShippingCodFeeApplication = 'ADDED' | 'INCLUDED' | 'NONE';
 
 /**
  * Spec 2 — a shipping-added order whose confirmed payable rose above the
@@ -132,10 +161,13 @@ export interface AgentOrderSnapshot extends AgentTermsSnapshot {
 
 export function snapshotAgreementTerms(
   agreement: AgentAgreement,
+  assessedAt: Date,
 ): AgentTermsSnapshot {
   return {
     agreementId: agreement.id,
     agreementNumber: agreement.agreementNumber,
+    agreementVersion: agreement.versionNumber,
+    assessedAt: assessedAt.toISOString(),
     currencyId: agreement.currencyId,
     productCommissionRatePercent: Number(
       agreement.productCommissionRatePercent,

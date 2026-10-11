@@ -30,6 +30,7 @@ import {
 } from './dto/agent.dto';
 import {
   AgreementPreviewQueryDto,
+  AgreementVersionDto,
   CreateAgreementDto,
   EndAgreementDto,
   UpdateAgreementDto,
@@ -221,6 +222,18 @@ export class AgentsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.agreements.activate(id, agreementId, user.sub);
+  }
+
+  /** R17 §2 — "Edit" on the ACTIVE agreement: a new version from the save instant. */
+  @Post(':id/agreements/:agreementId/versions')
+  @PermissionAction('manage')
+  createAgreementVersion(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('agreementId', ParseUUIDPipe) agreementId: string,
+    @Body() dto: AgreementVersionDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.agreements.createVersion(id, agreementId, dto, user.sub);
   }
 
   @Post(':id/agreements/:agreementId/end')

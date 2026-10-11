@@ -37,6 +37,7 @@ import {
   type AgentOrderActor,
   type FrozenShipping,
 } from '../../agents/orders/agent-orders.service';
+import type { AssessmentPin } from '../../agents/common/agent-assessment';
 import { SalesScopeService } from '../../sales-scope/sales-scope.service';
 import { createHash } from 'node:crypto';
 import {
@@ -682,7 +683,8 @@ export class StoreOrderAmendmentsService {
         },
         this.agentActor(actor),
         {
-          orderDate: order.orderDate,
+          // R17 §2 — re-assessed against the order's own agreement versions.
+          assessment: this.originalAssessment(order),
           employeeId: order.employeeId,
           frozenShipping,
           customer: {
@@ -1242,6 +1244,26 @@ export class StoreOrderAmendmentsService {
       );
     }
     return payable;
+  }
+
+  /**
+   * R17 §2 — the assessment an agent order was priced under: the commission
+   * and shipping agreement versions in its snapshot, at its assessment
+   * instant (orders submitted before R17: the order date). A payment-type /
+   * service / destination change is re-assessed against these — never
+   * against a version saved after the order.
+   */
+  private originalAssessment(order: LoadedOrder): AssessmentPin {
+    const snapshot =
+      order.agentTermsSnapshot as unknown as AgentOrderSnapshot | null;
+    return {
+      at: snapshot?.assessedAt
+        ? new Date(snapshot.assessedAt)
+        : order.orderDate,
+      agreementId: snapshot?.agreementId ?? null,
+      shippingAgreementId:
+        snapshot?.agentShippingCharge?.shippingAgreementId ?? null,
+    };
   }
 
   /** The order's current shipping terms, carried forward by a re-quote (Spec 2 freeze). */

@@ -1,4 +1,4 @@
-import { PartialType } from '@nestjs/mapped-types';
+import { OmitType, PartialType } from '@nestjs/mapped-types';
 import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -101,6 +101,19 @@ export class CreateAgreementDto {
 
 /** DRAFT agreements only. */
 export class UpdateAgreementDto extends PartialType(CreateAgreementDto) {}
+
+/**
+ * R17 §2 — "Edit" on the ACTIVE agreement: the changed terms (omitted =
+ * unchanged). Saved as a new version in force from the save instant; the
+ * dates and currency follow the current version (never edited here).
+ */
+export class AgreementVersionDto extends PartialType(
+  OmitType(CreateAgreementDto, [
+    'effectiveFrom',
+    'effectiveTo',
+    'currencyId',
+  ] as const),
+) {}
 
 export class EndAgreementDto {
   /** Last day the agreement applies (inclusive); defaults to today. */

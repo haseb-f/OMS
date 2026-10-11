@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { PartnersService } from '../../partners/partners.service';
 import { InventoryService } from '../../inventory/inventory.service';
+import { activeAtInstantWhere } from '../shipping-agreements/shipping-agreement-resolution';
 import {
   agentConflict,
   agentNotFoundError,
@@ -355,8 +356,10 @@ export class AgentsService {
 }
 
 /**
- * Agreements in force on `date` (spec §2): activated (ACTIVE, or ENDED with
- * a fixed last day) and `effectiveFrom ≤ date ≤ effectiveTo`.
+ * Agreements in force at `date` (spec §2): activated (ACTIVE, or ENDED with
+ * a fixed last day), `effectiveFrom ≤ day ≤ effectiveTo`, and — R17 §2 —
+ * the instant inside the version's bounds (`activeFrom ≤ date < activeTo`),
+ * so an edit saved mid-day splits the day between two versions.
  */
 export function activeAgreementWhere(
   date: Date,
@@ -367,6 +370,7 @@ export function activeAgreementWhere(
     activatedAt: { not: null },
     effectiveFrom: { lte: day },
     OR: [{ effectiveTo: null }, { effectiveTo: { gte: day } }],
+    ...activeAtInstantWhere(date),
   };
 }
 

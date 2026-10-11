@@ -43,7 +43,14 @@ import {
   agentNotFoundError,
   agentUnprocessable,
 } from '../common/agent-errors';
-import { resolveActiveAgreement } from '../admin/agent-agreements.service';
+import {
+  loadAssessedAgreement,
+  resolveActiveAgreement,
+} from '../admin/agent-agreements.service';
+import {
+  type AssessmentPin,
+  assessmentInstant,
+} from '../common/agent-assessment';
 import {
   DELIVERY_CHANNELS,
   resolveSubmissionTariff,
@@ -56,6 +63,7 @@ import {
   describeDestination,
   missingAgreementMessage,
   missingTariffMessage,
+  loadAssessedShippingAgreement,
   resolveShippingAgreement,
   shippingAgreementDay,
   type InForceShippingAgreement,
@@ -120,6 +128,8 @@ interface PreparedOrder {
   issues: AgentOrderIssue[];
   agent: Pick<Agent, 'id' | 'name' | 'agentNumber' | 'status'> | null;
   agreement: AgentAgreement | null;
+  /** R17 §2 — the assessment instant (submission, or the amended order's original one). */
+  assessedAt: Date;
   /** R15 D15-13 — the shipping agreement in force on the order date (when shipping was priced). */
   shippingAgreement: Pick<
     InForceShippingAgreement,
@@ -162,8 +172,8 @@ interface PreparedOrder {
 }
 
 interface PrepareOptions {
-  /** Amendment re-quote: price on the order's own date, not "now". */
-  orderDate?: Date;
+  /** Amendment re-quote: the order's original assessment, never "now". */
+  assessment?: AssessmentPin;
   /**
    * Amendment re-quote without a destination / payment type / fulfillment
    * change: the shipping terms already on the order (customer shipping,
@@ -193,10 +203,20 @@ export interface AgentAmendmentQuote {
   persist: AgentOrderPersistInput | null;
 }
 
-/** The submission-time charge of one channel, as frozen in the order snapshot. */
+/**
+ * The submission-time charge of one channel, as frozen in the order snapshot
+ * (R17 §3: base, COD collection fee and how it applied; `amount` = the charge).
+ */
 const frozenTariff = (tariff: ResolvedTariff | null) =>
   tariff
-    ? { rateId: tariff.id, amount: tariff.amount, service: tariff.service }
+    ? {
+        rateId: tariff.id,
+        amount: tariff.amount,
+        service: tariff.service,
+        base: tariff.base,
+        codFee: tariff.codFee,
+        codFeeMode: tariff.codFeeMode,
+      }
     : null;
 
 const issue = (code: string, message: string, lineKey?: string) => ({
@@ -749,7 +769,8 @@ export class AgentOrdersService {
     input: AgentOrderPricingDto,
     actor: AgentOrderActor,
     order: {
-      orderDate: Date;
+      /** The order's original assessment (from its snapshot). */
+      assessment: AssessmentPin;
       employeeId: string | null;
       /** Carry the order's shipping terms forward (no destination / payment type / method change). */
       frozenShipping: FrozenShipping | null;
@@ -764,7 +785,7 @@ export class AgentOrdersService {
   ): Promise<AgentAmendmentQuote> {
     const resolved = await this.resolveActor(actor);
     const prepared = await this.prepare(input, resolved, {
-      orderDate: order.orderDate,
+      assessment: order.assessment,
       frozenShipping: order.frozenShipping ?? undefined,
     });
     let customer: AgentCustomerSnapshot | null = null;
@@ -956,19 +977,18 @@ export class AgentOrdersService {
         ),
       );
     }
-    // Agent users always order "now"; internal staff may back-date. An
-    // amendment re-quotes on the order's own date (same agreement / rates).
+    // R17 §2 — assessed at submission: the versions in force at that
+    // instant. Agent users always order "now"; internal staff may back-date.
+    // An amendment re-assesses against the order's own versions (snapshot).
+    const pin = options.assessment ?? null;
     const orderDate =
-      options.orderDate ??
-      (!actor.isAgentUser && input.orderDate
-        ? new Date(input.orderDate)
-        : new Date());
+      pin?.at ?? assessmentInstant(actor.isAgentUser, input.orderDate);
     if (agent) {
-      agreement = await resolveActiveAgreement(
-        agent.id,
-        orderDate,
-        this.prisma,
-      );
+      agreement =
+        (pin?.agreementId
+          ? await loadAssessedAgreement(agent.id, pin.agreementId, this.prisma)
+          : null) ??
+        (await resolveActiveAgreement(agent.id, orderDate, this.prisma));
       if (!agreement) {
         issues.push(
           issue(
@@ -1072,16 +1092,21 @@ export class AgentOrdersService {
       // submission — the fee is final when every channel agrees, else a
       // provisional estimate.
       const destination = { countryId: input.countryId, city: input.city };
-      shippingAgreement = await resolveShippingAgreement(
-        agent.id,
-        orderDate,
-        this.prisma,
-      );
+      shippingAgreement =
+        (pin?.shippingAgreementId
+          ? await loadAssessedShippingAgreement(
+              agent.id,
+              pin.shippingAgreementId,
+              this.prisma,
+            )
+          : null) ??
+        (await resolveShippingAgreement(agent.id, orderDate, this.prisma));
       submissionTariff = shippingAgreement
         ? resolveSubmissionTariff(
             shippingAgreement.rows,
             destination,
             paymentType,
+            shippingAgreement.codCollectionFee,
           )
         : null;
       if (!submissionTariff) {
@@ -1199,7 +1224,16 @@ export class AgentOrdersService {
             : {
                 shippingAgreementId: shippingAgreement.id,
                 shippingAgreementNumber: shippingAgreement.agreementNumber,
+                shippingAgreementVersion: shippingAgreement.versionNumber,
                 service: shipping.rate?.service ?? null,
+                // R17 §3 — { base, codFee, codFeeMode, amount }.
+                ...(shipping.rate
+                  ? {
+                      base: shipping.rate.base,
+                      codFee: shipping.rate.codFee,
+                      codFeeMode: shipping.rate.codFeeMode,
+                    }
+                  : {}),
               }),
           provisional: pending,
           deliveryChannel: pending
@@ -1229,6 +1263,7 @@ export class AgentOrdersService {
       issues,
       agent,
       agreement,
+      assessedAt: orderDate,
       shippingAgreement: shippingAgreement
         ? {
             id: shippingAgreement.id,
@@ -1349,7 +1384,10 @@ export class AgentOrdersService {
     return {
       agentId: prepared.agent!.id,
       agentAgreementId: agreement.id,
-      agentTermsSnapshot: snapshotAgreementTerms(agreement),
+      agentTermsSnapshot: snapshotAgreementTerms(
+        agreement,
+        prepared.assessedAt,
+      ),
       customer,
       currencyId: agreement.currencyId,
       employeeId,

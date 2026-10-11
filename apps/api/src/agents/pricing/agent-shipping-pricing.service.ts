@@ -238,7 +238,18 @@ export class AgentShippingPricingService {
       rateId: tariff.id,
       shippingAgreementId: current.shippingAgreementId ?? null,
       shippingAgreementNumber: current.shippingAgreementNumber ?? null,
+      ...(current.shippingAgreementVersion != null
+        ? { shippingAgreementVersion: current.shippingAgreementVersion }
+        : {}),
       service,
+      // R17 §3 — the chosen channel's frozen make-up (absent on older snapshots).
+      ...(frozen?.codFeeMode
+        ? {
+            base: frozen.base,
+            codFee: frozen.codFee,
+            codFeeMode: frozen.codFeeMode,
+          }
+        : {}),
       provisional: false,
       deliveryChannel: channel,
       paymentType,

@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsDateString,
@@ -12,13 +13,20 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { AgentShippingService } from '@prisma/client';
+import { AgentShippingCodFeeMode, AgentShippingService } from '@prisma/client';
 import { IsOptionalUuid } from '../../../common/decorators/is-optional-uuid.decorator';
 import { emptyToUndefined } from '../../../common/transforms/empty-to-undefined';
 
+/** R17 §3 — COD collection fee: fixed, agreement currency; null / '' = none. */
+const codCollectionFeeValue = ({ value }: { value: unknown }): unknown =>
+  value === '' || value === null ? null : value;
+
 /** One agreed charge: service × destination (all / country / country + city). */
 export class ShippingAgreementRateDto {
-  /** Required — a charge always names its service (no wildcard). */
+  /**
+   * Required — a charge always names its service; `ANY` (R17 §3) is the
+   * default row that prices every service.
+   */
   @IsEnum(AgentShippingService)
   service!: AgentShippingService;
 
@@ -38,6 +46,14 @@ export class ShippingAgreementRateDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   amount!: number;
+
+  /**
+   * R17 §3 — COD orders priced by this row: ADDED (default) = amount + the
+   * agreement's COD collection fee; INCLUDED = the amount is all-inclusive.
+   */
+  @IsEnum(AgentShippingCodFeeMode)
+  @IsOptional()
+  codFee?: AgentShippingCodFeeMode;
 }
 
 export class CreateShippingAgreementDto {
@@ -57,6 +73,14 @@ export class CreateShippingAgreementDto {
   @MaxLength(2000)
   notes?: string;
 
+  /** R17 §3 — optional fixed COD collection fee (agreement currency). */
+  @Transform(codCollectionFeeValue)
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  codCollectionFee?: number | null;
+
   /** Optional starting rows (same rules as adding them one by one). */
   @IsArray()
   @ValidateNested({ each: true })
@@ -65,7 +89,35 @@ export class CreateShippingAgreementDto {
   rates?: ShippingAgreementRateDto[];
 }
 
-/** DRAFT only. `effectiveTo: null` clears the end date (open-ended). */
+/**
+ * R17 §2 — "Edit" on the ACTIVE agreement: the complete new terms (rates
+ * replace the current list). Saved as a new version in force from the save
+ * instant; the current version closes at that same instant.
+ */
+export class ShippingAgreementVersionDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => ShippingAgreementRateDto)
+  rates!: ShippingAgreementRateDto[];
+
+  @Transform(codCollectionFeeValue)
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  codCollectionFee?: number | null;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(2000)
+  notes?: string | null;
+}
+
+/**
+ * DRAFT only. `effectiveTo: null` clears the end date (open-ended); `rates`
+ * (R17 compact form) replaces every row of the draft when present.
+ */
 export class UpdateShippingAgreementDto {
   @IsDateString()
   @IsOptional()
@@ -80,6 +132,19 @@ export class UpdateShippingAgreementDto {
   @IsOptional()
   @MaxLength(2000)
   notes?: string | null;
+
+  @Transform(codCollectionFeeValue)
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  codCollectionFee?: number | null;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ShippingAgreementRateDto)
+  @IsOptional()
+  rates?: ShippingAgreementRateDto[];
 }
 
 export class DuplicateShippingAgreementDto {
