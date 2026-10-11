@@ -97,7 +97,7 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
         primary={
           <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
             <LocaleText>{row.original.customerName}</LocaleText>
-            {isNewToViewer(row.original) ? <LeadNewToYouMarker compact /> : null}
+            {isNewToViewer(row.original) ? <LeadNewToYouMarker /> : null}
           </span>
         }
         secondary={

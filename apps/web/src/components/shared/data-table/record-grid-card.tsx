@@ -53,7 +53,7 @@ export interface RecordGridCardProps {
   nextActionLabel?: string;
   /** Muted line at the end of the reference row (date, amount). */
   meta?: ReactNode;
-  /** Small marker beside the title ("new to you"). */
+  /** Small per-viewer marker in the card header, beside the identity ("Unopened"). */
   marker?: ReactNode;
   /** Row actions, as the shared kebab menu... */
   actions?: RowAction[];
@@ -152,6 +152,13 @@ export function RecordGridCard({
             <div className="min-w-0 truncate text-caption text-muted-foreground">{subtitle}</div>
           ) : null}
         </div>
+        {marker ? (
+          // R17: the per-viewer marker ("Unopened") belongs to the header, beside the identity,
+          // outside the stretched record link so it never truncates with the title.
+          <div data-record-marker="" className="mt-0.5 shrink-0">
+            {marker}
+          </div>
+        ) : null}
         {hasActions ? (
           <div className="relative z-10 -my-1 -me-1 shrink-0">
             {actionsNode ??
@@ -204,12 +211,7 @@ export function RecordGridCard({
         </dl>
       ) : null}
 
-      {badges || marker ? (
-        <div className="flex min-w-0 flex-wrap items-center gap-1">
-          {marker}
-          {badges}
-        </div>
-      ) : null}
+      {badges ? <div className="flex min-w-0 flex-wrap items-center gap-1">{badges}</div> : null}
 
       {nextAction ? (
         <div

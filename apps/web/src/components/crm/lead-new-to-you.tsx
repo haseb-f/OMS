@@ -1,34 +1,31 @@
 "use client";
 
-import { CircleDot } from "lucide-react";
+import { EyeOff } from "lucide-react";
+import { EnterpriseBadge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/providers/locale-provider";
 
 /**
- * "New to you / جديد لك" - the per-employee viewed marker. Deliberately quiet
- * and unlike a status badge (no fill, primary text, small dot): it says "you
- * have not opened this lead", never "nobody has worked it". `compact` is the
- * dot-only form for table rows (the text stays for screen readers + tooltip).
+ * «لم يُفتح» / "Unopened" — the per-viewer marker of a lead this employee has
+ * not opened yet (`isNewToViewer`: set only by opening the lead, never by the
+ * row or card appearing in a list). R17: a clearly visible semantic info
+ * badge — the shared `EnterpriseBadge` info tone (AA token pair, light and
+ * dark) with an icon AND the word, so it never relies on colour alone. The
+ * same badge sits in the table row (whose start edge also carries the accent,
+ * theme/recipes.css "Unopened lead") and in the grid card header. An opened
+ * lead shows nothing: absence is the opened state.
  */
-export function LeadNewToYouMarker({
-  compact = false,
-  className,
-}: {
-  compact?: boolean;
-  className?: string;
-}) {
+export function LeadNewToYouMarker({ className }: { className?: string }) {
   const { t } = useLocale();
   return (
-    <span
+    <EnterpriseBadge
+      variant="info"
       data-new-to-you=""
       title={t("tableViews.card.newToYouHint")}
-      className={cn(
-        "inline-flex shrink-0 items-center gap-1 text-caption font-medium text-primary",
-        className,
-      )}
+      className={cn("font-semibold", className)}
     >
-      <CircleDot aria-hidden className="size-3" />
-      <span className={compact ? "sr-only" : undefined}>{t("tableViews.card.newToYou")}</span>
-    </span>
+      <EyeOff aria-hidden />
+      {t("tableViews.card.newToYou")}
+    </EnterpriseBadge>
   );
 }

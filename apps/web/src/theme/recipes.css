@@ -933,6 +933,17 @@ html[dir="ltr"] :is(h1, h2) {
   > td {
   background-color: var(--table-row-selected-hover);
 }
+/* R17 — unopened lead (`LeadNewToYouMarker`, `data-new-to-you`): the row's start edge carries the
+   info accent next to the «لم يُفتح» / "Unopened" badge in the row (never colour alone). Declared
+   before the selected marker so a selected row still shows the selection edge. */
+[data-slot="table-row"]:has([data-new-to-you]) > td:first-child,
+[data-mobile-row]:has([data-new-to-you]) {
+  box-shadow: inset var(--row-unopened-accent-width) 0 0 var(--row-unopened-accent);
+}
+[dir="rtl"] [data-slot="table-row"]:has([data-new-to-you]) > td:first-child,
+[dir="rtl"] [data-mobile-row]:has([data-new-to-you]) {
+  box-shadow: inset calc(var(--row-unopened-accent-width) * -1) 0 0 var(--row-unopened-accent);
+}
 [data-slot="table-row"][data-state="selected"] > td:first-child {
   box-shadow: inset 2px 0 0 var(--focus-ring);
 }

@@ -119,8 +119,9 @@
   --control-height-sm: 1.75rem; /* 28px — toolbar/filter chips, table row actions */
   --control-height-md: 2rem; /* 32px — default for Button/Input/Select/pickers */
   --control-height-lg: 2.5rem; /* 40px — primary page CTA on touch, auth */
-  /* R16 (spec-1) — sign-in pages: comfortable 50px fields + a ~26rem card. */
-  --auth-control-height: 3.125rem;
+  /* R16 (spec-1) — sign-in pages: comfortable fields + a ~26rem card.
+     R17 §5: fields and the submit button 50px → 46px (text stays 16px). */
+  --auth-control-height: 2.875rem;
   --auth-card-width: 26rem;
   --auth-card-shadow: 0 1px 2px rgb(15 30 60 / 0.04), 0 18px 40px -18px rgb(15 30 60 / 0.22);
 
@@ -230,6 +231,11 @@
   --menu-tone-destructive-bg: #fdeced;
   --menu-tone-info: #0055b3;
   --menu-tone-info-bg: #e8f1ff;
+  /* R17 §1 — unopened lead: the start-edge accent of the table row (the
+     row also shows the «لم يُفتح» info badge). Info tone, ≥ 3:1 against the
+     row surface in both themes (it follows --info-soft-foreground). */
+  --row-unopened-accent: var(--info-soft-foreground);
+  --row-unopened-accent-width: 3px;
   /* Long menus scroll inside this height (keyboard navigation scrolls the
      focused item into view); never taller than the space Radix reports. */
   --menu-max-height: 17rem;

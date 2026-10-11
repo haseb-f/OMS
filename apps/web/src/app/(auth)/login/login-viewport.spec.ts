@@ -27,6 +27,18 @@ describe("R16 login + viewport", () => {
     expect(block).not.toMatch(/maximumScale|userScalable/);
   });
 
+  it("R17 §5: sign-in fields and the submit button share the 46px auth height, text stays 16px", () => {
+    const tokens = read("theme/tokens.css");
+    expect(tokens).toMatch(/--auth-control-height: 2\.875rem;/);
+    const css = read("theme/recipes.css").replace(/\s+/g, " ");
+    expect(css).toMatch(
+      /\.oms-auth-form input:not\(\[type="checkbox"\]\) \{ height: var\(--auth-control-height\);[^}]*font-size: 1rem;/,
+    );
+    expect(css).toMatch(
+      /\.oms-auth-submit \{ height: var\(--auth-control-height\);[^}]*font-size: 1rem;/,
+    );
+  });
+
   it("keeps reveal/hide but drops copy on the sign-in password", () => {
     const page = read("app/(auth)/login/page.tsx");
     expect(page).toMatch(/autoComplete="current-password"[\s\S]*copyable=\{false\}/);
