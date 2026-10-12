@@ -2019,6 +2019,9 @@ const en = {
         days61to90: "61–90",
         over90: "90+",
         bucket: "{range} days",
+        openInvoices: "Open invoices",
+        unapplied: "Unapplied credits",
+        net: "Net balance",
       },
       fields: {
         accountCode: "Account Code",

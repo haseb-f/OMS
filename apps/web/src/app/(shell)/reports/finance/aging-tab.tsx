@@ -19,7 +19,7 @@ import { partnerStatementHref } from "./report-url";
 
 type AgingTotals = Pick<
   AgingPartnerRow,
-  "current" | "days31to60" | "days61to90" | "over90" | "total"
+  "current" | "days31to60" | "days61to90" | "over90" | "total" | "unapplied" | "net"
 >;
 
 const EMPTY_TOTALS: AgingTotals = {
@@ -28,6 +28,8 @@ const EMPTY_TOTALS: AgingTotals = {
   days61to90: 0,
   over90: 0,
   total: 0,
+  unapplied: 0,
+  net: 0,
 };
 
 const BUCKETS: Array<{ key: keyof AgingTotals; labelKey: MessageKey }> = [
@@ -39,7 +41,10 @@ const BUCKETS: Array<{ key: keyof AgingTotals; labelKey: MessageKey }> = [
 
 const COLUMNS: FinancialReportColumn[] = [
   ...BUCKETS.map((bucket) => ({ key: bucket.key, labelKey: bucket.labelKey })),
-  { key: "total", labelKey: "reports.finance.fields.balance", emphasize: true },
+  { key: "total", labelKey: "reports.finance.aging.openInvoices" },
+  // R18 — credits standing against the open invoices; net = what the partner statement shows.
+  { key: "unapplied", labelKey: "reports.finance.aging.unapplied" },
+  { key: "net", labelKey: "reports.finance.aging.net", emphasize: true },
 ];
 
 /**
@@ -68,6 +73,8 @@ export function AgingTab({ side }: { side: "AR" | "AP" }) {
         days61to90: result.totals.days61to90,
         over90: result.totals.over90,
         total: result.totals.total,
+        unapplied: result.totals.unapplied ?? 0,
+        net: result.totals.net ?? result.totals.total,
       });
     } catch (error) {
       reportApiError(error, "common.noResults");
@@ -97,6 +104,8 @@ export function AgingTab({ side }: { side: "AR" | "AP" }) {
           days61to90: item.days61to90,
           over90: item.over90,
           total: item.total,
+          unapplied: -(item.unapplied ?? 0),
+          net: item.net ?? item.total,
         },
         children: [],
       })),
@@ -111,8 +120,18 @@ export function AgingTab({ side }: { side: "AR" | "AP" }) {
     })),
     {
       id: "total",
-      label: t("reports.finance.fields.balance"),
+      label: t("reports.finance.aging.openInvoices"),
       value: totals.total,
+    },
+    {
+      id: "unapplied",
+      label: t("reports.finance.aging.unapplied"),
+      value: -totals.unapplied,
+    },
+    {
+      id: "net",
+      label: t("reports.finance.aging.net"),
+      value: totals.net,
       emphasize: true,
     },
   ];
@@ -133,7 +152,7 @@ export function AgingTab({ side }: { side: "AR" | "AP" }) {
       exportFileName={`${side.toLowerCase()}-aging.csv`}
       nameHeaderKey="reports.finance.fields.partnerName"
       summary={{ items: summaryItems }}
-      footer={{ values: { ...totals } }}
+      footer={{ values: { ...totals, unapplied: -totals.unapplied } }}
     />
   );
 }

@@ -1530,6 +1530,10 @@ export class AccountingReportsService {
         days61to90: number;
         over90: number;
         total: number;
+        /** R18 — money received / paid not applied to an invoice + unrefunded credit notes. */
+        unapplied: number;
+        /** Open invoices less unapplied credits — what the partner statement nets to. */
+        net: number;
       }
     >();
 
@@ -1575,10 +1579,31 @@ export class AccountingReportsService {
         partnerName: invoice.partner.name,
         ...emptyAgingBuckets(),
         total: 0,
+        unapplied: 0,
+        net: 0,
       };
       existing[bucket] += remaining;
       existing.total += remaining;
       byPartner.set(invoice.partnerId, existing);
+    }
+
+    for (const credit of await this.unappliedCredits(side, query, asOf)) {
+      const existing = byPartner.get(credit.partnerId) ?? {
+        partnerId: credit.partnerId,
+        partnerNumber: credit.partnerNumber,
+        partnerName: credit.partnerName,
+        ...emptyAgingBuckets(),
+        total: 0,
+        unapplied: 0,
+        net: 0,
+      };
+      existing.unapplied += credit.amount;
+      byPartner.set(credit.partnerId, existing);
+    }
+    for (const row of byPartner.values()) {
+      row.total = roundReportMoney(row.total);
+      row.unapplied = roundReportMoney(row.unapplied);
+      row.net = roundReportMoney(row.total - row.unapplied);
     }
 
     const partners = [...byPartner.values()].sort((a, b) =>
@@ -1591,10 +1616,15 @@ export class AccountingReportsService {
         acc.days61to90 += row.days61to90;
         acc.over90 += row.over90;
         acc.total += row.total;
+        acc.unapplied += row.unapplied;
+        acc.net += row.net;
         return acc;
       },
-      { ...emptyAgingBuckets(), total: 0 },
+      { ...emptyAgingBuckets(), total: 0, unapplied: 0, net: 0 },
     );
+    for (const key of Object.keys(totals) as (keyof typeof totals)[]) {
+      totals[key] = roundReportMoney(totals[key]);
+    }
 
     return {
       side,
@@ -1605,6 +1635,149 @@ export class AccountingReportsService {
       ),
       totals,
     };
+  }
+
+  /**
+   * R18 — per partner, as of `asOf`: the part of confirmed receipts (AR) /
+   * supplier payments (AP) not applied to any invoice, plus credit notes not
+   * refunded (AR: posted sales returns less customer refunds; AP: posted
+   * purchase returns). The aging lists open invoices; these credits are what
+   * stands against them on the partner's account, so open − unapplied is the
+   * figure the partner statement nets to for these documents.
+   */
+  private async unappliedCredits(
+    side: 'AR' | 'AP',
+    query: AgingQueryDto,
+    asOf: Date,
+  ): Promise<
+    {
+      partnerId: string;
+      partnerNumber: string;
+      partnerName: string;
+      amount: number;
+    }[]
+  > {
+    const scope = {
+      ...(query.partnerId ? { partnerId: query.partnerId } : {}),
+      ...(query.companyId ? { companyId: query.companyId } : {}),
+      ...(query.branchId ? { branchId: query.branchId } : {}),
+      ...(query.currencyId ? { currencyId: query.currencyId } : {}),
+    };
+    const partnerSelect = {
+      select: { id: true, partnerNumber: true, name: true },
+    } as const;
+    const credits = new Map<
+      string,
+      {
+        partnerId: string;
+        partnerNumber: string;
+        partnerName: string;
+        amount: number;
+      }
+    >();
+    const add = (
+      partner: { id: string; partnerNumber: string; name: string } | null,
+      amount: number,
+    ) => {
+      if (!partner || amount <= 0.005) return;
+      const row = credits.get(partner.id) ?? {
+        partnerId: partner.id,
+        partnerNumber: partner.partnerNumber,
+        partnerName: partner.name,
+        amount: 0,
+      };
+      row.amount = roundReportMoney(row.amount + amount);
+      credits.set(partner.id, row);
+    };
+
+    const vouchers = await this.prisma.financialTransaction.findMany({
+      where: {
+        ...scope,
+        type: side === 'AR' ? 'CUSTOMER_RECEIPT' : 'SUPPLIER_PAYMENT',
+        status: FinancialTransactionStatus.CONFIRMED,
+        deletedAt: null,
+        transactionDate: { lte: asOf },
+      },
+      select: {
+        amount: true,
+        feeAmount: true,
+        partner: partnerSelect,
+        allocations: { select: { allocatedAmount: true } },
+      },
+    });
+    for (const voucher of vouchers) {
+      const allocated = voucher.allocations.reduce(
+        (sum, line) => sum + Number(line.allocatedAmount),
+        0,
+      );
+      add(
+        voucher.partner,
+        Number(voucher.amount) + Number(voucher.feeAmount ?? 0) - allocated,
+      );
+    }
+
+    const postedWindow = {
+      deletedAt: null,
+      OR: [
+        { confirmedAt: { lte: asOf } },
+        { confirmedAt: null, createdAt: { lte: asOf } },
+      ],
+    };
+    if (side === 'AR') {
+      const returns = await this.prisma.salesReturn.findMany({
+        where: {
+          ...scope,
+          ...postedWindow,
+          status: {
+            in: [SalesDocumentStatus.CONFIRMED, SalesDocumentStatus.CLOSED],
+          },
+        },
+        select: { id: true, grandTotal: true, partner: partnerSelect },
+      });
+      const refunded = new Map<string, number>();
+      if (returns.length > 0) {
+        const grouped =
+          await this.prisma.financialTransactionAllocation.groupBy({
+            by: ['salesReturnId'],
+            where: {
+              salesReturnId: { in: returns.map((row) => row.id) },
+              transaction: {
+                status: FinancialTransactionStatus.CONFIRMED,
+                deletedAt: null,
+                transactionDate: { lte: asOf },
+              },
+            },
+            _sum: { allocatedAmount: true },
+          });
+        for (const row of grouped) {
+          if (row.salesReturnId) {
+            refunded.set(
+              row.salesReturnId,
+              Number(row._sum.allocatedAmount ?? 0),
+            );
+          }
+        }
+      }
+      for (const row of returns) {
+        add(row.partner, Number(row.grandTotal) - (refunded.get(row.id) ?? 0));
+      }
+    } else {
+      const returns = await this.prisma.purchaseReturn.findMany({
+        where: {
+          ...scope,
+          ...postedWindow,
+          status: {
+            in: [
+              PurchaseDocumentStatus.CONFIRMED,
+              PurchaseDocumentStatus.CLOSED,
+            ],
+          },
+        },
+        select: { grandTotal: true, partner: partnerSelect },
+      });
+      for (const row of returns) add(row.partner, Number(row.grandTotal));
+    }
+    return [...credits.values()];
   }
 
   /**

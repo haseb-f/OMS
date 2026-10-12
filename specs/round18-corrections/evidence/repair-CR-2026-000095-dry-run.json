@@ -1,0 +1,54 @@
+{
+  "appliedAt": null,
+  "apply": false,
+  "receipt": "CR-2026-000095",
+  "before": {
+    "label": "before",
+    "invoice": {
+      "number": "INV-2026-000091",
+      "grandTotal": 200000,
+      "allocatedTotal": 100000,
+      "remainingBalance": 100000,
+      "paymentStatus": "PARTIALLY_PAID"
+    },
+    "vouchers": [
+      {
+        "number": "CR-2026-000096",
+        "status": "CONFIRMED",
+        "amount": 100000,
+        "allocated": 0,
+        "reference": null
+      },
+      {
+        "number": "CR-2026-000095",
+        "status": "CONFIRMED",
+        "amount": 200000,
+        "allocated": 100000,
+        "reference": null
+      }
+    ],
+    "partnerStatement": {
+      "periodDebit": 200000,
+      "periodCredit": 300000,
+      "closingBalance": -100000
+    },
+    "bankAccount": {
+      "from": "2026-10-11",
+      "openingBalance": 0,
+      "closingBalance": 200000,
+      "voucherMovements": [
+        {
+          "entry": "JV-2026-000415",
+          "debit": 200000,
+          "credit": 0
+        }
+      ]
+    },
+    "integrity": "not available: GET /accounting/reports/voucher-integrity → 404 {\"code\":\"NOT_FOUND\",\"message\":\"C"
+  },
+  "actions": [
+    "would cancel CR-2026-000095 (reverses its entry)",
+    "would create + confirm the replacement (100000 → INV-2026-000091, key r18-repair-CR-2026-000095)"
+  ],
+  "after": null
+}

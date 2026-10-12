@@ -2011,6 +2011,9 @@ const ar = {
         days61to90: "61–90",
         over90: "90+",
         bucket: "{range} يوم",
+        openInvoices: "الفواتير المفتوحة",
+        unapplied: "أرصدة دائنة غير مخصصة",
+        net: "صافي الرصيد",
       },
       fields: {
         accountCode: "رمز الحساب",

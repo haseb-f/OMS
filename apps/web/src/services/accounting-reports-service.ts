@@ -358,6 +358,10 @@ export interface AgingPartnerRow {
   days61to90: number;
   over90: number;
   total: number;
+  /** R18 — unapplied receipts / payments + unrefunded credit notes (positive). */
+  unapplied: number;
+  /** Open invoices less unapplied credits. */
+  net: number;
 }
 
 export interface AgingInvoiceRow {

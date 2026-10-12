@@ -105,17 +105,20 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
   /** Synchronous double-click guard for Confirm on a new voucher. */
   const confirmingRef = useRef(false);
 
-  const applyReceipt = useCallback((data: FinancialTransactionRow) => {
-    setReceipt(data);
-    setCustomer(data.partner ?? null);
-    setTransactionDate(new Date(data.transactionDate));
-    setAmount(Number(data.amount));
-    setReferenceNumber(data.referenceNumber ?? "");
-    setNotes(data.notes ?? "");
-    setPaymentSourceId(data.paymentSourceId);
-    setReceivingAccountId(data.receivingAccountId);
-    setAllocations(data.allocations.map(allocationToLine));
-  }, []);
+  const applyReceipt = useCallback(
+    (data: FinancialTransactionRow) => {
+      setReceipt(data);
+      setCustomer(data.partner ?? null);
+      setTransactionDate(new Date(data.transactionDate));
+      setAmount(Number(data.amount));
+      setReferenceNumber(data.referenceNumber ?? "");
+      setNotes(data.notes ?? "");
+      setPaymentSourceId(data.paymentSourceId);
+      setReceivingAccountId(data.receivingAccountId);
+      setAllocations(data.allocations.map(allocationToLine));
+    },
+    [setAmount],
+  );
 
   useEffect(() => {
     if (!id) {
@@ -368,8 +371,8 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
     const invoice = openInvoices.find((inv) => inv.invoiceId === prefillInvoiceId);
     if (!invoice) return;
     appliedInvoicePrefillRef.current = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     proposeAmount(invoice.remainingBalance);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAllocations([
       {
         id: `row-${nextLineId++}`,
@@ -380,7 +383,7 @@ export function ReceiptEditorPage({ id }: { id: string | null }) {
         allocatedAmount: invoice.remainingBalance,
       },
     ]);
-  }, [id, searchParams, openInvoices]);
+  }, [id, searchParams, openInvoices, proposeAmount]);
 
   const handlePayAllRemaining = () => {
     let remaining = unallocatedAmount;

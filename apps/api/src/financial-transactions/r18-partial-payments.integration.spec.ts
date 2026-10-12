@@ -374,6 +374,12 @@ describeDb('R18 — partial payments reconcile (local DB)', () => {
     expect((await summary('salesInvoiceId', invoice)).paymentStatus).toBe(
       'UNPAID',
     );
+    // Aging shows the advance against the open invoice: net = statement view.
+    expect((await reports.arAging({ partnerId })).partners[0]).toMatchObject({
+      total: 50_000,
+      unapplied: 30_000,
+      net: 20_000,
+    });
     await transactions.allocate(
       advance.id,
       { invoiceId: invoice.id, allocatedAmount: 30_000 },
@@ -384,6 +390,11 @@ describeDb('R18 — partial payments reconcile (local DB)', () => {
       paymentStatus: 'PARTIALLY_PAID',
     });
     expect(await accountNet(bankAccountId, [advance.id])).toBe(30_000);
+    expect((await reports.arAging({ partnerId })).partners[0]).toMatchObject({
+      total: 20_000,
+      unapplied: 0,
+      net: 20_000,
+    });
   });
 
   it('cancelling (reversing) a receipt frees the invoice and nets its entry to zero once', async () => {
