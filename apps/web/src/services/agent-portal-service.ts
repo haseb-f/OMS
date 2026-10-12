@@ -2,6 +2,7 @@ import type { DuplicateResolution } from "./order-duplicates-service";
 import type { ShippingHandoffBlocker } from "./shipping-service";
 import { apiClient } from "./api-client";
 import { orderAmendmentsClient } from "./order-amendments-service";
+import type { AgentStockMovement } from "./agent-stock-service";
 import { buildQueryString as buildQuery } from "@/lib/query-string";
 import type {
   AgentCommissionReport,
@@ -199,7 +200,9 @@ export interface PortalStockRow {
   onHand: number;
   reserved: number;
   available: number;
-  shipped: number;
+  /** R18 B — dispatched, not yet delivered (still the agent's, never available). */
+  inTransit: number;
+  delivered: number;
   returned: number;
   product: {
     id: string;
@@ -217,7 +220,8 @@ export interface PortalStock {
     onHand: number;
     reserved: number;
     available: number;
-    shipped: number;
+    inTransit: number;
+    delivered: number;
     returned: number;
   };
 }
@@ -676,6 +680,9 @@ export const agentPortalService = {
   products: (query: { search?: string; page?: number; pageSize?: number } = {}) =>
     apiClient.get<PortalProductsPage>(`${BASE}/products${buildQuery(query)}`),
   stock: () => apiClient.get<PortalStock>(`${BASE}/stock`),
+  /** R18 B — the agent's own stock movement history (read-only). */
+  stockMovements: (params: { productId?: string; page?: number; pageSize?: number } = {}) =>
+    apiClient.get<Paged<AgentStockMovement>>(`${BASE}/stock/movements${buildQuery(params)}`),
   /** Every active country (lead / order destinations). */
   countries: () => apiClient.get<Array<CountryRef & { code: string }>>(`${BASE}/countries`),
   paymentDestinations: () => apiClient.get<PortalDestination[]>(`${BASE}/payment-destinations`),

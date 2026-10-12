@@ -2,6 +2,9 @@ import type { MessageKey } from "@/i18n/translate";
 import type { TraceKind } from "@/services/traceability-service";
 import { assemblyHref } from "@/config/inventory/assembly";
 
+/** R18 B — one agent stock receipt, opened on the receipts page. */
+export const agentStockReceiptHref = (id: string) => `/agents/stock-receipts?receipt=${id}`;
+
 /**
  * The one record-kind → page map. A kind without `href` has no detail page
  * of its own; the related-records panel opens it in place instead of
@@ -100,6 +103,11 @@ export const MOVEMENT_REFERENCE_PAGES: Record<
   { labelKey: MessageKey; href: (id: string) => string }
 > = {
   ASSEMBLY_ORDER: { labelKey: "assembly.referenceLabel", href: assemblyHref },
+  // R18 B — custody receipt of agent-owned goods.
+  AGENT_STOCK_RECEIPT: {
+    labelKey: "agentStock.history.document.AGENT_STOCK_RECEIPT",
+    href: agentStockReceiptHref,
+  },
 };
 
 /** The label and (when the document has a page) the link of a stock movement's source document. */

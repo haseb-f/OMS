@@ -176,12 +176,14 @@ export function PortalStockGridCard({
           <span className="num font-medium text-foreground">{formatNumber(row.available)}</span>
         </span>
       }
-      fields={(["onHand", "reserved", "shipped", "returned"] as const).map((key) => ({
-        key,
-        label: t(`agentPortal.stock.fields.${key}`),
-        value: <span className="num">{formatNumber(row[key])}</span>,
-        numeric: true,
-      }))}
+      fields={(["onHand", "reserved", "inTransit", "delivered", "returned"] as const).map(
+        (key) => ({
+          key,
+          label: t(`agentPortal.stock.fields.${key}`),
+          value: <span className="num">{formatNumber(row[key])}</span>,
+          numeric: true,
+        }),
+      )}
     />
   );
 }

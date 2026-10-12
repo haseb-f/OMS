@@ -106,6 +106,8 @@ model User {
   productAttachments ProductAttachment[]
   managedWarehouses  Warehouse[]
   inventoryMovements InventoryMovement[]
+  /// R18 B — agent stock receipts this user recorded.
+  agentStockReceipts AgentStockReceipt[]
 
   /// Store Orders + Shipping Operations — independent order pipeline, not
   /// routed through Lead/SalesOrder. See the StoreOrder model comment.
@@ -1289,6 +1291,7 @@ model Warehouse {
 
   salesOrders             SalesOrder[]
   inventoryMovements      InventoryMovement[]
+  agentStockReceipts      AgentStockReceipt[]
   locations               WarehouseLocation[]
   preferredByProducts     Product[]
   physicalCounts          PhysicalCount[]
@@ -3874,6 +3877,7 @@ model Product {
 
   activities                ProductActivity[]
   inventoryMovements        InventoryMovement[]
+  agentStockReceiptLines    AgentStockReceiptLine[]
   costHistory               ProductCostHistory[]
   costSnapshot              ProductCostSnapshot?
   purchaseOrderItems        PurchaseOrderItem[]
@@ -4165,6 +4169,10 @@ enum InventoryMovementType {
   /// ADJUSTMENT) so the Stock Movement History can tell a manual adjustment
   /// apart from a count-driven one at a glance.
   PHYSICAL_COUNT
+  /// R18 B — custody receipt of agent-owned (consignment) goods after the
+  /// opening stock (`AgentStockReceipt` kind RECEIPT). Physical quantity only:
+  /// never valued, never a purchase, never posted to the company GL.
+  CONSIGNMENT_RECEIPT
 }
 
 /// Append-only ledger — no updatedAt/updatedBy/deletedAt (ADR-0013). Movement
@@ -4241,6 +4249,9 @@ model InventoryMovement {
   /// Reverse side of PhysicalCountLine.movement — the count line(s) this
   /// movement was generated for (normally at most one).
   physicalCountLines PhysicalCountLine[]
+
+  /// R18 B — the agent stock receipt line this movement records (at most one).
+  agentStockReceiptLine AgentStockReceiptLine?
 
   @@map("inventory_movements")
 }
@@ -10102,6 +10113,8 @@ model Agent {
   ledgerEntries       AgentLedgerEntry[]
   payouts             AgentPayout[]
   returns             AgentOrderReturn[]
+  /// R18 B — custody receipts of the agent's goods (opening + later receipts).
+  stockReceipts       AgentStockReceipt[]
   commissionOverrides AgentProductCommissionOverride[]
   commissionLines     AgentCommissionLine[]
 
@@ -10510,6 +10523,61 @@ model AgentOrderReturn {
 
   @@index([storeOrderId])
   @@map("agent_order_returns")
+}
+
+/// R18 B — what kind of custody receipt: the agent's OPENING stock (first
+/// stock of the products, movement OPENING_BALANCE) or a later RECEIPT
+/// (movement CONSIGNMENT_RECEIPT).
+enum AgentStockReceiptKind {
+  OPENING
+  RECEIPT
+}
+
+/// R18 B (specs/round18-corrections §B) — custody receipt of agent-owned
+/// goods: consignment stock held by the company, physically tracked, never
+/// valued. A thin document over the Inventory Engine: every line is exactly
+/// one append-only InventoryMovement (owner stamped from the product), no
+/// cost, no purchase invoice, no journal entry. Append-only like the ledger
+/// it feeds — a correction is an inventory adjustment, never an edit.
+model AgentStockReceipt {
+  id             String                @id @default(uuid()) @db.Uuid
+  /// App-generated ("ASR-2026-00001") via the Numbering Engine.
+  receiptNumber  String                @unique @map("receipt_number")
+  agentId        String                @map("agent_id") @db.Uuid
+  agent          Agent                 @relation(fields: [agentId], references: [id])
+  warehouseId    String                @map("warehouse_id") @db.Uuid
+  warehouse      Warehouse             @relation(fields: [warehouseId], references: [id])
+  kind           AgentStockReceiptKind
+  /// Business day the goods were received (Cairo day; never in the future).
+  receiptDate    DateTime              @map("receipt_date") @db.Date
+  /// The agent's own document (delivery note, waybill…) — free text.
+  reference      String?
+  notes          String?
+  idempotencyKey String                @unique @map("idempotency_key")
+  createdAt      DateTime              @default(now()) @map("created_at")
+  createdBy      String?               @map("created_by") @db.Uuid
+  createdByUser  User?                 @relation(fields: [createdBy], references: [id])
+
+  lines AgentStockReceiptLine[]
+
+  @@index([agentId, receiptDate])
+  @@map("agent_stock_receipts")
+}
+
+model AgentStockReceiptLine {
+  id         String            @id @default(uuid()) @db.Uuid
+  receiptId  String            @map("receipt_id") @db.Uuid
+  receipt    AgentStockReceipt @relation(fields: [receiptId], references: [id])
+  productId  String            @map("product_id") @db.Uuid
+  product    Product           @relation(fields: [productId], references: [id])
+  quantity   Int
+  /// The one inventory movement this line posted.
+  movementId String            @unique @map("movement_id") @db.Uuid
+  movement   InventoryMovement @relation(fields: [movementId], references: [id])
+
+  @@index([receiptId])
+  @@index([productId])
+  @@map("agent_stock_receipt_lines")
 }
 
 // ---------------------------------------------------------------------------

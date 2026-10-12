@@ -1,0 +1,90 @@
+/** agentStock namespace (ar) — R18 B مخزون الوكلاء بالأمانة: سندات الاستلام وسجل الحركات. */
+const agentStockAr = {
+  nav: {
+    receipts: "استلام مخزون الوكلاء",
+  },
+  receipts: {
+    title: "استلام مخزون الوكلاء",
+    description:
+      "البضاعة التي يسلّمها الوكلاء لعهدتنا — الرصيد الافتتاحي والاستلامات اللاحقة. كميات فقط: بضاعة الوكيل بلا تكلفة على الشركة.",
+    new: "استلام مخزون وكيل",
+    empty: "لم يُستلم مخزون للوكلاء بعد",
+    searchPlaceholder: "ابحث برقم السند أو مرجع الوكيل…",
+    fields: {
+      number: "رقم السند",
+      date: "التاريخ",
+      agent: "الوكيل",
+      warehouse: "المستودع",
+      kind: "النوع",
+      reference: "مرجع الوكيل",
+      notes: "ملاحظات",
+      lines: "المنتجات",
+      quantity: "الكمية",
+      createdBy: "سجّله",
+    },
+    kind: {
+      OPENING: "رصيد افتتاحي",
+      RECEIPT: "استلام",
+    },
+    linesSummary: "{count} منتجات",
+  },
+  form: {
+    title: "استلام مخزون وكيل",
+    nonValued:
+      "تبقى البضاعة ملكًا للوكيل في عهدتنا: تُسجَّل الكميات فقط — بلا تكلفة ولا فاتورة شراء ولا قيد محاسبي.",
+    agent: "الوكيل",
+    kind: "النوع",
+    kindHint: {
+      OPENING: "أول مخزون للوكيل من هذه المنتجات (بلا حركة سابقة).",
+      RECEIPT: "بضاعة مستلمة بعد الرصيد الافتتاحي.",
+    },
+    warehouse: "المستودع",
+    date: "تاريخ الاستلام",
+    reference: "مرجع الوكيل",
+    referencePlaceholder: "إذن تسليم، بوليصة…",
+    notes: "ملاحظات",
+    lines: "المنتجات",
+    product: "المنتج",
+    quantity: "الكمية",
+    addLine: "إضافة منتج",
+    remove: "حذف",
+    submit: "تسجيل الاستلام",
+    success: "تم تسجيل السند {number} — استلام {quantity} وحدة",
+    required: "مطلوب",
+    quantityInvalid: "أدخل عددًا صحيحًا أكبر من صفر",
+    noProducts: "لا توجد لدى هذا الوكيل منتجات تتتبع المخزون بعد.",
+  },
+  history: {
+    title: "سجل حركات المخزون",
+    empty: "لا توجد حركات مخزون بعد",
+    fields: {
+      date: "التاريخ",
+      movement: "الحركة",
+      event: "الحدث",
+      product: "المنتج",
+      warehouse: "المستودع",
+      quantity: "الكمية",
+      document: "المستند",
+    },
+    event: {
+      OPENING: "رصيد افتتاحي",
+      RECEIPT: "استلام",
+      RESERVED: "حجز",
+      RELEASED: "فك حجز",
+      DISPATCHED: "صرف (قيد النقل)",
+      BACK_FROM_TRANSIT: "عودة من النقل",
+      DELIVERED: "تسليم",
+      RETURNED: "مرتجع",
+      ADJUSTED: "تسوية",
+      WRITTEN_OFF: "إعدام",
+      TRANSFERRED: "تحويل",
+    },
+    document: {
+      AGENT_STOCK_RECEIPT: "سند استلام",
+      STORE_ORDER: "طلب",
+      AGENT_RETURN: "مرتجع",
+    },
+  },
+} as const;
+
+export default agentStockAr;

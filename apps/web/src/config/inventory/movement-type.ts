@@ -3,6 +3,7 @@ import type { StatusTone } from "@/components/business/status-tone";
 /** Movement types that add stock - the one rule behind the movement badge tone (table and Grid card). */
 const POSITIVE_MOVEMENT_TYPES: ReadonlySet<string> = new Set([
   "OPENING_BALANCE",
+  "CONSIGNMENT_RECEIPT",
   "PURCHASE_RECEIPT",
   "SALES_RETURN",
   "PRODUCTION_OUTPUT",

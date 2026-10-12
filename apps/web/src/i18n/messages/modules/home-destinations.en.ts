@@ -55,6 +55,8 @@ const destinations = {
   "agents-overview": "Agent summaries and figures: orders, returns, leads and amounts.",
   "agents-list": "The agents table: search, filter, add and edit agents.",
   "agents-collections": "Money collected by agents and its settlement.",
+  "agents-stock-receipts":
+    "Receive agent-owned goods into custody: opening stock and later receipts, quantities only.",
   "expenses-components": "Cost categories used to classify costs.",
   "expenses-product-cost": "Recorded cost per product.",
   "expenses-cost-explorer": "Explore cost components and trends.",

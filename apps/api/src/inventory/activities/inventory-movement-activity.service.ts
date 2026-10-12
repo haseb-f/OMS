@@ -18,6 +18,8 @@ export const InventoryMovementActivityType = {
   PURCHASE_RETURNED: 'PURCHASE_RETURNED',
   PRODUCTION_CONSUMED: 'PRODUCTION_CONSUMED',
   PRODUCTION_OUTPUT_RECEIVED: 'PRODUCTION_OUTPUT_RECEIVED',
+  /** R18 B — agent-owned goods received into custody (non-valued). */
+  CONSIGNMENT_RECEIVED: 'CONSIGNMENT_RECEIVED',
 } as const;
 
 @Injectable()

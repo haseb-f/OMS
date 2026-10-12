@@ -39,6 +39,8 @@ import {
   SetAgentUserPermissionsDto,
 } from '../admin/dto/agent-user.dto';
 import { AgentPortalService } from './agent-portal.service';
+import { AgentStockHistoryService } from '../stock/agent-stock-history.service';
+import { AgentStockMovementsQueryDto } from '../stock/dto/agent-stock.dto';
 import { AgentPortalOrdersService } from './agent-portal-orders.service';
 import { AgentPortalTeamService } from './agent-portal-team.service';
 import { ResetPasswordDto } from '../../users/dto/reset-password.dto';
@@ -74,7 +76,10 @@ const AgentPortalController = (path: string) =>
 
 @AgentPortalController('')
 export class AgentPortalHomeController {
-  constructor(private readonly portal: AgentPortalService) {}
+  constructor(
+    private readonly portal: AgentPortalService,
+    private readonly stockHistory: AgentStockHistoryService,
+  ) {}
 
   @Get('me')
   @RequireAgentPermission('agent.dashboard.view')
@@ -116,6 +121,16 @@ export class AgentPortalHomeController {
     @Query() query: AgentPortalStockQueryDto,
   ) {
     return this.portal.stock(agent, query);
+  }
+
+  /** R18 B — the agent's own stock movement history (receipts, orders, transit, returns); read-only. */
+  @Get('stock/movements')
+  @RequireAgentPermission('agent.stock.view')
+  stockMovements(
+    @CurrentAgent() agent: AgentRequestContext,
+    @Query() query: AgentStockMovementsQueryDto,
+  ) {
+    return this.stockHistory.movements(agent.agentId, query);
   }
 
   @Get('payment-destinations')
