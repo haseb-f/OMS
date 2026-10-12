@@ -18,7 +18,8 @@
 - [x] Cancel = reversal once; idempotent submit + double confirm post once.
 - [x] Over-allocation refused at update / confirm / posting; FX partial receipt; bank match of a different amount refused.
 - [x] Browser (local build, `evidence/a/results.json` 12 / 12): Receive Payment → lower allocation → amount follows → posts 100,000 with no warning; typed 200,000 with 100,000 applied → warning (ar desktop, en 375 px) → back posts nothing; no horizontal scroll.
-- [ ] Production repair of CR-2026-000095 applied after release (`evidence/repair-CR-2026-000095.json`).
+- [x] Production repair of CR-2026-000095 applied after release: cancelled (reversal JV-2026-000417) + replacement CR-2026-000097 100,000 → INV-2026-000091 (JV-2026-000418); re-run idempotent (`evidence/repair-CR-2026-000095*.json`); integrity 0 errors / 0 review.
+- [x] Follow-up found in the live pass: a saved partial receipt marked its invoice line "fully paid" (line capacity = its own amount). Fixed with `allocation-capacity.ts` (invoice open balance + the line once confirmed); journey 13 / 13; web vitest 1278 / 1278.
 
 ## B — agent consignment stock
 

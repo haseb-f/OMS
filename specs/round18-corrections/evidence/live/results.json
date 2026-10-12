@@ -1,0 +1,30 @@
+{
+  "at": "2026-10-12T13:10:42.088Z",
+  "results": [
+    {
+      "name": "repaired receipt CR-2026-000097: 100,000, references CR-2026-000095",
+      "ok": false,
+      "detail": ""
+    },
+    {
+      "name": "AR aging shows open invoices / unapplied credits / net balance",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "agent stock receipts screen loads",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "report card hover: no size change (no layout shift)",
+      "ok": true,
+      "detail": "{\"before\":{\"w\":224,\"h\":115.6875},\"sizeAfter\":{\"w\":224,\"h\":116}}"
+    },
+    {
+      "name": "no page errors on the visited screens",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

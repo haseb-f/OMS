@@ -38,6 +38,7 @@ import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { reportApiError, reportSuccess } from "@/lib/toast";
 import { useIdempotencyKey } from "@/hooks/use-idempotency-key";
 import { formatMoney } from "@/lib/money";
+import { withInvoiceCapacity } from "@/components/financial-transactions/allocation-capacity";
 import {
   unappliedPostingConfirmation,
   useVoucherAmount,
@@ -533,7 +534,7 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
     notes,
     paymentSourceId,
     receivingAccountId,
-    allocations,
+    allocations: withInvoiceCapacity(allocations, openInvoices, payment?.status === "CONFIRMED"),
   };
 
   const handlers: FinancialTransactionEditorHandlers = {

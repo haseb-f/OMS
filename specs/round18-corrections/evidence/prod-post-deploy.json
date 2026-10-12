@@ -1,0 +1,41 @@
+{
+  "at": "2026-10-12T13:07:32.754Z",
+  "agentStockReceipts": {
+    "status": 200,
+    "total": 0
+  },
+  "agentStockFields": {
+    "status": 200,
+    "keys": "productId,warehouseId,onHand,reserved,delivered,returned,available,inTransit,product,warehouse"
+  },
+  "agentStockMovements": {
+    "status": 200,
+    "total": 2
+  },
+  "integrity": {
+    "status": 200,
+    "checked": {
+      "vouchers": 11,
+      "entries": 11,
+      "invoices": 4,
+      "bankMatches": 0
+    },
+    "errors": 0,
+    "review": 1,
+    "issues": [
+      "REVIEW PARTIAL_WITH_UNAPPLIED CR-2026-000095 {\"amount\":200000,\"allocated\":100000,\"unapplied\":100000}"
+    ]
+  },
+  "arAging": {
+    "status": 200,
+    "totals": {
+      "current": 475000,
+      "days31to60": 0,
+      "days61to90": 0,
+      "over90": 0,
+      "total": 475000,
+      "unapplied": 207650,
+      "net": 267350
+    }
+  }
+}

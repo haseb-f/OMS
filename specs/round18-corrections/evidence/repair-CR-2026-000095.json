@@ -1,0 +1,121 @@
+{
+  "appliedAt": "2026-10-12T13:07:47.529Z",
+  "apply": true,
+  "receipt": "CR-2026-000095",
+  "before": {
+    "label": "before",
+    "invoice": {
+      "number": "INV-2026-000091",
+      "grandTotal": 200000,
+      "allocatedTotal": 100000,
+      "remainingBalance": 100000,
+      "paymentStatus": "PARTIALLY_PAID"
+    },
+    "vouchers": [
+      {
+        "number": "CR-2026-000096",
+        "status": "CONFIRMED",
+        "amount": 100000,
+        "allocated": 0,
+        "reference": null
+      },
+      {
+        "number": "CR-2026-000095",
+        "status": "CONFIRMED",
+        "amount": 200000,
+        "allocated": 100000,
+        "reference": null
+      }
+    ],
+    "partnerStatement": {
+      "periodDebit": 200000,
+      "periodCredit": 300000,
+      "closingBalance": -100000
+    },
+    "bankAccount": {
+      "from": "2026-10-11",
+      "openingBalance": 0,
+      "closingBalance": 200000,
+      "voucherMovements": [
+        {
+          "entry": "JV-2026-000415",
+          "debit": 200000,
+          "credit": 0
+        }
+      ]
+    },
+    "integrity": {
+      "errors": 0,
+      "review": 1,
+      "thisPartner": [
+        "REVIEW PARTIAL_WITH_UNAPPLIED CR-2026-000095 {\"amount\":200000,\"allocated\":100000,\"unapplied\":100000}"
+      ]
+    }
+  },
+  "actions": ["cancelled CR-2026-000095", "replacement CR-2026-000097 CONFIRMED amount 100000"],
+  "after": {
+    "label": "after",
+    "invoice": {
+      "number": "INV-2026-000091",
+      "grandTotal": 200000,
+      "allocatedTotal": 100000,
+      "remainingBalance": 100000,
+      "paymentStatus": "PARTIALLY_PAID"
+    },
+    "vouchers": [
+      {
+        "number": "CR-2026-000097",
+        "status": "CONFIRMED",
+        "amount": 100000,
+        "allocated": 100000,
+        "reference": "CR-2026-000095"
+      },
+      {
+        "number": "CR-2026-000096",
+        "status": "CONFIRMED",
+        "amount": 100000,
+        "allocated": 0,
+        "reference": null
+      },
+      {
+        "number": "CR-2026-000095",
+        "status": "CANCELLED",
+        "amount": 200000,
+        "allocated": 0,
+        "reference": null
+      }
+    ],
+    "partnerStatement": {
+      "periodDebit": 400000,
+      "periodCredit": 400000,
+      "closingBalance": 0
+    },
+    "bankAccount": {
+      "from": "2026-10-11",
+      "openingBalance": 0,
+      "closingBalance": 100000,
+      "voucherMovements": [
+        {
+          "entry": "JV-2026-000415",
+          "debit": 200000,
+          "credit": 0
+        },
+        {
+          "entry": "JV-2026-000417",
+          "debit": 0,
+          "credit": 200000
+        },
+        {
+          "entry": "JV-2026-000418",
+          "debit": 100000,
+          "credit": 0
+        }
+      ]
+    },
+    "integrity": {
+      "errors": 0,
+      "review": 0,
+      "thisPartner": []
+    }
+  }
+}

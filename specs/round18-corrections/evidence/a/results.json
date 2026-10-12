@@ -1,11 +1,11 @@
 {
   "base": "http://localhost:3001",
-  "invoice": "INV-2026-000009",
+  "invoice": "INV-2026-000010",
   "results": [
     {
       "name": "invoice 200,000 confirmed",
       "ok": true,
-      "detail": "INV-2026-000009 200000"
+      "detail": "INV-2026-000010 200000"
     },
     {
       "name": "prefill proposes the invoice balance",
@@ -25,7 +25,12 @@
     {
       "name": "receipt posted 100,000, allocated 100,000",
       "ok": true,
-      "detail": "CR-2026-000028 100000"
+      "detail": "CR-2026-000029 100000"
+    },
+    {
+      "name": "saved partial receipt: line not marked fully paid, remaining before = 200,000",
+      "ok": true,
+      "detail": "INV-2026-000010 200,000.00 "
     },
     {
       "name": "invoice 200,000 / allocated 100,000 / outstanding 100,000 / PARTIALLY_PAID",
@@ -45,7 +50,7 @@
     {
       "name": "ar: going back posts nothing",
       "ok": true,
-      "detail": "1 → 1"
+      "detail": "2 → 2"
     },
     {
       "name": "en mobile: unapplied warning before posting",
@@ -60,7 +65,7 @@
     {
       "name": "en mobile: going back posts nothing",
       "ok": true,
-      "detail": "1 → 1"
+      "detail": "2 → 2"
     }
   ]
 }

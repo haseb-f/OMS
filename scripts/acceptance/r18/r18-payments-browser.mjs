@@ -116,6 +116,16 @@ const confirmButton = (page, locale) =>
   const receiptId = new URL(page.url()).pathname.split("/").pop();
   const receipt = await call("GET", `/financial-transactions/receipts/${receiptId}`);
   check("receipt posted 100,000, allocated 100,000", Number(receipt.amount) === 100000 && receipt.status === "CONFIRMED" && Number(receipt.allocations[0]?.allocatedAmount) === 100000, `${receipt.transactionNumber} ${receipt.amount}`);
+  await page.reload();
+  await settle(page);
+  await page.locator('[data-testid="allocation-line"]').first().waitFor({ timeout: 20000 });
+  const lineText = (await page.locator('[data-testid="allocation-line"]').first().innerText()).replace(/\s+/g, " ");
+  check(
+    "saved partial receipt: line not marked fully paid, remaining before = 200,000",
+    !lineText.includes("مدفوعة بالكامل") && /200,000/.test(lineText),
+    lineText,
+  );
+  await page.screenshot({ path: `${OUT}/1b-saved-receipt-ar.png` });
   const after = await call("GET", `/sales/invoices/${invoice.id}`);
   check("invoice 200,000 / allocated 100,000 / outstanding 100,000 / PARTIALLY_PAID", Number(after.allocatedTotal) === 100000 && Number(after.remainingBalance) === 100000 && after.paymentStatus === "PARTIALLY_PAID", `${after.allocatedTotal} / ${after.remainingBalance} / ${after.paymentStatus}`);
   await ctx.close();

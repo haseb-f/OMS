@@ -124,7 +124,12 @@ async function snapshot(label, receipt, invoiceId, bankAccountId) {
 const receipt = await findReceipt(RECEIPT_NUMBER);
 if (!receipt) throw new Error(`${RECEIPT_NUMBER} not found`);
 const allocation = (receipt.allocations ?? []).find((a) => a.salesInvoice?.invoiceNumber === INVOICE_NUMBER);
-const invoiceId = allocation?.salesInvoiceId ?? receipt.allocations?.[0]?.salesInvoiceId;
+// A cancelled receipt has no allocations any more (re-run): resolve the invoice by its number.
+const invoiceId =
+  allocation?.salesInvoiceId ??
+  items(await call("GET", `/sales/invoices?search=${encodeURIComponent(INVOICE_NUMBER)}&pageSize=10`)).find(
+    (row) => row.invoiceNumber === INVOICE_NUMBER && row.partnerId === receipt.partnerId,
+  )?.id;
 if (!invoiceId) throw new Error(`${RECEIPT_NUMBER} has no allocation to ${INVOICE_NUMBER}`);
 const receivingAccounts = items(await call("GET", "/receiving-accounts?pageSize=200"));
 const bankAccountId =
