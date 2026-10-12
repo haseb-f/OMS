@@ -41,7 +41,10 @@ export function SummaryCard({
     <InsightSurface tone={tone} href={href} className="gap-1.5">
       <div className="flex min-w-0 items-center gap-2">
         {Icon ? <InsightIcon icon={Icon} /> : null}
-        <h3 className="min-w-0 flex-1 text-metric-label text-pretty break-words text-muted-foreground">
+        <h3
+          data-slot="insight-label"
+          className="min-w-0 flex-1 text-metric-label text-pretty break-words text-muted-foreground"
+        >
           {title}
         </h3>
         {href ? <Chevron data-slot="insight-go" className="size-4 shrink-0" aria-hidden /> : null}

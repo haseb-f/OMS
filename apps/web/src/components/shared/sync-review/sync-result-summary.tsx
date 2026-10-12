@@ -1,5 +1,6 @@
 "use client";
 
+import { InsightCard, InsightGroup } from "@/components/shared/insight-card";
 import { useLocale } from "@/providers/locale-provider";
 import {
   defaultDecision,
@@ -48,62 +49,49 @@ export function SyncResultSummary({
       <p className="text-ui-title font-semibold">
         {t("importCenter.sync.review.confirmOrders", { count: accepted.length })}
       </p>
-      <dl className="grid grid-cols-2 gap-2 text-caption sm:grid-cols-4">
-        <div className="rounded-lg border border-success/30 bg-success/5 p-3">
-          <dt className="text-muted-foreground">{t("importCenter.sync.review.confirmReady")}</dt>
-          <dd className="text-ui-title font-semibold tabular-nums text-success" dir="ltr">
-            {ready}
-          </dd>
-        </div>
-        <div className="rounded-lg border border-warning/30 bg-warning/5 p-3">
-          <dt className="text-muted-foreground">{t("importCenter.sync.review.confirmWarnings")}</dt>
-          <dd
-            className="text-ui-title font-semibold tabular-nums text-warning-foreground"
-            dir="ltr"
-          >
-            {warnings}
-          </dd>
-        </div>
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-          <dt className="text-muted-foreground">
-            {t("importCenter.sync.review.confirmErrorsExcluded")}
-          </dt>
-          <dd className="text-ui-title font-semibold tabular-nums text-destructive" dir="ltr">
-            {errors}
-          </dd>
-        </div>
-        <div className="rounded-lg border border-info/30 bg-info/5 p-3">
-          <dt className="text-muted-foreground">
-            {t("importCenter.sync.review.confirmDuplicates")}
-          </dt>
-          <dd className="text-ui-title font-semibold tabular-nums text-info" dir="ltr">
-            {duplicates}
-          </dd>
-        </div>
+      {/* R18 §C — the shared report cards (one recipe), never bespoke tinted boxes. */}
+      <InsightGroup fit>
+        <InsightCard
+          tone="success"
+          label={t("importCenter.sync.review.confirmReady")}
+          value={ready}
+          size="compact"
+        />
+        <InsightCard
+          tone="warning"
+          label={t("importCenter.sync.review.confirmWarnings")}
+          value={warnings}
+          size="compact"
+        />
+        <InsightCard
+          tone="destructive"
+          label={t("importCenter.sync.review.confirmErrorsExcluded")}
+          value={errors}
+          size="compact"
+        />
+        <InsightCard
+          tone="info"
+          label={t("importCenter.sync.review.confirmDuplicates")}
+          value={duplicates}
+          size="compact"
+        />
         {phoneMatchAccepted > 0 ? (
-          <div className="rounded-lg border border-success/30 bg-success/5 p-3">
-            <dt className="text-muted-foreground">
-              {t("importCenter.sync.review.confirmPhoneMatchAccepted")}
-            </dt>
-            <dd className="text-ui-title font-semibold tabular-nums text-success" dir="ltr">
-              {phoneMatchAccepted}
-            </dd>
-          </div>
+          <InsightCard
+            tone="success"
+            label={t("importCenter.sync.review.confirmPhoneMatchAccepted")}
+            value={phoneMatchAccepted}
+            size="compact"
+          />
         ) : null}
         {phoneMatchPending > 0 ? (
-          <div className="rounded-lg border border-warning/30 bg-warning/5 p-3">
-            <dt className="text-muted-foreground">
-              {t("importCenter.sync.review.confirmPhoneMatchPending")}
-            </dt>
-            <dd
-              className="text-ui-title font-semibold tabular-nums text-warning-foreground"
-              dir="ltr"
-            >
-              {phoneMatchPending}
-            </dd>
-          </div>
+          <InsightCard
+            tone="warning"
+            label={t("importCenter.sync.review.confirmPhoneMatchPending")}
+            value={phoneMatchPending}
+            size="compact"
+          />
         ) : null}
-      </dl>
+      </InsightGroup>
     </div>
   );
 }

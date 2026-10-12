@@ -496,5 +496,9 @@
   }
   [data-slot="insight-card"]:not([data-print-sheet] *) {
     border-color: var(--print-rule) !important;
+    /* R18 §C: paper has no glass and no hover rise. */
+    translate: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
   }
 }

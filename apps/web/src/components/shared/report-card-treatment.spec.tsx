@@ -146,9 +146,11 @@ describe("shared surface — one implementation for static, link and button card
 });
 
 describe("report-card recipe — hover, focus, touch and motion", () => {
-  it("is paint-only: no transform anywhere in the card block (no layout shift)", () => {
+  it("never shifts layout: no transform, size, spacing or position in the card block", () => {
+    // R18 §C: the only motion is the `translate` rise (outside the flow); no transform.
     expect(block).not.toMatch(/transform\s*:/);
     expect(block).not.toMatch(/(?<![-\w])(width|height|padding|margin|inset|top|left|right)\s*:/);
+    expect(block).not.toMatch(/border(-[a-z]+)?-width\s*:|(?<![-\w])border\s*:/);
   });
 
   it("keeps every :hover under (hover: hover) — a tap never leaves a sticky hover", () => {
