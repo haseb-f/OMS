@@ -528,8 +528,10 @@ Mappings: `components/crm/lead-stage-indicator.tsx`,
 
 - `InsightCard` (`components/shared/insight-card.tsx`): label → figure (+ muted unit) → at most one
   context line. Tone = small tinted icon; verdict colour on the figure only where it means something;
-  `emphasis` (open work / discrepancy) adds a start-edge accent. Only `href` tiles react to hover /
-  focus (tone edge, faint tint, soft elevation — no transform, no layout shift).
+  `emphasis` (open work / discrepancy) adds a start-edge accent. Hover / focus: tone edge, faint tint,
+  soft elevation, no layout shift. R18: glass surface (translucent card + light blur), a 1px
+  (informational) / 2px (actionable) rise via `translate` only, focus = hover + ring, no rise under
+  reduced motion, no hover rules on touch devices (`theme/recipes.css` report cards).
 - `InsightGroup`: related static tiles on ONE surface split by 1px hairlines (block-start and
   inline-start shadows, clipped at the container, so any wrap stays correct). Interactive or verdict
   tiles stay separate cards beside the group. Dashboard: Leads and Orders groups share the 4-column
