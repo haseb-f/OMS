@@ -1,0 +1,56 @@
+{
+  "at": "2026-10-12T11:17:55.903Z",
+  "base": "http://localhost:3011",
+  "results": [
+    {
+      "name": "desktop 1440: email + password fields 44 px",
+      "ok": true,
+      "detail": "44 / 44"
+    },
+    {
+      "name": "desktop 1440: submit 44 px",
+      "ok": true,
+      "detail": "44"
+    },
+    {
+      "name": "desktop 1440: 16 px input text (no iOS zoom)",
+      "ok": true,
+      "detail": "16px"
+    },
+    {
+      "name": "desktop 1440: reveal/hide button fits and is centred",
+      "ok": true,
+      "detail": "{\"toggle\":{\"width\":40,\"height\":40},\"offset\":0}"
+    },
+    {
+      "name": "desktop 1440: no copy action on the password",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile 375: email + password fields 44 px",
+      "ok": true,
+      "detail": "44 / 44"
+    },
+    {
+      "name": "mobile 375: submit 44 px",
+      "ok": true,
+      "detail": "44"
+    },
+    {
+      "name": "mobile 375: 16 px input text (no iOS zoom)",
+      "ok": true,
+      "detail": "16px"
+    },
+    {
+      "name": "mobile 375: reveal/hide button fits and is centred",
+      "ok": true,
+      "detail": "{\"toggle\":{\"width\":40,\"height\":40},\"offset\":0}"
+    },
+    {
+      "name": "mobile 375: no copy action on the password",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}
