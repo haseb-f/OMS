@@ -1,0 +1,61 @@
+{
+  "base": "http://localhost:3001",
+  "receipt": "ASR-2026-00001",
+  "results": [
+    {
+      "name": "agent and its stock readable",
+      "ok": true,
+      "detail": "AG-0001 · 2 products"
+    },
+    {
+      "name": "receipt form has no cost / price input",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "success confirmation names the receipt number",
+      "ok": true,
+      "detail": "تم تسجيل السند ASR-2026-00001 — استلام 10 وحدة"
+    },
+    {
+      "name": "receipt stored: 10 units, agent-owned, no cost",
+      "ok": true,
+      "detail": "ASR-2026-00001 CONSIGNMENT_RECEIPT"
+    },
+    {
+      "name": "on-hand rises by exactly 10",
+      "ok": true,
+      "detail": "50 → 60"
+    },
+    {
+      "name": "no journal entry created (non-valued)",
+      "ok": true,
+      "detail": "124 → 124"
+    },
+    {
+      "name": "agent portal shows the receipt movement",
+      "ok": true,
+      "detail": "13 movements"
+    },
+    {
+      "name": "another agent never sees it",
+      "ok": true,
+      "detail": "status 403"
+    },
+    {
+      "name": "another agent's stock excludes the product",
+      "ok": true,
+      "detail": "status 403"
+    },
+    {
+      "name": "agent cannot call the internal agent endpoint",
+      "ok": true,
+      "detail": "status 403"
+    },
+    {
+      "name": "agent portal stock (en, 375 px): renders without horizontal scroll",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

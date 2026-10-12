@@ -1,0 +1,66 @@
+{
+  "base": "http://localhost:3001",
+  "invoice": "INV-2026-000009",
+  "results": [
+    {
+      "name": "invoice 200,000 confirmed",
+      "ok": true,
+      "detail": "INV-2026-000009 200000"
+    },
+    {
+      "name": "prefill proposes the invoice balance",
+      "ok": true,
+      "detail": "200000"
+    },
+    {
+      "name": "lowering the allocation lowers the amount (100,000)",
+      "ok": true,
+      "detail": "100000"
+    },
+    {
+      "name": "fully applied: no unapplied warning",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "receipt posted 100,000, allocated 100,000",
+      "ok": true,
+      "detail": "CR-2026-000028 100000"
+    },
+    {
+      "name": "invoice 200,000 / allocated 100,000 / outstanding 100,000 / PARTIALLY_PAID",
+      "ok": true,
+      "detail": "100000 / 100000 / PARTIALLY_PAID"
+    },
+    {
+      "name": "ar: unapplied warning before posting",
+      "ok": true,
+      "detail": "جزء من المبلغ غير مخصص لفاتورة سيُسجَّل المبلغ كاملاً (200,000.00) مقبوضاً في الحساب المستلم، ويُخصص منه 100,000.00 للفواتير، ويبقى 100,000.00 دفعة مقدمة على حس"
+    },
+    {
+      "name": "ar: no horizontal scroll",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ar: going back posts nothing",
+      "ok": true,
+      "detail": "1 → 1"
+    },
+    {
+      "name": "en mobile: unapplied warning before posting",
+      "ok": true,
+      "detail": "Part of the amount is not applied to an invoice The full amount (200,000.00) will be recorded as received into the receiving account; 100,000.00 is applied to i"
+    },
+    {
+      "name": "en mobile: no horizontal scroll",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "en mobile: going back posts nothing",
+      "ok": true,
+      "detail": "1 → 1"
+    }
+  ]
+}

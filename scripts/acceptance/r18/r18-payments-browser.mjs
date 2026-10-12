@@ -55,10 +55,12 @@ const product =
   products.find((p) => p.type === "SERVICE" && p.isSellable && !p.ownerAgentId && p.status === "ACTIVE") ??
   products.find((p) => p.isSellable && !p.ownerAgentId && p.status === "ACTIVE" && !p.isInventoryItem);
 if (!customer || !product) throw new Error("demo data: no customer or sellable non-stock product");
+const warehouses = items(await call("GET", "/warehouses?pageSize=50"));
+const warehouse = warehouses.find((w) => w.isDefault && w.isActive) ?? warehouses.find((w) => w.isActive);
 const invoice = await call("POST", "/sales/invoices", {
   partnerId: customer.id,
   referenceNumber: `R18-${Date.now()}`,
-  items: [{ productId: product.id, unitId: product.unitId ?? product.unit?.id, quantity: 1, unitPrice: 200000 }],
+  items: [{ productId: product.id, unitId: product.unitId ?? product.unit?.id, quantity: 1, unitPrice: 200000, warehouseId: warehouse?.id }],
 });
 const confirmedInvoice = await call("POST", `/sales/invoices/${invoice.id}/confirm`);
 check("invoice 200,000 confirmed", Number(confirmedInvoice.grandTotal) === 200000, `${confirmedInvoice.invoiceNumber} ${confirmedInvoice.grandTotal}`);
