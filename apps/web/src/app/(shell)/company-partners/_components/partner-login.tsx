@@ -87,7 +87,10 @@ export function PartnerLoginCard({
     <InsightSurface tone="neutral" className="gap-2">
       <div className="flex min-w-0 items-center gap-2">
         <InsightIcon icon={KeyRound} />
-        <h3 className="min-w-0 flex-1 text-metric-label text-muted-foreground">
+        <h3
+          data-slot="insight-label"
+          className="min-w-0 flex-1 text-metric-label text-muted-foreground"
+        >
           {t("companyPartners.login.title")}
         </h3>
         {status ? (

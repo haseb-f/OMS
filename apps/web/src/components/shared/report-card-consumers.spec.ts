@@ -156,6 +156,49 @@ describe("report-card consumers never style a card locally", () => {
     expect(importers.map((path) => relative(SRC, path))).toEqual([]);
   });
 
+  it("R18 §C: no bespoke summary tile — a headline figure lives only in the shared cards", () => {
+    // A figure-sized numeric run (metric / title scale + tabular digits) in one class string is
+    // the signature of a hand-built summary tile (e.g. a tinted box with a big count). Only the
+    // shared card implementations draw one; document totals are a totals row, not a card.
+    const FIGURE_SIZE =
+      /^(?:[a-z0-9]+:)*text-(?:metric|metric-lg|ui-title|section-title|page-title|display)$/;
+    const NUMERIC = /^(?:[a-z0-9]+:)*(?:num|tabular-nums)$/;
+    const ALLOWED = new Set([
+      "components/shared/insight-card.tsx",
+      "components/reports/report-card.tsx",
+      "components/documents/document-totals.tsx",
+    ]);
+    const offenders: string[] = [];
+    for (const path of files) {
+      const file = relative(SRC, path).replace(/\\/g, "/");
+      if (ALLOWED.has(file)) continue;
+      const source = readFileSync(path, "utf8");
+      for (const m of source.matchAll(/"([^"\n]*)"|`([^`]*)`/g)) {
+        const tokens = (m[1] ?? m[2]).split(/\s+/);
+        if (tokens.some((t) => FIGURE_SIZE.test(t)) && tokens.some((t) => NUMERIC.test(t))) {
+          offenders.push(`${file}: ${(m[1] ?? m[2]).trim()}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("R18 §C: the card slots (surface, title, figure) are drawn only by the shared cards", () => {
+    const OWNERS = new Set([
+      "components/shared/insight-card.tsx",
+      "components/reports/report-card.tsx",
+      "components/agents/summary-card.tsx",
+      "app/(shell)/company-partners/_components/partner-login.tsx",
+    ]);
+    const offenders = files
+      .map((path) => relative(SRC, path).replace(/\\/g, "/"))
+      .filter((file) => !OWNERS.has(file))
+      .filter((file) =>
+        /data-slot="insight-(card|value|label|icon)"/.test(readFileSync(join(SRC, file), "utf8")),
+      );
+    expect(offenders).toEqual([]);
+  });
+
   it("only the one recipe block (and print) styles the report-card slot", () => {
     const recipes = readFileSync(join(SRC, "theme/recipes.css"), "utf8").replace(/\r\n/g, "\n");
     const start = recipes.indexOf("/* ── Report cards");

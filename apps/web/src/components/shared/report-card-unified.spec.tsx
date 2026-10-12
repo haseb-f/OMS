@@ -148,16 +148,60 @@ describe("one token-driven, motion-safe, touch-safe treatment", () => {
     expect(read("app/globals.css")).not.toMatch(/--insight-tint-top:/);
   });
 
-  it("transitions are short, token-timed and paint-only", () => {
+  it("transitions are short, token-timed and never animate layout (paint + the translate rise)", () => {
     const transitions = [...block.matchAll(/transition:([^;]+);/g)].map((m) => m[1]);
     expect(transitions.length).toBeGreaterThan(0);
     for (const value of transitions) {
       if (value.trim() === "none") continue;
       expect(value).toMatch(/var\(--insight-card-duration\)/);
-      expect(value).not.toMatch(/transform|width|height|padding|margin|all/);
+      expect(value).not.toMatch(/transform|width|height|padding|margin|inset|top|left|all/);
     }
     expect(tokens).toMatch(/--insight-card-duration: var\(--duration-base\);/);
-    expect(block).not.toMatch(/transform\s*:|translate|scale\(/);
+    // R18 §C: the rise is the `translate` property only — never transform / scale.
+    expect(block).not.toMatch(/transform\s*:|translateY|scale\(/);
+  });
+
+  it("R18 §C: hover / focus rise 1px (informational) / 2px (actionable) through translate only", () => {
+    expect(tokens).toMatch(/--insight-lift-static: -1px;/);
+    expect(tokens).toMatch(/--insight-lift-active: -2px;/);
+    expect(block).toMatch(/translate: var\(--insight-card-translate, none\);/);
+    expect(block).toMatch(
+      /:not\(\[data-interactive\]\):hover \{[^}]*--insight-card-translate: 0 var\(--insight-lift-static\);/,
+    );
+    expect(block).toMatch(
+      /\[data-interactive\]:focus-visible \{[^}]*--insight-card-translate: 0 var\(--insight-lift-active\);/,
+    );
+    // A press settles the rise; reduced motion removes it (and every transition).
+    expect(block).toMatch(/\[data-interactive\]:active \{\s*--insight-card-translate: none;/);
+    expect(block).toMatch(
+      /@media \(prefers-reduced-motion: reduce\) \{[^}]*\{\s*transition: none;\s*translate: none;/,
+    );
+    // Paper never carries the rise or the blur.
+    const print = read("theme/print.css");
+    expect(print).toMatch(/translate: none !important;/);
+    expect(print).toMatch(/backdrop-filter: none !important;/);
+  });
+
+  it("R18 §C: a glass surface with an opaque fallback, themed for light and dark", () => {
+    // Opaque card by default; the translucent glass + blur only where blur is supported.
+    expect(block).toMatch(/--insight-card-base: var\(--card\);/);
+    expect(block).toMatch(
+      /@supports \(\(backdrop-filter: blur\(1px\)\) or \(-webkit-backdrop-filter: blur\(1px\)\)\) \{\s*\[data-slot="insight-card"\] \{\s*--insight-card-base: var\(--insight-glass\);\s*-webkit-backdrop-filter: var\(--insight-glass-filter\);\s*backdrop-filter: var\(--insight-glass-filter\);/,
+    );
+    expect(block).toMatch(
+      /color-mix\(in oklab, var\(--tone\) var\(--tone-top\), var\(--insight-card-base\)\)/,
+    );
+    for (const token of [
+      "--insight-glass",
+      "--insight-title",
+      "--insight-active-shadow-geometry",
+    ]) {
+      expect(tokens.match(new RegExp(`${token}:`, "g")), token).toHaveLength(2);
+    }
+    // The title reads one step above secondary text.
+    expect(block).toMatch(
+      /\[data-slot="insight-card"\] \[data-slot="insight-label"\] \{\s*color: var\(--insight-title\);/,
+    );
   });
 
   it("prefers-reduced-motion removes every card transition (inside the one block)", () => {

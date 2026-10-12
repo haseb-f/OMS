@@ -27,9 +27,10 @@ describe("R16 login + viewport", () => {
     expect(block).not.toMatch(/maximumScale|userScalable/);
   });
 
-  it("R17 §5: sign-in fields and the submit button share the 46px auth height, text stays 16px", () => {
+  it("R18 §C: sign-in fields and the submit button share the 44px auth height, text stays 16px", () => {
     const tokens = read("theme/tokens.css");
-    expect(tokens).toMatch(/--auth-control-height: 2\.875rem;/);
+    // R17 §5 set 46px (2.875rem); R18 §C −2px → 44px, still a 44px touch target.
+    expect(tokens).toMatch(/--auth-control-height: 2\.75rem;/);
     const css = read("theme/recipes.css").replace(/\s+/g, " ");
     expect(css).toMatch(
       /\.oms-auth-form input:not\(\[type="checkbox"\]\) \{ height: var\(--auth-control-height\);[^}]*font-size: 1rem;/,
@@ -37,6 +38,11 @@ describe("R16 login + viewport", () => {
     expect(css).toMatch(
       /\.oms-auth-submit \{ height: var\(--auth-control-height\);[^}]*font-size: 1rem;/,
     );
+    // The 40px reveal/hide button still fits inside the 44px field (no overflow, centred).
+    expect(css).toMatch(
+      /\.oms-auth-form \[data-slot="password-input"\] button \{ width: 2\.5rem; height: 2\.5rem; \}/,
+    );
+    expect(tokens).not.toMatch(/--auth-control-height: (2\.875|3\.125)rem;/);
   });
 
   it("keeps reveal/hide but drops copy on the sign-in password", () => {

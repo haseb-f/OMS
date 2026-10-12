@@ -120,8 +120,10 @@
   --control-height-md: 2rem; /* 32px — default for Button/Input/Select/pickers */
   --control-height-lg: 2.5rem; /* 40px — primary page CTA on touch, auth */
   /* R16 (spec-1) — sign-in pages: comfortable fields + a ~26rem card.
-     R17 §5: fields and the submit button 50px → 46px (text stays 16px). */
-  --auth-control-height: 2.875rem;
+     R17 §5: fields and the submit button 50px → 46px (text stays 16px).
+     R18 §C: 46px → 44px — still a 44px touch target; text 16px, padding and
+     the 40px reveal/hide button (centred, 2px clear each side) unchanged. */
+  --auth-control-height: 2.75rem;
   --auth-card-width: 26rem;
   --auth-card-shadow: 0 1px 2px rgb(15 30 60 / 0.04), 0 18px 40px -18px rgb(15 30 60 / 0.22);
 
@@ -221,8 +223,13 @@
    - tones: each semantic tone resolves to an AA soft-foreground colour;
    - surface: tone share of the gradient (top → bottom), hairline, icon chip
      and the inner sheen — every text pair stays AA (contrast-check.mjs);
-   - states: hover / focus raise the tint, the edge and a restrained shadow
-     (paint only — never a size or position change);
+   - states: hover / focus raise the tint, the edge and a restrained shadow;
+     R18 §C adds a 1px (informational) / 2px (actionable) rise through the
+     `translate` property only — never a size, margin, padding, border-width
+     or flow-position change, so nothing shifts; reduced motion removes it;
+   - glass (R18 §C): the tone gradient sits on a slightly translucent card
+     colour with a light backdrop blur (opaque card where blur is unsupported);
+   - title: the card label one readable step above secondary text;
    - geometry: one padding for every card (no local padding).
    --------------------------------------------------------------------------- */
 :root {
@@ -257,8 +264,16 @@
   --insight-hover-shadow-tone: 60%;
   --insight-card-padding-inline: 0.875rem; /* 14px */
   --insight-card-padding-block: 0.75rem; /* 12px */
-  /* Short, paint-only state transition (removed under prefers-reduced-motion). */
+  /* Short state transition (paint + the rise; removed under prefers-reduced-motion). */
   --insight-card-duration: var(--duration-base);
+  /* R18 §C — glass surface, readable title, the hover / focus rise and its shadow. */
+  --insight-glass: color-mix(in oklab, var(--card) 86%, transparent);
+  --insight-glass-filter: blur(8px) saturate(1.15);
+  --insight-title: color-mix(in oklab, var(--muted-foreground) 40%, var(--foreground));
+  --insight-lift-static: -1px;
+  --insight-lift-active: -2px;
+  /* Geometry of the actionable hover / focus shadow (its colour is the card's tone). */
+  --insight-active-shadow-geometry: 0 10px 20px -10px;
 }
 .dark {
   --insight-tint-top: 30%;
@@ -274,6 +289,9 @@
   --insight-tint-border-hover: 68%;
   --insight-static-hover-shadow:
     0 0 0 1px rgb(255 255 255 / 0.04), 0 6px 14px -8px rgb(0 0 0 / 0.6);
+  --insight-glass: color-mix(in oklab, var(--card) 80%, transparent);
+  --insight-title: color-mix(in oklab, var(--muted-foreground) 40%, var(--foreground));
+  --insight-active-shadow-geometry: 0 10px 22px -8px;
 }
 
 /* ---------------------------------------------------------------------------

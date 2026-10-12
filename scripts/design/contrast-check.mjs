@@ -260,6 +260,38 @@ const PAIRS = [
       [`tile ${t} hover glyph on solid chip`, "var(--card)", `var(--insight-${t})`, UI],
     ],
   ),
+  // R18 §C: the glass surface — the tone tint mixed into the translucent card colour and
+  // composited over the page canvas; the readable title on the glass tints.
+  ...["info", "success", "warning", "destructive", "revenue", "expense", "profit", "loss"].flatMap(
+    (t) => [
+      [
+        `tile ${t} value (rest) on glass tint`,
+        `color-mix(in oklab, var(--insight-${t}) 55%, var(--foreground))`,
+        `color-mix(in oklab, var(--insight-${t}) var(--insight-tint-top), var(--insight-glass))`,
+        TEXT,
+      ],
+      [
+        `tile ${t} value (hover) on glass hover tint`,
+        `color-mix(in oklab, var(--insight-${t}) 72%, var(--foreground))`,
+        `color-mix(in oklab, var(--insight-${t}) var(--insight-tint-top-hover), var(--insight-glass))`,
+        TEXT,
+      ],
+      [
+        `tile ${t} muted on glass hover tint`,
+        "var(--insight-muted)",
+        `color-mix(in oklab, var(--insight-${t}) var(--insight-tint-top-hover), var(--insight-glass))`,
+        TEXT,
+      ],
+      [
+        `tile ${t} title on glass hover tint`,
+        "var(--insight-title)",
+        `color-mix(in oklab, var(--insight-${t}) var(--insight-tint-top-hover), var(--insight-glass))`,
+        TEXT,
+      ],
+    ],
+  ),
+  ["tile neutral title on glass", "var(--insight-title)", "var(--insight-glass)", TEXT],
+  ["tile neutral title on muted canvas", "var(--insight-title)", "var(--insight-glass)", TEXT, "var(--muted)"],
   ...["info", "success", "warning", "destructive"].flatMap((t) => [
     [
       `panel row ${t} text on hover tint`,
