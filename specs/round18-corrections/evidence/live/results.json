@@ -1,10 +1,15 @@
 {
-  "at": "2026-10-12T13:10:42.088Z",
+  "at": "2026-10-12T13:31:56.188Z",
   "results": [
     {
       "name": "repaired receipt CR-2026-000097: 100,000, references CR-2026-000095",
-      "ok": false,
+      "ok": true,
       "detail": ""
+    },
+    {
+      "name": "its allocation line is not marked fully paid (invoice partially paid)",
+      "ok": true,
+      "detail": "INV-2026-000091\n\t200,000.00\t\t"
     },
     {
       "name": "AR aging shows open invoices / unapplied credits / net balance",

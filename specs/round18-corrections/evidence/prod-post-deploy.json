@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-12T13:07:32.754Z",
+  "at": "2026-10-12T13:31:59.744Z",
   "agentStockReceipts": {
     "status": 200,
     "total": 0
@@ -15,16 +15,14 @@
   "integrity": {
     "status": 200,
     "checked": {
-      "vouchers": 11,
-      "entries": 11,
+      "vouchers": 12,
+      "entries": 12,
       "invoices": 4,
       "bankMatches": 0
     },
     "errors": 0,
-    "review": 1,
-    "issues": [
-      "REVIEW PARTIAL_WITH_UNAPPLIED CR-2026-000095 {\"amount\":200000,\"allocated\":100000,\"unapplied\":100000}"
-    ]
+    "review": 0,
+    "issues": []
   },
   "arAging": {
     "status": 200,
@@ -34,8 +32,8 @@
       "days61to90": 0,
       "over90": 0,
       "total": 475000,
-      "unapplied": 207650,
-      "net": 267350
+      "unapplied": 107650,
+      "net": 367350
     }
   }
 }
