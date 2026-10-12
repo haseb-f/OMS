@@ -7,6 +7,7 @@ import { AgentPortalModule } from './portal/agent-portal.module';
 import { AgentOverviewModule } from './overview/agent-overview.module';
 import { AgentShippingAgreementsModule } from './shipping-agreements/agent-shipping-agreements.module';
 import { AgentPortalImportsModule } from './portal/agent-portal-imports.module';
+import { AgentStockModule } from './stock/agent-stock.module';
 
 /**
  * Agents / Fulfillment Partners (specs/agents-fulfillment-partners). Root
@@ -22,6 +23,7 @@ import { AgentPortalImportsModule } from './portal/agent-portal-imports.module';
     AgentOverviewModule,
     AgentShippingAgreementsModule,
     AgentPortalImportsModule,
+    AgentStockModule,
   ],
   providers: [AgentPermissionGuard],
   exports: [

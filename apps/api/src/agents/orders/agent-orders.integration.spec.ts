@@ -547,7 +547,8 @@ describe('Agents B1 — admin + orders (integration)', () => {
         onHand: 5,
         reserved: 0,
         available: 5,
-        shipped: 0,
+        inTransit: 0,
+        delivered: 0,
         returned: 0,
       });
     });

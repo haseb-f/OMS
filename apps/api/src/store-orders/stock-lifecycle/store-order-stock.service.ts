@@ -1595,7 +1595,11 @@ export class StoreOrderStockService {
       entry.unit!.map((line) => line.productId),
     );
     await lockProductsForUpdate(tx, productIds);
-    const usable = await this.usableProducts(tx, productIds);
+    const usable = await this.usableProducts(
+      tx,
+      productIds,
+      ctx.order.agentId ?? null,
+    );
     const available = await this.availability(
       tx,
       plan.flatMap((entry) =>
@@ -2006,13 +2010,27 @@ export class StoreOrderStockService {
   }
 
   /** Products that may still be reserved (active, stock-tracked). */
-  private async usableProducts(tx: Tx, productIds: string[]) {
+  /**
+   * Products whose stock this order may reserve: active, stock-tracked and
+   * never another agent's goods (R18 B) — a company order reserves company
+   * stock only, an agent order never reserves a different agent's stock. Such
+   * a line stays SHORT instead (defence in depth behind MIXED_OWNER_ORDER /
+   * AGENT_PRODUCT_IN_COMPANY_DOCUMENT at order entry).
+   */
+  private async usableProducts(
+    tx: Tx,
+    productIds: string[],
+    ownerAgentId: string | null,
+  ) {
     const rows = await tx.product.findMany({
       where: {
         id: { in: [...new Set(productIds)] },
         status: ProductStatus.ACTIVE,
         deletedAt: null,
         isInventoryItem: true,
+        ...(ownerAgentId
+          ? { OR: [{ ownerAgentId: null }, { ownerAgentId }] }
+          : { ownerAgentId: null }),
       },
       select: { id: true },
     });

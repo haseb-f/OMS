@@ -41,6 +41,7 @@ import {
   type PostSalesDeliveryInput,
 } from './dto/movement-trace';
 import { ownerAgentCondition } from './dto/owner-filter';
+import { conflict, unprocessable } from '../common/errors/business-errors';
 import { round2 } from '../accounting/inventory-valuation/inventory-valuation.service';
 import {
   assertWarehouseUse,
@@ -51,6 +52,9 @@ const RESERVATION_TYPES: InventoryMovementType[] = [
   InventoryMovementType.RESERVATION,
   InventoryMovementType.RESERVATION_RELEASE,
 ];
+
+/** R18 B — `referenceType` of the movements an agent stock receipt posts. */
+export const AGENT_STOCK_RECEIPT_REFERENCE = 'AGENT_STOCK_RECEIPT';
 
 /** The product columns a stock card reads (owner shown on the card — R13). */
 type StockCardProduct = {
@@ -129,6 +133,14 @@ export class InventoryService {
 
   async openingBalance(dto: OpeningBalanceDto, userId?: string) {
     const product = await this.assertInventoryProduct(dto.productId);
+    if (product.ownerAgentId && dto.unitCost !== undefined) {
+      // R18 B — agent goods are non-valued consignment stock: a cost here
+      // would become the company's average cost of goods it does not own.
+      throw unprocessable(
+        'AGENT_STOCK_NOT_VALUED',
+        'بضاعة الوكيل لا تُسجَّل بتكلفة — سجّل الكمية فقط من «استلام مخزون الوكيل» — Agent-owned goods carry no company cost: record the quantity only (Agent stock receipt).',
+      );
+    }
     const warehouse = await this.assertActiveWarehouse(
       dto.warehouseId,
       'RECEIVE',
@@ -1088,7 +1100,10 @@ export class InventoryService {
    * Agents milestone (spec §4) — an agent's stock per product/warehouse,
    * from the owner snapshot on the movements (never re-attributed). Every
    * product the agent owns is listed; one without movements shows zeros.
-   * `shipped` = Σ |SALES_DELIVERY|, `returned` = Σ SALES_RETURN.
+   * `delivered` = Σ |SALES_DELIVERY| (agent goods leave stock at delivery out
+   * of goods in transit), `returned` = Σ SALES_RETURN, `inTransit` = the
+   * on-hand of a row held in a TRANSIT warehouse (R18 B: dispatched, not yet
+   * delivered — still the agent's, never available).
    */
   async getAgentStock(
     agentId: string,
@@ -1127,7 +1142,7 @@ export class InventoryService {
       warehouseId: string | null;
       onHand: number;
       reserved: number;
-      shipped: number;
+      delivered: number;
       returned: number;
     };
     const rows = new Map<string, Row>();
@@ -1138,14 +1153,14 @@ export class InventoryService {
         warehouseId: group.warehouseId,
         onHand: 0,
         reserved: 0,
-        shipped: 0,
+        delivered: 0,
         returned: 0,
       };
       const qty = group._sum.quantity ?? 0;
       if (RESERVATION_TYPES.includes(group.type)) row.reserved += qty;
       else row.onHand += qty;
       if (group.type === InventoryMovementType.SALES_DELIVERY) {
-        row.shipped += Math.abs(qty);
+        row.delivered += Math.abs(qty);
       }
       if (group.type === InventoryMovementType.SALES_RETURN) {
         row.returned += qty;
@@ -1163,7 +1178,7 @@ export class InventoryService {
             warehouseId: null,
             onHand: 0,
             reserved: 0,
-            shipped: 0,
+            delivered: 0,
             returned: 0,
           });
         }
@@ -1198,6 +1213,7 @@ export class InventoryService {
             !warehouse || warehouse.role === WarehouseRole.STOCK
               ? row.onHand - row.reserved
               : 0,
+          inTransit: warehouse?.role === WarehouseRole.TRANSIT ? row.onHand : 0,
           product: productById.get(row.productId)!,
           warehouse,
         };
@@ -1212,10 +1228,18 @@ export class InventoryService {
         onHand: acc.onHand + row.onHand,
         reserved: acc.reserved + row.reserved,
         available: acc.available + row.available,
-        shipped: acc.shipped + row.shipped,
+        inTransit: acc.inTransit + row.inTransit,
+        delivered: acc.delivered + row.delivered,
         returned: acc.returned + row.returned,
       }),
-      { onHand: 0, reserved: 0, available: 0, shipped: 0, returned: 0 },
+      {
+        onHand: 0,
+        reserved: 0,
+        available: 0,
+        inTransit: 0,
+        delivered: 0,
+        returned: 0,
+      },
     );
     return { agentId, items, totals };
   }
@@ -1720,6 +1744,126 @@ export class InventoryService {
         : InventoryMovementActivityType.PRODUCTION_OUTPUT_RECEIVED,
       `${input.quantity < 0 ? 'Consumed' : 'Received'} ${Math.abs(input.quantity)} of ${product.sku} at ${warehouse.code}`,
       undefined,
+      tx,
+    );
+    return movement;
+  }
+
+  /**
+   * R18 B — one line of an agent stock receipt (custody of agent-owned goods):
+   * a positive, NON-VALUED movement — OPENING_BALANCE for the agent's opening
+   * stock, CONSIGNMENT_RECEIPT for a later receipt. No unit cost, no product
+   * cost record, no posting: agent goods are never company inventory, so no
+   * inventory-asset / payable / COGS entry can follow from it. Runs inside the
+   * receipt's transaction; the caller has already taken the product locks
+   * (`lockProductsForUpdate`), so the owner read here cannot change before the
+   * movement stamps it.
+   *
+   * Refused: a product that is not this agent's (company goods go through
+   * purchasing / valued opening stock — the missing-cost guards stay theirs),
+   * an inactive or untracked product, a warehouse that cannot receive, and an
+   * OPENING for a product that already has stock movements.
+   */
+  async postAgentStockReceiptLine(
+    tx: Prisma.TransactionClient,
+    input: {
+      agentId: string;
+      receiptId: string;
+      receiptNumber: string;
+      kind: 'OPENING' | 'RECEIPT';
+      productId: string;
+      warehouseId: string;
+      quantity: number;
+      notes?: string | null;
+    },
+    userId?: string,
+  ): Promise<InventoryMovement> {
+    if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
+      throw unprocessable(
+        'AGENT_STOCK_QUANTITY_INVALID',
+        'الكمية يجب أن تكون عددًا صحيحًا أكبر من صفر — Quantity must be a whole number greater than 0.',
+      );
+    }
+    const product = await tx.product.findFirst({
+      where: { id: input.productId, deletedAt: null },
+      select: {
+        id: true,
+        sku: true,
+        status: true,
+        isInventoryItem: true,
+        ownerAgentId: true,
+      },
+    });
+    if (!product) {
+      throw new NotFoundException(`Product ${input.productId} not found`);
+    }
+    if (product.ownerAgentId !== input.agentId) {
+      throw unprocessable(
+        'AGENT_STOCK_OWNER_MISMATCH',
+        product.ownerAgentId
+          ? `المنتج ${product.sku} مملوك لوكيل آخر — Product ${product.sku} belongs to another agent; one agent's stock is never received for another owner.`
+          : `المنتج ${product.sku} من بضاعة الشركة — يُستلم بالمشتريات أو الرصيد الافتتاحي بالتكلفة — Product ${product.sku} is company-owned: receive it through purchasing or a valued opening balance.`,
+        { productId: product.id },
+      );
+    }
+    if (product.status !== ProductStatus.ACTIVE || !product.isInventoryItem) {
+      throw unprocessable(
+        'AGENT_STOCK_PRODUCT_NOT_STOCKABLE',
+        `المنتج ${product.sku} غير نشط أو لا يتتبع المخزون — Product ${product.sku} is inactive or not stock-tracked.`,
+        { productId: product.id },
+      );
+    }
+    const warehouse = await this.assertActiveWarehouse(
+      input.warehouseId,
+      'RECEIVE',
+    );
+    const opening = input.kind === 'OPENING';
+    if (opening) {
+      const existing = await tx.inventoryMovement.count({
+        where: { productId: product.id, type: { notIn: RESERVATION_TYPES } },
+      });
+      if (existing > 0) {
+        throw conflict(
+          'AGENT_STOCK_OPENING_EXISTS',
+          `للمنتج ${product.sku} حركات مخزون بالفعل — سجّل استلامًا لا رصيدًا افتتاحيًا — Product ${product.sku} already has stock movements: record a receipt, not opening stock.`,
+          { productId: product.id },
+        );
+      }
+    }
+    const type = opening
+      ? InventoryMovementType.OPENING_BALANCE
+      : InventoryMovementType.CONSIGNMENT_RECEIPT;
+    const quantityBefore = await this.getOnHandQuantity(
+      tx,
+      product.id,
+      warehouse.id,
+    );
+    const movement = await this.createMovement(tx, {
+      movementNumber: await this.numberingEngine.generateNumber(
+        opening ? 'OPENING_INVENTORY' : 'INVENTORY_MOVEMENT',
+        undefined,
+        tx,
+      ),
+      type,
+      productId: product.id,
+      warehouseId: warehouse.id,
+      quantity: input.quantity,
+      quantityBefore,
+      quantityAfter: quantityBefore + input.quantity,
+      referenceType: AGENT_STOCK_RECEIPT_REFERENCE,
+      referenceId: input.receiptId,
+      reason: `Agent stock receipt ${input.receiptNumber}`,
+      notes: input.notes ?? null,
+      idempotencyKey: `${AGENT_STOCK_RECEIPT_REFERENCE}:${input.receiptId}:${product.id}:${type}`,
+      createdBy: userId ?? null,
+    });
+    await this.activityService.log(
+      movement.id,
+      opening
+        ? InventoryMovementActivityType.OPENING_BALANCE_CREATED
+        : InventoryMovementActivityType.CONSIGNMENT_RECEIVED,
+      `Agent stock ${opening ? 'opening' : 'receipt'} ${input.receiptNumber}: ${input.quantity} × ${product.sku} at ${warehouse.code} (non-valued consignment stock)`,
+      { receiptId: input.receiptId, agentId: input.agentId },
       tx,
     );
     return movement;
