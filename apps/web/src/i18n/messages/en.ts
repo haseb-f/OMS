@@ -29,6 +29,7 @@ import salesImportEn from "./modules/sales-import.en";
 import agentShippingAgreementsEn from "./modules/agent-shipping-agreements.en";
 import partnerPortalEn from "./modules/partner-portal.en";
 import storeOrderStockEn from "./modules/store-order-stock.en";
+import agentStockEn from "./modules/agent-stock.en";
 import storeOrderMoneyEn from "./modules/store-order-money.en";
 import salesVisibilityEn from "./modules/sales-visibility.en";
 const en = {
@@ -55,6 +56,7 @@ const en = {
   agentShippingAgreements: agentShippingAgreementsEn,
   partnerPortal: partnerPortalEn,
   storeOrderStock: storeOrderStockEn,
+  agentStock: agentStockEn,
   storeOrderMoney: storeOrderMoneyEn,
   salesVisibility: salesVisibilityEn,
   paymentDeclaration: paymentDeclarationEn,
@@ -2780,6 +2782,7 @@ const en = {
       PRODUCTION_CONSUMPTION: "Production Consumption",
       PRODUCTION_OUTPUT: "Production Output",
       PHYSICAL_COUNT: "Physical Count",
+      CONSIGNMENT_RECEIPT: "Agent Stock Receipt",
     },
     valuationMethod: {
       title: "Inventory Valuation Method",

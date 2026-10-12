@@ -79,6 +79,7 @@ const MOVEMENT_TYPES = [
   "PRODUCTION_CONSUMPTION",
   "PRODUCTION_OUTPUT",
   "PHYSICAL_COUNT",
+  "CONSIGNMENT_RECEIPT",
 ] as const;
 
 function InventoryMovementsPageContent() {

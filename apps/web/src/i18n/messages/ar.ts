@@ -29,6 +29,7 @@ import salesImportAr from "./modules/sales-import.ar";
 import agentShippingAgreementsAr from "./modules/agent-shipping-agreements.ar";
 import partnerPortalAr from "./modules/partner-portal.ar";
 import storeOrderStockAr from "./modules/store-order-stock.ar";
+import agentStockAr from "./modules/agent-stock.ar";
 import storeOrderMoneyAr from "./modules/store-order-money.ar";
 import salesVisibilityAr from "./modules/sales-visibility.ar";
 const ar = {
@@ -55,6 +56,7 @@ const ar = {
   agentShippingAgreements: agentShippingAgreementsAr,
   partnerPortal: partnerPortalAr,
   storeOrderStock: storeOrderStockAr,
+  agentStock: agentStockAr,
   storeOrderMoney: storeOrderMoneyAr,
   salesVisibility: salesVisibilityAr,
   paymentDeclaration: paymentDeclarationAr,
@@ -2763,6 +2765,7 @@ const ar = {
       PRODUCTION_CONSUMPTION: "استهلاك إنتاج",
       PRODUCTION_OUTPUT: "ناتج إنتاج",
       PHYSICAL_COUNT: "جرد فعلي",
+      CONSIGNMENT_RECEIPT: "استلام مخزون وكيل",
     },
     valuationMethod: {
       title: "طريقة تقييم المخزون",

@@ -1,0 +1,90 @@
+/** agentStock namespace (en) — R18 B agent-owned consignment stock: custody receipts + movement history. */
+const agentStockEn = {
+  nav: {
+    receipts: "Agent stock receipts",
+  },
+  receipts: {
+    title: "Agent stock receipts",
+    description:
+      "Goods the agents hand over into our custody — opening stock and later receipts. Quantities only: agent goods carry no company cost.",
+    new: "Receive agent stock",
+    empty: "No agent stock received yet",
+    searchPlaceholder: "Search by receipt number or the agent's reference…",
+    fields: {
+      number: "Receipt no.",
+      date: "Date",
+      agent: "Agent",
+      warehouse: "Warehouse",
+      kind: "Type",
+      reference: "Agent reference",
+      notes: "Notes",
+      lines: "Products",
+      quantity: "Quantity",
+      createdBy: "Recorded by",
+    },
+    kind: {
+      OPENING: "Opening stock",
+      RECEIPT: "Receipt",
+    },
+    linesSummary: "{count} products",
+  },
+  form: {
+    title: "Receive agent stock",
+    nonValued:
+      "The goods stay the agent's property in our custody: only quantities are recorded — no cost, no purchase invoice and no journal entry.",
+    agent: "Agent",
+    kind: "Type",
+    kindHint: {
+      OPENING: "The agent's first stock of these products (no earlier movement).",
+      RECEIPT: "Goods received after the opening stock.",
+    },
+    warehouse: "Warehouse",
+    date: "Receipt date",
+    reference: "Agent reference",
+    referencePlaceholder: "Delivery note, waybill…",
+    notes: "Notes",
+    lines: "Products",
+    product: "Product",
+    quantity: "Quantity",
+    addLine: "Add product",
+    remove: "Remove",
+    submit: "Record receipt",
+    success: "Receipt {number} recorded — {quantity} units received",
+    required: "Required",
+    quantityInvalid: "Enter a whole number greater than 0",
+    noProducts: "This agent has no stock-tracked products yet.",
+  },
+  history: {
+    title: "Stock movement history",
+    empty: "No stock movements yet",
+    fields: {
+      date: "Date",
+      movement: "Movement",
+      event: "Event",
+      product: "Product",
+      warehouse: "Warehouse",
+      quantity: "Quantity",
+      document: "Document",
+    },
+    event: {
+      OPENING: "Opening stock",
+      RECEIPT: "Received",
+      RESERVED: "Reserved",
+      RELEASED: "Reservation released",
+      DISPATCHED: "Dispatched (in transit)",
+      BACK_FROM_TRANSIT: "Back from transit",
+      DELIVERED: "Delivered",
+      RETURNED: "Returned",
+      ADJUSTED: "Adjusted",
+      WRITTEN_OFF: "Written off",
+      TRANSFERRED: "Transferred",
+    },
+    document: {
+      AGENT_STOCK_RECEIPT: "Receipt",
+      STORE_ORDER: "Order",
+      AGENT_RETURN: "Return",
+    },
+  },
+} as const;
+
+export default agentStockEn;

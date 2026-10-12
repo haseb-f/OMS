@@ -402,7 +402,9 @@ export interface AgentStockRow {
   onHand: number;
   reserved: number;
   available: number;
-  shipped: number;
+  /** R18 B — dispatched, not yet delivered (still the agent's, never available). */
+  inTransit: number;
+  delivered: number;
   returned: number;
   product: { id: string; name: string; sku?: string | null };
   warehouse: { id: string; name: string; code: string } | null;
@@ -415,7 +417,8 @@ export interface AgentStockResult {
     onHand: number;
     reserved: number;
     available: number;
-    shipped: number;
+    inTransit: number;
+    delivered: number;
     returned: number;
   };
 }

@@ -11,6 +11,11 @@ import {
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { PortalStockGridCard } from "@/components/agent-portal/portal-grid-cards";
+import { DetailSection } from "@/components/shared/detail-workspace";
+import {
+  AgentStockMovementsTable,
+  type AgentStockDocumentLinks,
+} from "@/components/agents/agent-stock-movements-table";
 import { localizedName } from "@/config/agent-portal/labels";
 import {
   agentPortalService,
@@ -21,7 +26,14 @@ import { useLocale } from "@/providers/locale-provider";
 import { apiErrorMessage } from "@/lib/toast";
 import { formatNumber } from "@/lib/format-number";
 
-const QUANTITY_KEYS = ["onHand", "reserved", "available", "shipped", "returned"] as const;
+const QUANTITY_KEYS = [
+  "onHand",
+  "reserved",
+  "available",
+  "inTransit",
+  "delivered",
+  "returned",
+] as const;
 const EXPORT_KEYS = ["product", "warehouse", ...QUANTITY_KEYS];
 
 function ProductCell({ row }: { row: PortalStockRow }) {
@@ -75,7 +87,15 @@ function buildStockColumns(): ColumnDef<PortalStockRow, unknown>[] {
   ];
 }
 
-/** Agent stock held by the company (spec §4): on-hand / reserved / available / shipped / returned. */
+/** The agent's own orders open in the portal; receipts have no portal page (read-only history). */
+const PORTAL_DOCUMENT_LINKS: AgentStockDocumentLinks = { order: (id) => `/agent/orders/${id}` };
+const loadMovements = (params: { page: number; pageSize: number }) =>
+  agentPortalService.stockMovements(params);
+
+/**
+ * Agent stock held by the company (spec §4; R18 B): on-hand / reserved / available / in transit /
+ * delivered / returned, plus the read-only movement history of the agent's own goods.
+ */
 export default function AgentStockPage() {
   const { t, locale } = useLocale();
   const [stock, setStock] = useState<PortalStock | null>(null);
@@ -140,7 +160,8 @@ export default function AgentStockPage() {
               onHand: row.onHand,
               reserved: row.reserved,
               available: row.available,
-              shipped: row.shipped,
+              inTransit: row.inTransit,
+              delivered: row.delivered,
               returned: row.returned,
             })),
             keys,
@@ -154,6 +175,14 @@ export default function AgentStockPage() {
           <PortalStockGridCard row={row} selected={selected} onToggleSelected={onToggleSelected} />
         )}
       />
+      <DetailSection title={t("agentStock.history.title")}>
+        <AgentStockMovementsTable
+          tableId="agent-portal-stock-movements"
+          printTitle={t("agentStock.history.title")}
+          load={loadMovements}
+          links={PORTAL_DOCUMENT_LINKS}
+        />
+      </DetailSection>
     </PageWorkspace>
   );
 }

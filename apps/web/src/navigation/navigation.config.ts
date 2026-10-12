@@ -648,6 +648,17 @@ export const navigationConfig: NavigationItem[] = [
     order: 2,
     permissions: ["agents.finance.view"],
   },
+  // R18 B — custody receipts of agent-owned goods (opening stock + later
+  // receipts, quantities only). Recording needs inventory.movements.create.
+  {
+    id: "agents-stock-receipts",
+    titleKey: "agentStock.nav.receipts",
+    parent: "agents",
+    route: "/agents/stock-receipts",
+    icon: "boxes",
+    order: 3,
+    permissions: ["agents.view"],
+  },
 
   // R15 (D15-14, 4.1) — «الشركاء» is its own top-level section (company
   // partners and profit sharing); its Home tile comes from this root. The

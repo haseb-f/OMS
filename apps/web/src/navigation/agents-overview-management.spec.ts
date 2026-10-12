@@ -151,6 +151,8 @@ describe("company agents: overview and management are two destinations", () => {
       "agents-overview",
       "agents-list",
       "agents-collections",
+      // R18 B — custody receipts of agent-owned goods.
+      "agents-stock-receipts",
     ]);
     expect(destinations(PERSONAS.companyOther)).toEqual([]);
     expect(destinations(PERSONAS.agentAdmin)).toEqual([]);
