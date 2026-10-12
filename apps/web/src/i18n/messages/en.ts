@@ -5302,6 +5302,14 @@ const en = {
       unallocated: "Unallocated Remaining",
       overpaid: "Overpaid — allocated total exceeds the amount",
     },
+    unapplied: {
+      title: "Part of the amount is not applied to an invoice",
+      receiptDescription:
+        "The full amount ({amount}) will be recorded as received into the receiving account; {allocated} is applied to invoices and {unapplied} stays as an advance on the customer's account. Confirm only if {amount} actually arrived — otherwise change the amount to what was received.",
+      paymentDescription:
+        "The full amount ({amount}) will be recorded as paid from the account; {allocated} is applied to invoices and {unapplied} stays as an advance to the supplier. Confirm only if {amount} was actually paid — otherwise change the amount to what was paid.",
+      confirm: "Post {amount}",
+    },
     allocationSummary: {
       openInvoices: "Open Invoices",
       totalRemaining: "Total Remaining",

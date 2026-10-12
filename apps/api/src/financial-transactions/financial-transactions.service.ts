@@ -630,7 +630,21 @@ export class FinancialTransactionsService {
           ).map((a) => this.refundLineOf(a));
         this.assertRefundFullyAllocated(amount, lines);
       } else {
-        this.assertAllocationsWithinAmount(amount, dto.allocations ?? []);
+        // The stored lines stand when only the amount changes: lowering a
+        // draft's amount below what it already allocates is refused (R18).
+        const lines =
+          dto.allocations ??
+          (
+            await this.prisma.financialTransactionAllocation.findMany({
+              where: { transactionId: id },
+              select: { allocatedAmount: true },
+            })
+          ).map((a) => ({ allocatedAmount: Number(a.allocatedAmount) }));
+        this.assertAllocationsWithinAmount(
+          amount,
+          lines,
+          Number(existing.feeAmount ?? 0),
+        );
       }
     }
 
@@ -730,6 +744,16 @@ export class FinancialTransactionsService {
         // cap is read, so two concurrent refunds can never both pass the
         // same limit (order advance, return credit or ledger credit).
         await this.lockPartnerRow(tx, existing.partnerId);
+      } else {
+        // R18 — a voucher never applies more than the money it moved (plus
+        // its recorded fee), however its draft was edited.
+        this.assertAllocationsWithinAmount(
+          Number(existing.amount),
+          existing.allocations.map((a) => ({
+            allocatedAmount: Number(a.allocatedAmount),
+          })),
+          Number(existing.feeAmount ?? 0),
+        );
       }
       for (const allocation of existing.allocations) {
         if (allocation.storeOrderId) {
@@ -1305,9 +1329,11 @@ export class FinancialTransactionsService {
     allocations: AllocationLineInput[],
     feeAmount = 0,
   ) {
-    const total = allocations.reduce((sum, a) => sum + a.allocatedAmount, 0);
-    const available = amount + feeAmount;
-    if (total > available) {
+    const total = this.round2(
+      allocations.reduce((sum, a) => sum + a.allocatedAmount, 0),
+    );
+    const available = this.round2(amount + feeAmount);
+    if (total - available > 0.005) {
       throw new BadRequestException(
         feeAmount > 0
           ? `Total allocated (${total}) cannot exceed the transaction amount plus fee (${available}).`

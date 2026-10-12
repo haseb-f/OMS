@@ -12,13 +12,17 @@ import { IncomeStatementQueryDto } from './dto/income-statement-query.dto';
 import { CashFlowQueryDto } from './dto/cash-flow-query.dto';
 import { AgingQueryDto } from './dto/aging-query.dto';
 import { PartnerStatementQueryDto } from './dto/partner-statement-query.dto';
+import { VoucherIntegrityService } from './voucher-integrity.service';
 
 /** TASK-047/051 Financial Reports & Statements — read-only endpoints only, no create/update/delete anywhere on this controller. */
 @Controller('accounting/reports')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @PermissionModule('financial-reports')
 export class AccountingReportsController {
-  constructor(private readonly reports: AccountingReportsService) {}
+  constructor(
+    private readonly reports: AccountingReportsService,
+    private readonly voucherIntegrity: VoucherIntegrityService,
+  ) {}
 
   @Get('general-ledger')
   generalLedger(@Query() query: GeneralLedgerQueryDto) {
@@ -63,6 +67,12 @@ export class AccountingReportsController {
   @Get('ap-aging')
   apAging(@Query() query: AgingQueryDto) {
     return this.reports.apAging(query);
+  }
+
+  /** R18 — receipts / payments vs allocations, entries and bank matches (read-only). */
+  @Get('voucher-integrity')
+  voucherIntegrityReport() {
+    return this.voucherIntegrity.run();
   }
 
   @Get('partner-statement')

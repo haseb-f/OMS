@@ -431,6 +431,13 @@ export class FinancialTransactionPostingProvider
       allocatedTx += allocated;
     }
     const remainder = this.round2(transactionAmount - allocatedTx);
+    // R18 — allocations above the money moved would clear more AR/AP than
+    // the cash and book the gap as FX: refused, never absorbed.
+    if (remainder < 0) {
+      throw new BadRequestException(
+        `Allocations (${this.round2(allocatedTx).toFixed(2)}) exceed the voucher amount (${this.round2(transactionAmount).toFixed(2)}) — nothing was posted.`,
+      );
+    }
     if (remainder > 0) functional += this.round2(remainder * payRate);
     return this.round2(functional);
   }

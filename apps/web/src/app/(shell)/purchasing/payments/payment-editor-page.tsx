@@ -37,6 +37,11 @@ import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { reportApiError, reportSuccess } from "@/lib/toast";
 import { useIdempotencyKey } from "@/hooks/use-idempotency-key";
+import { formatMoney } from "@/lib/money";
+import {
+  unappliedPostingConfirmation,
+  useVoucherAmount,
+} from "@/components/financial-transactions/use-voucher-amount";
 
 let nextLineId = 1;
 
@@ -75,7 +80,7 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
 
   const [supplier, setSupplier] = useState<PartnerPickerRow | null>(null);
   const [transactionDate, setTransactionDate] = useState<Date | null>(new Date());
-  const [amount, setAmount] = useState(0);
+  const { amount, setAmount, proposeAmount, syncToAllocations } = useVoucherAmount();
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");
   const [paymentSourceId, setPaymentSourceId] = useState<string | null>(null);
@@ -278,6 +283,7 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
   const handleAllocationsChange = async (nextLines: AllocationGridLine[]) => {
     if (!payment || payment.status === "DRAFT") {
       setAllocations(nextLines);
+      syncToAllocations(nextLines);
       return;
     }
     const prevById = new Map(allocations.map((l) => [l.id, l]));
@@ -351,7 +357,7 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
     if (!invoice) return;
     appliedInvoicePrefillRef.current = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAmount(invoice.remainingBalance);
+    proposeAmount(invoice.remainingBalance);
     setAllocations([
       {
         id: `row-${nextLineId++}`,
@@ -453,6 +459,11 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
           icon: CheckCircle2,
           variant: "default",
           visibleForStatuses: ["DRAFT"],
+          confirm: unappliedPostingConfirmation(
+            { amount, allocatedTotal, hasOpenInvoices: openInvoices.length > 0, direction: "OUT" },
+            t,
+            formatMoney,
+          ),
           onAction: () => (id ? handleConfirmExisting() : handleConfirmNew()),
         },
         {
@@ -505,6 +516,7 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
       receivingAccountId,
       referenceNumber,
       notes,
+      openInvoices,
     ],
   );
 

@@ -330,6 +330,16 @@ export class BankTransactionsService {
     if (payment.status !== PaymentStatus.PENDING) {
       throw new BadRequestException('Only a PENDING payment can be matched.');
     }
+    // R18 — a bank line proves only its own amount: a claim for a different
+    // amount would later post money the bank never received.
+    const bankAmount = Math.abs(Number(transaction.amount));
+    if (
+      Math.abs(bankAmount - Number(payment.amount)) > CONFLICT_FIELD_TOLERANCE
+    ) {
+      throw new BadRequestException(
+        `The bank transaction amount (${bankAmount.toFixed(2)}) differs from payment ${payment.paymentNumber} (${Number(payment.amount).toFixed(2)}) — match a claim for the received amount.`,
+      );
+    }
     const alreadyLinked = await this.prisma.bankTransaction.findFirst({
       where: { matchedPaymentId: dto.paymentId, deletedAt: null },
     });
