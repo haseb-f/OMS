@@ -91,6 +91,8 @@ async function openTab(page, value) {
   const trigger = page.locator(`[role="tab"][id$="-trigger-${value}"]`);
   await trigger.waitFor({ timeout: 20000 });
   await trigger.click();
+  // Park the pointer outside the content so no card is captured mid-hover (a hovered row rises).
+  await page.mouse.move(1, 1);
   await settle(page);
   await page
     .waitForFunction(
@@ -189,7 +191,7 @@ for (const [suffix, locale, scheme, width] of LAYOUT) {
     const first = page.locator('[data-slot="insight-frame"]').first();
     const box = await first.boundingBox();
     if (box) {
-      await page.evaluate((y) => window.scrollTo(0, y - 16), box.y + (await page.evaluate(() => window.scrollY)));
+      await page.evaluate((y) => window.scrollTo(0, y - 72), box.y + (await page.evaluate(() => window.scrollY)));
       await page.waitForTimeout(300);
       await shot(page, `${name}-pair`);
     }

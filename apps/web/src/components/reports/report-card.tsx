@@ -17,22 +17,23 @@ import { cn } from "@/lib/utils";
 import { currencyIdentity, type ReportIdentity } from "@/components/reports/report-identity";
 
 /**
- * R20 §B2 — the `row` layout: one compact, full-width row inside an employee card (the frame's
- * width decides, `@container/frame`). From a 26rem card: three aligned columns — the period
- * (icon + title, the quiet counts under it) | the valid-order count | the sales amounts, one
- * line per currency, at the inline end. Below 26rem (phones): the period and the count share
- * the first line, the amounts and the counts follow full width. The columns are fractions of
+ * R20 §B2 — the `row` layout: one compact, full-width row inside an employee card (the row's own
+ * width decides, `@container/row` — the card itself is a subgrid and cannot be a container).
+ * From a 22rem row: three aligned columns — the period (icon + title, the quiet counts under
+ * it) | the valid-order count | the sales amounts, one line per currency, at the inline end.
+ * Below 22rem (phones, narrow pairs): the period and the count share the first line, the
+ * amounts and the counts follow full width. The columns are fractions of
  * the row, so every row of a card — and of the card beside it — shares the same column edges.
  * The DOM order is the card's (title, figure, amounts, counts), so the text reads the same.
  */
 const ROW = {
-  body: "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 @min-[26rem]/frame:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,1.3fr)]",
+  body: "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 @min-[22rem]/row:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,1.3fr)]",
   title: "col-[1] row-[1]",
   figure:
-    "col-[2] row-[1] justify-end @min-[26rem]/frame:row-[1/span_2] @min-[26rem]/frame:justify-start",
+    "col-[2] row-[1] justify-end @min-[22rem]/row:row-[1/span_2] @min-[22rem]/row:justify-start",
   amounts:
-    "col-[1/-1] row-[2] items-start @min-[26rem]/frame:col-[3] @min-[26rem]/frame:row-[1/span_2] @min-[26rem]/frame:items-end",
-  stats: "col-[1/-1] row-[3] @min-[26rem]/frame:col-[1] @min-[26rem]/frame:row-[2]",
+    "col-[1/-1] row-[2] items-start @min-[22rem]/row:col-[3] @min-[22rem]/row:row-[1/span_2] @min-[22rem]/row:items-end",
+  stats: "col-[1/-1] row-[3] @min-[22rem]/row:col-[1] @min-[22rem]/row:row-[2]",
 } as const;
 
 /** An extreme count wraps rather than overflow; it is never truncated. */
@@ -274,7 +275,13 @@ export function ReportCard({
       pressed={onSelect ? selected : undefined}
       className={className}
     >
-      {row ? <div className={ROW.body}>{body}</div> : body}
+      {row ? (
+        <div className="@container/row min-w-0">
+          <div className={ROW.body}>{body}</div>
+        </div>
+      ) : (
+        body
+      )}
     </InsightSurface>
   );
 }

@@ -461,7 +461,7 @@ const INSIGHT_FRAME_CLASS =
   "@container/frame relative flex min-w-0 flex-col gap-(--insight-frame-gap) rounded-md border px-(--insight-frame-padding-inline) py-(--insight-frame-padding-block)";
 /** R20 §B2 — the rows layout: a subgrid of the `InsightFrameGroup` rows (header + one per row). */
 const INSIGHT_FRAME_ROWS_CLASS =
-  "@container/frame relative grid min-w-0 grid-rows-subgrid gap-y-(--insight-frame-row-gap) rounded-md border px-(--insight-frame-padding-inline) py-(--insight-frame-padding-block)";
+  "relative grid min-w-0 grid-rows-subgrid gap-y-(--insight-frame-row-gap) rounded-md border px-(--insight-frame-padding-inline) py-(--insight-frame-padding-block)";
 
 /**
  * R20 §B2 — a group of outer cards compared side by side (employees): one card per row while
