@@ -41,7 +41,11 @@ function block(selector) {
       const body = css.slice(start, j).replace(/\/\*[\s\S]*?\*\//g, "");
       for (const m of body.matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)) {
         // Prettier wraps long color-mix() values over several lines — flatten them.
-        vars[m[1]] = m[2].replace(/\s+/g, " ").replace(/\(\s+/g, "(").replace(/\s+\)/g, ")").trim();
+        vars[m[1]] = m[2]
+          .replace(/\s+/g, " ")
+          .replace(/\(\s+/g, "(")
+          .replace(/\s+\)/g, ")")
+          .trim();
       }
     }
   }
@@ -346,13 +350,7 @@ const PAIRS = [
   ["report neutral title on glass", "var(--insight-title)", "var(--insight-report-glass)", TEXT],
   ["report neutral muted on glass", "var(--muted-foreground)", "var(--insight-report-glass)", TEXT],
   ["tile neutral title on glass", "var(--insight-title)", "var(--insight-glass)", TEXT],
-  [
-    "tile neutral title on muted canvas",
-    "var(--insight-title)",
-    "var(--insight-glass)",
-    TEXT,
-    "var(--muted)",
-  ],
+  ["tile neutral title on muted canvas", "var(--insight-title)", "var(--insight-glass)", TEXT, "var(--muted)"],
   ...["info", "success", "warning", "destructive"].flatMap((t) => [
     [
       `panel row ${t} text on hover tint`,
@@ -370,44 +368,35 @@ const PAIRS = [
   // Round 8 Home launcher: title and caption on the strongest (hover) glass tint
   // of each identity hue, the icon on its chip, the white glyph on the solid hover
   // chip and the arrow.
-  ...[
-    "blue",
-    "sky",
-    "teal",
-    "emerald",
-    "amber",
-    "orange",
-    "rose",
-    "violet",
-    "indigo",
-    "slate",
-  ].flatMap((h) => [
-    [
-      `launcher ${h} title on hover tint`,
-      "var(--foreground)",
-      `color-mix(in oklab, var(--hue-${h}) 30%, var(--card))`,
-      TEXT,
+  ...["blue", "sky", "teal", "emerald", "amber", "orange", "rose", "violet", "indigo", "slate"].flatMap(
+    (h) => [
+      [
+        `launcher ${h} title on hover tint`,
+        "var(--foreground)",
+        `color-mix(in oklab, var(--hue-${h}) 30%, var(--card))`,
+        TEXT,
+      ],
+      [
+        `launcher ${h} caption on hover tint`,
+        "var(--insight-muted)",
+        `color-mix(in oklab, var(--hue-${h}) 30%, var(--card))`,
+        TEXT,
+      ],
+      [
+        `launcher ${h} icon on chip`,
+        `var(--hue-${h})`,
+        `color-mix(in oklab, var(--hue-${h}) 18%, var(--card))`,
+        UI,
+      ],
+      [`launcher ${h} hover glyph on solid chip`, "var(--card)", `var(--hue-${h})`, UI],
+      [
+        `launcher ${h} arrow on tint`,
+        `color-mix(in oklab, var(--hue-${h}) 70%, var(--muted-foreground))`,
+        `color-mix(in oklab, var(--hue-${h}) 22%, var(--card))`,
+        UI,
+      ],
     ],
-    [
-      `launcher ${h} caption on hover tint`,
-      "var(--insight-muted)",
-      `color-mix(in oklab, var(--hue-${h}) 30%, var(--card))`,
-      TEXT,
-    ],
-    [
-      `launcher ${h} icon on chip`,
-      `var(--hue-${h})`,
-      `color-mix(in oklab, var(--hue-${h}) 18%, var(--card))`,
-      UI,
-    ],
-    [`launcher ${h} hover glyph on solid chip`, "var(--card)", `var(--hue-${h})`, UI],
-    [
-      `launcher ${h} arrow on tint`,
-      `color-mix(in oklab, var(--hue-${h}) 70%, var(--muted-foreground))`,
-      `color-mix(in oklab, var(--hue-${h}) 22%, var(--card))`,
-      UI,
-    ],
-  ]),
+  ),
   [
     "tile destructive value on tint",
     "var(--destructive-text)",
@@ -415,106 +404,31 @@ const PAIRS = [
     UI,
   ],
   // Round 9 (§12.18): brand button roles — text on every fill the role can take.
-  [
-    "secondary button text",
-    "var(--btn-secondary-foreground)",
-    "var(--btn-secondary)",
-    TEXT,
-    "var(--card)",
-  ],
-  [
-    "secondary button text (hover)",
-    "var(--btn-secondary-foreground)",
-    "var(--btn-secondary-hover)",
-    TEXT,
-    "var(--card)",
-  ],
+  ["secondary button text", "var(--btn-secondary-foreground)", "var(--btn-secondary)", TEXT, "var(--card)"],
+  ["secondary button text (hover)", "var(--btn-secondary-foreground)", "var(--btn-secondary-hover)", TEXT, "var(--card)"],
   ["outline button text", "var(--btn-outline-foreground)", "var(--card)", TEXT],
-  [
-    "outline button text (hover)",
-    "var(--btn-outline-foreground)",
-    "var(--btn-soft-hover)",
-    TEXT,
-    "var(--card)",
-  ],
-  [
-    "outline button text (pressed)",
-    "var(--btn-outline-foreground)",
-    "var(--btn-soft-pressed)",
-    TEXT,
-    "var(--card)",
-  ],
+  ["outline button text (hover)", "var(--btn-outline-foreground)", "var(--btn-soft-hover)", TEXT, "var(--card)"],
+  ["outline button text (pressed)", "var(--btn-outline-foreground)", "var(--btn-soft-pressed)", TEXT, "var(--card)"],
   ["ghost button text (hover)", "var(--foreground)", "var(--btn-soft-hover)", TEXT, "var(--card)"],
-  [
-    "ghost button text (pressed)",
-    "var(--foreground)",
-    "var(--btn-soft-pressed)",
-    TEXT,
-    "var(--card)",
-  ],
-  [
-    "muted icon on soft hover",
-    "var(--muted-foreground)",
-    "var(--btn-soft-hover)",
-    UI,
-    "var(--card)",
-  ],
+  ["ghost button text (pressed)", "var(--foreground)", "var(--btn-soft-pressed)", TEXT, "var(--card)"],
+  ["muted icon on soft hover", "var(--muted-foreground)", "var(--btn-soft-hover)", UI, "var(--card)"],
   ["outline hairline on card", "var(--btn-outline-border)", "var(--card)", 1.25],
   // Round 9 (§12.19): record cards — body text, muted labels and the reference on the strongest
   // tone wash (9 %, top of the gradient) and on the selected tint.
   ...["success", "warning", "destructive", "info", "neutral"].flatMap((t) => [
-    [
-      `record card ${t}: text on wash`,
-      "var(--foreground)",
-      `color-mix(in oklab, var(--insight-${t}) 14%, var(--card))`,
-      TEXT,
-      "var(--card)",
-    ],
-    [
-      `record card ${t}: muted label on wash`,
-      "var(--muted-foreground)",
-      `color-mix(in oklab, var(--insight-${t}) 14%, var(--card))`,
-      TEXT,
-      "var(--card)",
-    ],
+    [`record card ${t}: text on wash`, "var(--foreground)", `color-mix(in oklab, var(--insight-${t}) 14%, var(--card))`, TEXT, "var(--card)"],
+    [`record card ${t}: muted label on wash`, "var(--muted-foreground)", `color-mix(in oklab, var(--insight-${t}) 14%, var(--card))`, TEXT, "var(--card)"],
   ]),
-  [
-    "record card selected: text",
-    "var(--foreground)",
-    "color-mix(in oklab, var(--focus-ring) 15%, var(--card))",
-    TEXT,
-    "var(--card)",
-  ],
-  [
-    "record card selected: muted label",
-    "var(--muted-foreground)",
-    "color-mix(in oklab, var(--focus-ring) 15%, var(--card))",
-    TEXT,
-    "var(--card)",
-  ],
+  ["record card selected: text", "var(--foreground)", "color-mix(in oklab, var(--focus-ring) 15%, var(--card))", TEXT, "var(--card)"],
+  ["record card selected: muted label", "var(--muted-foreground)", "color-mix(in oklab, var(--focus-ring) 15%, var(--card))", TEXT, "var(--card)"],
   ["record card selection ring on card", "var(--focus-ring)", "var(--card)", UI],
   // Round 9 (§12.20): lead-distribution state surfaces — label text on rest and hover.
   ...[
-    [
-      "continuous",
-      "var(--success)",
-      "var(--success-foreground)",
-      "color-mix(in oklab, var(--success) 86%, black)",
-    ],
+    ["continuous", "var(--success)", "var(--success-foreground)", "color-mix(in oklab, var(--success) 86%, black)"],
     ["time-limited", "var(--state-scheduled)", "#ffffff", "var(--state-scheduled-hover)"],
     ["manual", "var(--state-manual)", "#ffffff", "var(--state-manual-hover)"],
-    [
-      "paused",
-      "var(--warning)",
-      "var(--warning-foreground)",
-      "color-mix(in oklab, var(--warning) 88%, black)",
-    ],
-    [
-      "blocked",
-      "var(--destructive)",
-      "var(--destructive-foreground)",
-      "color-mix(in oklab, var(--destructive) 86%, black)",
-    ],
+    ["paused", "var(--warning)", "var(--warning-foreground)", "color-mix(in oklab, var(--warning) 88%, black)"],
+    ["blocked", "var(--destructive)", "var(--destructive-foreground)", "color-mix(in oklab, var(--destructive) 86%, black)"],
   ].flatMap(([name, bg, fg, hover]) => [
     [`distribution ${name}: label`, fg, bg, TEXT, "var(--card)"],
     [`distribution ${name}: label (hover)`, fg, hover, TEXT, "var(--card)"],
