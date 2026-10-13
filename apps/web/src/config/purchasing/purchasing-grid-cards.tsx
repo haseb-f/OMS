@@ -20,6 +20,7 @@ import type { LandedCostDocumentRow } from "@/services/landed-cost-service";
 import {
   TRANSACTION_STATUS_LABEL_KEY,
   TRANSACTION_STATUS_TONE,
+  invoiceSurfaceTone,
 } from "@/config/financial-transactions/status";
 import { InvoiceActionsCell, type InvoiceRowHandlers } from "./invoice-columns";
 import { INVOICE_STATUS_LABEL_KEY, INVOICE_STATUS_TONE } from "./invoice-status";
@@ -64,6 +65,8 @@ interface DocumentCardModel {
   badges: ReactNode;
   actionsNode?: ReactNode;
   labels: DocumentCardLabels;
+  /** Further figures after the date / reference / author (e.g. an invoice's remaining balance). */
+  extraFields?: RecordGridCardField[];
 }
 
 function PurchasingDocumentCard({
@@ -78,6 +81,7 @@ function PurchasingDocumentCard({
   badges,
   actionsNode,
   labels,
+  extraFields,
   selected,
   onToggleSelected,
   href,
@@ -101,6 +105,7 @@ function PurchasingDocumentCard({
   if (createdByName) {
     fields.push({ key: "createdBy", label: t(labels.createdBy), value: createdByName });
   }
+  if (extraFields) fields.push(...extraFields);
   return (
     <RecordGridCard
       tone={tone}
@@ -167,7 +172,8 @@ export function PurchaseInvoiceGridCard({
   return (
     <PurchasingDocumentCard
       {...chrome}
-      tone={INVOICE_STATUS_TONE[row.status]}
+      // R20 — a posted invoice's surface is its payment status: an unpaid one never reads settled.
+      tone={invoiceSurfaceTone(row.status, INVOICE_STATUS_TONE[row.status], row.paymentStatus)}
       supplierName={row.partner?.name ?? null}
       supplierPhone={row.partner?.phone ?? null}
       number={row.invoiceNumber}
@@ -190,6 +196,14 @@ export function PurchaseInvoiceGridCard({
         reference: "purchasing.invoices.fields.reference",
         createdBy: "purchasing.invoices.fields.createdBy",
       }}
+      extraFields={[
+        {
+          key: "remaining",
+          label: t("financialTransactions.paymentSummary.remaining"),
+          value: <MoneyValue value={row.remainingBalance} currency={row.currency?.code} />,
+          numeric: true,
+        },
+      ]}
     />
   );
 }

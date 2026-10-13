@@ -63,8 +63,43 @@ describe("Sales Grid card templates (round 9)", () => {
     expect(card.textContent).not.toMatch(/due/i);
     // the table's own actions control is rendered
     expect(within(card).getByText("row-actions")).toBeTruthy();
-    // tone follows the document status map (CONFIRMED -> success)
-    expect(card.getAttribute("data-tone")).toBe("success");
+    // R20 — a posted invoice's surface is its payment status (partially paid -> warning)
+    expect(card.getAttribute("data-tone")).toBe("warning");
+  });
+
+  it("R20 — a confirmed but unpaid invoice never reads settled; a draft keeps its document tone", () => {
+    const { unmount } = render(
+      <InvoiceGridCard
+        row={asRow<SalesInvoiceRow>({
+          ...invoice,
+          paymentStatus: "UNPAID",
+          remainingBalance: 1150,
+        })}
+        href="/x"
+        {...common}
+      />,
+    );
+    expect(document.querySelector("[data-record-card]")?.getAttribute("data-tone")).toBe(
+      "destructive",
+    );
+    unmount();
+    const paid = render(
+      <InvoiceGridCard
+        row={asRow<SalesInvoiceRow>({ ...invoice, paymentStatus: "PAID", remainingBalance: 0 })}
+        href="/x"
+        {...common}
+      />,
+    );
+    expect(document.querySelector("[data-record-card]")?.getAttribute("data-tone")).toBe("success");
+    paid.unmount();
+    render(
+      <InvoiceGridCard
+        row={asRow<SalesInvoiceRow>({ ...invoice, status: "DRAFT", paymentStatus: "UNPAID" })}
+        href="/x"
+        {...common}
+      />,
+    );
+    expect(document.querySelector("[data-record-card]")?.getAttribute("data-tone")).toBe("neutral");
   });
 
   it("keeps document status and payment status as two separate badges", () => {

@@ -24,6 +24,8 @@ export interface SalesDocumentGridCardProps {
   subtitle?: ReactNode;
   /** The document's own workflow status (same label/tone as the table badge). */
   status: { label: string; tone: StatusTone };
+  /** Card surface colour when it is not the workflow status tone (R20: a posted invoice's payment status). */
+  tone?: StatusTone;
   /** Further SEPARATE badges (e.g. payment status) — never merged into the status. */
   extraBadges?: ReactNode;
   /** The key figure people scan for. */
@@ -38,7 +40,8 @@ export interface SalesDocumentGridCardProps {
  * The one record card every Sales document list (quotations, orders, invoices,
  * returns, receipts, refunds) shares. Entity templates only map their row to
  * these slots; the card itself never decides anything. Colour = the document's
- * workflow status tone, written again as the status badge label.
+ * workflow status tone, written again as the status badge label, unless the
+ * template names the record's primary state (`tone`, e.g. invoice payment).
  */
 export function SalesDocumentGridCard({
   selected,
@@ -50,6 +53,7 @@ export function SalesDocumentGridCard({
   partyName,
   subtitle,
   status,
+  tone,
   extraBadges,
   amount,
   currency,
@@ -58,7 +62,7 @@ export function SalesDocumentGridCard({
   const { t } = useLocale();
   return (
     <RecordGridCard
-      tone={status.tone}
+      tone={tone ?? status.tone}
       selected={selected}
       onToggleSelected={onToggleSelected}
       selectLabel={t("tableViews.card.selectRow", { name: `${partyName} — ${number}` })}

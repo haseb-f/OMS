@@ -1,0 +1,123 @@
+{
+  "phase": "before",
+  "base": "http://localhost:4821",
+  "customer": "عميل R20 MV6UFM8L",
+  "invoices": ["INV-2026-000015", "INV-2026-000016", "INV-2026-000017"],
+  "results": [
+    {
+      "name": "setup: invoices 200,000 / 50,000 / 30,000 confirmed",
+      "ok": true,
+      "detail": "INV-2026-000015 200000, INV-2026-000016 50000, INV-2026-000017 30000"
+    },
+    {
+      "name": "1 receipt posted 100,000 → invoice A preselected and allocated 100,000",
+      "ok": true,
+      "detail": "CR-2026-000034 100000"
+    },
+    {
+      "name": "1 API: 200,000 / paid 100,000 / outstanding 100,000 / PARTIALLY_PAID",
+      "ok": true,
+      "detail": "{\"paid\":100000,\"remaining\":100000,\"status\":\"PARTIALLY_PAID\"}"
+    },
+    {
+      "name": "1 list row: مدفوعة جزئياً",
+      "ok": true,
+      "detail": " INV-2026-000015 R20C-A-MV6UFM8L عميل R20 MV6UFM8L مؤكد 200,000.00 مدفوعة جزئياً 13 Oct 2026 "
+    },
+    {
+      "name": "1 list row shows the 100,000 outstanding",
+      "ok": false,
+      "detail": " INV-2026-000015 R20C-A-MV6UFM8L عميل R20 MV6UFM8L مؤكد 200,000.00 مدفوعة جزئياً 13 Oct 2026 "
+    },
+    {
+      "name": "1 grid card: partially paid badge + 100,000 remaining",
+      "ok": true,
+      "detail": "عميل R20 MV6UFM8L INV-2026-000015 R20C-A-MV6UFM8L 200,000.00 التاريخ 13 Oct 2026 المبلغ المتبقي 100,000.00 مؤكد مدفوعة جزئياً"
+    },
+    {
+      "name": "1 grid card surface = payment status (warning), not 'confirmed' green",
+      "ok": false,
+      "detail": "success"
+    },
+    {
+      "name": "1 detail: partially paid, paid 100,000, remaining 100,000",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "2 API: paid 200,000 / outstanding 0 / PAID",
+      "ok": true,
+      "detail": "{\"paid\":200000,\"remaining\":0,\"status\":\"PAID\"}"
+    },
+    {
+      "name": "2 detail: مدفوعة بالكامل",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "3 open invoices show paid before + this voucher columns",
+      "ok": false,
+      "detail": ""
+    },
+    {
+      "name": "3 B paid 50,000 (PAID), C paid 10,000 (PARTIALLY_PAID, 20,000 left)",
+      "ok": true,
+      "detail": "{\"paid\":50000,\"remaining\":0,\"status\":\"PAID\"} {\"paid\":10000,\"remaining\":20000,\"status\":\"PARTIALLY_PAID\"}"
+    },
+    {
+      "name": "4 dialog names the amount an unapplied advance, no invoice selected",
+      "ok": false,
+      "detail": "جزء من المبلغ غير مخصص لفاتورة سيُسجَّل المبلغ كاملاً (5,000.00) مقبوضاً في الحساب المستلم، ويُخصص منه 0.00 للفواتير، ويبقى 5,000.00 دفعة مقدمة على حساب العميل. أكّد فقط إذا كان 5,000.00 هو ما وصل فعلاً، وإلا فعدّل المبل"
+    },
+    {
+      "name": "4 no invoice changed by the advance",
+      "ok": true,
+      "detail": "{\"paid\":10000,\"remaining\":20000,\"status\":\"PARTIALLY_PAID\"}"
+    },
+    {
+      "name": "4 API position: received 265,000 = applied 260,000 + unapplied 5,000; owed 20,000",
+      "ok": false,
+      "detail": "null"
+    },
+    {
+      "name": "4 profile shows unapplied advance 5,000 apart from applied",
+      "ok": false,
+      "detail": ""
+    },
+    {
+      "name": "5 API: after cancel → paid 100,000 / PARTIALLY_PAID",
+      "ok": true,
+      "detail": "{\"paid\":100000,\"remaining\":100000,\"status\":\"PARTIALLY_PAID\"}"
+    },
+    {
+      "name": "5 detail: مدفوعة جزئياً again",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "6 en mobile card: Partially Paid + 100,000",
+      "ok": true,
+      "detail": "عميل R20 MV6UFM8L INV-2026-000015 R20C-A-MV6UFM8L 200,000.00 Date 13 Oct 2026 Remaining Amount 100,000.00 Confirmed Partially Paid"
+    },
+    {
+      "name": "6 en mobile invoice list: no horizontal scroll",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "6 en mobile receipt editor: paid before / this voucher on the open invoice",
+      "ok": false,
+      "detail": ""
+    },
+    {
+      "name": "6 en mobile receipt editor: no horizontal scroll",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "6 en 1440 receipt editor: no horizontal scroll",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

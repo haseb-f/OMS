@@ -26,6 +26,8 @@ import { buildDateRangeFilter } from '../sales/shared/sales-list-query.util';
 import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
 import type { CompanyContext } from '../common/decorators/current-company-context.decorator';
 import {
+  PAYABLE_PURCHASE_INVOICE_STATUSES,
+  PAYABLE_SALES_INVOICE_STATUSES,
   computeInvoicePaymentSummary,
   lockInvoiceRow,
   sumConfirmedAllocations,
@@ -183,12 +185,31 @@ export interface OpenInvoiceRow {
   invoiceId: string;
   invoiceNumber: string;
   documentDate: string;
+  /** R20 — the invoice's currency: a voucher settles invoices of its own currency only. */
+  currencyId: string | null;
+  currencyCode: string | null;
   grandTotal: number;
   allocatedTotal: number;
   remainingBalance: number;
   paymentStatus: ReturnType<
     typeof computeInvoicePaymentSummary
   >['paymentStatus'];
+}
+
+/**
+ * R20 — a party's payment position in one currency (customer / supplier
+ * profile): what its posted invoices still owe, the money its confirmed
+ * vouchers moved, how much of it settles invoices and how much stays an
+ * unapplied advance. Never one figure across currencies.
+ */
+export interface PartyPaymentPosition {
+  currencyId: string | null;
+  currencyCode: string | null;
+  openInvoices: number;
+  outstanding: number;
+  received: number;
+  applied: number;
+  unapplied: number;
 }
 
 /**
@@ -253,6 +274,14 @@ export class FinancialTransactionsService {
       allocations,
       outerTx,
       currencyId ?? null,
+    );
+    // R20 — a receipt / payment is in its invoices' currency (none chosen →
+    // theirs); another currency is refused, never cleared at a wrong value.
+    currencyId = await this.settlementCurrency(
+      type,
+      currencyId,
+      allocations,
+      outerTx,
     );
 
     const transactionNumber = await this.numberingEngine.generateNumber(
@@ -658,6 +687,24 @@ export class FinancialTransactionsService {
             dto.currencyId ?? existing.currencyId,
           )
         : undefined;
+    let currencyId = dto.currencyId;
+    if (dto.allocations !== undefined || dto.currencyId !== undefined) {
+      const lines =
+        dto.allocations ??
+        (
+          await this.prisma.financialTransactionAllocation.findMany({
+            where: { transactionId: id },
+            select: { salesInvoiceId: true, purchaseInvoiceId: true },
+          })
+        ).map((a) => ({
+          invoiceId: a.salesInvoiceId ?? a.purchaseInvoiceId ?? undefined,
+        }));
+      currencyId = await this.settlementCurrency(
+        existing.type,
+        dto.currencyId ?? existing.currencyId ?? undefined,
+        lines,
+      );
+    }
 
     return this.prisma.$transaction(async (tx) => {
       if (resolvedAllocations) {
@@ -668,7 +715,7 @@ export class FinancialTransactionsService {
       const transaction = await tx.financialTransaction.update({
         where: { id },
         data: {
-          currencyId: dto.currencyId,
+          currencyId,
           transactionDate: dto.transactionDate
             ? new Date(dto.transactionDate)
             : undefined,
@@ -755,6 +802,10 @@ export class FinancialTransactionsService {
           Number(existing.feeAmount ?? 0),
         );
       }
+      // R20 — what this voucher applies to each document, summed per
+      // document (two lines on one invoice never pass its balance one by
+      // one), locked in a stable order so concurrent confirms never deadlock.
+      const perDocument = new Map<string, number>();
       for (const allocation of existing.allocations) {
         if (allocation.storeOrderId) {
           await lockStoreOrderRow(tx, allocation.storeOrderId);
@@ -770,15 +821,32 @@ export class FinancialTransactionsService {
           allocation.purchaseInvoiceId ??
           allocation.salesReturnId;
         if (!invoiceId) continue;
+        perDocument.set(
+          invoiceId,
+          this.round2(
+            (perDocument.get(invoiceId) ?? 0) +
+              Number(allocation.allocatedAmount),
+          ),
+        );
+      }
+      for (const invoiceId of [...perDocument.keys()].sort()) {
         await lockInvoiceRow(tx, existing.type, invoiceId);
         await this.assertAllocationWithinRemaining(
           existing.type,
           invoiceId,
-          Number(allocation.allocatedAmount),
+          perDocument.get(invoiceId) ?? 0,
           id,
           tx,
         );
       }
+      // Re-checked at posting time: drafts saved before R20 may carry
+      // another currency than their invoices.
+      await this.settlementCurrency(
+        existing.type,
+        existing.currencyId,
+        [...perDocument.keys()].map((invoiceId) => ({ invoiceId })),
+        tx,
+      );
       if (existing.type === 'CUSTOMER_REFUND') {
         await this.assertRefundWithinCustomerCredit(existing, tx);
       }
@@ -1030,6 +1098,14 @@ export class FinancialTransactionsService {
       [dto],
       outerTx,
     );
+    // R20 — a posted voucher's currency is fixed: it settles invoices of
+    // that currency only.
+    await this.settlementCurrency(
+      existing.type,
+      existing.currencyId,
+      [dto],
+      outerTx,
+    );
 
     return this.inTransaction(outerTx, async (tx) => {
       // R15 (review H1) — a store-order receipt: the order row first (same
@@ -1044,11 +1120,22 @@ export class FinancialTransactionsService {
         SELECT id FROM financial_transactions WHERE id = ${id}::uuid FOR UPDATE
       `;
       await lockInvoiceRow(tx, existing.type, dto.invoiceId);
-      const currentAllocated =
-        await tx.financialTransactionAllocation.aggregate({
+      const [currentAllocated, sameInvoiceLine] = await Promise.all([
+        tx.financialTransactionAllocation.aggregate({
           where: { transactionId: id },
           _sum: { allocatedAmount: true },
-        });
+        }),
+        tx.financialTransactionAllocation.findFirst({
+          where: {
+            transactionId: id,
+            OR: [
+              { salesInvoiceId: dto.invoiceId },
+              { purchaseInvoiceId: dto.invoiceId },
+            ],
+          },
+          select: { id: true, allocatedAmount: true },
+        }),
+      ]);
       const alreadyAllocated = Number(
         currentAllocated._sum.allocatedAmount ?? 0,
       );
@@ -1068,14 +1155,29 @@ export class FinancialTransactionsService {
         undefined,
         tx,
       );
-      await tx.financialTransactionAllocation.create({
-        data: {
-          transactionId: id,
-          ...resolved,
-          createdBy: userId ?? null,
-          updatedBy: userId ?? null,
-        },
-      });
+      // R20 — one line per invoice per voucher: more money for an invoice the
+      // voucher already settles grows that line (both checks above saw the
+      // combined amount), never a second line.
+      if (sameInvoiceLine) {
+        await tx.financialTransactionAllocation.update({
+          where: { id: sameInvoiceLine.id },
+          data: {
+            allocatedAmount: this.round2(
+              Number(sameInvoiceLine.allocatedAmount) + dto.allocatedAmount,
+            ),
+            updatedBy: userId ?? null,
+          },
+        });
+      } else {
+        await tx.financialTransactionAllocation.create({
+          data: {
+            transactionId: id,
+            ...resolved,
+            createdBy: userId ?? null,
+            updatedBy: userId ?? null,
+          },
+        });
+      }
       const transaction = await tx.financialTransaction.findUniqueOrThrow({
         where: { id },
         include: TRANSACTION_INCLUDE,
@@ -1142,7 +1244,7 @@ export class FinancialTransactionsService {
   }
 
   /**
-   * Open Invoices — every CONFIRMED invoice for this party with a
+   * Open Invoices — every posted (confirmed) invoice for this party with a
    * remaining balance greater than zero, for the Allocation Grid / "Pay
    * All Remaining" UI. Never trusts a stored payment-status column
    * (there isn't one) — always derives it fresh.
@@ -1151,15 +1253,22 @@ export class FinancialTransactionsService {
     type: FinancialTransactionType,
     partyId: string,
   ): Promise<OpenInvoiceRow[]> {
+    const select = {
+      id: true,
+      invoiceNumber: true,
+      grandTotal: true,
+      createdAt: true,
+      currencyId: true,
+      currency: { select: { code: true } },
+    } as const;
     if (type === 'CUSTOMER_RECEIPT') {
       const invoices = await this.prisma.salesInvoice.findMany({
-        where: { partnerId: partyId, status: 'CONFIRMED', deletedAt: null },
-        select: {
-          id: true,
-          invoiceNumber: true,
-          grandTotal: true,
-          createdAt: true,
+        where: {
+          partnerId: partyId,
+          status: { in: PAYABLE_SALES_INVOICE_STATUSES },
+          deletedAt: null,
         },
+        select,
         orderBy: { createdAt: 'asc' },
       });
       const allocated = await sumConfirmedAllocations(
@@ -1171,13 +1280,12 @@ export class FinancialTransactionsService {
     }
 
     const invoices = await this.prisma.purchaseInvoice.findMany({
-      where: { partnerId: partyId, status: 'CONFIRMED', deletedAt: null },
-      select: {
-        id: true,
-        invoiceNumber: true,
-        grandTotal: true,
-        createdAt: true,
+      where: {
+        partnerId: partyId,
+        status: { in: PAYABLE_PURCHASE_INVOICE_STATUSES },
+        deletedAt: null,
       },
+      select,
       orderBy: { createdAt: 'asc' },
     });
     const allocated = await sumConfirmedAllocations(
@@ -1188,12 +1296,106 @@ export class FinancialTransactionsService {
     return this.buildOpenInvoiceRows(invoices, allocated);
   }
 
+  /**
+   * R20 — the party's payment position per currency (customer / supplier
+   * profile): open invoices and what they still owe (the same rows as the
+   * open-invoices list), and the money its confirmed vouchers moved, split
+   * into what settles invoices and what stays an unapplied advance. A
+   * voucher's money is never read as "paid" unless it is allocated.
+   */
+  async getPartyPosition(
+    type: FinancialTransactionType,
+    partyId: string,
+  ): Promise<PartyPaymentPosition[]> {
+    const [open, vouchers, settings] = await Promise.all([
+      this.getOpenInvoices(type, partyId),
+      this.prisma.financialTransaction.findMany({
+        where: {
+          type,
+          partnerId: partyId,
+          status: FinancialTransactionStatus.CONFIRMED,
+          deletedAt: null,
+        },
+        select: {
+          amount: true,
+          feeAmount: true,
+          currencyId: true,
+          currency: { select: { code: true } },
+          allocations: {
+            select: {
+              allocatedAmount: true,
+              salesInvoiceId: true,
+              purchaseInvoiceId: true,
+            },
+          },
+        },
+      }),
+      this.prisma.postingSettings.findFirst({
+        select: {
+          functionalCurrencyId: true,
+          functionalCurrency: { select: { code: true } },
+        },
+      }),
+    ]);
+    const functional = {
+      id: settings?.functionalCurrencyId ?? null,
+      code: settings?.functionalCurrency?.code ?? null,
+    };
+    const byCurrency = new Map<string, PartyPaymentPosition>();
+    const row = (currencyId: string | null, code: string | null) => {
+      const id = currencyId ?? functional.id;
+      const key = id ?? '';
+      const existing = byCurrency.get(key);
+      if (existing) return existing;
+      const created: PartyPaymentPosition = {
+        currencyId: id,
+        currencyCode: currencyId ? code : functional.code,
+        openInvoices: 0,
+        outstanding: 0,
+        received: 0,
+        applied: 0,
+        unapplied: 0,
+      };
+      byCurrency.set(key, created);
+      return created;
+    };
+    for (const invoice of open) {
+      const position = row(invoice.currencyId, invoice.currencyCode);
+      position.openInvoices += 1;
+      position.outstanding = this.round2(
+        position.outstanding + invoice.remainingBalance,
+      );
+    }
+    for (const voucher of vouchers) {
+      const position = row(voucher.currencyId, voucher.currency?.code ?? null);
+      const amount = Number(voucher.amount);
+      const capacity = amount + Number(voucher.feeAmount ?? 0);
+      const allLines = voucher.allocations.reduce(
+        (sum, line) => sum + Number(line.allocatedAmount),
+        0,
+      );
+      const toInvoices = voucher.allocations
+        .filter((line) => line.salesInvoiceId || line.purchaseInvoiceId)
+        .reduce((sum, line) => sum + Number(line.allocatedAmount), 0);
+      position.received = this.round2(position.received + amount);
+      position.applied = this.round2(position.applied + toInvoices);
+      position.unapplied = this.round2(
+        position.unapplied + Math.max(this.round2(capacity - allLines), 0),
+      );
+    }
+    return [...byCurrency.values()].sort((a, b) =>
+      (a.currencyCode ?? '').localeCompare(b.currencyCode ?? ''),
+    );
+  }
+
   private buildOpenInvoiceRows(
     invoices: {
       id: string;
       invoiceNumber: string;
       grandTotal: Prisma.Decimal;
       createdAt: Date;
+      currencyId: string | null;
+      currency: { code: string } | null;
     }[],
     allocated: Map<string, number>,
   ): OpenInvoiceRow[] {
@@ -1207,6 +1409,8 @@ export class FinancialTransactionsService {
           invoiceId: invoice.id,
           invoiceNumber: invoice.invoiceNumber,
           documentDate: invoice.createdAt.toISOString(),
+          currencyId: invoice.currencyId,
+          currencyCode: invoice.currency?.code ?? null,
           ...summary,
         };
       })
@@ -1357,6 +1561,7 @@ export class FinancialTransactionsService {
       [];
     const seenReturns = new Set<string>();
     const seenOrders = new Set<string>();
+    const seenInvoices = new Set<string>();
     for (const allocation of allocations) {
       if (allocation.storeOrderId && type !== 'CUSTOMER_REFUND') {
         throw new BadRequestException(
@@ -1436,6 +1641,13 @@ export class FinancialTransactionsService {
             `Cannot allocate a payment to cancelled Sales Invoice ${invoice.invoiceNumber}.`,
           );
         }
+        this.assertPayableInvoice(
+          PAYABLE_SALES_INVOICE_STATUSES.includes(invoice.status),
+          `Sales Invoice ${invoice.invoiceNumber}`,
+          invoice.status,
+          seenInvoices,
+          invoiceId,
+        );
         resolved.push({
           salesInvoiceId: invoiceId,
           allocatedAmount: allocation.allocatedAmount,
@@ -1455,6 +1667,13 @@ export class FinancialTransactionsService {
             `Cannot allocate a payment to cancelled Purchase Invoice ${invoice.invoiceNumber}.`,
           );
         }
+        this.assertPayableInvoice(
+          PAYABLE_PURCHASE_INVOICE_STATUSES.includes(invoice.status),
+          `Purchase Invoice ${invoice.invoiceNumber}`,
+          invoice.status,
+          seenInvoices,
+          invoiceId,
+        );
         resolved.push({
           purchaseInvoiceId: invoiceId,
           allocatedAmount: allocation.allocatedAmount,
@@ -1462,6 +1681,118 @@ export class FinancialTransactionsService {
       }
     }
     return resolved;
+  }
+
+  /**
+   * R20 — an allocation line settles a posted invoice, once per voucher. A
+   * draft / pending / approved invoice owes nothing yet (record the money as
+   * an unapplied advance and allocate it after Confirm); two lines on one
+   * invoice would each pass its balance alone.
+   */
+  private assertPayableInvoice(
+    posted: boolean,
+    label: string,
+    status: string,
+    seenInvoices: Set<string>,
+    invoiceId: string,
+  ) {
+    if (!posted) {
+      throw new BadRequestException({
+        code: 'INVOICE_NOT_POSTED',
+        message: `الفاتورة غير مرحّلة — ${label} is ${status}: only a confirmed invoice can be paid. Confirm it first, or record the money as an unapplied advance.`,
+      });
+    }
+    if (seenInvoices.has(invoiceId)) {
+      throw new BadRequestException({
+        code: 'DUPLICATE_ALLOCATION',
+        message: `الفاتورة مكررة في التخصيص — ${label} appears more than once on this voucher; allocate it on one line.`,
+      });
+    }
+    seenInvoices.add(invoiceId);
+  }
+
+  /**
+   * R20 — the currency a receipt / supplier payment settles its invoices in.
+   * Allocated amounts are invoice money (posting clears each at its invoice's
+   * frozen rate), so a voucher only settles invoices of its own currency; a
+   * voucher or invoice without a currency is in the functional currency
+   * (Settings → Accounting). `requested` undefined = none chosen yet → the
+   * invoices' (one) currency; null = the functional currency. Returns the
+   * currency to store; refuses a mismatch with CURRENCY_MISMATCH.
+   */
+  private async settlementCurrency(
+    type: FinancialTransactionType,
+    requested: string | null | undefined,
+    lines: readonly { invoiceId?: string }[],
+    client: DbClient = this.prisma,
+  ): Promise<string | undefined> {
+    const keep = requested ?? undefined;
+    if (type !== 'CUSTOMER_RECEIPT' && type !== 'SUPPLIER_PAYMENT') return keep;
+    const invoiceIds = [
+      ...new Set(
+        lines
+          .map((line) => line.invoiceId)
+          .filter((value): value is string => !!value),
+      ),
+    ];
+    if (invoiceIds.length === 0) return keep;
+    const select = {
+      invoiceNumber: true,
+      currencyId: true,
+      currency: { select: { code: true } },
+    } as const;
+    const invoices =
+      type === 'CUSTOMER_RECEIPT'
+        ? await client.salesInvoice.findMany({
+            where: { id: { in: invoiceIds } },
+            select,
+          })
+        : await client.purchaseInvoice.findMany({
+            where: { id: { in: invoiceIds } },
+            select,
+          });
+    const settings = await client.postingSettings.findFirst({
+      select: {
+        functionalCurrencyId: true,
+        functionalCurrency: { select: { code: true } },
+      },
+    });
+    const functionalId = settings?.functionalCurrencyId ?? null;
+    const normalize = (currencyId: string | null) => currencyId ?? functionalId;
+    const target =
+      requested !== undefined
+        ? normalize(requested)
+        : normalize(invoices[0]?.currencyId ?? null);
+    const voucherCode = async () => {
+      if (target === functionalId) {
+        return settings?.functionalCurrency?.code ?? 'functional';
+      }
+      const currency = target
+        ? await client.currency.findUnique({
+            where: { id: target },
+            select: { code: true },
+          })
+        : null;
+      return currency?.code ?? 'functional';
+    };
+    for (const invoice of invoices) {
+      if (normalize(invoice.currencyId) === target) continue;
+      const invoiceCode =
+        invoice.currency?.code ??
+        settings?.functionalCurrency?.code ??
+        'functional';
+      throw new BadRequestException({
+        code: 'CURRENCY_MISMATCH',
+        message:
+          requested !== undefined
+            ? `عملة السند تختلف عن عملة الفاتورة ${invoice.invoiceNumber} — This ${this.label(type).toLowerCase()} is in ${await voucherCode()} but invoice ${invoice.invoiceNumber} is in ${invoiceCode}; a voucher settles invoices of its own currency only.`
+            : `الفواتير بعملات مختلفة — Invoice ${invoice.invoiceNumber} is in ${invoiceCode} and the other invoices are not; record one voucher per currency.`,
+        fields: [{ field: 'currencyId', constraints: ['currency_mismatch'] }],
+      });
+    }
+    return requested !== undefined
+      ? keep
+      : (invoices[0]?.currencyId ?? undefined);
   }
 
   /** Caps a new/confirming allocation at the invoice's currently-remaining balance (excluding this transaction's own prior confirmed allocations, if any). */

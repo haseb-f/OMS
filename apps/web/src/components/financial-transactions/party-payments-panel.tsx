@@ -25,19 +25,24 @@ import { useLocale } from "@/providers/locale-provider";
 import type {
   FinancialTransactionRow,
   OpenInvoiceRow,
+  PartyPaymentPosition,
 } from "@/services/financial-transactions-service";
 
 /**
  * Customer Profile "Payments" tab and Supplier Profile "Payments" tab
  * (TASK-044 Parts 4-5) — genuinely shared between both domains (party-
  * agnostic `FinancialTransactionRow`/`OpenInvoiceRow` inputs, same shape as
- * `FinancialTransactionEditor`'s render-prop sharing), read-only.
+ * `FinancialTransactionEditor`'s render-prop sharing), read-only. R20: the
+ * figures are the API's party position per currency — money received is
+ * shown apart from what it settles (applied) and what stays an advance
+ * (unapplied); a voucher's amount is never read as "invoices paid".
  */
 export function PartyPaymentsPanel({
   transactions,
   isLoadingTransactions,
   openInvoices,
   isLoadingOpenInvoices,
+  positions,
   historyTitle,
   outstandingLabel,
   paidLabel,
@@ -49,6 +54,8 @@ export function PartyPaymentsPanel({
   isLoadingTransactions: boolean;
   openInvoices: OpenInvoiceRow[];
   isLoadingOpenInvoices: boolean;
+  /** `GET …/position` — one row per currency. */
+  positions: PartyPaymentPosition[];
   historyTitle: string;
   outstandingLabel: string;
   paidLabel: string;
@@ -58,11 +65,6 @@ export function PartyPaymentsPanel({
   createLabel?: string;
 }) {
   const { t } = useLocale();
-
-  const outstandingBalance = openInvoices.reduce((sum, inv) => sum + inv.remainingBalance, 0);
-  const paidAmount = transactions
-    .filter((txn) => txn.status === "CONFIRMED")
-    .reduce((sum, txn) => sum + Number(txn.amount), 0);
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -74,16 +76,36 @@ export function PartyPaymentsPanel({
           </EnterpriseButton>
         </div>
       )}
-      <DetailSection>
-        <DetailFieldGrid columns={3}>
-          <DetailField label={outstandingLabel} value={formatMoney(outstandingBalance)} />
-          <DetailField label={paidLabel} value={formatMoney(paidAmount)} />
-          <DetailField
-            label={t("financialTransactions.allocationSummary.openInvoices")}
-            value={String(openInvoices.length)}
-          />
-        </DetailFieldGrid>
-      </DetailSection>
+      {(positions.length > 0 ? positions : [null]).map((position) => {
+        const money = (value: number) => formatMoney(value, position?.currencyCode);
+        return (
+          <DetailSection
+            key={position?.currencyId ?? "none"}
+            title={
+              positions.length > 1 && position?.currencyCode
+                ? `${t("financialTransactions.position.currency")}: ${position.currencyCode}`
+                : undefined
+            }
+          >
+            <DetailFieldGrid columns={3}>
+              <DetailField label={outstandingLabel} value={money(position?.outstanding ?? 0)} />
+              <DetailField
+                label={t("financialTransactions.allocationSummary.openInvoices")}
+                value={String(position?.openInvoices ?? 0)}
+              />
+              <DetailField label={paidLabel} value={money(position?.received ?? 0)} />
+              <DetailField
+                label={t("financialTransactions.position.applied")}
+                value={money(position?.applied ?? 0)}
+              />
+              <DetailField
+                label={t("financialTransactions.position.unapplied")}
+                value={money(position?.unapplied ?? 0)}
+              />
+            </DetailFieldGrid>
+          </DetailSection>
+        );
+      })}
 
       <DetailSection title={historyTitle}>
         {isLoadingTransactions ? (
@@ -95,7 +117,7 @@ export function PartyPaymentsPanel({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t("financialTransactions.allocationGrid.invoice")}</TableHead>
+                  <TableHead>{t("financialTransactions.position.voucher")}</TableHead>
                   <TableHead>{t("financialTransactions.openInvoices.date")}</TableHead>
                   <TableHead className="text-end">
                     {t("financialTransactions.summary.amount")}
@@ -117,7 +139,7 @@ export function PartyPaymentsPanel({
                     </TableCell>
                     <TableCell>{formatDate(txn.transactionDate)}</TableCell>
                     <TableCell className="text-end" dir="ltr">
-                      {formatMoney(Number(txn.amount))}
+                      {formatMoney(Number(txn.amount), txn.currency?.code)}
                     </TableCell>
                     <TableCell>
                       <StatusBadge

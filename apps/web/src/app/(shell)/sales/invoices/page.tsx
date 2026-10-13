@@ -47,6 +47,7 @@ import {
   INVOICE_STATUS_LABEL_KEY,
   INVOICE_STATUS_TONE,
 } from "@/config/sales/invoice-status";
+import { invoicePaymentExportFields } from "@/config/financial-transactions/status";
 import { buildInvoicePrintPayload } from "@/config/sales/invoice-print";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { usePrintEngine } from "@/hooks/use-print-engine";
@@ -140,10 +141,12 @@ function SalesInvoicesPageContent() {
   const toPrintRow = useCallback(
     (item: SalesInvoiceRow): Record<string, string> => ({
       invoiceNumber: item.invoiceNumber,
-      partner: item.partner?.name ?? "",
+      customer: item.partner?.name ?? "",
       referenceNumber: item.referenceNumber ?? "",
       grandTotal: item.grandTotal,
       status: t(INVOICE_STATUS_LABEL_KEY[item.status]),
+      // R20 — the export carries the same payment status / paid / outstanding as the screen.
+      ...invoicePaymentExportFields(item, t),
       createdAt: formatDate(item.createdAt),
       createdBy: item.createdBy ? (usersById[item.createdBy] ?? "") : "",
     }),

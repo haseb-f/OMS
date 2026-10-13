@@ -15,11 +15,29 @@
  * reports `CANCELLED` regardless of what it had allocated beforehand).
  */
 
-import type {
-  FinancialTransactionType,
-  PrismaClient,
-  Prisma,
+import {
+  PurchaseDocumentStatus,
+  SalesDocumentStatus,
+  type FinancialTransactionType,
+  type PrismaClient,
+  type Prisma,
 } from '@prisma/client';
+
+/**
+ * R20 — the invoices a receipt / supplier payment may settle: posted ones
+ * only (their receivable / payable is on the ledger). A draft, pending or
+ * approved invoice owes nothing yet, and a cancelled one never will — money
+ * received before posting is an explicit unapplied advance, allocated once
+ * the invoice is confirmed. The same set the aging and the open-invoices list read.
+ */
+export const PAYABLE_SALES_INVOICE_STATUSES: SalesDocumentStatus[] = [
+  SalesDocumentStatus.CONFIRMED,
+  SalesDocumentStatus.CLOSED,
+];
+export const PAYABLE_PURCHASE_INVOICE_STATUSES: PurchaseDocumentStatus[] = [
+  PurchaseDocumentStatus.CONFIRMED,
+  PurchaseDocumentStatus.CLOSED,
+];
 
 export type InvoicePaymentStatusValue =
   'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED';
@@ -93,7 +111,7 @@ export async function sumConfirmedAllocations(
     by: [invoiceKey],
     where: {
       [invoiceKey]: { in: invoiceIds },
-      transaction: { status: 'CONFIRMED' },
+      transaction: { status: 'CONFIRMED', deletedAt: null },
     },
     _sum: { allocatedAmount: true },
   });

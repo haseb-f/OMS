@@ -62,6 +62,21 @@ export function unappliedPostingConfirmation(
     allocated: formatMoney(round2(input.allocatedTotal)),
     unapplied: formatMoney(unapplied),
   };
+  // R20 — open invoices but none selected: the whole amount is an explicit
+  // unapplied advance, said so before posting (no invoice is marked paid).
+  if (input.allocatedTotal <= MONEY_TOLERANCE) {
+    return {
+      title: t("financialTransactions.unapplied.noInvoiceTitle"),
+      description: t(
+        input.direction === "IN"
+          ? "financialTransactions.unapplied.noInvoiceReceiptDescription"
+          : "financialTransactions.unapplied.noInvoicePaymentDescription",
+        values,
+      ),
+      confirmLabel: t("financialTransactions.unapplied.confirmAdvance", values),
+      tone: "warning",
+    };
+  }
   return {
     title: t("financialTransactions.unapplied.title"),
     description: t(

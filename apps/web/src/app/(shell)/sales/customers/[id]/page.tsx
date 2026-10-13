@@ -21,6 +21,7 @@ import {
   customerReceiptsService,
   type FinancialTransactionRow,
   type OpenInvoiceRow,
+  type PartyPaymentPosition,
 } from "@/services/customer-receipts-service";
 import { leadsService, type LeadRow } from "@/services/leads-service";
 import { customerHistoryService, type CustomerHistory } from "@/services/customer-history-service";
@@ -56,6 +57,7 @@ export default function CustomerProfilePage() {
   const [receipts, setReceipts] = useState<FinancialTransactionRow[]>([]);
   const [isLoadingReceipts, setIsLoadingReceipts] = useState(true);
   const [openInvoices, setOpenInvoices] = useState<OpenInvoiceRow[]>([]);
+  const [positions, setPositions] = useState<PartyPaymentPosition[]>([]);
   const [isLoadingOpenInvoices, setIsLoadingOpenInvoices] = useState(true);
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [isLoadingLeads, setIsLoadingLeads] = useState(true);
@@ -104,6 +106,10 @@ export default function CustomerProfilePage() {
       .then(setOpenInvoices)
       .catch(() => setOpenInvoices([]))
       .finally(() => setIsLoadingOpenInvoices(false));
+    customerReceiptsService
+      .position(params.id)
+      .then(setPositions)
+      .catch(() => setPositions([]));
   }, [params.id]);
 
   useEffect(() => {
@@ -510,9 +516,10 @@ export default function CustomerProfilePage() {
                   isLoadingTransactions={isLoadingReceipts}
                   openInvoices={openInvoices}
                   isLoadingOpenInvoices={isLoadingOpenInvoices}
+                  positions={positions}
                   historyTitle={t("sales.receipts.title")}
-                  outstandingLabel={t("sales.customers.profile.statistics.balance")}
-                  paidLabel={t("sales.customers.profile.payments.paidAmount")}
+                  outstandingLabel={t("financialTransactions.position.outstanding")}
+                  paidLabel={t("financialTransactions.position.received")}
                   documentHref={(id) => `/sales/payments/${id}`}
                   onCreateNew={
                     hasPermission("sales.receipts.create")

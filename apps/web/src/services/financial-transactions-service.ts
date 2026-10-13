@@ -134,10 +134,28 @@ export interface OpenInvoiceRow {
   invoiceId: string;
   invoiceNumber: string;
   documentDate: string;
+  /** R20 — a voucher settles invoices of its own currency only. */
+  currencyId: string | null;
+  currencyCode: string | null;
   grandTotal: number;
   allocatedTotal: number;
   remainingBalance: number;
   paymentStatus: InvoicePaymentStatusValue;
+}
+
+/**
+ * R20 — a party's payment position in one currency (`GET …/position`): what
+ * its open invoices still owe, the money its confirmed vouchers moved, the
+ * part settling invoices and the part kept as an unapplied advance.
+ */
+export interface PartyPaymentPosition {
+  currencyId: string | null;
+  currencyCode: string | null;
+  openInvoices: number;
+  outstanding: number;
+  received: number;
+  applied: number;
+  unapplied: number;
 }
 
 /**
@@ -181,6 +199,11 @@ export function createFinancialTransactionService(basePath: string) {
     openInvoices: (partnerId: string) =>
       apiClient.get<OpenInvoiceRow[]>(
         `${basePath}/open-invoices${buildQueryString({ partnerId })}`,
+      ),
+    /** R20 — the party's payment position, one row per currency. */
+    position: (partnerId: string) =>
+      apiClient.get<PartyPaymentPosition[]>(
+        `${basePath}/position${buildQueryString({ partnerId })}`,
       ),
   };
 }

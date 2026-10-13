@@ -12,7 +12,7 @@ import { useUserContext } from "@/providers/user-context";
 import { documentRowAccess } from "@/components/shared/data-table";
 import type { PurchaseInvoiceRow } from "@/services/purchase-invoices-service";
 import { SalesDocumentRowActionsMenu, type SalesDocumentRowAction } from "@/components/sales";
-import { InvoicePaymentBadge } from "@/components/business/invoice-payment-summary";
+import { invoicePaymentColumns } from "@/config/financial-transactions/invoice-payment-columns";
 import {
   INVOICE_ARCHIVABLE_STATUSES,
   INVOICE_CANCELLABLE_STATUSES,
@@ -171,12 +171,7 @@ export function buildInvoiceColumns(
       accessorFn: (row) => row.grandTotal,
       cell: ({ row }) => <MoneyValue value={row.original.grandTotal} />,
     },
-    {
-      id: "paymentStatus",
-      meta: { titleKey: "financialTransactions.paymentSummary.title" },
-      enableSorting: false,
-      cell: ({ row }) => <InvoicePaymentBadge paymentStatus={row.original.paymentStatus} />,
-    },
+    ...invoicePaymentColumns<PurchaseInvoiceRow>(),
     {
       id: "createdAt",
       meta: { titleKey: "purchasing.invoices.fields.date" },
@@ -215,6 +210,8 @@ export const invoiceExportColumns = [
   "grandTotal",
   "status",
   "paymentStatus",
+  "allocatedTotal",
+  "remainingBalance",
   "createdAt",
   "createdBy",
 ];

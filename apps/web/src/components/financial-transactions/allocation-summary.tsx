@@ -14,9 +14,12 @@ import { useLocale } from "@/providers/locale-provider";
 export function AllocationSummary({
   openInvoiceCount,
   totalRemaining,
+  currencyCode,
 }: {
   openInvoiceCount: number;
+  /** The remaining balance of the invoices in `currencyCode` — never summed across currencies. */
   totalRemaining: number;
+  currencyCode?: string | null;
 }) {
   const { t } = useLocale();
 
@@ -32,7 +35,7 @@ export function AllocationSummary({
         {
           key: "remaining",
           label: t("financialTransactions.allocationSummary.totalRemaining"),
-          value: formatMoney(totalRemaining),
+          value: formatMoney(totalRemaining, currencyCode),
           strong: true,
         },
       ]}
