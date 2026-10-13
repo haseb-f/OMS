@@ -211,7 +211,8 @@ describe("report size — the recipe maps stronger tokens onto the same state ma
 
   it("long lists and reduced transparency fall back to the opaque card without blur", () => {
     expect(block).toMatch(
-      /\[data-slot="insight-group"\]\[data-surface="opaque"\] > \[data-slot="insight-card"\] \{\s*--insight-card-base: var\(--card\);\s*-webkit-backdrop-filter: none;\s*backdrop-filter: none;/,
+      // R20 §B2: the employee card's period rows (`InsightFrame surface="opaque"`) too.
+      /:is\(\[data-slot="insight-group"\], \[data-slot="insight-frame"\]\)\[data-surface="opaque"\]\s*> \[data-slot="insight-card"\] \{\s*--insight-card-base: var\(--card\);\s*-webkit-backdrop-filter: none;\s*backdrop-filter: none;/,
     );
     expect(block).toMatch(
       /@media \(prefers-reduced-transparency: reduce\) \{\s*\[data-slot="insight-card"\]\[data-size="report"\] \{\s*--insight-card-base: var\(--card\);\s*-webkit-backdrop-filter: none;\s*backdrop-filter: none;/,

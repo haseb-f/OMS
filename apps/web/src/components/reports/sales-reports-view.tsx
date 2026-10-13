@@ -48,6 +48,7 @@ import {
 } from "@/components/reports/report-identity";
 import {
   PeriodsCard,
+  PeriodsCardGroup,
   PeriodsCardSkeleton,
   useReportStatLines,
 } from "@/components/reports/employee-periods-card";
@@ -283,21 +284,20 @@ function EmployeePeriodsTab({ source }: { source: SalesReportsSource }) {
   let list: ReactNode;
   if (!data) {
     list = (
-      <div className="flex min-w-0 flex-col gap-4" aria-busy>
+      <PeriodsCardGroup aria-busy>
         <PeriodsCardSkeleton />
         <PeriodsCardSkeleton />
-      </div>
+      </PeriodsCardGroup>
     );
   } else if (data.employees.length === 0) {
     list = <EmptyState icon={UserRound} title={t("salesReports.employeePeriods.empty")} />;
   } else {
     const first = (data.page - 1) * data.pageSize;
     list = (
-      <div
+      <PeriodsCardGroup
         role="feed"
         aria-label={t("salesReports.employeePeriods.feed")}
         aria-busy={state.refreshing || undefined}
-        className="flex min-w-0 flex-col gap-4"
       >
         {data.employees.map((row, index) => (
           <PeriodsCard
@@ -314,7 +314,7 @@ function EmployeePeriodsTab({ source }: { source: SalesReportsSource }) {
             periods={row.periods}
           />
         ))}
-      </div>
+      </PeriodsCardGroup>
     );
   }
 
@@ -346,25 +346,29 @@ function EmployeePeriodsTab({ source }: { source: SalesReportsSource }) {
           onPageChange={setPage}
         />
       ) : null}
-      {data?.unassigned ? (
-        <PeriodsCard
-          titleId="sales-unassigned-row"
-          title={t("salesReports.employees.unassigned")}
-          subtitle={t("salesReports.employees.unassignedHint")}
-          icon={UserRoundX}
-          identity={METRIC_IDENTITY.unassigned}
-          periods={data.unassigned}
-        />
-      ) : null}
-      {data?.agents ? (
-        <PeriodsCard
-          titleId="sales-agents-row"
-          title={t("salesReports.employees.agentsTitle")}
-          subtitle={t("salesReports.employees.agentsHint")}
-          icon={Handshake}
-          identity={METRIC_IDENTITY.agentSales}
-          periods={data.agents}
-        />
+      {data?.unassigned || data?.agents ? (
+        <PeriodsCardGroup>
+          {data.unassigned ? (
+            <PeriodsCard
+              titleId="sales-unassigned-row"
+              title={t("salesReports.employees.unassigned")}
+              subtitle={t("salesReports.employees.unassignedHint")}
+              icon={UserRoundX}
+              identity={METRIC_IDENTITY.unassigned}
+              periods={data.unassigned}
+            />
+          ) : null}
+          {data.agents ? (
+            <PeriodsCard
+              titleId="sales-agents-row"
+              title={t("salesReports.employees.agentsTitle")}
+              subtitle={t("salesReports.employees.agentsHint")}
+              icon={Handshake}
+              identity={METRIC_IDENTITY.agentSales}
+              periods={data.agents}
+            />
+          ) : null}
+        </PeriodsCardGroup>
       ) : null}
     </div>
   );
@@ -832,6 +836,7 @@ function PaymentSplit({ row, total }: { row: PaymentMixRow; total: number }) {
                 value={part.amount}
                 currency={row.currencyCode}
                 currencyClassName={REPORT_CURRENCY_CLASS}
+                currencyHue={currencyIdentity(row.currencyCode).hue}
               />
               <span className="num font-medium">
                 {t("salesReports.paymentMix.share", { percent: percent(part.count) })}

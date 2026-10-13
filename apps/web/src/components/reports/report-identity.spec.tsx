@@ -230,3 +230,61 @@ describe("identity recipe, semantic text and icon motion", () => {
     }
   });
 });
+
+describe("R20 §B2 — currency colours and the period row", () => {
+  it("every currency code on a report card carries its currency colour; the code stays", () => {
+    const { container } = render(
+      <ReportCard
+        title="x"
+        identity={PERIOD_IDENTITY.today}
+        figure={3}
+        amounts={[
+          { currencyCode: "EGP", amount: 1250 },
+          { currencyCode: "SAR", amount: -40 },
+          { currencyCode: "Q9ZZ", amount: 7 },
+        ]}
+      />,
+    );
+    const codes = [...container.querySelectorAll('[data-slot="money-currency"]')];
+    expect(codes.map((el) => [text(el), el.getAttribute("data-currency")])).toEqual([
+      ["EGP", currencyIdentity("EGP").hue],
+      ["SAR", currencyIdentity("SAR").hue],
+      ["Q9ZZ", currencyIdentity("Q9ZZ").hue],
+    ]);
+    // A negative amount keeps its danger meaning (the code keeps its currency colour).
+    const lines = [...container.querySelectorAll('[data-slot="report-amounts"] li')];
+    expect(lines.map((li) => li.getAttribute("data-meaning"))).toEqual([null, "danger", null]);
+    expect(lines.map((li) => text(li))).toEqual([
+      formatMoney(1250, "EGP"),
+      formatMoney(-40, "SAR"),
+      formatMoney(7, "Q9ZZ"),
+    ]);
+  });
+
+  it("every currency hue has a recipe rule and one token", () => {
+    for (const hue of INSIGHT_IDENTITIES) {
+      expect(block).toMatch(
+        new RegExp(
+          `\\[data-slot="money-currency"\\]\\[data-currency="${hue}"\\] \\{\\s*color: var\\(--report-currency-${hue}\\);`,
+        ),
+      );
+      expect(tokens.match(new RegExp(`--report-currency-${hue}:`, "g")), hue).toHaveLength(1);
+    }
+  });
+
+  it("a row reads exactly like the card (same figures, same order)", () => {
+    const props = {
+      title: "Today",
+      identity: PERIOD_IDENTITY.today,
+      figure: 1234,
+      unit: "valid orders",
+      amounts: [{ currencyCode: "EGP", amount: 1234567890.5 }],
+      stats: [{ label: "Orders", value: 1240 }],
+    };
+    const card = render(<ReportCard {...props} />).container.firstElementChild!;
+    const row = render(<ReportCard {...props} layout="row" />).container.firstElementChild!;
+    expect(row.getAttribute("data-layout")).toBe("row");
+    expect(card.hasAttribute("data-layout")).toBe(false);
+    expect(text(row)).toBe(text(card));
+  });
+});

@@ -228,17 +228,17 @@ describe("report-card consumers never style a card locally", () => {
       }
     }
     expect(offenders).toEqual([]);
-    expect(openingTags(view, "InsightGroup").length).toBeGreaterThanOrEqual(6);
-    // The long, repeated lists (one card per team; R20 §B the period boxes of every employee
-    // card) are opaque — no blur stack.
-    for (const [file, list] of [
-      [SALES_REPORT_FILES[0], "data.teams.map"],
-      [SALES_REPORT_FILES[1], "periods.map"],
+    expect(openingTags(view, "InsightGroup").length).toBeGreaterThanOrEqual(4);
+    // The long, repeated lists (one card per team; R20 §B2 the period rows of every employee
+    // card, inside an opaque InsightFrame) are opaque — no blur stack.
+    for (const [file, list, holder] of [
+      [SALES_REPORT_FILES[0], "data.teams.map", "<InsightGroup"],
+      [SALES_REPORT_FILES[1], "periods.map", "<InsightFrame"],
     ]) {
       const source = readFileSync(join(SRC, file), "utf8");
       const at = source.indexOf(`{${list}(`);
       expect(at, list).toBeGreaterThan(-1);
-      const group = source.slice(source.lastIndexOf("<InsightGroup", at), at);
+      const group = source.slice(source.lastIndexOf(holder, at), at);
       expect(group, list).toMatch(/\ssurface="opaque"/);
     }
     // ReportCard always renders the report size, and only the sales reports use it.
@@ -266,25 +266,25 @@ describe("report-card consumers never style a card locally", () => {
       expect(tag).toMatch(/\sidentity=\{METRIC_IDENTITY\.(personSales|unassigned|agentSales)\}/);
       expect(tag).not.toMatch(/\sclassName=/);
     }
-    // The outer card is the shared InsightFrame; the boxes take the period identities and icons.
-    expect(openingTags(periods, "InsightFrame")).toHaveLength(1);
+    // R20 §B2: the outer card is the shared InsightFrame in its rows layout (header + five
+    // period rows); each period is a full-width ReportCard row in its period identity and icon.
+    const frame = openingTags(periods, "InsightFrame");
+    expect(frame).toHaveLength(1);
+    expect(frame[0]).toMatch(/\srows=\{PERIOD_ROWS\}/);
+    expect(periods).toMatch(/const PERIOD_ROWS = 5;/);
     const box = openingTags(periods, "ReportCard").join(" ");
+    expect(box).toMatch(/\slayout="row"/);
     expect(box).toMatch(/\sidentity=\{PERIOD_IDENTITY\[entry\.period\]\}/);
     expect(box).toMatch(/\sicon=\{PERIOD_ICON\[entry\.period\]\}/);
-    // Phones never get five in a row: one column at the base, five only from a 66rem frame.
-    const grid = periods.match(/PERIOD_BOX_GRID =\s*"([^"]+)"/)?.[1].split(/\s+/) ?? [];
-    expect(grid[0]).toBe("grid-cols-1");
-    // Phones (a card from 19rem inside): two boxes per row, the fifth spanning its row.
-    expect(grid).toEqual(
-      expect.arrayContaining([
-        "@min-[19rem]:grid-cols-2",
-        "@min-[19rem]:[&>:last-child]:col-span-2",
-      ]),
+    // The cards are compared in the shared pair group: one per row on a phone, two from 44rem,
+    // each card a subgrid of the group's rows (so the rows of a pair line up).
+    expect(openingTags(view, "PeriodsCardGroup").length).toBeGreaterThanOrEqual(3);
+    const shared = readFileSync(join(SRC, "components/shared/insight-card.tsx"), "utf8");
+    expect(shared).toMatch(
+      /data-slot="insight-frame-group"\s+className="grid min-w-0 grid-cols-1 gap-\(--insight-frame-group-gap\) @min-\[44rem\]\/frames:grid-cols-2"/,
     );
-    expect(grid.filter((token) => /grid-cols-5$/.test(token))).toEqual([
-      "@min-[66rem]:grid-cols-5",
-    ]);
-    expect(grid.every((token) => token === "grid-cols-1" || token.startsWith("@"))).toBe(true);
+    expect(shared).toMatch(/INSIGHT_FRAME_ROWS_CLASS =\s*"[^"]*\bgrid-rows-subgrid\b/);
+    expect(shared).toMatch(/gridRow: `span \$\{rows \+ 1\}`/);
     // The frame slot is drawn only by the shared component and styled only by the recipe block.
     const owners = files
       .filter((path) => /data-slot="insight-frame/.test(readFileSync(path, "utf8")))
@@ -329,10 +329,11 @@ describe("report-card consumers never style a card locally", () => {
       const file = relative(SRC, path).replace(/\\/g, "/");
       if (ALLOWED.has(file)) continue;
       const source = readFileSync(path, "utf8");
-      if (/data-identity|data-motion|report-identity/.test(source)) offenders.push(file);
+      if (/data-identity|data-motion|data-currency|report-identity/.test(source))
+        offenders.push(file);
       for (const name of [...CARDS, "InsightIcon", "MoneyValue"]) {
         for (const tag of openingTags(source, name)) {
-          if (/\s(identity|iconMotion|motion|currencyClassName)=/.test(tag)) {
+          if (/\s(identity|iconMotion|motion|currencyClassName|currencyHue)=/.test(tag)) {
             offenders.push(`${file} <${name}>`);
           }
         }
