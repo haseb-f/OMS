@@ -68,6 +68,7 @@ export function InsightSurface({
   tone = "neutral",
   emphasis = false,
   size = "default",
+  layout = "card",
   identity,
   href,
   onSelect,
@@ -83,6 +84,11 @@ export function InsightSurface({
    * the stronger tint / edge / depth / hover tokens in the recipe. Default everywhere else.
    */
   size?: InsightSurfaceSize;
+  /**
+   * R20 §B2 — `row`: a compact, full-width row of a report card (one period inside an employee
+   * card): the compact report padding, `data-layout="row"`. The caller lays its content out.
+   */
+  layout?: "card" | "row";
   /**
    * R19 §C2 — the card's colour identity (sales-report cards only): the identity hue replaces
    * the tone (`data-tone="identity"` + `data-identity`), so each card of a group reads apart.
@@ -102,8 +108,12 @@ export function InsightSurface({
     "data-identity": identity,
     "data-emphasis": emphasis || undefined,
     "data-size": size === "report" ? "report" : undefined,
+    "data-layout": layout === "row" ? "row" : undefined,
   } as const;
-  const surface = cn(INSIGHT_SURFACE_CLASS, INSIGHT_SURFACE_PADDING[size]);
+  const surface = cn(
+    INSIGHT_SURFACE_CLASS,
+    layout === "row" ? INSIGHT_ROW_PADDING : INSIGHT_SURFACE_PADDING[size],
+  );
   if (href) {
     return (
       <Link
@@ -167,11 +177,11 @@ export type InsightIconMotion = "lift" | "tilt" | "scale";
 const INSIGHT_SURFACE_CLASS = "relative flex min-w-0 flex-col rounded-md border";
 const INSIGHT_SURFACE_PADDING: Record<InsightSurfaceSize, string> = {
   default: "px-(--insight-card-padding-inline) py-(--insight-card-padding-block)",
-  // R20 §B — inside a narrow outer card (`InsightFrame` < 32rem: phones, two boxes per row) a
-  // report card takes the compact report padding.
-  report:
-    "px-(--insight-report-padding-inline) py-(--insight-report-padding-block) @max-[32rem]/frame:px-(--insight-report-padding-inline-compact) @max-[32rem]/frame:py-(--insight-report-padding-block-compact)",
+  report: "px-(--insight-report-padding-inline) py-(--insight-report-padding-block)",
 };
+/** R20 §B2 — a report row (one period inside an employee card): the compact report padding. */
+const INSIGHT_ROW_PADDING =
+  "px-(--insight-report-padding-inline-compact) py-(--insight-report-padding-block-compact)";
 
 /**
  * R19 §C — the type and rhythm of a sales-report card (`size="report"`), shared by
@@ -449,6 +459,33 @@ export function InsightCardSkeleton({
 /** Geometry of the outer card (R20 §B; visuals: the theme recipe, padding / gap: tokens). */
 const INSIGHT_FRAME_CLASS =
   "@container/frame relative flex min-w-0 flex-col gap-(--insight-frame-gap) rounded-md border px-(--insight-frame-padding-inline) py-(--insight-frame-padding-block)";
+/** R20 §B2 — the rows layout: a subgrid of the `InsightFrameGroup` rows (header + one per row). */
+const INSIGHT_FRAME_ROWS_CLASS =
+  "@container/frame relative grid min-w-0 grid-rows-subgrid gap-y-(--insight-frame-row-gap) rounded-md border px-(--insight-frame-padding-inline) py-(--insight-frame-padding-block)";
+
+/**
+ * R20 §B2 — a group of outer cards compared side by side (employees): one card per row while
+ * the group is narrower than 44rem (phones, small tablets), two per row from 44rem (tablet,
+ * laptop, desktop) with consistent widths. Cards with `rows` become subgrids of the group's rows,
+ * so a pair's headers and its period rows line up row by row (the taller of the two sets the
+ * height; nothing is clipped). The group is a container (`@container/frames`).
+ */
+export function InsightFrameGroup({ children, className, ...props }: ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="insight-frame-group-frame"
+      className={cn("@container/frames min-w-0", className)}
+    >
+      <div
+        data-slot="insight-frame-group"
+        className="grid min-w-0 grid-cols-1 gap-(--insight-frame-group-gap) @min-[44rem]/frames:grid-cols-2"
+        {...props}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 /**
  * R20 §B — the outer card of the family: ONE soft, opaque card that holds a group of report
@@ -469,8 +506,11 @@ export function InsightFrame({
   identity,
   iconMotion,
   meta,
+  rows,
+  surface = "glass",
   children,
   className,
+  style,
   ...props
 }: Omit<ComponentProps<"article">, "title"> & {
   title: ReactNode;
@@ -481,13 +521,29 @@ export function InsightFrame({
   identity?: InsightIdentity;
   iconMotion?: InsightIconMotion;
   meta?: ReactNode;
+  /**
+   * R20 §B2 — the children are `rows` full-width rows (one per period). Inside an
+   * `InsightFrameGroup` the frame is a subgrid of the group's rows (header + `rows` tracks), so
+   * the header and every row line up with the card beside it: each row is as tall as the
+   * taller of the pair.
+   */
+  rows?: number;
+  /** R20 §B2 — `opaque`: the report cards inside use the opaque card, no backdrop blur. */
+  surface?: "glass" | "opaque";
 }) {
   return (
     <article
       data-slot="insight-frame"
       data-identity={identity}
+      data-layout={rows ? "rows" : undefined}
+      data-surface={surface === "opaque" ? "opaque" : undefined}
       aria-labelledby={titleId}
-      className={cn(INSIGHT_FRAME_CLASS, INSIGHT_FOCUS_CLASS, className)}
+      className={cn(
+        rows ? INSIGHT_FRAME_ROWS_CLASS : INSIGHT_FRAME_CLASS,
+        INSIGHT_FOCUS_CLASS,
+        className,
+      )}
+      style={rows ? { gridRow: `span ${rows + 1}`, ...style } : style}
       {...props}
     >
       <header
@@ -519,13 +575,20 @@ export function InsightFrame({
 /** Loading placeholder with an `InsightFrame`'s geometry; the cards inside are their skeletons. */
 export function InsightFrameSkeleton({
   children,
+  rows,
   className,
 }: {
   children?: ReactNode;
+  rows?: number;
   className?: string;
 }) {
   return (
-    <div data-slot="insight-frame" aria-hidden className={cn(INSIGHT_FRAME_CLASS, className)}>
+    <div
+      data-slot="insight-frame"
+      aria-hidden
+      className={cn(rows ? INSIGHT_FRAME_ROWS_CLASS : INSIGHT_FRAME_CLASS, className)}
+      style={rows ? { gridRow: `span ${rows + 1}` } : undefined}
+    >
       <div className="flex items-center gap-3">
         <Skeleton className="size-9 rounded-md" />
         <div className="flex flex-col gap-1.5">

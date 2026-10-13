@@ -14,15 +14,29 @@ import { MoneyValue } from "@/components/shared/money-value";
 import { formatNumber } from "@/lib/format-number";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
-import type { ReportIdentity } from "@/components/reports/report-identity";
+import { currencyIdentity, type ReportIdentity } from "@/components/reports/report-identity";
 
 /**
- * R20 §B — inside a narrow outer card (`InsightFrame` < 32rem: a phone, two period boxes per
- * row) the figure takes one step down (`text-metric-lg`), the title and money lines the body
- * size, the padding the compact report padding (InsightSurface). An extreme count still wraps
- * rather than overflow; it is never truncated.
+ * R20 §B2 — the `row` layout: one compact, full-width row inside an employee card (the frame's
+ * width decides, `@container/frame`). From a 26rem card: three aligned columns — the period
+ * (icon + title, the quiet counts under it) | the valid-order count | the sales amounts, one
+ * line per currency, at the inline end. Below 26rem (phones): the period and the count share
+ * the first line, the amounts and the counts follow full width. The columns are fractions of
+ * the row, so every row of a card — and of the card beside it — shares the same column edges.
+ * The DOM order is the card's (title, figure, amounts, counts), so the text reads the same.
  */
-const REPORT_NARROW_FIGURE = "min-w-0 [overflow-wrap:anywhere] @max-[32rem]/frame:text-metric-lg";
+const ROW = {
+  body: "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 @min-[26rem]/frame:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,1.3fr)]",
+  title: "col-[1] row-[1]",
+  figure:
+    "col-[2] row-[1] justify-end @min-[26rem]/frame:row-[1/span_2] @min-[26rem]/frame:justify-start",
+  amounts:
+    "col-[1/-1] row-[2] items-start @min-[26rem]/frame:col-[3] @min-[26rem]/frame:row-[1/span_2] @min-[26rem]/frame:items-end",
+  stats: "col-[1/-1] row-[3] @min-[26rem]/frame:col-[1] @min-[26rem]/frame:row-[2]",
+} as const;
+
+/** An extreme count wraps rather than overflow; it is never truncated. */
+const FIGURE_WRAP = "min-w-0 [overflow-wrap:anywhere]";
 
 /** Currencies listed before the rest fold behind "Show N more". */
 const VISIBLE_AMOUNTS = 4;
@@ -84,6 +98,7 @@ export function ReportCard({
   children,
   onSelect,
   selected = false,
+  layout = "card",
   className,
 }: {
   title: string;
@@ -105,9 +120,12 @@ export function ReportCard({
   children?: ReactNode;
   onSelect?: () => void;
   selected?: boolean;
+  /** R20 §B2 — `row`: a compact full-width row (one period inside an employee card). */
+  layout?: "card" | "row";
   className?: string;
 }) {
   const { t } = useLocale();
+  const row = layout === "row";
   const [showAllAmounts, setShowAllAmounts] = useState(false);
   const resolvedTone = resolveInsightTone(tone, figure, figure);
   const hiddenAmounts =
@@ -115,12 +133,17 @@ export function ReportCard({
   const visibleAmounts = amounts && hiddenAmounts > 0 ? amounts.slice(0, VISIBLE_AMOUNTS) : amounts;
   const body = (
     <>
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
-        {Icon ? <InsightIcon icon={Icon} size="report" motion={identity?.motion} /> : null}
+      <div
+        className={cn("flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5", row && ROW.title)}
+      >
+        {Icon ? (
+          <InsightIcon icon={Icon} size={row ? "default" : "report"} motion={identity?.motion} />
+        ) : null}
         <span
           data-slot="insight-label"
           className={cn(
-            "min-w-0 flex-1 basis-28 text-pretty break-words text-muted-foreground @max-[32rem]/frame:basis-0 @max-[32rem]/frame:text-body",
+            "min-w-0 flex-1 text-pretty break-words text-muted-foreground",
+            row ? "basis-0" : "basis-28",
             INSIGHT_REPORT_TEXT.title,
           )}
         >
@@ -130,19 +153,26 @@ export function ReportCard({
       </div>
       <div
         className={cn(
-          INSIGHT_REPORT_TEXT.gap,
           "flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5",
+          row ? ROW.figure : INSIGHT_REPORT_TEXT.gap,
         )}
       >
         <span
           data-slot="insight-value"
-          className={cn("num tracking-tight", INSIGHT_REPORT_TEXT.figure, REPORT_NARROW_FIGURE)}
+          className={cn(
+            "num tracking-tight",
+            row ? "text-metric-lg" : INSIGHT_REPORT_TEXT.figure,
+            FIGURE_WRAP,
+          )}
         >
           {formatNumber(figure)}
         </span>
         {unit ? (
           <span
-            className={cn("min-w-0 break-words text-muted-foreground", INSIGHT_REPORT_TEXT.unit)}
+            className={cn(
+              "min-w-0 break-words text-muted-foreground",
+              row ? "text-caption font-medium" : INSIGHT_REPORT_TEXT.unit,
+            )}
           >
             {unit}
           </span>
@@ -150,7 +180,10 @@ export function ReportCard({
       </div>
       {amounts ? (
         <ul
-          className={cn(INSIGHT_REPORT_TEXT.gap, "flex min-w-0 flex-col gap-1")}
+          className={cn(
+            "flex min-w-0 flex-col",
+            row ? cn(ROW.amounts, "gap-0.5") : cn(INSIGHT_REPORT_TEXT.gap, "gap-1"),
+          )}
           data-slot="report-amounts"
         >
           {amounts.length === 0 ? (
@@ -159,16 +192,23 @@ export function ReportCard({
             </li>
           ) : (
             visibleAmounts?.map((line) => (
-              // One money line per currency at the card-title size; the amount is never clipped.
+              // One money line per currency (card-title size; body size in a row); the amount is
+              // never clipped. R20 §B2: the code takes its currency colour (report-identity.ts);
+              // a negative amount keeps the danger meaning (the code its currency colour).
               <li
                 key={line.currencyCode}
-                className="flex min-w-0 flex-wrap justify-start text-card-title @max-[32rem]/frame:text-body"
+                className={cn(
+                  "flex min-w-0 flex-wrap justify-start",
+                  row ? "text-body" : "text-card-title",
+                )}
+                data-meaning={line.amount < 0 ? "danger" : undefined}
               >
                 <MoneyValue
                   value={line.amount}
                   currency={line.currencyCode}
                   className="font-semibold"
                   currencyClassName={REPORT_CURRENCY_CLASS}
+                  currencyHue={currencyIdentity(line.currencyCode).hue}
                 />
               </li>
             ))
@@ -200,9 +240,10 @@ export function ReportCard({
       {stats?.length ? (
         <dl
           className={cn(
-            INSIGHT_REPORT_TEXT.gap,
-            "flex min-w-0 flex-wrap gap-x-4 gap-y-1 text-muted-foreground",
-            INSIGHT_REPORT_TEXT.secondary,
+            "flex min-w-0 flex-wrap gap-y-1 text-muted-foreground",
+            row
+              ? cn(ROW.stats, "gap-x-3 text-caption")
+              : cn(INSIGHT_REPORT_TEXT.gap, "gap-x-4", INSIGHT_REPORT_TEXT.secondary),
           )}
         >
           {stats.map((stat) => (
@@ -227,12 +268,13 @@ export function ReportCard({
       tone={resolvedTone}
       identity={identity?.hue}
       size="report"
+      layout={layout}
       emphasis={selected}
       onSelect={onSelect}
       pressed={onSelect ? selected : undefined}
       className={className}
     >
-      {body}
+      {row ? <div className={ROW.body}>{body}</div> : body}
     </InsightSurface>
   );
 }

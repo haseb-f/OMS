@@ -162,7 +162,8 @@ html[dir="ltr"] :is(h1, h2) {
 /* A long, repeated card list (`InsightGroup surface="opaque"`: one card per employee / team) and
    anyone who asks for reduced transparency get the opaque card and no backdrop blur — the glass
    stays on small fixed groups, so a long list never stacks many blurred layers. */
-[data-slot="insight-group"][data-surface="opaque"] > [data-slot="insight-card"] {
+:is([data-slot="insight-group"], [data-slot="insight-frame"])[data-surface="opaque"]
+  > [data-slot="insight-card"] {
   --insight-card-base: var(--card);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
@@ -210,6 +211,34 @@ html[dir="ltr"] :is(h1, h2) {
 }
 [data-slot="insight-card"][data-size="report"] [data-meaning="danger"] {
   color: var(--report-text-danger);
+}
+/* R20 §B2 — currency colour: the currency code beside a report amount takes its currency's
+   colour (`data-currency`, mapping by code in report-identity.ts), the same code the same colour
+   on every report card; the amount stays the strong neutral (or its danger meaning when
+   negative). The code is always written out — colour never identifies a currency alone. */
+[data-slot="insight-card"][data-size="report"] [data-slot="money-currency"][data-currency="teal"] {
+  color: var(--report-currency-teal);
+}
+[data-slot="insight-card"][data-size="report"] [data-slot="money-currency"][data-currency="sky"] {
+  color: var(--report-currency-sky);
+}
+[data-slot="insight-card"][data-size="report"] [data-slot="money-currency"][data-currency="blue"] {
+  color: var(--report-currency-blue);
+}
+[data-slot="insight-card"][data-size="report"]
+  [data-slot="money-currency"][data-currency="indigo"] {
+  color: var(--report-currency-indigo);
+}
+[data-slot="insight-card"][data-size="report"]
+  [data-slot="money-currency"][data-currency="violet"] {
+  color: var(--report-currency-violet);
+}
+[data-slot="insight-card"][data-size="report"]
+  [data-slot="money-currency"][data-currency="orchid"] {
+  color: var(--report-currency-orchid);
+}
+[data-slot="insight-card"][data-size="report"] [data-slot="money-currency"][data-currency="slate"] {
+  color: var(--report-currency-slate);
 }
 /* Icon motion: the glyph alone lifts, tilts or scales on hover (hover-capable pointers) and on
    keyboard focus of an actionable card, only when motion is welcome (no-preference) — individual `translate` / `rotate` / `scale`

@@ -2,7 +2,11 @@
 
 import { useCallback, type ComponentProps, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { InsightFrame, InsightFrameSkeleton, InsightGroup } from "@/components/shared/insight-card";
+import {
+  InsightFrame,
+  InsightFrameGroup,
+  InsightFrameSkeleton,
+} from "@/components/shared/insight-card";
 import { ReportCard, ReportCardSkeleton } from "@/components/reports/report-card";
 import {
   PERIOD_ICON,
@@ -12,15 +16,8 @@ import {
 import type { PeriodStats, SalesStats } from "@/services/sales-reports-service";
 import { useLocale } from "@/providers/locale-provider";
 
-/**
- * R20 §B — the five period boxes inside an employee card. Columns follow the width the card
- * gets (container queries on `InsightFrame`), never the viewport: two per row on a phone (from a
- * 19rem card; the lone fifth box spans its row; one per row only below that), 3 + 2 on a tablet / laptop and five
- * in one row only from 66rem (a 1440 desktop) — wide enough that a 1,234,567,890.00 amount
- * still fits a box; anything longer wraps, never truncates.
- */
-export const PERIOD_BOX_GRID =
-  "grid-cols-1 @min-[19rem]:grid-cols-2 @min-[19rem]:[&>:last-child]:col-span-2 @3xl:grid-cols-3 @3xl:[&>:last-child]:col-span-1 @min-[66rem]:grid-cols-5";
+/** The five Live periods, always in this order on every card. */
+const PERIOD_ROWS = 5;
 
 /** The quiet counts under a sales-report figure: orders, cancelled (danger), returned (attention). */
 export function useReportStatLines() {
@@ -46,12 +43,15 @@ export function useReportStatLines() {
 }
 
 /**
- * One subject (an employee, or the separate unassigned / agents rows) × the five Live periods:
- * the shared outer card (`InsightFrame`) with its identity header, and one report card per
- * period in the period's colour identity (`PERIOD_IDENTITY`: teal, sky, blue, violet, orchid —
- * the same on every employee, tab and role). Each box is the Live card's content for that
- * subject: valid orders, sales value per currency (never added together), orders / cancelled /
- * returned. The boxes are opaque (`surface="opaque"`): a long list never stacks blurred layers.
+ * One subject (an employee, or the separate unassigned / agents rows) × the five Live periods
+ * (R20 §B2): a compact outer card (`InsightFrame rows`) with its identity header and five
+ * compact, full-width period rows (`ReportCard layout="row"`) — 1 Today, 2 Yesterday, 3 Last 7
+ * days, 4 This month, 5 Last month — each in its period colour (`PERIOD_IDENTITY`: teal, sky,
+ * blue, violet, orchid; the same on every card). A row is the Live card's content for that
+ * subject: the period, valid orders, sales per currency (never added together; each code in its
+ * currency colour), orders / cancelled / returned. Place cards in a `PeriodsCardGroup`: two per
+ * row from a 44rem group, their rows aligned. The rows are opaque: a long list never stacks
+ * blurred layers.
  */
 export function PeriodsCard({
   title,
@@ -82,36 +82,40 @@ export function PeriodsCard({
       identity={identity.hue}
       iconMotion={identity.motion}
       meta={meta}
+      rows={PERIOD_ROWS}
+      surface="opaque"
       {...props}
     >
-      <InsightGroup size="report" surface="opaque" className={PERIOD_BOX_GRID}>
-        {periods.map((entry) => (
-          <ReportCard
-            key={entry.period}
-            title={t(`salesReports.periods.${entry.period}`)}
-            icon={PERIOD_ICON[entry.period]}
-            identity={PERIOD_IDENTITY[entry.period]}
-            figure={entry.valid}
-            unit={t("salesReports.stats.valid")}
-            amounts={entry.amounts}
-            noAmountsLabel={t("salesReports.stats.noSales")}
-            stats={statLines(entry)}
-          />
-        ))}
-      </InsightGroup>
+      {periods.map((entry) => (
+        <ReportCard
+          key={entry.period}
+          layout="row"
+          title={t(`salesReports.periods.${entry.period}`)}
+          icon={PERIOD_ICON[entry.period]}
+          identity={PERIOD_IDENTITY[entry.period]}
+          figure={entry.valid}
+          unit={t("salesReports.stats.valid")}
+          amounts={entry.amounts}
+          noAmountsLabel={t("salesReports.stats.noSales")}
+          stats={statLines(entry)}
+        />
+      ))}
     </InsightFrame>
   );
+}
+
+/** Employee cards compared side by side (the shared `InsightFrameGroup`). */
+export function PeriodsCardGroup(props: ComponentProps<"div">) {
+  return <InsightFrameGroup {...props} />;
 }
 
 /** Loading placeholder of a `PeriodsCard` — no figure is ever faked. */
 export function PeriodsCardSkeleton() {
   return (
-    <InsightFrameSkeleton>
-      <InsightGroup size="report" surface="opaque" className={PERIOD_BOX_GRID}>
-        {Array.from({ length: 5 }, (_, index) => (
-          <ReportCardSkeleton key={index} />
-        ))}
-      </InsightGroup>
+    <InsightFrameSkeleton rows={PERIOD_ROWS}>
+      {Array.from({ length: PERIOD_ROWS }, (_, index) => (
+        <ReportCardSkeleton key={index} />
+      ))}
     </InsightFrameSkeleton>
   );
 }

@@ -6,17 +6,21 @@ import { cn } from "@/lib/utils";
  * LTR tabular money — the one financial display for table cells and summaries.
  * `currencyClassName` (R19 §C2, report cards) sets the currency code apart from the figure
  * (e.g. smaller and quieter); the text stays exactly `formatMoney(value, code)`.
+ * `currencyHue` (R20 §B2, report cards) names the code's colour (`data-currency`, the currency
+ * mapping in components/reports/report-identity.ts); the code itself is always shown.
  */
 export function MoneyValue({
   value,
   currency,
   className,
   currencyClassName,
+  currencyHue,
 }: {
   value: string | number;
   currency?: string | { code: string } | null;
   className?: string;
   currencyClassName?: string;
+  currencyHue?: string;
 }) {
   const code = currencyCodeOf(currency);
   if (currencyClassName) {
@@ -33,7 +37,11 @@ export function MoneyValue({
           <SemanticValue kind="money" className={cn("font-medium", className)}>
             {parts.figure}
           </SemanticValue>{" "}
-          <span data-slot="money-currency" className={currencyClassName}>
+          <span
+            data-slot="money-currency"
+            data-currency={currencyHue}
+            className={currencyClassName}
+          >
             {parts.currency}
           </span>
         </span>

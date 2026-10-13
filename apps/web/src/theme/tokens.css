@@ -352,6 +352,34 @@
   --insight-frame-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
   --insight-frame-hover-geometry: 0 14px 32px -18px;
   --insight-frame-hover-tone: 55%;
+  /* R20 §B2 — employee cards side by side: the gap between cards, the gap between the header
+     and the five period rows of a card. */
+  --insight-frame-group-gap: 1rem;
+  --insight-frame-row-gap: 0.5rem;
+  /* R20 §B2 — the currency colour of a report card's currency code (mapping by code in
+     components/reports/report-identity.ts `currencyIdentity`): the currency's identity hue pulled
+     toward the foreground, so it reads on every period / identity tint in light and dark
+     (contrast-check.mjs: every currency × every identity background, glass + opaque). The code is
+     always shown — the colour never identifies a currency alone. */
+  --report-currency-teal: color-mix(in oklab, var(--report-identity-teal) 72%, var(--foreground));
+  --report-currency-sky: color-mix(in oklab, var(--report-identity-sky) 72%, var(--foreground));
+  --report-currency-blue: color-mix(in oklab, var(--report-identity-blue) 72%, var(--foreground));
+  --report-currency-indigo: color-mix(
+    in oklab,
+    var(--report-identity-indigo) 72%,
+    var(--foreground)
+  );
+  --report-currency-violet: color-mix(
+    in oklab,
+    var(--report-identity-violet) 72%,
+    var(--foreground)
+  );
+  --report-currency-orchid: color-mix(
+    in oklab,
+    var(--report-identity-orchid) 72%,
+    var(--foreground)
+  );
+  --report-currency-slate: color-mix(in oklab, var(--report-identity-slate) 72%, var(--foreground));
 }
 .dark {
   --insight-tint-top: 30%;
