@@ -170,7 +170,7 @@ when the value is non-zero.
 - 9 valid company orders: today, yesterday, 3 days ago and last month; two sales employees; prepaid + COD.
 - One cancelled pickup order and one returned pickup order (today).
 - 3 agent-portal orders, which the portal dates today.
-- Plus one back-dated agent order for yesterday, created by the admin (`tmp/r19-c/seed-agent-backdated.mjs`).
+- Plus one back-dated agent order for yesterday, created by the admin (`scripts/acceptance/r19/r19-c2-seed-agent-backdated.mjs`).
 
 Result: company Live today 4 / yesterday 2 / last 7 days 63 / this month 63 / last month 3 (with cancelled 1 and
 returned 1 today); agent today 3 / yesterday 1 / last 7 days 13.
