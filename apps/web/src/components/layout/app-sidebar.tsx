@@ -212,9 +212,14 @@ function NavTreeItem({
   onNavigate: () => void;
   t: (key: MessageKey) => string;
 }) {
+  const { state, isMobile } = useSidebar();
   const hasChildren = !!item.children?.length;
   const isActive = currentId === item.id;
   const containsActive = hasChildren && item.children!.some((child) => child.id === currentId);
+  const open = expandedId === item.id;
+  // On the icon-collapsed rail an open group shows no children, so the group
+  // that contains the current page carries the active treatment itself.
+  const showActive = containsActive && (!open || (state === "collapsed" && !isMobile));
   const title = t(item.shortTitleKey ?? item.titleKey);
 
   if (!hasChildren) {
@@ -248,19 +253,16 @@ function NavTreeItem({
     );
   }
 
-  const open = expandedId === item.id;
-
   return (
     <Collapsible open={open} onOpenChange={() => onToggle(item.id)}>
       <SidebarMenuItem className={cn(open && "pb-1 group-data-[collapsible=icon]:pb-0")}>
         <CollapsibleTrigger asChild>
           <SidebarMenuButton
-            isActive={containsActive && !open}
+            isActive={showActive}
             tooltip={title}
             className={cn(
               "group/trigger",
-              containsActive &&
-                !open &&
+              showActive &&
                 "bg-sidebar-active font-semibold text-sidebar-primary [&_svg]:text-sidebar-rail before:absolute before:inset-y-1 before:start-0 before:w-1 before:rounded-full before:bg-sidebar-rail before:shadow-[0_0_10px_1px_var(--sidebar-rail-glow)]",
             )}
           >
@@ -307,7 +309,7 @@ function NavTreeItem({
                           onTogglePin(child.id);
                         }}
                         className={cn(
-                          "shrink-0 opacity-0 group-hover/pin:opacity-100 hover:text-primary",
+                          "shrink-0 opacity-0 group-hover/pin:opacity-100 hover:text-sidebar-rail",
                           // The pin floats over the row end so it never takes
                           // width from the label.
                           "absolute end-1 bg-sidebar-accent group-focus-within/pin:opacity-100",

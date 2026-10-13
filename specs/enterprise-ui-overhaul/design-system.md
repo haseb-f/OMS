@@ -374,6 +374,17 @@ owner's brief asks for button-like triggers.
   - the same treatment on nested items and in the mobile drawer
 - **Hover and focus.** Hover is a neutral tint; focus is the inset outline. No state shifts the
   layout.
+- **Contrasting surface (R19 §B, 2026-10-13).** Light theme: a dark charcoal sidebar (`--sidebar`
+  #1f2024, light labels, `#52a8ff` rail); dark theme: a soft light-grey sidebar (#e8e9ec, dark
+  labels, deep-blue `#005cc5` rail). The active item adds a blue-tinted `--sidebar-active` fill
+  (hover stays neutral `--sidebar-accent`). The same tokens cover the company selector context,
+  portal identity (`--sidebar-raised` / `--sidebar-chip`), section labels, dividers, collapse
+  toggles, the icon-collapsed rail (the group holding the current page shows the active
+  treatment there) and the mobile drawer. The `[data-slot="sidebar"]` surface rule in
+  `globals.css` maps the shared foreground / ghost-hover / focus / scrollbar tokens onto the
+  sidebar tokens; menus, tooltips and popovers that open out of the sidebar keep the popover
+  surface and the company selector keeps the one-blue selector colours. Guarded by
+  `components/layout/sidebar-surface.spec.ts`; pairs in `scripts/design/contrast-check.mjs`.
 
 ## 12. The OMS design (Round 3 Vercel-reference + Round 4 polish) — CANONICAL (2026-09-28)
 

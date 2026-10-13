@@ -19,6 +19,9 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-sidebar-raised: var(--sidebar-raised);
+  --color-sidebar-chip: var(--sidebar-chip);
+  --color-sidebar-chip-foreground: var(--sidebar-chip-foreground);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -316,10 +319,6 @@
   --toolbar-tone-5-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-5));
   --toolbar-tone-5-ring: #dbeeff;
   --toolbar-tone-5-open-edge: #9cc9ff;
-  /* Sidebar active rail (round 2) — thick accent on the outer edge with a
-     restrained glow. */
-  --sidebar-rail: var(--logo-blue);
-  --sidebar-rail-glow: color-mix(in oklab, var(--logo-blue) 22%, transparent);
 
   /* Tables (tables-selection.md): a pure white body, hairline row dividers
      a step firmer than surface borders, a restrained grey header band.
@@ -340,18 +339,36 @@
   --chart-5: oklch(0.371 0 0);
   --radius: 0.5rem;
 
-  /* Sidebar — flush, full-height navigation column (no floating panel). */
-  --sidebar: #fafafa;
-  --sidebar-foreground: #3d3d3d;
-  --sidebar-muted-foreground: #737373;
-  --sidebar-primary: #171717;
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: #efefef;
-  --sidebar-accent-foreground: #171717;
-  --sidebar-active: #ebebeb;
-  --sidebar-expanded: #fafafa;
-  --sidebar-border: #ebebeb;
-  --sidebar-ring: var(--focus-ring);
+  /* Sidebar — flush, full-height navigation column (no floating panel).
+     R19 §B: a CONTRASTING surface — dark charcoal on the light canvas (and a
+     soft light grey on the dark canvas, below), so navigation separates
+     clearly from content. Every sidebar element (company selector context,
+     portal identity, items, groups, section labels, dividers, collapse
+     toggles, collapsed rail, mobile drawer) reads these tokens only; the
+     `[data-slot="sidebar"]` surface rule further down maps the shared
+     foreground / ghost-button / focus / scrollbar tokens onto them. The
+     active destination keeps the brand-blue rail + icon on a blue-tinted
+     fill (hover stays neutral). Pairs: scripts/design/contrast-check.mjs. */
+  --sidebar: #1f2024;
+  --sidebar-foreground: #d6d7db;
+  --sidebar-muted-foreground: #a2a5ac;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: var(--sidebar);
+  --sidebar-accent: #2d2f34;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-active: color-mix(in oklab, #52a8ff 20%, var(--sidebar));
+  --sidebar-expanded: var(--sidebar);
+  --sidebar-border: #383a40;
+  --sidebar-ring: #6cb6ff;
+  /* Active rail (round 2) — thick brand-blue accent on the outer edge with a
+     restrained glow; also the active / hovered icon colour. */
+  --sidebar-rail: #52a8ff;
+  --sidebar-rail-glow: color-mix(in oklab, #52a8ff 30%, transparent);
+  /* Raised context card on the sidebar (portal identity) and its icon chip. */
+  --sidebar-raised: #292b30;
+  --sidebar-chip: color-mix(in oklab, #52a8ff 24%, var(--sidebar-raised));
+  --sidebar-chip-foreground: #a9d1ff;
+  --sidebar-scrollbar-thumb: color-mix(in oklab, var(--sidebar-foreground) 22%, transparent);
 
   /* Button roles (Round 9, §12.18) — solid = primary (navy, above); SOFT =
      secondary (a blue tint with navy text); OUTLINE = a blue-tinted hairline on the
@@ -602,8 +619,6 @@
   --toolbar-tone-5-chip: color-mix(in oklab, white 16%, var(--toolbar-tone-5));
   --toolbar-tone-5-ring: #cfe6ff;
   --toolbar-tone-5-open-edge: #7fb2f0;
-  --sidebar-rail: #52a8ff;
-  --sidebar-rail-glow: color-mix(in oklab, #52a8ff 25%, transparent);
 
   /* Dark tables: the body stays the #111 card (never white), dividers a
      visible step above it, the header band recessed below it. */
@@ -635,17 +650,26 @@
   --chart-4: oklch(0.556 0 0);
   --chart-5: oklch(0.371 0 0);
 
-  --sidebar: #0a0a0a;
-  --sidebar-foreground: #c7c7c7;
-  --sidebar-muted-foreground: #8f8f8f;
-  --sidebar-primary: #ededed;
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: #1a1a1a;
-  --sidebar-accent-foreground: #ededed;
-  --sidebar-active: #1f1f1f;
-  --sidebar-expanded: #0a0a0a;
-  --sidebar-border: #262626;
-  --sidebar-ring: var(--focus-ring);
+  /* Sidebar (R19 §B): a soft light-grey surface on the dark canvas — never
+     pure white (no glare) — with dark labels and the deep brand blue for the
+     active rail / icon and focus. */
+  --sidebar: #e8e9ec;
+  --sidebar-foreground: #2a2c31;
+  --sidebar-muted-foreground: #585b63;
+  --sidebar-primary: #0a0a0a;
+  --sidebar-primary-foreground: var(--sidebar);
+  --sidebar-accent: #dadce0;
+  --sidebar-accent-foreground: #0a0a0a;
+  --sidebar-active: color-mix(in oklab, #0068d6 20%, var(--sidebar));
+  --sidebar-expanded: var(--sidebar);
+  --sidebar-border: #c3c6cc;
+  --sidebar-ring: #0060c7;
+  --sidebar-rail: #005cc5;
+  --sidebar-rail-glow: color-mix(in oklab, #005cc5 26%, transparent);
+  --sidebar-raised: #f4f5f6;
+  --sidebar-chip: color-mix(in oklab, #0068d6 14%, var(--sidebar-raised));
+  --sidebar-chip-foreground: #0058b8;
+  --sidebar-scrollbar-thumb: color-mix(in oklab, var(--sidebar-foreground) 26%, transparent);
 
   /* Design tokens (Round 3-4, design-system §12), dark values. */
   --success-hover: hsl(133 50% 38%);
@@ -832,6 +856,27 @@
     -webkit-appearance: none;
     margin: 0;
   }
+}
+
+/*
+ * Sidebar surface (R19 §B) — the sidebar is a contrasting surface in both
+ * themes, so the shared tokens a reused control reads on it (a ghost button's
+ * text and soft hover, the default focus outline, the scrollbar thumb) are
+ * mapped onto the sidebar tokens for its subtree: the desktop column, the
+ * collapsed rail and the mobile drawer all carry `data-slot="sidebar"`. Menus,
+ * tooltips and popovers that open OUT of the sidebar are portalled to <body>
+ * and keep the normal popover surface; selector triggers keep their own
+ * `--selector*` colours. Token mapping only — no page ever restyles the
+ * sidebar.
+ */
+[data-slot="sidebar"] {
+  --foreground: var(--sidebar-foreground);
+  --btn-soft-hover: var(--sidebar-accent);
+  --btn-soft-pressed: var(--sidebar-active);
+  --focus-ring: var(--sidebar-ring);
+  --scrollbar-thumb: var(--sidebar-scrollbar-thumb);
+  --scrollbar-thumb-hover: color-mix(in oklab, var(--sidebar-foreground) 36%, transparent);
+  --scrollbar-thumb-active: color-mix(in oklab, var(--sidebar-foreground) 46%, transparent);
 }
 
 /*

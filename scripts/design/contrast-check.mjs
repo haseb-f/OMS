@@ -383,6 +383,35 @@ const PAIRS = [
   ["sidebar text", "var(--sidebar-foreground)", "var(--sidebar)", TEXT],
   ["sidebar muted text", "var(--sidebar-muted-foreground)", "var(--sidebar)", TEXT],
   ["sidebar active", "var(--sidebar-primary)", "var(--sidebar-active)", TEXT, "var(--sidebar)"],
+  // R19 §B — the contrasting sidebar surface (charcoal in light, soft light grey in dark):
+  // it separates from the content and every navigation state stays readable.
+  ...[
+    ["surface vs content canvas", "--sidebar", "--background", UI],
+    ["surface vs top bar / cards", "--sidebar", "--card", UI],
+    ["divider on sidebar", "--sidebar-border", "--sidebar", 1.3],
+    ["hover label", "--sidebar-accent-foreground", "--sidebar-accent", TEXT],
+    ["label on hover fill", "--sidebar-foreground", "--sidebar-accent", TEXT],
+    ["muted on hover fill", "--sidebar-muted-foreground", "--sidebar-accent", TEXT],
+    ["hovered icon", "--sidebar-rail", "--sidebar-accent", UI],
+    ["active icon / rail", "--sidebar-rail", "--sidebar-active", UI],
+    ["label on active fill", "--sidebar-foreground", "--sidebar-active", TEXT],
+    ["active fill vs hover fill", "--sidebar-active", "--sidebar-accent", 1.1],
+    ["focus ring on sidebar", "--sidebar-ring", "--sidebar", UI],
+    ["focus ring on hover fill", "--sidebar-ring", "--sidebar-accent", UI],
+    ["focus ring on active fill", "--sidebar-ring", "--sidebar-active", UI],
+    ["identity name", "--sidebar-foreground", "--sidebar-raised", TEXT],
+    ["identity number", "--sidebar-muted-foreground", "--sidebar-raised", TEXT],
+    ["identity chip icon", "--sidebar-chip-foreground", "--sidebar-chip", UI],
+    ["scrollbar thumb", "--sidebar-scrollbar-thumb", "--sidebar", 1.3],
+    // The company selector keeps the shared selector colours (one-blue rule) on the sidebar.
+    ["company selector label", "--selector-foreground", "--selector", TEXT],
+  ].map(([label, fg, bg, min]) => [
+    `sidebar ${label}`,
+    `var(${fg})`,
+    `var(${bg})`,
+    min,
+    bg === "--sidebar-chip" ? "var(--sidebar-raised)" : "var(--sidebar)",
+  ]),
   [
     "table header text",
     "var(--table-header-foreground)",

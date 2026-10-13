@@ -34,10 +34,10 @@ export function PortalIdentity() {
 
   return (
     <div
-      className="flex h-10 w-full items-center gap-2 rounded-sm border border-sidebar-border bg-card px-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:px-0"
+      className="flex h-10 w-full items-center gap-2 rounded-sm border border-sidebar-border bg-sidebar-raised px-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:px-0"
       title={`${identity.name} · ${identity.number}`}
     >
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-xs bg-primary-soft text-primary">
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-xs bg-sidebar-chip text-sidebar-chip-foreground">
         <Icon className="size-3.5" aria-hidden />
       </span>
       <span className="flex min-w-0 flex-1 flex-col items-start justify-center text-start leading-tight group-data-[collapsible=icon]:hidden">
