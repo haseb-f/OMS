@@ -1,0 +1,65 @@
+{
+  "at": "2026-10-13T21:56:49.466Z",
+  "results": [
+    {
+      "name": "ar-light-1440: employee cards with five period rows",
+      "ok": true,
+      "detail": "5 cards"
+    },
+    {
+      "name": "ar-light-1440: first two cards side by side, same size",
+      "ok": true,
+      "detail": "568×515 | 568×515"
+    },
+    {
+      "name": "ar-light-1440: no horizontal overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ar-light-1440: no page errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "en-dark-1440: employee cards with five period rows",
+      "ok": true,
+      "detail": "5 cards"
+    },
+    {
+      "name": "en-dark-1440: first two cards side by side, same size",
+      "ok": true,
+      "detail": "568×633 | 568×633"
+    },
+    {
+      "name": "en-dark-1440: no horizontal overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "en-dark-1440: no page errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ar-light-375: employee cards with five period rows",
+      "ok": true,
+      "detail": "5 cards"
+    },
+    {
+      "name": "ar-light-375: one card per row",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ar-light-375: no horizontal overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ar-light-375: no page errors",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

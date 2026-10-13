@@ -26,3 +26,15 @@ lead-eligibility 16 / 16 on the demo-based DB), local journeys A 38 / 38, C 23 /
 - Decisions: invoice grid cards now coloured by payment status (changes `specs/round9-brand-grid/card-palettes.md`);
   NEW leads stay NEW after opening (move to IN_PROGRESS via «بدء المتابعة»); unassigned leads show no badge; aging
   totals still add currencies; an archived invoice with a balance drops out of aging.
+
+## B2 — employee cards side by side (2026-10-14)
+
+| Step                        | Result                                                                                                                                                           |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Release                     | `98f07802` (merge of `feat/r20-employee-cards-2`) → Production deployment 7051059357 **success**; web only, no migration                                         |
+| Gates (merged main)         | web typecheck ✓, lint 0 errors, vitest 184 files / 1324, contrast all pass (392 new currency × period pairs), next build ✓                                       |
+| Value proof (local)         | 100 boxes 0 mismatches; R19 figures comparison 24 views / 188 cards 0 differences                                                                                |
+| Live `r20-b2-prod-live.mjs` | 12 / 12 — two cards per row at 1440 (568 × 515 ar, 568 × 633 en dark, same top and size), five period rows each, one per row at 375, no overflow, no page errors |
+
+Currency colours on every report card: EGP teal, SAR sky, USD blue, AED indigo, EUR violet, KWD orchid, others a stable
+hue; the code is always written; negative amounts keep the danger colour. Demo orders «R20B2 demo» exist only locally.
