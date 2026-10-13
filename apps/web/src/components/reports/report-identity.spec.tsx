@@ -187,7 +187,8 @@ describe("identity recipe, semantic text and icon motion", () => {
     for (const hue of INSIGHT_IDENTITIES) {
       expect(block).toMatch(
         new RegExp(
-          `\\[data-slot="insight-card"\\]\\[data-identity="${hue}"\\] \\{\\s*--tone: var\\(--report-identity-${hue}\\);`,
+          // R20 §B: the outer card (`insight-frame`) shares the identity mapping.
+          `:is\\(\\[data-slot="insight-card"\\], \\[data-slot="insight-frame"\\]\\)\\[data-identity="${hue}"\\] \\{\\s*--tone: var\\(--report-identity-${hue}\\);`,
         ),
       );
       expect(tokens.match(new RegExp(`--report-identity-${hue}:`, "g")), hue).toHaveLength(2);

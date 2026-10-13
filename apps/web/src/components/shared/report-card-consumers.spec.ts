@@ -18,7 +18,14 @@ const CARDS = [
   "ReportCard",
   "ReportCardSkeleton",
   "OwnRankCard",
+  "InsightFrame",
+  "InsightFrameSkeleton",
 ];
+/** The sales-report screens (the shared view and, R20 §B, its employee period cards). */
+const SALES_REPORT_FILES = [
+  "components/reports/sales-reports-view.tsx",
+  "components/reports/employee-periods-card.tsx",
+] as const;
 /** Layout-only utilities a caller may give a card (its place in the grid, the gap of its rows). */
 const CARD_ALLOWED =
   /^(?:[a-z0-9]+:)*(?:col-span-\S+|row-span-\S+|col-start-\S+|h-full|min-h-\S+|self-\S+|order-\S+|w-full|min-w-0|flex-1|basis-\S+|gap-\S+)$/;
@@ -208,8 +215,7 @@ describe("report-card consumers never style a card locally", () => {
     expect(readFileSync(join(SRC, "app/(shell)/agent/reports/page.tsx"), "utf8")).toMatch(
       /<SalesReportsView source="agent" \/>/,
     );
-    const VIEW = "components/reports/sales-reports-view.tsx";
-    const view = readFileSync(join(SRC, VIEW), "utf8");
+    const view = SALES_REPORT_FILES.map((file) => readFileSync(join(SRC, file), "utf8")).join("\n");
     const offenders: string[] = [];
     // Every card group is a report group; every shared card a report card (ReportCard and its
     // skeleton always are — checked in report-card-size.spec.tsx).
@@ -222,12 +228,17 @@ describe("report-card consumers never style a card locally", () => {
       }
     }
     expect(offenders).toEqual([]);
-    expect(openingTags(view, "InsightGroup").length).toBeGreaterThanOrEqual(7);
-    // The long, repeated lists (one card per employee / per team) are opaque — no blur stack.
-    for (const list of ["data.employees.map", "data.teams.map"]) {
-      const at = view.indexOf(`{${list}(`);
+    expect(openingTags(view, "InsightGroup").length).toBeGreaterThanOrEqual(6);
+    // The long, repeated lists (one card per team; R20 §B the period boxes of every employee
+    // card) are opaque — no blur stack.
+    for (const [file, list] of [
+      [SALES_REPORT_FILES[0], "data.teams.map"],
+      [SALES_REPORT_FILES[1], "periods.map"],
+    ]) {
+      const source = readFileSync(join(SRC, file), "utf8");
+      const at = source.indexOf(`{${list}(`);
       expect(at, list).toBeGreaterThan(-1);
-      const group = view.slice(view.lastIndexOf("<InsightGroup", at), at);
+      const group = source.slice(source.lastIndexOf("<InsightGroup", at), at);
       expect(group, list).toMatch(/\ssurface="opaque"/);
     }
     // ReportCard always renders the report size, and only the sales reports use it.
@@ -235,12 +246,53 @@ describe("report-card consumers never style a card locally", () => {
     expect(openingTags(reportCard, "InsightSurface").join(" ")).toMatch(/\ssize="report"/);
     const reportCardUsers = files
       .filter((path) => /<ReportCard(Skeleton)?\b/.test(readFileSync(path, "utf8")))
+      .map((path) => relative(SRC, path).replace(/\\/g, "/"))
+      .sort();
+    expect(reportCardUsers).toEqual([...SALES_REPORT_FILES].sort());
+  });
+
+  it("R20 §B: employee performance = one shared outer card per employee with five period boxes", () => {
+    const view = readFileSync(join(SRC, SALES_REPORT_FILES[0]), "utf8");
+    const periods = readFileSync(join(SRC, SALES_REPORT_FILES[1]), "utf8");
+    // The Employees and My performance tabs render the period cards (one request per page).
+    expect(view).toMatch(
+      /current === "employees" \|\| current === "own" \? \(\s*<EmployeePeriodsTab source=\{source\} \/>/,
+    );
+    expect(view).toMatch(/salesReportsService\.employeePeriods\(source,/);
+    // Every employee row is a PeriodsCard in the person's identity; the separate rows too.
+    const cards = openingTags(view, "PeriodsCard");
+    expect(cards.length).toBe(3);
+    for (const tag of cards) {
+      expect(tag).toMatch(/\sidentity=\{METRIC_IDENTITY\.(personSales|unassigned|agentSales)\}/);
+      expect(tag).not.toMatch(/\sclassName=/);
+    }
+    // The outer card is the shared InsightFrame; the boxes take the period identities and icons.
+    expect(openingTags(periods, "InsightFrame")).toHaveLength(1);
+    const box = openingTags(periods, "ReportCard").join(" ");
+    expect(box).toMatch(/\sidentity=\{PERIOD_IDENTITY\[entry\.period\]\}/);
+    expect(box).toMatch(/\sicon=\{PERIOD_ICON\[entry\.period\]\}/);
+    // Phones never get five in a row: one column at the base, five only from a 66rem frame.
+    const grid = periods.match(/PERIOD_BOX_GRID =\s*"([^"]+)"/)?.[1].split(/\s+/) ?? [];
+    expect(grid[0]).toBe("grid-cols-1");
+    expect(grid.filter((token) => /grid-cols-5$/.test(token))).toEqual([
+      "@min-[66rem]:grid-cols-5",
+    ]);
+    expect(grid.every((token) => token === "grid-cols-1" || token.startsWith("@"))).toBe(true);
+    // The frame slot is drawn only by the shared component and styled only by the recipe block.
+    const owners = files
+      .filter((path) => /data-slot="insight-frame/.test(readFileSync(path, "utf8")))
       .map((path) => relative(SRC, path).replace(/\\/g, "/"));
-    expect(reportCardUsers).toEqual([VIEW]);
+    expect(owners).toEqual(["components/shared/insight-card.tsx"]);
+    for (const name of ["InsightFrame", "InsightFrameSkeleton"]) {
+      const users = files
+        .filter((path) => new RegExp(`<${name}\\b`).test(readFileSync(path, "utf8")))
+        .map((path) => relative(SRC, path).replace(/\\/g, "/"));
+      expect(users, name).toEqual([SALES_REPORT_FILES[1]]);
+    }
   });
 
   it("R19 §C2: every sales-report card carries its colour identity from the one mapping", () => {
-    const view = readFileSync(join(SRC, "components/reports/sales-reports-view.tsx"), "utf8");
+    const view = SALES_REPORT_FILES.map((file) => readFileSync(join(SRC, file), "utf8")).join("\n");
     const offenders: string[] = [];
     for (const name of ["ReportCard", "OwnRankCard", "InsightCard"]) {
       for (const tag of openingTags(view, name)) {
@@ -254,7 +306,7 @@ describe("report-card consumers never style a card locally", () => {
       }
     }
     expect(offenders).toEqual([]);
-    expect(openingTags(view, "ReportCard").length).toBeGreaterThanOrEqual(6);
+    expect(openingTags(view, "ReportCard").length).toBeGreaterThanOrEqual(4);
   });
 
   it("R19 §C2: identities, icon motion and split currency stay on the sales-report screens", () => {
@@ -263,7 +315,7 @@ describe("report-card consumers never style a card locally", () => {
       "components/shared/money-value.tsx",
       "components/reports/report-card.tsx",
       "components/reports/own-rank-card.tsx",
-      "components/reports/sales-reports-view.tsx",
+      ...SALES_REPORT_FILES,
     ]);
     const offenders: string[] = [];
     for (const path of files) {
@@ -288,7 +340,7 @@ describe("report-card consumers never style a card locally", () => {
       "components/shared/insight-card.tsx",
       "components/reports/report-card.tsx",
       "components/reports/own-rank-card.tsx",
-      "components/reports/sales-reports-view.tsx",
+      ...SALES_REPORT_FILES,
     ]);
     const offenders: string[] = [];
     for (const path of files) {

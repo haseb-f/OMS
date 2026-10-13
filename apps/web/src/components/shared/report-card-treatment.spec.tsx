@@ -200,12 +200,15 @@ describe("record-grid status cards stay a separate, flat family", () => {
     );
     expect(grid).not.toMatch(/insight-card|InsightSurface|InsightCard/);
     expect(block).not.toMatch(/data-record|data-grid-card|record-grid/);
-    // Every selector of the block targets the report-card family only.
+    // Every selector of the block targets the report-card family only (cards, and R20 §B the
+    // outer card that holds them).
     const selectors = withoutMedia(block, "(hover: hover)")
       .split("}")
       // The selector right before the last "{" (an @media wrapper header is skipped).
       .map((chunk) => chunk.split("{").at(-2)?.trim() ?? "")
       .filter(Boolean);
-    for (const selector of selectors) expect(selector).toMatch(/data-slot="insight-card"/);
+    for (const selector of selectors) {
+      expect(selector).toMatch(/data-slot="insight-(card|frame|frame-header)"/);
+    }
   });
 });

@@ -61,6 +61,16 @@ const salesReportsAr = {
     agentsTitle: "الوكلاء",
     agentsHint: "طلبات الوكلاء — منفصلة عن الموظفين.",
   },
+  employeePeriods: {
+    feed: "أداء الموظفين حسب الفترة",
+    boundaries: "حدود الفترات (بتوقيت القاهرة)",
+    last7Includes: "آخر 7 أيام = اليوم والأيام الستة السابقة",
+    rank: "#{rank} هذا الشهر",
+    ownRank: "ترتيبك هذا الشهر: {position} من {of}",
+    notRanked: "غير مُرتَّب هذا الشهر",
+    rankHint: "الترتيب حسب الطلبات الصالحة هذا الشهر.",
+    empty: "لا يوجد موظفون لديهم طلبات في هذه الفترات.",
+  },
   teams: {
     manager: "المدير",
     members: "الأعضاء",

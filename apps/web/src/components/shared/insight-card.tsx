@@ -443,6 +443,98 @@ export function InsightCardSkeleton({
   );
 }
 
+/** Geometry of the outer card (R20 §B; visuals: the theme recipe, padding / gap: tokens). */
+const INSIGHT_FRAME_CLASS =
+  "@container relative flex min-w-0 flex-col gap-(--insight-frame-gap) rounded-md border px-(--insight-frame-padding-inline) py-(--insight-frame-padding-block)";
+
+/**
+ * R20 §B — the outer card of the family: ONE soft, opaque card that holds a group of report
+ * cards about one subject (an employee × the five Live periods) under a clear identity header —
+ * an icon chip in the subject's identity hue, the name (`title`), a quiet reference line
+ * (`subtitle`, e.g. the employee code) and an optional meta chip (rank). Visuals come from the
+ * theme recipe (`data-slot="insight-frame"`: a faint identity wash at the top, a tinted hairline,
+ * a restrained hover / keyboard-focus response — edge + shadow + the header icon's short motion,
+ * never a rise, none under reduced motion). The frame is a container (`@container`): the group
+ * inside sets its columns by the width the frame gets, never by the viewport. It is an `article`;
+ * a caller listing many (a feed) makes each focusable (`tabIndex={0}`) for keyboard reading.
+ */
+export function InsightFrame({
+  title,
+  titleId,
+  subtitle,
+  icon,
+  identity,
+  iconMotion,
+  meta,
+  children,
+  className,
+  ...props
+}: Omit<ComponentProps<"article">, "title"> & {
+  title: ReactNode;
+  /** Id of the title (the article is labelled by it). */
+  titleId: string;
+  subtitle?: ReactNode;
+  icon?: LucideIcon;
+  identity?: InsightIdentity;
+  iconMotion?: InsightIconMotion;
+  meta?: ReactNode;
+}) {
+  return (
+    <article
+      data-slot="insight-frame"
+      data-identity={identity}
+      aria-labelledby={titleId}
+      className={cn(INSIGHT_FRAME_CLASS, INSIGHT_FOCUS_CLASS, className)}
+      {...props}
+    >
+      <header
+        data-slot="insight-frame-header"
+        className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5"
+      >
+        {icon ? <InsightIcon icon={icon} size="report" motion={iconMotion} /> : null}
+        <div className="flex min-w-0 flex-1 basis-48 flex-col gap-0.5">
+          <h2
+            id={titleId}
+            data-slot="insight-frame-title"
+            className="text-card-title font-semibold text-pretty break-words"
+          >
+            {title}
+          </h2>
+          {subtitle ? (
+            <p className="text-caption break-words text-muted-foreground">{subtitle}</p>
+          ) : null}
+        </div>
+        {meta ? (
+          <div className="flex max-w-full min-w-0 flex-wrap items-center gap-1.5">{meta}</div>
+        ) : null}
+      </header>
+      {children}
+    </article>
+  );
+}
+
+/** Loading placeholder with an `InsightFrame`'s geometry; the cards inside are their skeletons. */
+export function InsightFrameSkeleton({
+  children,
+  className,
+}: {
+  children?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div data-slot="insight-frame" aria-hidden className={cn(INSIGHT_FRAME_CLASS, className)}>
+      <div className="flex items-center gap-3">
+        <Skeleton className="size-9 rounded-md" />
+        <div className="flex flex-col gap-1.5">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 /** Card counts the balanced fit layout is generated for (theme/recipes.css "Balanced fit groups"). */
 export const INSIGHT_GROUP_BALANCED_MAX = 12;
 

@@ -95,6 +95,47 @@ export interface PerformanceReport {
   paymentMix: PaymentMixRow[];
 }
 
+/** R20 §B — one Live period of one employee (the Live card's figures). */
+export interface PeriodStats extends SalesStats {
+  period: LivePeriod;
+}
+
+export interface EmployeePeriodsRow {
+  userId: string;
+  name: string;
+  /** Employee code (HR profile) when there is one, else the login username. */
+  reference: string;
+  /**
+   * Competition rank on this month's valid orders among the employees in scope; OWN /
+   * AGENT_OWN: the caller's position over the whole company / agent. null = no order this month.
+   */
+  rank: number | null;
+  /** The five Live periods, in order. */
+  periods: PeriodStats[];
+}
+
+/**
+ * R20 §B — every employee in the caller's report scope × the five Live periods, one aggregated
+ * query on the API, paginated by employee in this month's rank order.
+ */
+export interface EmployeePeriodsReport {
+  scope: SalesReportScope;
+  timeZone: string;
+  generatedAt: string;
+  /** Period boundaries (inclusive Cairo business dates). */
+  periods: Array<{ period: LivePeriod; from: string; to: string }>;
+  rankPeriod: "thisMonth";
+  employees: EmployeePeriodsRow[];
+  /** 1-based. */
+  page: number;
+  pageSize: number;
+  total: number;
+  ownRank: OwnRank;
+  /** Company ALL only — separate, never ranked. */
+  unassigned: PeriodStats[] | null;
+  agents: PeriodStats[] | null;
+}
+
 export interface PerformanceParams {
   from: string;
   to: string;
@@ -120,4 +161,9 @@ export const salesReportsService = {
   live: (source: SalesReportsSource) => apiClient.get<LiveReport>(`${BASE[source]}/live`),
   performance: (source: SalesReportsSource, params: PerformanceParams) =>
     apiClient.get<PerformanceReport>(`${BASE[source]}/performance?${performanceQuery(params)}`),
+  /** R20 §B — `page` is 1-based. */
+  employeePeriods: (source: SalesReportsSource, params: { page: number; pageSize: number }) =>
+    apiClient.get<EmployeePeriodsReport>(
+      `${BASE[source]}/employee-periods?page=${params.page}&pageSize=${params.pageSize}`,
+    ),
 };

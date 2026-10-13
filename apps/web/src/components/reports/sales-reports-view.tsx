@@ -2,11 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  CalendarCheck,
-  CalendarClock,
-  CalendarDays,
-  CalendarMinus,
-  CalendarRange,
   Handshake,
   ListChecks,
   RefreshCw,
@@ -14,7 +9,6 @@ import {
   UserRoundX,
   UsersRound,
   Wallet,
-  type LucideIcon,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -28,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { InsightGroup, InsightScope } from "@/components/shared/insight-card";
+import { ListPager } from "@/components/shared/list-pager";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { MoneyValue } from "@/components/shared/money-value";
@@ -47,16 +42,26 @@ import {
 } from "@/components/reports/report-card";
 import {
   METRIC_IDENTITY,
+  PERIOD_ICON,
   PERIOD_IDENTITY,
   currencyIdentity,
-  type ReportIdentity,
 } from "@/components/reports/report-identity";
+import {
+  PeriodsCard,
+  PeriodsCardSkeleton,
+  useReportStatLines,
+} from "@/components/reports/employee-periods-card";
 import { BarChart } from "@/components/reports/bar-chart";
-import { OwnRankCard } from "@/components/reports/own-rank-card";
-import { reportTabs, type ReportTab } from "@/components/reports/sales-report-tabs";
+import {
+  isOwnReportScope,
+  reportTabs,
+  type ReportTab,
+} from "@/components/reports/sales-report-tabs";
 import { useLiveRefresh, type LiveRefreshState } from "@/components/reports/use-live-refresh";
 import {
   salesReportsService,
+  type EmployeePeriodsReport,
+  type EmployeePeriodsRow,
   type LivePeriod,
   type PaymentMixRow,
   type PerformanceReport,
@@ -64,7 +69,6 @@ import {
   type RankedEmployee,
   type SalesReportScope,
   type SalesReportsSource,
-  type SalesStats,
 } from "@/services/sales-reports-service";
 import { ApiError } from "@/services/api-client";
 import { useLocale } from "@/providers/locale-provider";
@@ -75,14 +79,6 @@ import { formatNumber } from "@/lib/format-number";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { ltrIsolate } from "@/lib/bidi";
-
-const PERIOD_ICON: Record<LivePeriod, LucideIcon> = {
-  today: CalendarCheck,
-  yesterday: CalendarMinus,
-  last7Days: CalendarRange,
-  thisMonth: CalendarDays,
-  lastMonth: CalendarClock,
-};
 
 /** Bars shown in the comparison chart; the table below lists everyone. */
 const CHART_LIMIT = 15;
@@ -144,6 +140,8 @@ export function SalesReportsView({ source }: { source: SalesReportsSource }) {
       <TabsContent value={current} className="min-w-0">
         {current === "live" ? (
           <LiveTab source={source} onScope={setScope} />
+        ) : current === "employees" || current === "own" ? (
+          <EmployeePeriodsTab source={source} />
         ) : (
           <PerformancePanel
             source={source}
@@ -252,25 +250,173 @@ function CardSkeletons({ count, className }: { count: number; className: string 
   );
 }
 
-function useStatLines() {
+// ---------------------------------------------------------------------------
+// Employee performance by period (R20 §B)
+// ---------------------------------------------------------------------------
+
+/** Employee cards per page (the API pages by employee; one aggregated query per page). */
+const PERIODS_PAGE_SIZE = 10;
+
+/**
+ * Employees (TEAM / ALL / AGENT_ALL) and My performance (OWN / AGENT_OWN): one outer card per
+ * employee in the scope the API answered with, holding the five Live period boxes. One request
+ * per page (`/employee-periods`), never one per employee or per period; the figures follow the
+ * Live report's definitions exactly. The rank is this month's (valid orders); an own scope sees
+ * only its own card and its own position.
+ */
+function EmployeePeriodsTab({ source }: { source: SalesReportsSource }) {
   const { t } = useLocale();
-  return useCallback(
-    (stats: SalesStats) => [
-      { label: t("salesReports.stats.orders"), value: stats.orders },
-      // R19 §C2 — colour by meaning (non-zero only; the label always says it): a cancelled
-      // order is a lost sale (danger); a return is a reversal still to process (attention).
-      {
-        label: t("salesReports.stats.cancelled"),
-        value: stats.cancelled,
-        meaning: "danger" as const,
-      },
-      {
-        label: t("salesReports.stats.returned"),
-        value: stats.returned,
-        meaning: "attention" as const,
-      },
-    ],
-    [t],
+  const [page, setPage] = useState(0);
+  const loader = useCallback(
+    () =>
+      salesReportsService.employeePeriods(source, {
+        page: page + 1,
+        pageSize: PERIODS_PAGE_SIZE,
+      }),
+    [source, page],
+  );
+  const state = useLiveRefresh(loader, { intervalMs: 60_000 });
+  const data = state.data;
+  if (!data && state.error) return <LoadFailure state={state} />;
+  const own = data ? isOwnReportScope(data.scope) : false;
+
+  let list: ReactNode;
+  if (!data) {
+    list = (
+      <div className="flex min-w-0 flex-col gap-4" aria-busy>
+        <PeriodsCardSkeleton />
+        <PeriodsCardSkeleton />
+      </div>
+    );
+  } else if (data.employees.length === 0) {
+    list = <EmptyState icon={UserRound} title={t("salesReports.employeePeriods.empty")} />;
+  } else {
+    const first = (data.page - 1) * data.pageSize;
+    list = (
+      <div
+        role="feed"
+        aria-label={t("salesReports.employeePeriods.feed")}
+        aria-busy={state.refreshing || undefined}
+        className="flex min-w-0 flex-col gap-4"
+      >
+        {data.employees.map((row, index) => (
+          <PeriodsCard
+            key={row.userId}
+            tabIndex={0}
+            aria-posinset={first + index + 1}
+            aria-setsize={data.total}
+            titleId={`employee-periods-${row.userId}`}
+            title={row.name}
+            subtitle={row.reference ? <bdi>{row.reference}</bdi> : null}
+            icon={UserRound}
+            identity={METRIC_IDENTITY.personSales}
+            meta={<EmployeeRank row={row} data={data} own={own} />}
+            periods={row.periods}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-w-0 flex-col gap-3">
+      <RefreshBar state={state} auto />
+      <FreshnessBanner state={state} />
+      {data ? <PeriodBoundaries periods={data.periods} /> : null}
+      {own ? (
+        <p className="text-caption text-muted-foreground">{t("salesVisibility.ownOnly")}</p>
+      ) : null}
+      {/* A team is ranked within itself; the manager's own company position is said once. */}
+      {data?.scope === "TEAM" ? (
+        <p className="text-caption text-muted-foreground">
+          {data.ownRank.position === null
+            ? t("salesVisibility.notRankedHint", { of: data.ownRank.of })
+            : t("salesVisibility.companyRankLine", {
+                position: data.ownRank.position,
+                of: data.ownRank.of,
+              })}
+        </p>
+      ) : null}
+      {list}
+      {data ? (
+        <ListPager
+          page={data.page - 1}
+          pageSize={data.pageSize}
+          total={data.total}
+          onPageChange={setPage}
+        />
+      ) : null}
+      {data?.unassigned ? (
+        <PeriodsCard
+          titleId="sales-unassigned-row"
+          title={t("salesReports.employees.unassigned")}
+          subtitle={t("salesReports.employees.unassignedHint")}
+          icon={UserRoundX}
+          identity={METRIC_IDENTITY.unassigned}
+          periods={data.unassigned}
+        />
+      ) : null}
+      {data?.agents ? (
+        <PeriodsCard
+          titleId="sales-agents-row"
+          title={t("salesReports.employees.agentsTitle")}
+          subtitle={t("salesReports.employees.agentsHint")}
+          icon={Handshake}
+          identity={METRIC_IDENTITY.agentSales}
+          periods={data.agents}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/** The employee's rank chip: this month's rank in scope, or the caller's own position. */
+function EmployeeRank({
+  row,
+  data,
+  own,
+}: {
+  row: EmployeePeriodsRow;
+  data: EmployeePeriodsReport;
+  own: boolean;
+}) {
+  const { t } = useLocale();
+  const label =
+    row.rank === null
+      ? t("salesReports.employeePeriods.notRanked")
+      : own
+        ? t("salesReports.employeePeriods.ownRank", { position: row.rank, of: data.ownRank.of })
+        : t("salesReports.employeePeriods.rank", { rank: row.rank });
+  return (
+    <EnterpriseBadge
+      variant="outline"
+      className="num font-medium"
+      title={t("salesReports.employeePeriods.rankHint")}
+    >
+      {label}
+    </EnterpriseBadge>
+  );
+}
+
+/** The period boundaries, stated once above the cards (Cairo business dates). */
+function PeriodBoundaries({ periods }: { periods: EmployeePeriodsReport["periods"] }) {
+  const { t } = useLocale();
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <p className="text-caption text-muted-foreground">
+        {t("salesReports.employeePeriods.boundaries")} ·{" "}
+        {t("salesReports.employeePeriods.last7Includes")}
+      </p>
+      <ul className="flex min-w-0 flex-wrap gap-1.5">
+        {periods.map((entry) => (
+          <li key={entry.period}>
+            <InsightScope kind="period">
+              {t(`salesReports.periods.${entry.period}`)} {rangeLabel(entry.from, entry.to)}
+            </InsightScope>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -287,7 +433,7 @@ function LiveTab({
   onScope: (scope: SalesReportScope) => void;
 }) {
   const { t } = useLocale();
-  const statLines = useStatLines();
+  const statLines = useReportStatLines();
   const loader = useCallback(() => salesReportsService.live(source), [source]);
   const live = useLiveRefresh(loader, { intervalMs: 60_000 });
   const [selected, setSelected] = useState<LivePeriod>("today");
@@ -372,7 +518,7 @@ function PerformancePanel({
   onRankChange,
 }: {
   source: SalesReportsSource;
-  tab: Exclude<ReportTab, "live">;
+  tab: Exclude<ReportTab, "live" | "own" | "employees">;
   range: DateRangeValue;
   onRangeChange: (range: DateRangeValue) => void;
   rank: RankValue;
@@ -424,8 +570,6 @@ function PerformancePanel({
   let body: ReactNode;
   if (!data && perf.error) body = <LoadFailure state={perf} />;
   else if (!data) body = <CardSkeletons count={4} className={CARD_GRID} />;
-  else if (tab === "own") body = <OwnTab data={data} />;
-  else if (tab === "employees") body = <EmployeesTab data={data} />;
   else if (tab === "teams") body = <TeamsTab data={data} />;
   else if (tab === "comparison") body = <ComparisonTab data={data} />;
   else body = <PaymentMixTab rows={data.paymentMix} />;
@@ -452,144 +596,9 @@ function RankBadge({ rank }: { rank: number }) {
   );
 }
 
-const NO_SALES: SalesStats = { orders: 0, valid: 0, cancelled: 0, returned: 0, amounts: [] };
-
-/** OWN / AGENT_OWN: the caller's own figures and own rank — nothing about anyone else. */
-function OwnTab({ data }: { data: PerformanceReport }) {
-  const { t } = useLocale();
-  const statLines = useStatLines();
-  const own = data.employees[0] ?? NO_SALES;
-  return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <p className="text-caption text-muted-foreground">{t("salesVisibility.ownOnly")}</p>
-      <InsightGroup size="report" className={CARD_GRID}>
-        <ReportCard
-          title={t("salesVisibility.ownSales")}
-          icon={UserRound}
-          identity={METRIC_IDENTITY.personSales}
-          figure={own.valid}
-          unit={t("salesReports.stats.valid")}
-          amounts={own.amounts}
-          noAmountsLabel={t("salesReports.stats.noSales")}
-          stats={statLines(own)}
-        />
-        <OwnRankCard
-          position={data.ownRank.position}
-          of={data.ownRank.of}
-          population={data.scope === "AGENT_OWN" ? "agent" : "company"}
-          size="report"
-          identity={METRIC_IDENTITY.ownRank}
-        />
-      </InsightGroup>
-    </div>
-  );
-}
-
-/** One unranked row kept apart from the employees (agents, orders without an owner). */
-function SeparateRow({
-  id,
-  title,
-  hint,
-  icon,
-  identity,
-  stats,
-}: {
-  id: string;
-  title: string;
-  hint: string;
-  icon: LucideIcon;
-  identity: ReportIdentity;
-  stats: SalesStats;
-}) {
-  const { t } = useLocale();
-  const statLines = useStatLines();
-  return (
-    <section className="flex min-w-0 flex-col gap-2" aria-labelledby={id}>
-      <h2 id={id} className="text-card-title">
-        {title}
-      </h2>
-      <InsightGroup size="report" className={CARD_GRID}>
-        <ReportCard
-          title={hint}
-          icon={icon}
-          identity={identity}
-          figure={stats.valid}
-          unit={t("salesReports.stats.valid")}
-          amounts={stats.amounts}
-          noAmountsLabel={t("salesReports.stats.noSales")}
-          stats={statLines(stats)}
-        />
-      </InsightGroup>
-    </section>
-  );
-}
-
-function EmployeesTab({ data }: { data: PerformanceReport }) {
-  const { t } = useLocale();
-  const statLines = useStatLines();
-  const { position, of } = data.ownRank;
-  return (
-    <div className="flex min-w-0 flex-col gap-4">
-      {/* A team is ranked within itself; the manager's own company position is said once. */}
-      {data.scope === "TEAM" ? (
-        <p className="text-caption text-muted-foreground">
-          {position === null
-            ? t("salesVisibility.notRankedHint", { of })
-            : t("salesVisibility.companyRankLine", { position, of })}
-        </p>
-      ) : null}
-      {data.employees.length === 0 ? (
-        <EmptyState icon={UserRound} title={t("salesReports.employees.empty")} />
-      ) : (
-        <InsightGroup size="report" surface="opaque" className={CARD_GRID}>
-          {data.employees.map((row) => (
-            <ReportCard
-              key={row.userId}
-              title={row.name}
-              icon={UserRound}
-              identity={METRIC_IDENTITY.personSales}
-              figure={row.valid}
-              unit={t("salesReports.stats.valid")}
-              meta={<RankBadge rank={row.rank} />}
-              amounts={row.amounts}
-              noAmountsLabel={t("salesReports.stats.noSales")}
-              stats={statLines(row)}
-            />
-          ))}
-        </InsightGroup>
-      )}
-      {data.employeesTruncated ? (
-        <p className="text-caption text-muted-foreground">
-          {t("salesReports.employees.truncated", { count: data.employees.length })}
-        </p>
-      ) : null}
-      {data.unassigned ? (
-        <SeparateRow
-          id="sales-unassigned-row"
-          title={t("salesReports.employees.unassigned")}
-          hint={t("salesReports.employees.unassignedHint")}
-          icon={UserRoundX}
-          identity={METRIC_IDENTITY.unassigned}
-          stats={data.unassigned}
-        />
-      ) : null}
-      {data.agents ? (
-        <SeparateRow
-          id="sales-agents-row"
-          title={t("salesReports.employees.agentsTitle")}
-          hint={t("salesReports.employees.agentsHint")}
-          icon={Handshake}
-          identity={METRIC_IDENTITY.agentSales}
-          stats={data.agents}
-        />
-      ) : null}
-    </div>
-  );
-}
-
 function TeamsTab({ data }: { data: PerformanceReport }) {
   const { t } = useLocale();
-  const statLines = useStatLines();
+  const statLines = useReportStatLines();
   const validOf = useMemo(
     () => new Map(data.employees.map((row) => [row.userId, row.valid])),
     [data.employees],

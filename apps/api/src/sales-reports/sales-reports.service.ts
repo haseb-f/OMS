@@ -29,6 +29,7 @@ import {
   type SalesStats,
 } from './sales-metrics';
 import type { SalesPerformanceQueryDto } from './dto/sales-performance-query.dto';
+import { DEFAULT_EMPLOYEE_PERIODS_PAGE_SIZE } from './dto/employee-periods-query.dto';
 
 /** Upper bound of ranked employees per response (single grouped query). */
 export const MAX_RANKED_EMPLOYEES = 200;
@@ -117,6 +118,55 @@ export interface PerformanceReport {
   paymentMix: PaymentMixRow[];
 }
 
+/** One Live period of one employee (R20 §B): the Live card's figures, no status breakdown. */
+export interface PeriodStats extends SalesStats {
+  period: LivePeriod;
+}
+
+export interface EmployeePeriodsRow {
+  userId: string;
+  name: string;
+  /** Employee code (HR profile) when there is one, else the login username. */
+  reference: string;
+  /**
+   * Competition rank on this month's valid orders among the employees in scope
+   * (the Employees ranking for "this month"); OWN / AGENT_OWN: the caller's
+   * position over the whole company / agent. null = no order this month.
+   */
+  rank: number | null;
+  /** Always the five Live periods, in `LIVE_PERIODS` order. */
+  periods: PeriodStats[];
+}
+
+/**
+ * R20 §B — every employee in the caller's report scope with the five Live
+ * periods (Today, Yesterday, Last 7 days, This month, Last month): one
+ * aggregated query, paginated by employee in this month's rank order.
+ */
+export interface EmployeePeriodsReport {
+  scope: SalesReportScopeLabel;
+  timeZone: string;
+  generatedAt: string;
+  /** The period boundaries (inclusive Cairo business dates). */
+  periods: Array<{ period: LivePeriod; from: string; to: string }>;
+  rankPeriod: 'thisMonth';
+  employees: EmployeePeriodsRow[];
+  /** 1-based. */
+  page: number;
+  pageSize: number;
+  /** Employees in scope with at least one order in the five periods. */
+  total: number;
+  /** The caller's own position this month over the company / the agent. */
+  ownRank: OwnRank;
+  /** Company ALL only — separate, never ranked. */
+  unassigned: PeriodStats[] | null;
+  agents: PeriodStats[] | null;
+}
+
+interface PeriodGroupedRow extends GroupedRow {
+  period: LivePeriod;
+}
+
 interface GroupedRow {
   key: string | null;
   currency_code: string;
@@ -143,6 +193,36 @@ const FROM_ORDERS = Prisma.sql`
   FROM store_orders o
   JOIN currencies c ON c.id = o.currency_id
   LEFT JOIN status_definitions sd ON sd.id = o.fulfillment_status_id`;
+
+/**
+ * Orders (alias `o`, with `c` currencies, `sd` status, `p` the period) joined to EVERY
+ * range they fall in — today ⊂ last 7 days ⊂ … — so one grouped query answers any number
+ * of periods. Ends inside the WHERE clause (callers append `AND …`).
+ */
+function periodJoinSql(
+  ranges: Array<PeriodRange & { key: string }>,
+): Prisma.Sql {
+  const minStart = new Date(
+    Math.min(...ranges.map((range) => range.start.getTime())),
+  );
+  const maxEnd = new Date(
+    Math.max(...ranges.map((range) => range.endExclusive.getTime())),
+  );
+  const values = Prisma.join(
+    ranges.map(
+      (range) =>
+        Prisma.sql`(${range.key}::text, ${ts(range.start)}, ${ts(range.endExclusive)})`,
+    ),
+  );
+  return Prisma.sql`
+      FROM store_orders o
+      JOIN (VALUES ${values}) AS p(key, start_at, end_at)
+        ON o.order_date >= p.start_at AND o.order_date < p.end_at
+      JOIN currencies c ON c.id = o.currency_id
+      LEFT JOIN status_definitions sd ON sd.id = o.fulfillment_status_id
+      WHERE o.deleted_at IS NULL
+        AND o.order_date >= ${ts(minStart)} AND o.order_date < ${ts(maxEnd)}`;
+}
 
 function addRow(tally: SalesTally, row: GroupedRow): void {
   tally.add({
@@ -213,29 +293,11 @@ export class SalesReportsService {
     const result = new Map<K, SalesTally>(
       ranges.map((range) => [range.key, new SalesTally()]),
     );
-    const minStart = new Date(
-      Math.min(...ranges.map((range) => range.start.getTime())),
-    );
-    const maxEnd = new Date(
-      Math.max(...ranges.map((range) => range.endExclusive.getTime())),
-    );
-    const values = Prisma.join(
-      ranges.map(
-        (range) =>
-          Prisma.sql`(${range.key}::text, ${ts(range.start)}, ${ts(range.endExclusive)})`,
-      ),
-    );
     const rows = await this.prisma.$queryRaw<GroupedRow[]>(Prisma.sql`
       SELECT p.key AS key, c.code AS currency_code,
              ${ORDER_STATUS_CODE_SQL} AS status_code,
              COUNT(*)::int AS count, SUM(${ORDER_AMOUNT_SQL}) AS amount
-      FROM store_orders o
-      JOIN (VALUES ${values}) AS p(key, start_at, end_at)
-        ON o.order_date >= p.start_at AND o.order_date < p.end_at
-      JOIN currencies c ON c.id = o.currency_id
-      LEFT JOIN status_definitions sd ON sd.id = o.fulfillment_status_id
-      WHERE o.deleted_at IS NULL
-        AND o.order_date >= ${ts(minStart)} AND o.order_date < ${ts(maxEnd)}
+      ${periodJoinSql(ranges)}
         AND ${this.orderFilter(scope)}
       GROUP BY 1, 2, 3`);
     for (const row of rows) {
@@ -396,6 +458,191 @@ export class SalesReportsService {
       position: row.ranked ? row.ahead + 1 : null,
       of: row.of,
       valid: row.valid,
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Employee periods (R20 §B)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Every employee in scope × the five Live periods × currency × status in
+   * ONE grouped query (each order joins every period it falls in), ordered
+   * by this month's rank (competition rank on valid orders, the Employees
+   * ranking's rule) and paginated by employee in SQL — never a request per
+   * employee or per period. The same scope (`orderFilter`), period bounds
+   * (`livePeriodRanges`) and tally (`SalesTally`) as the Live cards, so an
+   * employee's box equals the Live card of that employee alone.
+   */
+  async employeePeriods(
+    scope: ReportScope,
+    query: { page?: number; pageSize?: number },
+    now: Date = new Date(),
+  ): Promise<EmployeePeriodsReport> {
+    const ranges = livePeriodRanges(now);
+    const keyed = ranges.map((range) => ({ ...range, key: range.period }));
+    const own = isOwnScope(scope);
+    const pageSize = own
+      ? 1
+      : (query.pageSize ?? DEFAULT_EMPLOYEE_PERIODS_PAGE_SIZE);
+    const page = own ? 1 : (query.page ?? 1);
+    const offset = (page - 1) * pageSize;
+    const cancelled = CANCELLED_STATUS;
+    const rankPeriod: LivePeriod = 'thisMonth';
+    const month = ranges.find((range) => range.period === rankPeriod);
+
+    const listQuery = this.prisma.$queryRaw<
+      Array<
+        Partial<PeriodGroupedRow> & {
+          total: number;
+          rank: number | null;
+          ord: number | null;
+        }
+      >
+    >(Prisma.sql`
+      WITH per AS (
+        SELECT o.employee_id AS owner, p.key AS period, c.code AS currency_code,
+               ${ORDER_STATUS_CODE_SQL} AS status_code,
+               COUNT(*)::int AS count, SUM(${ORDER_AMOUNT_SQL}) AS amount
+        ${periodJoinSql(keyed)}
+          AND ${this.orderFilter(scope)} AND o.employee_id IS NOT NULL
+        GROUP BY 1, 2, 3, 4
+      ), owners AS (
+        SELECT owner,
+               COALESCE(SUM(count) FILTER (WHERE period = ${rankPeriod} AND status_code <> ${cancelled}), 0) AS month_valid,
+               BOOL_OR(period = ${rankPeriod}) AS month_ranked
+        FROM per
+        GROUP BY owner
+      ), ordered AS (
+        SELECT owners.owner,
+               CASE WHEN owners.month_ranked
+                    THEN RANK() OVER (PARTITION BY owners.month_ranked ORDER BY owners.month_valid DESC)
+               END AS rank,
+               ROW_NUMBER() OVER (
+                 ORDER BY owners.month_ranked DESC, owners.month_valid DESC, u.full_name, owners.owner
+               ) AS ord
+        FROM owners
+        JOIN users u ON u.id = owners.owner
+      ), paged AS (
+        SELECT * FROM ordered WHERE ord > ${offset} AND ord <= ${offset + pageSize}
+      )
+      SELECT t.total, paged.owner::text AS key, paged.rank::int AS rank, paged.ord::int AS ord,
+             per.period, per.currency_code, per.status_code, per.count, per.amount
+      FROM (SELECT COUNT(*)::int AS total FROM owners) t
+      LEFT JOIN (paged JOIN per ON per.owner = paged.owner) ON true`);
+
+    // Agents / unassigned rows — company ALL only, the Live periods too.
+    const separateQuery =
+      scope.audience === 'company' && scope.label === 'ALL'
+        ? this.prisma.$queryRaw<PeriodGroupedRow[]>(Prisma.sql`
+            SELECT CASE WHEN o.agent_id IS NULL THEN 'unassigned' ELSE 'agents' END AS key,
+                   p.key AS period, c.code AS currency_code,
+                   ${ORDER_STATUS_CODE_SQL} AS status_code,
+                   COUNT(*)::int AS count, SUM(${ORDER_AMOUNT_SQL}) AS amount
+            ${periodJoinSql(keyed)}
+              AND (o.agent_id IS NOT NULL OR o.employee_id IS NULL)
+            GROUP BY 1, 2, 3, 4`)
+        : Promise.resolve(null);
+
+    const [rows, standing, separateRows] = await Promise.all([
+      listQuery,
+      this.ownStanding(scope, month as PeriodRange, 'count', null),
+      separateQuery,
+    ]);
+    const ownRank: OwnRank = { position: standing.position, of: standing.of };
+
+    // Fold: owner → period → tally (page order kept by `ord`).
+    const byOwner = new Map<
+      string,
+      { ord: number; rank: number | null; tallies: Map<LivePeriod, SalesTally> }
+    >();
+    for (const row of rows) {
+      if (!row.key || !row.period) continue;
+      let entry = byOwner.get(row.key);
+      if (!entry) {
+        entry = {
+          ord: Number(row.ord),
+          rank: row.rank ?? null,
+          tallies: new Map(),
+        };
+        byOwner.set(row.key, entry);
+      }
+      const tally = entry.tallies.get(row.period) ?? new SalesTally();
+      addRow(tally, row as PeriodGroupedRow);
+      entry.tallies.set(row.period, tally);
+    }
+    // An own scope always shows the caller's own card, even without orders.
+    if (own && !byOwner.has(scope.userId)) {
+      byOwner.set(scope.userId, { ord: 1, rank: null, tallies: new Map() });
+    }
+    const total = own ? 1 : Number(rows[0]?.total ?? 0);
+
+    const people = byOwner.size
+      ? await this.prisma.user.findMany({
+          where: { id: { in: [...byOwner.keys()] } },
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            employeeProfile: { select: { employeeCode: true } },
+          },
+        })
+      : [];
+    const personOf = new Map(people.map((person) => [person.id, person]));
+    const periodsOf = (
+      tallies: Map<LivePeriod, SalesTally> | undefined,
+    ): PeriodStats[] =>
+      ranges.map((range) => ({
+        period: range.period,
+        ...(tallies?.get(range.period) ?? new SalesTally()).stats(),
+      }));
+
+    const employees: EmployeePeriodsRow[] = [...byOwner.entries()]
+      .sort(([, a], [, b]) => a.ord - b.ord)
+      .map(([userId, entry]) => {
+        const person = personOf.get(userId);
+        return {
+          userId,
+          name: person?.fullName ?? '',
+          reference:
+            person?.employeeProfile?.employeeCode ?? person?.username ?? '',
+          // In an own scope the rank is the caller's position over the whole
+          // company / agent, never "1 of 1" (as on the performance report).
+          rank: own ? ownRank.position : entry.rank,
+          periods: periodsOf(entry.tallies),
+        };
+      });
+
+    let unassigned: PeriodStats[] | null = null;
+    let agents: PeriodStats[] | null = null;
+    if (separateRows) {
+      const split = {
+        agents: new Map<LivePeriod, SalesTally>(),
+        unassigned: new Map<LivePeriod, SalesTally>(),
+      };
+      for (const row of separateRows) {
+        const target = row.key === 'agents' ? split.agents : split.unassigned;
+        const tally = target.get(row.period) ?? new SalesTally();
+        addRow(tally, row);
+        target.set(row.period, tally);
+      }
+      agents = periodsOf(split.agents);
+      unassigned = periodsOf(split.unassigned);
+    }
+
+    return {
+      scope: scope.label,
+      timeZone: BUSINESS_TIME_ZONE,
+      generatedAt: now.toISOString(),
+      periods: ranges.map(({ period, from, to }) => ({ period, from, to })),
+      rankPeriod,
+      employees,
+      page,
+      pageSize,
+      total,
+      ownRank,
+      unassigned,
+      agents,
     };
   }
 
