@@ -1136,7 +1136,8 @@ describe('Recipes, stock-line resolution and assembly (integration)', () => {
       expect(await stock(a)).toBe(10);
     });
 
-    it('an agent-owned assembly moves stock and cost but posts no journal; a direct cost is refused', async () => {
+    it('an agent-owned assembly moves stock only — non-valued (R19 A), no journal; a direct cost is refused', async () => {
+      // A legacy cost on an agent product is ignored: consignment stock is never valued.
       const a = await makeProduct({ category: catA, cost: 10, owner: agentId });
       const fg = await makeProduct({
         category: catFg,
@@ -1151,9 +1152,12 @@ describe('Recipes, stock-line resolution and assembly (integration)', () => {
       const { order } = await assemble(fg, 1);
       expect(order).toMatchObject({
         ownerAgentId: agentId,
-        totalCost: '20',
-        unitCost: '20',
+        valued: false,
+        totalCost: null,
+        unitCost: null,
       });
+      expect(await avgCost(fg)).toBeNull();
+      expect(String(await avgCost(a))).toBe('10');
       expect(await journalFor(order.id)).toHaveLength(0);
       expect(await stock(a)).toBe(3);
       expect(await stock(fg)).toBe(1);
@@ -1161,6 +1165,7 @@ describe('Recipes, stock-line resolution and assembly (integration)', () => {
         where: { referenceId: order.id, productId: fg },
       });
       expect(movement.ownerAgentId).toBe(agentId);
+      expect(movement.unitCost).toBeNull();
       // reversal of an agent order posts / reverses nothing either
       await assembly.reverse(order.id, { reason: 'agent test' }, actorId, true);
       expect(await journalFor(order.id)).toHaveLength(0);

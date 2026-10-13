@@ -5,6 +5,7 @@ import {
   STORE_ORDER_REFERENCE,
   STORE_ORDER_TRANSIT_REFERENCE,
 } from '../../store-orders/stock-lifecycle/stock-ledger';
+import { ASSEMBLY_REFERENCE_TYPE } from '../../assembly/assembly-keys';
 import { agentStockEvent } from './agent-stock-rules';
 import { agentNotFoundError } from '../common/agent-errors';
 import type { AgentStockMovementsQueryDto } from './dto/agent-stock.dto';
@@ -16,6 +17,12 @@ export type AgentStockDocument =
   | { kind: 'AGENT_STOCK_RECEIPT'; id: string; number: string }
   | { kind: 'STORE_ORDER'; id: string; number: string }
   | {
+      kind: 'ASSEMBLY_ORDER';
+      id: string;
+      number: string;
+      recipeVersion: number;
+    }
+  | {
       kind: 'AGENT_RETURN';
       id: string;
       number: string;
@@ -26,7 +33,9 @@ export type AgentStockDocument =
  * R18 B — an agent's stock movement history: every movement whose owner
  * snapshot is the agent (never re-attributed), newest first, each linked to
  * the document that caused it — its receipt, its order (reservation,
- * dispatch to / back from goods in transit, delivery) or its return. Shared
+ * dispatch to / back from goods in transit, delivery), its assembly order
+ * (R19 A: components consumed into finished boxes, boxes received, recipe
+ * version) or its return. Shared
  * by the internal agent page and the agent portal (scoped to the agent's own
  * id by the caller). No cost column is ever returned.
  */
@@ -121,7 +130,8 @@ export class AgentStockHistoryService {
       STORE_ORDER_TRANSIT_REFERENCE,
     );
     const returnIds = idsOf(AGENT_RETURN_REFERENCE);
-    const [receipts, orders, returns] = await Promise.all([
+    const assemblyIds = idsOf(ASSEMBLY_REFERENCE_TYPE);
+    const [receipts, orders, returns, assemblies] = await Promise.all([
       receiptIds.length
         ? this.prisma.agentStockReceipt.findMany({
             where: { id: { in: receiptIds }, agentId },
@@ -138,6 +148,12 @@ export class AgentStockHistoryService {
         ? this.prisma.agentOrderReturn.findMany({
             where: { id: { in: returnIds }, agentId },
             select: { id: true, returnNumber: true, storeOrderId: true },
+          })
+        : [],
+      assemblyIds.length
+        ? this.prisma.assemblyOrder.findMany({
+            where: { id: { in: assemblyIds }, ownerAgentId: agentId },
+            select: { id: true, assemblyNumber: true, recipeVersion: true },
           })
         : [],
     ]);
@@ -164,6 +180,14 @@ export class AgentStockHistoryService {
         id: r.id,
         number: r.returnNumber,
         storeOrderId: r.storeOrderId,
+      });
+    }
+    for (const a of assemblies) {
+      map.set(`${ASSEMBLY_REFERENCE_TYPE}:${a.id}`, {
+        kind: 'ASSEMBLY_ORDER',
+        id: a.id,
+        number: a.assemblyNumber,
+        recipeVersion: a.recipeVersion,
       });
     }
     return map;
