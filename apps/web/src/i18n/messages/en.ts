@@ -5303,6 +5303,10 @@ const en = {
       remaining: "Remaining",
       status: "Status",
       allocate: "Allocate",
+      paidBefore: "Paid before",
+      thisVoucher: "This voucher",
+      otherCurrency:
+        "In another currency than this voucher ({currency}) — record a separate voucher for it",
     },
     summary: {
       amount: "Amount",
@@ -5317,6 +5321,21 @@ const en = {
       paymentDescription:
         "The full amount ({amount}) will be recorded as paid from the account; {allocated} is applied to invoices and {unapplied} stays as an advance to the supplier. Confirm only if {amount} was actually paid — otherwise change the amount to what was paid.",
       confirm: "Post {amount}",
+      noInvoiceTitle: "No invoice selected for this amount",
+      noInvoiceReceiptDescription:
+        "The customer has open invoices and none is selected. {amount} will be recorded as received into the receiving account as an unapplied advance on the customer's account; no invoice changes status. To settle an invoice, select it from the open invoices before posting.",
+      noInvoicePaymentDescription:
+        "The supplier has open invoices and none is selected. {amount} will be recorded as paid from the account as an unapplied advance to the supplier; no invoice changes status. To settle an invoice, select it from the open invoices before posting.",
+      confirmAdvance: "Post {amount} as an advance",
+    },
+    position: {
+      currency: "Currency",
+      outstanding: "Owed on invoices",
+      received: "Total received",
+      paid: "Total paid",
+      applied: "Applied to invoices",
+      unapplied: "Unapplied advance",
+      voucher: "Voucher number",
     },
     allocationSummary: {
       openInvoices: "Open Invoices",

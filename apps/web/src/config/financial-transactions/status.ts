@@ -51,3 +51,50 @@ export const INVOICE_PAYMENT_STATUS_TONE: Record<InvoicePaymentStatusValue, Stat
   PAID: "success",
   CANCELLED: "neutral",
 };
+
+/** The invoice payment figures every invoice row carries (API-derived, never recomputed here). */
+export interface InvoicePaymentFigures {
+  paymentStatus: InvoicePaymentStatusValue;
+  allocatedTotal: number;
+  remainingBalance: number;
+}
+
+/**
+ * R20 — the payment columns of an invoice list export: the same status label
+ * and the paid / outstanding figures the screen shows (the export used to
+ * leave the payment status empty).
+ */
+export function invoicePaymentExportFields(
+  row: InvoicePaymentFigures,
+  t: (key: MessageKey) => string,
+): Record<"paymentStatus" | "allocatedTotal" | "remainingBalance", string> {
+  return {
+    paymentStatus: row.paymentStatus ? t(INVOICE_PAYMENT_STATUS_LABEL_KEY[row.paymentStatus]) : "",
+    allocatedTotal: String(row.allocatedTotal ?? ""),
+    remainingBalance: String(row.remainingBalance ?? ""),
+  };
+}
+
+/** Document statuses of an invoice whose receivable / payable is posted — payment is then its primary state. */
+const POSTED_INVOICE_STATUSES: ReadonlySet<string> = new Set([
+  "CONFIRMED",
+  "PARTIALLY_DELIVERED",
+  "DELIVERED",
+  "CLOSED",
+]);
+
+/**
+ * R20 — the surface colour of an invoice record card. A posted invoice is
+ * coloured by its payment status (unpaid red, partially paid amber, paid
+ * green), so a confirmed-but-unpaid invoice never reads as settled; before
+ * posting (draft, pending, approved) and when cancelled, the document status
+ * tone stays. Both badges are still shown separately.
+ */
+export function invoiceSurfaceTone(
+  documentStatus: string,
+  documentTone: StatusTone,
+  paymentStatus: InvoicePaymentStatusValue | null | undefined,
+): StatusTone {
+  if (!paymentStatus || !POSTED_INVOICE_STATUSES.has(documentStatus)) return documentTone;
+  return INVOICE_PAYMENT_STATUS_TONE[paymentStatus];
+}

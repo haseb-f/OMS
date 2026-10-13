@@ -21,6 +21,7 @@ import {
   supplierPaymentsService,
   type FinancialTransactionRow,
   type OpenInvoiceRow,
+  type PartyPaymentPosition,
 } from "@/services/supplier-payments-service";
 import type { MasterDataActivityEntry } from "@/services/master-data-service";
 import { StatusBadge } from "@/components/business/status-badge";
@@ -47,6 +48,7 @@ export default function SupplierProfilePage() {
   const [payments, setPayments] = useState<FinancialTransactionRow[]>([]);
   const [isLoadingPayments, setIsLoadingPayments] = useState(true);
   const [openInvoices, setOpenInvoices] = useState<OpenInvoiceRow[]>([]);
+  const [positions, setPositions] = useState<PartyPaymentPosition[]>([]);
   const [isLoadingOpenInvoices, setIsLoadingOpenInvoices] = useState(true);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
@@ -91,6 +93,10 @@ export default function SupplierProfilePage() {
       .then(setOpenInvoices)
       .catch(() => setOpenInvoices([]))
       .finally(() => setIsLoadingOpenInvoices(false));
+    supplierPaymentsService
+      .position(params.id)
+      .then(setPositions)
+      .catch(() => setPositions([]));
   }, [params.id]);
 
   if (isLoading) {
@@ -321,6 +327,7 @@ export default function SupplierProfilePage() {
                 isLoadingTransactions={isLoadingPayments}
                 openInvoices={openInvoices}
                 isLoadingOpenInvoices={isLoadingOpenInvoices}
+                positions={positions}
                 historyTitle={t("purchasing.payments.title")}
                 outstandingLabel={t("purchasing.suppliers.profile.payments.outstandingPayables")}
                 paidLabel={t("purchasing.suppliers.profile.payments.paidAmount")}

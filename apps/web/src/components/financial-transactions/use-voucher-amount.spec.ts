@@ -62,6 +62,25 @@ describe("unappliedPostingConfirmation (R18)", () => {
     ).toBeUndefined();
   });
 
+  it("R20 — open invoices but none selected: the whole amount is named an unapplied advance", () => {
+    const receipt = unappliedPostingConfirmation(
+      { amount: 50_000, allocatedTotal: 0, hasOpenInvoices: true, direction: "IN" },
+      t as never,
+      money,
+    );
+    expect(receipt?.title).toBe("financialTransactions.unapplied.noInvoiceTitle");
+    expect(receipt?.description).toContain("noInvoiceReceiptDescription");
+    expect(receipt?.confirmLabel).toContain("confirmAdvance");
+    expect(receipt?.confirmLabel).toContain("50000.00");
+    expect(
+      unappliedPostingConfirmation(
+        { amount: 50_000, allocatedTotal: 0, hasOpenInvoices: true, direction: "OUT" },
+        t as never,
+        money,
+      )?.description,
+    ).toContain("noInvoicePaymentDescription");
+  });
+
   it("supplier payments use the payment wording", () => {
     expect(
       unappliedPostingConfirmation(

@@ -43,6 +43,7 @@ import {
   INVOICE_STATUS_LABEL_KEY,
   INVOICE_STATUS_TONE,
 } from "@/config/purchasing/invoice-status";
+import { invoicePaymentExportFields } from "@/config/financial-transactions/status";
 import { buildInvoicePrintPayload } from "@/config/purchasing/invoice-print";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { usePrintEngine } from "@/hooks/use-print-engine";
@@ -143,6 +144,8 @@ function PurchaseInvoicesPageContent() {
       referenceNumber: item.referenceNumber ?? "",
       grandTotal: item.grandTotal,
       status: t(INVOICE_STATUS_LABEL_KEY[item.status]),
+      // R20 — the export carries the same payment status / paid / outstanding as the screen.
+      ...invoicePaymentExportFields(item, t),
       createdAt: formatDate(item.createdAt),
       createdBy: item.createdBy ? (usersById[item.createdBy] ?? "") : "",
     }),

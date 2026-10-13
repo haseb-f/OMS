@@ -32,6 +32,11 @@ import { BalanceSheetQueryDto } from './dto/balance-sheet-query.dto';
 import { IncomeStatementQueryDto } from './dto/income-statement-query.dto';
 import { CashFlowQueryDto } from './dto/cash-flow-query.dto';
 import { AgingQueryDto } from './dto/aging-query.dto';
+import {
+  PAYABLE_PURCHASE_INVOICE_STATUSES,
+  PAYABLE_SALES_INVOICE_STATUSES,
+  computeInvoicePaymentSummary,
+} from '../../financial-transactions/shared/invoice-payment.util';
 import { PartnerStatementQueryDto } from './dto/partner-statement-query.dto';
 import { ExchangeRatesService } from '../fx/exchange-rates.service';
 import {
@@ -1439,17 +1444,15 @@ export class AccountingReportsService {
   private async invoiceAging(side: 'AR' | 'AP', query: AgingQueryDto) {
     const asOf = asOfEndOfDay(query.dateTo);
     const invoiceKey = side === 'AR' ? 'salesInvoiceId' : 'purchaseInvoiceId';
-    const openStatuses =
-      side === 'AR'
-        ? [SalesDocumentStatus.CONFIRMED, SalesDocumentStatus.CLOSED]
-        : [PurchaseDocumentStatus.CONFIRMED, PurchaseDocumentStatus.CLOSED];
+    const salesStatuses = PAYABLE_SALES_INVOICE_STATUSES;
+    const purchaseStatuses = PAYABLE_PURCHASE_INVOICE_STATUSES;
 
     const invoices =
       side === 'AR'
         ? await this.prisma.salesInvoice.findMany({
             where: {
               deletedAt: null,
-              status: { in: openStatuses },
+              status: { in: salesStatuses },
               ...(query.partnerId ? { partnerId: query.partnerId } : {}),
               ...(query.companyId ? { companyId: query.companyId } : {}),
               ...(query.branchId ? { branchId: query.branchId } : {}),
@@ -1474,7 +1477,7 @@ export class AccountingReportsService {
         : await this.prisma.purchaseInvoice.findMany({
             where: {
               deletedAt: null,
-              status: { in: openStatuses },
+              status: { in: purchaseStatuses },
               ...(query.partnerId ? { partnerId: query.partnerId } : {}),
               ...(query.companyId ? { companyId: query.companyId } : {}),
               ...(query.branchId ? { branchId: query.branchId } : {}),
@@ -1551,11 +1554,14 @@ export class AccountingReportsService {
     }> = [];
 
     for (const invoice of invoices) {
-      const grandTotal = Number(invoice.grandTotal);
-      const allocated = allocatedByInvoice.get(invoice.id) ?? 0;
-      const remaining = Math.max(
-        Math.round((grandTotal - allocated) * 100) / 100,
-        0,
+      // R20 — the one invoice payment derivation (invoice-payment.util), as of `asOf`.
+      const {
+        grandTotal,
+        allocatedTotal: allocated,
+        remainingBalance: remaining,
+      } = computeInvoicePaymentSummary(
+        Number(invoice.grandTotal),
+        allocatedByInvoice.get(invoice.id) ?? 0,
       );
       if (remaining <= 0) continue;
       const invoiceDate = invoice.confirmedAt ?? invoice.createdAt;

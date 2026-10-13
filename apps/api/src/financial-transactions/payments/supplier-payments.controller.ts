@@ -71,6 +71,12 @@ export class SupplierPaymentsController {
     return this.transactions.getOpenInvoices(TYPE, partnerId);
   }
 
+  /** R20 — the supplier's payment position per currency (outstanding / received / applied / unapplied) — before `:id`. */
+  @Get('position')
+  getPartyPosition(@Query('partnerId') partnerId: string) {
+    return this.transactions.getPartyPosition(TYPE, partnerId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.transactions.findOne(TYPE, id);

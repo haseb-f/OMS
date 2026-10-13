@@ -40,6 +40,11 @@ import { useIdempotencyKey } from "@/hooks/use-idempotency-key";
 import { formatMoney } from "@/lib/money";
 import { withInvoiceCapacity } from "@/components/financial-transactions/allocation-capacity";
 import {
+  isOtherCurrency,
+  planPayAllRemaining,
+  resolveSettlementCurrency,
+} from "@/components/financial-transactions/settlement-currency";
+import {
   unappliedPostingConfirmation,
   useVoucherAmount,
 } from "@/components/financial-transactions/use-voucher-amount";
@@ -170,6 +175,13 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
 
   const allocatedTotal = allocations.reduce((sum, line) => sum + line.allocatedAmount, 0);
   const unallocatedAmount = Math.max(amount - allocatedTotal, 0);
+  /** R20 — the voucher settles invoices of one currency: the saved one, else its first invoice's. */
+  const settlement = resolveSettlementCurrency(payment, allocations, openInvoices);
+  const summaryCurrency =
+    settlement ??
+    (openInvoices[0]?.currencyId
+      ? { currencyId: openInvoices[0].currencyId, currencyCode: openInvoices[0].currencyCode }
+      : null);
 
   /**
    * Inline validation (design §8): after a failed Save/Confirm the messages
@@ -193,6 +205,7 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
     paymentSourceId: paymentSourceId ?? undefined,
     receivingAccountId: receivingAccountId ?? undefined,
     amount,
+    currencyId: settlement?.currencyId,
     referenceNumber: referenceNumber || undefined,
     notes: notes || undefined,
     allocations: allocations.map((line) => ({
@@ -325,6 +338,7 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
   };
 
   const handleAllocateInvoice = (invoice: OpenInvoiceRow) => {
+    if (isOtherCurrency(invoice, settlement)) return;
     const existing = allocations.find((line) => line.invoiceId === invoice.invoiceId);
     const currentUnallocated = Math.max(
       amount - allocatedTotal + (existing?.allocatedAmount ?? 0),
@@ -375,29 +389,23 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
   }, [id, searchParams, openInvoices, proposeAmount]);
 
   const handlePayAllRemaining = () => {
-    let remaining = unallocatedAmount;
-    const nextLines = [...allocations];
+    const planned = planPayAllRemaining(openInvoices, allocations, unallocatedAmount, settlement);
+    const nextLines = allocations.map((line) =>
+      planned.has(line.invoiceId)
+        ? { ...line, allocatedAmount: planned.get(line.invoiceId) ?? line.allocatedAmount }
+        : line,
+    );
     for (const invoice of openInvoices) {
-      if (remaining <= 0) break;
-      const existingIndex = nextLines.findIndex((line) => line.invoiceId === invoice.invoiceId);
-      const already = existingIndex >= 0 ? nextLines[existingIndex].allocatedAmount : 0;
-      const capacity = invoice.remainingBalance - already;
-      if (capacity <= 0) continue;
-      const toApply = Math.min(capacity, remaining);
-      const nextAmount = already + toApply;
-      if (existingIndex >= 0) {
-        nextLines[existingIndex] = { ...nextLines[existingIndex], allocatedAmount: nextAmount };
-      } else {
-        nextLines.push({
-          id: `row-${nextLineId++}`,
-          invoiceId: invoice.invoiceId,
-          invoiceNumber: invoice.invoiceNumber,
-          invoiceHref: `/purchasing/purchase-invoices/${invoice.invoiceId}`,
-          remainingBalance: invoice.remainingBalance,
-          allocatedAmount: nextAmount,
-        });
-      }
-      remaining -= toApply;
+      const planAmount = planned.get(invoice.invoiceId);
+      if (!planAmount || nextLines.some((line) => line.invoiceId === invoice.invoiceId)) continue;
+      nextLines.push({
+        id: `row-${nextLineId++}`,
+        invoiceId: invoice.invoiceId,
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceHref: `/purchasing/purchase-invoices/${invoice.invoiceId}`,
+        remainingBalance: invoice.remainingBalance,
+        allocatedAmount: planAmount,
+      });
     }
     void handleAllocationsChange(nextLines);
     reportSuccess(t("financialTransactions.toasts.payAllRemainingApplied"));
@@ -572,6 +580,7 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
         }}
         state={state}
         handlers={handlers}
+        currencyCode={settlement?.currencyCode}
         activity={activity}
         isLoading={isLoading}
         disabled={!canEdit || isSaving}
@@ -592,7 +601,10 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
           <div className="flex flex-col gap-3">
             <AllocationSummary
               openInvoiceCount={openInvoices.length}
-              totalRemaining={openInvoices.reduce((sum, inv) => sum + inv.remainingBalance, 0)}
+              totalRemaining={openInvoices
+                .filter((inv) => !isOtherCurrency(inv, summaryCurrency))
+                .reduce((sum, inv) => sum + inv.remainingBalance, 0)}
+              currencyCode={summaryCurrency?.currencyCode}
             />
             <OpenInvoicesTable
               invoices={openInvoices}
@@ -600,6 +612,9 @@ export function PaymentEditorPage({ id }: { id: string | null }) {
               disabled={!canEdit && payment?.status !== "CONFIRMED"}
               onAllocate={handleAllocateInvoice}
               onPayAllRemaining={handlePayAllRemaining}
+              allocations={allocations}
+              confirmedVoucher={payment?.status === "CONFIRMED"}
+              currency={settlement}
             />
           </div>
         }

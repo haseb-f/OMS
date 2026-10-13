@@ -15,6 +15,7 @@ import type { SalesReturnRow } from "@/services/sales-returns-service";
 import {
   TRANSACTION_STATUS_LABEL_KEY,
   TRANSACTION_STATUS_TONE,
+  invoiceSurfaceTone,
 } from "@/config/financial-transactions/status";
 import { INVOICE_STATUS_LABEL_KEY, INVOICE_STATUS_TONE } from "./invoice-status";
 import { ORDER_STATUS_LABEL_KEY, ORDER_STATUS_TONE } from "./order-status";
@@ -53,6 +54,8 @@ export function InvoiceGridCard({ row, ...common }: SalesCardCommon & { row: Sal
         label: t(INVOICE_STATUS_LABEL_KEY[row.status]),
         tone: INVOICE_STATUS_TONE[row.status],
       }}
+      // R20 — a posted invoice's surface is its payment status: an unpaid one never reads settled.
+      tone={invoiceSurfaceTone(row.status, INVOICE_STATUS_TONE[row.status], row.paymentStatus)}
       // Document status and payment status answer different questions: two badges.
       extraBadges={<InvoicePaymentBadge paymentStatus={row.paymentStatus} />}
       amount={row.grandTotal}
@@ -66,7 +69,7 @@ export function InvoiceGridCard({ row, ...common }: SalesCardCommon & { row: Sal
         {
           key: "remaining",
           label: t("financialTransactions.paymentSummary.remaining"),
-          value: <MoneyValue value={row.remainingBalance} />,
+          value: <MoneyValue value={row.remainingBalance} currency={row.currency?.code} />,
           numeric: true,
         },
       ]}
