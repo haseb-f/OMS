@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeftRight } from "lucide-react";
@@ -37,10 +37,20 @@ export default function AgentLeadDetailPage() {
 
   useBreadcrumbLabel(lead?.leadNumber ?? null);
 
+  // R20 — «لم يُفتح»: once this detail screen has really loaded, tell the server
+  // (it counts only for the lead's assigned user of this agent). Once per visit.
+  const openRecordedFor = useRef<string | null>(null);
   const load = useCallback(async () => {
     setError(null);
     try {
-      setLead(await agentPortalService.leads.get(id));
+      const loaded = await agentPortalService.leads.get(id);
+      setLead(loaded);
+      if (openRecordedFor.current !== loaded.id) {
+        openRecordedFor.current = loaded.id;
+        agentPortalService.leads.recordOpen(loaded.id).catch(() => {
+          openRecordedFor.current = null;
+        });
+      }
     } catch (err) {
       setError(apiErrorMessage(err, "agentPortal.common.loadFailed"));
     }

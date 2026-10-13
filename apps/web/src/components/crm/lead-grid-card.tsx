@@ -16,14 +16,15 @@ import type { ReactNode } from "react";
 import { StatusBadge } from "@/components/business/status-badge";
 import { LeadStatusBadge } from "@/components/agent-portal/portal-badges";
 import { FollowUpOutcomeBadge } from "@/components/crm/follow-up-outcome-badge";
-import { LeadNewToYouMarker } from "@/components/crm/lead-new-to-you";
+import { LeadUnopenedMarker } from "@/components/crm/lead-new-to-you";
 import { leadStatusBadge } from "@/components/crm/lead-status-label";
 import { RecordGridCard, type RowAction } from "@/components/shared/data-table";
 import { LocaleText } from "@/components/shared/locale-text";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import {
   LEAD_WORKFLOW_STATE_TONE,
-  isNewToViewer,
+  isUnopenedByAssignee,
+  type LeadOpenInput,
   leadNextAction,
   leadWorkflowState,
   type LeadNextActionInput,
@@ -75,7 +76,7 @@ function LeadGridCardView({
   href,
   actions,
 }: LeadCardCommon & {
-  lead: LeadNextActionInput & { viewedByMe?: boolean };
+  lead: LeadNextActionInput & LeadOpenInput;
   statusBadge: ReactNode;
   customerName: string;
   mobileNumber: string;
@@ -118,7 +119,7 @@ function LeadGridCardView({
         </SemanticValue>
       }
       meta={meta ?? <SemanticValue kind="date">{formatDisplayDate(createdAt)}</SemanticValue>}
-      marker={isNewToViewer(lead) ? <LeadNewToYouMarker /> : null}
+      marker={isUnopenedByAssignee(lead) ? <LeadUnopenedMarker /> : null}
       href={href}
       badges={
         <>

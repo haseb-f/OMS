@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { FileText } from "lucide-react";
 import { DetailField, DetailSection } from "@/components/shared/detail-workspace";
@@ -75,31 +75,45 @@ function LeadDetailContent() {
 
   useBreadcrumbLabel(lead?.leadNumber ?? null);
 
+  // R20 — «لم يُفتح»: once THIS detail screen has really loaded, tell the
+  // server (it counts the open only for the lead's assignee and never changes
+  // the status). Once per visit: a reload after an action is not a new open.
+  const openRecordedFor = useRef<string | null>(null);
+  const recordOpen = useCallback((leadId: string) => {
+    if (openRecordedFor.current === leadId) return;
+    openRecordedFor.current = leadId;
+    leadsService
+      .recordOpen(leadId)
+      .then((result) =>
+        setLead((current) =>
+          current?.id === result.leadId
+            ? { ...current, openedByAssigneeAt: result.openedByAssigneeAt }
+            : current,
+        ),
+      )
+      .catch(() => {
+        // A failure only leaves the marker on; the next load retries.
+        openRecordedFor.current = null;
+      });
+  }, []);
+
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
       const loaded = await leadsService.get(params.id);
       setLead(loaded);
-      if (loaded.status?.code === "NEW") {
-        setLead(await leadsService.firstOpen(params.id));
-      }
+      recordOpen(loaded.id);
     } catch {
       setLead(null);
     } finally {
       setIsLoading(false);
     }
-  }, [params.id]);
+  }, [params.id, recordOpen]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
-
-  useEffect(() => {
-    // "New to you" bookkeeping: per-employee read state, independent of the
-    // workflow (first-open/status above). A failure only leaves the marker on.
-    leadsService.markViewed(params.id).catch(() => undefined);
-  }, [params.id]);
 
   useEffect(() => {
     leadsService

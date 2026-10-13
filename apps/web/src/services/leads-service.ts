@@ -13,6 +13,13 @@ export interface LeadStatusSnapshot {
   isFinal: boolean;
 }
 
+/** R20 - `POST /leads/:id/open` (and the agent portal's): `recorded` only for the assignee. */
+export interface LeadOpenResult {
+  leadId: string;
+  recorded: boolean;
+  openedByAssigneeAt: string | null;
+}
+
 export interface LeadRow {
   id: string;
   leadNumber: string;
@@ -43,10 +50,11 @@ export interface LeadRow {
   nextFollowUpAt: string | null;
   firstOpenedAt: string | null;
   /**
-   * R7 - whether THIS employee has opened the lead (per-user read state, list
-   * rows only). Not a business status: it never reflects contacted/followed-up.
+   * R20 - when the CURRENT assignee first opened the lead's detail screen in
+   * this assignment; null = «لم يُفتح» for every viewer. Read state, never a
+   * business status; reset by the server when the lead is reassigned.
    */
-  viewedByMe?: boolean;
+  openedByAssigneeAt: string | null;
   /** R6 — current follow-up classification (latest outcome code); null until one is recorded. */
   followUpOutcome: string | null;
   followUpOutcomeAt: string | null;
@@ -258,10 +266,11 @@ export const leadsService = {
     salesEmployeeId?: string;
   }) =>
     apiClient.post<{ released: number; ids: string[] }>("/leads/distribution/release-held", body),
-  /** Records that the caller opened the lead - idempotent, read state only (never changes status). */
-  markViewed: (id: string) =>
-    apiClient.post<{ leadId: string; viewedByMe: true }>(`/leads/${id}/viewed`),
-  firstOpen: (id: string) => apiClient.post<LeadRow>(`/leads/${id}/first-open`),
+  /**
+   * R20 - the detail screen loaded. Counts only when the caller is the lead's
+   * assignee (server-decided); idempotent; never changes the status.
+   */
+  recordOpen: (id: string) => apiClient.post<LeadOpenResult>(`/leads/${id}/open`),
   followUps: (id: string) => apiClient.get<LeadFollowUpRow[]>(`/leads/${id}/follow-ups`),
   addFollowUp: (
     id: string,

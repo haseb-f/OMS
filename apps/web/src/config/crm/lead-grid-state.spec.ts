@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isNewToViewer, leadNextAction, leadWorkflowState } from "./lead-grid-state";
+import { isUnopenedByAssignee, leadNextAction, leadWorkflowState } from "./lead-grid-state";
 
 const NOW = new Date(2026, 9, 3, 12, 0, 0);
 const code = (c: string) => ({ status: { code: c } });
@@ -66,24 +66,34 @@ describe("leadNextAction", () => {
   });
 });
 
-describe("isNewToViewer (viewed marker is independent of business status)", () => {
-  it("shows only for open leads the viewer has not opened", () => {
-    expect(isNewToViewer({ ...code("NEW"), viewedByMe: false })).toBe(true);
-    expect(isNewToViewer({ ...code("IN_PROGRESS"), viewedByMe: false })).toBe(true);
-    expect(isNewToViewer({ ...code("NEW"), viewedByMe: true })).toBe(false);
-    expect(isNewToViewer({ ...code("CONVERTED"), viewedByMe: false })).toBe(false);
-    expect(isNewToViewer({ ...code("LOST"), viewedByMe: false })).toBe(false);
+describe("isUnopenedByAssignee (R20 — follows the assignee, independent of business status)", () => {
+  const owned = (statusCode: string, openedByAssigneeAt: string | null | undefined) => ({
+    ...code(statusCode),
+    salesEmployeeId: "u1",
+    openedByAssigneeAt,
   });
 
-  it("never marks a row whose read model did not say (agent lists, old payloads)", () => {
-    expect(isNewToViewer(code("NEW"))).toBe(false);
+  it("shows only for open, assigned leads the assignee has not opened", () => {
+    expect(isUnopenedByAssignee(owned("NEW", null))).toBe(true);
+    expect(isUnopenedByAssignee(owned("IN_PROGRESS", null))).toBe(true);
+    expect(isUnopenedByAssignee(owned("NEW", "2026-10-13T08:00:00.000Z"))).toBe(false);
+    expect(isUnopenedByAssignee(owned("IN_PROGRESS", "2026-10-13T08:00:00.000Z"))).toBe(false);
+    expect(isUnopenedByAssignee(owned("CONVERTED", null))).toBe(false);
+    expect(isUnopenedByAssignee(owned("LOST", null))).toBe(false);
   });
 
-  it("is not an input of the workflow state: viewing never moves a lead between states", () => {
-    const unviewed = { ...code("NEW"), viewedByMe: false };
-    const viewed = { ...code("NEW"), viewedByMe: true };
-    expect(leadWorkflowState(unviewed)).toBe("notContacted");
-    expect(leadWorkflowState(viewed)).toBe("notContacted");
-    expect(leadNextAction(unviewed, { now: NOW })).toEqual(leadNextAction(viewed, { now: NOW }));
+  it("never marks an unassigned lead or a payload that does not say", () => {
+    expect(
+      isUnopenedByAssignee({ ...code("NEW"), salesEmployeeId: null, openedByAssigneeAt: null }),
+    ).toBe(false);
+    expect(isUnopenedByAssignee({ ...code("NEW"), salesEmployeeId: "u1" })).toBe(false);
+  });
+
+  it("is not an input of the workflow state: opening never moves a lead between states", () => {
+    const unopened = owned("NEW", null);
+    const opened = owned("NEW", "2026-10-13T08:00:00.000Z");
+    expect(leadWorkflowState(unopened)).toBe("notContacted");
+    expect(leadWorkflowState(opened)).toBe("notContacted");
+    expect(leadNextAction(unopened, { now: NOW })).toEqual(leadNextAction(opened, { now: NOW }));
   });
 });

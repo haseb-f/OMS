@@ -19,22 +19,25 @@ vi.mock("@/providers/locale-provider", () => ({
 
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { leadColumns } from "@/config/crm/lead-columns";
-import { LeadGridCard } from "@/components/crm/lead-grid-card";
+import { LeadGridCard, PortalLeadGridCard } from "@/components/crm/lead-grid-card";
+import type { PortalLead } from "@/services/agent-portal-service";
 import type { LeadRow } from "@/services/leads-service";
 
 afterEach(cleanup);
 
 /**
- * R17 §1 — the unopened-lead indicator. The definition (`isNewToViewer`: the
- * per-viewer `viewedByMe`, open leads only) is unchanged; this guards the
- * presentation: one info badge with an icon AND the words «لم يُفتح» /
+ * R17 §1 / R20 — the unopened-lead indicator. The definition
+ * (`isUnopenedByAssignee`: the server's `openedByAssigneeAt` — the CURRENT
+ * assignee's open, the same for every viewer — open leads only); this guards
+ * the presentation: one info badge with an icon AND the words «لم يُفتح» /
  * "Unopened" in the table row (+ the row's start-edge accent) and in the grid
  * card header; an opened lead shows nothing.
  */
 const SRC = resolve(process.cwd(), "src");
 const read = (path: string) => readFileSync(join(SRC, path), "utf8").replace(/\r\n/g, "\n");
 
-function lead(id: string, viewedByMe: boolean | undefined, code = "NEW"): LeadRow {
+/** `opened`: false → openedByAssigneeAt null, true → a timestamp, undefined → field absent. */
+function lead(id: string, opened: boolean | undefined, code = "NEW"): LeadRow {
   return {
     id,
     leadNumber: `LD-${id}`,
@@ -47,7 +50,9 @@ function lead(id: string, viewedByMe: boolean | undefined, code = "NEW"): LeadRo
     nextFollowUpAt: null,
     storeOrder: null,
     createdAt: "2026-10-01T10:00:00.000Z",
-    viewedByMe,
+    ...(opened === undefined
+      ? {}
+      : { openedByAssigneeAt: opened ? "2026-10-13T08:00:00.000Z" : null }),
   } as unknown as LeadRow;
 }
 
@@ -156,5 +161,33 @@ describe("unopened lead — grid", () => {
     );
     expect(container.querySelector("[data-new-to-you]")).toBeNull();
     expect(container.querySelector("[data-record-marker]")).toBeNull();
+  });
+});
+
+describe("unopened lead — agent portal grid (R20)", () => {
+  const common = { selected: false, onToggleSelected: () => {}, href: "/agent/leads/p" };
+  const portalLead = (openedByAssigneeAt: string | null) =>
+    ({
+      ...lead("p", undefined),
+      salesEmployeeId: "agent-user",
+      openedByAssigneeAt,
+      product: null,
+      country: null,
+    }) as unknown as PortalLead;
+
+  it("marks the agent's lead until its assigned agent user opens it", () => {
+    const unopened = render(
+      <PortalLeadGridCard {...common} lead={portalLead(null)} canConvert={false} />,
+    );
+    expect(unopened.container.querySelector("[data-new-to-you]")).not.toBeNull();
+    unopened.unmount();
+    const opened = render(
+      <PortalLeadGridCard
+        {...common}
+        lead={portalLead("2026-10-13T08:00:00.000Z")}
+        canConvert={false}
+      />,
+    );
+    expect(opened.container.querySelector("[data-new-to-you]")).toBeNull();
   });
 });
