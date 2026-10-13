@@ -193,14 +193,17 @@ if (MODE === "after") {
   await p.waitForTimeout(1500);
   await settle();
   await dialog.getByRole("button", { name: "تنفيذ التجميع" }).click();
-  await p.waitForURL(/\/inventory\/assembly\//, { timeout: 30000 }).catch(() => {});
-  await p.getByText(/ASM-/).first().waitFor({ timeout: 20000 });
-  if (!/\/inventory\/assembly\//.test(p.url())) {
-    await p.getByRole("link", { name: /فتح|Open/ }).first().click().catch(() => {});
+  let order;
+  for (let i = 0; i < 40 && !order; i += 1) {
+    order = items((await admin(`/assembly?productId=${box.id}`)).json)[0];
+    if (!order) await p.waitForTimeout(500);
   }
-  await settle();
-  const list = items((await admin(`/assembly?productId=${box.id}`)).json);
-  const order = list[0];
+  const toast = await p
+    .getByText(/تم ترحيل التجميع/)
+    .first()
+    .isVisible()
+    .catch(() => false);
+  check("success confirmation shown", toast, order?.assemblyNumber);
   check("100 boxes assembled, non-valued", order?.quantity === 100 && order?.valued === false && order?.totalCost === null, order?.assemblyNumber);
   if (order && !p.url().includes(order.id)) await p.goto(`${BASE}/inventory/assembly/${order.id}`);
   await settle();
@@ -221,6 +224,18 @@ const history = p.getByRole("heading", { name: /سجل حركات المخزون
 await history.scrollIntoViewIfNeeded().catch(() => {});
 await p.waitForTimeout(500);
 await shot(`${MODE === "after" ? "5" : "3"}-agent-stock-history`, { fullPage: true });
+if (MODE === "after") {
+  // 6. "Assemble boxes" from the agent page: owner fixed, picker scoped to the agent's boxes.
+  await p.getByRole("button", { name: "تجميع علب" }).first().click();
+  const agentDialog = p.getByRole("dialog");
+  await agentDialog.waitFor();
+  await agentDialog.locator('[id$="-product"]').first().click();
+  await p.waitForTimeout(1200);
+  const listed = await p.getByRole("option").filter({ hasText: box.sku }).count();
+  check("agent page dialog lists the agent's gift box", listed > 0, `${listed} option(s)`);
+  await shot("6-agent-tab-assemble-dialog");
+  await p.keyboard.press("Escape");
+}
 
 await browser.close();
 writeFileSync(
