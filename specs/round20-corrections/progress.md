@@ -11,3 +11,4 @@ Deployment authorised by the owner for this combined release (2026-10-14 message
 | 2026-10-14 | Laptop shutdown. Found: B phone-layout edits uncommitted (7 web files); C uncommitted profile pages + untracked `scripts/acceptance/r20/`, `specs/round20-corrections/` (progress-c / evidence). Resuming both. |
 
 Next: B phone layout commit → C final (progress-c, repair dry-run) → merge B + C → integrated gates (API + web typecheck / lint / build, jest + serial, vitest) → push main → deploy → live checks → apply repair if C found verified issues → Arabic summary.
+| 2026-10-14 | Resumed: B WIP `36ab539d` (phones 2/row), C WIP `3df32bb4` (profile labels, audit/repair scripts, journey). |
