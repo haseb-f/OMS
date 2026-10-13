@@ -1,18 +1,18 @@
 {
   "phase": "after",
   "base": "http://localhost:4821",
-  "customer": "عميل R20 MV6V1B39",
-  "invoices": ["INV-2026-000018", "INV-2026-000019", "INV-2026-000020"],
+  "customer": "عميل R20 MV6WHQN1",
+  "invoices": ["INV-2026-000021", "INV-2026-000022", "INV-2026-000023"],
   "results": [
     {
       "name": "setup: invoices 200,000 / 50,000 / 30,000 confirmed",
       "ok": true,
-      "detail": "INV-2026-000018 200000, INV-2026-000019 50000, INV-2026-000020 30000"
+      "detail": "INV-2026-000021 200000, INV-2026-000022 50000, INV-2026-000023 30000"
     },
     {
       "name": "1 receipt posted 100,000 → invoice A preselected and allocated 100,000",
       "ok": true,
-      "detail": "CR-2026-000038 100000"
+      "detail": "CR-2026-000042 100000"
     },
     {
       "name": "1 API: 200,000 / paid 100,000 / outstanding 100,000 / PARTIALLY_PAID",
@@ -22,17 +22,17 @@
     {
       "name": "1 list row: مدفوعة جزئياً",
       "ok": true,
-      "detail": " INV-2026-000018 R20C-A-MV6V1B39 عميل R20 MV6V1B39 مؤكد 200,000.00 مدفوعة جزئياً المبلغ المتبقي 100,000.00 13 Oct 2026 "
+      "detail": " INV-2026-000021 R20C-A-MV6WHQN1 عميل R20 MV6WHQN1 مؤكد 200,000.00 مدفوعة جزئياً المبلغ المتبقي 100,000.00 13 Oct 2026 "
     },
     {
       "name": "1 list row shows the 100,000 outstanding",
       "ok": true,
-      "detail": " INV-2026-000018 R20C-A-MV6V1B39 عميل R20 MV6V1B39 مؤكد 200,000.00 مدفوعة جزئياً المبلغ المتبقي 100,000.00 13 Oct 2026 "
+      "detail": " INV-2026-000021 R20C-A-MV6WHQN1 عميل R20 MV6WHQN1 مؤكد 200,000.00 مدفوعة جزئياً المبلغ المتبقي 100,000.00 13 Oct 2026 "
     },
     {
       "name": "1 grid card: partially paid badge + 100,000 remaining",
       "ok": true,
-      "detail": "عميل R20 MV6V1B39 INV-2026-000018 R20C-A-MV6V1B39 200,000.00 التاريخ 13 Oct 2026 المبلغ المتبقي 100,000.00 مؤكد مدفوعة جزئياً"
+      "detail": "عميل R20 MV6WHQN1 INV-2026-000021 R20C-A-MV6WHQN1 200,000.00 التاريخ 13 Oct 2026 المبلغ المتبقي 100,000.00 مؤكد مدفوعة جزئياً"
     },
     {
       "name": "1 grid card surface = payment status (warning), not 'confirmed' green",
@@ -97,7 +97,7 @@
     {
       "name": "6 en mobile card: Partially Paid + 100,000",
       "ok": true,
-      "detail": "عميل R20 MV6V1B39 INV-2026-000018 R20C-A-MV6V1B39 200,000.00 Date 13 Oct 2026 Remaining Amount 100,000.00 Confirmed Partially Paid"
+      "detail": "عميل R20 MV6WHQN1 INV-2026-000021 R20C-A-MV6WHQN1 200,000.00 Date 13 Oct 2026 Remaining Amount 100,000.00 Confirmed Partially Paid"
     },
     {
       "name": "6 en mobile invoice list: no horizontal scroll",
