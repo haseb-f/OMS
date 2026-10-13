@@ -532,6 +532,14 @@ Mappings: `components/crm/lead-stage-indicator.tsx`,
   soft elevation, no layout shift. R18: glass surface (translucent card + light blur), a 1px
   (informational) / 2px (actionable) rise via `translate` only, focus = hover + ring, no rise under
   reduced motion, no hover rules on touch devices (`theme/recipes.css` report cards).
+- R19 report size (sales-report screens only — `/reports/sales`, `/agent/reports`): `ReportCard` always,
+  `InsightCard` / `OwnRankCard` / skeletons with `size="report"`, inside `InsightGroup size="report"` (12px gap).
+  Padding 20 / 18px (`--insight-report-padding-*`), 16px title (`text-card-title`), 32px figure
+  (`text-display`), 16px money lines, 14px units / counts / explanations (never clipped); the recipe maps the
+  stronger `--insight-report-*` tokens (tint, edge, icon chip, depth, hover shadow, 2px / 3px rise, 4px emphasis
+  edge, more translucent glass) onto the same state machine. Long repeated lists (per employee / team) use
+  `InsightGroup surface="opaque"` (opaque card, no backdrop blur); `prefers-reduced-transparency` makes every
+  report card opaque. Guarded by `report-card-consumers.spec.ts` + `report-card-size.spec.tsx`.
 - `InsightGroup`: related static tiles on ONE surface split by 1px hairlines (block-start and
   inline-start shadows, clipped at the container, so any wrap stays correct). Interactive or verdict
   tiles stay separate cards beside the group. Dashboard: Leads and Orders groups share the 4-column

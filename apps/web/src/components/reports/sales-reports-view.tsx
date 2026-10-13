@@ -76,7 +76,15 @@ const PERIOD_ICON: Record<LivePeriod, LucideIcon> = {
 
 /** Bars shown in the comparison chart; the table below lists everyone. */
 const CHART_LIMIT = 15;
-const CARD_GRID = "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4";
+/*
+ * R19 §C — every card group of the sales reports is a report-size group (`InsightGroup
+ * size="report"`, cards `size="report"`). The larger cards keep the default rhythm from a
+ * 1440 desktop up (Live 5, others 4 per row — a 1,234,567,890.00 amount still fits) and
+ * step down one column below it, so no amount is squeezed on a smaller laptop.
+ */
+const CARD_GRID = "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 min-[90rem]:grid-cols-4";
+const LIVE_GRID = "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 min-[90rem]:grid-cols-5";
+const WIDE_CARD_GRID = "grid-cols-1 md:grid-cols-2 xl:grid-cols-3";
 
 function isForbidden(error: unknown): boolean {
   return error instanceof ApiError && error.status === 403;
@@ -226,7 +234,7 @@ function LoadFailure<T>({ state }: { state: LiveRefreshState<T> }) {
 
 function CardSkeletons({ count, className }: { count: number; className: string }) {
   return (
-    <InsightGroup className={className} aria-busy>
+    <InsightGroup size="report" className={className} aria-busy>
       {Array.from({ length: count }, (_, index) => (
         <ReportCardSkeleton key={index} />
       ))}
@@ -276,7 +284,7 @@ function LiveTab({
       <RefreshBar state={live} auto />
       <FreshnessBanner state={live} />
       {live.data ? (
-        <InsightGroup className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <InsightGroup size="report" className={LIVE_GRID}>
           {live.data.periods.map((entry) => (
             <ReportCard
               key={entry.period}
@@ -295,10 +303,7 @@ function LiveTab({
           ))}
         </InsightGroup>
       ) : (
-        <CardSkeletons
-          count={5}
-          className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
-        />
+        <CardSkeletons count={5} className={LIVE_GRID} />
       )}
       {bucket ? (
         <DashboardPanel
@@ -437,7 +442,7 @@ function OwnTab({ data }: { data: PerformanceReport }) {
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <p className="text-caption text-muted-foreground">{t("salesVisibility.ownOnly")}</p>
-      <InsightGroup className={CARD_GRID}>
+      <InsightGroup size="report" className={CARD_GRID}>
         <ReportCard
           title={t("salesVisibility.ownSales")}
           icon={UserRound}
@@ -452,6 +457,7 @@ function OwnTab({ data }: { data: PerformanceReport }) {
           position={data.ownRank.position}
           of={data.ownRank.of}
           population={data.scope === "AGENT_OWN" ? "agent" : "company"}
+          size="report"
         />
       </InsightGroup>
     </div>
@@ -479,7 +485,7 @@ function SeparateRow({
       <h2 id={id} className="text-card-title">
         {title}
       </h2>
-      <InsightGroup className={CARD_GRID}>
+      <InsightGroup size="report" className={CARD_GRID}>
         <ReportCard
           title={hint}
           icon={icon}
@@ -512,7 +518,7 @@ function EmployeesTab({ data }: { data: PerformanceReport }) {
       {data.employees.length === 0 ? (
         <EmptyState icon={UserRound} title={t("salesReports.employees.empty")} />
       ) : (
-        <InsightGroup className={CARD_GRID}>
+        <InsightGroup size="report" surface="opaque" className={CARD_GRID}>
           {data.employees.map((row) => (
             <ReportCard
               key={row.userId}
@@ -574,7 +580,7 @@ function TeamsTab({ data }: { data: PerformanceReport }) {
     </span>
   );
   return (
-    <InsightGroup className="grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+    <InsightGroup size="report" surface="opaque" className={WIDE_CARD_GRID}>
       {data.teams.map((team) => (
         <ReportCard
           key={team.teamId}
@@ -588,7 +594,7 @@ function TeamsTab({ data }: { data: PerformanceReport }) {
           noAmountsLabel={t("salesReports.stats.noSales")}
           stats={statLines(team)}
         >
-          <dl className="flex min-w-0 flex-col gap-1 border-t border-border/60 pt-2 text-caption">
+          <dl className="flex min-w-0 flex-col gap-1.5 border-t border-border/60 pt-3 text-body">
             <div className="flex min-w-0 flex-wrap gap-x-2">
               <dt className="text-muted-foreground">{t("salesReports.teams.manager")}</dt>
               <dd>{person(team.manager.userId, team.manager.name)}</dd>
@@ -710,7 +716,7 @@ function PaymentMixTab({ rows }: { rows: PaymentMixRow[] }) {
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <p className="text-caption text-muted-foreground">{t("salesReports.paymentMix.hint")}</p>
-      <InsightGroup className="grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+      <InsightGroup size="report" className={WIDE_CARD_GRID}>
         {rows.map((row) => {
           const total = row.prepaid.count + row.cod.count;
           return (
@@ -748,7 +754,7 @@ function PaymentSplit({ row, total }: { row: PaymentMixRow; total: number }) {
   ];
   const percent = (count: number) => (total > 0 ? Math.round((count / total) * 100) : 0);
   return (
-    <div className="flex min-w-0 flex-col gap-2 border-t border-border/60 pt-2">
+    <div className="flex min-w-0 flex-col gap-2.5 border-t border-border/60 pt-3">
       <div className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full" aria-hidden>
         {parts.map((part) =>
           part.count > 0 ? (
@@ -760,7 +766,7 @@ function PaymentSplit({ row, total }: { row: PaymentMixRow; total: number }) {
           ) : null,
         )}
       </div>
-      <dl className="flex min-w-0 flex-col gap-1 text-caption">
+      <dl className="flex min-w-0 flex-col gap-1.5 text-body">
         {parts.map((part) => (
           <div
             key={part.key}

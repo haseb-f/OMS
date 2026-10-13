@@ -199,6 +199,68 @@ describe("report-card consumers never style a card locally", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("R19 §C: every sales-report screen draws its cards at the shared report size", () => {
+    // The company and agent sales-report routes are the one shared view (their scopes differ
+    // in the API only).
+    expect(readFileSync(join(SRC, "app/(shell)/reports/sales/page.tsx"), "utf8")).toMatch(
+      /<SalesReportsView source="company" \/>/,
+    );
+    expect(readFileSync(join(SRC, "app/(shell)/agent/reports/page.tsx"), "utf8")).toMatch(
+      /<SalesReportsView source="agent" \/>/,
+    );
+    const VIEW = "components/reports/sales-reports-view.tsx";
+    const view = readFileSync(join(SRC, VIEW), "utf8");
+    const offenders: string[] = [];
+    // Every card group is a report group; every shared card a report card (ReportCard and its
+    // skeleton always are — checked in report-card-size.spec.tsx).
+    for (const tag of openingTags(view, "InsightGroup")) {
+      if (!/\ssize="report"/.test(tag)) offenders.push(`InsightGroup without size="report"`);
+    }
+    for (const name of ["InsightCard", "InsightCardSkeleton", "OwnRankCard", "SummaryCard"]) {
+      for (const tag of openingTags(view, name)) {
+        if (!/\ssize="report"/.test(tag)) offenders.push(`<${name}> without size="report"`);
+      }
+    }
+    expect(offenders).toEqual([]);
+    expect(openingTags(view, "InsightGroup").length).toBeGreaterThanOrEqual(7);
+    // The long, repeated lists (one card per employee / per team) are opaque — no blur stack.
+    for (const list of ["data.employees.map", "data.teams.map"]) {
+      const at = view.indexOf(`{${list}(`);
+      expect(at, list).toBeGreaterThan(-1);
+      const group = view.slice(view.lastIndexOf("<InsightGroup", at), at);
+      expect(group, list).toMatch(/\ssurface="opaque"/);
+    }
+    // ReportCard always renders the report size, and only the sales reports use it.
+    const reportCard = readFileSync(join(SRC, "components/reports/report-card.tsx"), "utf8");
+    expect(openingTags(reportCard, "InsightSurface").join(" ")).toMatch(/\ssize="report"/);
+    const reportCardUsers = files
+      .filter((path) => /<ReportCard(Skeleton)?\b/.test(readFileSync(path, "utf8")))
+      .map((path) => relative(SRC, path).replace(/\\/g, "/"));
+    expect(reportCardUsers).toEqual([VIEW]);
+  });
+
+  it("R19 §C: the report size never leaks to other screens", () => {
+    // Dashboards, statements, portals and record-grid status cards keep their own size.
+    const ALLOWED = new Set([
+      "components/shared/insight-card.tsx",
+      "components/reports/report-card.tsx",
+      "components/reports/own-rank-card.tsx",
+      "components/reports/sales-reports-view.tsx",
+    ]);
+    const offenders: string[] = [];
+    for (const path of files) {
+      const file = relative(SRC, path).replace(/\\/g, "/");
+      if (ALLOWED.has(file)) continue;
+      const source = readFileSync(path, "utf8");
+      for (const name of [...CARDS, "InsightGroup", "InsightIcon"]) {
+        for (const tag of openingTags(source, name)) {
+          if (/\ssize="report"|\ssurface="opaque"/.test(tag)) offenders.push(`${file} <${name}>`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("only the one recipe block (and print) styles the report-card slot", () => {
     const recipes = readFileSync(join(SRC, "theme/recipes.css"), "utf8").replace(/\r\n/g, "\n");
     const start = recipes.indexOf("/* ── Report cards");

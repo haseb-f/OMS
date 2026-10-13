@@ -67,6 +67,7 @@ export function resolveInsightTone(
 export function InsightSurface({
   tone = "neutral",
   emphasis = false,
+  size = "default",
   href,
   onSelect,
   pressed,
@@ -76,6 +77,11 @@ export function InsightSurface({
 }: Omit<ComponentProps<"div">, "onSelect"> & {
   tone?: InsightTone;
   emphasis?: boolean;
+  /**
+   * R19 §C — `report`: the sales-report size (`data-size="report"`): the report padding here,
+   * the stronger tint / edge / depth / hover tokens in the recipe. Default everywhere else.
+   */
+  size?: InsightSurfaceSize;
   /** Opens a page: the whole card is one link. */
   href?: string;
   /** Selects something on the page: the whole card is one button. */
@@ -87,14 +93,16 @@ export function InsightSurface({
     "data-slot": "insight-card",
     "data-tone": tone,
     "data-emphasis": emphasis || undefined,
+    "data-size": size === "report" ? "report" : undefined,
   } as const;
+  const surface = cn(INSIGHT_SURFACE_CLASS, INSIGHT_SURFACE_PADDING[size]);
   if (href) {
     return (
       <Link
         href={href}
         {...data}
         data-interactive=""
-        className={cn(INSIGHT_SURFACE_CLASS, INSIGHT_FOCUS_CLASS, className)}
+        className={cn(surface, INSIGHT_FOCUS_CLASS, className)}
       >
         {children}
       </Link>
@@ -108,40 +116,68 @@ export function InsightSurface({
         data-interactive=""
         aria-pressed={pressed}
         onClick={onSelect}
-        className={cn(INSIGHT_SURFACE_CLASS, "text-start", INSIGHT_FOCUS_CLASS, className)}
+        className={cn(surface, "text-start", INSIGHT_FOCUS_CLASS, className)}
       >
         {children}
       </button>
     );
   }
   return (
-    <div {...data} className={cn(INSIGHT_SURFACE_CLASS, className)} {...props}>
+    <div {...data} className={cn(surface, className)} {...props}>
       {children}
     </div>
   );
 }
 
+/** The two surface sizes: every summary card, and the sales-report card (R19 §C). */
+export type InsightSurfaceSize = "default" | "report";
+
 /**
  * Geometry of every card of the family (visuals come from the theme recipe).
- * R17: ONE padding for every report card (`--insight-card-padding-*`,
+ * R17: ONE padding per size (`--insight-card-padding-*` / R19 `--insight-report-padding-*`,
  * theme/tokens.css) — callers never pad a card locally.
  */
-const INSIGHT_SURFACE_CLASS =
-  "relative flex min-w-0 flex-col rounded-md border px-(--insight-card-padding-inline) py-(--insight-card-padding-block)";
+const INSIGHT_SURFACE_CLASS = "relative flex min-w-0 flex-col rounded-md border";
+const INSIGHT_SURFACE_PADDING: Record<InsightSurfaceSize, string> = {
+  default: "px-(--insight-card-padding-inline) py-(--insight-card-padding-block)",
+  report: "px-(--insight-report-padding-inline) py-(--insight-report-padding-block)",
+};
+
+/**
+ * R19 §C — the type and rhythm of a sales-report card (`size="report"`), shared by
+ * `InsightCard` and `ReportCard` so both read as one family: a 16px title, a 32px figure
+ * (`text-display`), 14px units / secondary lines, and a roomier vertical rhythm.
+ */
+export const INSIGHT_REPORT_TEXT = {
+  title: "text-card-title",
+  figure: "text-display",
+  unit: "text-body font-medium",
+  secondary: "text-body",
+  gap: "mt-2.5",
+} as const;
 
 /** The keyboard-focus ring of an interactive card — the same for links and buttons. */
 export const INSIGHT_FOCUS_CLASS =
   "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-focus-ring";
 
 /** The tone icon chip at the start of a card's title row (one implementation for every card). */
-export function InsightIcon({ icon: Icon }: { icon: LucideIcon }) {
+export function InsightIcon({
+  icon: Icon,
+  size = "default",
+}: {
+  icon: LucideIcon;
+  size?: InsightSurfaceSize;
+}) {
   return (
     <span
       data-slot="insight-icon"
-      className="flex size-7 shrink-0 items-center justify-center rounded-md"
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-md",
+        size === "report" ? "size-9" : "size-7",
+      )}
       aria-hidden
     >
-      <Icon className="size-4" strokeWidth={2} />
+      <Icon className={size === "report" ? "size-5" : "size-4"} strokeWidth={2} />
     </span>
   );
 }
@@ -219,36 +255,65 @@ export function InsightCard({
   /**
    * `compact` — dense strips of many figures (detail headers): the figure one
    * step smaller (`text-metric`); surface, padding and states are identical.
+   * `report` (R19 §C) — the sales-report card: larger padding, title, figure and
+   * secondary lines, stronger tint / edge / depth / hover (`InsightSurface size`).
    */
-  size?: "default" | "compact";
+  size?: "default" | "compact" | "report";
   /** The figure is still loading: the tile's skeleton (no figure is ever faked). */
   loading?: boolean;
 }) {
-  if (loading) return <InsightCardSkeleton context={Boolean(context)} className={className} />;
+  if (loading) {
+    return (
+      <InsightCardSkeleton
+        context={Boolean(context)}
+        size={size === "report" ? "report" : "default"}
+        className={className}
+      />
+    );
+  }
   const resolvedTone = resolveInsightTone(tone, value, amount, keepToneAtZero);
   const Chevron = direction === "rtl" ? ChevronLeft : ChevronRight;
+  const report = size === "report";
   const body = (
     <>
       {/* R15 — the scope chip wraps under the label when the tile is narrow,
           so a label never breaks mid-word around it. */}
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        {Icon ? <InsightIcon icon={Icon} /> : null}
+        {Icon ? <InsightIcon icon={Icon} size={report ? "report" : "default"} /> : null}
         {/* Round 6: a label is never truncated — it wraps (labels are kept
             concise; the period / scope lives in the group header). */}
         <span
           data-slot="insight-label"
-          className="min-w-[7rem] flex-1 text-metric-label text-pretty break-words text-muted-foreground"
+          className={cn(
+            "min-w-[7rem] flex-1 text-pretty break-words text-muted-foreground",
+            report ? INSIGHT_REPORT_TEXT.title : "text-metric-label",
+          )}
         >
           {label}
         </span>
         {meta ? <span className="shrink-0 self-start">{meta}</span> : null}
       </div>
-      <div className="mt-1.5 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-        <div className="flex min-w-0 items-baseline gap-1.5">
+      <div
+        className={cn(
+          report ? INSIGHT_REPORT_TEXT.gap : "mt-1.5",
+          "flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5",
+        )}
+      >
+        <div
+          className={cn(
+            "flex min-w-0 items-baseline",
+            // A report figure keeps its unit beside it, or on the next line — never clipped.
+            report ? "flex-wrap gap-x-1.5" : "gap-1.5",
+          )}
+        >
           <span
             data-slot="insight-value"
             className={cn(
-              size === "compact" ? "text-metric" : "text-metric-lg",
+              report
+                ? INSIGHT_REPORT_TEXT.figure
+                : size === "compact"
+                  ? "text-metric"
+                  : "text-metric-lg",
               "tracking-tight",
               phrase ? "tabular-nums" : "num",
             )}
@@ -256,7 +321,14 @@ export function InsightCard({
             {value}
           </span>
           {unit ? (
-            <span className="shrink-0 text-caption font-medium text-muted-foreground">{unit}</span>
+            <span
+              className={cn(
+                "shrink-0 text-muted-foreground",
+                report ? INSIGHT_REPORT_TEXT.unit : "text-caption font-medium",
+              )}
+            >
+              {unit}
+            </span>
           ) : null}
         </div>
         {href && actionLabel ? (
@@ -276,8 +348,10 @@ export function InsightCard({
       {context ? (
         <p
           className={cn(
-            "mt-1 text-caption text-muted-foreground",
-            emphasis ? "break-words" : "truncate",
+            "text-muted-foreground",
+            report ? `mt-1.5 ${INSIGHT_REPORT_TEXT.secondary}` : "mt-1 text-caption",
+            // A report card's explanation always reads in full (it wraps, never clips).
+            emphasis || report ? "break-words" : "truncate",
           )}
           title={typeof context === "string" ? context : undefined}
         >
@@ -290,6 +364,7 @@ export function InsightCard({
   return (
     <InsightSurface
       tone={resolvedTone}
+      size={report ? "report" : "default"}
       emphasis={emphasis || Boolean(onSelect && pressed)}
       href={href}
       onSelect={href ? undefined : onSelect}
@@ -308,15 +383,18 @@ export function InsightCard({
 export function InsightCardSkeleton({
   className,
   context = false,
+  size = "default",
 }: {
   className?: string;
   context?: boolean;
+  size?: InsightSurfaceSize;
 }) {
+  const report = size === "report";
   return (
-    <InsightSurface aria-hidden className={cn("gap-2", className)}>
-      <Skeleton className="h-4 w-24" />
-      <Skeleton className="h-6 w-14" />
-      {context ? <Skeleton className="h-3 w-32" /> : null}
+    <InsightSurface aria-hidden size={size} className={cn(report ? "gap-3" : "gap-2", className)}>
+      <Skeleton className={report ? "h-5 w-28" : "h-4 w-24"} />
+      <Skeleton className={report ? "h-8 w-20" : "h-6 w-14"} />
+      {context ? <Skeleton className={report ? "h-4 w-36" : "h-3 w-32"} /> : null}
     </InsightSurface>
   );
 }
@@ -372,17 +450,35 @@ export function InsightGroup({
   children,
   className,
   fit = false,
+  size = "default",
+  surface = "glass",
   ...props
-}: ComponentProps<"div"> & { fit?: boolean }) {
+}: ComponentProps<"div"> & {
+  fit?: boolean;
+  /** R19 §C — `report`: a group of sales-report cards (`size="report"`): a roomier 12px gap. */
+  size?: InsightSurfaceSize;
+  /**
+   * R19 §C — `opaque`: a long, repeated card list (one card per employee / team): its cards
+   * use the opaque card colour and no backdrop blur (theme recipe), so a long list never pays
+   * for many blurred layers. Small fixed groups keep the glass.
+   */
+  surface?: "glass" | "opaque";
+}) {
+  const data = {
+    "data-slot": "insight-group",
+    "data-size": size === "report" ? "report" : undefined,
+    "data-surface": surface === "opaque" ? "opaque" : undefined,
+  } as const;
+  const gap = size === "report" ? "gap-3" : "gap-2";
   if (fit) {
     const count = countCards(children);
     return (
       <div data-slot="insight-group-frame" className={cn("min-w-0", className)}>
         <div
-          data-slot="insight-group"
+          {...data}
           data-fit=""
           data-count={count > 0 && count <= INSIGHT_GROUP_BALANCED_MAX ? count : undefined}
-          className="grid min-w-0 gap-2"
+          className={cn("grid min-w-0", gap)}
           {...props}
         >
           {children}
@@ -391,7 +487,7 @@ export function InsightGroup({
     );
   }
   return (
-    <div data-slot="insight-group" className={cn("grid min-w-0 gap-2", className)} {...props}>
+    <div {...data} className={cn("grid min-w-0", gap, className)} {...props}>
       {children}
     </div>
   );

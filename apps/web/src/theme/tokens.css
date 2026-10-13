@@ -230,7 +230,12 @@
    - glass (R18 §C): the tone gradient sits on a slightly translucent card
      colour with a light backdrop blur (opaque card where blur is unsupported);
    - title: the card label one readable step above secondary text;
-   - geometry: one padding for every card (no local padding).
+   - geometry: one padding for every card (no local padding);
+   - report size (R19 §C, `data-size="report"`: the sales-report cards only):
+     a roomier padding, and stronger tint / edge / icon chip / depth / hover /
+     rise values that the recipe maps onto the same state machine; a more
+     translucent glass with an opaque fallback (long lists, reduced
+     transparency). Every text pair stays AA (contrast-check.mjs).
    --------------------------------------------------------------------------- */
 :root {
   --insight-neutral: var(--muted-foreground);
@@ -274,6 +279,30 @@
   --insight-lift-active: -2px;
   /* Geometry of the actionable hover / focus shadow (its colour is the card's tone). */
   --insight-active-shadow-geometry: 0 10px 20px -10px;
+  /* R19 §C — the sales-report card size (`data-size="report"`). */
+  --insight-report-padding-inline: 1.25rem; /* 20px */
+  --insight-report-padding-block: 1.125rem; /* 18px */
+  --insight-report-tint-top: 30%;
+  --insight-report-tint-bottom: 12%;
+  --insight-report-tint-border: 60%;
+  --insight-report-icon-fill: 34%;
+  --insight-report-tint-top-hover: 40%;
+  --insight-report-tint-bottom-hover: 17%;
+  --insight-report-tint-top-static-hover: 36%;
+  --insight-report-tint-border-hover: 74%;
+  --insight-report-tint-border-active: 82%;
+  --insight-report-hover-shadow-tone: 70%;
+  --insight-report-accent-edge: 4px;
+  --insight-report-glass: color-mix(in oklab, var(--card) 80%, transparent);
+  --insight-report-glass-filter: blur(10px) saturate(1.2);
+  /* Resting depth: informational cards a hairline, actionable cards a soft lift. */
+  --insight-report-depth: 0 1px 2px rgb(0 0 0 / 0.05);
+  --insight-report-rest-shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 6px 14px -8px rgb(0 0 0 / 0.18);
+  --insight-report-static-hover-shadow:
+    0 2px 4px rgb(0 0 0 / 0.05), 0 12px 24px -14px rgb(0 0 0 / 0.3);
+  --insight-report-active-shadow-geometry: 0 14px 28px -14px;
+  --insight-report-lift-static: -2px;
+  --insight-report-lift-active: -3px;
 }
 .dark {
   --insight-tint-top: 30%;
@@ -292,6 +321,21 @@
   --insight-glass: color-mix(in oklab, var(--card) 80%, transparent);
   --insight-title: color-mix(in oklab, var(--muted-foreground) 40%, var(--foreground));
   --insight-active-shadow-geometry: 0 10px 22px -8px;
+  --insight-report-tint-top: 34%;
+  --insight-report-tint-bottom: 14%;
+  --insight-report-tint-border: 62%;
+  --insight-report-icon-fill: 42%;
+  --insight-report-tint-top-hover: 40%;
+  --insight-report-tint-bottom-hover: 19%;
+  --insight-report-tint-top-static-hover: 38%;
+  --insight-report-tint-border-hover: 76%;
+  --insight-report-tint-border-active: 84%;
+  --insight-report-glass: color-mix(in oklab, var(--card) 74%, transparent);
+  --insight-report-depth: 0 0 0 1px rgb(255 255 255 / 0.03);
+  --insight-report-rest-shadow: 0 0 0 1px rgb(255 255 255 / 0.04), 0 6px 14px -8px rgb(0 0 0 / 0.5);
+  --insight-report-static-hover-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.05), 0 12px 24px -12px rgb(0 0 0 / 0.7);
+  --insight-report-active-shadow-geometry: 0 14px 30px -12px;
 }
 
 /* ---------------------------------------------------------------------------

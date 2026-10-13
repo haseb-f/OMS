@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
+  INSIGHT_REPORT_TEXT,
   InsightCardSkeleton,
   InsightIcon,
   InsightSurface,
@@ -12,6 +13,7 @@ import {
 import { MoneyValue } from "@/components/shared/money-value";
 import { formatNumber } from "@/lib/format-number";
 import { useLocale } from "@/providers/locale-provider";
+import { cn } from "@/lib/utils";
 
 /** Currencies listed before the rest fold behind "Show N more". */
 const VISIBLE_AMOUNTS = 4;
@@ -38,6 +40,12 @@ export interface ReportCardStat {
  * With `onSelect` the whole card is one button (`data-interactive`: the
  * shared hover / focus-visible response) and `selected` marks the chosen one
  * with the emphasis edge; without it the card stays flat and still.
+ *
+ * R19 §C — it is the sales-report card, so it always draws at the report size
+ * (`InsightSurface size="report"`, `INSIGHT_REPORT_TEXT`): roomier padding, a 16px
+ * title, a 32px figure, 16px money lines that never clip, 14px secondary counts and
+ * the stronger report tint / edge / depth / hover of the theme recipe. The figures
+ * themselves pass through unchanged (`formatNumber`, `MoneyValue`).
  */
 export function ReportCard({
   title,
@@ -81,33 +89,55 @@ export function ReportCard({
   const visibleAmounts = amounts && hiddenAmounts > 0 ? amounts.slice(0, VISIBLE_AMOUNTS) : amounts;
   const body = (
     <>
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        {Icon ? <InsightIcon icon={Icon} /> : null}
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
+        {Icon ? <InsightIcon icon={Icon} size="report" /> : null}
         <span
           data-slot="insight-label"
-          className="min-w-0 flex-1 basis-24 text-metric-label text-pretty text-muted-foreground"
+          className={cn(
+            "min-w-0 flex-1 basis-28 text-pretty break-words text-muted-foreground",
+            INSIGHT_REPORT_TEXT.title,
+          )}
         >
           {title}
         </span>
         {meta ? <span className="max-w-full min-w-0">{meta}</span> : null}
       </div>
-      <div className="mt-1.5 flex min-w-0 items-baseline gap-1.5">
-        <span data-slot="insight-value" className="num text-metric-lg tracking-tight">
+      <div
+        className={cn(
+          INSIGHT_REPORT_TEXT.gap,
+          "flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5",
+        )}
+      >
+        <span
+          data-slot="insight-value"
+          className={cn("num tracking-tight", INSIGHT_REPORT_TEXT.figure)}
+        >
           {formatNumber(figure)}
         </span>
         {unit ? (
-          <span className="min-w-0 truncate text-caption font-medium text-muted-foreground">
+          <span
+            className={cn("min-w-0 break-words text-muted-foreground", INSIGHT_REPORT_TEXT.unit)}
+          >
             {unit}
           </span>
         ) : null}
       </div>
       {amounts ? (
-        <ul className="mt-1.5 flex min-w-0 flex-col gap-0.5" data-slot="report-amounts">
+        <ul
+          className={cn(INSIGHT_REPORT_TEXT.gap, "flex min-w-0 flex-col gap-1")}
+          data-slot="report-amounts"
+        >
           {amounts.length === 0 ? (
-            <li className="text-caption text-muted-foreground">{noAmountsLabel}</li>
+            <li className={cn("text-muted-foreground", INSIGHT_REPORT_TEXT.secondary)}>
+              {noAmountsLabel}
+            </li>
           ) : (
             visibleAmounts?.map((line) => (
-              <li key={line.currencyCode} className="flex min-w-0 justify-start text-body">
+              // One money line per currency at the card-title size; the amount is never clipped.
+              <li
+                key={line.currencyCode}
+                className="flex min-w-0 flex-wrap justify-start text-card-title"
+              >
                 <MoneyValue value={line.amount} currency={line.currencyCode} />
               </li>
             ))
@@ -128,7 +158,7 @@ export function ReportCard({
                   event.stopPropagation();
                   setShowAllAmounts(true);
                 }}
-                className="cursor-pointer text-caption font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+                className="cursor-pointer text-body font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
               >
                 {t("table.showMore", { count: hiddenAmounts })}
               </span>
@@ -137,7 +167,13 @@ export function ReportCard({
         </ul>
       ) : null}
       {stats?.length ? (
-        <dl className="mt-1.5 flex min-w-0 flex-wrap gap-x-3 gap-y-0.5 text-caption text-muted-foreground">
+        <dl
+          className={cn(
+            INSIGHT_REPORT_TEXT.gap,
+            "flex min-w-0 flex-wrap gap-x-4 gap-y-1 text-muted-foreground",
+            INSIGHT_REPORT_TEXT.secondary,
+          )}
+        >
           {stats.map((stat) => (
             <div key={stat.label} className="flex items-baseline gap-1">
               <dt>{stat.label}</dt>
@@ -146,13 +182,14 @@ export function ReportCard({
           ))}
         </dl>
       ) : null}
-      {children ? <div className="mt-2 min-w-0">{children}</div> : null}
+      {children ? <div className="mt-3 min-w-0">{children}</div> : null}
     </>
   );
 
   return (
     <InsightSurface
       tone={resolvedTone}
+      size="report"
       emphasis={selected}
       onSelect={onSelect}
       pressed={onSelect ? selected : undefined}
@@ -165,5 +202,5 @@ export function ReportCard({
 
 /** Loading placeholder with a `ReportCard`'s geometry — no figure is ever faked. */
 export function ReportCardSkeleton({ className }: { className?: string }) {
-  return <InsightCardSkeleton context className={className} />;
+  return <InsightCardSkeleton context size="report" className={className} />;
 }
