@@ -23,7 +23,7 @@ html[dir="ltr"] :is(h1, h2) {
   letter-spacing: -0.02em;
 }
 
-/* ── Report cards: summary tiles and dashboard surfaces (design-system §12.8 / §12.17; R16 S2; R17 §4; R18 §C) ───
+/* ── Report cards: summary tiles and dashboard surfaces (design-system §12.8 / §12.17; R16 S2; R17 §4; R18 §C; R19 §C) ───
    ONE treatment for every report summary card (`InsightSurface` → `InsightCard`, `SummaryCard`,
    `ReportCard`), driven only by the report-card tokens (theme/tokens.css). Record-grid status
    cards (`renderGridCard`, `record-grid-card`) are a different, flat family and are never styled
@@ -126,6 +126,53 @@ html[dir="ltr"] :is(h1, h2) {
 }
 [data-slot="insight-card"][data-tone="loss"] {
   --tone: var(--insight-loss);
+}
+
+/* R19 §C — the sales-report size (`InsightSurface size="report"` → `data-size="report"`, used by
+   `ReportCard` and the report-size `InsightCard` on the sales-report screens only). The SAME state
+   machine as every card: the report tokens are mapped onto the card-local state variables, so
+   rest / hover / focus / emphasis / touch / reduced motion behave identically, only stronger — a
+   deeper tone tint and edge, a fuller icon chip, a resting depth, a clearly visible hover (tint,
+   edge, shadow, a 2px / 3px `translate` rise) and a wider emphasis edge (an inset shadow, never a
+   border width). Geometry (padding, type) lives in the component, never here. */
+[data-slot="insight-card"][data-size="report"] {
+  --insight-tint-top: var(--insight-report-tint-top);
+  --insight-tint-bottom: var(--insight-report-tint-bottom);
+  --insight-tint-border: var(--insight-report-tint-border);
+  --insight-icon-fill: var(--insight-report-icon-fill);
+  --insight-tint-top-hover: var(--insight-report-tint-top-hover);
+  --insight-tint-bottom-hover: var(--insight-report-tint-bottom-hover);
+  --insight-tint-top-static-hover: var(--insight-report-tint-top-static-hover);
+  --insight-tint-border-hover: var(--insight-report-tint-border-hover);
+  --insight-tint-border-active: var(--insight-report-tint-border-active);
+  --insight-hover-shadow-tone: var(--insight-report-hover-shadow-tone);
+  --insight-rest-shadow: var(--insight-report-rest-shadow);
+  --insight-static-hover-shadow: var(--insight-report-static-hover-shadow);
+  --insight-active-shadow-geometry: var(--insight-report-active-shadow-geometry);
+  --insight-lift-static: var(--insight-report-lift-static);
+  --insight-lift-active: var(--insight-report-lift-active);
+  --insight-glass: var(--insight-report-glass);
+  --insight-glass-filter: var(--insight-report-glass-filter);
+  --accent-edge: var(--insight-report-accent-edge);
+}
+/* Informational report cards rest on a hairline depth (actionable ones keep the stronger lift). */
+[data-slot="insight-card"][data-size="report"]:not([data-interactive]) {
+  --insight-card-lift: var(--insight-report-depth);
+}
+/* A long, repeated card list (`InsightGroup surface="opaque"`: one card per employee / team) and
+   anyone who asks for reduced transparency get the opaque card and no backdrop blur — the glass
+   stays on small fixed groups, so a long list never stacks many blurred layers. */
+[data-slot="insight-group"][data-surface="opaque"] > [data-slot="insight-card"] {
+  --insight-card-base: var(--card);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+@media (prefers-reduced-transparency: reduce) {
+  [data-slot="insight-card"][data-size="report"] {
+    --insight-card-base: var(--card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 /* Secondary text (label, unit, context, action) on a toned card reads from the

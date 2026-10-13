@@ -1,0 +1,1255 @@
+{
+  "at": "2026-10-13T09:38:49.649Z",
+  "base": "http://localhost:4721",
+  "metrics": {
+    "company-live-ar-light-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 224,
+        "height": 261,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-employees-ar-light-1440": {
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 282,
+        "height": 168,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-teams-ar-light-1440": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 379,
+        "height": 203,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-comparison-ar-light-1440": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "company-paymentMix-ar-light-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 379,
+        "height": 196,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-own-live-ar-light-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 224,
+        "height": 170,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-own-own-ar-light-1440": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 282,
+        "height": 145,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-own-paymentMix-ar-light-1440": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 379,
+        "height": 196,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "agent-live-ar-light-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 224,
+        "height": 170,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "agent-employees-ar-light-1440": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 282,
+        "height": 145,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "agent-comparison-ar-light-1440": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "agent-paymentMix-ar-light-1440": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 379,
+        "height": 196,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-live-en-light-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 224,
+        "height": 283,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-employees-en-light-1440": {
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 282,
+        "height": 168,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-teams-en-light-1440": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 379,
+        "height": 203,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-comparison-en-light-1440": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "company-paymentMix-en-light-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 379,
+        "height": 196,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-own-live-en-light-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 224,
+        "height": 191,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-own-own-en-light-1440": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 282,
+        "height": 145,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-own-paymentMix-en-light-1440": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 379,
+        "height": 196,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "agent-live-en-light-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 224,
+        "height": 191,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "agent-employees-en-light-1440": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 282,
+        "height": 145,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "agent-comparison-en-light-1440": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "agent-paymentMix-en-light-1440": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 379,
+        "height": 196,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-live-ar-dark-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 224,
+        "height": 261,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.8)"
+      }
+    },
+    "company-employees-ar-dark-1440": {
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 282,
+        "height": 168,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.8)"
+      }
+    },
+    "company-teams-ar-dark-1440": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 379,
+        "height": 203,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.8)"
+      }
+    },
+    "company-comparison-ar-dark-1440": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "company-paymentMix-ar-dark-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 379,
+        "height": 196,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.8)"
+      }
+    },
+    "agent-live-ar-dark-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 224,
+        "height": 170,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.8)"
+      }
+    },
+    "agent-employees-ar-dark-1440": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 282,
+        "height": 145,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.8)"
+      }
+    },
+    "agent-comparison-ar-dark-1440": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "agent-paymentMix-ar-dark-1440": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 379,
+        "height": 196,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.8)"
+      }
+    },
+    "company-live-ar-light-375": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 143,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-employees-ar-light-375": {
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 145,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-teams-ar-light-375": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 203,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-comparison-ar-light-375": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "company-paymentMix-ar-light-375": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 196,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-own-live-ar-light-375": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 143,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-own-own-ar-light-375": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 145,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-own-paymentMix-ar-light-375": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 196,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "agent-live-ar-light-375": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 143,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "agent-employees-ar-light-375": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 145,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "agent-comparison-ar-light-375": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "agent-paymentMix-ar-light-375": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 196,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-live-en-light-375": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 143,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-employees-en-light-375": {
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 145,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-teams-en-light-375": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 203,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-comparison-en-light-375": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "company-paymentMix-en-light-375": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 196,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-own-live-en-light-375": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 143,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-own-own-en-light-375": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 145,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "company-own-paymentMix-en-light-375": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 215,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "agent-live-en-light-375": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 143,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "agent-employees-en-light-375": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 145,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "agent-comparison-en-light-375": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "agent-paymentMix-en-light-375": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 196,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "state-live-ar-light": {
+      "rest": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "neutral",
+        "translate": "none",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)",
+        "border": "rgb(235, 235, 235)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.04) 0px 1px 2px 0px, rgba(0, 0, 0, 0",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "pointer",
+        "text": "أمس ⁦12 Oct 2026⁩ 0 طلب صالح لا مبيعات الطلبات 0 ملغاة 0 مرتجعة 0",
+        "layout": {
+          "top": 210,
+          "left": 720,
+          "width": 224,
+          "height": 261
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 488
+        },
+        "scrollHeight": 900
+      },
+      "hover": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "neutral",
+        "translate": "0px -2px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.978984 -0.00173007 -0.00435379)",
+        "border": "rgb(222, 222, 222)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 1px 0px 0px inset, oklab(0.258644 -0.017636 -0.0623303 / 0.05) 0px 1px 2px 0px, oklab(0.258644 -0.017636 ",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "pointer",
+        "text": "أمس ⁦12 Oct 2026⁩ 0 طلب صالح لا مبيعات الطلبات 0 ملغاة 0 مرتجعة 0",
+        "layout": {
+          "top": 210,
+          "left": 720,
+          "width": 224,
+          "height": 261
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 488
+        },
+        "scrollHeight": 900
+      },
+      "layoutShift": false,
+      "textChanged": false,
+      "focus": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "neutral",
+        "translate": "0px -2px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.978984 -0.00173007 -0.00435379)",
+        "border": "rgb(222, 222, 222)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 1px 0px 0px inset, oklab(0.258644 -0.017636 -0.0623303 / 0.05) 0px 1px 2px 0px, oklab(0.258644 -0.017636 ",
+        "outline": "solid 2px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "pointer",
+        "text": "أمس ⁦12 Oct 2026⁩ 0 طلب صالح لا مبيعات الطلبات 0 ملغاة 0 مرتجعة 0",
+        "layout": {
+          "top": 210,
+          "left": 720,
+          "width": 224,
+          "height": 261
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 488
+        },
+        "scrollHeight": 900
+      }
+    },
+    "state-employee-ar-light": {
+      "rest": {
+        "tag": "DIV",
+        "interactive": false,
+        "tone": "info",
+        "translate": "none",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)",
+        "border": "oklab(0.748415 -0.0200619 -0.0845224)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "default",
+        "text": "منى عادل #1 19 طلب صالح 11,770.00 EGP الطلبات 19 ملغاة 0 مرتجعة 0",
+        "layout": {
+          "top": 210,
+          "left": 894,
+          "width": 282,
+          "height": 168
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 604
+        },
+        "scrollHeight": 1037
+      },
+      "hover": {
+        "tag": "DIV",
+        "interactive": false,
+        "tone": "info",
+        "translate": "0px -1px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)",
+        "border": "oklab(0.677972 -0.025692 -0.108194)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.04) 0px 1px 2px 0px, rgba(0, 0, 0, 0.2) 0px 6px 14px -10px, r",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "default",
+        "text": "منى عادل #1 19 طلب صالح 11,770.00 EGP الطلبات 19 ملغاة 0 مرتجعة 0",
+        "layout": {
+          "top": 210,
+          "left": 894,
+          "width": 282,
+          "height": 168
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 604
+        },
+        "scrollHeight": 1037
+      },
+      "layoutShift": false,
+      "textChanged": false
+    },
+    "state-payment-ar-light": {
+      "rest": {
+        "tag": "DIV",
+        "interactive": false,
+        "tone": "revenue",
+        "translate": "none",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)",
+        "border": "oklab(0.739994 -0.0205012 -0.056364)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "default",
+        "text": "A2A0B2E 2 طلب صالح 320.00 A2A0B2E دفع مسبق 2 طلب 320.00 A2A0B2E 100٪ الدفع عند الاستلام 0 طلب 0.00 A2A0B2E 0٪",
+        "layout": {
+          "top": 237,
+          "left": 797,
+          "width": 379,
+          "height": 196
+        },
+        "neighbour": {
+          "top": 237,
+          "left": 411
+        },
+        "scrollHeight": 900
+      },
+      "hover": {
+        "tag": "DIV",
+        "interactive": false,
+        "tone": "revenue",
+        "translate": "0px -1px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)",
+        "border": "oklab(0.667194 -0.0262543 -0.0721516)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.04) 0px 1px 2px 0px, rgba(0, 0, 0, 0.2) 0px 6px 14px -10px, r",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "default",
+        "text": "A2A0B2E 2 طلب صالح 320.00 A2A0B2E دفع مسبق 2 طلب 320.00 A2A0B2E 100٪ الدفع عند الاستلام 0 طلب 0.00 A2A0B2E 0٪",
+        "layout": {
+          "top": 237,
+          "left": 797,
+          "width": 379,
+          "height": 196
+        },
+        "neighbour": {
+          "top": 237,
+          "left": 411
+        },
+        "scrollHeight": 900
+      },
+      "layoutShift": false,
+      "textChanged": false
+    },
+    "state-live-en-dark": {
+      "rest": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "neutral",
+        "translate": "none",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.8)",
+        "border": "rgb(38, 38, 38)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.03) 0px 0px 0px 1px",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "pointer",
+        "text": "Yesterday ⁦12 Oct 2026⁩ 0 valid orders No sales Orders 0 Cancelled 0 Returned 0",
+        "layout": {
+          "top": 210,
+          "left": 256,
+          "width": 224,
+          "height": 283
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 488
+        },
+        "scrollHeight": 900
+      },
+      "hover": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "neutral",
+        "translate": "0px -2px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.210017 -0.00296399 -0.00863164)",
+        "border": "rgb(51, 51, 51)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.03) 0px 0px 0px 1px, rgba(0, 0, 0, 0.75) 0px 8px 18px -8px, rgba",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "pointer",
+        "text": "Yesterday ⁦12 Oct 2026⁩ 0 valid orders No sales Orders 0 Cancelled 0 Returned 0",
+        "layout": {
+          "top": 210,
+          "left": 256,
+          "width": 224,
+          "height": 283
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 488
+        },
+        "scrollHeight": 900
+      },
+      "layoutShift": false,
+      "textChanged": false,
+      "focus": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "neutral",
+        "translate": "0px -2px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.210017 -0.00296399 -0.00863164)",
+        "border": "rgb(51, 51, 51)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.03) 0px 0px 0px 1px, rgba(0, 0, 0, 0.75) 0px 8px 18px -8px, rgba",
+        "outline": "solid 2px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "pointer",
+        "text": "Yesterday ⁦12 Oct 2026⁩ 0 valid orders No sales Orders 0 Cancelled 0 Returned 0",
+        "layout": {
+          "top": 210,
+          "left": 256,
+          "width": 224,
+          "height": 283
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 488
+        },
+        "scrollHeight": 900
+      }
+    },
+    "state-employee-en-dark": {
+      "rest": {
+        "tag": "DIV",
+        "interactive": false,
+        "tone": "info",
+        "translate": "none",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.8)",
+        "border": "oklab(0.479473 -0.0234209 -0.0629656)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.1) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "default",
+        "text": "منى عادل #1 19 valid orders 11,770.00 EGP Orders 19 Cancelled 0 Returned 0",
+        "layout": {
+          "top": 210,
+          "left": 24,
+          "width": 282,
+          "height": 168
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 314
+        },
+        "scrollHeight": 1048
+      },
+      "hover": {
+        "tag": "DIV",
+        "interactive": false,
+        "tone": "info",
+        "translate": "0px -1px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.8)",
+        "border": "oklab(0.572346 -0.0306298 -0.0823407)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.1) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.04) 0px 0px 0px 1px, rgba(0, 0, 0, 0.6) 0px 6px 14px -8p",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "default",
+        "text": "منى عادل #1 19 valid orders 11,770.00 EGP Orders 19 Cancelled 0 Returned 0",
+        "layout": {
+          "top": 210,
+          "left": 24,
+          "width": 282,
+          "height": 168
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 314
+        },
+        "scrollHeight": 1048
+      },
+      "layoutShift": false,
+      "textChanged": false
+    },
+    "state-payment-en-dark": {
+      "rest": {
+        "tag": "DIV",
+        "interactive": false,
+        "tone": "revenue",
+        "translate": "none",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.8)",
+        "border": "oklab(0.490862 -0.0177849 -0.0488508)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.1) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "default",
+        "text": "A2A0B2E 2 valid orders 320.00 A2A0B2E Prepaid 2 orders 320.00 A2A0B2E 100% Cash on delivery 0 orders 0.00 A2A0B2E 0%",
+        "layout": {
+          "top": 237,
+          "left": 24,
+          "width": 379,
+          "height": 196
+        },
+        "neighbour": {
+          "top": 237,
+          "left": 411
+        },
+        "scrollHeight": 900
+      },
+      "hover": {
+        "tag": "DIV",
+        "interactive": false,
+        "tone": "revenue",
+        "translate": "0px -1px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.8)",
+        "border": "oklab(0.58724 -0.0232597 -0.0638829)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.1) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.04) 0px 0px 0px 1px, rgba(0, 0, 0, 0.6) 0px 6px 14px -8p",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "default",
+        "text": "A2A0B2E 2 valid orders 320.00 A2A0B2E Prepaid 2 orders 320.00 A2A0B2E 100% Cash on delivery 0 orders 0.00 A2A0B2E 0%",
+        "layout": {
+          "top": 237,
+          "left": 24,
+          "width": 379,
+          "height": 196
+        },
+        "neighbour": {
+          "top": 237,
+          "left": 411
+        },
+        "scrollHeight": 900
+      },
+      "layoutShift": false,
+      "textChanged": false
+    },
+    "state-reduced-motion": {
+      "rest": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "neutral",
+        "translate": "none",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)",
+        "border": "rgb(235, 235, 235)",
+        "shadow": "rgb(102, 102, 102) -3px 0px 0px 0px inset, rgba(0, 0, 0, 0) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.04) 0px 1px 2px 0px, rgba(0",
+        "outline": "none 3px",
+        "duration": "1e-05s",
+        "cursor": "pointer",
+        "text": "اليوم ⁦13 Oct 2026⁩ 0 طلب صالح لا مبيعات الطلبات 0 ملغاة 0 مرتجعة 0",
+        "layout": {
+          "top": 210,
+          "left": 952,
+          "width": 224,
+          "height": 261
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 720
+        },
+        "scrollHeight": 900
+      },
+      "hover": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "neutral",
+        "translate": "none",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.978984 -0.00173007 -0.00435379)",
+        "border": "rgb(222, 222, 222)",
+        "shadow": "rgb(102, 102, 102) -3px 0px 0px 0px inset, rgba(0, 0, 0, 0) 0px 1px 0px 0px inset, oklab(0.258644 -0.017636 -0.0623303 / 0.05) 0px 1px 2px 0px, oklab(0.258644 -",
+        "outline": "none 3px",
+        "duration": "1e-05s",
+        "cursor": "pointer",
+        "text": "اليوم ⁦13 Oct 2026⁩ 0 طلب صالح لا مبيعات الطلبات 0 ملغاة 0 مرتجعة 0",
+        "layout": {
+          "top": 210,
+          "left": 952,
+          "width": 224,
+          "height": 261
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 720
+        },
+        "scrollHeight": 900
+      },
+      "layoutShift": false,
+      "textChanged": false
+    },
+    "state-touch-375": {
+      "hoverNone": false,
+      "actionable": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "neutral",
+        "translate": "none",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)",
+        "border": "rgb(235, 235, 235)",
+        "shadow": "rgb(102, 102, 102) -3px 0px 0px 0px inset, rgba(0, 0, 0, 0) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.04) 0px 1px 2px 0px, rgba(0",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "pointer",
+        "text": "اليوم ⁦13 Oct 2026⁩ 0 طلب صالح لا مبيعات الطلبات 0 ملغاة 0 مرتجعة 0",
+        "layout": {
+          "top": 249,
+          "left": 16,
+          "width": 343,
+          "height": 143
+        },
+        "neighbour": {
+          "top": 400,
+          "left": 16
+        },
+        "scrollHeight": 1477
+      }
+    },
+    "long-amounts-375": {
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 343,
+        "height": 236,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    },
+    "long-amounts-1440": {
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": null,
+        "width": 224,
+        "height": 283,
+        "padding": "12px 14px",
+        "figure": "28px",
+        "title": "14px",
+        "backdrop": "blur(8px) saturate(1.15)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.86)"
+      }
+    }
+  }
+}

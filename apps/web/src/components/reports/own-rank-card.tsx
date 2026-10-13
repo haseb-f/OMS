@@ -15,6 +15,7 @@ export function OwnRankCard({
   position,
   of,
   population,
+  size = "default",
   className,
 }: {
   /** null = no order in the period (not ranked). */
@@ -22,6 +23,8 @@ export function OwnRankCard({
   /** Ranked employees in the population. */
   of: number;
   population: "company" | "agent";
+  /** R19 §C — `report` on the sales-report screens (the home dashboard keeps the default). */
+  size?: "default" | "report";
   className?: string;
 }) {
   const { t } = useLocale();
@@ -34,6 +37,7 @@ export function OwnRankCard({
         value={t("salesVisibility.notRanked")}
         phrase
         context={t("salesVisibility.notRankedHint", { of })}
+        size={size}
         className={className}
       />
     );
@@ -50,6 +54,7 @@ export function OwnRankCard({
       context={t(
         population === "agent" ? "salesVisibility.amongAgent" : "salesVisibility.amongCompany",
       )}
+      size={size}
       className={className}
     />
   );

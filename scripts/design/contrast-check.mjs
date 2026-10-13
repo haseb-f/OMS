@@ -290,6 +290,65 @@ const PAIRS = [
       ],
     ],
   ),
+  // R19 §C: the sales-report size — the stronger report tints on the more translucent report
+  // glass (composited over the canvas) AND on the opaque card (long lists, reduced
+  // transparency): figure at rest / hover, money lines, secondary text and title on the
+  // strongest (hover) tint, and the icon on the fuller chip.
+  ...["info", "success", "warning", "destructive", "revenue", "expense", "profit", "loss"].flatMap(
+    (t) =>
+      [
+        ["glass", "var(--insight-report-glass)"],
+        ["opaque", "var(--card)"],
+      ]
+        .flatMap(([surface, base]) => [
+          [
+            `report ${t} value (rest) on ${surface} tint`,
+            `color-mix(in oklab, var(--insight-${t}) 55%, var(--foreground))`,
+            `color-mix(in oklab, var(--insight-${t}) var(--insight-report-tint-top), ${base})`,
+            TEXT,
+          ],
+          [
+            `report ${t} value (hover) on ${surface} hover tint`,
+            `color-mix(in oklab, var(--insight-${t}) 72%, var(--foreground))`,
+            `color-mix(in oklab, var(--insight-${t}) var(--insight-report-tint-top-hover), ${base})`,
+            TEXT,
+          ],
+          [
+            `report ${t} money line on ${surface} hover tint`,
+            "var(--card-foreground)",
+            `color-mix(in oklab, var(--insight-${t}) var(--insight-report-tint-top-hover), ${base})`,
+            TEXT,
+          ],
+          [
+            `report ${t} muted on ${surface} hover tint`,
+            "var(--insight-muted)",
+            `color-mix(in oklab, var(--insight-${t}) var(--insight-report-tint-top-hover), ${base})`,
+            TEXT,
+          ],
+          [
+            `report ${t} title on ${surface} hover tint`,
+            "var(--insight-title)",
+            `color-mix(in oklab, var(--insight-${t}) var(--insight-report-tint-top-hover), ${base})`,
+            TEXT,
+          ],
+          [
+            `report ${t} edge (rest) on ${surface}`,
+            `color-mix(in oklab, var(--insight-${t}) var(--insight-report-tint-border), var(--card))`,
+            base,
+            1.3,
+          ],
+        ])
+        .concat([
+          [
+            `report ${t} icon on chip`,
+            `var(--insight-${t})`,
+            `color-mix(in oklab, var(--insight-${t}) var(--insight-report-icon-fill), var(--card))`,
+            UI,
+          ],
+        ]),
+  ),
+  ["report neutral title on glass", "var(--insight-title)", "var(--insight-report-glass)", TEXT],
+  ["report neutral muted on glass", "var(--muted-foreground)", "var(--insight-report-glass)", TEXT],
   ["tile neutral title on glass", "var(--insight-title)", "var(--insight-glass)", TEXT],
   ["tile neutral title on muted canvas", "var(--insight-title)", "var(--insight-glass)", TEXT, "var(--muted)"],
   ...["info", "success", "warning", "destructive"].flatMap((t) => [
