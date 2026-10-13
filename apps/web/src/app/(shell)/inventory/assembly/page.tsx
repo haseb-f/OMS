@@ -28,6 +28,7 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { StatusBadge } from "@/components/business/status-badge";
 import { AssemblyCreateDialog } from "@/components/inventory/assembly-create-dialog";
+import { AgentFilter } from "@/components/agents/agent-options";
 import {
   ASSEMBLY_PERMISSIONS,
   ASSEMBLY_STATUSES,
@@ -72,6 +73,8 @@ function AssemblyListPageContent() {
   const [pageSize, setPageSize] = usePathRestorableState("pageSize", 20);
   const [statusFilter, setStatusFilter] = usePathRestorableState("status", "");
   const [warehouseFilter, setWarehouseFilter] = usePathRestorableState("warehouse", "");
+  // R19 A — assemblies of one agent's consignment stock (filter shown to `agents.view` holders).
+  const [agentFilter, setAgentFilter] = usePathRestorableState("agent", "");
   const warehouses = useWarehouses();
   const [productFilter, setProductFilter] = useState<ProductRow[]>([]);
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE);
@@ -82,11 +85,12 @@ function AssemblyListPageContent() {
     () => ({
       productId: productFilter[0]?.id,
       warehouseId: warehouseFilter || undefined,
+      agentId: agentFilter || undefined,
       status: (statusFilter || undefined) as AssemblyStatus | undefined,
       from: dateRange.from ? toISODate(dateRange.from) : undefined,
       to: dateRange.to ? toISODate(dateRange.to) : undefined,
     }),
-    [productFilter, warehouseFilter, statusFilter, dateRange],
+    [productFilter, warehouseFilter, agentFilter, statusFilter, dateRange],
   );
 
   const load = useCallback(async () => {
@@ -230,6 +234,7 @@ function AssemblyListPageContent() {
   const hasFilters =
     productFilter.length > 0 ||
     !!warehouseFilter ||
+    !!agentFilter ||
     !!statusFilter ||
     !!dateRange.from ||
     !!dateRange.to;
@@ -268,6 +273,7 @@ function AssemblyListPageContent() {
                   pageSize: 20,
                   isInventoryItem: true,
                   supplyMethod: "ASSEMBLED" as const,
+                  ...(agentFilter ? { agentId: agentFilter } : {}),
                 };
                 const result = await cachedLookup(`products:${JSON.stringify(params)}`, () =>
                   productsService.catalog(params),
@@ -290,6 +296,14 @@ function AssemblyListPageContent() {
                 value: warehouse.id,
                 label: `${warehouse.code} — ${warehouse.name}`,
               }))}
+            />
+            <AgentFilter
+              value={agentFilter}
+              onChange={(value) => {
+                setAgentFilter(value);
+                setProductFilter([]);
+                setPage(1);
+              }}
             />
             <SelectFilter
               label={t("assembly.fields.status")}
@@ -316,6 +330,7 @@ function AssemblyListPageContent() {
         activeFilterCount={
           (productFilter.length > 0 ? 1 : 0) +
           (warehouseFilter ? 1 : 0) +
+          (agentFilter ? 1 : 0) +
           (statusFilter ? 1 : 0) +
           (dateRange.from || dateRange.to ? 1 : 0)
         }
@@ -324,6 +339,7 @@ function AssemblyListPageContent() {
             ? () => {
                 setProductFilter([]);
                 setWarehouseFilter("");
+                setAgentFilter("");
                 setStatusFilter("");
                 setDateRange(EMPTY_DATE_RANGE);
                 setPage(1);

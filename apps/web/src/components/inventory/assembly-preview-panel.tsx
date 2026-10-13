@@ -28,8 +28,10 @@ export type AssemblyPreviewState =
 /**
  * Live preview of an assembly (`GET /assembly/preview`): each component's need
  * vs what is available in the warehouse, the limiting component, the maximum
- * quantity possible now, the estimated cost (only when the API returns cost
- * figures) and the blockers — the same blockers `POST /assembly` enforces.
+ * quantity possible now, the finished quantity it receives, the estimated cost
+ * (only when the API returns cost figures — never for non-valued agent stock)
+ * and the blockers — the same blockers `POST /assembly` enforces. Units
+ * reserved for orders are shown under "available": an assembly never takes them.
  */
 export function AssemblyPreviewPanel({
   state,
@@ -75,8 +77,18 @@ export function AssemblyPreviewPanel({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-caption text-muted-foreground">
-          {preview.recipe ? t("assembly.versionLabel", { version: preview.recipe.version }) : null}
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-muted-foreground">
+          {preview.recipe ? (
+            <span>{t("assembly.versionLabel", { version: preview.recipe.version })}</span>
+          ) : null}
+          {preview.recipe ? (
+            <span>
+              {t("assembly.dialog.finishedQuantity")}:{" "}
+              <span dir="ltr" className="num font-semibold text-foreground">
+                {formatNumber(preview.finishedQuantity)}
+              </span>
+            </span>
+          ) : null}
         </span>
         <span className="flex flex-wrap items-center gap-2 text-caption text-muted-foreground">
           {t("assembly.dialog.maximum", { count: formatNumber(preview.maximumQuantity) })}
@@ -132,6 +144,14 @@ export function AssemblyPreviewPanel({
                   {line.shortage > 0 ? (
                     <span className="text-caption text-destructive">
                       {t("assembly.dialog.shortBy", { count: formatNumber(line.shortage) })}
+                    </span>
+                  ) : null}
+                  {line.reserved > 0 ? (
+                    <span className="text-caption text-muted-foreground">
+                      {t("assembly.dialog.reservedForOrders", {
+                        onHand: formatNumber(line.onHand),
+                        reserved: formatNumber(line.reserved),
+                      })}
                     </span>
                   ) : null}
                 </span>

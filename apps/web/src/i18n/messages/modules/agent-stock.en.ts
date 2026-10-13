@@ -78,11 +78,16 @@ const agentStockEn = {
       ADJUSTED: "Adjusted",
       WRITTEN_OFF: "Written off",
       TRANSFERRED: "Transferred",
+      ASSEMBLY_CONSUMED: "Used in assembly",
+      ASSEMBLED: "Assembled",
+      DISASSEMBLED: "Assembly reversed",
+      ASSEMBLY_RESTORED: "Returned from assembly",
     },
     document: {
       AGENT_STOCK_RECEIPT: "Receipt",
       STORE_ORDER: "Order",
       AGENT_RETURN: "Return",
+      ASSEMBLY_ORDER: "Assembly",
     },
   },
 } as const;

@@ -91,6 +91,11 @@ export class ListAssemblyQueryDto {
   @IsEnum(AssemblyStatus)
   status?: AssemblyStatus;
 
+  /** R19 A — only the assemblies of this agent's consignment stock. */
+  @IsOptional()
+  @IsUUID()
+  agentId?: string;
+
   /** Inclusive; a plain date covers the whole day. */
   @IsOptional()
   @IsDateString()

@@ -73,7 +73,10 @@ export function toRecipeView(recipe: LoadedRecipe): RecipeView {
     status: recipe.status,
     effectiveFrom: recipe.effectiveFrom,
     outputQuantity: recipe.outputQuantity.toString(),
-    directCostEstimate: recipe.directCostEstimate.toString(),
+    // R19 A — an agent-owned recipe is non-valued: no cost estimate exists.
+    directCostEstimate: recipe.product.ownerAgentId
+      ? null
+      : recipe.directCostEstimate.toString(),
     notes: recipe.notes,
     createdAt: recipe.createdAt,
     activatedAt: recipe.activatedAt,
@@ -496,6 +499,14 @@ export class RecipeManagementService {
       recipe.lines.map((line) => owned(line.componentProduct)),
     );
     if (mixed) throw unprocessable('RECIPE_OWNER_MIXED', mixed);
+    if (product.ownerAgentId && recipe.directCostEstimate.gt(0)) {
+      // R19 A — agent consignment stock is never valued; an assembly-service
+      // charge to the agent belongs to the agent agreement, not the recipe.
+      throw unprocessable(
+        'RECIPE_AGENT_DIRECT_COST',
+        `${label(product)} is agent-owned consignment stock — its recipe carries no direct cost estimate.`,
+      );
+    }
 
     // Throws RECIPE_UNIT_CONVERSION_MISSING, and for a kit RECIPE_KIT_FRACTIONAL.
     if (isKit) await this.recipes.resolveStockQuantities(tx, recipe, 1);

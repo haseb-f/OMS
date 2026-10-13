@@ -209,6 +209,8 @@ export interface RecipeCostEstimate {
   recipeId: string;
   version: number;
   isEstimate: true;
+  /** False for an agent-owned recipe (R19 A): consignment stock is never valued, every figure is null. */
+  valued?: boolean;
   lines: {
     componentProductId: string;
     name: string;

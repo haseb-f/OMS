@@ -39,6 +39,16 @@ describe('agentStockEvent (R18 B)', () => {
     expect(event(T.DAMAGE, -1)).toBe('WRITTEN_OFF');
   });
 
+  it('names both sides of a stocked assembly and of its reversal (R19 A)', () => {
+    const ref = 'ASSEMBLY_ORDER';
+    expect(event(T.PRODUCTION_CONSUMPTION, -200, ref)).toBe(
+      'ASSEMBLY_CONSUMED',
+    );
+    expect(event(T.PRODUCTION_OUTPUT, 100, ref)).toBe('ASSEMBLED');
+    expect(event(T.PRODUCTION_OUTPUT, -10, ref)).toBe('DISASSEMBLED');
+    expect(event(T.PRODUCTION_CONSUMPTION, 20, ref)).toBe('ASSEMBLY_RESTORED');
+  });
+
   it('reads both legs of a dispatch as DISPATCHED and the mirror as BACK_FROM_TRANSIT', () => {
     const transit = 'STORE_ORDER_TRANSIT';
     expect(event(T.TRANSFER, -3, transit, WarehouseRole.STOCK)).toBe(

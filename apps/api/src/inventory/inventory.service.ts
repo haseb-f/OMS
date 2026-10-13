@@ -1716,6 +1716,20 @@ export class InventoryService {
         `Not enough stock of ${product.sku} at ${warehouse.code} (on-hand ${quantityBefore}, needed ${-input.quantity}).`,
       );
     }
+    if (input.quantity < 0) {
+      // R19 A — consumption (and a reversal taking the finished units back
+      // out) may only take what no other document has reserved.
+      await this.assertUnreservedStock(tx, {
+        product,
+        warehouse,
+        onHand: quantityBefore,
+        quantity: -input.quantity,
+        operation:
+          input.type === 'PRODUCTION_CONSUMPTION'
+            ? 'Assembly consumption'
+            : 'Assembly reversal',
+      });
+    }
     const movement = await this.createMovement(tx, {
       movementNumber: await this.numberingEngine.generateNumber(
         'INVENTORY_MOVEMENT',

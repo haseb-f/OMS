@@ -27,6 +27,7 @@ export const RECIPE_ERROR_KEYS = {
   RECIPE_UNIT_CONVERSION_MISSING: "products.recipe.errors.RECIPE_UNIT_CONVERSION_MISSING",
   RECIPE_KIT_FRACTIONAL: "products.recipe.errors.RECIPE_KIT_FRACTIONAL",
   RECIPE_KIT_OUTPUT: "products.recipe.errors.RECIPE_KIT_OUTPUT",
+  RECIPE_AGENT_DIRECT_COST: "products.recipe.errors.RECIPE_AGENT_DIRECT_COST",
 } as const satisfies Record<string, MessageKey>;
 
 export type RecipeErrorCode = keyof typeof RECIPE_ERROR_KEYS;

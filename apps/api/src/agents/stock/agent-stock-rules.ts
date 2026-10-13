@@ -19,7 +19,12 @@ export type AgentStockEvent =
   | 'RETURNED'
   | 'ADJUSTED'
   | 'WRITTEN_OFF'
-  | 'TRANSFERRED';
+  | 'TRANSFERRED'
+  // R19 A — stocked assembly of the agent's goods (and its explicit reversal).
+  | 'ASSEMBLY_CONSUMED'
+  | 'ASSEMBLED'
+  | 'DISASSEMBLED'
+  | 'ASSEMBLY_RESTORED';
 
 export function agentStockEvent(movement: {
   type: InventoryMovementType;
@@ -43,6 +48,12 @@ export function agentStockEvent(movement: {
     case InventoryMovementType.DAMAGE:
     case InventoryMovementType.EXPIRED:
       return 'WRITTEN_OFF';
+    // A component leaves into a finished box (−) or comes back on a reversal (+);
+    // the box is received (+) or taken back apart on a reversal (−).
+    case InventoryMovementType.PRODUCTION_CONSUMPTION:
+      return movement.quantity < 0 ? 'ASSEMBLY_CONSUMED' : 'ASSEMBLY_RESTORED';
+    case InventoryMovementType.PRODUCTION_OUTPUT:
+      return movement.quantity > 0 ? 'ASSEMBLED' : 'DISASSEMBLED';
     case InventoryMovementType.TRANSFER: {
       if (movement.referenceType !== STORE_ORDER_TRANSIT_REFERENCE) {
         return 'TRANSFERRED';

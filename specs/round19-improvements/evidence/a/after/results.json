@@ -1,0 +1,96 @@
+{
+  "mode": "after",
+  "base": "http://localhost:4701",
+  "box": "PRD-2026-000019",
+  "receipt": "ASR-2026-00004",
+  "preview": {
+    "canAssemble": true,
+    "blockers": [],
+    "recipe": {
+      "id": "ccd806a5-2e56-430e-a731-7dc3c8dd9487",
+      "version": 1
+    },
+    "valued": false,
+    "finishedQuantity": 100,
+    "lines": [
+      {
+        "componentProductId": "d87d29de-8453-4173-bb27-14ab059c6607",
+        "name": "شوكولاتة فاخرة MV6J6KCQ",
+        "quantity": 200,
+        "onHand": 230,
+        "reserved": 0,
+        "available": 230,
+        "shortage": 0,
+        "unitCost": null,
+        "value": null
+      },
+      {
+        "componentProductId": "a68bf5ed-9c89-4ca4-bc99-a598a3f91998",
+        "name": "بطاقة إهداء MV6J6KCQ",
+        "quantity": 100,
+        "onHand": 110,
+        "reserved": 0,
+        "available": 110,
+        "shortage": 0,
+        "unitCost": null,
+        "value": null
+      }
+    ],
+    "componentCost": null,
+    "directCostEstimate": null,
+    "estimatedUnitCost": null,
+    "maximumQuantity": 110
+  },
+  "results": [
+    {
+      "name": "demo agent, warehouse and a product template found",
+      "ok": true,
+      "detail": "AG-0001 · WH-MAIN"
+    },
+    {
+      "name": "agent gift box + 2 components created (owner = agent)",
+      "ok": true,
+      "detail": "PRD-2026-000019"
+    },
+    {
+      "name": "components received on an agent stock receipt (no cost)",
+      "ok": true,
+      "detail": "ASR-2026-00004"
+    },
+    {
+      "name": "recipe 2 × A + 1 × B active",
+      "ok": true,
+      "detail": "v1"
+    },
+    {
+      "name": "API preview of 100 boxes (after)",
+      "ok": true,
+      "detail": "canAssemble=true blockers="
+    },
+    {
+      "name": "success confirmation shown",
+      "ok": true,
+      "detail": "ASM-2026-000002"
+    },
+    {
+      "name": "100 boxes assembled, non-valued",
+      "ok": true,
+      "detail": "ASM-2026-000002"
+    },
+    {
+      "name": "A −200, B −100, box +100",
+      "ok": true,
+      "detail": "30 / 10 / 100"
+    },
+    {
+      "name": "no journal entry created",
+      "ok": true,
+      "detail": "126 → 126"
+    },
+    {
+      "name": "agent page dialog lists the agent's gift box",
+      "ok": true,
+      "detail": "1 option(s)"
+    }
+  ]
+}

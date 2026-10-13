@@ -91,9 +91,13 @@ interface PlanLine {
   name: string;
   /** Whole stock units consumed for the requested quantity. */
   quantity: number;
+  onHand: number;
+  reserved: number;
+  /** `onHand − reserved` in the warehouse: what this assembly may take. */
   available: number;
-  unitCost: Prisma.Decimal;
-  value: Prisma.Decimal;
+  /** Moving average at consumption; `null` for non-valued (agent-owned) stock. */
+  unitCost: Prisma.Decimal | null;
+  value: Prisma.Decimal | null;
   recipeQuantity: Prisma.Decimal;
   unitId: string;
   quantityPerRun: Prisma.Decimal;
@@ -101,6 +105,8 @@ interface PlanLine {
 
 interface AssemblyPlan {
   blockers: AssemblyBlocker[];
+  /** False for agent-owned consignment stock: quantities only, never a cost (R19 A). */
+  valued: boolean;
   product: {
     id: string;
     sku: string;
@@ -124,7 +130,9 @@ export interface AssemblyOrderView {
   recipeSnapshot: Prisma.JsonValue;
   quantity: number;
   ownerAgentId: string | null;
-  /** Cost figures are `null` for a caller without cost visibility. */
+  /** False for agent-owned consignment stock (R19 A): no cost figure exists, every cost field is `null`. */
+  valued: boolean;
+  /** Cost figures are `null` for a caller without cost visibility, and always for non-valued stock. */
   componentCost: string | null;
   directCost: string | null;
   totalCost: string | null;
@@ -153,11 +161,21 @@ export interface AssemblyPreview {
   canAssemble: boolean;
   blockers: { code: string; message: string }[];
   recipe: { id: string; version: number } | null;
+  /** False for agent-owned consignment stock: no cost figure is ever returned. */
+  valued: boolean;
+  /** Finished units this assembly receives into the warehouse. */
+  finishedQuantity: number;
   lines: {
     componentProductId: string;
     name: string;
+    /** Required for the requested quantity (whole stock units). */
     quantity: number;
+    onHand: number;
+    /** Held for other documents (orders) — never consumed by an assembly. */
+    reserved: number;
     available: number;
+    /** `max(0, quantity − available)`. */
+    shortage: number;
     unitCost: string | null;
     value: string | null;
   }[];
@@ -183,6 +201,11 @@ const label = (item: { sku: string; name: string }) =>
  * and the journal (company stock only) is posted through the Posting Engine in
  * the same transaction. Stock movements go through `InventoryService` (locked,
  * non-negative, idempotent); costing through `InventoryValuationService`.
+ *
+ * R19 A — agent-owned consignment stock (finished product and every component
+ * owned by the same agent) is assembled the same way but NON-VALUED: no cost is
+ * required or read, the movements carry no unit cost, no moving average is
+ * written, nothing is posted, and every cost figure of the order is `null`.
  */
 @Injectable()
 export class AssemblyService {
@@ -205,11 +228,12 @@ export class AssemblyService {
     includeCosts: boolean,
   ): Promise<AssemblyPreview> {
     const plan = await this.buildPlan(this.prisma, query);
-    const show = (value: Prisma.Decimal) =>
-      includeCosts ? value.toString() : null;
+    const showCosts = includeCosts && plan.valued;
+    const show = (value: Prisma.Decimal | null) =>
+      showCosts && value ? value.toString() : null;
     const recipe = plan.recipe;
     const componentCost = plan.lines.reduce(
-      (sum, line) => sum.add(line.value),
+      (sum, line) => sum.add(line.value ?? 0),
       new Prisma.Decimal(0),
     );
     const directEstimate = recipe
@@ -223,11 +247,16 @@ export class AssemblyService {
       canAssemble: plan.blockers.length === 0,
       blockers: plan.blockers.map(({ code, message }) => ({ code, message })),
       recipe: recipe && { id: recipe.id, version: recipe.version },
+      valued: plan.valued,
+      finishedQuantity: query.quantity,
       lines: plan.lines.map((line) => ({
         componentProductId: line.componentProductId,
         name: line.name,
         quantity: line.quantity,
+        onHand: line.onHand,
+        reserved: line.reserved,
         available: line.available,
+        shortage: Math.max(0, line.quantity - line.available),
         unitCost: show(line.unitCost),
         value: show(line.value),
       })),
@@ -344,17 +373,22 @@ export class AssemblyService {
     await this.assertDirectCostAllowed(tx, directCost, ownerAgentId, userId);
 
     const orderId = randomUUID();
+    // Agent-owned consignment stock is NON-VALUED (R19 A): the order's cost
+    // columns (required) hold zero and are never shown as a value; the
+    // movements carry no unit cost and no moving average is touched.
     const cost = computeAssemblyCost({
       lines: plan.lines.map((line) => ({
         componentProductId: line.componentProductId,
         quantity: line.quantity,
-        unitCost: line.unitCost,
+        unitCost: plan.valued ? (line.unitCost ?? 0) : 0,
       })),
       directCost,
       quantity: dto.quantity,
     });
+    const movementCost = (value: Prisma.Decimal) =>
+      plan.valued ? value : undefined;
 
-    // 1. Consume the components at their current moving average.
+    // 1. Consume the components (company stock: at their current moving average).
     const consumptionIds = new Map<string, string>();
     for (const line of cost.lines) {
       const movement = await this.inventory.postProductionMovement(tx, {
@@ -365,7 +399,7 @@ export class AssemblyService {
         referenceType: REFERENCE_TYPE,
         referenceId: orderId,
         idempotencyKey: `${REFERENCE_TYPE}:${orderId}:${line.componentProductId}:PRODUCTION_CONSUMPTION`,
-        unitCost: line.unitCost,
+        unitCost: movementCost(line.unitCost),
         parentProductId: plan.product.id,
         recipeId: recipe.id,
         userId,
@@ -373,7 +407,7 @@ export class AssemblyService {
       consumptionIds.set(line.componentProductId, movement.id);
     }
 
-    // 2. Receive the finished item; the average blends the TOTAL value.
+    // 2. Receive the finished item; company stock: the average blends the TOTAL value.
     const onHandBefore = await this.valuation.getOnHandQuantity(
       tx,
       plan.product.id,
@@ -386,18 +420,20 @@ export class AssemblyService {
       referenceType: REFERENCE_TYPE,
       referenceId: orderId,
       idempotencyKey: `${REFERENCE_TYPE}:${orderId}:${plan.product.id}:PRODUCTION_OUTPUT`,
-      unitCost: cost.unitCost,
+      unitCost: movementCost(cost.unitCost),
       recipeId: recipe.id,
       userId,
     });
-    await this.valuation.applyAssemblyOutput(tx, {
-      productId: plan.product.id,
-      quantityReceived: dto.quantity,
-      totalValue: cost.totalCost,
-      referenceId: orderId,
-      onHandBefore,
-      userId,
-    });
+    if (plan.valued) {
+      await this.valuation.applyAssemblyOutput(tx, {
+        productId: plan.product.id,
+        quantityReceived: dto.quantity,
+        totalValue: cost.totalCost,
+        referenceId: orderId,
+        onHandBefore,
+        userId,
+      });
+    }
 
     // 3. Persist the order (snapshot of the recipe as resolved) …
     const assemblyNumber = await this.numbering.generateNumber(
@@ -439,7 +475,7 @@ export class AssemblyService {
     });
 
     // 4. … and post the journal (company stock only) in the same transaction.
-    if (!ownerAgentId) {
+    if (plan.valued) {
       await this.postingEngine.post(REFERENCE_TYPE, orderId, userId, tx);
     }
     await this.activities.log(
@@ -500,7 +536,9 @@ export class AssemblyService {
    * still be available in the warehouse (409 `ASSEMBLY_OUTPUT_CONSUMED`
    * otherwise); it is removed at its recorded value, each component returns at
    * the unit cost recorded on its order line, and the journal is reversed through
-   * the Posting Engine. Nothing is deleted.
+   * the Posting Engine. Nothing is deleted. "Available" is on hand − reserved:
+   * finished units reserved for an order, dispatched or sold block it. Agent
+   * stock: quantities only (no cost, no journal).
    */
   reverse(
     id: string,
@@ -534,13 +572,18 @@ export class AssemblyService {
         );
       }
 
+      // Agent-owned consignment stock is non-valued (R19 A): quantities go
+      // back, no cost is read, blended or posted.
+      const valued = !order.ownerAgentId;
       // The finished units leave at the CURRENT average (the rest keep their
       // cost); the movement records that average — the variance entry below
       // reads it back.
-      const removal = await this.valuation.applyAssemblyReversal(tx, {
-        productId: order.productId,
-        quantityRemoved: order.quantity,
-      });
+      const removal = valued
+        ? await this.valuation.applyAssemblyReversal(tx, {
+            productId: order.productId,
+            quantityRemoved: order.quantity,
+          })
+        : null;
       await this.inventory.postProductionMovement(tx, {
         type: 'PRODUCTION_OUTPUT',
         productId: order.productId,
@@ -549,7 +592,7 @@ export class AssemblyService {
         referenceType: REFERENCE_TYPE,
         referenceId: order.id,
         idempotencyKey: assemblyReversalOutputKey(order.id, order.productId),
-        unitCost: removal.unitCost,
+        unitCost: removal?.unitCost,
         recipeId: order.recipeId,
         notes: dto.reason,
         userId,
@@ -570,7 +613,7 @@ export class AssemblyService {
           referenceType: REFERENCE_TYPE,
           referenceId: order.id,
           idempotencyKey: `${REFERENCE_TYPE}:${order.id}:${line.componentProductId}:PRODUCTION_CONSUMPTION:REVERSAL`,
-          unitCost: line.unitCost,
+          unitCost: valued ? line.unitCost : undefined,
           parentProductId: order.productId,
           recipeId: order.recipeId,
           notes: dto.reason,
@@ -578,21 +621,23 @@ export class AssemblyService {
           // Components go back even if archived / deactivated since.
           allowInactiveProduct: true,
         });
-        await this.assemblyCost.returnComponentToAverage(tx, {
-          productId: line.componentProductId,
-          quantity: line.quantity,
-          unitCost: line.unitCost,
-          onHandBefore: componentOnHand,
-          referenceId: order.id,
-          userId,
-        });
+        if (valued) {
+          await this.assemblyCost.returnComponentToAverage(tx, {
+            productId: line.componentProductId,
+            quantity: line.quantity,
+            unitCost: line.unitCost,
+            onHandBefore: componentOnHand,
+            referenceId: order.id,
+            userId,
+          });
+        }
         await tx.assemblyOrderLine.update({
           where: { id: line.id },
           data: { reversalMovementId: movement.id },
         });
       }
 
-      if (!order.ownerAgentId) {
+      if (valued) {
         // Exact mirror of the assembly journal, then the gap between the
         // recorded total and what the sub-ledger relieved (average moved).
         await this.postingEngine.reverse(REFERENCE_TYPE, order.id, userId, tx);
@@ -638,6 +683,7 @@ export class AssemblyService {
       productId: query.productId,
       warehouseId: query.warehouseId,
       status: query.status,
+      ownerAgentId: query.agentId,
       createdAt: {
         gte: query.from ? new Date(query.from) : undefined,
         lte: query.to ? endOfRange(query.to) : undefined,
@@ -702,8 +748,10 @@ export class AssemblyService {
       throw notFound('WAREHOUSE_NOT_FOUND', 'The warehouse does not exist.');
     }
     const blockers: AssemblyBlocker[] = [];
+    const valued = !product.ownerAgentId;
     const plan = (recipe: LoadedRecipe | null, lines: PlanLine[]) => ({
       blockers,
+      valued,
       product,
       recipe,
       lines,
@@ -775,24 +823,33 @@ export class AssemblyService {
       resolved.map((line) => line.componentProductId),
       input.warehouseId,
     );
-    const recordedCosts = await this.valuation.getRecordedUnitCosts(
-      client,
-      resolved.map((line) => line.componentProductId),
-    );
+    // Agent-owned consignment stock never has (nor needs) a cost (R19 A).
+    const recordedCosts = valued
+      ? await this.valuation.getRecordedUnitCosts(
+          client,
+          resolved.map((line) => line.componentProductId),
+        )
+      : null;
     const lines: PlanLine[] = [];
     const uncosted: typeof resolved = [];
     for (const line of resolved) {
-      const recorded = recordedCosts.get(line.componentProductId) ?? null;
-      if (recorded === null) uncosted.push(line);
-      const unitCost = recorded ?? new Prisma.Decimal(0);
+      let unitCost: Prisma.Decimal | null = null;
+      if (recordedCosts) {
+        const recorded = recordedCosts.get(line.componentProductId) ?? null;
+        if (recorded === null) uncosted.push(line);
+        unitCost = recorded ?? new Prisma.Decimal(0);
+      }
+      const level = stock.get(line.componentProductId);
       lines.push({
         componentProductId: line.componentProductId,
         sku: line.sku,
         name: line.name,
         quantity: line.quantity,
-        available: stock.get(line.componentProductId)?.available ?? 0,
+        onHand: level?.onHand ?? 0,
+        reserved: level?.reserved ?? 0,
+        available: level?.available ?? 0,
         unitCost,
-        value: round2(unitCost.mul(line.quantity)),
+        value: unitCost && round2(unitCost.mul(line.quantity)),
         recipeQuantity: line.recipeQuantity,
         unitId: line.unitId,
         quantityPerRun: line.quantityPerRun,
@@ -973,8 +1030,9 @@ export function toView(
   order: LoadedOrder,
   includeCosts: boolean,
 ): AssemblyOrderView {
+  const valued = !order.ownerAgentId;
   const show = (value: Prisma.Decimal) =>
-    includeCosts ? value.toString() : null;
+    includeCosts && valued ? value.toString() : null;
   return {
     id: order.id,
     assemblyNumber: order.assemblyNumber,
@@ -985,11 +1043,13 @@ export function toView(
     warehouse: order.warehouse,
     recipeId: order.recipeId,
     recipeVersion: order.recipeVersion,
-    recipeSnapshot: includeCosts
-      ? order.recipeSnapshot
-      : withoutDirectCostEstimate(order.recipeSnapshot),
+    recipeSnapshot:
+      includeCosts && valued
+        ? order.recipeSnapshot
+        : withoutDirectCostEstimate(order.recipeSnapshot),
     quantity: order.quantity,
     ownerAgentId: order.ownerAgentId,
+    valued,
     componentCost: show(order.componentCost),
     directCost: show(order.directCost),
     totalCost: show(order.totalCost),

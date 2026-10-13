@@ -15,6 +15,7 @@ import {
   type AgentStockMovement,
 } from "@/services/agent-stock-service";
 import { agentStockReceiptHref } from "@/config/traceability/record-routes";
+import { assemblyHref } from "@/config/inventory/assembly";
 import { localizedName } from "@/lib/localized-name";
 import { formatBusinessDateTime } from "@/lib/business-date";
 import { formatNumber } from "@/lib/format-number";
@@ -29,25 +30,31 @@ const EVENT_TONE: Partial<Record<AgentStockEvent, StatusTone>> = {
   DELIVERED: "info",
   DISPATCHED: "info",
   WRITTEN_OFF: "destructive",
+  ASSEMBLED: "success",
+  ASSEMBLY_CONSUMED: "info",
+  DISASSEMBLED: "warning",
 };
 
 /**
  * Where a source document opens for this audience: the internal agent page
  * links orders to Store Orders, the agent portal to its own order page; a
- * receipt opens on the receipts page only internally.
+ * receipt and an assembly order (R19 A) open only internally.
  */
 export interface AgentStockDocumentLinks {
   order: (storeOrderId: string) => string;
   receipt?: (receiptId: string) => string;
+  assembly?: (assemblyOrderId: string) => string;
 }
 
 export const INTERNAL_DOCUMENT_LINKS: AgentStockDocumentLinks = {
   order: (id) => `/store-orders/${id}`,
   receipt: agentStockReceiptHref,
+  assembly: assemblyHref,
 };
 
 export function documentHref(document: AgentStockDocument, links: AgentStockDocumentLinks) {
   if (document.kind === "AGENT_STOCK_RECEIPT") return links.receipt?.(document.id) ?? null;
+  if (document.kind === "ASSEMBLY_ORDER") return links.assembly?.(document.id) ?? null;
   if (document.kind === "AGENT_RETURN") return links.order(document.storeOrderId);
   return links.order(document.id);
 }
@@ -62,6 +69,7 @@ function DocumentCell({
   const { t } = useLocale();
   if (!document) return <span className="text-muted-foreground">—</span>;
   const href = documentHref(document, links);
+  const kindLabel = t(`agentStock.history.document.${document.kind}` as MessageKey);
   const number = <SemanticValue kind="id">{document.number}</SemanticValue>;
   return (
     <StackedCell
@@ -74,7 +82,11 @@ function DocumentCell({
           number
         )
       }
-      secondary={t(`agentStock.history.document.${document.kind}` as MessageKey)}
+      secondary={
+        document.kind === "ASSEMBLY_ORDER"
+          ? `${kindLabel} · ${t("assembly.versionLabel", { version: document.recipeVersion })}`
+          : kindLabel
+      }
     />
   );
 }
@@ -167,7 +179,8 @@ function buildColumns(
 
 /**
  * R18 B — an agent's stock movement history (receipts, reservations,
- * dispatch / back from transit, delivery, returns), each row linked to its
+ * dispatch / back from transit, delivery, returns; R19 A: assembly of
+ * components into finished boxes and its reversal), each row linked to its
  * document. One component for the internal agent page and the agent portal;
  * `load` is the audience's own endpoint (the portal one is scoped server-side
  * to the caller's agent).

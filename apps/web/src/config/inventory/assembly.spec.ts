@@ -19,6 +19,8 @@ function preview(overrides: Partial<AssemblyPreview> = {}): AssemblyPreview {
     canAssemble: true,
     blockers: [],
     recipe: { id: "r-1", version: 3 },
+    valued: true,
+    finishedQuantity: 1,
     lines: [],
     componentCost: null,
     directCostEstimate: null,
@@ -28,11 +30,14 @@ function preview(overrides: Partial<AssemblyPreview> = {}): AssemblyPreview {
   };
 }
 
-const line = (id: string, quantity: number, available: number) => ({
+const line = (id: string, quantity: number, available: number, reserved = 0) => ({
   componentProductId: id,
   name: id,
   quantity,
+  onHand: available + reserved,
+  reserved,
   available,
+  shortage: Math.max(0, quantity - available),
   unitCost: null,
   value: null,
 });
@@ -57,6 +62,21 @@ describe("summarizeAssemblyPreview", () => {
       ["B", 4],
     ]);
     expect(summary.limiting?.componentProductId).toBe("B");
+  });
+
+  it("R19 A: carries on hand and reserved so a shortage caused by reservations is explained", () => {
+    // 200 needed, 230 on hand of which 40 reserved for orders: 190 available, short 10.
+    const summary = summarizeAssemblyPreview(
+      preview({ valued: false, finishedQuantity: 100, lines: [line("A", 200, 190, 40)] }),
+    );
+    expect(summary.lines[0]).toMatchObject({
+      needed: 200,
+      onHand: 230,
+      reserved: 40,
+      available: 190,
+      shortage: 10,
+      unitCost: null,
+    });
   });
 
   it("keeps the first line on a tie and has no limiting component without lines", () => {

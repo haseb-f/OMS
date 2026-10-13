@@ -27,6 +27,7 @@ const assemblyEn = {
     value: "Value",
     movement: "Movement",
     owner: "Owner",
+    agentOwned: "Agent-owned",
     reversedAt: "Reversed on",
     reversedBy: "Reversed by",
     reversalReason: "Reversal reason",
@@ -64,7 +65,11 @@ const assemblyEn = {
     estimateNote:
       "Estimated from the components' current average cost; the actual cost is fixed when the assembly is posted.",
     agentOwnedNote:
-      "Agent-owned stock: only movements and the cost snapshot are recorded — nothing is posted to the company ledger.",
+      "Agent-owned consignment stock: quantities only — no cost, no valuation and nothing posted to the company ledger.",
+    ownerCompany: "Company stock",
+    ownerHint: "An agent's boxes are assembled only from the same agent's components.",
+    finishedQuantity: "Finished quantity to receive",
+    reservedForOrders: "On hand {onHand} · {reserved} reserved for orders",
   },
   success: {
     created: "Assembly {number} posted",
@@ -81,7 +86,9 @@ const assemblyEn = {
     outputMovement: "Finished item receipt",
     reversal: "Reversal",
     costHidden: "Cost figures are not visible with your permissions.",
-    agentOwnedNote: "Agent-owned stock: no journal was posted to the company ledger.",
+    agentOwnedNote:
+      "Agent-owned consignment stock: quantities only — nothing was valued or posted to the company ledger.",
+    notValued: "Not valued — agent-owned consignment stock (quantities only).",
     viewMovements: "View movements",
   },
   reverse: {
@@ -89,6 +96,8 @@ const assemblyEn = {
     title: "Reverse assembly {number}?",
     description:
       "The finished item leaves stock at its recorded cost, every component returns at the unit cost recorded on this order, and the journal entry is reversed. Nothing is deleted.",
+    descriptionAgent:
+      "The finished boxes leave stock and every component returns to the agent's stock. Quantities only — nothing is valued or posted. Nothing is deleted.",
     condition:
       "Only possible while the finished quantity ({quantity}) is still available in {warehouse}.",
     reasonLabel: "Reason (required)",

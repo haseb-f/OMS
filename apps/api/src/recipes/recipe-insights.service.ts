@@ -18,6 +18,8 @@ export interface RecipeCostEstimate {
   recipeId: string;
   version: number;
   isEstimate: true;
+  /** False for an agent-owned recipe (R19 A): consignment stock is never valued, every figure is `null`. */
+  valued: boolean;
   lines: {
     componentProductId: string;
     name: string;
@@ -95,13 +97,15 @@ export class RecipeInsightsService {
       new Prisma.Decimal(0),
     );
     const totalEstimate = componentsEstimate.add(recipe.directCostEstimate);
+    const valued = !recipe.product.ownerAgentId;
     const show = (value: Prisma.Decimal) =>
-      options.includeCosts ? value.toString() : null;
+      options.includeCosts && valued ? value.toString() : null;
 
     return {
       recipeId: recipe.id,
       version: recipe.version,
       isEstimate: true,
+      valued,
       lines: lines.map((line) => ({
         componentProductId: line.componentProductId,
         name: line.name,

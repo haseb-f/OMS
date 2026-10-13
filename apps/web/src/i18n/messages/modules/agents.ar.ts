@@ -321,6 +321,7 @@ const agentsAr = {
     returned: "المرتجع",
     noWarehouse: "لا مخزون بعد",
     receive: "استلام مخزون",
+    assemble: "تجميع علب",
     receiveDescription:
       "بضاعة الوكيل في عهدتنا — كميات فعلية فقط، ولا تدخل أبدًا في قيمة مخزون الشركة.",
     receipts: "سندات الاستلام",

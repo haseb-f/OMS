@@ -21,6 +21,7 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { CompactDetailTable } from "@/components/shared/data-table/compact-detail-table";
 import { RelatedRecordsButton } from "@/components/shared/related-records-panel";
 import { StatusBadge } from "@/components/business/status-badge";
+import { agentOptionLabel, useAgentOptions } from "@/components/agents/agent-options";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -62,6 +63,7 @@ function AssemblyDetailContent() {
   const canReverse = hasPermission(ASSEMBLY_PERMISSIONS.reverse);
   const canOpenProduct = hasPermission("products.view");
   const users = useUsersLookup();
+  const { agents } = useAgentOptions();
   const reasonId = useId();
 
   const [order, setOrder] = useState<AssemblyOrder | null>(null);
@@ -141,7 +143,11 @@ function AssemblyDetailContent() {
     );
   }
 
-  const showCost = order.totalCost !== null;
+  // R19 A — agent consignment stock is never valued: no cost columns, an explicit note instead.
+  const showCost = order.valued && order.totalCost !== null;
+  const ownerAgent = order.ownerAgentId
+    ? agents.find((row) => row.id === order.ownerAgentId)
+    : undefined;
   const movementsHref = `/inventory/movements?referenceId=${order.id}`;
   const productLabel = `${order.product.sku} ${order.product.name}`;
 
@@ -190,6 +196,20 @@ function AssemblyDetailContent() {
         <DetailField
           label={t("assembly.fields.warehouse")}
           value={`${order.warehouse.code} — ${order.warehouse.name}`}
+        />
+        <DetailField
+          label={t("assembly.fields.owner")}
+          value={
+            !order.ownerAgentId ? (
+              t("assembly.dialog.ownerCompany")
+            ) : ownerAgent ? (
+              <Link href={`/agents/${ownerAgent.id}`} className="text-primary hover:underline">
+                {agentOptionLabel(ownerAgent)}
+              </Link>
+            ) : (
+              t("assembly.fields.agentOwned")
+            )
+          }
         />
         <DetailField
           label={t("assembly.fields.quantity")}
@@ -321,7 +341,9 @@ function AssemblyDetailContent() {
             />
           </DetailSummaryBar>
         ) : (
-          <p className="text-caption text-muted-foreground">{t("assembly.detail.costHidden")}</p>
+          <p className="text-caption text-muted-foreground">
+            {t(order.valued ? "assembly.detail.costHidden" : "assembly.detail.notValued")}
+          </p>
         )}
         {order.outputMovementId ? (
           <div className="flex flex-wrap items-center gap-2 text-caption text-muted-foreground">
@@ -369,7 +391,9 @@ function AssemblyDetailContent() {
         onOpenChange={(open) => (open ? setReverseOpen(true) : closeReverse())}
         tone="destructive"
         title={t("assembly.reverse.title", { number: order.assemblyNumber })}
-        description={t("assembly.reverse.description")}
+        description={t(
+          order.valued ? "assembly.reverse.description" : "assembly.reverse.descriptionAgent",
+        )}
         extra={
           <div className="flex flex-col gap-2">
             <p className="text-caption text-muted-foreground">

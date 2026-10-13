@@ -2703,6 +2703,8 @@ const en = {
           "No unit conversion is defined between a component's recipe unit and its stock unit. Add it in Unit conversions.",
         RECIPE_KIT_FRACTIONAL: "A kit line must convert to a whole number of stock units.",
         RECIPE_KIT_OUTPUT: "A kit's output is always 1.",
+        RECIPE_AGENT_DIRECT_COST:
+          "An agent-owned product is consignment stock and is never valued — clear the direct cost estimate.",
       },
       estimate: {
         title: "Cost estimate",

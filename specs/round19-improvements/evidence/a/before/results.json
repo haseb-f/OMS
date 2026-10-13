@@ -1,0 +1,68 @@
+{
+  "mode": "before",
+  "base": "http://localhost:4701",
+  "box": "PRD-2026-000013",
+  "receipt": "ASR-2026-00002",
+  "preview": {
+    "canAssemble": false,
+    "blockers": [
+      {
+        "code": "ASSEMBLY_COMPONENT_COST_MISSING",
+        "message": "No cost is recorded for PRD-2026-000011 شوكولاتة فاخرة MV6I9UE6, PRD-2026-000012 بطاقة إهداء MV6I9UE6 — record a product cost or an opening balance with a cost before assembling; components are never consumed at a silent zero."
+      }
+    ],
+    "recipe": {
+      "id": "63fb6af6-d1c1-4672-8d55-c7e87a4518de",
+      "version": 1
+    },
+    "lines": [
+      {
+        "componentProductId": "d037f067-6a73-48af-b402-5cd03149a4a4",
+        "name": "شوكولاتة فاخرة MV6I9UE6",
+        "quantity": 200,
+        "available": 230,
+        "unitCost": "0",
+        "value": "0"
+      },
+      {
+        "componentProductId": "7449272c-7c89-442f-b6ce-e22229ee742f",
+        "name": "بطاقة إهداء MV6I9UE6",
+        "quantity": 100,
+        "available": 110,
+        "unitCost": "0",
+        "value": "0"
+      }
+    ],
+    "componentCost": "0",
+    "directCostEstimate": "0",
+    "estimatedUnitCost": "0",
+    "maximumQuantity": 110
+  },
+  "results": [
+    {
+      "name": "demo agent, warehouse and a product template found",
+      "ok": true,
+      "detail": "AG-0001 · WH-MAIN"
+    },
+    {
+      "name": "agent gift box + 2 components created (owner = agent)",
+      "ok": true,
+      "detail": "PRD-2026-000013"
+    },
+    {
+      "name": "components received on an agent stock receipt (no cost)",
+      "ok": true,
+      "detail": "ASR-2026-00002"
+    },
+    {
+      "name": "recipe 2 × A + 1 × B active",
+      "ok": true,
+      "detail": "v1"
+    },
+    {
+      "name": "API preview of 100 boxes (before)",
+      "ok": true,
+      "detail": "canAssemble=false blockers=ASSEMBLY_COMPONENT_COST_MISSING"
+    }
+  ]
+}
