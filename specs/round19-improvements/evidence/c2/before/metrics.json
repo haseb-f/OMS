@@ -1,0 +1,1333 @@
+{
+  "at": "2026-10-13T11:52:32.784Z",
+  "base": "http://localhost:4721",
+  "metrics": {
+    "company-live-ar-light-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 221,
+        "height": 340,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-employees-ar-light-1440": {
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 279,
+        "height": 219,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "none",
+        "background": "rgb(255, 255, 255)"
+      }
+    },
+    "company-teams-ar-light-1440": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 376,
+        "height": 256,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "none",
+        "background": "rgb(255, 255, 255)"
+      }
+    },
+    "company-comparison-ar-light-1440": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "company-paymentMix-ar-light-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 376,
+        "height": 245,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-own-live-ar-light-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 221,
+        "height": 236,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-own-own-ar-light-1440": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 279,
+        "height": 184,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-own-paymentMix-ar-light-1440": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 376,
+        "height": 245,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "agent-live-ar-light-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 221,
+        "height": 236,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "agent-employees-ar-light-1440": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 279,
+        "height": 184,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "none",
+        "background": "rgb(255, 255, 255)"
+      }
+    },
+    "agent-comparison-ar-light-1440": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "agent-paymentMix-ar-light-1440": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 376,
+        "height": 245,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-live-en-light-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 221,
+        "height": 340,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-employees-en-light-1440": {
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 279,
+        "height": 244,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "none",
+        "background": "rgb(255, 255, 255)"
+      }
+    },
+    "company-teams-en-light-1440": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 376,
+        "height": 256,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "none",
+        "background": "rgb(255, 255, 255)"
+      }
+    },
+    "company-comparison-en-light-1440": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "company-paymentMix-en-light-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 376,
+        "height": 245,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-own-live-en-light-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 221,
+        "height": 236,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-own-own-en-light-1440": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 279,
+        "height": 209,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-own-paymentMix-en-light-1440": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 376,
+        "height": 266,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "agent-live-en-light-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 221,
+        "height": 236,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "agent-employees-en-light-1440": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 279,
+        "height": 209,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "none",
+        "background": "rgb(255, 255, 255)"
+      }
+    },
+    "agent-comparison-en-light-1440": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "agent-paymentMix-en-light-1440": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 376,
+        "height": 245,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-live-ar-dark-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 221,
+        "height": 340,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.74)"
+      }
+    },
+    "company-employees-ar-dark-1440": {
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 279,
+        "height": 219,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "none",
+        "background": "rgb(17, 17, 17)"
+      }
+    },
+    "company-teams-ar-dark-1440": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 376,
+        "height": 256,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "none",
+        "background": "rgb(17, 17, 17)"
+      }
+    },
+    "company-comparison-ar-dark-1440": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "company-paymentMix-ar-dark-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 376,
+        "height": 245,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.74)"
+      }
+    },
+    "agent-live-ar-dark-1440": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 221,
+        "height": 236,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.74)"
+      }
+    },
+    "agent-employees-ar-dark-1440": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 279,
+        "height": 184,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "none",
+        "background": "rgb(17, 17, 17)"
+      }
+    },
+    "agent-comparison-ar-dark-1440": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "agent-paymentMix-ar-dark-1440": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 376,
+        "height": 245,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.74)"
+      }
+    },
+    "company-live-ar-light-375": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 184,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-employees-ar-light-375": {
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 184,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "none",
+        "background": "rgb(255, 255, 255)"
+      }
+    },
+    "company-teams-ar-light-375": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 256,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "none",
+        "background": "rgb(255, 255, 255)"
+      }
+    },
+    "company-comparison-ar-light-375": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "company-paymentMix-ar-light-375": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 245,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-own-live-ar-light-375": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 184,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-own-own-ar-light-375": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 184,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-own-paymentMix-ar-light-375": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 266,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "agent-live-ar-light-375": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 184,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "agent-employees-ar-light-375": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 184,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "none",
+        "background": "rgb(255, 255, 255)"
+      }
+    },
+    "agent-comparison-ar-light-375": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "agent-paymentMix-ar-light-375": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 245,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-live-en-light-375": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 184,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-employees-en-light-375": {
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 184,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "none",
+        "background": "rgb(255, 255, 255)"
+      }
+    },
+    "company-teams-en-light-375": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 256,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "none",
+        "background": "rgb(255, 255, 255)"
+      }
+    },
+    "company-comparison-en-light-375": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "company-paymentMix-en-light-375": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 266,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-own-live-en-light-375": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 184,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-own-own-en-light-375": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 184,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "company-own-paymentMix-en-light-375": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 266,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "agent-live-en-light-375": {
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 184,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "agent-employees-en-light-375": {
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 184,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "none",
+        "background": "rgb(255, 255, 255)"
+      }
+    },
+    "agent-comparison-en-light-375": {
+      "cards": 0,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": null
+    },
+    "agent-paymentMix-en-light-375": {
+      "cards": 1,
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 266,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "state-live-ar-light": {
+      "rest": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "revenue",
+        "translate": "none",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)",
+        "border": "oklab(0.687994 -0.0246106 -0.0676408)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px, rgba(0",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "pointer",
+        "text": "أمس ⁦12 Oct 2026⁩ 2 طلب صالح 2,320.00 EGP الطلبات 2 ملغاة 0 مرتجعة 0",
+        "layout": {
+          "top": 210,
+          "left": 722,
+          "width": 221,
+          "height": 340
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 490
+        },
+        "scrollHeight": 900
+      },
+      "hover": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "revenue",
+        "translate": "0px -3px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)",
+        "border": "oklab(0.573594 -0.0336512 -0.0924498)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, oklab(0.479994 -0.041048 -0.112748 / 0.7) 0px 14px 28px -14px, rgba(0, 0, 0, ",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "pointer",
+        "text": "أمس ⁦12 Oct 2026⁩ 2 طلب صالح 2,320.00 EGP الطلبات 2 ملغاة 0 مرتجعة 0",
+        "layout": {
+          "top": 210,
+          "left": 722,
+          "width": 221,
+          "height": 340
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 490
+        },
+        "scrollHeight": 900
+      },
+      "layoutShift": false,
+      "textChanged": false,
+      "focus": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "revenue",
+        "translate": "0px -3px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)",
+        "border": "oklab(0.573594 -0.0336512 -0.0924498)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, oklab(0.479994 -0.041048 -0.112748 / 0.7) 0px 14px 28px -14px, rgba(0, 0, 0, ",
+        "outline": "solid 2px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "pointer",
+        "text": "أمس ⁦12 Oct 2026⁩ 2 طلب صالح 2,320.00 EGP الطلبات 2 ملغاة 0 مرتجعة 0",
+        "layout": {
+          "top": 210,
+          "left": 722,
+          "width": 221,
+          "height": 340
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 490
+        },
+        "scrollHeight": 900
+      }
+    },
+    "state-employee-ar-light": {
+      "rest": {
+        "tag": "DIV",
+        "interactive": false,
+        "tone": "info",
+        "translate": "none",
+        "backdrop": "none",
+        "background": "rgb(255, 255, 255)",
+        "border": "oklab(0.698099 -0.0240834 -0.101431)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "default",
+        "text": "منى عادل #1 23 طلب صالح 17,060.00 EGP الطلبات 23 ملغاة 0 مرتجعة 1",
+        "layout": {
+          "top": 210,
+          "left": 897,
+          "width": 279,
+          "height": 219
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 606
+        },
+        "scrollHeight": 1239
+      },
+      "hover": {
+        "tag": "DIV",
+        "interactive": false,
+        "tone": "info",
+        "translate": "0px -2px",
+        "backdrop": "none",
+        "background": "rgb(255, 255, 255)",
+        "border": "oklab(0.627656 -0.0297135 -0.125103)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.05) 0px 2px 4px 0px, rgba(0, 0, 0, 0.3) 0px 12px 24px -14px, ",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "default",
+        "text": "منى عادل #1 23 طلب صالح 17,060.00 EGP الطلبات 23 ملغاة 0 مرتجعة 1",
+        "layout": {
+          "top": 210,
+          "left": 897,
+          "width": 279,
+          "height": 219
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 606
+        },
+        "scrollHeight": 1239
+      },
+      "layoutShift": false,
+      "textChanged": false
+    },
+    "state-payment-ar-light": {
+      "rest": {
+        "tag": "DIV",
+        "interactive": false,
+        "tone": "revenue",
+        "translate": "none",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)",
+        "border": "oklab(0.687994 -0.0246106 -0.0676408)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "default",
+        "text": "A2A0B2E 2 طلب صالح 320.00 A2A0B2E دفع مسبق 2 طلب 320.00 A2A0B2E 100٪ الدفع عند الاستلام 0 طلب 0.00 A2A0B2E 0٪",
+        "layout": {
+          "top": 237,
+          "left": 800,
+          "width": 376,
+          "height": 245
+        },
+        "neighbour": {
+          "top": 237,
+          "left": 412
+        },
+        "scrollHeight": 900
+      },
+      "hover": {
+        "tag": "DIV",
+        "interactive": false,
+        "tone": "revenue",
+        "translate": "0px -2px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)",
+        "border": "oklab(0.615194 -0.0303637 -0.0834284)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.05) 0px 2px 4px 0px, rgba(0, 0, 0, 0.3) 0px 12px 24px -14px, ",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "default",
+        "text": "A2A0B2E 2 طلب صالح 320.00 A2A0B2E دفع مسبق 2 طلب 320.00 A2A0B2E 100٪ الدفع عند الاستلام 0 طلب 0.00 A2A0B2E 0٪",
+        "layout": {
+          "top": 237,
+          "left": 800,
+          "width": 376,
+          "height": 245
+        },
+        "neighbour": {
+          "top": 237,
+          "left": 412
+        },
+        "scrollHeight": 900
+      },
+      "layoutShift": false,
+      "textChanged": false
+    },
+    "state-live-en-dark": {
+      "rest": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "revenue",
+        "translate": "none",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.74)",
+        "border": "oklab(0.551098 -0.0212066 -0.0582459)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.1) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.04) 0px 0px 0px 1px, r",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "pointer",
+        "text": "Yesterday ⁦12 Oct 2026⁩ 2 valid orders 2,320.00 EGP Orders 2 Cancelled 0 Returned 0",
+        "layout": {
+          "top": 210,
+          "left": 257,
+          "width": 221,
+          "height": 340
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 490
+        },
+        "scrollHeight": 900
+      },
+      "hover": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "revenue",
+        "translate": "0px -3px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.74)",
+        "border": "oklab(0.683617 -0.0287344 -0.078915)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.1) 0px 1px 0px 0px inset, oklab(0.779994 -0.0342092 -0.0939471 / 0.7) 0px 14px 30px -12px, rgba(255, 255",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "pointer",
+        "text": "Yesterday ⁦12 Oct 2026⁩ 2 valid orders 2,320.00 EGP Orders 2 Cancelled 0 Returned 0",
+        "layout": {
+          "top": 210,
+          "left": 257,
+          "width": 221,
+          "height": 340
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 490
+        },
+        "scrollHeight": 900
+      },
+      "layoutShift": false,
+      "textChanged": false,
+      "focus": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "revenue",
+        "translate": "0px -3px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.74)",
+        "border": "oklab(0.683617 -0.0287344 -0.078915)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.1) 0px 1px 0px 0px inset, oklab(0.779994 -0.0342092 -0.0939471 / 0.7) 0px 14px 30px -12px, rgba(255, 255",
+        "outline": "solid 2px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "pointer",
+        "text": "Yesterday ⁦12 Oct 2026⁩ 2 valid orders 2,320.00 EGP Orders 2 Cancelled 0 Returned 0",
+        "layout": {
+          "top": 210,
+          "left": 257,
+          "width": 221,
+          "height": 340
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 490
+        },
+        "scrollHeight": 900
+      }
+    },
+    "state-employee-en-dark": {
+      "rest": {
+        "tag": "DIV",
+        "interactive": false,
+        "tone": "info",
+        "translate": "none",
+        "backdrop": "none",
+        "background": "rgb(17, 17, 17)",
+        "border": "oklab(0.537518 -0.0279264 -0.0750751)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.1) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.03) 0px 0px 0px 1px",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "default",
+        "text": "منى عادل #1 23 valid orders 17,060.00 EGP Orders 23 Cancelled 0 Returned 1",
+        "layout": {
+          "top": 210,
+          "left": 24,
+          "width": 279,
+          "height": 244
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 315
+        },
+        "scrollHeight": 1334
+      },
+      "hover": {
+        "tag": "DIV",
+        "interactive": false,
+        "tone": "info",
+        "translate": "0px -2px",
+        "backdrop": "none",
+        "background": "rgb(17, 17, 17)",
+        "border": "oklab(0.618782 -0.0342342 -0.0920283)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.1) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.7) 0px 12px 24px -1",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "default",
+        "text": "منى عادل #1 23 valid orders 17,060.00 EGP Orders 23 Cancelled 0 Returned 1",
+        "layout": {
+          "top": 210,
+          "left": 24,
+          "width": 279,
+          "height": 244
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 315
+        },
+        "scrollHeight": 1334
+      },
+      "layoutShift": false,
+      "textChanged": false
+    },
+    "state-payment-en-dark": {
+      "rest": {
+        "tag": "DIV",
+        "interactive": false,
+        "tone": "revenue",
+        "translate": "none",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.74)",
+        "border": "oklab(0.551098 -0.0212066 -0.0582459)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.1) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.03) 0px 0px 0px 1px",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "default",
+        "text": "A2A0B2E 2 valid orders 320.00 A2A0B2E Prepaid 2 orders 320.00 A2A0B2E 100% Cash on delivery 0 orders 0.00 A2A0B2E 0%",
+        "layout": {
+          "top": 237,
+          "left": 24,
+          "width": 376,
+          "height": 245
+        },
+        "neighbour": {
+          "top": 237,
+          "left": 412
+        },
+        "scrollHeight": 900
+      },
+      "hover": {
+        "tag": "DIV",
+        "interactive": false,
+        "tone": "revenue",
+        "translate": "0px -2px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.177637 0.00000810623 0.00000356138 / 0.74)",
+        "border": "oklab(0.635428 -0.025997 -0.071399)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.1) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.7) 0px 12px 24px -1",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "default",
+        "text": "A2A0B2E 2 valid orders 320.00 A2A0B2E Prepaid 2 orders 320.00 A2A0B2E 100% Cash on delivery 0 orders 0.00 A2A0B2E 0%",
+        "layout": {
+          "top": 237,
+          "left": 24,
+          "width": 376,
+          "height": 245
+        },
+        "neighbour": {
+          "top": 237,
+          "left": 412
+        },
+        "scrollHeight": 900
+      },
+      "layoutShift": false,
+      "textChanged": false
+    },
+    "state-reduced-motion": {
+      "rest": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "revenue",
+        "translate": "none",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)",
+        "border": "oklab(0.687994 -0.0246106 -0.0676408)",
+        "shadow": "lab(39.0927 -3.60507 -40.3251) -4px 0px 0px 0px inset, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0p",
+        "outline": "none 3px",
+        "duration": "1e-05s",
+        "cursor": "pointer",
+        "text": "اليوم ⁦13 Oct 2026⁩ 4 طلب صالح 5,610.00 EGP الطلبات 5 ملغاة 1 مرتجعة 1",
+        "layout": {
+          "top": 210,
+          "left": 955,
+          "width": 221,
+          "height": 340
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 722
+        },
+        "scrollHeight": 900
+      },
+      "hover": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "revenue",
+        "translate": "none",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)",
+        "border": "oklab(0.573594 -0.0336512 -0.0924498)",
+        "shadow": "lab(39.0927 -3.60507 -40.3251) -4px 0px 0px 0px inset, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, oklab(0.479994 -0.041048 -0.112748 / 0.7) 0px 14px 28px ",
+        "outline": "none 3px",
+        "duration": "1e-05s",
+        "cursor": "pointer",
+        "text": "اليوم ⁦13 Oct 2026⁩ 4 طلب صالح 5,610.00 EGP الطلبات 5 ملغاة 1 مرتجعة 1",
+        "layout": {
+          "top": 210,
+          "left": 955,
+          "width": 221,
+          "height": 340
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 722
+        },
+        "scrollHeight": 900
+      },
+      "layoutShift": false,
+      "textChanged": false
+    },
+    "state-touch-375": {
+      "hoverNone": true,
+      "actionable": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "revenue",
+        "translate": "none",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)",
+        "border": "oklab(0.615194 -0.0303637 -0.0834284)",
+        "shadow": "lab(39.0927 -3.60507 -40.3251) -4px 0px 0px 0px inset, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0p",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "pointer",
+        "text": "اليوم ⁦13 Oct 2026⁩ 4 طلب صالح 5,610.00 EGP الطلبات 5 ملغاة 1 مرتجعة 1",
+        "layout": {
+          "top": 265,
+          "left": 16,
+          "width": 343,
+          "height": 184
+        },
+        "neighbour": {
+          "top": 461,
+          "left": 16
+        },
+        "scrollHeight": 1773
+      },
+      "afterTap": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "revenue",
+        "translate": "none",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)",
+        "border": "oklab(0.615194 -0.0303637 -0.0834284)",
+        "shadow": "lab(39.0927 -3.60507 -40.3251) -4px 0px 0px 0px inset, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0p",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "pointer",
+        "text": "اليوم ⁦13 Oct 2026⁩ 4 طلب صالح 5,610.00 EGP الطلبات 5 ملغاة 1 مرتجعة 1",
+        "layout": {
+          "top": 265,
+          "left": 16,
+          "width": 343,
+          "height": 184
+        },
+        "neighbour": {
+          "top": 461,
+          "left": 16
+        },
+        "scrollHeight": 1773
+      },
+      "informational": {
+        "tag": "DIV",
+        "interactive": false,
+        "tone": "info",
+        "translate": "none",
+        "backdrop": "none",
+        "background": "rgb(255, 255, 255)",
+        "border": "oklab(0.698099 -0.0240834 -0.101431)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "default",
+        "text": "منى عادل #1 23 طلب صالح 17,060.00 EGP الطلبات 23 ملغاة 0 مرتجعة 1",
+        "layout": {
+          "top": 353,
+          "left": 16,
+          "width": 343,
+          "height": 184
+        },
+        "neighbour": {
+          "top": 549,
+          "left": 16
+        },
+        "scrollHeight": 2560
+      }
+    },
+    "state-reduced-transparency": {
+      "matches": true,
+      "card": {
+        "tag": "BUTTON",
+        "interactive": true,
+        "tone": "revenue",
+        "translate": "none",
+        "backdrop": "none",
+        "background": "rgb(255, 255, 255)",
+        "border": "oklab(0.687994 -0.0246106 -0.0676408)",
+        "shadow": "lab(39.0927 -3.60507 -40.3251) -4px 0px 0px 0px inset, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0p",
+        "outline": "none 3px",
+        "duration": "0.17s, 0.17s, 0.17s, 0.17s",
+        "cursor": "pointer",
+        "text": "اليوم ⁦13 Oct 2026⁩ 4 طلب صالح 5,610.00 EGP الطلبات 5 ملغاة 1 مرتجعة 1",
+        "layout": {
+          "top": 210,
+          "left": 955,
+          "width": 221,
+          "height": 340
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 722
+        },
+        "scrollHeight": 900
+      }
+    },
+    "long-amounts-375": {
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 343,
+        "height": 288,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    },
+    "long-amounts-1440": {
+      "overflowX": 0,
+      "clipped": [],
+      "sample": {
+        "size": "report",
+        "width": 221,
+        "height": 363,
+        "padding": "18px 20px",
+        "figure": "32px",
+        "title": "16px",
+        "backdrop": "blur(10px) saturate(1.2)",
+        "background": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)"
+      }
+    }
+  }
+}

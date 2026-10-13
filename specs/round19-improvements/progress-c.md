@@ -98,3 +98,124 @@ unchanged. Record-grid status cards and every other `InsightCard` consumer keep 
 - Between 1280 and 1439px the Live group is 3 + 2 (tall rows when one period lists 4 currencies) — chosen so no
   long amount is squeezed; ≥ 1440 it is one row of 5.
 - Glass translucency is subtle on the plain light canvas (as in R18); clearer in dark mode.
+
+## C2 — refinement (owner brief 2026-10-13)
+
+Branch `feat/r19-cards-refine` from `main` 2d276254 (same worktree). The same shared components as C1, refined:
+each card gets a colour identity, text is coloured by meaning, the icon gets a short hover / focus motion, and
+the currency code is set apart from the amount. Calculations, filters, data scope, permissions, the dashboard
+cards and the record-grid cards are unchanged.
+
+### Identity palette (tokens) and mapping (`components/reports/report-identity.ts`)
+
+The identity follows the METRIC / PERIOD a card shows, never its position or value, so it is the same on every tab,
+screen and role. It is not a verdict: it stays at zero. Hues are `--report-identity-*` (theme/tokens.css, light +
+dark). Green, amber and red are never identities; they stay the semantic text colours.
+
+| Hue      | Light / dark (oklch)           | Used for                                                                               |
+| -------- | ------------------------------ | -------------------------------------------------------------------------------------- |
+| `teal`   | 0.47 0.085 195 / 0.80 0.08 195 | Live **Today**; Agents row (agent sales); currency EGP                                 |
+| `sky`    | 0.47 0.11 235 / 0.80 0.09 235  | Live **Yesterday**; currency SAR                                                       |
+| `blue`   | 0.46 0.15 262 / 0.78 0.11 262  | Live **Last 7 days**; a person's valid orders (each employee card + "Your sales"); USD |
+| `violet` | 0.46 0.16 305 / 0.79 0.11 305  | Live **This month**; team cards; EUR                                                   |
+| `orchid` | 0.47 0.15 335 / 0.80 0.10 335  | Live **Last month**; KWD                                                               |
+| `indigo` | 0.45 0.16 285 / 0.78 0.11 285  | **Your rank** (own standing); AED                                                      |
+| `slate`  | 0.46 0.03 255 / 0.78 0.025 255 | Unassigned orders row (no owner)                                                       |
+
+- The five Live periods run from near to far: teal, sky, blue, violet, orchid (five distinct hues).
+- My performance: own sales (blue) vs own rank (indigo). Employees tab: the unassigned row (slate) vs the agents
+  row (teal).
+- List groups (one card per employee or per team) share their metric's hue. The name and the rank badge tell
+  the cards apart; a different colour per person would carry no meaning and the palette would repeat.
+- Payment mix: the common currencies are pinned (EGP, SAR, USD, AED, EUR, KWD). Any other code takes a stable
+  hue from a hash of its letters, so the same code always gets the same colour. Two rare codes can share a hue;
+  the currency code is the title.
+- Wiring: `InsightSurface identity` sets `data-tone="identity"` + `data-identity`, and the recipe maps the hue onto
+  `--tone`. Tint, edge, icon chip, figure accent, selected edge and the hover / focus shadow then all follow the
+  same state machine as C1.
+
+### Semantic text colours (by meaning, never per line)
+
+| Element                                   | Colour                                                    | Why                                    |
+| ----------------------------------------- | --------------------------------------------------------- | -------------------------------------- |
+| Main figure (valid orders, rank)          | identity accent (deep shade of the hue)                   | the card's own metric                  |
+| Money lines (sales value per currency)    | strong neutral, semibold; currency code smaller and muted | a sales value is not "collected" money |
+| Cancelled (> 0)                           | danger `--report-text-danger`                             | a lost sale                            |
+| Returned (> 0)                            | attention `--report-text-attention`                       | a reversal still to be processed       |
+| Orders, zero counts                       | neutral                                                   | no signal                              |
+| Payment mix: prepaid line (> 0)           | success `--report-text-success` (+ green bar / dot)       | paid up front                          |
+| Payment mix: cash on delivery line (> 0)  | attention (+ amber bar / dot)                             | still to be collected                  |
+| Title / period chip / unit / explanations | readable neutrals (`--insight-title`, muted)              | information, not a verdict             |
+
+Labels and icons always stay, so colour is never the only signal. `ReportCardStat.meaning` sets the colour only
+when the value is non-zero.
+
+### Motion
+
+- **Icon** (glyph only, the chip never moves): `lift` −2px for calendars and the trophy, `tilt` −10° for the
+  wallet and the handshake, `scale` 1.12 for people. Driven by the individual `translate` / `rotate` / `scale`
+  properties (`--report-icon-*`) with the card's 170 ms token transition.
+- **When**: on hover under `(hover: hover) and (prefers-reduced-motion: no-preference)`, and on keyboard focus of
+  an actionable card. Never looping. Under reduced motion there is no icon motion and no card rise.
+- **Card**: unchanged from C1 (2px / 3px `translate` rise, stronger tint / edge / shadow). The figures never
+  animate.
+- **Measured** (`evidence/c2/after/metrics.json`): hover lift `0 -2px` / scale `1.12` / rotate `-10deg`; focus
+  lift on Live; reduced motion → icon and card `none`; touch → no motion after a tap; no layout shift and no
+  text change on any probe.
+
+### Demo data (local `oms_r19_c` only, through the API)
+
+`scripts/acceptance/r19/r19-c2-seed-demo-orders.mjs` created 14 tagged («R19C2 demo») orders:
+
+- 9 valid company orders: today, yesterday, 3 days ago and last month; two sales employees; prepaid + COD.
+- One cancelled pickup order and one returned pickup order (today).
+- 3 agent-portal orders, which the portal dates today.
+- Plus one back-dated agent order for yesterday, created by the admin (`tmp/r19-c/seed-agent-backdated.mjs`).
+
+Result: company Live today 4 / yesterday 2 / last 7 days 63 / this month 63 / last month 3 (with cancelled 1 and
+returned 1 today); agent today 3 / yesterday 1 / last 7 days 13.
+
+Limit: the agent's last month stays 0. The API refuses (NO_ACTIVE_AGREEMENT) because the demo agent has no
+agreement in force on a September date, and I did not change business data to force it.
+
+### Value-unchanged proof
+
+- `r19-c-compare-figures.mjs evidence/c2/before/figures.json evidence/c2/after/figures.json`: **24 tab views,
+  74 cards, 0 differences**, on the populated data.
+- Unit tests (`report-identity.spec.tsx`): the split currency reads exactly `formatMoney`; the figures are
+  unchanged; the rank text is the same at both sizes.
+
+### Contrast
+
+`node scripts/design/contrast-check.mjs`: all **1204** pairs pass, including **280 new identity pairs**. They
+cover 7 hues × glass + opaque × (figure at rest / hover, money line, muted, title, success, attention, danger,
+edge), plus the icon on its chip and the solid-chip glyph, in light and dark. The lowest text pair is 4.57 (muted
+on the teal hover tint). The semantic text tokens were tuned for it (light: success 64 %, attention 62 %,
+danger 56 % toward the foreground; dark: success 66 %, attention 80 %, danger 46 %).
+
+### Guards
+
+- `report-card-consumers.spec.ts`:
+  - every `ReportCard` / `OwnRankCard` in the sales-reports view takes an identity from `report-identity.ts` and
+    never a tone (mutation-checked);
+  - identities, icon motion and the split currency are never used outside the sales-report files.
+- `report-identity.spec.tsx` (new, 10 tests):
+  - the mapping: 5 distinct periods, distinct cards within each fixed group, stable currencies, no semantic hue
+    used as an identity;
+  - the rendering: identity at zero, meaning only when non-zero, the split currency;
+  - the recipe and tokens for every hue, light + dark;
+  - the motion rules: glyph only, gated on no-preference, removed under reduced motion, never looping.
+
+### Verification (2026-10-13)
+
+- web `tsc` OK; `eslint .` 0 errors (9 pre-existing warnings in other files).
+- full vitest **183 files / 1308 tests** pass; `next build` OK; contrast check all pass.
+
+### Evidence (`evidence/c2/before/` = main 2d276254 build, `evidence/c2/after/`, 69 PNG each, populated data)
+
+- Every tab for company admin (ALL: live, employees, teams, comparison, payment mix), company sales (OWN: live, my
+  performance, payment mix) and agent (AGENT_ALL: live, employees, comparison, payment mix).
+- Each in ar-light-1440, en-light-1440, ar-dark-1440 (no dark for the own scope), ar-light-375 and en-light-375.
+- States: `state-{live,employee,payment}-{ar-light,en-dark}-hover`, `state-live-*-focus`,
+  `state-reduced-motion-hover`, `state-touch-375`, `long-amounts-{375,1440}`.
+- Plus `figures.json` and `metrics.json`. Reduced transparency is probed in the metrics (opaque card, no blur).

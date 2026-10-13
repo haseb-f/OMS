@@ -163,6 +163,18 @@ const probe = (card) =>
       tag: el.tagName,
       interactive: el.hasAttribute("data-interactive"),
       tone: el.getAttribute("data-tone"),
+      // R19 §C2: identity, the icon glyph's motion and the figure colour.
+      identity: el.getAttribute("data-identity"),
+      icon: (() => {
+        const svg = el.querySelector('[data-slot="insight-icon"] svg');
+        if (!svg) return null;
+        const cs = getComputedStyle(svg);
+        return { translate: cs.translate, rotate: cs.rotate, scale: cs.scale };
+      })(),
+      figureColor: (() => {
+        const value = el.querySelector('[data-slot="insight-value"]');
+        return value ? getComputedStyle(value).color : null;
+      })(),
       translate: s.translate,
       backdrop: s.backdropFilter || s.webkitBackdropFilter,
       background: s.backgroundColor,
