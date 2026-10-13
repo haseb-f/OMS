@@ -16,6 +16,14 @@ import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
 import type { ReportIdentity } from "@/components/reports/report-identity";
 
+/**
+ * R20 §B — inside a narrow outer card (`InsightFrame` < 32rem: a phone, two period boxes per
+ * row) the figure takes one step down (`text-metric-lg`), the title and money lines the body
+ * size, the padding the compact report padding (InsightSurface). An extreme count still wraps
+ * rather than overflow; it is never truncated.
+ */
+const REPORT_NARROW_FIGURE = "min-w-0 [overflow-wrap:anywhere] @max-[32rem]/frame:text-metric-lg";
+
 /** Currencies listed before the rest fold behind "Show N more". */
 const VISIBLE_AMOUNTS = 4;
 
@@ -112,7 +120,7 @@ export function ReportCard({
         <span
           data-slot="insight-label"
           className={cn(
-            "min-w-0 flex-1 basis-28 text-pretty break-words text-muted-foreground",
+            "min-w-0 flex-1 basis-28 text-pretty break-words text-muted-foreground @max-[32rem]/frame:basis-0 @max-[32rem]/frame:text-body",
             INSIGHT_REPORT_TEXT.title,
           )}
         >
@@ -128,7 +136,7 @@ export function ReportCard({
       >
         <span
           data-slot="insight-value"
-          className={cn("num tracking-tight", INSIGHT_REPORT_TEXT.figure)}
+          className={cn("num tracking-tight", INSIGHT_REPORT_TEXT.figure, REPORT_NARROW_FIGURE)}
         >
           {formatNumber(figure)}
         </span>
@@ -154,7 +162,7 @@ export function ReportCard({
               // One money line per currency at the card-title size; the amount is never clipped.
               <li
                 key={line.currencyCode}
-                className="flex min-w-0 flex-wrap justify-start text-card-title"
+                className="flex min-w-0 flex-wrap justify-start text-card-title @max-[32rem]/frame:text-body"
               >
                 <MoneyValue
                   value={line.amount}

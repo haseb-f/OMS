@@ -1,3 +1,11 @@
+import {
+  CalendarCheck,
+  CalendarClock,
+  CalendarDays,
+  CalendarMinus,
+  CalendarRange,
+  type LucideIcon,
+} from "lucide-react";
 import type { InsightIconMotion, InsightIdentity } from "@/components/shared/insight-card";
 import type { LivePeriod } from "@/services/sales-reports-service";
 
@@ -23,6 +31,15 @@ export const PERIOD_IDENTITY: Record<LivePeriod, ReportIdentity> = {
   last7Days: { hue: "blue", motion: "lift" },
   thisMonth: { hue: "violet", motion: "lift" },
   lastMonth: { hue: "orchid", motion: "lift" },
+};
+
+/** The icon of each Live period (Live cards and the employee period boxes share it). */
+export const PERIOD_ICON: Record<LivePeriod, LucideIcon> = {
+  today: CalendarCheck,
+  yesterday: CalendarMinus,
+  last7Days: CalendarRange,
+  thisMonth: CalendarDays,
+  lastMonth: CalendarClock,
 };
 
 /**

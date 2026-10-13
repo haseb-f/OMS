@@ -1,0 +1,271 @@
+{
+  "at": "2026-10-13T15:32:53.907Z",
+  "api": "http://localhost:4815",
+  "db": "oms_r20_b",
+  "personas": {
+    "admin@oms-demo.local": {
+      "scope": "ALL",
+      "total": 8,
+      "pages": 1,
+      "periods": [
+        {
+          "period": "today",
+          "from": "2026-10-13",
+          "to": "2026-10-13"
+        },
+        {
+          "period": "yesterday",
+          "from": "2026-10-12",
+          "to": "2026-10-12"
+        },
+        {
+          "period": "last7Days",
+          "from": "2026-10-07",
+          "to": "2026-10-13"
+        },
+        {
+          "period": "thisMonth",
+          "from": "2026-10-01",
+          "to": "2026-10-13"
+        },
+        {
+          "period": "lastMonth",
+          "from": "2026-09-01",
+          "to": "2026-09-30"
+        }
+      ],
+      "employees": [
+        {
+          "name": "منى عادل",
+          "rank": 1
+        },
+        {
+          "name": "Amend sales 2A0B2E",
+          "rank": 2
+        },
+        {
+          "name": "Amend sales EAD74B",
+          "rank": 2
+        },
+        {
+          "name": "يوسف كمال",
+          "rank": 4
+        },
+        {
+          "name": "Agents Admin AAFEF8",
+          "rank": 5
+        },
+        {
+          "name": "Agents Admin D49CFD",
+          "rank": 5
+        },
+        {
+          "name": "Amend own 2A0B2E",
+          "rank": 5
+        },
+        {
+          "name": "Amend own EAD74B",
+          "rank": 5
+        }
+      ],
+      "separateRows": true,
+      "mismatches": []
+    },
+    "sales@oms-demo.local": {
+      "scope": "OWN",
+      "total": 1,
+      "pages": 1,
+      "periods": [
+        {
+          "period": "today",
+          "from": "2026-10-13",
+          "to": "2026-10-13"
+        },
+        {
+          "period": "yesterday",
+          "from": "2026-10-12",
+          "to": "2026-10-12"
+        },
+        {
+          "period": "last7Days",
+          "from": "2026-10-07",
+          "to": "2026-10-13"
+        },
+        {
+          "period": "thisMonth",
+          "from": "2026-10-01",
+          "to": "2026-10-13"
+        },
+        {
+          "period": "lastMonth",
+          "from": "2026-09-01",
+          "to": "2026-09-30"
+        }
+      ],
+      "employees": [
+        {
+          "name": "منى عادل",
+          "rank": 1
+        }
+      ],
+      "separateRows": false,
+      "mismatches": [],
+      "liveEqualsOwnCard": true
+    },
+    "sales2@oms-demo.local": {
+      "scope": "ALL",
+      "total": 8,
+      "pages": 1,
+      "periods": [
+        {
+          "period": "today",
+          "from": "2026-10-13",
+          "to": "2026-10-13"
+        },
+        {
+          "period": "yesterday",
+          "from": "2026-10-12",
+          "to": "2026-10-12"
+        },
+        {
+          "period": "last7Days",
+          "from": "2026-10-07",
+          "to": "2026-10-13"
+        },
+        {
+          "period": "thisMonth",
+          "from": "2026-10-01",
+          "to": "2026-10-13"
+        },
+        {
+          "period": "lastMonth",
+          "from": "2026-09-01",
+          "to": "2026-09-30"
+        }
+      ],
+      "employees": [
+        {
+          "name": "منى عادل",
+          "rank": 1
+        },
+        {
+          "name": "Amend sales 2A0B2E",
+          "rank": 2
+        },
+        {
+          "name": "Amend sales EAD74B",
+          "rank": 2
+        },
+        {
+          "name": "يوسف كمال",
+          "rank": 4
+        },
+        {
+          "name": "Agents Admin AAFEF8",
+          "rank": 5
+        },
+        {
+          "name": "Agents Admin D49CFD",
+          "rank": 5
+        },
+        {
+          "name": "Amend own 2A0B2E",
+          "rank": 5
+        },
+        {
+          "name": "Amend own EAD74B",
+          "rank": 5
+        }
+      ],
+      "separateRows": true,
+      "mismatches": []
+    },
+    "agent@oms-demo.local": {
+      "scope": "AGENT_ALL",
+      "total": 2,
+      "pages": 1,
+      "periods": [
+        {
+          "period": "today",
+          "from": "2026-10-13",
+          "to": "2026-10-13"
+        },
+        {
+          "period": "yesterday",
+          "from": "2026-10-12",
+          "to": "2026-10-12"
+        },
+        {
+          "period": "last7Days",
+          "from": "2026-10-07",
+          "to": "2026-10-13"
+        },
+        {
+          "period": "thisMonth",
+          "from": "2026-10-01",
+          "to": "2026-10-13"
+        },
+        {
+          "period": "lastMonth",
+          "from": "2026-09-01",
+          "to": "2026-09-30"
+        }
+      ],
+      "employees": [
+        {
+          "name": "ياسر نبيل",
+          "rank": 1
+        },
+        {
+          "name": "مروان سعد",
+          "rank": 2
+        }
+      ],
+      "separateRows": false,
+      "mismatches": []
+    },
+    "agent2@oms-demo.local": {
+      "scope": "AGENT_OWN",
+      "total": 1,
+      "pages": 1,
+      "periods": [
+        {
+          "period": "today",
+          "from": "2026-10-13",
+          "to": "2026-10-13"
+        },
+        {
+          "period": "yesterday",
+          "from": "2026-10-12",
+          "to": "2026-10-12"
+        },
+        {
+          "period": "last7Days",
+          "from": "2026-10-07",
+          "to": "2026-10-13"
+        },
+        {
+          "period": "thisMonth",
+          "from": "2026-10-01",
+          "to": "2026-10-13"
+        },
+        {
+          "period": "lastMonth",
+          "from": "2026-09-01",
+          "to": "2026-09-30"
+        }
+      ],
+      "employees": [
+        {
+          "name": "مروان سعد",
+          "rank": 2
+        }
+      ],
+      "separateRows": false,
+      "mismatches": [],
+      "liveEqualsOwnCard": true
+    }
+  },
+  "boxes": 100,
+  "mismatches": 0
+}

@@ -1,0 +1,241 @@
+{
+  "at": "2026-10-13T16:38:02.931Z",
+  "base": "http://localhost:4811",
+  "metrics": {
+    "admin-employees-ar-light-375": {
+      "frames": 10,
+      "cards": 50,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": {
+        "width": 343,
+        "boxes": 5,
+        "rows": 3,
+        "columns": 2,
+        "identities": ["teal", "sky", "blue", "violet", "orchid"],
+        "backdrop": "none"
+      }
+    },
+    "sales-own-ar-light-375": {
+      "frames": 1,
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": {
+        "width": 343,
+        "boxes": 5,
+        "rows": 3,
+        "columns": 2,
+        "identities": ["teal", "sky", "blue", "violet", "orchid"],
+        "backdrop": "none"
+      }
+    },
+    "agent-employees-ar-light-375": {
+      "frames": 2,
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": {
+        "width": 343,
+        "boxes": 5,
+        "rows": 3,
+        "columns": 2,
+        "identities": ["teal", "sky", "blue", "violet", "orchid"],
+        "backdrop": "none"
+      }
+    },
+    "admin-employees-en-light-375": {
+      "frames": 10,
+      "cards": 50,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": {
+        "width": 343,
+        "boxes": 5,
+        "rows": 3,
+        "columns": 2,
+        "identities": ["teal", "sky", "blue", "violet", "orchid"],
+        "backdrop": "none"
+      }
+    },
+    "sales-own-en-light-375": {
+      "frames": 1,
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": {
+        "width": 343,
+        "boxes": 5,
+        "rows": 3,
+        "columns": 2,
+        "identities": ["teal", "sky", "blue", "violet", "orchid"],
+        "backdrop": "none"
+      }
+    },
+    "agent-employees-en-light-375": {
+      "frames": 2,
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": {
+        "width": 343,
+        "boxes": 5,
+        "rows": 3,
+        "columns": 2,
+        "identities": ["teal", "sky", "blue", "violet", "orchid"],
+        "backdrop": "none"
+      }
+    },
+    "admin-employees-ar-dark-375": {
+      "frames": 10,
+      "cards": 50,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": {
+        "width": 343,
+        "boxes": 5,
+        "rows": 3,
+        "columns": 2,
+        "identities": ["teal", "sky", "blue", "violet", "orchid"],
+        "backdrop": "none"
+      }
+    },
+    "sales-own-ar-dark-375": {
+      "frames": 1,
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": {
+        "width": 343,
+        "boxes": 5,
+        "rows": 3,
+        "columns": 2,
+        "identities": ["teal", "sky", "blue", "violet", "orchid"],
+        "backdrop": "none"
+      }
+    },
+    "agent-employees-ar-dark-375": {
+      "frames": 2,
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": {
+        "width": 343,
+        "boxes": 5,
+        "rows": 3,
+        "columns": 2,
+        "identities": ["teal", "sky", "blue", "violet", "orchid"],
+        "backdrop": "none"
+      }
+    },
+    "admin-employees-en-dark-375": {
+      "frames": 10,
+      "cards": 50,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": {
+        "width": 343,
+        "boxes": 5,
+        "rows": 3,
+        "columns": 2,
+        "identities": ["teal", "sky", "blue", "violet", "orchid"],
+        "backdrop": "none"
+      }
+    },
+    "sales-own-en-dark-375": {
+      "frames": 1,
+      "cards": 5,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": {
+        "width": 343,
+        "boxes": 5,
+        "rows": 3,
+        "columns": 2,
+        "identities": ["teal", "sky", "blue", "violet", "orchid"],
+        "backdrop": "none"
+      }
+    },
+    "agent-employees-en-dark-375": {
+      "frames": 2,
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": {
+        "width": 343,
+        "boxes": 5,
+        "rows": 3,
+        "columns": 2,
+        "identities": ["teal", "sky", "blue", "violet", "orchid"],
+        "backdrop": "none"
+      }
+    },
+    "state-touch-375": {
+      "hoverNone": true,
+      "rest": {
+        "slot": "insight-frame",
+        "translate": "none",
+        "border": "oklab(0.77684 -0.00707265 -0.0504859)",
+        "shadow": "rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
+        "outline": "none 3px",
+        "background": "rgb(255, 255, 255)",
+        "icon": {
+          "translate": "none",
+          "rotate": "none",
+          "scale": "none"
+        },
+        "text": "منى عادل mona.adel #1 هذا الشهر اليوم 3 طلب صالح 4,750.00 EGP الطلبات 3 ملغاة 0 مرتجعة 1 أمس 1 طلب صالح 540.00 EGP الطلبات 1 ملغاة 0 مرتجعة 0 آخر 7 أيام 23 طلب صالح 17,060.00 EGP الطلبات 23 ملغاة 0 مرتجعة 1 هذا الشهر 23 طلب صالح 17,060.00 EGP الطلبات 23 ملغاة 0 مرتجعة 1 الشهر الماضي 2 طلب صالح 5,180.00 EGP الطلبات 2 ملغاة 0 مرتجعة 0",
+        "layout": {
+          "top": 404,
+          "left": 16,
+          "width": 343,
+          "height": 690
+        },
+        "neighbour": {
+          "top": 1110,
+          "left": 16
+        },
+        "scrollHeight": 7606
+      },
+      "afterTap": {
+        "slot": "insight-frame",
+        "translate": "none",
+        "border": "oklab(0.77684 -0.00707265 -0.0504859)",
+        "shadow": "rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
+        "outline": "none 3px",
+        "background": "rgb(255, 255, 255)",
+        "icon": {
+          "translate": "none",
+          "rotate": "none",
+          "scale": "none"
+        },
+        "text": "منى عادل mona.adel #1 هذا الشهر اليوم 3 طلب صالح 4,750.00 EGP الطلبات 3 ملغاة 0 مرتجعة 1 أمس 1 طلب صالح 540.00 EGP الطلبات 1 ملغاة 0 مرتجعة 0 آخر 7 أيام 23 طلب صالح 17,060.00 EGP الطلبات 23 ملغاة 0 مرتجعة 1 هذا الشهر 23 طلب صالح 17,060.00 EGP الطلبات 23 ملغاة 0 مرتجعة 1 الشهر الماضي 2 طلب صالح 5,180.00 EGP الطلبات 2 ملغاة 0 مرتجعة 0",
+        "layout": {
+          "top": 404,
+          "left": 16,
+          "width": 343,
+          "height": 690
+        },
+        "neighbour": {
+          "top": 1110,
+          "left": 16
+        },
+        "scrollHeight": 7606
+      }
+    },
+    "long-amounts-375": {
+      "frames": 10,
+      "cards": 50,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": {
+        "width": 343,
+        "boxes": 5,
+        "rows": 3,
+        "columns": 2,
+        "identities": ["teal", "sky", "blue", "violet", "orchid"],
+        "backdrop": "none"
+      }
+    }
+  }
+}

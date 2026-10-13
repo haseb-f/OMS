@@ -289,6 +289,9 @@
   /* R19 §C — the sales-report card size (`data-size="report"`). */
   --insight-report-padding-inline: 1.25rem; /* 20px */
   --insight-report-padding-block: 1.125rem; /* 18px */
+  /* R20 §B — a report card inside a narrow outer card (phone, two boxes per row). */
+  --insight-report-padding-inline-compact: 0.625rem; /* 10px */
+  --insight-report-padding-block-compact: 0.75rem; /* 12px */
   --insight-report-tint-top: 30%;
   --insight-report-tint-bottom: 12%;
   --insight-report-tint-border: 60%;
@@ -334,6 +337,21 @@
   --report-icon-lift: -2px;
   --report-icon-tilt: -10deg;
   --report-icon-scale: 1.12;
+  /* R20 §B — the outer card (`InsightFrame`, e.g. one employee × five period boxes): opaque
+     card, a faint identity wash under the header (tint → card by the stop), a tinted hairline
+     (rest / hover-focus / touch), a resting hairline depth and a soft tone shadow on hover /
+     focus (no rise). Padding / gap are the frame's geometry (callers never pad it). */
+  --insight-frame-padding-inline: 1rem;
+  --insight-frame-padding-block: 1rem;
+  --insight-frame-gap: 0.875rem;
+  --insight-frame-tint: 8%;
+  --insight-frame-tint-stop: 4.75rem;
+  --insight-frame-border: 24%;
+  --insight-frame-border-hover: 52%;
+  --insight-frame-border-touch: 34%;
+  --insight-frame-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  --insight-frame-hover-geometry: 0 14px 32px -18px;
+  --insight-frame-hover-tone: 55%;
 }
 .dark {
   --insight-tint-top: 30%;
@@ -385,6 +403,12 @@
     var(--destructive-soft-foreground) 46%,
     var(--foreground)
   );
+  --insight-frame-tint: 11%;
+  --insight-frame-border: 30%;
+  --insight-frame-border-hover: 56%;
+  --insight-frame-border-touch: 40%;
+  --insight-frame-shadow: 0 0 0 1px rgb(255 255 255 / 0.03);
+  --insight-frame-hover-tone: 38%;
 }
 
 /* ---------------------------------------------------------------------------

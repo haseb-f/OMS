@@ -22,13 +22,21 @@ export function MoneyValue({
   if (currencyClassName) {
     const parts = formatAmountParts(value, { currency: code, negative: "minus", zero: "zero" });
     if (parts.figure && parts.currency) {
+      // R20 §B — figure and code are two runs of one LTR line, so in a narrow card the code
+      // wraps under the figure instead of overflowing; the figure itself never breaks.
       return (
-        <SemanticValue kind="money" className={cn("font-medium", className)}>
-          {parts.figure}{" "}
+        <span
+          dir="ltr"
+          data-slot="money-split"
+          className="inline-flex max-w-full min-w-0 flex-wrap items-baseline gap-x-1 [unicode-bidi:isolate]"
+        >
+          <SemanticValue kind="money" className={cn("font-medium", className)}>
+            {parts.figure}
+          </SemanticValue>{" "}
           <span data-slot="money-currency" className={currencyClassName}>
             {parts.currency}
           </span>
-        </SemanticValue>
+        </span>
       );
     }
   }

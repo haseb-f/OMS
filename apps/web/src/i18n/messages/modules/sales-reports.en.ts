@@ -61,6 +61,16 @@ const salesReportsEn = {
     agentsTitle: "Agents",
     agentsHint: "Agent orders — kept separate from employees.",
   },
+  employeePeriods: {
+    feed: "Employee performance by period",
+    boundaries: "Period boundaries (Cairo time)",
+    last7Includes: "Last 7 days = today and the 6 previous days",
+    rank: "#{rank} this month",
+    ownRank: "Your rank this month: {position} of {of}",
+    notRanked: "Not ranked this month",
+    rankHint: "Ranked by valid orders this month.",
+    empty: "No employee has orders in these periods.",
+  },
   teams: {
     manager: "Manager",
     members: "Members",

@@ -178,25 +178,25 @@ html[dir="ltr"] :is(h1, h2) {
    identity hue IS the card's tone, so tint, edge, icon chip, figure accent, emphasis edge and the
    hover / focus shadow all follow it through the same state machine; it is not a verdict and
    stays at zero. Mapping by metric / period: components/reports/report-identity.ts. */
-[data-slot="insight-card"][data-identity="teal"] {
+:is([data-slot="insight-card"], [data-slot="insight-frame"])[data-identity="teal"] {
   --tone: var(--report-identity-teal);
 }
-[data-slot="insight-card"][data-identity="sky"] {
+:is([data-slot="insight-card"], [data-slot="insight-frame"])[data-identity="sky"] {
   --tone: var(--report-identity-sky);
 }
-[data-slot="insight-card"][data-identity="blue"] {
+:is([data-slot="insight-card"], [data-slot="insight-frame"])[data-identity="blue"] {
   --tone: var(--report-identity-blue);
 }
-[data-slot="insight-card"][data-identity="indigo"] {
+:is([data-slot="insight-card"], [data-slot="insight-frame"])[data-identity="indigo"] {
   --tone: var(--report-identity-indigo);
 }
-[data-slot="insight-card"][data-identity="violet"] {
+:is([data-slot="insight-card"], [data-slot="insight-frame"])[data-identity="violet"] {
   --tone: var(--report-identity-violet);
 }
-[data-slot="insight-card"][data-identity="orchid"] {
+:is([data-slot="insight-card"], [data-slot="insight-frame"])[data-identity="orchid"] {
   --tone: var(--report-identity-orchid);
 }
-[data-slot="insight-card"][data-identity="slate"] {
+:is([data-slot="insight-card"], [data-slot="insight-frame"])[data-identity="slate"] {
   --tone: var(--report-identity-slate);
 }
 /* Semantic text by MEANING inside a report card (set on a figure only when it is non-zero; the
@@ -435,6 +435,102 @@ html[dir="ltr"] :is(h1, h2) {
   [data-slot="insight-card"] :is([data-slot="insight-action"], [data-slot="insight-go"]) {
     transition: none;
     translate: none;
+  }
+}
+
+/* R20 §B — the outer card (`InsightFrame`, `data-slot="insight-frame"`): one soft, opaque card
+   around a group of report cards about one subject (an employee × the five Live periods). Its
+   identity hue (`data-identity`, the same mapping as the cards) gives only a faint wash under the
+   header, a tinted hairline and the header icon chip, so the coloured period boxes inside stay
+   the figures. Informational: hover (hover-capable pointers) and keyboard focus (a feed article)
+   answer with a stronger tinted edge and a soft tone shadow — never a rise, so a long list never
+   moves — plus the header icon's short motion (no-preference only). Touch: a slightly stronger
+   resting edge. Reduced motion: instant, no icon motion. Tokens: `--insight-frame-*`. */
+[data-slot="insight-frame"] {
+  --tone: var(--insight-neutral);
+  background-color: var(--card);
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--tone) var(--insight-frame-tint), var(--card)),
+    var(--card) var(--insight-frame-tint-stop)
+  );
+  border-color: color-mix(in oklab, var(--tone) var(--insight-frame-border), var(--border));
+  box-shadow: var(--insight-frame-shadow);
+  transition:
+    border-color var(--insight-card-duration) var(--ease-standard),
+    box-shadow var(--insight-card-duration) var(--ease-standard);
+}
+[data-slot="insight-frame-header"] [data-slot="insight-icon"] {
+  color: var(--tone);
+  background-color: color-mix(in oklab, var(--tone) var(--insight-report-icon-fill), var(--card));
+}
+[data-slot="insight-frame-header"] [data-slot="insight-icon"][data-motion] > svg {
+  transition:
+    translate var(--insight-card-duration) var(--ease-standard),
+    rotate var(--insight-card-duration) var(--ease-standard),
+    scale var(--insight-card-duration) var(--ease-standard);
+}
+[data-slot="insight-frame"]:focus-visible {
+  border-color: color-mix(in oklab, var(--tone) var(--insight-frame-border-hover), var(--border));
+  box-shadow:
+    var(--insight-frame-shadow),
+    var(--insight-frame-hover-geometry)
+      color-mix(in oklab, var(--tone) var(--insight-frame-hover-tone), transparent);
+}
+@media (hover: hover) {
+  [data-slot="insight-frame"]:hover {
+    border-color: color-mix(in oklab, var(--tone) var(--insight-frame-border-hover), var(--border));
+    box-shadow:
+      var(--insight-frame-shadow),
+      var(--insight-frame-hover-geometry)
+        color-mix(in oklab, var(--tone) var(--insight-frame-hover-tone), transparent);
+  }
+}
+@media (hover: none) {
+  [data-slot="insight-frame"] {
+    border-color: color-mix(in oklab, var(--tone) var(--insight-frame-border-touch), var(--border));
+  }
+}
+/* The header icon moves on keyboard focus of the card and on hover of the header only (a box
+   keeps its own icon motion on its own hover), when motion is welcome. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-slot="insight-frame"]:focus-visible
+    > [data-slot="insight-frame-header"]
+    [data-slot="insight-icon"][data-motion="lift"]
+    > svg {
+    translate: 0 var(--report-icon-lift);
+  }
+  [data-slot="insight-frame"]:focus-visible
+    > [data-slot="insight-frame-header"]
+    [data-slot="insight-icon"][data-motion="tilt"]
+    > svg {
+    rotate: var(--report-icon-tilt);
+  }
+  [data-slot="insight-frame"]:focus-visible
+    > [data-slot="insight-frame-header"]
+    [data-slot="insight-icon"][data-motion="scale"]
+    > svg {
+    scale: var(--report-icon-scale);
+  }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  [data-slot="insight-frame-header"]:hover [data-slot="insight-icon"][data-motion="lift"] > svg {
+    translate: 0 var(--report-icon-lift);
+  }
+  [data-slot="insight-frame-header"]:hover [data-slot="insight-icon"][data-motion="tilt"] > svg {
+    rotate: var(--report-icon-tilt);
+  }
+  [data-slot="insight-frame-header"]:hover [data-slot="insight-icon"][data-motion="scale"] > svg {
+    scale: var(--report-icon-scale);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="insight-frame"],
+  [data-slot="insight-frame-header"] [data-slot="insight-icon"][data-motion] > svg {
+    transition: none;
+    translate: none;
+    rotate: none;
+    scale: none;
   }
 }
 

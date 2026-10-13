@@ -1,0 +1,463 @@
+{
+  "at": "2026-10-13T14:46:14.569Z",
+  "base": "http://localhost:4811",
+  "metrics": {
+    "admin-employees-ar-light-1440": {
+      "frames": 0,
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "sales-own-ar-light-1440": {
+      "frames": 0,
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "agent-employees-ar-light-1440": {
+      "frames": 0,
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "admin-employees-en-light-1440": {
+      "frames": 0,
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "sales-own-en-light-1440": {
+      "frames": 0,
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "agent-employees-en-light-1440": {
+      "frames": 0,
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "admin-employees-ar-dark-1440": {
+      "frames": 0,
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "sales-own-ar-dark-1440": {
+      "frames": 0,
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "agent-employees-ar-dark-1440": {
+      "frames": 0,
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "admin-employees-en-dark-1440": {
+      "frames": 0,
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "sales-own-en-dark-1440": {
+      "frames": 0,
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "agent-employees-en-dark-1440": {
+      "frames": 0,
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "admin-employees-ar-light-375": {
+      "frames": 0,
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "sales-own-ar-light-375": {
+      "frames": 0,
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "agent-employees-ar-light-375": {
+      "frames": 0,
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "admin-employees-en-light-375": {
+      "frames": 0,
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "sales-own-en-light-375": {
+      "frames": 0,
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "agent-employees-en-light-375": {
+      "frames": 0,
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "admin-employees-ar-dark-375": {
+      "frames": 0,
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "sales-own-ar-dark-375": {
+      "frames": 0,
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "agent-employees-ar-dark-375": {
+      "frames": 0,
+      "cards": 2,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "state-employee-ar-light": {
+      "rest": {
+        "slot": "insight-card",
+        "translate": "none",
+        "border": "oklab(0.675993 -0.0125128 -0.0891066)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
+        "outline": "none 3px",
+        "background": "rgb(255, 255, 255)",
+        "icon": {
+          "translate": "none",
+          "rotate": "none",
+          "scale": "none"
+        },
+        "text": "منى عادل #1 23 طلب صالح 17,060.00 EGP الطلبات 23 ملغاة 0 مرتجعة 1",
+        "layout": {
+          "top": 210,
+          "left": 897,
+          "width": 279,
+          "height": 219
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 606
+        },
+        "scrollHeight": 1239
+      },
+      "hover": {
+        "slot": "insight-card",
+        "translate": "0px -2px",
+        "border": "oklab(0.600393 -0.0154431 -0.109903)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.05) 0px 2px 4px 0px, rgba(0, 0, 0, 0.3) 0px 12px 24px -14px, ",
+        "outline": "none 3px",
+        "background": "rgb(255, 255, 255)",
+        "icon": {
+          "translate": "none",
+          "rotate": "none",
+          "scale": "1.12"
+        },
+        "text": "منى عادل #1 23 طلب صالح 17,060.00 EGP الطلبات 23 ملغاة 0 مرتجعة 1",
+        "layout": {
+          "top": 210,
+          "left": 897,
+          "width": 279,
+          "height": 219
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 606
+        },
+        "scrollHeight": 1239
+      },
+      "innerHover": null,
+      "layoutShift": false,
+      "textChanged": false,
+      "focus": {
+        "slot": "insight-card",
+        "translate": "none",
+        "border": "oklab(0.675993 -0.0125128 -0.0891066)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
+        "outline": "none 3px",
+        "background": "rgb(255, 255, 255)",
+        "icon": {
+          "translate": "none",
+          "rotate": "none",
+          "scale": "none"
+        },
+        "text": "منى عادل #1 23 طلب صالح 17,060.00 EGP الطلبات 23 ملغاة 0 مرتجعة 1",
+        "layout": {
+          "top": 210,
+          "left": 897,
+          "width": 279,
+          "height": 219
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 606
+        },
+        "scrollHeight": 1239
+      },
+      "focused": false
+    },
+    "state-employee-en-dark": {
+      "rest": {
+        "slot": "insight-card",
+        "translate": "none",
+        "border": "oklab(0.551098 -0.00949419 -0.0675208)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.1) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.03) 0px 0px 0px 1px",
+        "outline": "none 3px",
+        "background": "rgb(17, 17, 17)",
+        "icon": {
+          "translate": "none",
+          "rotate": "none",
+          "scale": "none"
+        },
+        "text": "منى عادل #1 23 valid orders 17,060.00 EGP Orders 23 Cancelled 0 Returned 1",
+        "layout": {
+          "top": 210,
+          "left": 24,
+          "width": 279,
+          "height": 244
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 315
+        },
+        "scrollHeight": 1334
+      },
+      "hover": {
+        "slot": "insight-card",
+        "translate": "0px -2px",
+        "border": "oklab(0.635428 -0.0116399 -0.0827682)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.1) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.7) 0px 12px 24px -1",
+        "outline": "none 3px",
+        "background": "rgb(17, 17, 17)",
+        "icon": {
+          "translate": "none",
+          "rotate": "none",
+          "scale": "1.12"
+        },
+        "text": "منى عادل #1 23 valid orders 17,060.00 EGP Orders 23 Cancelled 0 Returned 1",
+        "layout": {
+          "top": 210,
+          "left": 24,
+          "width": 279,
+          "height": 244
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 315
+        },
+        "scrollHeight": 1334
+      },
+      "innerHover": null,
+      "layoutShift": false,
+      "textChanged": false,
+      "focus": {
+        "slot": "insight-card",
+        "translate": "none",
+        "border": "oklab(0.551098 -0.00949419 -0.0675208)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.1) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.03) 0px 0px 0px 1px",
+        "outline": "none 3px",
+        "background": "rgb(17, 17, 17)",
+        "icon": {
+          "translate": "none",
+          "rotate": "none",
+          "scale": "none"
+        },
+        "text": "منى عادل #1 23 valid orders 17,060.00 EGP Orders 23 Cancelled 0 Returned 1",
+        "layout": {
+          "top": 210,
+          "left": 24,
+          "width": 279,
+          "height": 244
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 315
+        },
+        "scrollHeight": 1334
+      },
+      "focused": false
+    },
+    "state-reduced-motion": {
+      "rest": {
+        "slot": "insight-card",
+        "translate": "none",
+        "border": "oklab(0.675993 -0.0125128 -0.0891066)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
+        "outline": "none 3px",
+        "background": "rgb(255, 255, 255)",
+        "icon": {
+          "translate": "none",
+          "rotate": "none",
+          "scale": "none"
+        },
+        "text": "منى عادل #1 23 طلب صالح 17,060.00 EGP الطلبات 23 ملغاة 0 مرتجعة 1",
+        "layout": {
+          "top": 210,
+          "left": 897,
+          "width": 279,
+          "height": 219
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 606
+        },
+        "scrollHeight": 1239
+      },
+      "hover": {
+        "slot": "insight-card",
+        "translate": "none",
+        "border": "oklab(0.600393 -0.0154431 -0.109903)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.05) 0px 2px 4px 0px, rgba(0, 0, 0, 0.3) 0px 12px 24px -14px, ",
+        "outline": "none 3px",
+        "background": "rgb(255, 255, 255)",
+        "icon": {
+          "translate": "none",
+          "rotate": "none",
+          "scale": "none"
+        },
+        "text": "منى عادل #1 23 طلب صالح 17,060.00 EGP الطلبات 23 ملغاة 0 مرتجعة 1",
+        "layout": {
+          "top": 210,
+          "left": 897,
+          "width": 279,
+          "height": 219
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 606
+        },
+        "scrollHeight": 1239
+      },
+      "innerHover": null,
+      "layoutShift": false,
+      "textChanged": false,
+      "focus": {
+        "slot": "insight-card",
+        "translate": "none",
+        "border": "oklab(0.675993 -0.0125128 -0.0891066)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
+        "outline": "none 3px",
+        "background": "rgb(255, 255, 255)",
+        "icon": {
+          "translate": "none",
+          "rotate": "none",
+          "scale": "none"
+        },
+        "text": "منى عادل #1 23 طلب صالح 17,060.00 EGP الطلبات 23 ملغاة 0 مرتجعة 1",
+        "layout": {
+          "top": 210,
+          "left": 897,
+          "width": 279,
+          "height": 219
+        },
+        "neighbour": {
+          "top": 210,
+          "left": 606
+        },
+        "scrollHeight": 1239
+      },
+      "focused": false
+    },
+    "state-touch-375": {
+      "hoverNone": true,
+      "rest": {
+        "slot": "insight-card",
+        "translate": "none",
+        "border": "oklab(0.675993 -0.0125128 -0.0891066)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
+        "outline": "none 3px",
+        "background": "rgb(255, 255, 255)",
+        "icon": {
+          "translate": "none",
+          "rotate": "none",
+          "scale": "none"
+        },
+        "text": "منى عادل #1 23 طلب صالح 17,060.00 EGP الطلبات 23 ملغاة 0 مرتجعة 1",
+        "layout": {
+          "top": 353,
+          "left": 16,
+          "width": 343,
+          "height": 184
+        },
+        "neighbour": {
+          "top": 549,
+          "left": 16
+        },
+        "scrollHeight": 2560
+      },
+      "afterTap": {
+        "slot": "insight-card",
+        "translate": "none",
+        "border": "oklab(0.675993 -0.0125128 -0.0891066)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
+        "outline": "none 3px",
+        "background": "rgb(255, 255, 255)",
+        "icon": {
+          "translate": "none",
+          "rotate": "none",
+          "scale": "none"
+        },
+        "text": "منى عادل #1 23 طلب صالح 17,060.00 EGP الطلبات 23 ملغاة 0 مرتجعة 1",
+        "layout": {
+          "top": 353,
+          "left": 16,
+          "width": 343,
+          "height": 184
+        },
+        "neighbour": {
+          "top": 549,
+          "left": 16
+        },
+        "scrollHeight": 2560
+      }
+    },
+    "long-amounts-375": {
+      "frames": 0,
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    },
+    "long-amounts-1440": {
+      "frames": 0,
+      "cards": 10,
+      "overflowX": 0,
+      "clipped": [],
+      "firstFrame": null
+    }
+  }
+}

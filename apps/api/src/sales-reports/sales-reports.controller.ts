@@ -15,6 +15,7 @@ import {
 import { CurrentAgent } from '../agents/common/current-agent.decorator';
 import { SalesReportsService } from './sales-reports.service';
 import { SalesPerformanceQueryDto } from './dto/sales-performance-query.dto';
+import { EmployeePeriodsQueryDto } from './dto/employee-periods-query.dto';
 
 /**
  * R13 spec E — company sales reports. Gate: `reports.sales.view`
@@ -41,6 +42,23 @@ export class SalesReportsController {
     @Query() query: SalesPerformanceQueryDto,
   ) {
     return this.reports.performance(
+      await this.reports.companyScope(user.sub),
+      query,
+    );
+  }
+
+  /**
+   * R20 §B — every employee in the report scope × the five Live periods
+   * (one aggregated query, paginated by employee). OWN: the caller's card
+   * and own rank only; TEAM: own + members; ALL: every company employee
+   * plus the separate unassigned / agents rows.
+   */
+  @Get('employee-periods')
+  async employeePeriods(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: EmployeePeriodsQueryDto,
+  ) {
+    return this.reports.employeePeriods(
       await this.reports.companyScope(user.sub),
       query,
     );
@@ -74,6 +92,19 @@ export class AgentPortalSalesReportsController {
     @Query() query: SalesPerformanceQueryDto,
   ) {
     return this.reports.performance(
+      await this.reports.agentScope(agent),
+      query,
+    );
+  }
+
+  /** R20 §B — the caller's agent only (AGENT_ALL) or the caller alone (AGENT_OWN). */
+  @Get('employee-periods')
+  @RequireAgentPermission('agent.dashboard.view')
+  async employeePeriods(
+    @CurrentAgent() agent: AgentRequestContext,
+    @Query() query: EmployeePeriodsQueryDto,
+  ) {
+    return this.reports.employeePeriods(
       await this.reports.agentScope(agent),
       query,
     );

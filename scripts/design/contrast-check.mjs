@@ -399,6 +399,27 @@ const PAIRS = [
         [`identity ${id} glyph on solid chip`, "var(--card)", `var(--report-identity-${id})`, UI],
       ]),
   ),
+  // R20 §B: the outer employee card (`InsightFrame`) — the name, the reference line (muted), the
+  // rank chip text on the strongest point of its identity wash (the top), the header icon on its
+  // chip, and the hover / focus and touch edges against the card, for every identity hue.
+  ...["teal", "sky", "blue", "indigo", "violet", "orchid", "slate"].flatMap((id) => {
+    const wash = `color-mix(in oklab, var(--report-identity-${id}) var(--insight-frame-tint), var(--card))`;
+    const edge = (share) =>
+      `color-mix(in oklab, var(--report-identity-${id}) var(${share}), var(--border))`;
+    return [
+      [`frame ${id} name on wash`, "var(--card-foreground)", wash, TEXT],
+      [`frame ${id} reference (muted) on wash`, "var(--muted-foreground)", wash, TEXT],
+      [`frame ${id} rank chip on wash`, "var(--foreground)", wash, TEXT],
+      [
+        `frame ${id} header icon on chip`,
+        `var(--report-identity-${id})`,
+        `color-mix(in oklab, var(--report-identity-${id}) var(--insight-report-icon-fill), var(--card))`,
+        UI,
+      ],
+      [`frame ${id} edge (hover / focus)`, edge("--insight-frame-border-hover"), "var(--card)", 1.3],
+      [`frame ${id} edge (touch)`, edge("--insight-frame-border-touch"), "var(--card)", 1.3],
+    ];
+  }),
   ["report neutral title on glass", "var(--insight-title)", "var(--insight-report-glass)", TEXT],
   ["report neutral muted on glass", "var(--muted-foreground)", "var(--insight-report-glass)", TEXT],
   ["tile neutral title on glass", "var(--insight-title)", "var(--insight-glass)", TEXT],

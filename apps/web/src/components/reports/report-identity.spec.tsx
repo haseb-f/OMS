@@ -139,7 +139,8 @@ describe("identity on the shared card — values unchanged", () => {
         ))}
       </>,
     );
-    const values = [...container.querySelectorAll('[data-slot="semantic-value"]')];
+    // R20 §B: figure and code are two runs of one LTR value (`money-split`); the text is unchanged.
+    const values = [...container.querySelectorAll('[data-slot="money-split"]')];
     expect(values.map((el) => el.textContent)).toEqual(
       cases.map(([value, code]) => formatMoney(value, code)),
     );
@@ -187,7 +188,8 @@ describe("identity recipe, semantic text and icon motion", () => {
     for (const hue of INSIGHT_IDENTITIES) {
       expect(block).toMatch(
         new RegExp(
-          `\\[data-slot="insight-card"\\]\\[data-identity="${hue}"\\] \\{\\s*--tone: var\\(--report-identity-${hue}\\);`,
+          // R20 §B: the outer card (`insight-frame`) shares the identity mapping.
+          `:is\\(\\[data-slot="insight-card"\\], \\[data-slot="insight-frame"\\]\\)\\[data-identity="${hue}"\\] \\{\\s*--tone: var\\(--report-identity-${hue}\\);`,
         ),
       );
       expect(tokens.match(new RegExp(`--report-identity-${hue}:`, "g")), hue).toHaveLength(2);
