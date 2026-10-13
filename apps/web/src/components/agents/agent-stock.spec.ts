@@ -19,6 +19,17 @@ describe("agent stock history links", () => {
     expect(documentHref(ret, INTERNAL_DOCUMENT_LINKS)).toBe("/store-orders/o-1");
   });
 
+  it("R19 A: an assembly order opens on the assembly page internally, never from the portal", () => {
+    const assembly = {
+      kind: "ASSEMBLY_ORDER",
+      id: "a-1",
+      number: "ASM-2026-000001",
+      recipeVersion: 1,
+    } as const;
+    expect(documentHref(assembly, INTERNAL_DOCUMENT_LINKS)).toBe("/inventory/assembly/a-1");
+    expect(documentHref(assembly, { order: (id: string) => `/agent/orders/${id}` })).toBeNull();
+  });
+
   it("portal: own orders open in the portal, a receipt has no link", () => {
     const portal = { order: (id: string) => `/agent/orders/${id}` };
     expect(documentHref(receipt, portal)).toBeNull();

@@ -6,6 +6,8 @@ import { Info } from "lucide-react";
 import { EnterpriseModal } from "@/components/shared/enterprise-modal";
 import { MoneyInput } from "@/components/shared/money-input";
 import { ProductPicker } from "@/components/business/product-picker";
+import { SearchableSelect } from "@/components/shared/searchable-select";
+import { agentOptionLabel, useAgentOptions } from "@/components/agents/agent-options";
 import { WarehousePicker } from "@/components/business/warehouse-picker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -34,6 +36,9 @@ import { useUserContext } from "@/providers/user-context";
 import { assemblyService, type AssemblyOrder } from "@/services/assembly-service";
 import { productsService, type ProductRow } from "@/services/products-service";
 
+/** Owner choice "company stock" (the agents' ids are the other options). */
+const COMPANY_OWNER = "company";
+
 /** The warehouse a new assembly of `product` starts in: its preferred warehouse, else the company default. */
 function defaultWarehouseFor(
   preferredWarehouseId: string | null | undefined,
@@ -53,17 +58,25 @@ function defaultWarehouseFor(
  * components it consumes. Every submit of one dialog session carries the same
  * `Idempotency-Key`, so a double click or a retry after a timeout can never
  * assemble twice; the key is renewed after a success and when the dialog closes.
+ *
+ * R19 A — the owner (company stock or one agent's consignment stock) scopes the
+ * product picker: an agent's boxes are listed only for that agent (`agents.view`
+ * holders), and their components must be the same agent's (server-enforced).
+ * Agent stock is non-valued: no direct cost, no cost figure anywhere.
  */
 export function AssemblyCreateDialog({
   open,
   onOpenChange,
   initialProduct,
+  agent,
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Prefills the product (the product page's "Assemble" shortcut). */
   initialProduct?: ProductRow | null;
+  /** Fixes the owner to this agent (the agent page's "Assemble boxes"). */
+  agent?: { id: string; label: string };
   onCreated?: (order: AssemblyOrder) => void;
 }) {
   const { t } = useLocale();
@@ -73,6 +86,10 @@ export function AssemblyCreateDialog({
   const canEnterDirectCost = hasPermission(ASSEMBLY_PERMISSIONS.directCost);
   const canReadProduct = hasPermission("products.view");
   const warehouses = useWarehouses({ enabled: open });
+  const { agents, canList: canListAgents } = useAgentOptions();
+  const ownerFor = (seed: ProductRow | null | undefined) =>
+    agent?.id ?? seed?.ownerAgentId ?? COMPANY_OWNER;
+  const [ownerId, setOwnerId] = useState<string>(ownerFor(initialProduct));
   const { key: idempotencyKey, renew: renewIdempotencyKey } = useIdempotencyKey();
 
   const [product, setProduct] = useState<ProductRow | null>(initialProduct ?? null);
@@ -95,7 +112,8 @@ export function AssemblyCreateDialog({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setProduct(initialProduct ?? null);
     setPreferredWarehouseId(initialProduct?.preferredWarehouseId ?? null);
-  }, [open, initialProduct]);
+    setOwnerId(agent?.id ?? initialProduct?.ownerAgentId ?? COMPANY_OWNER);
+  }, [open, initialProduct, agent?.id]);
 
   // A catalog row has no preferred warehouse — read it from the product when allowed.
   useEffect(() => {
@@ -128,7 +146,23 @@ export function AssemblyCreateDialog({
 
   const quantity = parseAssemblyQuantity(quantityText);
   const directCost = normalizeDirectCost(directCostText);
-  const agentOwned = !!product?.ownerAgentId;
+  const agentOwned = ownerId !== COMPANY_OWNER || !!product?.ownerAgentId;
+  const pickerAgentId = ownerId !== COMPANY_OWNER ? ownerId : undefined;
+  // The owner can be chosen only from the assembly screen, by a user who may list agents.
+  const showOwner = !agent && !initialProduct && canListAgents;
+  const ownerOptions = useMemo(
+    () => [
+      { value: COMPANY_OWNER, label: t("assembly.dialog.ownerCompany") },
+      ...agents
+        .filter((row) => row.status === "ACTIVE" || row.id === ownerId)
+        .map((row) => ({
+          value: row.id,
+          label: agentOptionLabel(row),
+          searchText: row.agentNumber,
+        })),
+    ],
+    [agents, ownerId, t],
+  );
   const showDirectCost = canEnterDirectCost && !agentOwned;
 
   const previewInput = useMemo(
@@ -185,6 +219,7 @@ export function AssemblyCreateDialog({
     directCost.ok;
 
   const reset = () => {
+    setOwnerId(ownerFor(initialProduct));
     setProduct(initialProduct ?? null);
     setPreferredWarehouseId(initialProduct?.preferredWarehouseId ?? null);
     setWarehouse(null);
@@ -250,7 +285,7 @@ export function AssemblyCreateDialog({
       }}
       size="lg"
       title={t("assembly.dialog.title")}
-      description={t("assembly.dialog.description")}
+      description={agent ? agent.label : t("assembly.dialog.description")}
       footer={(requestClose) => (
         <>
           <EnterpriseButton
@@ -274,9 +309,32 @@ export function AssemblyCreateDialog({
     >
       <div className="flex flex-col gap-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {showOwner ? (
+            <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
+              <Label htmlFor={`${fieldId}-owner`}>{t("assembly.fields.owner")}</Label>
+              <SearchableSelect
+                id={`${fieldId}-owner`}
+                value={ownerId}
+                onValueChange={(next) => {
+                  if (next === ownerId) return;
+                  setOwnerId(next || COMPANY_OWNER);
+                  // A product of another owner never stays selected.
+                  setProduct(null);
+                  setPreferredWarehouseId(null);
+                }}
+                options={ownerOptions}
+              />
+              {ownerId !== COMPANY_OWNER ? (
+                <p className="text-caption text-muted-foreground">
+                  {t("assembly.dialog.ownerHint")}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor={`${fieldId}-product`}>{t("assembly.fields.product")}</Label>
             <ProductPicker
+              key={pickerAgentId ?? COMPANY_OWNER}
               id={`${fieldId}-product`}
               value={product}
               onChange={(next) => {
@@ -285,6 +343,7 @@ export function AssemblyCreateDialog({
               }}
               inventoryOnly
               supplyMethod="ASSEMBLED"
+              agentId={pickerAgentId}
               allowCreate={false}
               placeholder={t("assembly.dialog.productPlaceholder")}
               emptyText={t("assembly.dialog.noAssembledProducts")}

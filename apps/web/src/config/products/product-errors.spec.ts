@@ -29,6 +29,7 @@ describe("recipe error mapping", () => {
     const codes = Object.keys(RECIPE_ERROR_KEYS) as RecipeErrorCode[];
     expect(codes.sort()).toEqual(
       [
+        "RECIPE_AGENT_DIRECT_COST",
         "RECIPE_CYCLE",
         "RECIPE_EMPTY",
         "RECIPE_KIT_FRACTIONAL",

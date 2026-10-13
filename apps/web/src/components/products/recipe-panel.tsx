@@ -86,8 +86,11 @@ export function RecipePanel({ product }: { product: ProductRow }) {
   const { hasPermission } = useUserContext();
   const canManage = hasPermission(MANAGE_RECIPES_PERMISSION);
   // The direct-cost estimate is a cost figure (API withholds it otherwise).
+  // R19 A — an agent-owned product is consignment stock: never valued, so no cost estimate at all.
+  const agentOwned = !!product.ownerAgentId;
   const canSeeCost =
-    canViewInventoryCost(hasPermission) || hasPermission("inventory.assembly.direct_cost");
+    !agentOwned &&
+    (canViewInventoryCost(hasPermission) || hasPermission("inventory.assembly.direct_cost"));
   const kind: RecipeProductKind = product.supplyMethod === "KIT" ? "KIT" : "ASSEMBLED";
   const units = useUnits();
 
@@ -338,6 +341,11 @@ export function RecipePanel({ product }: { product: ProductRow }) {
             {t("products.recipe.permissionNote")}
           </p>
         )}
+        {agentOwned && kind === "ASSEMBLED" && (
+          <p className="text-caption text-muted-foreground">
+            {t("assembly.dialog.agentOwnedNote")} {t("assembly.dialog.ownerHint")}
+          </p>
+        )}
 
         {/* Versions + the one create action. */}
         <div className="flex flex-wrap items-center gap-2">
@@ -563,7 +571,7 @@ export function RecipePanel({ product }: { product: ProductRow }) {
                   {formatNumber(selected.outputQuantity)}
                 </span>
               </div>
-              {kind === "ASSEMBLED" && selected.directCostEstimate != null && (
+              {kind === "ASSEMBLED" && !agentOwned && selected.directCostEstimate != null && (
                 <div>
                   {t("products.recipe.fields.directCostEstimate")}:{" "}
                   <span dir="ltr" className="num text-foreground">

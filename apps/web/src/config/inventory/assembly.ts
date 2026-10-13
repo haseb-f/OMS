@@ -58,6 +58,10 @@ export interface PreviewLineView {
   name: string;
   /** Needed for the requested quantity (whole stock units). */
   needed: number;
+  onHand: number;
+  /** Held for other documents (orders) — an assembly never takes it. */
+  reserved: number;
+  /** `onHand − reserved`. */
   available: number;
   /** Missing units (0 when covered). */
   shortage: number;
@@ -94,6 +98,8 @@ export function summarizeAssemblyPreview(preview: AssemblyPreview): PreviewSumma
     componentProductId: line.componentProductId,
     name: line.name,
     needed: line.quantity,
+    onHand: line.onHand,
+    reserved: line.reserved,
     available: line.available,
     shortage: Math.max(0, line.quantity - line.available),
     isLimiting: index === limitingIndex,

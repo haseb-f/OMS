@@ -60,11 +60,17 @@ export type AgentStockEvent =
   | "RETURNED"
   | "ADJUSTED"
   | "WRITTEN_OFF"
-  | "TRANSFERRED";
+  | "TRANSFERRED"
+  // R19 A — stocked assembly (components into finished boxes) and its reversal.
+  | "ASSEMBLY_CONSUMED"
+  | "ASSEMBLED"
+  | "DISASSEMBLED"
+  | "ASSEMBLY_RESTORED";
 
 export type AgentStockDocument =
   | { kind: "AGENT_STOCK_RECEIPT"; id: string; number: string }
   | { kind: "STORE_ORDER"; id: string; number: string }
+  | { kind: "ASSEMBLY_ORDER"; id: string; number: string; recipeVersion: number }
   | { kind: "AGENT_RETURN"; id: string; number: string; storeOrderId: string };
 
 export interface AgentStockMovement {

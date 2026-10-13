@@ -14,12 +14,21 @@ export interface AssemblyPreview {
   canAssemble: boolean;
   blockers: AssemblyBlocker[];
   recipe: { id: string; version: number } | null;
+  /** False for agent-owned consignment stock (R19 A): quantities only, every cost figure is null. */
+  valued: boolean;
+  /** Finished units the assembly receives into the warehouse. */
+  finishedQuantity: number;
   lines: {
     componentProductId: string;
     name: string;
     /** Whole stock units needed for the requested quantity. */
     quantity: number;
+    onHand: number;
+    /** Held for other documents (orders) — never consumed by an assembly. */
+    reserved: number;
+    /** `onHand − reserved`. */
     available: number;
+    shortage: number;
     unitCost: string | null;
     value: string | null;
   }[];
@@ -53,6 +62,8 @@ export interface AssemblyOrder {
   recipeVersion: number;
   quantity: number;
   ownerAgentId: string | null;
+  /** False for agent-owned consignment stock: no cost figure exists (all null). */
+  valued: boolean;
   componentCost: string | null;
   directCost: string | null;
   totalCost: string | null;
@@ -80,6 +91,8 @@ export interface AssemblyListParams {
   productId?: string;
   warehouseId?: string;
   status?: AssemblyStatus;
+  /** Only the assemblies of this agent's consignment stock (R19 A). */
+  agentId?: string;
   /** Inclusive `YYYY-MM-DD` (a plain date covers the whole day). */
   from?: string;
   to?: string;

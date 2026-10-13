@@ -328,6 +328,7 @@ const agentsEn = {
     returned: "Returned",
     noWarehouse: "No stock yet",
     receive: "Receive stock",
+    assemble: "Assemble boxes",
     receiveDescription:
       "The agent's goods held in our custody — physical quantities only, never company inventory value.",
     receipts: "Receipts",

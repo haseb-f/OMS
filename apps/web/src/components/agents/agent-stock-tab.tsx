@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { PackagePlus } from "lucide-react";
+import { Boxes, PackagePlus } from "lucide-react";
 import { DetailSection } from "@/components/shared/detail-workspace";
 import { ErrorState } from "@/components/shared/error-state";
 import { StackedCell } from "@/components/shared/stacked-cell";
@@ -20,6 +20,8 @@ import { useLocale } from "@/providers/locale-provider";
 import { useUserContext } from "@/providers/user-context";
 import { apiErrorMessage } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
+import { AssemblyCreateDialog } from "@/components/inventory/assembly-create-dialog";
+import { ASSEMBLY_PERMISSIONS } from "@/config/inventory/assembly";
 import { AgentStockReceiptDialog } from "./agent-stock-receipt-dialog";
 import { AgentStockReceiptsTable } from "./agent-stock-receipts-table";
 import { AgentStockMovementsTable, INTERNAL_DOCUMENT_LINKS } from "./agent-stock-movements-table";
@@ -103,14 +105,18 @@ function StockPlaceholder() {
  * Agent page "Products & stock" tab (R18 B): the agent's consignment stock
  * (physical quantities only — never company value), its custody receipts and
  * the movement history linked to receipts, orders, transit and returns.
+ * R19 A — "Assemble boxes" (internal assembly right only) assembles the agent's
+ * finished products from the agent's own components, non-valued.
  */
 export function AgentStockTab({ agentId, agentLabel }: { agentId: string; agentLabel: string }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
   const canReceive = hasPermission("inventory.movements.create");
+  const canAssemble = hasPermission(ASSEMBLY_PERMISSIONS.create);
   const [stock, setStock] = useState<AgentStockResult | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [receiveOpen, setReceiveOpen] = useState(false);
+  const [assembleOpen, setAssembleOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
   const load = useCallback(async () => {
@@ -141,11 +147,26 @@ export function AgentStockTab({ agentId, agentLabel }: { agentId: string; agentL
       <DetailSection
         title={t("agents.stock.stockTitle")}
         actions={
-          canReceive ? (
-            <EnterpriseButton type="button" size="sm" onClick={() => setReceiveOpen(true)}>
-              <PackagePlus />
-              {t("agents.stock.receive")}
-            </EnterpriseButton>
+          canReceive || canAssemble ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {canAssemble ? (
+                <EnterpriseButton
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAssembleOpen(true)}
+                >
+                  <Boxes />
+                  {t("agents.stock.assemble")}
+                </EnterpriseButton>
+              ) : null}
+              {canReceive ? (
+                <EnterpriseButton type="button" size="sm" onClick={() => setReceiveOpen(true)}>
+                  <PackagePlus />
+                  {t("agents.stock.receive")}
+                </EnterpriseButton>
+              ) : null}
+            </div>
           ) : null
         }
       >
@@ -188,6 +209,14 @@ export function AgentStockTab({ agentId, agentLabel }: { agentId: string; agentL
           agent={{ id: agentId, label: agentLabel }}
           onOpenChange={setReceiveOpen}
           onReceived={() => setReloadKey((key) => key + 1)}
+        />
+      ) : null}
+      {canAssemble ? (
+        <AssemblyCreateDialog
+          open={assembleOpen}
+          onOpenChange={setAssembleOpen}
+          agent={{ id: agentId, label: agentLabel }}
+          onCreated={() => setReloadKey((key) => key + 1)}
         />
       ) : null}
     </div>

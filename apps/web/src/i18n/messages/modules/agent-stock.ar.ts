@@ -78,11 +78,16 @@ const agentStockAr = {
       ADJUSTED: "تسوية",
       WRITTEN_OFF: "إعدام",
       TRANSFERRED: "تحويل",
+      ASSEMBLY_CONSUMED: "صرف للتجميع",
+      ASSEMBLED: "تجميع",
+      DISASSEMBLED: "عكس تجميع",
+      ASSEMBLY_RESTORED: "عودة من التجميع",
     },
     document: {
       AGENT_STOCK_RECEIPT: "سند استلام",
       STORE_ORDER: "طلب",
       AGENT_RETURN: "مرتجع",
+      ASSEMBLY_ORDER: "أمر تجميع",
     },
   },
 } as const;
