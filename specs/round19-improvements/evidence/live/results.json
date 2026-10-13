@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-13T11:15:13.012Z",
+  "at": "2026-10-13T12:50:59.806Z",
   "results": [
     {
       "name": "GET /assembly 200",
@@ -27,6 +27,11 @@
       "detail": "6 cards"
     },
     {
+      "name": "light: C2 colour identities on the Live cards",
+      "ok": true,
+      "detail": "teal,sky,blue,violet,orchid"
+    },
+    {
       "name": "light: no page errors",
       "ok": true,
       "detail": ""
@@ -40,6 +45,11 @@
       "name": "dark: sales-report cards at report size",
       "ok": true,
       "detail": "6 cards"
+    },
+    {
+      "name": "dark: C2 colour identities on the Live cards",
+      "ok": true,
+      "detail": "teal,sky,blue,violet,orchid"
     },
     {
       "name": "dark: no page errors",

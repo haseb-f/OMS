@@ -13,3 +13,13 @@ No transactional journey on Production (no agent assembly was posted live); the 
 proven on the local integrated build (`checklist.md`, `evidence/a`, serial 238 / 238).
 
 Open owner decisions: assembly fee for agents · mixed-owner boxes · partial reversal (see `checklist.md`).
+
+## C2 — sales-report card refinement (owner approved 2026-10-13)
+
+| Step                                        | Result                                                                                                                                         |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Release                                     | `3ca35cc2` (`feat/r19-cards-refine` fast-forwarded) → Production deployment 7038927206 **success**; no migration                               |
+| Live check (`r19-prod-live.mjs`, read-only) | 11 / 11 — colour identities on the Live cards in light + dark (teal, sky, blue, violet, orchid), report size, sidebar 16.3 : 1, no page errors |
+| R14 smoke                                   | 19 / 19                                                                                                                                        |
+
+Demo orders tagged "R19C2 demo" exist only in the local `oms_r19_c` database; Production data untouched.

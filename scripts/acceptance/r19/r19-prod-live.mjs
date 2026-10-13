@@ -64,6 +64,8 @@ for (const theme of ["light", "dark"]) {
   check(`${theme}: sidebar ${theme === "light" ? "dark" : "light"} against content`, theme === "light" ? sideL < mainL && ratio > 4 : sideL > mainL && ratio > 4, `${colors.sidebar} vs ${colors.main} · ${ratio.toFixed(1)}:1`);
   const reportCards = await page.locator('[data-size="report"]').count();
   check(`${theme}: sales-report cards at report size`, reportCards > 0, `${reportCards} cards`);
+  const identities = await page.locator("[data-identity]").evaluateAll((els) => [...new Set(els.map((el) => el.getAttribute("data-identity")))]);
+  check(`${theme}: C2 colour identities on the Live cards`, identities.length >= 5, identities.join(","));
   await page.screenshot({ path: `${OUT}/sales-reports-${theme}.png` });
   check(`${theme}: no page errors`, errors.length === 0, errors.join(" | "));
   await ctx.close();
