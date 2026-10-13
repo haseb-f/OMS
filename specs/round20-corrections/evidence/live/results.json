@@ -1,0 +1,100 @@
+{
+  "at": "2026-10-13T20:06:07.684Z",
+  "results": [
+    {
+      "name": "A: lead list exposes openedByAssigneeAt (migration applied)",
+      "ok": true,
+      "detail": "47 leads"
+    },
+    {
+      "name": "A: admin opening another employee's lead does not mark it",
+      "ok": true,
+      "detail": "LD-2026-000002 → 200, openedByAssigneeAt=null"
+    },
+    {
+      "name": "A: opening never changes the business status",
+      "ok": true,
+      "detail": "QUALIFIED → QUALIFIED"
+    },
+    {
+      "name": "B: employee-periods endpoint 200",
+      "ok": true,
+      "detail": "3 employee cards"
+    },
+    {
+      "name": "B: five periods per employee",
+      "ok": true,
+      "detail": "today,yesterday,last7Days,thisMonth,lastMonth"
+    },
+    {
+      "name": "B: live report still 200",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C: INV-2026-000091 200,000 / 100,000 outstanding / PARTIALLY_PAID",
+      "ok": true,
+      "detail": "100000/100000/PARTIALLY_PAID"
+    },
+    {
+      "name": "C: customer position separates received / applied / unapplied",
+      "ok": true,
+      "detail": "{\"currencyId\":\"f176ab0e-8132-4584-b188-b2e590608212\",\"currencyCode\":\"EGP\",\"openInvoices\":1,\"outstanding\":100000,\"received\":200000,\"applied\":100000,\"unapplied\":1"
+    },
+    {
+      "name": "C: voucher integrity 0 errors",
+      "ok": true,
+      "detail": "review 0"
+    },
+    {
+      "name": "browser ar-1440: leads renders, no horizontal overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "browser ar-1440: employee cards show period boxes",
+      "ok": true,
+      "detail": "30 boxes"
+    },
+    {
+      "name": "browser ar-1440: employees renders, no horizontal overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "browser ar-1440: invoices renders, no horizontal overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "browser ar-1440: no page errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "browser en-375: leads renders, no horizontal overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "browser en-375: employee cards show period boxes",
+      "ok": true,
+      "detail": "30 boxes"
+    },
+    {
+      "name": "browser en-375: employees renders, no horizontal overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "browser en-375: invoices renders, no horizontal overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "browser en-375: no page errors",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

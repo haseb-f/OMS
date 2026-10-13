@@ -1,0 +1,28 @@
+# R20 — release record (2026-10-14)
+
+Owner authorised the combined release. `feat/r20` (A + B + C) fast-forwarded to `main`.
+
+| Step                                               | Result                                                                                                                                                                                                                                                                                                                                                                                                              |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Release                                            | `c83ea82d` → Production deployment 7048746657 **success**; migration `20261013100000_r20_lead_assignee_opens` applied by the Production build (`openedByAssigneeAt` on every lead)                                                                                                                                                                                                                                  |
+| Live check `r20-prod-live.mjs`                     | 19 / 19 — admin open of an employee's lead is a no-op (LD-2026-000002 stays unread, status QUALIFIED unchanged); `employee-periods` 200 with 5 periods; INV-2026-000091 100,000 / 100,000 / PARTIALLY_PAID; customer position received 200,000 · applied 100,000 · unapplied 100,000; voucher integrity 0 / 0; leads, employees (30 period boxes), invoices render ar 1440 + en 375 without overflow or page errors |
+| Payment audit `r20-payment-status-audit.mjs` (GET) | every invoice: displayed status = confirmed allocations                                                                                                                                                                                                                                                                                                                                                             |
+| Repair dry-run `r20-repair-payment-status.mjs`     | NOTHING_TO_REPAIR — no record changed                                                                                                                                                                                                                                                                                                                                                                               |
+
+Integrated gates before release: API + web typecheck ✓, lint 0 errors, contrast ✓, builds ✓, web vitest 1321 / 1321,
+API jest 2664 / 2669 + serial 236 / 238 (FX suites 34 / 34 alone, agent-assembly 2 / 2 alone after a machine sleep,
+lead-eligibility 16 / 16 on the demo-based DB), local journeys A 38 / 38, C 23 / 23, B 100 boxes 0 mismatches.
+
+## Not verified live / open
+
+- The assignee's own open on Production: every Production lead belongs to a real staff account; no QA persona owns
+  one, so the "employee opens → badge gone for manager / admin" step is proven locally (A 38 / 38) and by the
+  integration spec, not on Production.
+- After the backfill 45 of 47 Production leads read «لم يُفتح»: only opens proven by the old per-viewer record
+  (`lead_views`) or `first_opened_at` for the assignee of that moment were kept — no open was invented.
+- Unapplied receipts left for the owner: CR-2026-000096 (100,000, دار الهدى — INV-2026-000091 still owes 100,000) and
+  CR-2026-000099 (50,000, مكتبة النور — INV-2026-000093 110,000 unpaid). The apply command is ready
+  (`--allocate CR-2026-000099=INV-2026-000093 --allocate CR-2026-000096=INV-2026-000091`, no new cash entry).
+- Decisions: invoice grid cards now coloured by payment status (changes `specs/round9-brand-grid/card-palettes.md`);
+  NEW leads stay NEW after opening (move to IN_PROGRESS via «بدء المتابعة»); unassigned leads show no badge; aging
+  totals still add currencies; an archived invoice with a balance drops out of aging.
