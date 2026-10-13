@@ -3,6 +3,7 @@
 import { Trophy } from "lucide-react";
 import { InsightCard } from "@/components/shared/insight-card";
 import { useLocale } from "@/providers/locale-provider";
+import type { ReportIdentity } from "@/components/reports/report-identity";
 
 /**
  * The caller's own standing (R15 requirement 6.1) in the dashboard card
@@ -16,6 +17,7 @@ export function OwnRankCard({
   of,
   population,
   size = "default",
+  identity,
   className,
 }: {
   /** null = no order in the period (not ranked). */
@@ -25,6 +27,8 @@ export function OwnRankCard({
   population: "company" | "agent";
   /** R19 §C — `report` on the sales-report screens (the home dashboard keeps the default). */
   size?: "default" | "report";
+  /** R19 §C2 — report size: the card's colour identity + icon motion. */
+  identity?: ReportIdentity;
   className?: string;
 }) {
   const { t } = useLocale();
@@ -38,6 +42,8 @@ export function OwnRankCard({
         phrase
         context={t("salesVisibility.notRankedHint", { of })}
         size={size}
+        identity={identity?.hue}
+        iconMotion={identity?.motion}
         className={className}
       />
     );
@@ -55,6 +61,8 @@ export function OwnRankCard({
         population === "agent" ? "salesVisibility.amongAgent" : "salesVisibility.amongCompany",
       )}
       size={size}
+      identity={identity?.hue}
+      iconMotion={identity?.motion}
       className={className}
     />
   );

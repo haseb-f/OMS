@@ -551,6 +551,14 @@ Mappings: `components/crm/lead-stage-indicator.tsx`,
   edge, more translucent glass) onto the same state machine. Long repeated lists (per employee / team) use
   `InsightGroup surface="opaque"` (opaque card, no backdrop blur); `prefers-reduced-transparency` makes every
   report card opaque. Guarded by `report-card-consumers.spec.ts` + `report-card-size.spec.tsx`.
+- R19 C2 identity (sales-report cards only): every card takes a colour identity from
+  `components/reports/report-identity.ts` (by metric / period, stable across screens, kept at zero; hues
+  `--report-identity-{teal,sky,blue,violet,orchid,indigo,slate}`, never green / amber / red). Text by meaning:
+  figure = identity accent, money = strong neutral with a muted currency code (`MoneyValue currencyClassName`),
+  cancelled > 0 = danger, returned > 0 / cash on delivery = attention, prepaid = success
+  (`--report-text-*`), dates / periods / explanations neutral. Icon glyph lift / tilt / scale on hover and on
+  keyboard focus (`--report-icon-*`), only under `prefers-reduced-motion: no-preference`; figures never animate.
+  Guarded by `report-identity.spec.tsx` + `report-card-consumers.spec.ts`.
 - `InsightGroup`: related static tiles on ONE surface split by 1px hairlines (block-start and
   inline-start shadows, clipped at the container, so any wrap stays correct). Interactive or verdict
   tiles stay separate cards beside the group. Dashboard: Leads and Orders groups share the 4-column

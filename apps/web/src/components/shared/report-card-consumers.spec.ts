@@ -239,6 +239,49 @@ describe("report-card consumers never style a card locally", () => {
     expect(reportCardUsers).toEqual([VIEW]);
   });
 
+  it("R19 §C2: every sales-report card carries its colour identity from the one mapping", () => {
+    const view = readFileSync(join(SRC, "components/reports/sales-reports-view.tsx"), "utf8");
+    const offenders: string[] = [];
+    for (const name of ["ReportCard", "OwnRankCard", "InsightCard"]) {
+      for (const tag of openingTags(view, name)) {
+        if (
+          !/\sidentity=\{(PERIOD_IDENTITY|METRIC_IDENTITY|currencyIdentity|identity)\b/.test(tag)
+        ) {
+          offenders.push(`<${name}> without an identity from report-identity.ts`);
+        }
+        // An identity replaces the tone — a card never sets both.
+        if (/\stone=/.test(tag)) offenders.push(`<${name}> with a tone`);
+      }
+    }
+    expect(offenders).toEqual([]);
+    expect(openingTags(view, "ReportCard").length).toBeGreaterThanOrEqual(6);
+  });
+
+  it("R19 §C2: identities, icon motion and split currency stay on the sales-report screens", () => {
+    const ALLOWED = new Set([
+      "components/shared/insight-card.tsx",
+      "components/shared/money-value.tsx",
+      "components/reports/report-card.tsx",
+      "components/reports/own-rank-card.tsx",
+      "components/reports/sales-reports-view.tsx",
+    ]);
+    const offenders: string[] = [];
+    for (const path of files) {
+      const file = relative(SRC, path).replace(/\\/g, "/");
+      if (ALLOWED.has(file)) continue;
+      const source = readFileSync(path, "utf8");
+      if (/data-identity|data-motion|report-identity/.test(source)) offenders.push(file);
+      for (const name of [...CARDS, "InsightIcon", "MoneyValue"]) {
+        for (const tag of openingTags(source, name)) {
+          if (/\s(identity|iconMotion|motion|currencyClassName)=/.test(tag)) {
+            offenders.push(`${file} <${name}>`);
+          }
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("R19 §C: the report size never leaks to other screens", () => {
     // Dashboards, statements, portals and record-grid status cards keep their own size.
     const ALLOWED = new Set([

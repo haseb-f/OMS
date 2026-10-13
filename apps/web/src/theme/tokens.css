@@ -235,7 +235,14 @@
      a roomier padding, and stronger tint / edge / icon chip / depth / hover /
      rise values that the recipe maps onto the same state machine; a more
      translucent glass with an opaque fallback (long lists, reduced
-     transparency). Every text pair stays AA (contrast-check.mjs).
+     transparency). Every text pair stays AA (contrast-check.mjs);
+   - identity (R19 §C2, sales-report cards only): a curated hue per metric /
+     period (`--report-identity-*`, mapping in components/reports/
+     report-identity.ts) — never green, amber or red, which stay the semantic
+     text colours (`--report-text-success|attention|danger`) inside a card;
+     every identity × text pair is AA on glass and opaque, light and dark;
+   - icon motion (R19 §C2): a short lift / tilt / scale of the icon glyph on
+     hover / focus (`--report-icon-*`), none under reduced motion.
    --------------------------------------------------------------------------- */
 :root {
   --insight-neutral: var(--muted-foreground);
@@ -303,6 +310,30 @@
   --insight-report-active-shadow-geometry: 0 14px 28px -14px;
   --insight-report-lift-static: -2px;
   --insight-report-lift-active: -3px;
+  /* R19 §C2 — identity hues (AA accents; mixed into the report tints like a tone). */
+  --report-identity-teal: oklch(0.47 0.085 195);
+  --report-identity-sky: oklch(0.47 0.11 235);
+  --report-identity-blue: oklch(0.46 0.15 262);
+  --report-identity-indigo: oklch(0.45 0.16 285);
+  --report-identity-violet: oklch(0.46 0.16 305);
+  --report-identity-orchid: oklch(0.47 0.15 335);
+  --report-identity-slate: oklch(0.46 0.03 255);
+  /* Semantic text inside a report card (by meaning, never per line). */
+  --report-text-success: color-mix(in oklab, var(--success-soft-foreground) 64%, var(--foreground));
+  --report-text-attention: color-mix(
+    in oklab,
+    var(--warning-soft-foreground) 62%,
+    var(--foreground)
+  );
+  --report-text-danger: color-mix(
+    in oklab,
+    var(--destructive-soft-foreground) 56%,
+    var(--foreground)
+  );
+  /* The icon's hover / focus motion (glyph only — the chip and the card never move for it). */
+  --report-icon-lift: -2px;
+  --report-icon-tilt: -10deg;
+  --report-icon-scale: 1.12;
 }
 .dark {
   --insight-tint-top: 30%;
@@ -336,6 +367,24 @@
   --insight-report-static-hover-shadow:
     0 0 0 1px rgb(255 255 255 / 0.05), 0 12px 24px -12px rgb(0 0 0 / 0.7);
   --insight-report-active-shadow-geometry: 0 14px 30px -12px;
+  --report-identity-teal: oklch(0.8 0.08 195);
+  --report-identity-sky: oklch(0.8 0.09 235);
+  --report-identity-blue: oklch(0.78 0.11 262);
+  --report-identity-indigo: oklch(0.78 0.11 285);
+  --report-identity-violet: oklch(0.79 0.11 305);
+  --report-identity-orchid: oklch(0.8 0.1 335);
+  --report-identity-slate: oklch(0.78 0.025 255);
+  --report-text-success: color-mix(in oklab, var(--success-soft-foreground) 66%, var(--foreground));
+  --report-text-attention: color-mix(
+    in oklab,
+    var(--warning-soft-foreground) 80%,
+    var(--foreground)
+  );
+  --report-text-danger: color-mix(
+    in oklab,
+    var(--destructive-soft-foreground) 46%,
+    var(--foreground)
+  );
 }
 
 /* ---------------------------------------------------------------------------

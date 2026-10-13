@@ -174,6 +174,95 @@ html[dir="ltr"] :is(h1, h2) {
     backdrop-filter: none;
   }
 }
+/* R19 §C2 — colour identity (sales-report cards: `data-tone="identity"` + `data-identity`). The
+   identity hue IS the card's tone, so tint, edge, icon chip, figure accent, emphasis edge and the
+   hover / focus shadow all follow it through the same state machine; it is not a verdict and
+   stays at zero. Mapping by metric / period: components/reports/report-identity.ts. */
+[data-slot="insight-card"][data-identity="teal"] {
+  --tone: var(--report-identity-teal);
+}
+[data-slot="insight-card"][data-identity="sky"] {
+  --tone: var(--report-identity-sky);
+}
+[data-slot="insight-card"][data-identity="blue"] {
+  --tone: var(--report-identity-blue);
+}
+[data-slot="insight-card"][data-identity="indigo"] {
+  --tone: var(--report-identity-indigo);
+}
+[data-slot="insight-card"][data-identity="violet"] {
+  --tone: var(--report-identity-violet);
+}
+[data-slot="insight-card"][data-identity="orchid"] {
+  --tone: var(--report-identity-orchid);
+}
+[data-slot="insight-card"][data-identity="slate"] {
+  --tone: var(--report-identity-slate);
+}
+/* Semantic text by MEANING inside a report card (set on a figure only when it is non-zero; the
+   label always names it): success = completed / collected, attention = pending / to process,
+   danger = failed / lost. Checked against every identity tint (contrast-check.mjs). */
+[data-slot="insight-card"][data-size="report"] [data-meaning="success"] {
+  color: var(--report-text-success);
+}
+[data-slot="insight-card"][data-size="report"] [data-meaning="attention"] {
+  color: var(--report-text-attention);
+}
+[data-slot="insight-card"][data-size="report"] [data-meaning="danger"] {
+  color: var(--report-text-danger);
+}
+/* Icon motion: the glyph alone lifts, tilts or scales on hover (hover-capable pointers) and on
+   keyboard focus of an actionable card, only when motion is welcome (no-preference) — individual `translate` / `rotate` / `scale`
+   properties of the svg, so neither the chip, the card nor a neighbour moves; one short
+   token-timed transition, never looping; the figures never animate. */
+[data-slot="insight-card"][data-size="report"] [data-slot="insight-icon"][data-motion] > svg {
+  transition:
+    translate var(--insight-card-duration) var(--ease-standard),
+    rotate var(--insight-card-duration) var(--ease-standard),
+    scale var(--insight-card-duration) var(--ease-standard);
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-slot="insight-card"][data-size="report"][data-interactive]:focus-visible
+    [data-slot="insight-icon"][data-motion="lift"]
+    > svg {
+    translate: 0 var(--report-icon-lift);
+  }
+  [data-slot="insight-card"][data-size="report"][data-interactive]:focus-visible
+    [data-slot="insight-icon"][data-motion="tilt"]
+    > svg {
+    rotate: var(--report-icon-tilt);
+  }
+  [data-slot="insight-card"][data-size="report"][data-interactive]:focus-visible
+    [data-slot="insight-icon"][data-motion="scale"]
+    > svg {
+    scale: var(--report-icon-scale);
+  }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  [data-slot="insight-card"][data-size="report"]:hover
+    [data-slot="insight-icon"][data-motion="lift"]
+    > svg {
+    translate: 0 var(--report-icon-lift);
+  }
+  [data-slot="insight-card"][data-size="report"]:hover
+    [data-slot="insight-icon"][data-motion="tilt"]
+    > svg {
+    rotate: var(--report-icon-tilt);
+  }
+  [data-slot="insight-card"][data-size="report"]:hover
+    [data-slot="insight-icon"][data-motion="scale"]
+    > svg {
+    scale: var(--report-icon-scale);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="insight-card"][data-size="report"] [data-slot="insight-icon"][data-motion] > svg {
+    transition: none;
+    translate: none;
+    rotate: none;
+    scale: none;
+  }
+}
 
 /* Secondary text (label, unit, context, action) on a toned card reads from the
    pulled-in muted token so the stronger tint still holds AA. */

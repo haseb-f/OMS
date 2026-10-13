@@ -14,6 +14,7 @@ import { MoneyValue } from "@/components/shared/money-value";
 import { formatNumber } from "@/lib/format-number";
 import { useLocale } from "@/providers/locale-provider";
 import { cn } from "@/lib/utils";
+import type { ReportIdentity } from "@/components/reports/report-identity";
 
 /** Currencies listed before the rest fold behind "Show N more". */
 const VISIBLE_AMOUNTS = 4;
@@ -23,9 +24,17 @@ export interface ReportCardAmount {
   amount: number;
 }
 
+/**
+ * R19 §C2 — what a supporting figure MEANS, for its text colour (never colour alone: the label
+ * stays). `success` = completed / collected, `attention` = pending / outstanding / to process,
+ * `danger` = failed / lost / negative. Without it (or at zero) the figure is neutral.
+ */
+export type ReportMeaning = "success" | "attention" | "danger";
+
 export interface ReportCardStat {
   label: string;
   value: number;
+  meaning?: ReportMeaning;
 }
 
 /**
@@ -46,11 +55,18 @@ export interface ReportCardStat {
  * title, a 32px figure, 16px money lines that never clip, 14px secondary counts and
  * the stronger report tint / edge / depth / hover of the theme recipe. The figures
  * themselves pass through unchanged (`formatNumber`, `MoneyValue`).
+ *
+ * R19 §C2 — `identity` gives the card its colour identity (report-identity.ts: the metric /
+ * period decides it, never the value), and its icon a short hover / focus motion. Text colour
+ * follows meaning: the main figure in the identity accent, money lines in the strong neutral
+ * with a quieter currency code, a stat in its `meaning` colour only when it is non-zero, the
+ * title / period / explanations in readable neutrals.
  */
 export function ReportCard({
   title,
   icon: Icon,
   tone = "neutral",
+  identity,
   figure,
   unit,
   meta,
@@ -65,6 +81,8 @@ export function ReportCard({
   title: string;
   icon?: LucideIcon;
   tone?: InsightTone;
+  /** R19 §C2 — the card's colour identity + icon motion (replaces `tone`). */
+  identity?: ReportIdentity;
   /** The prominent count. */
   figure: number;
   /** Muted unit after the figure ("valid orders"). */
@@ -90,7 +108,7 @@ export function ReportCard({
   const body = (
     <>
       <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
-        {Icon ? <InsightIcon icon={Icon} size="report" /> : null}
+        {Icon ? <InsightIcon icon={Icon} size="report" motion={identity?.motion} /> : null}
         <span
           data-slot="insight-label"
           className={cn(
@@ -138,7 +156,12 @@ export function ReportCard({
                 key={line.currencyCode}
                 className="flex min-w-0 flex-wrap justify-start text-card-title"
               >
-                <MoneyValue value={line.amount} currency={line.currencyCode} />
+                <MoneyValue
+                  value={line.amount}
+                  currency={line.currencyCode}
+                  className="font-semibold"
+                  currencyClassName={REPORT_CURRENCY_CLASS}
+                />
               </li>
             ))
           )}
@@ -177,7 +200,12 @@ export function ReportCard({
           {stats.map((stat) => (
             <div key={stat.label} className="flex items-baseline gap-1">
               <dt>{stat.label}</dt>
-              <dd className="num font-medium text-foreground">{formatNumber(stat.value)}</dd>
+              <dd
+                className="num font-medium text-foreground"
+                data-meaning={stat.meaning && stat.value !== 0 ? stat.meaning : undefined}
+              >
+                {formatNumber(stat.value)}
+              </dd>
             </div>
           ))}
         </dl>
@@ -189,6 +217,7 @@ export function ReportCard({
   return (
     <InsightSurface
       tone={resolvedTone}
+      identity={identity?.hue}
       size="report"
       emphasis={selected}
       onSelect={onSelect}
@@ -199,6 +228,9 @@ export function ReportCard({
     </InsightSurface>
   );
 }
+
+/** R19 §C2 — the currency code beside a report amount: smaller and quieter than the figure. */
+export const REPORT_CURRENCY_CLASS = "text-caption font-medium text-muted-foreground";
 
 /** Loading placeholder with a `ReportCard`'s geometry — no figure is ever faked. */
 export function ReportCardSkeleton({ className }: { className?: string }) {

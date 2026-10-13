@@ -347,6 +347,58 @@ const PAIRS = [
           ],
         ]),
   ),
+  // R19 §C2: every identity hue × every text role of a report card — the identity figure
+  // (rest / hover), money lines, muted, title and the three semantic text colours (success /
+  // attention / danger) on the strongest (hover) identity tint, over the report glass AND the
+  // opaque card, plus the icon on its chip, the solid-chip glyph and the edge.
+  ...["teal", "sky", "blue", "indigo", "violet", "orchid", "slate"].flatMap((id) =>
+    [
+      ["glass", "var(--insight-report-glass)"],
+      ["opaque", "var(--card)"],
+    ]
+      .flatMap(([surface, base]) => {
+        const tint = (share) =>
+          `color-mix(in oklab, var(--report-identity-${id}) var(${share}), ${base})`;
+        const hover = tint("--insight-report-tint-top-hover");
+        return [
+          [
+            `identity ${id} figure (rest) on ${surface} tint`,
+            `color-mix(in oklab, var(--report-identity-${id}) 55%, var(--foreground))`,
+            tint("--insight-report-tint-top"),
+            TEXT,
+          ],
+          [
+            `identity ${id} figure (hover) on ${surface} hover tint`,
+            `color-mix(in oklab, var(--report-identity-${id}) 72%, var(--foreground))`,
+            hover,
+            TEXT,
+          ],
+          ...[
+            ["money line", "var(--card-foreground)"],
+            ["muted", "var(--insight-muted)"],
+            ["title", "var(--insight-title)"],
+            ["success text", "var(--report-text-success)"],
+            ["attention text", "var(--report-text-attention)"],
+            ["danger text", "var(--report-text-danger)"],
+          ].map(([role, fg]) => [`identity ${id} ${role} on ${surface} hover tint`, fg, hover, TEXT]),
+          [
+            `identity ${id} edge (rest) on ${surface}`,
+            `color-mix(in oklab, var(--report-identity-${id}) var(--insight-report-tint-border), var(--card))`,
+            base,
+            1.3,
+          ],
+        ];
+      })
+      .concat([
+        [
+          `identity ${id} icon on chip`,
+          `var(--report-identity-${id})`,
+          `color-mix(in oklab, var(--report-identity-${id}) var(--insight-report-icon-fill), var(--card))`,
+          UI,
+        ],
+        [`identity ${id} glyph on solid chip`, "var(--card)", `var(--report-identity-${id})`, UI],
+      ]),
+  ),
   ["report neutral title on glass", "var(--insight-title)", "var(--insight-report-glass)", TEXT],
   ["report neutral muted on glass", "var(--muted-foreground)", "var(--insight-report-glass)", TEXT],
   ["tile neutral title on glass", "var(--insight-title)", "var(--insight-glass)", TEXT],

@@ -40,7 +40,17 @@ import {
   type DateRangeValue,
 } from "@/components/shared/date-range-picker";
 import { DashboardPanel } from "@/components/dashboard/dashboard-panel";
-import { ReportCard, ReportCardSkeleton } from "@/components/reports/report-card";
+import {
+  REPORT_CURRENCY_CLASS,
+  ReportCard,
+  ReportCardSkeleton,
+} from "@/components/reports/report-card";
+import {
+  METRIC_IDENTITY,
+  PERIOD_IDENTITY,
+  currencyIdentity,
+  type ReportIdentity,
+} from "@/components/reports/report-identity";
 import { BarChart } from "@/components/reports/bar-chart";
 import { OwnRankCard } from "@/components/reports/own-rank-card";
 import { reportTabs, type ReportTab } from "@/components/reports/sales-report-tabs";
@@ -247,8 +257,18 @@ function useStatLines() {
   return useCallback(
     (stats: SalesStats) => [
       { label: t("salesReports.stats.orders"), value: stats.orders },
-      { label: t("salesReports.stats.cancelled"), value: stats.cancelled },
-      { label: t("salesReports.stats.returned"), value: stats.returned },
+      // R19 §C2 — colour by meaning (non-zero only; the label always says it): a cancelled
+      // order is a lost sale (danger); a return is a reversal still to process (attention).
+      {
+        label: t("salesReports.stats.cancelled"),
+        value: stats.cancelled,
+        meaning: "danger" as const,
+      },
+      {
+        label: t("salesReports.stats.returned"),
+        value: stats.returned,
+        meaning: "attention" as const,
+      },
     ],
     [t],
   );
@@ -290,7 +310,7 @@ function LiveTab({
               key={entry.period}
               title={t(`salesReports.periods.${entry.period}`)}
               icon={PERIOD_ICON[entry.period]}
-              tone="revenue"
+              identity={PERIOD_IDENTITY[entry.period]}
               figure={entry.valid}
               unit={t("salesReports.stats.valid")}
               meta={<InsightScope kind="period">{rangeLabel(entry.from, entry.to)}</InsightScope>}
@@ -446,7 +466,7 @@ function OwnTab({ data }: { data: PerformanceReport }) {
         <ReportCard
           title={t("salesVisibility.ownSales")}
           icon={UserRound}
-          tone="info"
+          identity={METRIC_IDENTITY.personSales}
           figure={own.valid}
           unit={t("salesReports.stats.valid")}
           amounts={own.amounts}
@@ -458,6 +478,7 @@ function OwnTab({ data }: { data: PerformanceReport }) {
           of={data.ownRank.of}
           population={data.scope === "AGENT_OWN" ? "agent" : "company"}
           size="report"
+          identity={METRIC_IDENTITY.ownRank}
         />
       </InsightGroup>
     </div>
@@ -470,12 +491,14 @@ function SeparateRow({
   title,
   hint,
   icon,
+  identity,
   stats,
 }: {
   id: string;
   title: string;
   hint: string;
   icon: LucideIcon;
+  identity: ReportIdentity;
   stats: SalesStats;
 }) {
   const { t } = useLocale();
@@ -489,7 +512,7 @@ function SeparateRow({
         <ReportCard
           title={hint}
           icon={icon}
-          tone="neutral"
+          identity={identity}
           figure={stats.valid}
           unit={t("salesReports.stats.valid")}
           amounts={stats.amounts}
@@ -524,7 +547,7 @@ function EmployeesTab({ data }: { data: PerformanceReport }) {
               key={row.userId}
               title={row.name}
               icon={UserRound}
-              tone="info"
+              identity={METRIC_IDENTITY.personSales}
               figure={row.valid}
               unit={t("salesReports.stats.valid")}
               meta={<RankBadge rank={row.rank} />}
@@ -546,6 +569,7 @@ function EmployeesTab({ data }: { data: PerformanceReport }) {
           title={t("salesReports.employees.unassigned")}
           hint={t("salesReports.employees.unassignedHint")}
           icon={UserRoundX}
+          identity={METRIC_IDENTITY.unassigned}
           stats={data.unassigned}
         />
       ) : null}
@@ -555,6 +579,7 @@ function EmployeesTab({ data }: { data: PerformanceReport }) {
           title={t("salesReports.employees.agentsTitle")}
           hint={t("salesReports.employees.agentsHint")}
           icon={Handshake}
+          identity={METRIC_IDENTITY.agentSales}
           stats={data.agents}
         />
       ) : null}
@@ -586,7 +611,7 @@ function TeamsTab({ data }: { data: PerformanceReport }) {
           key={team.teamId}
           title={team.name}
           icon={UsersRound}
-          tone="info"
+          identity={METRIC_IDENTITY.teamSales}
           figure={team.valid}
           unit={t("salesReports.stats.valid")}
           meta={<RankBadge rank={team.rank} />}
@@ -724,7 +749,7 @@ function PaymentMixTab({ rows }: { rows: PaymentMixRow[] }) {
               key={row.currencyCode}
               title={row.currencyCode}
               icon={Wallet}
-              tone="revenue"
+              identity={currencyIdentity(row.currencyCode)}
               figure={total}
               unit={t("salesReports.stats.valid")}
               amounts={[
@@ -740,17 +765,28 @@ function PaymentMixTab({ rows }: { rows: PaymentMixRow[] }) {
   );
 }
 
-/** Prepaid vs COD share of one currency: a two-part bar plus labelled lines (never colour alone). */
+/**
+ * Prepaid vs COD share of one currency: a two-part bar plus labelled lines (never colour alone).
+ * R19 §C2 — colour by meaning: prepaid is paid up front (success), cash on delivery is still to
+ * be collected (attention); a part with no orders stays neutral.
+ */
 function PaymentSplit({ row, total }: { row: PaymentMixRow; total: number }) {
   const { t } = useLocale();
   const parts = [
     {
       key: "prepaid",
       label: t("salesReports.paymentMix.prepaid"),
-      swatch: "bg-chart-1",
+      swatch: "bg-success-soft-foreground",
+      meaning: "success",
       ...row.prepaid,
     },
-    { key: "cod", label: t("salesReports.paymentMix.cod"), swatch: "bg-chart-3", ...row.cod },
+    {
+      key: "cod",
+      label: t("salesReports.paymentMix.cod"),
+      swatch: "bg-warning-soft-foreground",
+      meaning: "attention",
+      ...row.cod,
+    },
   ];
   const percent = (count: number) => (total > 0 ? Math.round((count / total) * 100) : 0);
   return (
@@ -776,11 +812,18 @@ function PaymentSplit({ row, total }: { row: PaymentMixRow; total: number }) {
               <span className={cn("size-2 shrink-0 rounded-full", part.swatch)} aria-hidden />
               {part.label}
             </dt>
-            <dd className="flex flex-wrap items-baseline gap-x-2">
+            <dd
+              className="flex flex-wrap items-baseline gap-x-2"
+              data-meaning={part.count > 0 ? part.meaning : undefined}
+            >
               <span className="num">
                 {t("salesReports.paymentMix.line", { count: formatNumber(part.count) })}
               </span>
-              <MoneyValue value={part.amount} currency={row.currencyCode} />
+              <MoneyValue
+                value={part.amount}
+                currency={row.currencyCode}
+                currencyClassName={REPORT_CURRENCY_CLASS}
+              />
               <span className="num font-medium">
                 {t("salesReports.paymentMix.share", { percent: percent(part.count) })}
               </span>

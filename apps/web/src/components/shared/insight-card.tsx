@@ -68,6 +68,7 @@ export function InsightSurface({
   tone = "neutral",
   emphasis = false,
   size = "default",
+  identity,
   href,
   onSelect,
   pressed,
@@ -82,6 +83,12 @@ export function InsightSurface({
    * the stronger tint / edge / depth / hover tokens in the recipe. Default everywhere else.
    */
   size?: InsightSurfaceSize;
+  /**
+   * R19 §C2 — the card's colour identity (sales-report cards only): the identity hue replaces
+   * the tone (`data-tone="identity"` + `data-identity`), so each card of a group reads apart.
+   * An identity is not a verdict — it stays at zero. Mapping: components/reports/report-identity.ts.
+   */
+  identity?: InsightIdentity;
   /** Opens a page: the whole card is one link. */
   href?: string;
   /** Selects something on the page: the whole card is one button. */
@@ -91,7 +98,8 @@ export function InsightSurface({
 }) {
   const data = {
     "data-slot": "insight-card",
-    "data-tone": tone,
+    "data-tone": identity ? "identity" : tone,
+    "data-identity": identity,
     "data-emphasis": emphasis || undefined,
     "data-size": size === "report" ? "report" : undefined,
   } as const;
@@ -133,6 +141,25 @@ export function InsightSurface({
 export type InsightSurfaceSize = "default" | "report";
 
 /**
+ * R19 §C2 — the curated identity hues of the sales-report cards (`--report-identity-*`,
+ * theme/tokens.css). Green, amber and red are never identities: they are the semantic text
+ * colours (success / attention / danger) inside a card.
+ */
+export const INSIGHT_IDENTITIES = [
+  "teal",
+  "sky",
+  "blue",
+  "indigo",
+  "violet",
+  "orchid",
+  "slate",
+] as const;
+export type InsightIdentity = (typeof INSIGHT_IDENTITIES)[number];
+
+/** R19 §C2 — the short hover / focus motion of a card's icon (none under reduced motion). */
+export type InsightIconMotion = "lift" | "tilt" | "scale";
+
+/**
  * Geometry of every card of the family (visuals come from the theme recipe).
  * R17: ONE padding per size (`--insight-card-padding-*` / R19 `--insight-report-padding-*`,
  * theme/tokens.css) — callers never pad a card locally.
@@ -164,13 +191,17 @@ export const INSIGHT_FOCUS_CLASS =
 export function InsightIcon({
   icon: Icon,
   size = "default",
+  motion,
 }: {
   icon: LucideIcon;
   size?: InsightSurfaceSize;
+  /** R19 §C2 — report cards: the icon's own hover / focus motion (theme recipe). */
+  motion?: InsightIconMotion;
 }) {
   return (
     <span
       data-slot="insight-icon"
+      data-motion={motion}
       className={cn(
         "flex shrink-0 items-center justify-center rounded-md",
         size === "report" ? "size-9" : "size-7",
@@ -214,6 +245,8 @@ export function InsightCard({
   keepToneAtZero = false,
   phrase = false,
   size = "default",
+  identity,
+  iconMotion,
   loading = false,
 }: {
   label: string;
@@ -259,6 +292,10 @@ export function InsightCard({
    * secondary lines, stronger tint / edge / depth / hover (`InsightSurface size`).
    */
   size?: "default" | "compact" | "report";
+  /** R19 §C2 — report size only: the card's colour identity (replaces the tone). */
+  identity?: InsightIdentity;
+  /** R19 §C2 — report size only: the icon's hover / focus motion. */
+  iconMotion?: InsightIconMotion;
   /** The figure is still loading: the tile's skeleton (no figure is ever faked). */
   loading?: boolean;
 }) {
@@ -279,7 +316,13 @@ export function InsightCard({
       {/* R15 — the scope chip wraps under the label when the tile is narrow,
           so a label never breaks mid-word around it. */}
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        {Icon ? <InsightIcon icon={Icon} size={report ? "report" : "default"} /> : null}
+        {Icon ? (
+          <InsightIcon
+            icon={Icon}
+            size={report ? "report" : "default"}
+            motion={report ? iconMotion : undefined}
+          />
+        ) : null}
         {/* Round 6: a label is never truncated — it wraps (labels are kept
             concise; the period / scope lives in the group header). */}
         <span
@@ -365,6 +408,7 @@ export function InsightCard({
     <InsightSurface
       tone={resolvedTone}
       size={report ? "report" : "default"}
+      identity={report ? identity : undefined}
       emphasis={emphasis || Boolean(onSelect && pressed)}
       href={href}
       onSelect={href ? undefined : onSelect}
