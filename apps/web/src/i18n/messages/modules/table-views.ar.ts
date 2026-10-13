@@ -23,7 +23,7 @@ const tableViewsAr = {
     selectRow: "تحديد {name}",
     actions: "الإجراءات",
     newToYou: "لم يُفتح",
-    newToYouHint: "لم تفتح هذا العميل المحتمل بعد",
+    newToYouHint: "لم يفتح الموظف المسؤول هذا العميل المحتمل بعد",
   },
   leadNext: {
     ASSIGN: "إسناد إلى موظف",

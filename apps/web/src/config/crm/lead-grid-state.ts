@@ -5,7 +5,7 @@ import type { StatusTone } from "@/components/business/status-tone";
  * next step it shows. Pure functions over the row, shared by the company and
  * the agent lead lists so both read the same way.
  *
- * Deliberately NOT an input: the per-employee "viewed" marker. Having opened a
+ * Deliberately NOT an input: the «لم يُفتح» opened marker. Having opened a
  * lead says nothing about whether anyone contacted the customer.
  */
 export type LeadWorkflowState = "notContacted" | "followingUp" | "converted" | "closed";
@@ -98,9 +98,21 @@ export function leadNextAction(
     : { kind: "SCHEDULE_FOLLOW_UP", urgent: false };
 }
 
-/** Shown as "new to you" only for open leads this employee has not opened yet. */
-export function isNewToViewer(lead: LeadStateInput & { viewedByMe?: boolean }): boolean {
-  if (lead.viewedByMe !== false) return false;
+/** The server read model of R20's «لم يُفتح»: has the lead's CURRENT assignee opened it? */
+export interface LeadOpenInput {
+  salesEmployeeId?: string | null;
+  /** null = not opened by the current assignee; undefined = the payload does not say. */
+  openedByAssigneeAt?: string | null;
+}
+
+/**
+ * «لم يُفتح» — the lead's assigned employee has not opened its detail screen in
+ * the current assignment. The same answer for every viewer (the employee, their
+ * manager, an administrator): it follows the assignee, not whoever is looking.
+ * Unassigned leads and closed / converted leads never carry it.
+ */
+export function isUnopenedByAssignee(lead: LeadStateInput & LeadOpenInput): boolean {
+  if (lead.openedByAssigneeAt !== null || !lead.salesEmployeeId) return false;
   const state = leadWorkflowState(lead);
   return state !== "converted" && state !== "closed";
 }

@@ -1,5 +1,6 @@
 import type { DuplicateResolution } from "./order-duplicates-service";
 import type { ShippingHandoffBlocker } from "./shipping-service";
+import type { LeadOpenResult } from "./leads-service";
 import { apiClient } from "./api-client";
 import { orderAmendmentsClient } from "./order-amendments-service";
 import type { AgentStockMovement } from "./agent-stock-service";
@@ -254,6 +255,9 @@ export interface PortalLead {
   /** R6 — follow-up classification (latest outcome code), read-only for agents. */
   followUpOutcome: string | null;
   followUpOutcomeAt: string | null;
+  /** R20 — the assigned agent user; with `openedByAssigneeAt` it drives «لم يُفتح». */
+  salesEmployeeId: string | null;
+  openedByAssigneeAt: string | null;
 }
 
 export interface PortalLeadInput {
@@ -693,6 +697,8 @@ export const agentPortalService = {
     list: (query: { search?: string; statusCode?: string; page?: number; pageSize?: number }) =>
       apiClient.get<Paged<PortalLead>>(`${BASE}/leads${buildQuery(query)}`),
     get: (id: string) => apiClient.get<PortalLead>(`${BASE}/leads/${id}`),
+    /** R20 — the detail screen loaded; counts only for the lead's assigned agent user. */
+    recordOpen: (id: string) => apiClient.post<LeadOpenResult>(`${BASE}/leads/${id}/open`),
     create: (input: PortalLeadInput) => apiClient.post<PortalLead>(`${BASE}/leads`, input),
     convert: (id: string, input: ConvertLeadInput) =>
       apiClient.post<PortalOrderDetail>(`${BASE}/leads/${id}/convert`, input),

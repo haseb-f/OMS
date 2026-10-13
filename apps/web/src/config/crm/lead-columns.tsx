@@ -12,8 +12,8 @@ import type { LeadRow } from "@/services/leads-service";
 import type { MessageKey } from "@/i18n/translate";
 import { followUpOutcomeLabel } from "@/config/crm/follow-up-outcomes";
 import { FollowUpOutcomeBadge } from "@/components/crm/follow-up-outcome-badge";
-import { LeadNewToYouMarker } from "@/components/crm/lead-new-to-you";
-import { isNewToViewer } from "@/config/crm/lead-grid-state";
+import { LeadUnopenedMarker } from "@/components/crm/lead-new-to-you";
+import { isUnopenedByAssignee } from "@/config/crm/lead-grid-state";
 
 /**
  * Initial ownership lifecycle (blue "New" vs. orange "Assigned") layered
@@ -91,7 +91,7 @@ export const leadColumns: ColumnDef<LeadRow, unknown>[] = [
             </SemanticValue>
           </span>
         }
-        secondary={isNewToViewer(row.original) ? <LeadNewToYouMarker /> : undefined}
+        secondary={isUnopenedByAssignee(row.original) ? <LeadUnopenedMarker /> : undefined}
       />
     ),
   },

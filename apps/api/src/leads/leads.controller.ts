@@ -21,6 +21,7 @@ import { SalesScopeService } from '../sales-scope/sales-scope.service';
 import { LeadsService } from './leads.service';
 import { LeadAssignmentsService } from './assignments/lead-assignments.service';
 import { LeadAutoDistributionService } from './distribution/lead-auto-distribution.service';
+import { LeadAssigneeOpensService } from './opens/lead-assignee-opens.service';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { BulkAssignLeadsDto } from './dto/bulk-assign-leads.dto';
@@ -52,6 +53,7 @@ export class LeadsController {
     private readonly leadAutoDistributionService: LeadAutoDistributionService,
     private readonly salesScope: SalesScopeService,
     private readonly permissionsResolver: PermissionsResolverService,
+    private readonly assigneeOpens: LeadAssigneeOpensService,
   ) {}
 
   @Post()
@@ -297,20 +299,19 @@ export class LeadsController {
     return this.leadsService.closeWithoutPurchase(id, dto, user.sub, scope);
   }
 
-  /** Per-employee "viewed" marker — read state only, see `LeadsService.markViewed`. */
-  @Post(':id/viewed')
+  /**
+   * R20 — the lead's detail screen loaded for the caller. Counts only when the
+   * caller is the lead's current assignee (company leads only — an agent lead
+   * is opened through the agent portal); never changes the business status.
+   * `findOne` first: a lead outside the caller's scope is a 404, never probed.
+   */
+  @Post(':id/open')
   @HttpCode(200)
   @PermissionAction('view')
-  async markViewed(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+  async recordOpen(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     const scope = await this.salesScope.resolve(user.sub);
-    return this.leadsService.markViewed(id, scope);
-  }
-
-  @Post(':id/first-open')
-  @HttpCode(200)
-  async firstOpen(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    const scope = await this.salesScope.resolve(user.sub);
-    return this.leadsService.firstOpen(id, user.sub, scope);
+    await this.leadsService.findOne(id, scope);
+    return this.assigneeOpens.record(id, user.sub, null);
   }
 
   @Post(':id/follow-ups')

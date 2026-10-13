@@ -456,7 +456,16 @@ describe('Sales Flow Hardening', () => {
       const historical = await createOwnedLead(owner.id, {
         customerClassificationId: hesitant.id,
       });
-      await leads.firstOpen(lead.id, owner.id, ownerScope);
+      // R20 — opening no longer moves NEW → IN_PROGRESS; start follow-up explicitly.
+      await workflowEngine.executeTransitionByCodes(
+        'LEAD',
+        lead.id,
+        'NEW',
+        'IN_PROGRESS',
+        owner.id,
+        {},
+        ownerScope.isSuperAdmin,
+      );
       const opened = await leads.findOne(lead.id, ownerScope);
       expect(opened.status.code).toBe('IN_PROGRESS');
       expect(opened.customerClassificationId).toBe(hesitant.id);
@@ -507,7 +516,16 @@ describe('Sales Flow Hardening', () => {
       });
       createdReasonIds.push(reason.id);
       const lead = await createOwnedLead(owner.id);
-      await leads.firstOpen(lead.id, owner.id, ownerScope);
+      // R20 — opening no longer moves NEW → IN_PROGRESS; start follow-up explicitly.
+      await workflowEngine.executeTransitionByCodes(
+        'LEAD',
+        lead.id,
+        'NEW',
+        'IN_PROGRESS',
+        owner.id,
+        {},
+        ownerScope.isSuperAdmin,
+      );
       await leads.addFollowUp(
         lead.id,
         {
@@ -547,7 +565,16 @@ describe('Sales Flow Hardening', () => {
       const owner = await salesUser('No Dup Terminal Owner');
       const ownerScope = await salesScope.resolve(owner.id);
       const lead = await createOwnedLead(owner.id);
-      await leads.firstOpen(lead.id, owner.id, ownerScope);
+      // R20 — opening no longer moves NEW → IN_PROGRESS; start follow-up explicitly.
+      await workflowEngine.executeTransitionByCodes(
+        'LEAD',
+        lead.id,
+        'NEW',
+        'IN_PROGRESS',
+        owner.id,
+        {},
+        ownerScope.isSuperAdmin,
+      );
 
       const actions = await workflowEngine.getAvailableActions(
         'LEAD',
@@ -567,7 +594,16 @@ describe('Sales Flow Hardening', () => {
       const owner = await salesUser('Bypass Attempt Owner');
       const ownerScope = await salesScope.resolve(owner.id);
       const lead = await createOwnedLead(owner.id);
-      await leads.firstOpen(lead.id, owner.id, ownerScope);
+      // R20 — opening no longer moves NEW → IN_PROGRESS; start follow-up explicitly.
+      await workflowEngine.executeTransitionByCodes(
+        'LEAD',
+        lead.id,
+        'NEW',
+        'IN_PROGRESS',
+        owner.id,
+        {},
+        ownerScope.isSuperAdmin,
+      );
 
       await expect(
         workflowEngine.executeTransitionByCodes(
@@ -608,7 +644,16 @@ describe('Sales Flow Hardening', () => {
       const prepaidLead = await createOwnedLead(owner.id, {
         source: LeadSource.GOOGLE_SHEETS,
       });
-      await leads.firstOpen(prepaidLead.id, owner.id, ownerScope);
+      // R20 — opening no longer moves NEW → IN_PROGRESS; start follow-up explicitly.
+      await workflowEngine.executeTransitionByCodes(
+        'LEAD',
+        prepaidLead.id,
+        'NEW',
+        'IN_PROGRESS',
+        owner.id,
+        {},
+        ownerScope.isSuperAdmin,
+      );
       const converted = await leads.convertToStoreOrder(
         prepaidLead.id,
         {
@@ -661,7 +706,16 @@ describe('Sales Flow Hardening', () => {
       ).toBe(false);
 
       const codLead = await createOwnedLead(owner.id);
-      await leads.firstOpen(codLead.id, owner.id, ownerScope);
+      // R20 — opening no longer moves NEW → IN_PROGRESS; start follow-up explicitly.
+      await workflowEngine.executeTransitionByCodes(
+        'LEAD',
+        codLead.id,
+        'NEW',
+        'IN_PROGRESS',
+        owner.id,
+        {},
+        ownerScope.isSuperAdmin,
+      );
       await leads.convertToStoreOrder(
         codLead.id,
         {
@@ -703,7 +757,16 @@ describe('Sales Flow Hardening', () => {
       const ownerScope = await salesScope.resolve(owner.id);
       const [skuA] = await productIds();
       const lead = await createOwnedLead(owner.id);
-      await leads.firstOpen(lead.id, owner.id, ownerScope);
+      // R20 — opening no longer moves NEW → IN_PROGRESS; start follow-up explicitly.
+      await workflowEngine.executeTransitionByCodes(
+        'LEAD',
+        lead.id,
+        'NEW',
+        'IN_PROGRESS',
+        owner.id,
+        {},
+        ownerScope.isSuperAdmin,
+      );
 
       const payload = {
         items: [{ productId: skuA, quantity: 1, agreedAmount: 100 }],
@@ -748,7 +811,16 @@ describe('Sales Flow Hardening', () => {
       });
       if (!paymentMethod) throw new Error('Active payment method required.');
       const lead = await createOwnedLead(owner.id);
-      await leads.firstOpen(lead.id, owner.id, ownerScope);
+      // R20 — opening no longer moves NEW → IN_PROGRESS; start follow-up explicitly.
+      await workflowEngine.executeTransitionByCodes(
+        'LEAD',
+        lead.id,
+        'NEW',
+        'IN_PROGRESS',
+        owner.id,
+        {},
+        ownerScope.isSuperAdmin,
+      );
       const payload = {
         items: [{ productId: skuA, quantity: 2, agreedAmount: 450 }],
         paymentType: 'PREPAID' as const,
@@ -790,7 +862,16 @@ describe('Sales Flow Hardening', () => {
         const newLead1 = await createOwnedLead(owner.id);
         const newLead2 = await createOwnedLead(owner.id);
         const alreadyInProgress = await createOwnedLead(owner.id);
-        await leads.firstOpen(alreadyInProgress.id, owner.id, ownerScope);
+        // R20 — opening no longer moves NEW → IN_PROGRESS; start follow-up explicitly.
+        await workflowEngine.executeTransitionByCodes(
+          'LEAD',
+          alreadyInProgress.id,
+          'NEW',
+          'IN_PROGRESS',
+          owner.id,
+          {},
+          ownerScope.isSuperAdmin,
+        );
 
         const result = await leads.bulkChangeStatus(
           {

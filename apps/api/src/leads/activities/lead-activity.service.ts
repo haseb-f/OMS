@@ -16,6 +16,8 @@ export const LeadActivityType = {
   MARKED_PAID: 'MARKED_PAID',
   ARCHIVED: 'ARCHIVED',
   NOTE_ADDED: 'NOTE_ADDED',
+  /** R20 — the assignee's first detail open of the current assignment. */
+  OPENED_BY_ASSIGNEE: 'OPENED_BY_ASSIGNEE',
 } as const;
 
 @Injectable()

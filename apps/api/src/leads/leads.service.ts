@@ -3,7 +3,6 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
-  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -152,8 +151,6 @@ export interface LeadCreateOptions {
 
 @Injectable()
 export class LeadsService {
-  private readonly logger = new Logger(LeadsService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly leadActivityService: LeadActivityService,
@@ -463,54 +460,12 @@ export class LeadsService {
     ]);
 
     return {
-      items: await this.withViewedByMe(items, scope.userId),
+      items,
       total,
       page,
       pageSize,
       unassignedCount,
     };
-  }
-
-  /**
-   * Read model only (R7): marks which listed leads the CALLER has opened.
-   * One indexed lookup for the page's ids — never a per-row query, and
-   * never anything that touches the lead's own status/contact fields.
-   */
-  private async withViewedByMe<T extends { id: string }>(
-    items: T[],
-    userId: string,
-  ): Promise<Array<T & { viewedByMe: boolean }>> {
-    if (items.length === 0) return [];
-    const views = userId
-      ? await this.prisma.leadView.findMany({
-          where: { userId, leadId: { in: items.map((item) => item.id) } },
-          select: { leadId: true },
-        })
-      : [];
-    const viewed = new Set(views.map((view) => view.leadId));
-    return items.map((item) => ({ ...item, viewedByMe: viewed.has(item.id) }));
-  }
-
-  /**
-   * "Viewed by this employee" — NOT a business status. Records that the caller
-   * opened the lead, once (idempotent upsert keeping the first `viewedAt`).
-   * It never changes status, contacted/follow-up state or `firstOpenedAt`
-   * (that is `firstOpen`'s separate, workflow-bearing job), and it only
-   * accepts a lead the caller's sales scope can already read: `findOne`
-   * throws for anything else, so a hidden lead can be neither marked nor
-   * probed.
-   */
-  async markViewed(id: string, scope: SalesScope) {
-    if (!scope.userId) {
-      throw new ForbiddenException('A signed-in user is required.');
-    }
-    await this.findOne(id, scope);
-    await this.prisma.leadView.upsert({
-      where: { leadId_userId: { leadId: id, userId: scope.userId } },
-      create: { leadId: id, userId: scope.userId },
-      update: {},
-    });
-    return { leadId: id, viewedByMe: true };
   }
 
   /**
@@ -705,40 +660,6 @@ export class LeadsService {
     return this.prisma.lead.update({
       where: { id },
       data: { deletedAt: new Date() },
-    });
-  }
-
-  async firstOpen(id: string, userId: string, scope: SalesScope) {
-    const lead = await this.findOne(id, scope);
-    if (lead.salesEmployeeId !== userId) {
-      return lead;
-    }
-    if (lead.firstOpenedAt || lead.status.code !== 'NEW') {
-      return lead;
-    }
-
-    try {
-      await this.workflowEngine.executeTransitionByCodes(
-        'LEAD',
-        id,
-        'NEW',
-        'IN_PROGRESS',
-        userId,
-        {},
-        scope.isSuperAdmin,
-      );
-    } catch (error) {
-      this.logger.warn(
-        `Lead firstOpen NEW→IN_PROGRESS failed for ${id}: ${
-          error instanceof Error ? error.message : error
-        }`,
-      );
-      return this.findOne(id, scope);
-    }
-    return this.prisma.lead.update({
-      where: { id },
-      data: { firstOpenedAt: new Date() },
-      include: LEAD_INCLUDE,
     });
   }
 

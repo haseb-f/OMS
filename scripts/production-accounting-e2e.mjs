@@ -585,7 +585,7 @@ async function accountingFlow(token) {
     source: "MANUAL",
   });
   assert("Lead created", Boolean(lead?.id), lead?.leadNumber);
-  await authed("POST", `/leads/${lead.id}/first-open`);
+  await authed("POST", `/leads/${lead.id}/open`);
   const followUps = await authed("POST", `/leads/${lead.id}/follow-ups`, {
     outcome: "Interested",
     note: `${RUN} follow-up`,

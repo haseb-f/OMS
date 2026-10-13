@@ -18,6 +18,8 @@ import { followUpOutcomeLabel } from "@/config/crm/follow-up-outcomes";
 import { usePortalProfile } from "@/components/agent-portal/use-portal-profile";
 import { LEAD_STATUS_CODES, canConvertLead, localizedName } from "@/config/agent-portal/labels";
 import { PortalLeadGridCard } from "@/components/crm/lead-grid-card";
+import { LeadUnopenedMarker } from "@/components/crm/lead-new-to-you";
+import { isUnopenedByAssignee } from "@/config/crm/lead-grid-state";
 import { agentPortalService, type PortalLead } from "@/services/agent-portal-service";
 import { usePathRestorableState } from "@/hooks/use-restorable-state";
 import { useLocale } from "@/providers/locale-provider";
@@ -65,6 +67,17 @@ function buildLeadColumns(): ColumnDef<PortalLead, unknown>[] {
       },
       enableSorting: false,
       accessorFn: (row) => row.leadNumber,
+      // R20 — the same «لم يُفتح» line under the lead number as the company list.
+      cell: ({ row }) => (
+        <StackedCell
+          primary={
+            <SemanticValue kind="id" className="text-body font-medium">
+              {row.original.leadNumber}
+            </SemanticValue>
+          }
+          secondary={isUnopenedByAssignee(row.original) ? <LeadUnopenedMarker /> : undefined}
+        />
+      ),
     },
     {
       id: "customer",

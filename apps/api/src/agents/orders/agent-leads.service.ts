@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { LeadsService } from '../../leads/leads.service';
 import { LeadAssignmentsService } from '../../leads/assignments/lead-assignments.service';
+import { LeadAssigneeOpensService } from '../../leads/opens/lead-assignee-opens.service';
 import type { AgentRequestContext } from '../../auth/guards/jwt-auth.guard';
 import {
   agentLeadWhere,
@@ -40,6 +41,8 @@ const AGENT_LEAD_SELECT = {
   // R6 (spec C1) — the lead's follow-up classification, read-only for agents.
   followUpOutcome: true,
   followUpOutcomeAt: true,
+  // R20 — «لم يُفتح» until the lead's assigned agent user opens its detail screen.
+  openedByAssigneeAt: true,
 } satisfies Prisma.LeadSelect;
 
 /**
@@ -54,6 +57,7 @@ export class AgentLeadsService {
     private readonly resolver: PermissionsResolverService,
     private readonly leads: LeadsService,
     private readonly assignments: LeadAssignmentsService,
+    private readonly assigneeOpens: LeadAssigneeOpensService,
   ) {}
 
   async create(actor: AgentRequestContext, dto: CreateAgentLeadDto) {
@@ -139,6 +143,16 @@ export class AgentLeadsService {
     });
     if (!lead) throw agentNotFound('Lead');
     return lead;
+  }
+
+  /**
+   * R20 — the agent-portal detail screen loaded. Visibility first (another
+   * agent's lead is a 404); the open counts only for the lead's assigned user
+   * of THIS agent — an agent admin viewing a teammate's lead records nothing.
+   */
+  async recordOpen(actor: AgentRequestContext, leadId: string) {
+    await this.get(actor, leadId);
+    return this.assigneeOpens.record(leadId, actor.userId, actor.agentId);
   }
 
   /** Agent Admin (`agent.team.manage`) assigns a lead within their own agent. */

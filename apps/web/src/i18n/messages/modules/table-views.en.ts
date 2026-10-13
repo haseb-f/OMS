@@ -23,7 +23,7 @@ const tableViewsEn = {
     selectRow: "Select {name}",
     actions: "Actions",
     newToYou: "Unopened",
-    newToYouHint: "You have not opened this lead yet",
+    newToYouHint: "The assigned employee has not opened this lead yet",
   },
   leadNext: {
     ASSIGN: "Assign to an employee",
