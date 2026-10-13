@@ -1,0 +1,195 @@
+{
+  "at": "2026-10-13T15:23:26.435Z",
+  "checks": [
+    {
+      "name": "LD-2026-000003 starts unread",
+      "ok": true,
+      "detail": "status NEW"
+    },
+    {
+      "name": "1-unread: admin table shows «لم يُفتح»",
+      "ok": true,
+      "detail": " LD-2026-000003 لم يُفتح سلمى نبيل +20 10 00000113 مصر تم الإسناد — منى عادل — 07 Oct 2026 "
+    },
+    {
+      "name": "1-unread: admin grid shows «لم يُفتح»",
+      "ok": true,
+      "detail": "سلمى نبيل +20 10 00000113 لم يُفتح LD-2026-000003 منى عادل تم الإسناد التالي: التواصل الأول"
+    },
+    {
+      "name": "1-unread: manager table shows «لم يُفتح»",
+      "ok": true,
+      "detail": " LD-2026-000003 لم يُفتح سلمى نبيل +20 10 00000113 مصر تم الإسناد — منى عادل — 07 Oct 2026 "
+    },
+    {
+      "name": "1-unread: manager grid shows «لم يُفتح»",
+      "ok": true,
+      "detail": "سلمى نبيل +20 10 00000113 لم يُفتح LD-2026-000003 منى عادل تم الإسناد التالي: التواصل الأول"
+    },
+    {
+      "name": "1-unread: sales table shows «لم يُفتح»",
+      "ok": true,
+      "detail": " LD-2026-000003 لم يُفتح سلمى نبيل +20 10 00000113 مصر تم الإسناد — منى عادل — 07 Oct 2026 "
+    },
+    {
+      "name": "1-unread: sales grid shows «لم يُفتح»",
+      "ok": true,
+      "detail": "سلمى نبيل +20 10 00000113 لم يُفتح LD-2026-000003 منى عادل تم الإسناد التالي: التواصل الأول"
+    },
+    {
+      "name": "manager / admin opens do not mark it",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "2-after-manager-open: sales table shows «لم يُفتح»",
+      "ok": true,
+      "detail": " LD-2026-000003 لم يُفتح سلمى نبيل +20 10 00000113 مصر تم الإسناد — منى عادل — 07 Oct 2026 "
+    },
+    {
+      "name": "2-after-manager-open: sales grid shows «لم يُفتح»",
+      "ok": true,
+      "detail": "سلمى نبيل +20 10 00000113 لم يُفتح LD-2026-000003 منى عادل تم الإسناد التالي: التواصل الأول"
+    },
+    {
+      "name": "assignee open recorded",
+      "ok": true,
+      "detail": "2026-10-13T15:21:21.762Z"
+    },
+    {
+      "name": "business status unchanged",
+      "ok": true,
+      "detail": "NEW"
+    },
+    {
+      "name": "3-opened: sales table hides «لم يُفتح»",
+      "ok": true,
+      "detail": " LD-2026-000003 سلمى نبيل +20 10 00000113 مصر تم الإسناد — منى عادل — 07 Oct 2026 "
+    },
+    {
+      "name": "3-opened: sales grid hides «لم يُفتح»",
+      "ok": true,
+      "detail": "سلمى نبيل +20 10 00000113 LD-2026-000003 منى عادل تم الإسناد التالي: التواصل الأول"
+    },
+    {
+      "name": "3-opened: manager table hides «لم يُفتح»",
+      "ok": true,
+      "detail": " LD-2026-000003 سلمى نبيل +20 10 00000113 مصر تم الإسناد — منى عادل — 07 Oct 2026 "
+    },
+    {
+      "name": "3-opened: manager grid hides «لم يُفتح»",
+      "ok": true,
+      "detail": "سلمى نبيل +20 10 00000113 LD-2026-000003 منى عادل تم الإسناد التالي: التواصل الأول"
+    },
+    {
+      "name": "3-opened: admin table hides «لم يُفتح»",
+      "ok": true,
+      "detail": " LD-2026-000003 سلمى نبيل +20 10 00000113 مصر تم الإسناد — منى عادل — 07 Oct 2026 "
+    },
+    {
+      "name": "3-opened: admin grid hides «لم يُفتح»",
+      "ok": true,
+      "detail": "سلمى نبيل +20 10 00000113 LD-2026-000003 منى عادل تم الإسناد التالي: التواصل الأول"
+    },
+    {
+      "name": "second lead opened by sales",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "reassigned lead is unread for the new owner",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "4b-reassigned: admin table shows «لم يُفتح»",
+      "ok": true,
+      "detail": " LD-2026-000005 لم يُفتح عبير السيد +20 10 00000151 مصر تم الإسناد — يوسف كمال — 10 Oct 2026 "
+    },
+    {
+      "name": "4b-reassigned: admin grid shows «لم يُفتح»",
+      "ok": true,
+      "detail": "عبير السيد +20 10 00000151 لم يُفتح LD-2026-000005 يوسف كمال تم الإسناد التالي: التواصل الأول"
+    },
+    {
+      "name": "4b-reassigned: manager table shows «لم يُفتح»",
+      "ok": true,
+      "detail": " LD-2026-000005 لم يُفتح عبير السيد +20 10 00000151 مصر تم الإسناد — يوسف كمال — 10 Oct 2026 "
+    },
+    {
+      "name": "4b-reassigned: manager grid shows «لم يُفتح»",
+      "ok": true,
+      "detail": "عبير السيد +20 10 00000151 لم يُفتح LD-2026-000005 يوسف كمال تم الإسناد التالي: التواصل الأول"
+    },
+    {
+      "name": "4b-reassigned: sales2 table shows «لم يُفتح»",
+      "ok": true,
+      "detail": " LD-2026-000005 لم يُفتح عبير السيد +20 10 00000151 مصر تم الإسناد — يوسف كمال — 10 Oct 2026 "
+    },
+    {
+      "name": "4b-reassigned: sales2 grid shows «لم يُفتح»",
+      "ok": true,
+      "detail": "عبير السيد +20 10 00000151 لم يُفتح LD-2026-000005 يوسف كمال تم الإسناد التالي: التواصل الأول"
+    },
+    {
+      "name": "new owner open recorded",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "status unchanged through reassignment",
+      "ok": true,
+      "detail": "NEW"
+    },
+    {
+      "name": "4d-new-owner-opened: sales2 table hides «لم يُفتح»",
+      "ok": true,
+      "detail": " LD-2026-000005 عبير السيد +20 10 00000151 مصر تم الإسناد — يوسف كمال — 10 Oct 2026 "
+    },
+    {
+      "name": "4d-new-owner-opened: sales2 grid hides «لم يُفتح»",
+      "ok": true,
+      "detail": "عبير السيد +20 10 00000151 LD-2026-000005 يوسف كمال تم الإسناد التالي: التواصل الأول"
+    },
+    {
+      "name": "4d-new-owner-opened: admin table hides «لم يُفتح»",
+      "ok": true,
+      "detail": " LD-2026-000005 عبير السيد +20 10 00000151 مصر تم الإسناد — يوسف كمال — 10 Oct 2026 "
+    },
+    {
+      "name": "4d-new-owner-opened: admin grid hides «لم يُفتح»",
+      "ok": true,
+      "detail": "عبير السيد +20 10 00000151 LD-2026-000005 يوسف كمال تم الإسناد التالي: التواصل الأول"
+    },
+    {
+      "name": "5-agent-unread: agent table shows «لم يُفتح»",
+      "ok": true,
+      "detail": " LD-2026-000004 لم يُفتح حسام عادل +20 10 00000121 — جديد — — — 07 Oct 2026"
+    },
+    {
+      "name": "5-agent-unread: agent grid shows «لم يُفتح»",
+      "ok": true,
+      "detail": "حسام عادل +20 10 00000121 لم يُفتح LD-2026-000004 07 Oct 2026 جديد التالي: تحويل إلى طلب"
+    },
+    {
+      "name": "5-agent-opened: agent table hides «لم يُفتح»",
+      "ok": true,
+      "detail": " LD-2026-000004 حسام عادل +20 10 00000121 — جديد — — — 07 Oct 2026"
+    },
+    {
+      "name": "5-agent-opened: agent grid hides «لم يُفتح»",
+      "ok": true,
+      "detail": "حسام عادل +20 10 00000121 LD-2026-000004 07 Oct 2026 جديد التالي: تحويل إلى طلب"
+    },
+    {
+      "name": "agent assignee open recorded",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "agent lead status unchanged",
+      "ok": true,
+      "detail": "NEW"
+    }
+  ]
+}
