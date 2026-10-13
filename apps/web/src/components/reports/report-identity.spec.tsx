@@ -139,7 +139,8 @@ describe("identity on the shared card — values unchanged", () => {
         ))}
       </>,
     );
-    const values = [...container.querySelectorAll('[data-slot="semantic-value"]')];
+    // R20 §B: figure and code are two runs of one LTR value (`money-split`); the text is unchanged.
+    const values = [...container.querySelectorAll('[data-slot="money-split"]')];
     expect(values.map((el) => el.textContent)).toEqual(
       cases.map(([value, code]) => formatMoney(value, code)),
     );

@@ -14,13 +14,13 @@ import { useLocale } from "@/providers/locale-provider";
 
 /**
  * R20 §B — the five period boxes inside an employee card. Columns follow the width the card
- * gets (container queries on `InsightFrame`), never the viewport: one per row on a phone, two
- * on a narrow tablet (the lone fifth box spans its row), 3 + 2 on a tablet / laptop and five
+ * gets (container queries on `InsightFrame`), never the viewport: two per row on a phone (from a
+ * 19rem card; the lone fifth box spans its row; one per row only below that), 3 + 2 on a tablet / laptop and five
  * in one row only from 66rem (a 1440 desktop) — wide enough that a 1,234,567,890.00 amount
  * still fits a box; anything longer wraps, never truncates.
  */
 export const PERIOD_BOX_GRID =
-  "grid-cols-1 @md:grid-cols-2 @md:[&>:last-child]:col-span-2 @3xl:grid-cols-3 @3xl:[&>:last-child]:col-span-1 @min-[66rem]:grid-cols-5";
+  "grid-cols-1 @min-[19rem]:grid-cols-2 @min-[19rem]:[&>:last-child]:col-span-2 @3xl:grid-cols-3 @3xl:[&>:last-child]:col-span-1 @min-[66rem]:grid-cols-5";
 
 /** The quiet counts under a sales-report figure: orders, cancelled (danger), returned (attention). */
 export function useReportStatLines() {

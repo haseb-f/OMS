@@ -167,7 +167,10 @@ export type InsightIconMotion = "lift" | "tilt" | "scale";
 const INSIGHT_SURFACE_CLASS = "relative flex min-w-0 flex-col rounded-md border";
 const INSIGHT_SURFACE_PADDING: Record<InsightSurfaceSize, string> = {
   default: "px-(--insight-card-padding-inline) py-(--insight-card-padding-block)",
-  report: "px-(--insight-report-padding-inline) py-(--insight-report-padding-block)",
+  // R20 §B — inside a narrow outer card (`InsightFrame` < 32rem: phones, two boxes per row) a
+  // report card takes the compact report padding.
+  report:
+    "px-(--insight-report-padding-inline) py-(--insight-report-padding-block) @max-[32rem]/frame:px-(--insight-report-padding-inline-compact) @max-[32rem]/frame:py-(--insight-report-padding-block-compact)",
 };
 
 /**
@@ -445,7 +448,7 @@ export function InsightCardSkeleton({
 
 /** Geometry of the outer card (R20 §B; visuals: the theme recipe, padding / gap: tokens). */
 const INSIGHT_FRAME_CLASS =
-  "@container relative flex min-w-0 flex-col gap-(--insight-frame-gap) rounded-md border px-(--insight-frame-padding-inline) py-(--insight-frame-padding-block)";
+  "@container/frame relative flex min-w-0 flex-col gap-(--insight-frame-gap) rounded-md border px-(--insight-frame-padding-inline) py-(--insight-frame-padding-block)";
 
 /**
  * R20 §B — the outer card of the family: ONE soft, opaque card that holds a group of report

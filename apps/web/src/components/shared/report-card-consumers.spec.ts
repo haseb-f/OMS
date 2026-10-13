@@ -274,6 +274,13 @@ describe("report-card consumers never style a card locally", () => {
     // Phones never get five in a row: one column at the base, five only from a 66rem frame.
     const grid = periods.match(/PERIOD_BOX_GRID =\s*"([^"]+)"/)?.[1].split(/\s+/) ?? [];
     expect(grid[0]).toBe("grid-cols-1");
+    // Phones (a card from 19rem inside): two boxes per row, the fifth spanning its row.
+    expect(grid).toEqual(
+      expect.arrayContaining([
+        "@min-[19rem]:grid-cols-2",
+        "@min-[19rem]:[&>:last-child]:col-span-2",
+      ]),
+    );
     expect(grid.filter((token) => /grid-cols-5$/.test(token))).toEqual([
       "@min-[66rem]:grid-cols-5",
     ]);

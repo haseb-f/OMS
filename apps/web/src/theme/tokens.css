@@ -289,6 +289,9 @@
   /* R19 §C — the sales-report card size (`data-size="report"`). */
   --insight-report-padding-inline: 1.25rem; /* 20px */
   --insight-report-padding-block: 1.125rem; /* 18px */
+  /* R20 §B — a report card inside a narrow outer card (phone, two boxes per row). */
+  --insight-report-padding-inline-compact: 0.625rem; /* 10px */
+  --insight-report-padding-block-compact: 0.75rem; /* 12px */
   --insight-report-tint-top: 30%;
   --insight-report-tint-bottom: 12%;
   --insight-report-tint-border: 60%;
