@@ -12,3 +12,5 @@ Deployment authorised by the owner for this combined release (2026-10-14 message
 
 Next: B phone layout commit → C final (progress-c, repair dry-run) → merge B + C → integrated gates (API + web typecheck / lint / build, jest + serial, vitest) → push main → deploy → live checks → apply repair if C found verified issues → Arabic summary.
 | 2026-10-14 | Resumed: B WIP `36ab539d` (phones 2/row), C WIP `3df32bb4` (profile labels, audit/repair scripts, journey). |
+| 2026-10-14 | B final `501bb4b0`, C final `35a24c74` (repair dry-run NOTHING_TO_REPAIR) → merged into feat/r20 (`3b359174`). Next: integrated gates. |
+| 2026-10-14 | Integrated gates: API + web typecheck ✓, lint 0 errors, contrast ✓. Running jest/serial/vitest on oms_r20_gate. |
