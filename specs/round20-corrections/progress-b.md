@@ -81,8 +81,10 @@ surface="opaque"` of five `ReportCard`s). `PERIOD_ICON` moved to `report-identit
   dark 11 %), tinted hairline, identity header (icon chip, name 16px semibold, employee code / username, rank chip
   "#1 this month" / "Your rank this month: 3 of 12"). Box colours = R19 C2 `PERIOD_IDENTITY` (teal, sky, blue, violet,
   orchid), identical for every employee.
-- Layout by the card's own width (container queries): 1 column on a phone, 2 on a narrow tablet (lone 5th spans), 3 + 2
-  on tablet / laptop, 5 in one row from a 66rem card (1440 desktop). Amounts wrap, never truncate.
+- Layout by the card's own width (container queries): 2 per row from a 19rem card (phones: Today | Yesterday,
+  Last 7 days | This month, Last month spanning the row — RTL order follows the grid), 1 per row only below 19rem (very
+  small phones / zoomed text), 3 + 2 on tablet / laptop, 5 in one row from a 66rem card (1440 desktop). Amounts wrap,
+  never truncate. See "Phone follow-up" below.
 - States: frame hover / keyboard focus → stronger tinted edge + soft tone shadow (no rise) + header icon scale; focus
   adds the shared ring (cards are focusable `article`s in a `role="feed"`); boxes keep the R19 hover (2px rise, icon
   lift). Reduced motion: no transition, no icon motion, no rise. Touch (`hover: none`): stronger resting edge.
@@ -105,6 +107,27 @@ surface="opaque"` of five `ReportCard`s). `PERIOD_ICON` moved to `report-identit
   performance), agent (AGENT_ALL, Employees) × ar/en × light/dark × 1440/375; hover (frame header + box), keyboard focus,
   reduced motion, touch 375, long amounts (1,234,567,890.00 × 5 currencies) 375 + 1440. Metrics: no horizontal
   overflow, nothing clipped, 5 columns at 1440 / 1 at 375, no layout shift or text change on hover / focus.
+
+## Phone follow-up (coordinator review, 2026-10-13)
+
+At 375 px every employee was five full-width boxes (admin page 11,645 px tall in ar, 11,723 in en). Change:
+
+- `PERIOD_BOX_GRID`: `@min-[19rem]:grid-cols-2` + the fifth box spans its row (was `@md`); tablet / desktop unchanged
+  (3 + 2 from `@3xl`, 5 from `@min-[66rem]`). Guarded in `report-card-consumers.spec.ts`.
+- The outer card is a named container (`@container/frame`). Inside a frame narrower than 32rem only, a report card
+  takes the compact report padding (new tokens `--insight-report-padding-inline-compact` 10px /
+  `--insight-report-padding-block-compact` 12px, applied by `InsightSurface`), the figure one step down
+  (`text-metric-lg` 28px), the title and money lines the body size (14px), and the title shares the icon row. Live,
+  Teams and Payment-mix cards (no frame) are unchanged.
+- `MoneyValue` split mode (report cards only): figure and currency code are two runs of one LTR value
+  (`data-slot="money-split"`), so in a narrow box the code wraps under the figure instead of overflowing. The text
+  still reads exactly `formatMoney`; the figure never breaks and keeps tabular digits.
+- Result at 375 (`evidence/b/after/*-375.png`, metrics in `metrics-phone.json`): 2 columns × 3 rows per card, no
+  horizontal overflow, nothing clipped, including the long-amount probe (1,234,567,890.00 fits a box; an absurd
+  7-digit order count wraps rather than overflow). Admin page height **11,645 → 7,590 px** (ar), **11,723 → 8,191 px**
+  (en); sales own 1,507 → 1,110; agent 2,595 → 1,809. Touch 375: `hover: none`, no state after a tap.
+- Re-run: web `tsc` OK, `eslint .` 0 errors (9 pre-existing warnings), vitest reports + shared 30 files / 270 tests,
+  full vitest 183 files / 1311 tests, `next build` OK, contrast check all pass (no colour token changed).
 
 ## Limits
 

@@ -51,6 +51,7 @@ const VARIANTS = [
   ["ar-light-375", "ar", "light", true],
   ["en-light-375", "en", "light", true],
   ["ar-dark-375", "ar", "dark", true],
+  ["en-dark-375", "en", "dark", true],
 ];
 const SCREENS = [
   // [name, persona, path, tab]
@@ -99,7 +100,11 @@ async function login(page, email) {
   await settle(page);
 }
 const run = async (name, fn) => {
-  if (process.env.ONLY && !process.env.ONLY.split(",").some((key) => name.startsWith(key))) return;
+  // ONLY=admin,state-touch re-runs names starting with a key; a key starting with "-" matches the
+  // end (ONLY=-375 = every phone shot).
+  const keys = process.env.ONLY?.split(",") ?? [];
+  const hit = (key) => (key.startsWith("-") ? name.endsWith(key) : name.startsWith(key));
+  if (keys.length && !keys.some(hit)) return;
   try {
     await fn();
     console.log("done", name);
@@ -358,9 +363,11 @@ if (STATES) {
 }
 
 await browser.close();
-writeFileSync(`${OUT}/figures.json`, JSON.stringify(figures, null, 2));
+// TAG=phone writes metrics-phone.json / figures-phone.json (a partial re-run keeps the full files).
+const TAG = process.env.TAG ? `-${process.env.TAG}` : "";
+writeFileSync(`${OUT}/figures${TAG}.json`, JSON.stringify(figures, null, 2));
 writeFileSync(
-  `${OUT}/metrics.json`,
+  `${OUT}/metrics${TAG}.json`,
   JSON.stringify({ at: new Date().toISOString(), base: BASE, metrics }, null, 2),
 );
 const shifts = Object.entries(metrics).filter(([, m]) => m?.layoutShift || m?.textChanged);
