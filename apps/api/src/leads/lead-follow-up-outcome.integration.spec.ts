@@ -19,6 +19,7 @@ import { SalesScopeModule } from '../sales-scope/sales-scope.module';
 import type { SalesScope } from '../sales-scope/sales-scope.service';
 import { LeadsModule } from './leads.module';
 import { LeadsService } from './leads.service';
+import { LeadAssigneeOpensService } from './opens/lead-assignee-opens.service';
 import { LeadAssignmentsService } from './assignments/lead-assignments.service';
 import { AgentLeadsService } from '../agents/orders/agent-leads.service';
 import { CreateLeadFollowUpDto } from './dto/create-lead-follow-up.dto';
@@ -91,6 +92,7 @@ describe('Lead follow-up outcome (integration)', () => {
       { hasPermission: () => Promise.resolve(false) } as never,
       leads,
       moduleRef.get(LeadAssignmentsService),
+      moduleRef.get(LeadAssigneeOpensService),
     );
     const country = await prisma.country.findFirstOrThrow({
       where: { deletedAt: null },

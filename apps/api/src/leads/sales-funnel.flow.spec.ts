@@ -20,6 +20,7 @@ import { WorkflowModule } from '../workflow/workflow.module';
 import { LeadsModule } from '../leads/leads.module';
 import { LeadsService } from '../leads/leads.service';
 import { LeadAutoDistributionService } from '../leads/distribution/lead-auto-distribution.service';
+import { LeadAssigneeOpensService } from '../leads/opens/lead-assignee-opens.service';
 import { SalesScopeModule } from '../sales-scope/sales-scope.module';
 import { SalesScopeService } from '../sales-scope/sales-scope.service';
 import { NumberingEngineService } from '../numbering/numbering-engine.service';
@@ -42,6 +43,7 @@ describe('Sales Funnel Engine', () => {
   let numbering: NumberingEngineService;
   let storeOrders: StoreOrdersService;
   let workflow: WorkflowEngineService;
+  let opens: LeadAssigneeOpensService;
   let performance: SalesPerformanceService;
   let permissions: PermissionsResolverService;
   let dbUnreachable = false;
@@ -77,6 +79,7 @@ describe('Sales Funnel Engine', () => {
     numbering = moduleRef.get(NumberingEngineService);
     storeOrders = moduleRef.get(StoreOrdersService);
     workflow = moduleRef.get(WorkflowEngineService);
+    opens = moduleRef.get(LeadAssigneeOpensService);
     performance = moduleRef.get(SalesPerformanceService);
     permissions = moduleRef.get(PermissionsResolverService);
     try {
@@ -535,43 +538,43 @@ describe('Sales Funnel Engine', () => {
     );
   });
 
-  liveIt('first owner open moves NEW to IN_PROGRESS once', async () => {
-    const owner = await salesUser('Owner Open');
-    const manager = await salesUser('Manager Open');
-    await users.setPermissions(manager.id, {
-      permissionNames: ['crm.leads.view', 'crm.leads.edit', 'crm.leads.manage'],
-    });
-    const { countryId, currencyId } = await refs();
-    const lead = await leads.create({
-      customerName: `First Open ${suffix()}`,
-      mobileNumber: saMobile(),
-      countryId,
-      currencyId,
-      source: LeadSource.MANUAL,
-      quantity: 1,
-      salesEmployeeId: owner.id,
-    });
-    createdLeadIds.push(lead.id);
-    const managerScope = await salesScope.resolve(manager.id);
-    const afterManager = await leads.firstOpen(
-      lead.id,
-      manager.id,
-      managerScope,
-    );
-    expect(afterManager.status.code).toBe('NEW');
-    const ownerScope = await salesScope.resolve(owner.id);
-    const afterOwner = await leads.firstOpen(lead.id, owner.id, ownerScope);
-    expect(afterOwner.status.code).toBe('IN_PROGRESS');
-    const again = await leads.firstOpen(lead.id, owner.id, ownerScope);
-    expect(again.status.code).toBe('IN_PROGRESS');
-    const history = await prisma.statusHistory.count({
-      where: {
-        entityId: lead.id,
-        toStatus: { code: 'IN_PROGRESS' },
-      },
-    });
-    expect(history).toBe(1);
-  });
+  liveIt(
+    'the assignee opening a lead never changes its status (R20)',
+    async () => {
+      const owner = await salesUser('Owner Open');
+      const manager = await salesUser('Manager Open');
+      await users.setPermissions(manager.id, {
+        permissionNames: [
+          'crm.leads.view',
+          'crm.leads.edit',
+          'crm.leads.manage',
+        ],
+      });
+      const { countryId, currencyId } = await refs();
+      const lead = await leads.create({
+        customerName: `First Open ${suffix()}`,
+        mobileNumber: saMobile(),
+        countryId,
+        currencyId,
+        source: LeadSource.MANUAL,
+        quantity: 1,
+        salesEmployeeId: owner.id,
+      });
+      createdLeadIds.push(lead.id);
+      const afterManager = await opens.record(lead.id, manager.id, null);
+      expect(afterManager.recorded).toBe(false);
+      const afterOwner = await opens.record(lead.id, owner.id, null);
+      expect(afterOwner.recorded).toBe(true);
+      const ownerScope = await salesScope.resolve(owner.id);
+      expect((await leads.findOne(lead.id, ownerScope)).status.code).toBe(
+        'NEW',
+      );
+      const history = await prisma.statusHistory.count({
+        where: { entityId: lead.id, toStatus: { code: 'IN_PROGRESS' } },
+      });
+      expect(history).toBe(0);
+    },
+  );
 
   liveIt(
     'Lead and StoreOrder numbering stay unique under concurrent minting',
@@ -942,7 +945,16 @@ describe('Sales Funnel Engine', () => {
       });
       createdLeadIds.push(lead.id);
       const ownerScope = await salesScope.resolve(owner.id);
-      await leads.firstOpen(lead.id, owner.id, ownerScope);
+      // R20 — opening no longer moves NEW → IN_PROGRESS; start follow-up explicitly.
+      await workflow.executeTransitionByCodes(
+        'LEAD',
+        lead.id,
+        'NEW',
+        'IN_PROGRESS',
+        owner.id,
+        {},
+        ownerScope.isSuperAdmin,
+      );
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       await leads.addFollowUp(
@@ -1020,7 +1032,16 @@ describe('Sales Funnel Engine', () => {
       });
       createdLeadIds.push(lead.id);
       const ownerScope = await salesScope.resolve(owner.id);
-      await leads.firstOpen(lead.id, owner.id, ownerScope);
+      // R20 — opening no longer moves NEW → IN_PROGRESS; start follow-up explicitly.
+      await workflow.executeTransitionByCodes(
+        'LEAD',
+        lead.id,
+        'NEW',
+        'IN_PROGRESS',
+        owner.id,
+        {},
+        ownerScope.isSuperAdmin,
+      );
       await workflow.executeTransitionByCodes(
         'LEAD',
         lead.id,
@@ -1139,7 +1160,16 @@ describe('Sales Funnel Engine', () => {
       });
       createdLeadIds.push(lead.id);
       const ownerScope = await salesScope.resolve(owner.id);
-      await leads.firstOpen(lead.id, owner.id, ownerScope);
+      // R20 — opening no longer moves NEW → IN_PROGRESS; start follow-up explicitly.
+      await workflow.executeTransitionByCodes(
+        'LEAD',
+        lead.id,
+        'NEW',
+        'IN_PROGRESS',
+        owner.id,
+        {},
+        ownerScope.isSuperAdmin,
+      );
       await leads.addFollowUp(
         lead.id,
         { outcome: 'callback', note: 'ok' },

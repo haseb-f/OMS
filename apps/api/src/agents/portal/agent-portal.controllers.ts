@@ -187,6 +187,17 @@ export class AgentPortalLeadsController {
     return this.leads.create(agent, dto);
   }
 
+  /** R20 — the assigned agent user opened the lead's detail screen (read state only). */
+  @Post(':id/open')
+  @HttpCode(200)
+  @RequireAgentPermission('agent.leads.view')
+  recordOpen(
+    @CurrentAgent() agent: AgentRequestContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.leads.recordOpen(agent, id);
+  }
+
   @Post(':id/assign')
   @HttpCode(200)
   @RequireAgentPermission('agent.team.manage')

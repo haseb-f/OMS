@@ -415,14 +415,7 @@ export class WorkflowEngineService {
         }
         await tx.lead.update({
           where: { id: leadId },
-          data: {
-            statusId: qualified.id,
-            ...(fromCode === 'NEW' &&
-            lead.salesEmployeeId === userId &&
-            !lead.firstOpenedAt
-              ? { firstOpenedAt: new Date() }
-              : {}),
-          },
+          data: { statusId: qualified.id },
         });
         await tx.statusHistory.create({
           data: {

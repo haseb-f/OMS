@@ -140,6 +140,11 @@ export class LeadAssignmentsService {
           salesEmployeeId: dto.salesEmployeeId,
           assignedAt,
           distributionHeld: false,
+          // R20 — a new owner starts «لم يُفتح»: the previous owner's opens stay
+          // in LeadAssigneeOpen (history); re-assigning the same owner keeps it.
+          ...(lead.salesEmployeeId !== dto.salesEmployeeId
+            ? { openedByAssigneeAt: null }
+            : {}),
         },
       });
       await this.leadActivityService.log(

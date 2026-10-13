@@ -82,6 +82,7 @@ model User {
   leadNotes            LeadNote[]
   leadFollowUps        LeadFollowUp[]
   leadViews            LeadView[]
+  leadAssigneeOpens    LeadAssigneeOpen[]
 
   salesOrdersAsSalesEmployee      SalesOrder[]           @relation("SalesOrderSalesEmployee")
   salesOrdersAsShippingEmployee   SalesOrder[]           @relation("SalesOrderShippingEmployee")
@@ -1712,8 +1713,19 @@ model Lead {
 
   /// Denormalized from the latest open LeadFollowUp.followUpAt for list/overdue.
   nextFollowUpAt DateTime? @map("next_follow_up_at")
-  /// First owner detail-open that moved NEW → IN_PROGRESS. Idempotency gate.
+  /// First detail-screen open by an assigned employee (any assignee, ever).
+  /// Before R20 it was the owner open that also moved NEW → IN_PROGRESS; since
+  /// R20 opening never changes the status. Audit only — the «لم يُفتح» badge
+  /// reads `openedByAssigneeAt`.
   firstOpenedAt  DateTime? @map("first_opened_at")
+  /// R20 — when the CURRENT assignee first opened the lead's detail screen
+  /// during the current assignment (null = «لم يُفتح» for every viewer:
+  /// employee, manager, admin). Written only by `LeadAssigneeOpensService
+  /// .record` (the assignee's own open, never a list load / prefetch / manager
+  /// open) and reset to null by `LeadAssignmentsService.assign` — the single
+  /// assignment write path — in the same transaction whenever the owner
+  /// changes. Never touches the business status. History: `LeadAssigneeOpen`.
+  openedByAssigneeAt DateTime? @map("opened_by_assignee_at")
 
   /// R6 — the lead's current follow-up classification: the outcome code
   /// (`LEAD_FOLLOW_UP_OUTCOMES`, src/leads/follow-up-outcomes.ts) of its
@@ -1738,6 +1750,7 @@ model Lead {
   notes       LeadNote[]
   followUps   LeadFollowUp[]
   views       LeadView[]
+  assigneeOpens LeadAssigneeOpen[]
   salesOrders SalesOrder[]
   payments    Payment[]
 
@@ -1816,10 +1829,11 @@ model LeadAssignment {
   @@map("lead_assignments")
 }
 
-/// Per-employee "I have opened this lead" marker (R7). READ STATE ONLY: it is
-/// not a workflow status, never changes Lead.status / firstOpenedAt / follow-up
-/// fields, and is written solely by `POST /leads/:id/viewed`. One row per
-/// (lead, user), upserted idempotently.
+/// R7 per-viewer "I have opened this lead" marker — RETIRED in R20: the
+/// «لم يُفتح» badge now follows the assigned employee (`Lead.openedByAssigneeAt`,
+/// history in `LeadAssigneeOpen`), so nothing reads or writes this table any
+/// more. The rows are kept (no destructive migration); the R20 backfill read
+/// them as evidence of the assignee's earlier opens.
 model LeadView {
   leadId   String   @map("lead_id") @db.Uuid
   lead     Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
@@ -1830,6 +1844,28 @@ model LeadView {
   @@id([leadId, userId])
   @@index([userId])
   @@map("lead_views")
+}
+
+/// R20 — audit history of a lead's detail-screen opens by its ASSIGNED
+/// employee: one row per (lead, user), first + last open and a count. Recorded
+/// only while that user is the lead's current assignee (an agent lead only
+/// through the agent portal, by the agent's own user); managers, admins, list
+/// loads and prefetches never write it. Reassignment keeps the row (history)
+/// and only resets `Lead.openedByAssigneeAt`. Rows backfilled by migration
+/// 20261013100000_r20_lead_assignee_opens carry `openCount` 1 (legacy data
+/// proved at least one open, not how many).
+model LeadAssigneeOpen {
+  leadId        String   @map("lead_id") @db.Uuid
+  lead          Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId        String   @map("user_id") @db.Uuid
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstOpenedAt DateTime @map("first_opened_at")
+  lastOpenedAt  DateTime @map("last_opened_at")
+  openCount     Int      @default(1) @map("open_count")
+
+  @@id([leadId, userId])
+  @@index([userId])
+  @@map("lead_assignee_opens")
 }
 
 /// Structured CRM follow-up — not a free-text LeadNote.
