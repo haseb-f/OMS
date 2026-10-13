@@ -1,0 +1,42 @@
+{
+  "admin-ar": [
+    "منى عادل #1 23 طلب صالح 17,060.00 EGP الطلبات 23 ملغاة 0 مرتجعة 1",
+    "Amend sales 2A0B2E #2 16 طلب صالح 320.00 A2A0B2E 1,510.00 EGP الطلبات 16 ملغاة 0 مرتجعة 0",
+    "Amend sales EAD74B #2 16 طلب صالح 320.00 AEAD74B 1,510.00 EGP الطلبات 16 ملغاة 0 مرتجعة 0",
+    "يوسف كمال #4 4 طلب صالح 7,290.00 EGP الطلبات 5 ملغاة 1 مرتجعة 0",
+    "Agents Admin AAFEF8 #5 1 طلب صالح 375.50 AAAFEF8 الطلبات 1 ملغاة 0 مرتجعة 0",
+    "Agents Admin D49CFD #5 1 طلب صالح 375.50 AD49CFD الطلبات 1 ملغاة 0 مرتجعة 0",
+    "Amend own 2A0B2E #5 1 طلب صالح 100.00 EGP الطلبات 1 ملغاة 0 مرتجعة 0",
+    "Amend own EAD74B #5 1 طلب صالح 100.00 EGP الطلبات 1 ملغاة 0 مرتجعة 0",
+    "غير مُسندة إلى موظف — لا تدخل في الترتيب. 0 طلب صالح لا مبيعات الطلبات 0 ملغاة 0 مرتجعة 0",
+    "طلبات الوكلاء — منفصلة عن الموظفين. 158 طلب صالح 17,890.00 AAAFEF8 17,890.00 AD49CFD 267,442.77 EGP 1,950.00 O3BC4BE عرض المزيد (3) الطلبات 158 ملغاة 0 مرتجعة 0"
+  ],
+  "sales-ar": [
+    "مبيعاتك 23 طلب صالح 17,060.00 EGP الطلبات 23 ملغاة 0 مرتجعة 1",
+    "ترتيبك 1 من 8 بين موظفي الشركة الذين لديهم طلبات في هذه الفترة"
+  ],
+  "agent-ar": [
+    "ياسر نبيل #1 10 طلب صالح 5,924.00 EGP الطلبات 10 ملغاة 0 مرتجعة 0",
+    "مروان سعد #2 2 طلب صالح 960.00 EGP الطلبات 2 ملغاة 0 مرتجعة 0"
+  ],
+  "admin-en": [
+    "منى عادل #1 23 valid orders 17,060.00 EGP Orders 23 Cancelled 0 Returned 1",
+    "Amend sales 2A0B2E #2 16 valid orders 320.00 A2A0B2E 1,510.00 EGP Orders 16 Cancelled 0 Returned 0",
+    "Amend sales EAD74B #2 16 valid orders 320.00 AEAD74B 1,510.00 EGP Orders 16 Cancelled 0 Returned 0",
+    "يوسف كمال #4 4 valid orders 7,290.00 EGP Orders 5 Cancelled 1 Returned 0",
+    "Agents Admin AAFEF8 #5 1 valid orders 375.50 AAAFEF8 Orders 1 Cancelled 0 Returned 0",
+    "Agents Admin D49CFD #5 1 valid orders 375.50 AD49CFD Orders 1 Cancelled 0 Returned 0",
+    "Amend own 2A0B2E #5 1 valid orders 100.00 EGP Orders 1 Cancelled 0 Returned 0",
+    "Amend own EAD74B #5 1 valid orders 100.00 EGP Orders 1 Cancelled 0 Returned 0",
+    "Not assigned to an employee — never ranked. 0 valid orders No sales Orders 0 Cancelled 0 Returned 0",
+    "Agent orders — kept separate from employees. 158 valid orders 17,890.00 AAAFEF8 17,890.00 AD49CFD 267,442.77 EGP 1,950.00 O3BC4BE Show 3 more Orders 158 Cancelled 0 Returned 0"
+  ],
+  "sales-en": [
+    "Your sales 23 valid orders 17,060.00 EGP Orders 23 Cancelled 0 Returned 1",
+    "Your rank 1 of 8 Among the company's employees with orders in this period"
+  ],
+  "agent-en": [
+    "ياسر نبيل #1 10 valid orders 5,924.00 EGP Orders 10 Cancelled 0 Returned 0",
+    "مروان سعد #2 2 valid orders 960.00 EGP Orders 2 Cancelled 0 Returned 0"
+  ]
+}
