@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-13T15:23:26.435Z",
+  "at": "2026-10-13T19:49:09.392Z",
   "checks": [
     {
       "name": "LD-2026-000003 starts unread",
@@ -54,7 +54,7 @@
     {
       "name": "assignee open recorded",
       "ok": true,
-      "detail": "2026-10-13T15:21:21.762Z"
+      "detail": "2026-10-13T19:47:27.387Z"
     },
     {
       "name": "business status unchanged",
