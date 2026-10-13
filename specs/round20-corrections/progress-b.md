@@ -137,3 +137,67 @@ At 375 px every employee was five full-width boxes (admin page 11,645 px tall in
   scope always shows its own card.
 - The own tab no longer shows a custom-date-range own figure (the five fixed periods replace it); Payment mix keeps the
   range for own scopes.
+
+## B2 — employee cards side by side, period rows, currency colours (owner refinement, 2026-10-14)
+
+Branch `feat/r20-employee-cards-2` from `main` 0a0a34d0 (same worktree). Calculations, period boundaries, ranking,
+filters, scope and API are unchanged (web only).
+
+### Layout
+
+- **Pair group** (`InsightFrameGroup`, shared): one employee card per row while the group is narrower than 44rem
+  (phones, small tablets), two per row from 44rem (768 tablet, 1280 laptop, 1440 desktop), equal widths, 16px gap
+  (`--insight-frame-group-gap`). Used for the employee feed, the own card and the unassigned | agents pair.
+- **Card** (`InsightFrame rows={5}`): a CSS **subgrid** of the group's rows — header + five period tracks
+  (`grid-rows-subgrid`, `grid-row: span 6`, 8px `--insight-frame-row-gap`). Both cards of a pair share the same six
+  row tracks, so the headers and each period row (Today, Yesterday, Last 7 days, This month, Last month) have the same
+  top and height across the pair (the taller of the two sets it; nothing clipped). Measured: `pairAligned: true` on
+  every two-per-row view. The card cannot also be a container (a size container is never a subgrid), so the rows query
+  their own width.
+- **Row** (`ReportCard layout="row"`, shared): compact padding (10 / 12px tokens), its period identity colour
+  (`PERIOD_IDENTITY`). From a 22rem row (`@container/row`): three columns as fractions of the row (1 : 0.7 : 1.3) —
+  period icon + title with the quiet counts under it | valid-order count (28px) + unit | amounts, one line per
+  currency at the inline end. Below 22rem (phones, a 768 pair): period + count on the first line, amounts and counts
+  full width. Same DOM order as the card, so the text reads identically (`report-identity.spec.tsx`).
+- Measured card sizes (after): 1440 → 568 × 602 (ar) / 659 (en); 1280 → 488 × 659–680; 768 → 360 × 904; 375 → 343
+  wide, one per row. Admin Employees page: 1440 3,753 → 3,221 px (ar); 1280 5,778 → 3,640; 768 7,587 → 4,434;
+  375 7,890 → 8,163 (all five periods readable, one card per row as asked).
+
+### Currency colours (all report cards: Live, employee rows, Teams, Payment mix)
+
+Mapping by code = `currencyIdentity` (report-identity.ts, unchanged from R19 C2): EGP teal, SAR sky, USD blue, AED
+indigo, EUR violet, KWD orchid; any other code a stable hue from its letters. The currency code (always written) takes
+`--report-currency-<hue>` = the hue mixed 64 % with the foreground (theme/tokens.css), through `MoneyValue
+currencyHue` → `data-currency` and one recipe rule per hue. Amounts stay the strong neutral; a negative amount keeps
+the danger meaning (`data-meaning="danger"` on its line) while its code keeps the currency colour; cancelled /
+returned keep their semantic colours; titles (`--insight-title`), counts (identity accent), amounts (strong neutral),
+dates (muted period chips) and supporting counts (muted) stay distinct by meaning.
+
+### Verification
+
+- Contrast: **1680 pairs pass** (+392: 7 currency colours × 7 identity backgrounds × rest / hover tint × glass /
+  opaque × light / dark); lowest new 4.89.
+- Web: `tsc` OK; `eslint .` 0 errors (9 pre-existing warnings); full vitest **184 files / 1324 tests**; `next build`
+  OK. Guards: `report-card-consumers.spec.ts` (rows layout, `PERIOD_ROWS = 5`, pair group 1 → 2 columns at 44rem,
+  subgrid, opaque rows, `currencyHue` / `data-currency` only on the sales-report screens), `report-card-size.spec.tsx`
+  (opaque frame rows), `report-identity.spec.tsx` (+3: currency colour per code incl. fallback, negative = danger,
+  recipe + token per hue, row text = card text).
+- Values: `r20-b-verify-periods.mjs` **100 boxes, 0 mismatches** before and after; R19 figures comparison
+  (`r19-c-compare-figures.mjs`, before = main build, after = B2 build, same Cairo day): **24 tab views, 188 cards,
+  0 differences**.
+- Demo data: `scripts/acceptance/r20/r20-b2-seed-multicurrency.mjs` added 11 tagged («R20B2 demo») SAR / USD / AED /
+  EGP orders for sales and sales2 (incl. 1,250,000 SAR) on the local `oms_r20_b` through the API; `oms_r20_b` also got
+  the R20 lead migration (`prisma migrate deploy`, additive).
+- Evidence `evidence/b2/{before,after}/` (51 files each, `scripts/acceptance/r20/r20-b2-employee-cards-shots.mjs`):
+  admin Employees ar/en × light/dark at 1440 (+ `-pair` crops), ar/en 1280 and 768, ar/en 375 + ar dark 375; sales
+  own and agent team (ar light 1440, en dark 1440, ar / en 375); Live / Teams / Payment mix at 1440 (ar light, en
+  dark); hover (frame header + a row), keyboard focus, reduced motion; long names + 1,234,567,890.55 in up to four
+  currencies + zero periods at 1440 / 375 (ar, en). Metrics: no horizontal overflow, nothing clipped, no layout shift
+  on hover / focus, reduced motion → no rise / icon motion.
+
+### Limits
+
+- Below 44rem the cards stack one per row (phones; very narrow tablets). At 768 the pair is narrow, so its rows use
+  the stacked row layout.
+- The Cairo day rolled over during the session; before and after evidence were both taken on 14 Oct (Cairo), so the
+  demo "today" orders of 13 Oct show under Yesterday.
