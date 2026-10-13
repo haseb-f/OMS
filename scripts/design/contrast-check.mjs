@@ -399,6 +399,24 @@ const PAIRS = [
         [`identity ${id} glyph on solid chip`, "var(--card)", `var(--report-identity-${id})`, UI],
       ]),
   ),
+  // R20 §B2: every currency colour (the code beside a report amount) on every identity
+  // background — the five periods, the metric hues and the payment-mix currency cards — at rest
+  // and on the strongest (hover) tint, over the report glass AND the opaque card (light + dark).
+  ...["teal", "sky", "blue", "indigo", "violet", "orchid", "slate"].flatMap((currency) =>
+    ["teal", "sky", "blue", "indigo", "violet", "orchid", "slate"].flatMap((bg) =>
+      [
+        ["glass", "var(--insight-report-glass)"],
+        ["opaque", "var(--card)"],
+      ].flatMap(([surface, base]) =>
+        ["--insight-report-tint-top", "--insight-report-tint-top-hover"].map((share) => [
+          `currency ${currency} on ${bg} ${surface} ${share.endsWith("hover") ? "hover" : "rest"} tint`,
+          `var(--report-currency-${currency})`,
+          `color-mix(in oklab, var(--report-identity-${bg}) var(${share}), ${base})`,
+          TEXT,
+        ]),
+      ),
+    ),
+  ),
   // R20 §B: the outer employee card (`InsightFrame`) — the name, the reference line (muted), the
   // rank chip text on the strongest point of its identity wash (the top), the header icon on its
   // chip, and the hover / focus and touch edges against the card, for every identity hue.
