@@ -6,7 +6,7 @@
 | -------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Implementation | done — A `fa3f9094 707b5235 5dba74be` + RTL fix `314684f7`, B `59dc87b2 d022c103`, C `98742c95 65255d6e 816ee159` |
 | Verification   | done on the integrated tree (below)                                                                               |
-| Deployment     | **not deployed** — awaiting owner review of the local preview; no migration in this round                         |
+| Deployment     | **deployed** after owner approval — Production `1d659b5d` (7036908079), live checks green (`release.md`)          |
 
 ## Gates (integrated tree)
 

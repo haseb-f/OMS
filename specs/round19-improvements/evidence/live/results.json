@@ -1,0 +1,50 @@
+{
+  "at": "2026-10-13T11:15:13.012Z",
+  "results": [
+    {
+      "name": "GET /assembly 200",
+      "ok": true,
+      "detail": "total 2"
+    },
+    {
+      "name": "assembly list agent filter 200",
+      "ok": true,
+      "detail": "total 0"
+    },
+    {
+      "name": "assembly order exposes `valued`",
+      "ok": true,
+      "detail": "valued=true"
+    },
+    {
+      "name": "light: sidebar dark against content",
+      "ok": true,
+      "detail": "rgb(31, 32, 36) vs rgb(255, 255, 255) · 16.3:1"
+    },
+    {
+      "name": "light: sales-report cards at report size",
+      "ok": true,
+      "detail": "6 cards"
+    },
+    {
+      "name": "light: no page errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dark: sidebar light against content",
+      "ok": true,
+      "detail": "rgb(232, 233, 236) vs rgb(10, 10, 10) · 16.3:1"
+    },
+    {
+      "name": "dark: sales-report cards at report size",
+      "ok": true,
+      "detail": "6 cards"
+    },
+    {
+      "name": "dark: no page errors",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}
