@@ -1,21 +1,21 @@
 {
   "mode": "after",
-  "base": "http://localhost:4701",
-  "box": "PRD-2026-000019",
-  "receipt": "ASR-2026-00004",
+  "base": "http://localhost:3001",
+  "box": "PRD-2026-000022",
+  "receipt": "ASR-2026-00005",
   "preview": {
     "canAssemble": true,
     "blockers": [],
     "recipe": {
-      "id": "ccd806a5-2e56-430e-a731-7dc3c8dd9487",
+      "id": "cf7cea8a-a6eb-4e10-9703-d12c9bd3a45c",
       "version": 1
     },
     "valued": false,
     "finishedQuantity": 100,
     "lines": [
       {
-        "componentProductId": "d87d29de-8453-4173-bb27-14ab059c6607",
-        "name": "شوكولاتة فاخرة MV6J6KCQ",
+        "componentProductId": "56de4ab7-8b5d-4550-bc57-ee1eb1435f55",
+        "name": "شوكولاتة فاخرة MV6KAZDG",
         "quantity": 200,
         "onHand": 230,
         "reserved": 0,
@@ -25,8 +25,8 @@
         "value": null
       },
       {
-        "componentProductId": "a68bf5ed-9c89-4ca4-bc99-a598a3f91998",
-        "name": "بطاقة إهداء MV6J6KCQ",
+        "componentProductId": "9475d77e-5d66-4b20-861a-0579aead3cb5",
+        "name": "بطاقة إهداء MV6KAZDG",
         "quantity": 100,
         "onHand": 110,
         "reserved": 0,
@@ -50,12 +50,12 @@
     {
       "name": "agent gift box + 2 components created (owner = agent)",
       "ok": true,
-      "detail": "PRD-2026-000019"
+      "detail": "PRD-2026-000022"
     },
     {
       "name": "components received on an agent stock receipt (no cost)",
       "ok": true,
-      "detail": "ASR-2026-00004"
+      "detail": "ASR-2026-00005"
     },
     {
       "name": "recipe 2 × A + 1 × B active",
@@ -70,12 +70,12 @@
     {
       "name": "success confirmation shown",
       "ok": true,
-      "detail": "ASM-2026-000002"
+      "detail": "ASM-2026-000003"
     },
     {
       "name": "100 boxes assembled, non-valued",
       "ok": true,
-      "detail": "ASM-2026-000002"
+      "detail": "ASM-2026-000003"
     },
     {
       "name": "A −200, B −100, box +100",
