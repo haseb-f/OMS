@@ -18,3 +18,4 @@ Next: B phone layout commit → C final (progress-c, repair dry-run) → merge B
 | 2026-10-14 | Integrated journeys (local :3001, oms_r20_final): A 38/38, C 23/23, B 100 boxes 0 mismatches. Releasing to main. |
 | 2026-10-14 | RELEASED: main c83ea82d → Production deployment 7048746657 success. Next: live verification. |
 | 2026-10-14 | Live verification 19/19 + payment audit + repair dry-run (nothing to repair). Release record + handoff written. |
+| 2026-10-14 | B2 refinement (square employee cards, rows per period, currency colours) handed to stream B on feat/r20-employee-cards-2 from main 0a0a34d0. |
