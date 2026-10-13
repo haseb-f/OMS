@@ -21,7 +21,7 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { CompactDetailTable } from "@/components/shared/data-table/compact-detail-table";
 import { RelatedRecordsButton } from "@/components/shared/related-records-panel";
 import { StatusBadge } from "@/components/business/status-badge";
-import { agentOptionLabel, useAgentOptions } from "@/components/agents/agent-options";
+import { useAgentOptions } from "@/components/agents/agent-options";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -204,7 +204,10 @@ function AssemblyDetailContent() {
               t("assembly.dialog.ownerCompany")
             ) : ownerAgent ? (
               <Link href={`/agents/${ownerAgent.id}`} className="text-primary hover:underline">
-                {agentOptionLabel(ownerAgent)}
+                {ownerAgent.name} ·{" "}
+                <bdi dir="ltr" className="whitespace-nowrap">
+                  {ownerAgent.agentNumber}
+                </bdi>
               </Link>
             ) : (
               t("assembly.fields.agentOwned")
