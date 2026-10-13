@@ -330,7 +330,7 @@ export default function SupplierProfilePage() {
                 positions={positions}
                 historyTitle={t("purchasing.payments.title")}
                 outstandingLabel={t("purchasing.suppliers.profile.payments.outstandingPayables")}
-                paidLabel={t("purchasing.suppliers.profile.payments.paidAmount")}
+                paidLabel={t("financialTransactions.position.paid")}
                 documentHref={(id) => `/purchasing/payments/${id}`}
                 onCreateNew={
                   hasPermission("purchasing.payments.create")

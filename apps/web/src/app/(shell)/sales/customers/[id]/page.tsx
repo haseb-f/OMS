@@ -518,8 +518,8 @@ export default function CustomerProfilePage() {
                   isLoadingOpenInvoices={isLoadingOpenInvoices}
                   positions={positions}
                   historyTitle={t("sales.receipts.title")}
-                  outstandingLabel={t("sales.customers.profile.statistics.balance")}
-                  paidLabel={t("sales.customers.profile.payments.paidAmount")}
+                  outstandingLabel={t("financialTransactions.position.outstanding")}
+                  paidLabel={t("financialTransactions.position.received")}
                   documentHref={(id) => `/sales/payments/${id}`}
                   onCreateNew={
                     hasPermission("sales.receipts.create")
