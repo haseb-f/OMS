@@ -1,0 +1,748 @@
+{
+  "at": "2026-10-13T21:07:04.035Z",
+  "base": "http://localhost:4811",
+  "metrics": {
+    "admin-employees-ar-light-1440": {
+      "frames": 10,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 1152,
+        "height": 380
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "SAR:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "USD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AED:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "A2A0B2E:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AEAD74B:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AAAFEF8:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AD49CFD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "O3BC4BE:-:oklab(0.372733 0.0000169598 0.00000744984)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 3753
+    },
+    "admin-employees-en-light-1440": {
+      "frames": 10,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 1152,
+        "height": 380
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "SAR:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "USD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AED:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "A2A0B2E:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AEAD74B:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AAAFEF8:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AD49CFD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "O3BC4BE:-:oklab(0.372733 0.0000169598 0.00000744984)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 3753
+    },
+    "admin-employees-ar-dark-1440": {
+      "frames": 10,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 1152,
+        "height": 380
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "SAR:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "USD:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AED:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "A2A0B2E:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AEAD74B:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AAAFEF8:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AD49CFD:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "O3BC4BE:-:oklab(0.815692 0.0000371188 0.0000162989)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 3753
+    },
+    "admin-employees-en-dark-1440": {
+      "frames": 10,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 1152,
+        "height": 380
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "SAR:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "USD:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AED:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "A2A0B2E:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AEAD74B:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AAAFEF8:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AD49CFD:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "O3BC4BE:-:oklab(0.815692 0.0000371188 0.0000162989)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 3753
+    },
+    "admin-employees-ar-light-1280": {
+      "frames": 10,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 992,
+        "height": 631
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "SAR:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "USD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AED:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "A2A0B2E:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AEAD74B:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AAAFEF8:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AD49CFD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "O3BC4BE:-:oklab(0.372733 0.0000169598 0.00000744984)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 5778
+    },
+    "admin-employees-en-light-1280": {
+      "frames": 10,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 992,
+        "height": 631
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "SAR:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "USD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AED:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "A2A0B2E:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AEAD74B:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AAAFEF8:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AD49CFD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "O3BC4BE:-:oklab(0.372733 0.0000169598 0.00000744984)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 5805
+    },
+    "admin-employees-ar-light-768": {
+      "frames": 10,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 736,
+        "height": 827
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "SAR:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "USD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AED:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "A2A0B2E:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AEAD74B:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AAAFEF8:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AD49CFD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "O3BC4BE:-:oklab(0.372733 0.0000169598 0.00000744984)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 7587
+    },
+    "admin-employees-en-light-768": {
+      "frames": 10,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 736,
+        "height": 827
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "SAR:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "USD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AED:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "A2A0B2E:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AEAD74B:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AAAFEF8:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AD49CFD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "O3BC4BE:-:oklab(0.372733 0.0000169598 0.00000744984)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 7587
+    },
+    "admin-employees-ar-light-375": {
+      "frames": 10,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 343,
+        "height": 840
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "SAR:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "USD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AED:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "A2A0B2E:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AEAD74B:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AAAFEF8:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AD49CFD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "O3BC4BE:-:oklab(0.372733 0.0000169598 0.00000744984)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 7890
+    },
+    "admin-employees-en-light-375": {
+      "frames": 10,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 343,
+        "height": 890
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "SAR:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "USD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AED:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "A2A0B2E:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AEAD74B:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AAAFEF8:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AD49CFD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "O3BC4BE:-:oklab(0.372733 0.0000169598 0.00000744984)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 8491
+    },
+    "admin-employees-ar-dark-375": {
+      "frames": 10,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 343,
+        "height": 840
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "SAR:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "USD:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AED:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "A2A0B2E:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AEAD74B:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AAAFEF8:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AD49CFD:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "O3BC4BE:-:oklab(0.815692 0.0000371188 0.0000162989)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 7890
+    },
+    "sales-own-ar-light-1440": {
+      "frames": 1,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 1152,
+        "height": 380
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "SAR:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "USD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AED:-:oklab(0.372733 0.0000169598 0.00000744984)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 900
+    },
+    "sales-own-en-dark-1440": {
+      "frames": 1,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 1152,
+        "height": 380
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "SAR:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "USD:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AED:-:oklab(0.815692 0.0000371188 0.0000162989)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 900
+    },
+    "sales-own-ar-light-375": {
+      "frames": 1,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 343,
+        "height": 840
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "SAR:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "USD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AED:-:oklab(0.372733 0.0000169598 0.00000744984)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 1260
+    },
+    "sales-own-en-light-375": {
+      "frames": 1,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 343,
+        "height": 890
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "SAR:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "USD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AED:-:oklab(0.372733 0.0000169598 0.00000744984)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 1392
+    },
+    "agent-employees-ar-light-1440": {
+      "frames": 2,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 1152,
+        "height": 301
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": ["EGP:-:oklab(0.372733 0.0000169598 0.00000744984)"],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 910
+    },
+    "agent-employees-en-dark-1440": {
+      "frames": 2,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 1152,
+        "height": 301
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": ["EGP:-:oklab(0.815692 0.0000371188 0.0000162989)"],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 910
+    },
+    "agent-employees-ar-light-375": {
+      "frames": 2,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 343,
+        "height": 690
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": ["EGP:-:oklab(0.372733 0.0000169598 0.00000744984)"],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 1809
+    },
+    "agent-employees-en-light-375": {
+      "frames": 2,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 343,
+        "height": 740
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": ["EGP:-:oklab(0.372733 0.0000169598 0.00000744984)"],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 1948
+    },
+    "admin-live-ar-light-1440": {
+      "frames": 0,
+      "cardsPerRow": 0,
+      "card": null,
+      "boxesPerCard": 0,
+      "boxLayout": null,
+      "pairAligned": null,
+      "currencyHues": [
+        "AED:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "EGP:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "SAR:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "USD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "A2A0B2E:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AAAFEF8:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AD49CFD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AEAD74B:-:oklab(0.372733 0.0000169598 0.00000744984)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 900
+    },
+    "admin-teams-ar-light-1440": {
+      "frames": 0,
+      "cardsPerRow": 0,
+      "card": null,
+      "boxesPerCard": 0,
+      "boxLayout": null,
+      "pairAligned": null,
+      "currencyHues": [],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 900
+    },
+    "admin-paymentMix-ar-light-1440": {
+      "frames": 0,
+      "cardsPerRow": 0,
+      "card": null,
+      "boxesPerCard": 0,
+      "boxLayout": null,
+      "pairAligned": null,
+      "currencyHues": [
+        "A2A0B2E:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AAAFEF8:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AD49CFD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AEAD74B:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AED:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "EGP:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "SAR:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "USD:-:oklab(0.372733 0.0000169598 0.00000744984)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 1021
+    },
+    "admin-live-en-dark-1440": {
+      "frames": 0,
+      "cardsPerRow": 0,
+      "card": null,
+      "boxesPerCard": 0,
+      "boxLayout": null,
+      "pairAligned": null,
+      "currencyHues": [
+        "AED:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "EGP:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "SAR:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "USD:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "A2A0B2E:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AAAFEF8:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AD49CFD:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AEAD74B:-:oklab(0.815692 0.0000371188 0.0000162989)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 900
+    },
+    "admin-teams-en-dark-1440": {
+      "frames": 0,
+      "cardsPerRow": 0,
+      "card": null,
+      "boxesPerCard": 0,
+      "boxLayout": null,
+      "pairAligned": null,
+      "currencyHues": [],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 900
+    },
+    "admin-paymentMix-en-dark-1440": {
+      "frames": 0,
+      "cardsPerRow": 0,
+      "card": null,
+      "boxesPerCard": 0,
+      "boxLayout": null,
+      "pairAligned": null,
+      "currencyHues": [
+        "A2A0B2E:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AAAFEF8:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AD49CFD:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AEAD74B:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "AED:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "EGP:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "SAR:-:oklab(0.815692 0.0000371188 0.0000162989)",
+        "USD:-:oklab(0.815692 0.0000371188 0.0000162989)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 1021
+    },
+    "state-ar-light": {
+      "rest": {
+        "border": "oklab(0.824847 -0.00497986 -0.0356315)",
+        "shadow": "rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
+        "outline": "none 3px",
+        "translate": "none",
+        "icon": "none none",
+        "layout": "268,24,1152,380",
+        "text": "منى عادل mona.adel #1 هذا الشهر اليوم 0 طلب صالح لا مبيعات الطلبات 0 ملغاة 0 مرتجعة 0 أمس 5 طلب صالح 4,750.00 EGP 1,450.00 SAR 320.50 USD الطلبات 5 ملغاة 0 مرتجعة 1 آخر 7 أيام 20 طلب صالح 2,750.00 AED 13,660.00 EGP 1,251,450.00 SAR 320.50 USD الطلبات 20 ملغاة 0 مرتجعة 1 هذا الشهر 27 طلب صالح 2,750.00 AED 17,060.00 EGP 1,251,450.00 SAR 320.50 USD الطلبات 27 ملغاة 0 مرتجعة 1 الشهر الماضي 3 طلب صالح 5,180.00 EGP 899.99 USD الطلبات 3 ملغاة 0 مرتجعة 0"
+      },
+      "hover": {
+        "border": "oklab(0.690427 -0.0108397 -0.0772237)",
+        "shadow": "rgba(0, 0, 0, 0.05) 0px 1px 2px 0px, oklab(0.459993 -0.0208851 -0.148524 / 0.55) 0px 14px 32px -18px",
+        "outline": "none 3px",
+        "translate": "none",
+        "icon": "1.12 none",
+        "layout": "268,24,1152,380",
+        "text": "منى عادل mona.adel #1 هذا الشهر اليوم 0 طلب صالح لا مبيعات الطلبات 0 ملغاة 0 مرتجعة 0 أمس 5 طلب صالح 4,750.00 EGP 1,450.00 SAR 320.50 USD الطلبات 5 ملغاة 0 مرتجعة 1 آخر 7 أيام 20 طلب صالح 2,750.00 AED 13,660.00 EGP 1,251,450.00 SAR 320.50 USD الطلبات 20 ملغاة 0 مرتجعة 1 هذا الشهر 27 طلب صالح 2,750.00 AED 17,060.00 EGP 1,251,450.00 SAR 320.50 USD الطلبات 27 ملغاة 0 مرتجعة 1 الشهر الماضي 3 طلب صالح 5,180.00 EGP 899.99 USD الطلبات 3 ملغاة 0 مرتجعة 0"
+      },
+      "rowHover": {
+        "border": "oklab(0.600393 -0.0154431 -0.109903)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.05) 0px 2px 4px 0px, ",
+        "outline": "none 3px",
+        "translate": "0px -2px",
+        "icon": "none 0px -2px",
+        "layout": "74,468,214,288",
+        "text": "آخر 7 أيام 20 طلب صالح 2,750.00 AED 13,660.00 EGP 1,251,450.00 SAR 320.50 USD الطلبات 20 ملغاة 0 مرتجعة 1"
+      },
+      "focus": {
+        "border": "oklab(0.690427 -0.0108397 -0.0772237)",
+        "shadow": "rgba(0, 0, 0, 0.05) 0px 1px 2px 0px, oklab(0.459993 -0.0208851 -0.148524 / 0.55) 0px 14px 32px -18px",
+        "outline": "solid 2px",
+        "translate": "none",
+        "icon": "1.12 none",
+        "layout": "268,24,1152,380",
+        "text": "منى عادل mona.adel #1 هذا الشهر اليوم 0 طلب صالح لا مبيعات الطلبات 0 ملغاة 0 مرتجعة 0 أمس 5 طلب صالح 4,750.00 EGP 1,450.00 SAR 320.50 USD الطلبات 5 ملغاة 0 مرتجعة 1 آخر 7 أيام 20 طلب صالح 2,750.00 AED 13,660.00 EGP 1,251,450.00 SAR 320.50 USD الطلبات 20 ملغاة 0 مرتجعة 1 هذا الشهر 27 طلب صالح 2,750.00 AED 17,060.00 EGP 1,251,450.00 SAR 320.50 USD الطلبات 27 ملغاة 0 مرتجعة 1 الشهر الماضي 3 طلب صالح 5,180.00 EGP 899.99 USD الطلبات 3 ملغاة 0 مرتجعة 0"
+      },
+      "focused": true,
+      "layoutShift": false,
+      "textChanged": false
+    },
+    "state-en-dark": {
+      "rest": {
+        "border": "oklab(0.42203 -0.00458686 -0.0326682)",
+        "shadow": "rgba(255, 255, 255, 0.03) 0px 0px 0px 1px",
+        "outline": "none 3px",
+        "translate": "none",
+        "icon": "none none",
+        "layout": "268,24,1152,380",
+        "text": "منى عادل mona.adel #1 this month Today 0 valid orders No sales Orders 0 Cancelled 0 Returned 0 Yesterday 5 valid orders 4,750.00 EGP 1,450.00 SAR 320.50 USD Orders 5 Cancelled 0 Returned 1 Last 7 days 20 valid orders 2,750.00 AED 13,660.00 EGP 1,251,450.00 SAR 320.50 USD Orders 20 Cancelled 0 Returned 1 This month 27 valid orders 2,750.00 AED 17,060.00 EGP 1,251,450.00 SAR 320.50 USD Orders 27 Cancelled 0 Returned 1 Last month 3 valid orders 5,180.00 EGP 899.99 USD Orders 3 Cancelled 0 Returned 0"
+      },
+      "hover": {
+        "border": "oklab(0.554988 -0.00857278 -0.0609853)",
+        "shadow": "rgba(255, 255, 255, 0.03) 0px 0px 0px 1px, oklab(0.779994 -0.0153182 -0.108907 / 0.38) 0px 14px 32px -18px",
+        "outline": "none 3px",
+        "translate": "none",
+        "icon": "1.12 none",
+        "layout": "268,24,1152,380",
+        "text": "منى عادل mona.adel #1 this month Today 0 valid orders No sales Orders 0 Cancelled 0 Returned 0 Yesterday 5 valid orders 4,750.00 EGP 1,450.00 SAR 320.50 USD Orders 5 Cancelled 0 Returned 1 Last 7 days 20 valid orders 2,750.00 AED 13,660.00 EGP 1,251,450.00 SAR 320.50 USD Orders 20 Cancelled 0 Returned 1 This month 27 valid orders 2,750.00 AED 17,060.00 EGP 1,251,450.00 SAR 320.50 USD Orders 27 Cancelled 0 Returned 1 Last month 3 valid orders 5,180.00 EGP 899.99 USD Orders 3 Cancelled 0 Returned 0"
+      },
+      "rowHover": {
+        "border": "oklab(0.635428 -0.0116399 -0.0827682)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.1) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.05) 0px 0px 0px ",
+        "outline": "none 3px",
+        "translate": "0px -2px",
+        "icon": "none 0px -2px",
+        "layout": "74,468,214,288",
+        "text": "Last 7 days 20 valid orders 2,750.00 AED 13,660.00 EGP 1,251,450.00 SAR 320.50 USD Orders 20 Cancelled 0 Returned 1"
+      },
+      "focus": {
+        "border": "oklab(0.554988 -0.00857278 -0.0609853)",
+        "shadow": "rgba(255, 255, 255, 0.03) 0px 0px 0px 1px, oklab(0.779994 -0.0153182 -0.108907 / 0.38) 0px 14px 32px -18px",
+        "outline": "solid 2px",
+        "translate": "none",
+        "icon": "1.12 none",
+        "layout": "268,24,1152,380",
+        "text": "منى عادل mona.adel #1 this month Today 0 valid orders No sales Orders 0 Cancelled 0 Returned 0 Yesterday 5 valid orders 4,750.00 EGP 1,450.00 SAR 320.50 USD Orders 5 Cancelled 0 Returned 1 Last 7 days 20 valid orders 2,750.00 AED 13,660.00 EGP 1,251,450.00 SAR 320.50 USD Orders 20 Cancelled 0 Returned 1 This month 27 valid orders 2,750.00 AED 17,060.00 EGP 1,251,450.00 SAR 320.50 USD Orders 27 Cancelled 0 Returned 1 Last month 3 valid orders 5,180.00 EGP 899.99 USD Orders 3 Cancelled 0 Returned 0"
+      },
+      "focused": true,
+      "layoutShift": false,
+      "textChanged": false
+    },
+    "state-reduced-motion": {
+      "rest": {
+        "border": "oklab(0.824847 -0.00497986 -0.0356315)",
+        "shadow": "rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
+        "outline": "none 3px",
+        "translate": "none",
+        "icon": "none none",
+        "layout": "268,24,1152,380",
+        "text": "منى عادل mona.adel #1 هذا الشهر اليوم 0 طلب صالح لا مبيعات الطلبات 0 ملغاة 0 مرتجعة 0 أمس 5 طلب صالح 4,750.00 EGP 1,450.00 SAR 320.50 USD الطلبات 5 ملغاة 0 مرتجعة 1 آخر 7 أيام 20 طلب صالح 2,750.00 AED 13,660.00 EGP 1,251,450.00 SAR 320.50 USD الطلبات 20 ملغاة 0 مرتجعة 1 هذا الشهر 27 طلب صالح 2,750.00 AED 17,060.00 EGP 1,251,450.00 SAR 320.50 USD الطلبات 27 ملغاة 0 مرتجعة 1 الشهر الماضي 3 طلب صالح 5,180.00 EGP 899.99 USD الطلبات 3 ملغاة 0 مرتجعة 0"
+      },
+      "hover": {
+        "border": "oklab(0.690427 -0.0108397 -0.0772237)",
+        "shadow": "rgba(0, 0, 0, 0.05) 0px 1px 2px 0px, oklab(0.459993 -0.0208851 -0.148524 / 0.55) 0px 14px 32px -18px",
+        "outline": "none 3px",
+        "translate": "none",
+        "icon": "none none",
+        "layout": "268,24,1152,380",
+        "text": "منى عادل mona.adel #1 هذا الشهر اليوم 0 طلب صالح لا مبيعات الطلبات 0 ملغاة 0 مرتجعة 0 أمس 5 طلب صالح 4,750.00 EGP 1,450.00 SAR 320.50 USD الطلبات 5 ملغاة 0 مرتجعة 1 آخر 7 أيام 20 طلب صالح 2,750.00 AED 13,660.00 EGP 1,251,450.00 SAR 320.50 USD الطلبات 20 ملغاة 0 مرتجعة 1 هذا الشهر 27 طلب صالح 2,750.00 AED 17,060.00 EGP 1,251,450.00 SAR 320.50 USD الطلبات 27 ملغاة 0 مرتجعة 1 الشهر الماضي 3 طلب صالح 5,180.00 EGP 899.99 USD الطلبات 3 ملغاة 0 مرتجعة 0"
+      },
+      "rowHover": {
+        "border": "oklab(0.600393 -0.0154431 -0.109903)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(255, 255, 255, 0.65) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.05) 0px 2px 4px 0px, ",
+        "outline": "none 3px",
+        "translate": "none",
+        "icon": "none none",
+        "layout": "74,468,214,288",
+        "text": "آخر 7 أيام 20 طلب صالح 2,750.00 AED 13,660.00 EGP 1,251,450.00 SAR 320.50 USD الطلبات 20 ملغاة 0 مرتجعة 1"
+      },
+      "focus": {
+        "border": "oklab(0.690427 -0.0108397 -0.0772237)",
+        "shadow": "rgba(0, 0, 0, 0.05) 0px 1px 2px 0px, oklab(0.459993 -0.0208851 -0.148524 / 0.55) 0px 14px 32px -18px",
+        "outline": "solid 2px",
+        "translate": "none",
+        "icon": "none none",
+        "layout": "268,24,1152,380",
+        "text": "منى عادل mona.adel #1 هذا الشهر اليوم 0 طلب صالح لا مبيعات الطلبات 0 ملغاة 0 مرتجعة 0 أمس 5 طلب صالح 4,750.00 EGP 1,450.00 SAR 320.50 USD الطلبات 5 ملغاة 0 مرتجعة 1 آخر 7 أيام 20 طلب صالح 2,750.00 AED 13,660.00 EGP 1,251,450.00 SAR 320.50 USD الطلبات 20 ملغاة 0 مرتجعة 1 هذا الشهر 27 طلب صالح 2,750.00 AED 17,060.00 EGP 1,251,450.00 SAR 320.50 USD الطلبات 27 ملغاة 0 مرتجعة 1 الشهر الماضي 3 طلب صالح 5,180.00 EGP 899.99 USD الطلبات 3 ملغاة 0 مرتجعة 0"
+      },
+      "focused": true,
+      "layoutShift": false,
+      "textChanged": false
+    },
+    "long-ar-1440": {
+      "frames": 10,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 1152,
+        "height": 380
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "SAR:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "USD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AED:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AEAD74B:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AAAFEF8:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AD49CFD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "O3BC4BE:-:oklab(0.372733 0.0000169598 0.00000744984)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 3805
+    },
+    "long-en-1440": {
+      "frames": 10,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 1152,
+        "height": 428
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "SAR:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "USD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AED:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AEAD74B:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AAAFEF8:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AD49CFD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "O3BC4BE:-:oklab(0.372733 0.0000169598 0.00000744984)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 3901
+    },
+    "long-ar-375": {
+      "frames": 10,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 343,
+        "height": 931
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "SAR:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "USD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AED:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AEAD74B:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AAAFEF8:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AD49CFD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "O3BC4BE:-:oklab(0.372733 0.0000169598 0.00000744984)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 8266
+    },
+    "long-en-375": {
+      "frames": 10,
+      "cardsPerRow": 1,
+      "card": {
+        "width": 343,
+        "height": 981
+      },
+      "boxesPerCard": 5,
+      "boxLayout": "card",
+      "pairAligned": null,
+      "currencyHues": [
+        "EGP:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "SAR:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "USD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AED:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AEAD74B:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AAAFEF8:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "AD49CFD:-:oklab(0.372733 0.0000169598 0.00000744984)",
+        "O3BC4BE:-:oklab(0.372733 0.0000169598 0.00000744984)"
+      ],
+      "overflowX": 0,
+      "clipped": [],
+      "pageHeight": 8867
+    }
+  }
+}
