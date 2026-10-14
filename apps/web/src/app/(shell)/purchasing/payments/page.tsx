@@ -245,25 +245,29 @@ function SupplierPaymentsPageContent() {
       },
       {
         id: "status",
-        meta: { titleKey: "purchasing.suppliers.fields.status" },
+        // R22 §5 — the status badge only (compact); the amount has its own money column.
+        meta: {
+          titleKey: "purchasing.suppliers.fields.status",
+          type: "status",
+          minWidth: 96,
+          maxWidth: 128,
+        },
         enableSorting: false,
         cell: ({ row }) => (
-          <StackedCell
-            primary={
-              <StatusBadge
-                label={t(TRANSACTION_STATUS_LABEL_KEY[row.original.status])}
-                tone={TRANSACTION_STATUS_TONE[row.original.status]}
-              />
-            }
-            secondary={<MoneyValue value={row.original.amount} />}
+          <StatusBadge
+            label={t(TRANSACTION_STATUS_LABEL_KEY[row.original.status])}
+            tone={TRANSACTION_STATUS_TONE[row.original.status]}
           />
         ),
       },
       {
         id: "amount",
-        meta: { titleKey: "purchasing.payments.fields.amount", defaultHidden: true },
-        accessorFn: (row) => row.amount,
-        cell: (info) => <MoneyValue value={info.getValue() as string} />,
+        // R22 §5 — visible by default, on the numeric end edge, with its currency.
+        meta: { titleKey: "purchasing.payments.fields.amount", type: "money" },
+        accessorFn: (row) => Number(row.amount),
+        cell: ({ row }) => (
+          <MoneyValue value={row.original.amount} currency={row.original.currency?.code} />
+        ),
       },
       {
         id: "createdAt",

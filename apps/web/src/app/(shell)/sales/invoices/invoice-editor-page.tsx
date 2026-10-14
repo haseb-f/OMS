@@ -501,7 +501,9 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
               allocatedTotal={settlement?.summary.paidTotal ?? invoice.allocatedTotal}
               creditedTotal={settlement?.summary.creditedTotal ?? invoice.creditedTotal ?? 0}
               remainingBalance={settlement?.summary.remainingBalance ?? invoice.remainingBalance}
-              currencyCode={invoice.currency?.code}
+              currencyCode={
+                invoice.currency?.code ?? settlement?.summary.currencyCode ?? invoice.currencyCode
+              }
             />
           )
         }

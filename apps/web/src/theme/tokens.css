@@ -125,10 +125,11 @@
      the 40px reveal/hide button (centred, 2px clear each side) unchanged. */
   --auth-control-height: 2.75rem;
   /* R22 §3 — the prominent amount entry (receipt / payment / expense amount):
-     a 44px touch-size field with a 1.5px edge and room for the currency code
+     a 44px touch-size field with a 2px edge and room for the currency code
      inside the field. One size, shared through `MoneyInput prominent`. */
   --control-height-prominent: 2.75rem;
-  --control-border-prominent: 1.5px;
+  /* 2px, not 1.5px: Chrome snaps borders to whole device pixels, so 1.5px drew 1px at 1x. */
+  --control-border-prominent: 2px;
   --money-adornment-width: 3.5rem;
   --auth-card-width: 26rem;
   --auth-card-shadow: 0 1px 2px rgb(15 30 60 / 0.04), 0 18px 40px -18px rgb(15 30 60 / 0.22);

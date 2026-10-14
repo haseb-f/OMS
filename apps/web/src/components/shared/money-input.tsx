@@ -85,7 +85,7 @@ function canonicalEvent(
  * edit; on blur the field shows the canonical figure. Consumers receive the
  * canonical text (`onChange`) or the number (`onValueChange`). LTR digits,
  * tabular figures and the logical end edge in both directions.
- * `inputSize="prominent"` is the voucher amount (44px, 16px, 1.5px edge);
+ * `inputSize="prominent"` is the voucher amount (44px, 16px, 2px edge);
  * `adornment` shows the currency inside the field.
  */
 export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(function MoneyInput(

@@ -9,7 +9,13 @@ import type { InvoicePaymentFigures } from "./status";
 type InvoicePaymentRow = InvoicePaymentFigures & {
   grandTotal: string | number;
   currency?: { code: string } | null;
+  /** R22 contract 1 — the invoice's currency code (also for base-currency invoices). */
+  currencyCode?: string | null;
 };
+
+const codeOf = (row: InvoicePaymentRow) => row.currency?.code ?? row.currencyCode ?? undefined;
+/** Money columns: compact enough that nine columns fit 1440 px without clipping the date. */
+const MONEY_WIDTH = { minWidth: 124, maxWidth: 180 } as const;
 
 /**
  * R20 / R22 §5 — the money and payment columns every invoice list (sales +
@@ -28,28 +34,36 @@ export function invoiceMoneyColumns<T extends InvoicePaymentRow>(
   return [
     {
       id: "grandTotal",
-      meta: { titleKey: totalTitleKey, type: "money" },
+      meta: { titleKey: totalTitleKey, type: "money", ...MONEY_WIDTH },
       accessorFn: (row) => Number(row.grandTotal),
       cell: ({ row }) => (
-        <MoneyValue value={row.original.grandTotal} currency={row.original.currency?.code} />
+        <MoneyValue value={row.original.grandTotal} currency={codeOf(row.original)} />
       ),
     },
     {
       id: "allocatedTotal",
       enableSorting: false,
-      meta: { titleKey: "financialTransactions.paymentSummary.paid", type: "money" },
+      meta: {
+        titleKey: "financialTransactions.paymentSummary.paid",
+        type: "money",
+        ...MONEY_WIDTH,
+      },
       accessorFn: (row) => row.allocatedTotal,
       cell: ({ row }) => (
-        <MoneyValue value={row.original.allocatedTotal} currency={row.original.currency?.code} />
+        <MoneyValue value={row.original.allocatedTotal} currency={codeOf(row.original)} />
       ),
     },
     {
       id: "remainingBalance",
       enableSorting: false,
-      meta: { titleKey: "financialTransactions.paymentSummary.remaining", type: "money" },
+      meta: {
+        titleKey: "financialTransactions.paymentSummary.remaining",
+        type: "money",
+        ...MONEY_WIDTH,
+      },
       accessorFn: (row) => row.remainingBalance,
       cell: ({ row }) => (
-        <MoneyValue value={row.original.remainingBalance} currency={row.original.currency?.code} />
+        <MoneyValue value={row.original.remainingBalance} currency={codeOf(row.original)} />
       ),
     },
     {
@@ -58,8 +72,8 @@ export function invoiceMoneyColumns<T extends InvoicePaymentRow>(
         titleKey: "financialTransactions.paymentSummary.title",
         type: "status",
         // Compact: a badge only — the date column never collapses beside it.
-        minWidth: 104,
-        maxWidth: 136,
+        minWidth: 120,
+        maxWidth: 150,
       },
       enableSorting: false,
       cell: ({ row }) => <InvoicePaymentBadge paymentStatus={row.original.paymentStatus} />,

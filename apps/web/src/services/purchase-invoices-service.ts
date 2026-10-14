@@ -95,6 +95,8 @@ export interface PurchaseInvoiceRow {
   paidTotal?: number;
   /** R22 contract 1 — posted credit notes applied to this invoice, never cash. */
   creditedTotal?: number;
+  /** R22 contract 1 — the invoice's currency code. */
+  currencyCode?: string | null;
   /** TASK-050 — Related Documents: only present on the single-record `get()` response. */
   returns?: { id: string; returnNumber: string; status: PurchaseDocumentStatusValue }[];
   allocations?: {

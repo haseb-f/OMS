@@ -127,7 +127,7 @@ describe("MoneyInput — text entry (R22 §3)", () => {
     expect(document.getElementById(id.split(" ").pop() ?? "")?.textContent).toBe("SAR");
   });
 
-  it("the prominent size is the token-driven 44px / 16px / 1.5px amount field", () => {
+  it("the prominent size is the token-driven 44px / 16px / 2px amount field", () => {
     render(<MoneyInput value="" inputSize="prominent" onChange={() => {}} aria-label="amount" />);
     const className = screen.getByLabelText("amount").className;
     expect(className).toContain("h-(--control-height-prominent)");
