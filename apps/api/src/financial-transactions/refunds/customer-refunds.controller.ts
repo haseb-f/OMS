@@ -141,43 +141,49 @@ export class CustomerRefundsController {
   }
 
   @Get(':id/activities')
-  activities(@Param('id') id: string) {
+  async activities(@Param('id') id: string) {
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.activityFor(id);
   }
 
   @Patch(':id')
-  update(
+  async update(
     @Param('id') id: string,
     @Body() dto: UpdateCustomerRefundDto,
     @CurrentUser() user: JwtPayload,
   ) {
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.update(id, dto, user.sub);
   }
 
   @Delete(':id')
   @HttpCode(200)
-  remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string) {
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.remove(id);
   }
 
   @Post(':id/confirm')
   @HttpCode(200)
   @PermissionAction('confirm')
-  confirm(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+  async confirm(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.confirm(id, user.sub);
   }
 
   @Post(':id/cancel')
   @HttpCode(200)
   @PermissionAction('cancel')
-  cancel(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+  async cancel(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.cancel(id, user.sub);
   }
 
   @Post(':id/archive')
   @HttpCode(200)
   @PermissionAction('delete')
-  archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+  async archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.archive(id, user.sub);
   }
 }

@@ -268,6 +268,13 @@ describeDb('R22-T — D4 operation types (local DB)', () => {
     await makeUser('accountant', [
       'accounting.journal-entries.view',
       'accounting.journal-entries.create',
+      'accounting.journal-entries.post',
+      'accounting.journal-entries.reverse',
+    ]);
+    // Review T2: a maker who may only draft entries cannot post / reverse.
+    await makeUser('maker', [
+      'accounting.journal-entries.view',
+      'accounting.journal-entries.create',
     ]);
     await makeUser('viewer', ['accounting.journal-entries.view']);
     await makeUser('cashier', [
@@ -853,6 +860,15 @@ describeDb('R22-T — D4 operation types (local DB)', () => {
         .post(`/financial-transactions/other-receipts/${id}/confirm`)
         .set(auth('viewer'))
         .expect(403);
+      await request(http)
+        .post(`/financial-transactions/other-receipts/${id}/confirm`)
+        .set(auth('maker'))
+        .expect(403);
+      await request(http)
+        .post('/financial-transactions/other-receipts/confirmed')
+        .set(auth('maker'))
+        .send(body)
+        .expect(403);
       // A receipts cashier cannot confirm it through the receipts route either.
       await request(http)
         .post(`/financial-transactions/receipts/${id}/confirm`)
@@ -869,6 +885,10 @@ describeDb('R22-T — D4 operation types (local DB)', () => {
       await request(http)
         .post(`/financial-transactions/other-receipts/${id}/cancel`)
         .set(auth('cashier'))
+        .expect(403);
+      await request(http)
+        .post(`/financial-transactions/other-receipts/${id}/cancel`)
+        .set(auth('maker'))
         .expect(403);
       await request(http)
         .post(`/financial-transactions/other-receipts/${id}/cancel`)

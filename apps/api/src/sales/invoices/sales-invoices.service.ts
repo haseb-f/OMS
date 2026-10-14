@@ -747,15 +747,18 @@ export class SalesInvoicesService {
         `Cannot archive Sales Invoice ${invoice.invoiceNumber} while it is ${invoice.status}.`,
       );
     }
-    // R22 D3 — a posted invoice still owing money, or settled by vouchers,
+    // R22 D3 — a posted invoice still owing money, or settled by vouchers or
+    // credit notes (F3),
     // stays visible to aging, open invoices and allocation.
     if (
       PAYABLE_SALES_INVOICE_STATUSES.includes(invoice.status) &&
-      (invoice.remainingBalance > 0 || invoice.paidTotal > 0)
+      (invoice.remainingBalance > 0 ||
+        invoice.paidTotal > 0 ||
+        invoice.creditedTotal > 0)
     ) {
       throw new BadRequestException({
         code: 'INVOICE_ARCHIVE_SETTLEMENT',
-        message: `لا يمكن أرشفة فاتورة مرحّلة عليها رصيد مفتوح أو سندات مخصصة — Sales Invoice ${invoice.invoiceNumber} is posted with ${invoice.remainingBalance > 0 ? `${invoice.remainingBalance} still open` : `${invoice.paidTotal} settled by vouchers`}; archiving it would hide its receivable from aging and allocation.`,
+        message: `لا يمكن أرشفة فاتورة مرحّلة عليها رصيد مفتوح أو سندات مخصصة — Sales Invoice ${invoice.invoiceNumber} is posted with ${invoice.remainingBalance > 0 ? `${invoice.remainingBalance} still open` : invoice.paidTotal > 0 ? `${invoice.paidTotal} settled by vouchers` : `${invoice.creditedTotal} settled by credit notes`}; archiving it would hide its receivable from aging and allocation.`,
       });
     }
     return this.prisma.$transaction(async (tx) => {

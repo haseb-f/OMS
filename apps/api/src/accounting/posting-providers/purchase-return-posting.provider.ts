@@ -8,7 +8,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { PostingEngineService } from '../posting-engine/posting-engine.service';
 import { AccountMappingService } from '../account-mapping/account-mapping.service';
 import { ExchangeRatesService } from '../fx/exchange-rates.service';
-import { snapshotDocumentExchangeRate } from '../fx/snapshot-document-rate';
+import { returnPostingRate } from '../fx/return-invoice-rate';
 import { assertPostedTaxAmountsHaveTax } from '../../taxes/document-tax';
 import {
   lineTaxIsCapitalized,
@@ -96,17 +96,22 @@ export class PurchaseReturnPostingProvider
         reliefCostOf(item.id)?.isZero() === false,
     );
     if (Number(purchaseReturn.grandTotal) === 0 && !relievesStock) return null;
-    const exchangeRate = await snapshotDocumentExchangeRate(
+    // R22 F1 / F10 — a return of an invoice posts at that invoice's rate.
+    const exchangeRate = await returnPostingRate(
       this.exchangeRates,
       tx,
+      'purchase',
+      {
+        invoiceId: purchaseReturn.purchaseInvoiceId,
+        currencyId: purchaseReturn.currencyId,
+        exchangeRate: purchaseReturn.exchangeRate,
+        postedAt: purchaseReturn.confirmedAt ?? purchaseReturn.createdAt,
+      },
       (rate) =>
         tx.purchaseReturn.update({
           where: { id: purchaseReturn.id },
           data: { exchangeRate: rate },
         }),
-      purchaseReturn.currencyId,
-      purchaseReturn.exchangeRate,
-      purchaseReturn.confirmedAt ?? purchaseReturn.createdAt,
     );
     const description = `Purchase Return ${purchaseReturn.returnNumber}`;
 

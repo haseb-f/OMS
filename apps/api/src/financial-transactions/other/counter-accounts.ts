@@ -11,6 +11,10 @@ type Reader = Pick<
   | 'customerGroup'
   | 'supplierProfile'
   | 'supplierGroup'
+  | 'paymentMethod'
+  | 'tax'
+  | 'productCategory'
+  | 'payrollComponent'
 >;
 
 /**
@@ -27,7 +31,17 @@ export const COUNTER_ACCOUNT_TYPES: Record<CounterDirection, AccountType[]> = {
 };
 
 export type CounterAccountExclusion =
-  'CASH_OR_BANK' | 'RECEIVABLE_PAYABLE_CONTROL' | 'INVENTORY';
+  'CASH_OR_BANK' | 'RECEIVABLE_PAYABLE_CONTROL' | 'INVENTORY' | 'MODULE_OWNED';
+
+/**
+ * Posting Settings mappings that stay offered (review T1): the generic
+ * "other income / other expense" buckets are P&L accounts no subledger
+ * reconciles against — exactly what an other receipt credits.
+ */
+const OFFERED_SETTINGS_MAPPINGS = new Set([
+  'otherIncomeAccountId',
+  'otherExpenseAccountId',
+]);
 
 export interface CounterAccountRow {
   id: string;
@@ -48,7 +62,14 @@ export interface CounterAccountRow {
  *    payable): partner balances move only through invoices, receipts,
  *    payments, refunds and the agent ledger;
  *  - INVENTORY — the inventory account: stock value moves only through the
- *    Inventory Engine.
+ *    Inventory Engine;
+ *  - MODULE_OWNED (review T1) — every other account mapped in Posting
+ *    Settings (VAT, retained earnings, FX difference, payroll, fixed assets /
+ *    depreciation, prepaid, accruals, landed-cost clearing, investor /
+ *    partner, suspense, sales / purchase …) plus payment-method clearing,
+ *    tax, product-category and payroll-component accounts: each moves only
+ *    through its own module (year closing, VAT return, asset register,
+ *    payroll run, settlement …), so the subledgers keep reconciling.
  */
 export async function counterAccountExclusions(
   client: Reader,
@@ -61,18 +82,13 @@ export async function counterAccountExclusions(
     customerGroups,
     supplierProfiles,
     supplierGroups,
+    paymentMethods,
+    taxes,
+    categories,
+    payrollComponents,
   ] = await Promise.all([
     client.receivingAccount.findMany({ select: { chartOfAccountId: true } }),
-    client.postingSettings.findFirst({
-      select: {
-        cashAccountId: true,
-        bankAccountId: true,
-        accountsReceivableAccountId: true,
-        accountsPayableAccountId: true,
-        agentFundsPayableAccountId: true,
-        inventoryAccountId: true,
-      },
-    }),
+    client.postingSettings.findFirst(),
     client.chartOfAccount.findMany({
       where: { partnerControlType: { not: null } },
       select: { id: true },
@@ -94,6 +110,25 @@ export async function counterAccountExclusions(
     client.supplierGroup.findMany({
       where: { defaultPayableAccountId: { not: null } },
       select: { defaultPayableAccountId: true },
+    }),
+    client.paymentMethod.findMany({
+      where: { accountId: { not: null } },
+      select: { accountId: true },
+    }),
+    client.tax.findMany({
+      select: { inputAccountId: true, outputAccountId: true },
+    }),
+    client.productCategory.findMany({
+      select: {
+        revenueAccountId: true,
+        cogsAccountId: true,
+        inventoryAccountId: true,
+        purchaseAccountId: true,
+      },
+    }),
+    client.payrollComponent.findMany({
+      where: { accountingMappingAccountId: { not: null } },
+      select: { accountingMappingAccountId: true },
     }),
   ]);
   const excluded = new Map<string, CounterAccountExclusion>();
@@ -124,7 +159,35 @@ export async function counterAccountExclusions(
     ],
     'RECEIVABLE_PAYABLE_CONTROL',
   );
-  mark([settings?.inventoryAccountId], 'INVENTORY');
+  mark(
+    [
+      settings?.inventoryAccountId,
+      ...categories.map((row) => row.inventoryAccountId),
+    ],
+    'INVENTORY',
+  );
+  const settingsMappings = Object.entries(settings ?? {})
+    .filter(
+      ([key, value]) =>
+        key.endsWith('AccountId') &&
+        !OFFERED_SETTINGS_MAPPINGS.has(key) &&
+        typeof value === 'string',
+    )
+    .map(([, value]) => value as string);
+  mark(
+    [
+      ...settingsMappings,
+      ...paymentMethods.map((row) => row.accountId),
+      ...taxes.flatMap((row) => [row.inputAccountId, row.outputAccountId]),
+      ...categories.flatMap((row) => [
+        row.revenueAccountId,
+        row.cogsAccountId,
+        row.purchaseAccountId,
+      ]),
+      ...payrollComponents.map((row) => row.accountingMappingAccountId),
+    ],
+    'MODULE_OWNED',
+  );
   return excluded;
 }
 
@@ -162,6 +225,8 @@ const REASON_MESSAGE: Record<CounterAccountExclusion, string> = {
     'is a receivable / payable control account — settle customers and suppliers with a receipt, payment or refund',
   INVENTORY:
     'is the inventory account — stock value moves only through inventory documents',
+  MODULE_OWNED:
+    'is owned by another module (mapped in Posting Settings, a payment method, a tax, a product category or a payroll component) — it moves only through that module',
 };
 
 /**

@@ -30,6 +30,7 @@ import {
   type PrismaClient,
   type Prisma,
 } from '@prisma/client';
+import { sumAllocationEventsAsOf } from './allocation-events';
 
 /**
  * R20 — the invoices a receipt / supplier payment may settle: posted ones
@@ -147,16 +148,27 @@ export function resolveInvoicePaymentStatus(
 
 /** Point-in-time / exclusion options shared by the settlement readers. */
 export interface SettlementReadOptions {
-  /** As of this instant: allocations by their allocation date, returns by their posting date. */
+  /**
+   * As of this instant (as-of aging only — R22 F5): allocations read from
+   * the append-only allocation history by their effective date (a later
+   * cancel / unallocate / change does not rewrite the past), returns by
+   * their posting date. Without it every reader uses the current rows.
+   */
   asOf?: Date;
   /** Leaves this voucher's own allocations out (re-checking a voucher's own lines). */
   excludeTransactionId?: string;
 }
 
-type AllocationClient = Pick<PrismaClient, 'financialTransactionAllocation'>;
+type AllocationClient = Pick<
+  PrismaClient,
+  'financialTransactionAllocation' | 'financialTransactionAllocationEvent'
+>;
 type SettlementClient = Pick<
   PrismaClient,
-  'financialTransactionAllocation' | 'salesReturn' | 'purchaseReturn'
+  | 'financialTransactionAllocation'
+  | 'financialTransactionAllocationEvent'
+  | 'salesReturn'
+  | 'purchaseReturn'
 >;
 
 /**
@@ -187,9 +199,9 @@ function confirmedVoucherWhere(
 
 /**
  * Sums CONFIRMED-transaction allocations per invoice (cash paid) — the one
- * query every settlement reader uses. As of a date, an allocation counts
- * from its allocation date (R22 A3: an advance applied later was still
- * unapplied before), never from its voucher's date.
+ * query every settlement reader uses. As of a date (R22 A3 / F5): the
+ * allocation history by effective date — an advance applied later was still
+ * unapplied before, a receipt cancelled later still settled it then.
  */
 export async function sumConfirmedAllocations(
   prisma: AllocationClient,
@@ -198,12 +210,20 @@ export async function sumConfirmedAllocations(
   options: SettlementReadOptions = {},
 ): Promise<Map<string, number>> {
   if (invoiceIds.length === 0) return new Map();
+  if (options.asOf) {
+    return sumAllocationEventsAsOf(
+      prisma,
+      invoiceKey,
+      invoiceIds,
+      options.asOf,
+      options.excludeTransactionId,
+    );
+  }
   const grouped = await prisma.financialTransactionAllocation.groupBy({
     by: [invoiceKey],
     where: {
       [invoiceKey]: { in: invoiceIds },
       transaction: confirmedVoucherWhere(options),
-      ...(options.asOf ? { allocationDate: { lte: options.asOf } } : {}),
     },
     _sum: { allocatedAmount: true },
   });
@@ -266,17 +286,21 @@ export async function loadReturnCredits(
       select: { ...select, salesInvoiceId: true },
       orderBy: [{ confirmedAt: 'asc' }, { createdAt: 'asc' }],
     });
-    const refunded = new Map<string, number>();
-    if (returns.length > 0) {
+    let refunded = new Map<string, number>();
+    if (returns.length > 0 && options.asOf) {
+      refunded = await sumAllocationEventsAsOf(
+        client,
+        'salesReturnId',
+        returns.map((row) => row.id),
+        options.asOf,
+        options.excludeTransactionId,
+      );
+    } else if (returns.length > 0) {
       const grouped = await client.financialTransactionAllocation.groupBy({
         by: ['salesReturnId'],
         where: {
           salesReturnId: { in: returns.map((row) => row.id) },
-          transaction: {
-            status: FinancialTransactionStatus.CONFIRMED,
-            deletedAt: null,
-          },
-          ...(options.asOf ? { allocationDate: { lte: options.asOf } } : {}),
+          transaction: confirmedVoucherWhere(options),
         },
         _sum: { allocatedAmount: true },
       });

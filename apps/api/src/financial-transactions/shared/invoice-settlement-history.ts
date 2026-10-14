@@ -51,7 +51,10 @@ export interface SettlementAbilities {
 
 type HistoryClient = Pick<
   PrismaClient,
-  'financialTransactionAllocation' | 'salesReturn' | 'purchaseReturn'
+  | 'financialTransactionAllocation'
+  | 'financialTransactionAllocationEvent'
+  | 'salesReturn'
+  | 'purchaseReturn'
 >;
 
 /** The catalog permission name of `moduleKey.action` (the same lookup the PermissionsGuard does). */

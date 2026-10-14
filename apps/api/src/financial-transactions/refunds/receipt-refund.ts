@@ -4,6 +4,10 @@ import {
   FinancialTransactionType,
   Prisma,
 } from '@prisma/client';
+import {
+  recordAllocationEvents,
+  type AllocationEventType,
+} from '../shared/allocation-events';
 import { STORE_ORDER_PAYMENT_NOTE_PREFIX } from '../shared/store-order-receipts';
 
 type Client = Prisma.TransactionClient;
@@ -188,6 +192,11 @@ export async function syncReceiptRefundConsumption(
   tx: Client,
   receiptId: string,
   userId?: string,
+  /**
+   * R22 review R1 — when the consumption change takes effect: the refund's
+   * voucher (entry) date at Confirm; omitted = now (cancel day / release).
+   */
+  effectiveDate?: Date,
 ): Promise<void> {
   await tx.$queryRaw`
     SELECT id FROM financial_transactions WHERE id = ${receiptId}::uuid FOR UPDATE
@@ -210,9 +219,26 @@ export async function syncReceiptRefundConsumption(
     }),
   ]);
   const total = round2(Number(refunded._sum.allocatedAmount ?? 0));
+  const now = effectiveDate ?? new Date();
+  // R22 F5 — every change of the consumption row is in the allocation history.
+  const event = (
+    line: { id: string },
+    type: AllocationEventType,
+    delta: number,
+  ) =>
+    recordAllocationEvents(tx, [
+      {
+        line: { id: line.id, transactionId: receiptId },
+        type,
+        delta,
+        effectiveDate: now,
+        userId,
+      },
+    ]);
   if (total <= EPSILON) {
     if (row) {
       await tx.financialTransactionAllocation.delete({ where: { id: row.id } });
+      await event(row, 'RELEASED', -Number(row.allocatedAmount));
     }
     return;
   }
@@ -222,17 +248,20 @@ export async function syncReceiptRefundConsumption(
       where: { id: row.id },
       data: { allocatedAmount: total, updatedBy: userId ?? null },
     });
+    await event(row, 'CHANGED', total - Number(row.allocatedAmount));
     return;
   }
-  await tx.financialTransactionAllocation.create({
+  const created = await tx.financialTransactionAllocation.create({
     data: {
       transactionId: receiptId,
       receiptId,
       allocatedAmount: total,
+      allocationDate: now,
       createdBy: userId ?? null,
       updatedBy: userId ?? null,
     },
   });
+  await event(created, 'CREATED', total);
 }
 
 /** The receipts a refund's lines pay back. */

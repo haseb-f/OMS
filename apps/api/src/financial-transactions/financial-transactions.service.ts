@@ -29,13 +29,20 @@ import {
   NOT_AGENT_COLLECTION,
   PAYABLE_PURCHASE_INVOICE_STATUSES,
   PAYABLE_SALES_INVOICE_STATUSES,
+  appliedCreditByReturn,
   loadInvoiceSettlements,
+  loadReturnCredits,
   lockInvoiceRow,
   type InvoicePaymentSummary,
 } from './shared/invoice-payment.util';
 import { ALLOCATION_FX_SOURCE_TYPE } from '../accounting/posting-providers/allocation-fx-posting.provider';
 import { financialTransactionOrderBy } from './shared/find-financial-transactions-query.dto';
 import { assertFeeWithinAmount } from './shared/fee-cap';
+import { assertVoucherDateNotInFuture } from './shared/voucher-date';
+import {
+  allocationEffectiveDates,
+  recordAllocationEvents,
+} from './shared/allocation-events';
 import type { AllocationInputDto } from './shared/allocation-input.dto';
 import type { FindFinancialTransactionsQueryDto } from './shared/find-financial-transactions-query.dto';
 import { prismaEnumFilter } from '../common/query/enum-list';
@@ -295,6 +302,7 @@ export class FinancialTransactionsService {
   ) {
     const replay = await this.findIdempotentReplay(type, dto, outerTx);
     if (replay) return replay;
+    assertVoucherDateNotInFuture(dto.transactionDate);
     const partyId = await this.assertActiveParty(type, dto);
     const feeAmount = dto.feeAmount ?? 0;
     if (feeAmount > 0) {
@@ -680,6 +688,26 @@ export class FinancialTransactionsService {
     return transaction;
   }
 
+  /**
+   * R22 F7 — a voucher route acts on vouchers of its own type only: a
+   * receipt route never reads or changes a supplier payment, refund or
+   * expense voucher (404, as for an unknown id). Every voucher controller
+   * calls this before an id-based operation (get, update, delete, confirm,
+   * cancel, archive, allocate, unallocate, allocation change, activities).
+   */
+  async assertVoucherOfType(
+    type: FinancialTransactionType,
+    id: string,
+  ): Promise<void> {
+    const found = await this.prisma.financialTransaction.findFirst({
+      where: { id, type, deletedAt: null },
+      select: { id: true },
+    });
+    if (!found) {
+      throw new NotFoundException(`${this.label(type)} ${id} not found`);
+    }
+  }
+
   async update(
     id: string,
     dto: FinancialTransactionUpdateInput,
@@ -693,6 +721,7 @@ export class FinancialTransactionsService {
         `Only a Draft ${this.label(existing.type).toLowerCase()} can be edited.`,
       );
     }
+    assertVoucherDateNotInFuture(dto.transactionDate);
 
     const partyId = existing.partnerId ?? undefined;
     const isExpense = existing.type === 'EXPENSE_PAYMENT';
@@ -848,6 +877,8 @@ export class FinancialTransactionsService {
           `Cannot confirm ${this.label(existing.type)} ${existing.transactionNumber} from ${existing.status}.`,
         );
       }
+      // R22 F8 — the entry is booked on the voucher date (D1): never ahead.
+      assertVoucherDateNotInFuture(existing.transactionDate);
       if (existing.type === 'CUSTOMER_REFUND') {
         this.assertRefundFullyAllocated(
           Number(existing.amount),
@@ -938,21 +969,50 @@ export class FinancialTransactionsService {
         },
         include: TRANSACTION_INCLUDE,
       });
-      // R22 A3 — the lines a voucher carries when it is posted settle on its
-      // voucher date (D1: the date its entry is booked); a later Allocate
-      // keeps its own date. As-of aging reads this date.
-      await tx.financialTransactionAllocation.updateMany({
-        where: { transactionId: id },
-        data: { allocationDate: existing.transactionDate },
-      });
+      // R22 A3 / F6 — the lines a voucher carries when it is posted take
+      // effect on max(voucher date — D1, the day its entry is booked —,
+      // their invoice's posting date); a later Allocate keeps its own day.
+      // F5 — each line is recorded in the allocation history (as-of aging).
+      const effective = await allocationEffectiveDates(
+        tx,
+        existing.transactionDate,
+        existing.allocations,
+      );
+      for (const line of existing.allocations) {
+        await tx.financialTransactionAllocation.update({
+          where: { id: line.id },
+          data: { allocationDate: effective.get(line.id) },
+        });
+      }
+      await recordAllocationEvents(
+        tx,
+        existing.allocations.map((line) => ({
+          line,
+          type: 'CREATED' as const,
+          delta: Number(line.allocatedAmount),
+          effectiveDate: effective.get(line.id) ?? existing.transactionDate,
+          userId,
+        })),
+      );
       // R15 (review H1) — the advance this refund pays back leaves the
       // order's receipts: never allocatable to an invoice again.
+      // R22 review R1 — dated on the refund's voucher (entry) date.
       for (const storeOrderId of this.advanceOrders(existing.allocations)) {
-        await syncAdvanceRefundConsumption(tx, storeOrderId, userId);
+        await syncAdvanceRefundConsumption(
+          tx,
+          storeOrderId,
+          userId,
+          existing.transactionDate,
+        );
       }
       // R22-T — the refunded part of a receipt leaves its unapplied amount.
       for (const receiptId of refundedReceipts(existing.allocations)) {
-        await syncReceiptRefundConsumption(tx, receiptId, userId);
+        await syncReceiptRefundConsumption(
+          tx,
+          receiptId,
+          userId,
+          existing.transactionDate,
+        );
       }
       await this.activityService.log(
         id,
@@ -1026,6 +1086,20 @@ export class FinancialTransactionsService {
     await this.postingEngine.reverse(existing.type, id, userId, tx);
     // R22 D6 — the FX later allocations realized goes with the voucher.
     await this.postingEngine.reverse(ALLOCATION_FX_SOURCE_TYPE, id, userId, tx);
+    // R22 F5 — the cancel releases every line on the day of its reversal.
+    const released = await tx.financialTransactionAllocation.findMany({
+      where: { transactionId: id },
+    });
+    await recordAllocationEvents(
+      tx,
+      released.map((line) => ({
+        line,
+        type: 'RELEASED' as const,
+        delta: -Number(line.allocatedAmount),
+        effectiveDate: new Date(),
+        userId,
+      })),
+    );
     await tx.financialTransactionAllocation.deleteMany({
       where: { transactionId: id },
     });
@@ -1264,8 +1338,10 @@ export class FinancialTransactionsService {
       // R20 — one line per invoice per voucher: more money for an invoice the
       // voucher already settles grows that line (both checks above saw the
       // combined amount), never a second line.
+      // R22 F5 / F6 — recorded in the allocation history from today.
+      const now = new Date();
       if (sameInvoiceLine) {
-        await tx.financialTransactionAllocation.update({
+        const grown = await tx.financialTransactionAllocation.update({
           where: { id: sameInvoiceLine.id },
           data: {
             allocatedAmount: this.round2(
@@ -1274,15 +1350,34 @@ export class FinancialTransactionsService {
             updatedBy: userId ?? null,
           },
         });
+        await recordAllocationEvents(tx, [
+          {
+            line: grown,
+            type: 'CHANGED',
+            delta: dto.allocatedAmount,
+            effectiveDate: now,
+            userId,
+          },
+        ]);
       } else {
-        await tx.financialTransactionAllocation.create({
+        const created = await tx.financialTransactionAllocation.create({
           data: {
             transactionId: id,
             ...resolved,
+            allocationDate: now,
             createdBy: userId ?? null,
             updatedBy: userId ?? null,
           },
         });
+        await recordAllocationEvents(tx, [
+          {
+            line: created,
+            type: 'CREATED',
+            delta: dto.allocatedAmount,
+            effectiveDate: now,
+            userId,
+          },
+        ]);
       }
       await this.syncAllocationFx(tx, locked, userId);
       // R22 contract 6 — the fresh voucher, its `updatedAt` moved with the
@@ -1374,14 +1469,24 @@ export class FinancialTransactionsService {
           id,
           tx,
         );
+        // R22 F5 — the change is recorded in the allocation history (dated
+        // today); the line keeps the day it first took effect.
         await tx.financialTransactionAllocation.update({
           where: { id: allocationId },
           data: {
             allocatedAmount: this.round2(allocatedAmount),
-            allocationDate: new Date(),
             updatedBy: userId ?? null,
           },
         });
+        await recordAllocationEvents(tx, [
+          {
+            line,
+            type: 'CHANGED',
+            delta: this.round2(allocatedAmount) - Number(line.allocatedAmount),
+            effectiveDate: new Date(),
+            userId,
+          },
+        ]);
         await this.syncAllocationFx(tx, locked, userId);
         const transaction = await tx.financialTransaction.update({
           where: { id },
@@ -1435,6 +1540,16 @@ export class FinancialTransactionsService {
       await tx.financialTransactionAllocation.delete({
         where: { id: allocationId },
       });
+      // R22 F5 — released from today in the allocation history.
+      await recordAllocationEvents(tx, [
+        {
+          line: allocation,
+          type: 'RELEASED',
+          delta: -Number(allocation.allocatedAmount),
+          effectiveDate: new Date(),
+          userId,
+        },
+      ]);
       // R22 D6 — the FX this line realized is reversed with it.
       await this.syncAllocationFx(tx, locked, userId);
       const transaction = await tx.financialTransaction.update({
@@ -2224,21 +2339,34 @@ export class FinancialTransactionsService {
       const salesReturn = await client.salesReturn.findUniqueOrThrow({
         where: { id: invoiceId },
       });
-      const refunded = await this.sumConfirmedRefunds(
-        [invoiceId],
-        client,
-        excludeTransactionId,
-      );
+      const [refunded, applied] = await Promise.all([
+        this.sumConfirmedRefunds([invoiceId], client, excludeTransactionId),
+        this.appliedCreditOfReturns(
+          [salesReturn],
+          client,
+          excludeTransactionId,
+        ),
+      ]);
+      // R22 F4 (D2) — only the surplus is refundable: the credit its own
+      // invoice consumed settles that invoice and is never paid out again.
       const remaining = Math.max(
         this.round2(
-          Number(salesReturn.grandTotal) - (refunded.get(invoiceId) ?? 0),
+          Number(salesReturn.grandTotal) -
+            (refunded.get(invoiceId) ?? 0) -
+            (applied.get(invoiceId) ?? 0),
         ),
         0,
       );
       if (amount > remaining + 0.005) {
-        throw new BadRequestException(
-          `لا يمكن رد ${amount} — المتبقي القابل للرد على المرتجع ${salesReturn.returnNumber} هو ${remaining} فقط. — Cannot refund ${amount} against Sales Return ${salesReturn.returnNumber}: only ${remaining} of its credit remains unrefunded.`,
-        );
+        throw new BadRequestException({
+          code: 'REFUND_EXCEEDS_RETURN_SURPLUS',
+          message: `لا يمكن رد ${amount} — المتبقي القابل للرد على المرتجع ${salesReturn.returnNumber} هو ${remaining} فقط. — Cannot refund ${amount} against Sales Return ${salesReturn.returnNumber}: only ${remaining} of its credit remains unrefunded and not applied to its invoice.`,
+          details: {
+            salesReturnId: invoiceId,
+            refundable: remaining,
+            appliedToInvoice: applied.get(invoiceId) ?? 0,
+          },
+        });
       }
       return;
     }
@@ -2314,11 +2442,12 @@ export class FinancialTransactionsService {
     returns: Prisma.SalesReturnGetPayload<object>[],
   ): Promise<RefundableReturnSummary[]> {
     if (returns.length === 0) return [];
-    const [refunded, balances] = await Promise.all([
+    const [refunded, applied, balances] = await Promise.all([
       this.sumConfirmedRefunds(
         returns.map((r) => r.id),
         this.prisma,
       ),
+      this.appliedCreditOfReturns(returns, this.prisma),
       partnerLedgerBalances(this.prisma, [
         ...new Set(returns.map((r) => r.partnerId)),
       ]),
@@ -2326,8 +2455,11 @@ export class FinancialTransactionsService {
     return returns.map((salesReturn) => {
       const grandTotal = this.round2(Number(salesReturn.grandTotal));
       const refundedTotal = this.round2(refunded.get(salesReturn.id) ?? 0);
+      // R22 F4 (D2) — the credit applied to its own invoice is not refundable.
       const unrefundedCredit = Math.max(
-        this.round2(grandTotal - refundedTotal),
+        this.round2(
+          grandTotal - refundedTotal - (applied.get(salesReturn.id) ?? 0),
+        ),
         0,
       );
       const receivable = balances.get(salesReturn.partnerId)?.receivable ?? 0;
@@ -2351,6 +2483,50 @@ export class FinancialTransactionsService {
           : 0,
       };
     });
+  }
+
+  /**
+   * R22 D2 / F4 — per return: the part of its credit its own posted invoice
+   * consumed (the invoice's `creditedTotal`, oldest return first). A refund
+   * being confirmed is left out of the refunded side (`excludeTransactionId`).
+   */
+  private async appliedCreditOfReturns(
+    returns: { id: string; salesInvoiceId: string | null }[],
+    client: DbClient,
+    excludeTransactionId?: string,
+  ): Promise<Map<string, number>> {
+    const invoiceIds = [
+      ...new Set(
+        returns
+          .map((row) => row.salesInvoiceId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    if (invoiceIds.length === 0) return new Map();
+    const invoices = await client.salesInvoice.findMany({
+      where: {
+        id: { in: invoiceIds },
+        deletedAt: null,
+        status: { in: PAYABLE_SALES_INVOICE_STATUSES },
+      },
+      select: { id: true, grandTotal: true },
+    });
+    const options = { excludeTransactionId };
+    const [settlements, credits] = await Promise.all([
+      loadInvoiceSettlements(client, 'salesInvoiceId', invoices, options),
+      loadReturnCredits(
+        client,
+        'salesInvoiceId',
+        invoices.map((invoice) => invoice.id),
+        options,
+      ),
+    ]);
+    return appliedCreditByReturn(
+      credits,
+      new Map(
+        [...settlements].map(([id, summary]) => [id, summary.creditedTotal]),
+      ),
+    );
   }
 
   /** CONFIRMED refund allocations per Sales Return (the "refunded" side of a credit note). */
