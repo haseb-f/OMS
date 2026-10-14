@@ -33,6 +33,10 @@ import { FinancialTransactionsModule } from '../financial-transactions.module';
 import { FinancialTransactionsService } from '../financial-transactions.service';
 import { OtherVouchersService } from './other-vouchers.service';
 import { listRefundableReceipts } from '../refunds/receipt-refund';
+import {
+  counterAccountExclusions,
+  listCounterAccounts,
+} from './counter-accounts';
 
 /**
  * R22 stream T (decision D4) — other receipt, other payment, internal
@@ -423,6 +427,22 @@ describeDb('R22-T — D4 operation types (local DB)', () => {
         });
       },
     );
+
+    it('never offers an account whose ledger carries partner-tagged lines (agent / partner / investor payables, mapped or not)', async () => {
+      const tagged = await prisma.journalEntryLine.groupBy({
+        by: ['accountId'],
+        where: { partnerId: { not: null } },
+      });
+      const excluded = await counterAccountExclusions(prisma);
+      expect(tagged.filter((row) => !excluded.has(row.accountId))).toEqual([]);
+      const offered = new Set(
+        [
+          ...(await listCounterAccounts(prisma, 'IN')),
+          ...(await listCounterAccounts(prisma, 'OUT')),
+        ].map((row) => row.id),
+      );
+      expect(tagged.filter((row) => offered.has(row.accountId))).toEqual([]);
+    });
 
     it('the allow-list is re-enforced at confirm by the posting provider (an account turned Group after the draft never reaches the ledger)', async () => {
       const account = await newAccount(AccountType.EQUITY);

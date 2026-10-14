@@ -26,6 +26,7 @@ type Reader = Pick<
   | 'tax'
   | 'productCategory'
   | 'payrollComponent'
+  | 'journalEntryLine'
 >;
 
 /** The voucher fields the D4 rules read (stored row or merged draft edit). */

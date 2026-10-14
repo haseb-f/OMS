@@ -15,6 +15,7 @@ type Reader = Pick<
   | 'tax'
   | 'productCategory'
   | 'payrollComponent'
+  | 'journalEntryLine'
 >;
 
 /**
@@ -31,7 +32,11 @@ export const COUNTER_ACCOUNT_TYPES: Record<CounterDirection, AccountType[]> = {
 };
 
 export type CounterAccountExclusion =
-  'CASH_OR_BANK' | 'RECEIVABLE_PAYABLE_CONTROL' | 'INVENTORY' | 'MODULE_OWNED';
+  | 'CASH_OR_BANK'
+  | 'RECEIVABLE_PAYABLE_CONTROL'
+  | 'INVENTORY'
+  | 'MODULE_OWNED'
+  | 'PARTNER_LEDGER';
 
 /**
  * Posting Settings mappings that stay offered (review T1): the generic
@@ -69,7 +74,11 @@ export interface CounterAccountRow {
  *    partner, suspense, sales / purchase …) plus payment-method clearing,
  *    tax, product-category and payroll-component accounts: each moves only
  *    through its own module (year closing, VAT return, asset register,
- *    payroll run, settlement …), so the subledgers keep reconciling.
+ *    payroll run, settlement …), so the subledgers keep reconciling;
+ *  - PARTNER_LEDGER (R22 journeys O1) — any account whose ledger already
+ *    carries partner-tagged lines (agent / company-partner / investor
+ *    payables, mapped or not): a partner-less voucher would post into a
+ *    partner sub-ledger.
  */
 export async function counterAccountExclusions(
   client: Reader,
@@ -86,6 +95,7 @@ export async function counterAccountExclusions(
     taxes,
     categories,
     payrollComponents,
+    partnerLedgers,
   ] = await Promise.all([
     client.receivingAccount.findMany({ select: { chartOfAccountId: true } }),
     client.postingSettings.findFirst(),
@@ -129,6 +139,10 @@ export async function counterAccountExclusions(
     client.payrollComponent.findMany({
       where: { accountingMappingAccountId: { not: null } },
       select: { accountingMappingAccountId: true },
+    }),
+    client.journalEntryLine.groupBy({
+      by: ['accountId'],
+      where: { partnerId: { not: null } },
     }),
   ]);
   const excluded = new Map<string, CounterAccountExclusion>();
@@ -188,6 +202,10 @@ export async function counterAccountExclusions(
     ],
     'MODULE_OWNED',
   );
+  mark(
+    partnerLedgers.map((row) => row.accountId),
+    'PARTNER_LEDGER',
+  );
   return excluded;
 }
 
@@ -227,6 +245,8 @@ const REASON_MESSAGE: Record<CounterAccountExclusion, string> = {
     'is the inventory account — stock value moves only through inventory documents',
   MODULE_OWNED:
     'is owned by another module (mapped in Posting Settings, a payment method, a tax, a product category or a payroll component) — it moves only through that module',
+  PARTNER_LEDGER:
+    "carries partner balances (agent, partner or investor ledger) — it moves only through that partner's own documents",
 };
 
 /**

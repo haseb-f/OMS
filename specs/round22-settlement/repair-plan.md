@@ -85,3 +85,5 @@ financial-transactions/counter-accounts?direction=IN|OUT` = the allow-list. Cust
   accounts (`MODULE_OWNED`).
 - R1 A refund's consumption of a receipt / store-order advance is dated on the refund's voucher date at Confirm (the
   cancel day on release), so as-of aging matches the ledger.
+- D11 (journeys O1) The counter-account list also excludes any account whose ledger already carries partner-tagged
+  lines (`PARTNER_LEDGER` — agent / company-partner / investor payables, mapped in Settings or not).
