@@ -591,6 +591,25 @@ describeDb('R22 accounting review (local DB)', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('REVIEW-F8 — D1 posts on the voucher date with no upper bound: a receipt dated 40 days ahead is confirmed and its entry booked in the future', async () => {
+    const partnerId = await customer();
+    const ahead = new Date(Date.now() + 40 * DAY);
+    let entryDay: string | null = null;
+    try {
+      const voucher = await receipt(partnerId, 10, [], {
+        transactionDate: ahead.toISOString(),
+      });
+      const entry = await prisma.journalEntry.findFirst({
+        where: { sourceId: voucher.id, deletedAt: null },
+        select: { entryDate: true },
+      });
+      entryDay = entry ? isoDay(entry.entryDate) : null;
+    } catch {
+      entryDay = null; // refused — the expected outcome
+    }
+    expect(entryDay).toBeNull();
+  });
+
   // -------------------------------------------------------------------
   // Reviewer verification (passes)
   // -------------------------------------------------------------------
