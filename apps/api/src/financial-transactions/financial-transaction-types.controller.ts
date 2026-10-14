@@ -11,7 +11,7 @@ import {
 
 class FindFinancialTransactionTypesQueryDto {
   @IsOptional()
-  @IsIn(['IN', 'OUT'])
+  @IsIn(['IN', 'OUT', 'TRANSFER'])
   direction?: FinancialTransactionDirection;
 }
 

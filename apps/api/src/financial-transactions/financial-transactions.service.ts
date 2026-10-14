@@ -53,6 +53,19 @@ import {
   syncAdvanceRefundConsumption,
 } from './shared/store-order-receipts';
 import { lockStoreOrderRow } from '../store-orders/store-order-payment-settlement.util';
+// R22-T (D4) — other receipt / payment / transfer types and receipt refunds.
+import {
+  GENERIC_VOUCHER_TYPES,
+  OTHER_VOUCHER_LABEL,
+  isOtherVoucherType,
+} from './other/other-voucher-types';
+import {
+  assertNotRefundConsumption,
+  assertReceiptRefundWithin,
+  refundedReceipts,
+  resolveReceiptRefundLine,
+  syncReceiptRefundConsumption,
+} from './refunds/receipt-refund';
 
 type DbClient = Prisma.TransactionClient | PrismaService;
 
@@ -61,6 +74,9 @@ const NUMBERING_DOCUMENT_TYPE: Record<FinancialTransactionType, string> = {
   SUPPLIER_PAYMENT: 'SUPPLIER_PAYMENT',
   EXPENSE_PAYMENT: 'EXPENSE_PAYMENT',
   CUSTOMER_REFUND: 'CUSTOMER_REFUND',
+  OTHER_RECEIPT: 'OTHER_RECEIPT',
+  OTHER_PAYMENT: 'OTHER_PAYMENT',
+  INTERNAL_TRANSFER: 'INTERNAL_TRANSFER',
 };
 
 /** Sales Return statuses whose credit note is posted — the only ones a Customer Refund may pay back. */
@@ -69,9 +85,20 @@ const REFUNDABLE_RETURN_STATUSES: SalesDocumentStatus[] = [
   SalesDocumentStatus.CLOSED,
 ];
 
-const TRANSACTION_INCLUDE = {
+export const TRANSACTION_INCLUDE = {
   partner: true,
   expenseAccount: true,
+  // R22-T (D4)
+  counterAccount: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      nameEn: true,
+      accountType: true,
+    },
+  },
+  targetReceivingAccount: true,
   currency: true,
   paymentSource: true,
   receivingAccount: true,
@@ -91,9 +118,23 @@ const TRANSACTION_INCLUDE = {
       storeOrder: {
         select: { id: true, internalOrderId: true },
       },
+      // R22-T — the receipt a refund line pays back.
+      receipt: {
+        select: { id: true, transactionNumber: true, amount: true },
+      },
     },
   },
 } satisfies Prisma.FinancialTransactionInclude;
+
+/**
+ * R22-T — which voucher types a caller acts on. The generic receipt /
+ * payment / expense / refund routes omit it (`GENERIC_VOUCHER_TYPES`); the
+ * D4 routes (other receipts / payments / transfers) pass their own type, so
+ * a voucher is only ever operated through the route its permission guards.
+ */
+export interface VoucherRouteOptions {
+  types?: readonly FinancialTransactionType[];
+}
 
 /**
  * One allocation line as the service receives it: `invoiceId` names the
@@ -104,6 +145,8 @@ const TRANSACTION_INCLUDE = {
 export interface AllocationLineInput {
   invoiceId?: string;
   storeOrderId?: string;
+  /** R22-T — CUSTOMER_REFUND: the confirmed Customer Receipt whose unapplied amount it pays back. */
+  receiptId?: string;
   allocatedAmount: number;
 }
 
@@ -136,6 +179,10 @@ export interface FinancialTransactionCreateInput {
   allocations?: AllocationLineInput[];
   /** R13 B2 — one key per opened form; see `findIdempotentReplay`. */
   idempotencyKey?: string;
+  /** R22-T (D4) — OTHER_RECEIPT / OTHER_PAYMENT counter-account. */
+  counterAccountId?: string;
+  /** R22-T (D4) — INTERNAL_TRANSFER destination (receivingAccountId = source). */
+  targetReceivingAccountId?: string;
 }
 
 /** Update input — the optional links may be cleared with `null`. */
@@ -406,7 +453,7 @@ export class FinancialTransactionsService {
    * original that is still a DRAFT, is a distinct 409 — never returned as
    * if it were the confirmed answer.
    */
-  private async findIdempotentReplay(
+  async findIdempotentReplay(
     type: FinancialTransactionType,
     dto: FinancialTransactionCreateInput,
     client: DbClient = this.prisma,
@@ -430,7 +477,10 @@ export class FinancialTransactionsService {
       `${target ?? ''}:${this.round2(amount).toFixed(2)}`;
     const requestedAllocations = (dto.allocations ?? [])
       .map((a) =>
-        allocationKey(a.invoiceId ?? a.storeOrderId, a.allocatedAmount),
+        allocationKey(
+          a.invoiceId ?? a.storeOrderId ?? a.receiptId,
+          a.allocatedAmount,
+        ),
       )
       .sort();
     const storedAllocations = existing.allocations
@@ -439,7 +489,8 @@ export class FinancialTransactionsService {
           a.salesInvoiceId ??
             a.purchaseInvoiceId ??
             a.salesReturnId ??
-            a.storeOrderId,
+            a.storeOrderId ??
+            a.receiptId,
           Number(a.allocatedAmount),
         ),
       )
@@ -462,7 +513,9 @@ export class FinancialTransactionsService {
       ) &&
       same(dto.currencyId, existing.currencyId) &&
       same(dto.receivingAccountId, existing.receivingAccountId) &&
-      same(dto.paymentSourceId, existing.paymentSourceId);
+      same(dto.paymentSourceId, existing.paymentSourceId) &&
+      same(dto.counterAccountId, existing.counterAccountId) &&
+      same(dto.targetReceivingAccountId, existing.targetReceivingAccountId);
     if (!matches) {
       throw new ConflictException({
         code: 'IDEMPOTENCY_KEY_REUSED',
@@ -481,7 +534,7 @@ export class FinancialTransactionsService {
     return existing;
   }
 
-  private isIdempotencyKeyClash(error: unknown): boolean {
+  isIdempotencyKeyClash(error: unknown): boolean {
     if (
       !(error instanceof Prisma.PrismaClientKnownRequestError) ||
       error.code !== 'P2002'
@@ -657,6 +710,8 @@ export class FinancialTransactionsService {
     userId?: string,
   ) {
     const existing = await this.findOneById(id);
+    // R22-T — D4 vouchers are edited through OtherVouchersService only.
+    this.assertRouteType(existing.type);
     if (existing.status !== FinancialTransactionStatus.DRAFT) {
       throw new BadRequestException(
         `Only a Draft ${this.label(existing.type).toLowerCase()} can be edited.`,
@@ -788,8 +843,10 @@ export class FinancialTransactionsService {
     id: string,
     userId?: string,
     outerTx?: Prisma.TransactionClient,
+    options: VoucherRouteOptions = {},
   ) {
-    await this.findOneById(id, outerTx);
+    const found = await this.findOneById(id, outerTx);
+    this.assertRouteType(found.type, options.types);
 
     return this.inTransaction(outerTx, async (tx) => {
       // Serialize concurrent confirms (double-click, client retry) on this
@@ -843,6 +900,16 @@ export class FinancialTransactionsService {
       // one), locked in a stable order so concurrent confirms never deadlock.
       const perDocument = new Map<string, number>();
       for (const allocation of existing.allocations) {
+        // R22-T — a refund line paying back a receipt's unapplied amount:
+        // capped under that receipt's row lock.
+        if (allocation.receiptId) {
+          await assertReceiptRefundWithin(tx, {
+            partyId: existing.partnerId,
+            receiptId: allocation.receiptId,
+            amount: Number(allocation.allocatedAmount),
+          });
+          continue;
+        }
         if (allocation.storeOrderId) {
           await lockStoreOrderRow(tx, allocation.storeOrderId);
           await this.assertAdvanceRefundWithin(
@@ -910,6 +977,10 @@ export class FinancialTransactionsService {
       for (const storeOrderId of this.advanceOrders(existing.allocations)) {
         await syncAdvanceRefundConsumption(tx, storeOrderId, userId);
       }
+      // R22-T — the refunded part of a receipt leaves its unapplied amount.
+      for (const receiptId of refundedReceipts(existing.allocations)) {
+        await syncReceiptRefundConsumption(tx, receiptId, userId);
+      }
       await this.activityService.log(
         id,
         FinancialTransactionActivityType.TRANSACTION_CONFIRMED,
@@ -927,9 +998,11 @@ export class FinancialTransactionsService {
   }
 
   /** Reverses a Confirmed transaction — reverses its posted Journal Entry, removes its allocations (freeing invoice balance), and marks it Cancelled. */
-  async cancel(id: string, userId?: string) {
+  async cancel(id: string, userId?: string, options: VoucherRouteOptions = {}) {
     await this.findOneById(id);
-    return this.prisma.$transaction((tx) => this.cancelInTx(tx, id, userId));
+    return this.prisma.$transaction((tx) =>
+      this.cancelInTx(tx, id, userId, { types: options.types }),
+    );
   }
 
   /**
@@ -950,6 +1023,8 @@ export class FinancialTransactionsService {
       /** Appended to the activity description (audited correction reason). */
       note?: string;
       metadata?: Record<string, unknown>;
+      /** R22-T — see VoucherRouteOptions. */
+      types?: readonly FinancialTransactionType[];
     } = {},
   ) {
     await tx.$queryRaw`
@@ -958,6 +1033,7 @@ export class FinancialTransactionsService {
       FOR UPDATE
     `;
     const existing = await this.findOneById(id, tx);
+    this.assertRouteType(existing.type, opts.types);
     if (existing.status !== FinancialTransactionStatus.CONFIRMED) {
       throw new BadRequestException(
         `Cannot cancel ${this.label(existing.type)} ${existing.transactionNumber} from ${existing.status}.`,
@@ -965,7 +1041,7 @@ export class FinancialTransactionsService {
     }
     const allocations = await tx.financialTransactionAllocation.findMany({
       where: { transactionId: id },
-      select: { storeOrderId: true, allocatedAmount: true },
+      select: { storeOrderId: true, receiptId: true, allocatedAmount: true },
     });
     if (existing.type === FinancialTransactionType.CUSTOMER_RECEIPT) {
       this.assertReceiptNotRefunded(existing, allocations);
@@ -1002,6 +1078,10 @@ export class FinancialTransactionsService {
         await lockStoreOrderRow(tx, storeOrderId);
         await syncAdvanceRefundConsumption(tx, storeOrderId, userId);
       }
+      // R22-T — and a cancelled receipt refund gives it back to the receipt.
+      for (const receiptId of refundedReceipts(allocations)) {
+        await syncReceiptRefundConsumption(tx, receiptId, userId);
+      }
     }
     return transaction;
   }
@@ -1024,10 +1104,14 @@ export class FinancialTransactionsService {
    */
   private assertReceiptNotRefunded(
     receipt: { transactionNumber: string },
-    allocations: { storeOrderId: string | null; allocatedAmount: unknown }[],
+    allocations: {
+      storeOrderId: string | null;
+      receiptId: string | null;
+      allocatedAmount: unknown;
+    }[],
   ) {
     const refunded = allocations
-      .filter((allocation) => allocation.storeOrderId)
+      .filter((allocation) => allocation.storeOrderId || allocation.receiptId)
       .reduce((sum, allocation) => sum + Number(allocation.allocatedAmount), 0);
     if (refunded > 0.005) {
       throw new ConflictException({
@@ -1082,8 +1166,13 @@ export class FinancialTransactionsService {
   }
 
   /** Soft-delete — only once no longer actively progressing (Draft/Cancelled), mirroring every other document's archive rule. */
-  async archive(id: string, userId?: string) {
+  async archive(
+    id: string,
+    userId?: string,
+    options: VoucherRouteOptions = {},
+  ) {
     const existing = await this.findOneById(id);
+    this.assertRouteType(existing.type, options.types);
     const archivableFrom: FinancialTransactionStatus[] = [
       FinancialTransactionStatus.DRAFT,
       FinancialTransactionStatus.CANCELLED,
@@ -1111,8 +1200,9 @@ export class FinancialTransactionsService {
   }
 
   /** Hard delete — Draft only. A Draft transaction never posted anything, so unlike Archive (which only hides it) this removes it entirely; once Confirmed, use Cancel/Archive instead — a posted document is never truly deleted. */
-  async remove(id: string) {
+  async remove(id: string, options: VoucherRouteOptions = {}) {
     const existing = await this.findOneById(id);
+    this.assertRouteType(existing.type, options.types);
     if (existing.status !== FinancialTransactionStatus.DRAFT) {
       throw new BadRequestException(
         `Cannot delete ${this.label(existing.type)} ${existing.transactionNumber} while it is ${existing.status}. Only Draft can be deleted.`,
@@ -1281,6 +1371,8 @@ export class FinancialTransactionsService {
         if (!line) {
           throw new NotFoundException(`Allocation ${allocationId} not found`);
         }
+        // R22-T — a receipt's refunded part is fixed while its refund stands.
+        assertNotRefundConsumption(line);
         const invoiceId = line.salesInvoiceId ?? line.purchaseInvoiceId;
         if (!invoiceId) {
           throw new ConflictException({
@@ -1355,6 +1447,8 @@ export class FinancialTransactionsService {
       if (!allocation) {
         throw new NotFoundException(`Allocation ${allocationId} not found`);
       }
+      // R22-T — a receipt's refunded part is fixed while its refund stands.
+      assertNotRefundConsumption(allocation);
       if (
         locked.type === FinancialTransactionType.CUSTOMER_RECEIPT &&
         allocation.storeOrderId
@@ -1867,7 +1961,26 @@ export class FinancialTransactionsService {
     const seenReturns = new Set<string>();
     const seenOrders = new Set<string>();
     const seenInvoices = new Set<string>();
+    const seenReceipts = new Set<string>();
     for (const allocation of allocations) {
+      // R22-T — only a refund pays back a receipt's unapplied amount.
+      if (allocation.receiptId) {
+        if (type !== 'CUSTOMER_REFUND') {
+          throw new BadRequestException(
+            'Only a Customer Refund can pay back a receipt — allocate this document to an invoice.',
+          );
+        }
+        resolved.push(
+          await resolveReceiptRefundLine(client, {
+            partyId,
+            receiptId: allocation.receiptId,
+            amount: allocation.allocatedAmount,
+            refundCurrencyId,
+            seen: seenReceipts,
+          }),
+        );
+        continue;
+      }
       if (allocation.storeOrderId && type !== 'CUSTOMER_REFUND') {
         throw new BadRequestException(
           'Only a Customer Refund can pay back a store order advance — allocate this document to an invoice.',
@@ -2364,7 +2477,11 @@ export class FinancialTransactionsService {
   ) {
     if (
       allocations.length === 0 ||
-      allocations.some((a) => !a.invoiceId === !a.storeOrderId)
+      allocations.some(
+        (a) =>
+          [a.invoiceId, a.storeOrderId, a.receiptId].filter(Boolean).length !==
+          1,
+      )
     ) {
       throw new BadRequestException(
         'حدد المرتجع أو الطلب الذي يُرد مبلغه (واحد لكل سطر) — A Customer Refund must be allocated to the posted Sales Return(s) or store order advance(s) it pays back, exactly one per line.',
@@ -2394,6 +2511,7 @@ export class FinancialTransactionsService {
       allocations: {
         salesReturnId: string | null;
         storeOrderId: string | null;
+        receiptId: string | null;
         allocatedAmount: unknown;
       }[];
     },
@@ -2418,13 +2536,29 @@ export class FinancialTransactionsService {
         (await this.orderAdvanceRate(allocation.storeOrderId, tx)) ?? 1,
       );
     }
+    // R22-T — a receipt refund debits AR at the rate the receipt credited it.
+    const receiptIds = refundedReceipts(refund.allocations);
+    const receipts = receiptIds.length
+      ? await tx.financialTransaction.findMany({
+          where: { id: { in: receiptIds } },
+          select: { id: true, exchangeRate: true },
+        })
+      : [];
+    for (const receipt of receipts) {
+      rates.set(
+        receipt.id,
+        receipt.exchangeRate != null ? Number(receipt.exchangeRate) : 1,
+      );
+    }
     const refundFunctional = this.round2(
       refund.allocations.reduce(
         (sum, a) =>
           sum +
           this.round2(
             Number(a.allocatedAmount) *
-              (rates.get(a.salesReturnId ?? a.storeOrderId ?? '') ?? 1),
+              (rates.get(
+                a.salesReturnId ?? a.storeOrderId ?? a.receiptId ?? '',
+              ) ?? 1),
           ),
         0,
       ),
@@ -2445,6 +2579,13 @@ export class FinancialTransactionsService {
     client: DbClient = this.prisma,
   ): Promise<string | undefined> {
     const first = allocations[0];
+    if (first?.receiptId) {
+      const receipt = await client.financialTransaction.findUnique({
+        where: { id: first.receiptId },
+        select: { currencyId: true },
+      });
+      return receipt?.currencyId ?? undefined;
+    }
     if (first?.storeOrderId) {
       const order = await client.storeOrder.findUnique({
         where: { id: first.storeOrderId },
@@ -2464,11 +2605,13 @@ export class FinancialTransactionsService {
   private refundLineOf(allocation: {
     salesReturnId: string | null;
     storeOrderId: string | null;
+    receiptId: string | null;
     allocatedAmount: unknown;
   }): AllocationLineInput {
     return {
       invoiceId: allocation.salesReturnId ?? undefined,
       storeOrderId: allocation.storeOrderId ?? undefined,
+      receiptId: allocation.receiptId ?? undefined,
       allocatedAmount: Number(allocation.allocatedAmount),
     };
   }
@@ -2577,6 +2720,13 @@ export class FinancialTransactionsService {
     if (transaction.type === 'EXPENSE_PAYMENT') {
       this.assertNoExpenseAllocations([{}]);
     }
+    // R22-T (D4) — other receipts / payments / transfers never settle an invoice.
+    if (isOtherVoucherType(transaction.type)) {
+      throw new BadRequestException({
+        code: 'ALLOCATION_NOT_ALLOWED',
+        message: `${OTHER_VOUCHER_LABEL[transaction.type]} ${transaction.transactionNumber} never settles an invoice.`,
+      });
+    }
     if (transaction.type === 'CUSTOMER_REFUND') {
       throw new BadRequestException(
         `لا يمكن تعديل تخصيص رد مؤكد — The allocation of confirmed refund ${transaction.transactionNumber} is fixed. Cancel it and record a new refund instead.`,
@@ -2595,7 +2745,20 @@ export class FinancialTransactionsService {
     return Math.round(value * 100) / 100;
   }
 
+  /** R22-T — a voucher is operated only through the route of its own type (404 otherwise, like every by-id denial). */
+  private assertRouteType(
+    type: FinancialTransactionType,
+    types: readonly FinancialTransactionType[] = GENERIC_VOUCHER_TYPES,
+  ) {
+    if (!types.includes(type)) {
+      throw new NotFoundException(
+        `${this.label(type)} not found on this route`,
+      );
+    }
+  }
+
   private label(type: FinancialTransactionType): string {
+    if (isOtherVoucherType(type)) return OTHER_VOUCHER_LABEL[type];
     if (type === 'CUSTOMER_RECEIPT') return 'Customer Receipt Voucher';
     if (type === 'CUSTOMER_REFUND') return 'Customer Refund';
     if (type === 'EXPENSE_PAYMENT') return 'Expense Payment Voucher';

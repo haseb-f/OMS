@@ -24,6 +24,8 @@ interface AllocationRateView {
   salesReturn?: { exchangeRate: unknown } | null;
   /** R15 — a refund line paying back a store order's advance. */
   storeOrderId?: string | null;
+  /** R22-T — a refund line paying back a receipt's unapplied amount (at the receipt's rate). */
+  receipt?: { exchangeRate: unknown } | null;
 }
 
 /**
@@ -97,6 +99,7 @@ export class FinancialTransactionPostingProvider
             salesReturn: {
               select: { id: true, exchangeRate: true, currencyId: true },
             },
+            receipt: { select: { exchangeRate: true } },
           },
         },
       },
@@ -354,6 +357,14 @@ export class FinancialTransactionPostingProvider
     // An order-advance line clears AR at the rate its receipts credited it.
     const allocations: AllocationRateView[] = [];
     for (const allocation of transaction.allocations) {
+      // R22-T — a receipt refund line clears AR at the rate the receipt credited it.
+      if (allocation.receipt) {
+        allocations.push({
+          ...allocation,
+          salesReturn: { exchangeRate: allocation.receipt.exchangeRate },
+        });
+        continue;
+      }
       if (!allocation.storeOrderId) {
         allocations.push(allocation);
         continue;

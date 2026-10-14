@@ -50,6 +50,10 @@ const SOURCE_TYPE_JOURNAL: Record<string, JournalType> = {
   CUSTOMER_RECEIPT: JournalType.CASH,
   SUPPLIER_PAYMENT: JournalType.CASH,
   CUSTOMER_REFUND: JournalType.CASH,
+  // R22 (D4) — other receipt / other payment / internal transfer vouchers.
+  OTHER_RECEIPT: JournalType.CASH,
+  OTHER_PAYMENT: JournalType.CASH,
+  INTERNAL_TRANSFER: JournalType.CASH,
   // R22 — realized FX of a later allocation / unallocation (no cash moves).
   FT_ALLOCATION_FX: JournalType.GENERAL,
   // Provider payout into the bank (payment-declaration-reconciliation).
