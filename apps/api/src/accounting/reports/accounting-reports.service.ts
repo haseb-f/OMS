@@ -33,9 +33,14 @@ import { IncomeStatementQueryDto } from './dto/income-statement-query.dto';
 import { CashFlowQueryDto } from './dto/cash-flow-query.dto';
 import { AgingQueryDto } from './dto/aging-query.dto';
 import {
+  NOT_AGENT_COLLECTION,
   PAYABLE_PURCHASE_INVOICE_STATUSES,
   PAYABLE_SALES_INVOICE_STATUSES,
-  computeInvoicePaymentSummary,
+  POSTED_PURCHASE_RETURN_STATUSES,
+  POSTED_SALES_RETURN_STATUSES,
+  appliedCreditByReturn,
+  loadInvoiceSettlements,
+  loadReturnCredits,
 } from '../../financial-transactions/shared/invoice-payment.util';
 import { PartnerStatementQueryDto } from './dto/partner-statement-query.dto';
 import { ExchangeRatesService } from '../fx/exchange-rates.service';
@@ -116,6 +121,16 @@ function effectiveEntryRate(entry: {
     ? entry.reversalOfEntry
     : { currencyId: entry.currencyId, exchangeRate: entry.exchangeRate };
 }
+
+/** The money columns of an aging row / total, all in that row's currency. */
+const AGING_MONEY_KEYS = [
+  'current',
+  'days31to60',
+  'days61to90',
+  'over90',
+  'total',
+  'unapplied',
+] as const;
 
 export interface StatementRow {
   accountId: string;
@@ -1441,129 +1456,135 @@ export class AccountingReportsService {
     };
   }
 
+  /**
+   * AR / AP aging (R22 A1 / A3 / D2) — open invoices as of `dateTo`, per
+   * partner AND currency: amounts of different currencies are never added
+   * (a partner with EGP and SAR invoices has one row per currency, and the
+   * totals are `totalsByCurrency[]`). Each invoice reads the one settlement
+   * summary as of the date: cash allocations from their allocation date,
+   * credit notes from their posting date. `unapplied` is the money / credit
+   * standing against the open invoices in that currency; `net` is what the
+   * partner statement nets to for these documents.
+   */
   private async invoiceAging(side: 'AR' | 'AP', query: AgingQueryDto) {
     const asOf = asOfEndOfDay(query.dateTo);
     const invoiceKey = side === 'AR' ? 'salesInvoiceId' : 'purchaseInvoiceId';
-    const salesStatuses = PAYABLE_SALES_INVOICE_STATUSES;
-    const purchaseStatuses = PAYABLE_PURCHASE_INVOICE_STATUSES;
+    const scope = {
+      deletedAt: null,
+      ...(query.partnerId ? { partnerId: query.partnerId } : {}),
+      ...(query.companyId ? { companyId: query.companyId } : {}),
+      ...(query.branchId ? { branchId: query.branchId } : {}),
+      ...(query.currencyId ? { currencyId: query.currencyId } : {}),
+      OR: [
+        { confirmedAt: { lte: asOf } },
+        { confirmedAt: null, createdAt: { lte: asOf } },
+      ],
+    };
+    const select = {
+      id: true,
+      invoiceNumber: true,
+      partnerId: true,
+      grandTotal: true,
+      confirmedAt: true,
+      createdAt: true,
+      currencyId: true,
+      partner: {
+        select: { id: true, partnerNumber: true, name: true },
+      },
+    } as const;
 
-    const invoices =
+    const [invoices, functional] = await Promise.all([
       side === 'AR'
-        ? await this.prisma.salesInvoice.findMany({
-            where: {
-              deletedAt: null,
-              status: { in: salesStatuses },
-              ...(query.partnerId ? { partnerId: query.partnerId } : {}),
-              ...(query.companyId ? { companyId: query.companyId } : {}),
-              ...(query.branchId ? { branchId: query.branchId } : {}),
-              ...(query.currencyId ? { currencyId: query.currencyId } : {}),
-              OR: [
-                { confirmedAt: { lte: asOf } },
-                { confirmedAt: null, createdAt: { lte: asOf } },
-              ],
-            },
-            select: {
-              id: true,
-              invoiceNumber: true,
-              partnerId: true,
-              grandTotal: true,
-              confirmedAt: true,
-              createdAt: true,
-              partner: {
-                select: { id: true, partnerNumber: true, name: true },
-              },
-            },
+        ? this.prisma.salesInvoice.findMany({
+            where: { ...scope, status: { in: PAYABLE_SALES_INVOICE_STATUSES } },
+            select,
           })
-        : await this.prisma.purchaseInvoice.findMany({
+        : this.prisma.purchaseInvoice.findMany({
             where: {
-              deletedAt: null,
-              status: { in: purchaseStatuses },
-              ...(query.partnerId ? { partnerId: query.partnerId } : {}),
-              ...(query.companyId ? { companyId: query.companyId } : {}),
-              ...(query.branchId ? { branchId: query.branchId } : {}),
-              ...(query.currencyId ? { currencyId: query.currencyId } : {}),
-              OR: [
-                { confirmedAt: { lte: asOf } },
-                { confirmedAt: null, createdAt: { lte: asOf } },
-              ],
+              ...scope,
+              status: { in: PAYABLE_PURCHASE_INVOICE_STATUSES },
             },
-            select: {
-              id: true,
-              invoiceNumber: true,
-              partnerId: true,
-              grandTotal: true,
-              confirmedAt: true,
-              createdAt: true,
-              partner: {
-                select: { id: true, partnerNumber: true, name: true },
-              },
-            },
-          });
+            select,
+          }),
+      this.prisma.postingSettings.findFirst({
+        select: { functionalCurrencyId: true },
+      }),
+    ]);
+    const functionalCurrencyId = functional?.functionalCurrencyId ?? null;
+    const currencyOf = (currencyId: string | null) =>
+      currencyId ?? functionalCurrencyId;
 
-    const invoiceIds = invoices.map((row) => row.id);
-    const allocatedByInvoice = new Map<string, number>();
-    if (invoiceIds.length > 0) {
-      const grouped = await this.prisma.financialTransactionAllocation.groupBy({
-        by: [invoiceKey],
-        where: {
-          [invoiceKey]: { in: invoiceIds },
-          transaction: {
-            status: FinancialTransactionStatus.CONFIRMED,
-            deletedAt: null,
-            transactionDate: { lte: asOf },
-          },
-        },
-        _sum: { allocatedAmount: true },
-      });
-      for (const row of grouped) {
-        const id = row[invoiceKey];
-        if (id)
-          allocatedByInvoice.set(id, Number(row._sum.allocatedAmount ?? 0));
-      }
-    }
+    // R20 / R22 — the one invoice settlement derivation, as of `asOf`.
+    const settlements = await loadInvoiceSettlements(
+      this.prisma,
+      invoiceKey,
+      invoices,
+      { asOf },
+    );
 
-    const byPartner = new Map<
-      string,
-      {
-        partnerId: string;
-        partnerNumber: string;
-        partnerName: string;
-        current: number;
-        days31to60: number;
-        days61to90: number;
-        over90: number;
-        total: number;
-        /** R18 — money received / paid not applied to an invoice + unrefunded credit notes. */
-        unapplied: number;
-        /** Open invoices less unapplied credits — what the partner statement nets to. */
-        net: number;
-      }
-    >();
+    type PartnerRow = {
+      partnerId: string;
+      partnerNumber: string;
+      partnerName: string;
+      /** R22 A1 — every figure of this row is in this currency. */
+      currencyId: string | null;
+      currencyCode: string | null;
+      current: number;
+      days31to60: number;
+      days61to90: number;
+      over90: number;
+      total: number;
+      /** R18 — money received / paid not applied to an invoice + unrefunded, unapplied credit notes. */
+      unapplied: number;
+      /** Open invoices less unapplied credits — what the partner statement nets to. */
+      net: number;
+    };
+    const byPartner = new Map<string, PartnerRow>();
+    const partnerRow = (
+      partner: { id: string; partnerNumber: string; name: string },
+      currencyId: string | null,
+    ) => {
+      const key = `${partner.id}|${currencyId ?? ''}`;
+      const existing = byPartner.get(key);
+      if (existing) return existing;
+      const created: PartnerRow = {
+        partnerId: partner.id,
+        partnerNumber: partner.partnerNumber,
+        partnerName: partner.name,
+        currencyId,
+        currencyCode: null,
+        ...emptyAgingBuckets(),
+        total: 0,
+        unapplied: 0,
+        net: 0,
+      };
+      byPartner.set(key, created);
+      return created;
+    };
 
     const invoicesOut: Array<{
       invoiceId: string;
       invoiceNumber: string;
       partnerId: string;
       partnerName: string;
+      currencyId: string | null;
+      currencyCode: string | null;
       invoiceDate: Date;
       daysOutstanding: number;
       bucket: AgingBucket;
       grandTotal: number;
+      /** Cash paid (compatibility name of `paidTotal`). */
       allocated: number;
+      paidTotal: number;
+      creditedTotal: number;
       remaining: number;
     }> = [];
 
     for (const invoice of invoices) {
-      // R20 — the one invoice payment derivation (invoice-payment.util), as of `asOf`.
-      const {
-        grandTotal,
-        allocatedTotal: allocated,
-        remainingBalance: remaining,
-      } = computeInvoicePaymentSummary(
-        Number(invoice.grandTotal),
-        allocatedByInvoice.get(invoice.id) ?? 0,
-      );
+      const summary = settlements.get(invoice.id)!;
+      const remaining = summary.remainingBalance;
       if (remaining <= 0) continue;
+      const currencyId = currencyOf(invoice.currencyId);
       const invoiceDate = invoice.confirmedAt ?? invoice.createdAt;
       const days = daysOutstanding(asOf, invoiceDate);
       const bucket = agingBucket(days);
@@ -1572,65 +1593,102 @@ export class AccountingReportsService {
         invoiceNumber: invoice.invoiceNumber,
         partnerId: invoice.partnerId,
         partnerName: invoice.partner.name,
+        currencyId,
+        currencyCode: null,
         invoiceDate,
         daysOutstanding: days,
         bucket,
-        grandTotal,
-        allocated,
+        grandTotal: summary.grandTotal,
+        allocated: summary.paidTotal,
+        paidTotal: summary.paidTotal,
+        creditedTotal: summary.creditedTotal,
         remaining,
       });
-      const existing = byPartner.get(invoice.partnerId) ?? {
-        partnerId: invoice.partner.id,
-        partnerNumber: invoice.partner.partnerNumber,
-        partnerName: invoice.partner.name,
-        ...emptyAgingBuckets(),
-        total: 0,
-        unapplied: 0,
-        net: 0,
-      };
-      existing[bucket] += remaining;
-      existing.total += remaining;
-      byPartner.set(invoice.partnerId, existing);
+      const row = partnerRow(invoice.partner, currencyId);
+      row[bucket] += remaining;
+      row.total += remaining;
     }
 
     for (const credit of await this.unappliedCredits(side, query, asOf)) {
-      const existing = byPartner.get(credit.partnerId) ?? {
-        partnerId: credit.partnerId,
-        partnerNumber: credit.partnerNumber,
-        partnerName: credit.partnerName,
+      const row = partnerRow(credit.partner, currencyOf(credit.currencyId));
+      row.unapplied += credit.amount;
+    }
+
+    const codes = await this.currencyCodes([
+      ...[...byPartner.values()].map((row) => row.currencyId),
+      functionalCurrencyId,
+    ]);
+    for (const row of byPartner.values()) {
+      for (const key of AGING_MONEY_KEYS) row[key] = roundReportMoney(row[key]);
+      row.net = roundReportMoney(row.total - row.unapplied);
+      row.currencyCode = row.currencyId
+        ? (codes.get(row.currencyId) ?? null)
+        : null;
+    }
+    for (const row of invoicesOut) {
+      row.currencyCode = row.currencyId
+        ? (codes.get(row.currencyId) ?? null)
+        : null;
+    }
+
+    const partners = [...byPartner.values()].sort(
+      (a, b) =>
+        a.partnerName.localeCompare(b.partnerName) ||
+        (a.currencyCode ?? '').localeCompare(b.currencyCode ?? ''),
+    );
+    const byCurrency = new Map<
+      string,
+      {
+        currencyId: string | null;
+        currencyCode: string | null;
+      } & Record<(typeof AGING_MONEY_KEYS)[number] | 'net', number>
+    >();
+    for (const row of partners) {
+      const key = row.currencyId ?? '';
+      const totals = byCurrency.get(key) ?? {
+        currencyId: row.currencyId,
+        currencyCode: row.currencyCode,
         ...emptyAgingBuckets(),
         total: 0,
         unapplied: 0,
         net: 0,
       };
-      existing.unapplied += credit.amount;
-      byPartner.set(credit.partnerId, existing);
+      for (const money of AGING_MONEY_KEYS) totals[money] += row[money];
+      totals.net += row.net;
+      byCurrency.set(key, totals);
     }
-    for (const row of byPartner.values()) {
-      row.total = roundReportMoney(row.total);
-      row.unapplied = roundReportMoney(row.unapplied);
-      row.net = roundReportMoney(row.total - row.unapplied);
-    }
-
-    const partners = [...byPartner.values()].sort((a, b) =>
-      a.partnerName.localeCompare(b.partnerName),
+    const totalsByCurrency = [...byCurrency.values()]
+      .map((totals) => {
+        for (const money of [...AGING_MONEY_KEYS, 'net'] as const) {
+          totals[money] = roundReportMoney(totals[money]);
+        }
+        return totals;
+      })
+      .sort((a, b) =>
+        (a.currencyCode ?? '').localeCompare(b.currencyCode ?? ''),
+      );
+    // Compatibility (pre-R22 single block): the functional currency's totals
+    // only — never a sum across currencies. Readers use `totalsByCurrency`.
+    const functionalTotals = totalsByCurrency.find(
+      (row) => row.currencyId === functionalCurrencyId,
     );
-    const totals = partners.reduce(
-      (acc, row) => {
-        acc.current += row.current;
-        acc.days31to60 += row.days31to60;
-        acc.days61to90 += row.days61to90;
-        acc.over90 += row.over90;
-        acc.total += row.total;
-        acc.unapplied += row.unapplied;
-        acc.net += row.net;
-        return acc;
-      },
-      { ...emptyAgingBuckets(), total: 0, unapplied: 0, net: 0 },
-    );
-    for (const key of Object.keys(totals) as (keyof typeof totals)[]) {
-      totals[key] = roundReportMoney(totals[key]);
-    }
+    const totals = {
+      ...emptyAgingBuckets(),
+      total: 0,
+      unapplied: 0,
+      net: 0,
+      ...(functionalTotals
+        ? {
+            current: functionalTotals.current,
+            days31to60: functionalTotals.days31to60,
+            days61to90: functionalTotals.days61to90,
+            over90: functionalTotals.over90,
+            total: functionalTotals.total,
+            unapplied: functionalTotals.unapplied,
+            net: functionalTotals.net,
+          }
+        : {}),
+    };
 
     return {
       side,
@@ -1639,17 +1697,35 @@ export class AccountingReportsService {
       invoices: invoicesOut.sort(
         (a, b) => b.daysOutstanding - a.daysOutstanding,
       ),
+      totalsByCurrency,
       totals,
+      totalsCurrencyId: functionalCurrencyId,
+      totalsCurrencyCode: functionalCurrencyId
+        ? (codes.get(functionalCurrencyId) ?? null)
+        : null,
     };
   }
 
+  private async currencyCodes(
+    ids: (string | null)[],
+  ): Promise<Map<string, string>> {
+    const unique = [...new Set(ids.filter((id): id is string => !!id))];
+    if (unique.length === 0) return new Map();
+    const rows = await this.prisma.currency.findMany({
+      where: { id: { in: unique } },
+      select: { id: true, code: true },
+    });
+    return new Map(rows.map((row) => [row.id, row.code]));
+  }
+
   /**
-   * R18 — per partner, as of `asOf`: the part of confirmed receipts (AR) /
-   * supplier payments (AP) not applied to any invoice, plus credit notes not
-   * refunded (AR: posted sales returns less customer refunds; AP: posted
-   * purchase returns). The aging lists open invoices; these credits are what
-   * stands against them on the partner's account, so open − unapplied is the
-   * figure the partner statement nets to for these documents.
+   * R18 / R22 — per partner and currency, as of `asOf`: the part of
+   * confirmed receipts (AR) / supplier payments (AP) not applied to any
+   * invoice (allocations counted from their allocation date — A3), plus the
+   * credit of posted returns that is neither refunded nor applied to its own
+   * invoice (D2). An agent-order collection is the agent's money (L2), never
+   * the customer's credit. These credits are what stands against the open
+   * invoices on the partner's account in that currency.
    */
   private async unappliedCredits(
     side: 'AR' | 'AP',
@@ -1657,9 +1733,8 @@ export class AccountingReportsService {
     asOf: Date,
   ): Promise<
     {
-      partnerId: string;
-      partnerNumber: string;
-      partnerName: string;
+      partner: { id: string; partnerNumber: string; name: string };
+      currencyId: string | null;
       amount: number;
     }[]
   > {
@@ -1672,28 +1747,18 @@ export class AccountingReportsService {
     const partnerSelect = {
       select: { id: true, partnerNumber: true, name: true },
     } as const;
-    const credits = new Map<
-      string,
-      {
-        partnerId: string;
-        partnerNumber: string;
-        partnerName: string;
-        amount: number;
-      }
-    >();
+    const credits: {
+      partner: { id: string; partnerNumber: string; name: string };
+      currencyId: string | null;
+      amount: number;
+    }[] = [];
     const add = (
       partner: { id: string; partnerNumber: string; name: string } | null,
+      currencyId: string | null,
       amount: number,
     ) => {
       if (!partner || amount <= 0.005) return;
-      const row = credits.get(partner.id) ?? {
-        partnerId: partner.id,
-        partnerNumber: partner.partnerNumber,
-        partnerName: partner.name,
-        amount: 0,
-      };
-      row.amount = roundReportMoney(row.amount + amount);
-      credits.set(partner.id, row);
+      credits.push({ partner, currencyId, amount: roundReportMoney(amount) });
     };
 
     const vouchers = await this.prisma.financialTransaction.findMany({
@@ -1703,12 +1768,17 @@ export class AccountingReportsService {
         status: FinancialTransactionStatus.CONFIRMED,
         deletedAt: null,
         transactionDate: { lte: asOf },
+        ...(side === 'AR' ? NOT_AGENT_COLLECTION : {}),
       },
       select: {
         amount: true,
         feeAmount: true,
+        currencyId: true,
         partner: partnerSelect,
-        allocations: { select: { allocatedAmount: true } },
+        allocations: {
+          where: { allocationDate: { lte: asOf } },
+          select: { allocatedAmount: true },
+        },
       },
     });
     for (const voucher of vouchers) {
@@ -1718,6 +1788,7 @@ export class AccountingReportsService {
       );
       add(
         voucher.partner,
+        voucher.currencyId,
         Number(voucher.amount) + Number(voucher.feeAmount ?? 0) - allocated,
       );
     }
@@ -1729,61 +1800,127 @@ export class AccountingReportsService {
         { confirmedAt: null, createdAt: { lte: asOf } },
       ],
     };
-    if (side === 'AR') {
-      const returns = await this.prisma.salesReturn.findMany({
-        where: {
-          ...scope,
-          ...postedWindow,
-          status: {
-            in: [SalesDocumentStatus.CONFIRMED, SalesDocumentStatus.CLOSED],
-          },
-        },
-        select: { id: true, grandTotal: true, partner: partnerSelect },
-      });
-      const refunded = new Map<string, number>();
-      if (returns.length > 0) {
-        const grouped =
-          await this.prisma.financialTransactionAllocation.groupBy({
-            by: ['salesReturnId'],
-            where: {
-              salesReturnId: { in: returns.map((row) => row.id) },
-              transaction: {
-                status: FinancialTransactionStatus.CONFIRMED,
-                deletedAt: null,
-                transactionDate: { lte: asOf },
+    const returnSelect = {
+      id: true,
+      currencyId: true,
+      partner: partnerSelect,
+    } as const;
+    const returns =
+      side === 'AR'
+        ? (
+            await this.prisma.salesReturn.findMany({
+              where: {
+                ...scope,
+                ...postedWindow,
+                status: { in: POSTED_SALES_RETURN_STATUSES },
               },
+              select: {
+                ...returnSelect,
+                grandTotal: true,
+                salesInvoiceId: true,
+              },
+            })
+          ).map((row) => ({ ...row, invoiceId: row.salesInvoiceId }))
+        : (
+            await this.prisma.purchaseReturn.findMany({
+              where: {
+                ...scope,
+                ...postedWindow,
+                status: { in: POSTED_PURCHASE_RETURN_STATUSES },
+              },
+              select: {
+                ...returnSelect,
+                grandTotal: true,
+                purchaseInvoiceId: true,
+              },
+            })
+          ).map((row) => ({ ...row, invoiceId: row.purchaseInvoiceId }));
+    if (returns.length === 0) return credits;
+
+    // What each return still holds (total − refunded) and how much of it its
+    // own posted invoice consumed as of the date (the same D2 rule as the
+    // invoice's settlement summary).
+    const invoiceKey = side === 'AR' ? 'salesInvoiceId' : 'purchaseInvoiceId';
+    const invoiceIds = [
+      ...new Set(
+        returns.map((row) => row.invoiceId).filter((id): id is string => !!id),
+      ),
+    ];
+    const invoiceWhere = {
+      id: { in: invoiceIds },
+      ...postedWindow,
+    };
+    const linkedInvoices =
+      side === 'AR'
+        ? await this.prisma.salesInvoice.findMany({
+            where: {
+              ...invoiceWhere,
+              status: { in: PAYABLE_SALES_INVOICE_STATUSES },
             },
-            _sum: { allocatedAmount: true },
+            select: { id: true, grandTotal: true },
+          })
+        : await this.prisma.purchaseInvoice.findMany({
+            where: {
+              ...invoiceWhere,
+              status: { in: PAYABLE_PURCHASE_INVOICE_STATUSES },
+            },
+            select: { id: true, grandTotal: true },
           });
-        for (const row of grouped) {
-          if (row.salesReturnId) {
-            refunded.set(
-              row.salesReturnId,
-              Number(row._sum.allocatedAmount ?? 0),
-            );
-          }
-        }
-      }
-      for (const row of returns) {
-        add(row.partner, Number(row.grandTotal) - (refunded.get(row.id) ?? 0));
-      }
-    } else {
-      const returns = await this.prisma.purchaseReturn.findMany({
-        where: {
-          ...scope,
-          ...postedWindow,
-          status: {
-            in: [
-              PurchaseDocumentStatus.CONFIRMED,
-              PurchaseDocumentStatus.CLOSED,
-            ],
-          },
-        },
-        select: { grandTotal: true, partner: partnerSelect },
-      });
-      for (const row of returns) add(row.partner, Number(row.grandTotal));
+    const [settlements, returnCredits] = await Promise.all([
+      loadInvoiceSettlements(this.prisma, invoiceKey, linkedInvoices, { asOf }),
+      loadReturnCredits(this.prisma, invoiceKey, invoiceIds, { asOf }),
+    ]);
+    const applied = appliedCreditByReturn(
+      returnCredits,
+      new Map(
+        [...settlements].map(([id, summary]) => [id, summary.creditedTotal]),
+      ),
+    );
+    const availableByReturn = new Map(
+      returnCredits.map((credit) => [credit.returnId, credit.available]),
+    );
+    const refundedByReturn =
+      side === 'AR'
+        ? await this.refundedAsOf(
+            returns.filter((row) => !row.invoiceId).map((row) => row.id),
+            asOf,
+          )
+        : new Map<string, number>();
+    for (const row of returns) {
+      const available =
+        availableByReturn.get(row.id) ??
+        Number(row.grandTotal) - (refundedByReturn.get(row.id) ?? 0);
+      add(row.partner, row.currencyId, available - (applied.get(row.id) ?? 0));
     }
-    return [...credits.values()];
+    return credits;
+  }
+
+  /** Confirmed customer refunds per return as of a date (returns without an invoice). */
+  private async refundedAsOf(
+    returnIds: string[],
+    asOf: Date,
+  ): Promise<Map<string, number>> {
+    if (returnIds.length === 0) return new Map();
+    const grouped = await this.prisma.financialTransactionAllocation.groupBy({
+      by: ['salesReturnId'],
+      where: {
+        salesReturnId: { in: returnIds },
+        allocationDate: { lte: asOf },
+        transaction: {
+          status: FinancialTransactionStatus.CONFIRMED,
+          deletedAt: null,
+        },
+      },
+      _sum: { allocatedAmount: true },
+    });
+    return new Map(
+      grouped
+        .filter((row) => row.salesReturnId)
+        .map((row) => [
+          row.salesReturnId as string,
+          Number(row._sum.allocatedAmount ?? 0),
+        ]),
+    );
   }
 
   /**
