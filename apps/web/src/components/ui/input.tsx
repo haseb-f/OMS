@@ -24,6 +24,10 @@ const inputVariants = cva(
         // height, kept at md's roomier padding/font so financial figures
         // stay fully legible in a dense, many-column row.
         "compact-md": "h-(--control-height-md) px-3 py-1.5 text-body",
+        // R22 §3 — the one amount a voucher is about: 44px, 16px figures,
+        // a 1.5px edge that darkens on hover and turns brand on focus.
+        prominent:
+          "h-(--control-height-prominent) border-(length:--control-border-prominent) px-3 py-2 text-card-title placeholder:font-normal focus-visible:ring-2",
       },
     },
     defaultVariants: {

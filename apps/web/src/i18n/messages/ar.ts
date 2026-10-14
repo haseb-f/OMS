@@ -32,7 +32,9 @@ import storeOrderStockAr from "./modules/store-order-stock.ar";
 import agentStockAr from "./modules/agent-stock.ar";
 import storeOrderMoneyAr from "./modules/store-order-money.ar";
 import salesVisibilityAr from "./modules/sales-visibility.ar";
+import vouchersAr from "./modules/vouchers.ar";
 const ar = {
+  vouchers: vouchersAr,
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
   orderDuplicates: orderDuplicatesAr,
@@ -5211,6 +5213,9 @@ const ar = {
       SUPPLIER_PAYMENT: "سداد مورد",
       EXPENSE_PAYMENT: "مصروف تشغيلي",
       CUSTOMER_REFUND: "رد مبلغ لعميل",
+      OTHER_RECEIPT: "مقبوضات أخرى",
+      OTHER_PAYMENT: "مدفوعات أخرى",
+      INTERNAL_TRANSFER: "تحويل داخلي",
     },
     direction: {
       in: "قبض",
@@ -5225,6 +5230,7 @@ const ar = {
       unpaid: "غير مدفوعة",
       partiallyPaid: "مدفوعة جزئياً",
       paid: "مدفوعة بالكامل",
+      settled: "مسوّاة",
       cancelled: "ملغاة",
     },
     paymentSummary: {

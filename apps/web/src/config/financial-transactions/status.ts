@@ -42,6 +42,7 @@ export const INVOICE_PAYMENT_STATUS_LABEL_KEY: Record<InvoicePaymentStatusValue,
   UNPAID: "financialTransactions.invoiceStatus.unpaid",
   PARTIALLY_PAID: "financialTransactions.invoiceStatus.partiallyPaid",
   PAID: "financialTransactions.invoiceStatus.paid",
+  SETTLED: "financialTransactions.invoiceStatus.settled",
   CANCELLED: "financialTransactions.invoiceStatus.cancelled",
 };
 
@@ -49,14 +50,21 @@ export const INVOICE_PAYMENT_STATUS_TONE: Record<InvoicePaymentStatusValue, Stat
   UNPAID: "destructive",
   PARTIALLY_PAID: "warning",
   PAID: "success",
+  // R22 D2 — remaining 0 with credit notes contributing: closed, but not "paid in cash".
+  SETTLED: "info",
   CANCELLED: "neutral",
 };
 
 /** The invoice payment figures every invoice row carries (API-derived, never recomputed here). */
 export interface InvoicePaymentFigures {
   paymentStatus: InvoicePaymentStatusValue;
+  /** Cash allocated by confirmed vouchers (= `paidTotal`, kept for compatibility). */
   allocatedTotal: number;
   remainingBalance: number;
+  /** R22 contract 1 — cash paid (same figure as `allocatedTotal`). */
+  paidTotal?: number;
+  /** R22 contract 1 — posted credit notes / adjustments applied to the invoice (never cash). */
+  creditedTotal?: number;
 }
 
 /**

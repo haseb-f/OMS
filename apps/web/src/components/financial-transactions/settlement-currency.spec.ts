@@ -66,8 +66,11 @@ describe("open invoice figures (R20)", () => {
   it("draft voucher: paid before = confirmed payments, open = remaining, this voucher apart", () => {
     expect(describeOpenInvoice(open("a", 100_000, "EGP-ID", 100_000), 60_000, false)).toEqual({
       paidBefore: 100_000,
+      credited: 0,
       openBefore: 100_000,
       thisVoucher: 60_000,
+      // R22 §4 — «المتبقي» is what stays open once this voucher counts.
+      remaining: 40_000,
     });
   });
 
@@ -75,8 +78,11 @@ describe("open invoice figures (R20)", () => {
     // Invoice 200,000; this voucher confirmed 60,000, another one 40,000 → API: paid 100,000, remaining 100,000.
     expect(describeOpenInvoice(open("a", 100_000, "EGP-ID", 100_000), 60_000, true)).toEqual({
       paidBefore: 40_000,
+      credited: 0,
       openBefore: 160_000,
       thisVoucher: 60_000,
+      // R22 §4 — a confirmed voucher shows the invoice's real balance (measured: 160,000 shown before).
+      remaining: 100_000,
     });
   });
 });

@@ -32,7 +32,9 @@ import storeOrderStockEn from "./modules/store-order-stock.en";
 import agentStockEn from "./modules/agent-stock.en";
 import storeOrderMoneyEn from "./modules/store-order-money.en";
 import salesVisibilityEn from "./modules/sales-visibility.en";
+import vouchersEn from "./modules/vouchers.en";
 const en = {
+  vouchers: vouchersEn,
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
   orderDuplicates: orderDuplicatesEn,
@@ -5262,6 +5264,9 @@ const en = {
       SUPPLIER_PAYMENT: "Supplier payment",
       EXPENSE_PAYMENT: "Operating expense",
       CUSTOMER_REFUND: "Customer refund",
+      OTHER_RECEIPT: "Other receipt",
+      OTHER_PAYMENT: "Other payment",
+      INTERNAL_TRANSFER: "Internal transfer",
     },
     direction: {
       in: "Receipt",
@@ -5274,6 +5279,7 @@ const en = {
     },
     invoiceStatus: {
       unpaid: "Unpaid",
+      settled: "Settled",
       partiallyPaid: "Partially Paid",
       paid: "Fully Paid",
       cancelled: "Cancelled",

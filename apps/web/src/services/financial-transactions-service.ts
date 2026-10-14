@@ -3,10 +3,25 @@ import { buildQueryString } from "@/lib/query-string";
 import type { PartnerRow } from "./partners-service";
 
 export type FinancialTransactionTypeValue =
-  "CUSTOMER_RECEIPT" | "SUPPLIER_PAYMENT" | "EXPENSE_PAYMENT" | "CUSTOMER_REFUND";
+  | "CUSTOMER_RECEIPT"
+  | "SUPPLIER_PAYMENT"
+  | "EXPENSE_PAYMENT"
+  | "CUSTOMER_REFUND"
+  /** R22 D4 — Dr cash / bank, Cr an authorised counter-account. */
+  | "OTHER_RECEIPT"
+  /** R22 D4 — Dr an authorised counter-account, Cr cash / bank. */
+  | "OTHER_PAYMENT"
+  /** R22 D4 — Dr the destination cash / bank account, Cr the source. */
+  | "INTERNAL_TRANSFER";
 export type FinancialTransactionStatusValue = "DRAFT" | "CONFIRMED" | "CANCELLED";
 /** TASK-060B Part 6 — independent from document Workflow Status (Draft/Confirmed/Cancelled); `CANCELLED` here means the invoice itself was cancelled, never set manually. */
-export type InvoicePaymentStatusValue = "UNPAID" | "PARTIALLY_PAID" | "PAID" | "CANCELLED";
+export type InvoicePaymentStatusValue =
+  | "UNPAID"
+  | "PARTIALLY_PAID"
+  | "PAID"
+  /** R22 D2 — remaining 0 and credit notes contributed («مسوّاة»); never labelled cash paid. */
+  | "SETTLED"
+  | "CANCELLED";
 
 /** Uses its own dedicated `FinancialTransactionActivity` table (TASK-043), not the shared polymorphic Master Data log — same core fields, no `entityType`/`entityId`. */
 export interface FinancialTransactionActivityEntry {
@@ -63,6 +78,12 @@ export interface FinancialTransactionRow {
   costCenter?: { id: string; code: string; name: string } | null;
   projectId?: string | null;
   project?: { id: string; code: string; name: string } | null;
+  /** R22 D4 — OTHER_RECEIPT / OTHER_PAYMENT: the authorised account on the other side of the cash line. */
+  counterAccountId?: string | null;
+  counterAccount?: { id: string; code: string; name: string } | null;
+  /** R22 D4 — INTERNAL_TRANSFER: the cash / bank account the money moves to (`receivingAccountId` = source). */
+  targetReceivingAccountId?: string | null;
+  targetReceivingAccount?: { id: string; name: string } | null;
   /** Frozen transaction → functional rate (set when posted). */
   exchangeRate?: string | null;
   status: FinancialTransactionStatusValue;
@@ -104,6 +125,10 @@ export interface FinancialTransactionFormPayload {
   referenceNumber?: string;
   notes?: string;
   allocations?: AllocationInputPayload[];
+  /** R22 D4 — OTHER_RECEIPT / OTHER_PAYMENT only. */
+  counterAccountId?: string;
+  /** R22 D4 — INTERNAL_TRANSFER only: destination; `receivingAccountId` is the source. */
+  targetReceivingAccountId?: string;
   /** Create only — one key per opened form; a repeated submit returns the first document. */
   idempotencyKey?: string;
 }
@@ -138,9 +163,13 @@ export interface OpenInvoiceRow {
   currencyId: string | null;
   currencyCode: string | null;
   grandTotal: number;
+  /** Cash allocated by confirmed vouchers (R22: = `paidTotal`). */
   allocatedTotal: number;
   remainingBalance: number;
   paymentStatus: InvoicePaymentStatusValue;
+  /** R22 contract 1 — posted credit notes applied to the invoice (not cash); absent before the API carries it. */
+  creditedTotal?: number;
+  paidTotal?: number;
 }
 
 /**
@@ -188,6 +217,16 @@ export function createFinancialTransactionService(basePath: string) {
     /** Adds one allocation to a Confirmed transaction. */
     allocate: (id: string, dto: AllocationInputPayload) =>
       apiClient.post<FinancialTransactionRow>(`${basePath}/${id}/allocate`, dto),
+    /**
+     * R22 W1 (contract 3) — changes one allocation's amount on a Confirmed
+     * transaction atomically (same guards, no new cash entry); returns the
+     * fresh voucher.
+     */
+    updateAllocation: (id: string, allocationId: string, dto: { allocatedAmount: number }) =>
+      apiClient.patch<FinancialTransactionRow>(
+        `${basePath}/${id}/allocations/${allocationId}`,
+        dto,
+      ),
     /** Removes one allocation from a Confirmed transaction. */
     unallocate: (id: string, allocationId: string) =>
       apiClient.post<FinancialTransactionRow>(

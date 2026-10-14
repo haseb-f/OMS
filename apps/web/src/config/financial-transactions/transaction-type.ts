@@ -1,7 +1,13 @@
 import type { MessageKey } from "@/i18n/translate";
 
 export type FinancialTransactionTypeCode =
-  "CUSTOMER_RECEIPT" | "SUPPLIER_PAYMENT" | "EXPENSE_PAYMENT" | "CUSTOMER_REFUND";
+  | "CUSTOMER_RECEIPT"
+  | "SUPPLIER_PAYMENT"
+  | "EXPENSE_PAYMENT"
+  | "CUSTOMER_REFUND"
+  | "OTHER_RECEIPT"
+  | "OTHER_PAYMENT"
+  | "INTERNAL_TRANSFER";
 
 export type FinancialTransactionDirection = "IN" | "OUT";
 
@@ -14,6 +20,8 @@ export const FINANCIAL_TRANSACTION_TYPE_CATALOG = [
   { code: "SUPPLIER_PAYMENT" as const, direction: "OUT" as const },
   { code: "EXPENSE_PAYMENT" as const, direction: "OUT" as const },
   { code: "CUSTOMER_REFUND" as const, direction: "OUT" as const },
+  { code: "OTHER_RECEIPT" as const, direction: "IN" as const },
+  { code: "OTHER_PAYMENT" as const, direction: "OUT" as const },
 ];
 
 export const FINANCIAL_TRANSACTION_TYPE_LABEL_KEY: Record<
@@ -24,6 +32,9 @@ export const FINANCIAL_TRANSACTION_TYPE_LABEL_KEY: Record<
   SUPPLIER_PAYMENT: "financialTransactions.types.SUPPLIER_PAYMENT",
   EXPENSE_PAYMENT: "financialTransactions.types.EXPENSE_PAYMENT",
   CUSTOMER_REFUND: "financialTransactions.types.CUSTOMER_REFUND",
+  OTHER_RECEIPT: "financialTransactions.types.OTHER_RECEIPT",
+  OTHER_PAYMENT: "financialTransactions.types.OTHER_PAYMENT",
+  INTERNAL_TRANSFER: "financialTransactions.types.INTERNAL_TRANSFER",
 };
 
 export const FINANCIAL_TRANSACTION_DIRECTION_LABEL_KEY: Record<
