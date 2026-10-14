@@ -1207,7 +1207,7 @@ describeDb('R22 I-A — settlement lifecycle (local DB)', () => {
     expect(await ledger(partnerId, 'AR')).toBe(400);
   });
 
-  it('R22 P — D3: a posted invoice settled by vouchers cannot be archived even when nothing remains; one closed by credit notes only can', async () => {
+  it('R22 P — D3 (+ review F3): a posted invoice settled by vouchers or by credit notes cannot be archived, even when nothing remains', async () => {
     const partnerId = await customer();
     const paid = await postedSalesInvoice(partnerId, 300);
     await receipt(partnerId, 300, [
@@ -1218,9 +1218,12 @@ describeDb('R22 I-A — settlement lifecycle (local DB)', () => {
     });
     const credited = await postedSalesInvoice(partnerId, 200);
     await postedSalesReturn(partnerId, credited.id, 200);
+    // Review F3 (decision): an applied credit note keeps the invoice too.
     await expect(
       salesInvoices.archive(credited.id, userId),
-    ).resolves.toMatchObject({ id: credited.id });
+    ).rejects.toMatchObject({
+      response: { code: 'INVOICE_ARCHIVE_SETTLEMENT' },
+    });
   });
 
   it('R22 P — A1: aging rows and invoice lines carry their currency; `totals` is the functional currency only, never a sum', async () => {
@@ -1596,5 +1599,99 @@ describeDb('R22 I-A — settlement lifecycle (local DB)', () => {
       ['CANCELLED_VOUCHER_ALLOCATED', 'ERROR'],
       ['DRAFT_OVER_CLAIM', 'REVIEW'],
     ]);
+  });
+
+  it('R22 P review — F5: as-of aging of a past day is unchanged by a later amount change, unallocate and cancel (allocation history)', async () => {
+    const partnerId = await customer();
+    const day = 86_400_000;
+    const invoice = await postedSalesInvoice(partnerId, 1_000);
+    await prisma.salesInvoice.update({
+      where: { id: invoice.id },
+      data: { confirmedAt: new Date(Date.now() - 6 * day) },
+    });
+    const voucher = await transactions.createConfirmed(
+      'CUSTOMER_RECEIPT',
+      {
+        partnerId,
+        receivingAccountId,
+        amount: 1_000,
+        transactionDate: new Date(Date.now() - 4 * day).toISOString(),
+        allocations: [{ invoiceId: invoice.id, allocatedAmount: 600 }],
+      },
+      userId,
+    );
+    const asOf = new Date(Date.now() - 2 * day).toISOString().slice(0, 10);
+    const pastAging = async () =>
+      (await reports.arAging({ partnerId, dateTo: asOf })).partners.map(
+        (row) => [row.total, row.unapplied, row.net],
+      );
+    // Two days ago: 400 open, 400 unapplied.
+    expect(await pastAging()).toEqual([[400, 400, 0]]);
+    const lineId = voucher.allocations[0].id;
+    await transactions.updateAllocation(voucher.id, lineId, 1_000, userId);
+    expect(await pastAging()).toEqual([[400, 400, 0]]);
+    await transactions.unallocate(voucher.id, lineId, userId);
+    expect(await pastAging()).toEqual([[400, 400, 0]]);
+    await transactions.cancel(voucher.id, userId);
+    expect(await pastAging()).toEqual([[400, 400, 0]]);
+    // Today: the invoice is open in full, nothing unapplied.
+    expect(
+      (await reports.arAging({ partnerId })).partners.map((row) => [
+        row.total,
+        row.unapplied,
+      ]),
+    ).toEqual([[1_000, 0]]);
+    const history = await prisma.financialTransactionAllocationEvent.findMany({
+      where: { transactionId: voucher.id },
+      orderBy: { createdAt: 'asc' },
+      select: { eventType: true, amountDelta: true },
+    });
+    expect(
+      history.map((row) => [row.eventType, Number(row.amountDelta)]),
+    ).toEqual([
+      ['CREATED', 600],
+      ['CHANGED', 400],
+      ['RELEASED', -1_000],
+    ]);
+  });
+
+  it('R22 P review — F7 / F8: a voucher route acts on its own type only (404); a voucher date after today is refused at create, update and confirm', async () => {
+    const customerId = await customer();
+    const voucher = await receipt(customerId, 10);
+    await expect(
+      transactions.assertVoucherOfType('SUPPLIER_PAYMENT', voucher.id),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      transactions.assertVoucherOfType('CUSTOMER_RECEIPT', voucher.id),
+    ).resolves.toBeUndefined();
+    const ahead = new Date(Date.now() + 2 * 86_400_000).toISOString();
+    await expect(
+      transactions.create(
+        'CUSTOMER_RECEIPT',
+        {
+          partnerId: customerId,
+          receivingAccountId,
+          amount: 5,
+          transactionDate: ahead,
+        },
+        userId,
+      ),
+    ).rejects.toMatchObject({ response: { code: 'VOUCHER_DATE_IN_FUTURE' } });
+    const draft = await transactions.create(
+      'CUSTOMER_RECEIPT',
+      { partnerId: customerId, receivingAccountId, amount: 5 },
+      userId,
+    );
+    await expect(
+      transactions.update(draft.id, { transactionDate: ahead }, userId),
+    ).rejects.toMatchObject({ response: { code: 'VOUCHER_DATE_IN_FUTURE' } });
+    await prisma.financialTransaction.update({
+      where: { id: draft.id },
+      data: { transactionDate: new Date(ahead) },
+    });
+    await expect(transactions.confirm(draft.id, userId)).rejects.toMatchObject({
+      response: { code: 'VOUCHER_DATE_IN_FUTURE' },
+    });
+    expect(await entries(draft.id)).toEqual([]);
   });
 });

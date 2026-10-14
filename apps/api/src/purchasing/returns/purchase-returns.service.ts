@@ -10,6 +10,9 @@ import {
   PurchaseLineTreatment,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { assertReturnCurrency } from '../../accounting/fx/return-invoice-rate';
+import { assertReturnNotPosted } from '../../common/workflow/posted-return-archive';
+import { POSTED_PURCHASE_RETURN_STATUSES } from '../../financial-transactions/shared/invoice-payment.util';
 import { NumberingEngineService } from '../../numbering/numbering-engine.service';
 import { ProductsService } from '../../products/products.service';
 import { WarehousesService } from '../../warehouses/warehouses.service';
@@ -126,6 +129,13 @@ export class PurchaseReturnsService {
       dto.purchaseInvoiceId,
       dto.partnerId,
     );
+    // R22 F10 — a return is in its invoice's currency (another is refused).
+    const { currencyId } = await assertReturnCurrency(
+      this.prisma,
+      'purchase',
+      dto.purchaseInvoiceId,
+      dto.currencyId,
+    );
     const productsById = await this.productsService.findManyForValidation(
       dto.items.map((item) => item.productId),
     );
@@ -155,7 +165,7 @@ export class PurchaseReturnsService {
             returnNumber,
             partnerId: dto.partnerId,
             purchaseInvoiceId: dto.purchaseInvoiceId,
-            currencyId: dto.currencyId,
+            currencyId,
             // TASK-051 Document Context Enrichment — inherited from the source invoice, never re-selected on the return.
             companyId: sourceInvoice.companyId,
             branchId: sourceInvoice.branchId,
@@ -358,6 +368,21 @@ export class PurchaseReturnsService {
       );
     }
 
+    // R22 F10 — the (new) invoice's currency; another one is refused.
+    const linkedInvoiceId = dto.purchaseInvoiceId ?? existing.purchaseInvoiceId;
+    const currencyId =
+      linkedInvoiceId &&
+      (dto.currencyId !== undefined || dto.purchaseInvoiceId !== undefined)
+        ? (
+            await assertReturnCurrency(
+              this.prisma,
+              'purchase',
+              linkedInvoiceId,
+              dto.currencyId ?? existing.currencyId,
+            )
+          ).currencyId
+        : dto.currencyId;
+
     let computed: ComputedReturnLines | undefined;
     if (dto.items) {
       const purchaseInvoiceId =
@@ -400,7 +425,7 @@ export class PurchaseReturnsService {
         data: {
           partnerId: dto.partnerId,
           purchaseInvoiceId: dto.purchaseInvoiceId,
-          currencyId: dto.currencyId,
+          currencyId,
           referenceNumber: dto.referenceNumber,
           internalNotes: dto.internalNotes,
           supplierNotes: dto.supplierNotes,
@@ -718,6 +743,10 @@ export class PurchaseReturnsService {
         `Cannot archive Purchase Return ${purchaseReturn.returnNumber} while it is ${purchaseReturn.status}.`,
       );
     }
+    assertReturnNotPosted(
+      POSTED_PURCHASE_RETURN_STATUSES.includes(purchaseReturn.status),
+      `Purchase Return ${purchaseReturn.returnNumber}`,
+    );
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.purchaseReturn.update({
         where: { id },

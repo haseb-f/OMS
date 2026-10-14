@@ -41,6 +41,7 @@ import {
   loadReturnCredits,
 } from '../../financial-transactions/shared/invoice-payment.util';
 import { PartnerStatementQueryDto } from './dto/partner-statement-query.dto';
+import { sumAllocationEventsAsOf } from '../../financial-transactions/shared/allocation-events';
 import { ExchangeRatesService } from '../fx/exchange-rates.service';
 import {
   buildNativeLedger,
@@ -1512,12 +1513,14 @@ export class AccountingReportsService {
     const currencyOf = (currencyId: string | null) =>
       currencyId ?? functionalCurrencyId;
 
-    // R20 / R22 — the one invoice settlement derivation, as of `asOf`.
+    // R20 / R22 — the one invoice settlement derivation. A past date reads
+    // the allocation history (F5): later cancels / changes never rewrite it.
+    const readAsOf = query.dateTo ? { asOf } : {};
     const settlements = await loadInvoiceSettlements(
       this.prisma,
       invoiceKey,
       invoices,
-      { asOf },
+      readAsOf,
     );
 
     type PartnerRow = {
@@ -1759,31 +1762,60 @@ export class AccountingReportsService {
       credits.push({ partner, currencyId, amount: roundReportMoney(amount) });
     };
 
+    // R22 F5 — as of a past date: the vouchers posted by then and not yet
+    // cancelled then (a cancel reverses on its own day), their applied part
+    // from the allocation history; today: the current rows.
+    const historical = !!query.dateTo;
     const vouchers = await this.prisma.financialTransaction.findMany({
       where: {
         ...scope,
         type: side === 'AR' ? 'CUSTOMER_RECEIPT' : 'SUPPLIER_PAYMENT',
-        status: FinancialTransactionStatus.CONFIRMED,
         deletedAt: null,
         transactionDate: { lte: asOf },
-        ...(side === 'AR' ? NOT_AGENT_COLLECTION : {}),
+        ...(historical
+          ? {
+              AND: [
+                {
+                  OR: [
+                    { status: FinancialTransactionStatus.CONFIRMED },
+                    {
+                      status: FinancialTransactionStatus.CANCELLED,
+                      cancelledAt: { gt: asOf },
+                    },
+                  ],
+                },
+                ...(side === 'AR' ? [NOT_AGENT_COLLECTION] : []),
+              ],
+            }
+          : {
+              status: FinancialTransactionStatus.CONFIRMED,
+              ...(side === 'AR' ? NOT_AGENT_COLLECTION : {}),
+            }),
       },
       select: {
+        id: true,
         amount: true,
         feeAmount: true,
         currencyId: true,
         partner: partnerSelect,
-        allocations: {
-          where: { allocationDate: { lte: asOf } },
-          select: { allocatedAmount: true },
-        },
+        allocations: { select: { allocatedAmount: true } },
       },
     });
+    const appliedAsOf = historical
+      ? await sumAllocationEventsAsOf(
+          this.prisma,
+          'transactionId',
+          vouchers.map((voucher) => voucher.id),
+          asOf,
+        )
+      : null;
     for (const voucher of vouchers) {
-      const allocated = voucher.allocations.reduce(
-        (sum, line) => sum + Number(line.allocatedAmount),
-        0,
-      );
+      const allocated = appliedAsOf
+        ? (appliedAsOf.get(voucher.id) ?? 0)
+        : voucher.allocations.reduce(
+            (sum, line) => sum + Number(line.allocatedAmount),
+            0,
+          );
       add(
         voucher.partner,
         voucher.currencyId,
@@ -1865,8 +1897,18 @@ export class AccountingReportsService {
             select: { id: true, grandTotal: true },
           });
     const [settlements, returnCredits] = await Promise.all([
-      loadInvoiceSettlements(this.prisma, invoiceKey, linkedInvoices, { asOf }),
-      loadReturnCredits(this.prisma, invoiceKey, invoiceIds, { asOf }),
+      loadInvoiceSettlements(
+        this.prisma,
+        invoiceKey,
+        linkedInvoices,
+        historical ? { asOf } : {},
+      ),
+      loadReturnCredits(
+        this.prisma,
+        invoiceKey,
+        invoiceIds,
+        historical ? { asOf } : {},
+      ),
     ]);
     const applied = appliedCreditByReturn(
       returnCredits,
@@ -1881,7 +1923,7 @@ export class AccountingReportsService {
       side === 'AR'
         ? await this.refundedAsOf(
             returns.filter((row) => !row.invoiceId).map((row) => row.id),
-            asOf,
+            historical ? asOf : null,
           )
         : new Map<string, number>();
     for (const row of returns) {
@@ -1893,17 +1935,24 @@ export class AccountingReportsService {
     return credits;
   }
 
-  /** Confirmed customer refunds per return as of a date (returns without an invoice). */
+  /** Customer refunds per return (returns without an invoice): today's rows, or the history as of a past date. */
   private async refundedAsOf(
     returnIds: string[],
-    asOf: Date,
+    asOf: Date | null,
   ): Promise<Map<string, number>> {
     if (returnIds.length === 0) return new Map();
+    if (asOf) {
+      return sumAllocationEventsAsOf(
+        this.prisma,
+        'salesReturnId',
+        returnIds,
+        asOf,
+      );
+    }
     const grouped = await this.prisma.financialTransactionAllocation.groupBy({
       by: ['salesReturnId'],
       where: {
         salesReturnId: { in: returnIds },
-        allocationDate: { lte: asOf },
         transaction: {
           status: FinancialTransactionStatus.CONFIRMED,
           deletedAt: null,

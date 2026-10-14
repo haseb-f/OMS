@@ -4,6 +4,7 @@ import {
   FinancialTransactionType,
   Prisma,
 } from '@prisma/client';
+import { recordAllocationEvents } from './allocation-events';
 
 type Client = Prisma.TransactionClient;
 
@@ -112,7 +113,7 @@ export async function syncAdvanceRefundConsumption(
         storeOrderId,
         transaction: { type: FinancialTransactionType.CUSTOMER_RECEIPT },
       },
-      select: { id: true, allocatedAmount: true },
+      select: { id: true, transactionId: true, allocatedAmount: true },
       orderBy: [{ allocationDate: 'desc' }, { id: 'desc' }],
     }),
   ]);
@@ -121,6 +122,7 @@ export async function syncAdvanceRefundConsumption(
       rows.reduce((sum, row) => sum + Number(row.allocatedAmount), 0),
   );
   if (Math.abs(missing) <= EPSILON) return;
+  const now = new Date();
 
   if (missing < 0) {
     for (const row of rows) {
@@ -140,6 +142,16 @@ export async function syncAdvanceRefundConsumption(
           },
         });
       }
+      // R22 F5 — the released part is in the allocation history.
+      await recordAllocationEvents(tx, [
+        {
+          line: { id: row.id, transactionId: row.transactionId, storeOrderId },
+          type: release >= amount - EPSILON ? 'RELEASED' : 'CHANGED',
+          delta: -release,
+          effectiveDate: now,
+          userId,
+        },
+      ]);
       missing = round2(missing + release);
     }
     return;
@@ -190,15 +202,25 @@ export async function syncAdvanceRefundConsumption(
     );
     const part = round2(Math.min(unallocated, missing));
     if (part <= EPSILON) continue;
-    await tx.financialTransactionAllocation.create({
+    const created = await tx.financialTransactionAllocation.create({
       data: {
         transactionId: receipt.id,
         storeOrderId,
         allocatedAmount: part,
+        allocationDate: now,
         createdBy: userId ?? null,
         updatedBy: userId ?? null,
       },
     });
+    await recordAllocationEvents(tx, [
+      {
+        line: created,
+        type: 'CREATED',
+        delta: part,
+        effectiveDate: now,
+        userId,
+      },
+    ]);
     missing = round2(missing - part);
   }
   if (missing > EPSILON) {
