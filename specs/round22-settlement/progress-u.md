@@ -57,8 +57,12 @@ keeps its type (settle ↔ advance only on a draft; locked once confirmed). Rout
   `COUNTER_ACCOUNT_NOT_ALLOWED`, `VOUCHER_DATE_IN_FUTURE`, `REFUND_EXCEEDS_RECEIPT_UNAPPLIED`, `RECEIPT_REFUNDED`,
   `RECEIPT_REFUND_ALLOCATION`, `RECEIPT_REFUND_STORE_ORDER`, `ALLOCATION_NOT_ALLOWED`, `AGENT_COLLECTION_NOT_ALLOCATABLE`,
   `COMPANY_MISMATCH`. After a refused reallocation the card reloads the server's lines.
-- Not done: saved other receipts / payments / transfers have no list tab of their own yet (reached via journal entry,
-  related records, traceability); bank-line ↔ transfer-voucher matching (T limitation).
+- Lists (follow-up): receipts page tab «تحصيلات أخرى» (`other-receipts`), supplier payments page tabs «مدفوعات أخرى»
+  (`other-payments`) and «تحويلات بين الحسابات» (`transfers`) — shared `ManualVoucherList` on EnterpriseDataTable (Table /
+  Grid): number, counter-account or from → to accounts, badge status, amount with currency, date, row → saved voucher
+  route; gated on `accounting.journal-entries.view` (`voucher-list-tabs.tsx`), refreshed by `settlement`. Specs
+  `manual-voucher-list.spec.tsx` 3, `voucher-list-tabs.spec.tsx` 2.
+- Not done: bank-line ↔ transfer-voucher matching (T limitation).
 
 ## Tests
 

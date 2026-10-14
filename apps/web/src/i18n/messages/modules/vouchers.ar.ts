@@ -130,6 +130,29 @@ const vouchersAr = {
     receiptAmount: "مبلغ سند القبض",
     unapplied: "غير المخصص (قابل للرد)",
   },
+  lists: {
+    otherReceipts: "تحصيلات أخرى",
+    otherReceiptsDescription:
+      "سندات قبض بحساب مقابل (إيراد آخر، رأس مال، قرض) — بلا عميل ولا فواتير.",
+    otherPayments: "مدفوعات أخرى",
+    otherPaymentsDescription:
+      "سندات صرف بحساب مقابل (مسحوبات، سداد قرض، أصل غير نقدي) — بلا مورد ولا فواتير.",
+    transfers: "تحويلات بين الحسابات",
+    transfersDescription:
+      "نقل مبالغ بين حسابات النقدية والبنوك بالعملة نفسها — لا إيراد ولا مصروف.",
+    addOtherReceipt: "تحصيل آخر جديد",
+    addOtherPayment: "صرف آخر جديد",
+    addTransfer: "تحويل جديد",
+    number: "رقم السند",
+    counterAccount: "الحساب المقابل",
+    fromTo: "من حساب ← إلى حساب",
+    status: "الحالة",
+    amount: "المبلغ",
+    date: "التاريخ",
+    emptyOtherReceipts: "لا توجد تحصيلات أخرى بعد.",
+    emptyOtherPayments: "لا توجد مدفوعات أخرى بعد.",
+    emptyTransfers: "لا توجد تحويلات بين الحسابات بعد.",
+  },
   toasts: {
     reallocated: "تم تعديل مبلغ التخصيص.",
     reallocateFailed: "لم يُعدَّل التخصيص — أُعيد تحميل السند من الخادم.",

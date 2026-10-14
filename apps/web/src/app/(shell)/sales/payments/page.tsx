@@ -32,7 +32,6 @@ import {
   MultiEntityFilter,
   useSelectedRecords,
 } from "@/components/shared/data-table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClearFiltersButton } from "@/components/shared/data-table/clear-filters-button";
 import {
   customerReceiptsService,
@@ -60,10 +59,44 @@ import { formatDate, toISODate } from "@/lib/date";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 import { useDataChanged } from "@/hooks/use-data-changed";
+import {
+  ManualVoucherList,
+  MANUAL_VOUCHER_VIEW_PERMISSION,
+} from "@/components/financial-transactions/manual-voucher-list";
+import {
+  CustomerMoneyTabs,
+  type CustomerMoneyView,
+} from "@/components/financial-transactions/voucher-list-tabs";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 
-type CustomerMoneyView = "receipts" | "refunds";
+/** R22 D4 — «تحصيلات أخرى»: saved other receipts, opened in the one voucher card. */
+function OtherReceiptsView({ onViewChange }: { onViewChange: (view: CustomerMoneyView) => void }) {
+  const { t } = useLocale();
+  const router = useRouter();
+  const { hasPermission } = useUserContext();
+  return (
+    <PageWorkspace
+      dense
+      title={t("vouchers.lists.otherReceipts")}
+      description={t("vouchers.lists.otherReceiptsDescription")}
+      actions={
+        <HeaderActions
+          primary={{
+            key: "add-new",
+            label: t("vouchers.lists.addOtherReceipt"),
+            icon: Plus,
+            onSelect: () => router.push("/sales/payments/new?purpose=other"),
+            hidden: !hasPermission("accounting.journal-entries.create"),
+          }}
+        />
+      }
+    >
+      <CustomerMoneyTabs view="other" onChange={onViewChange} />
+      <ManualVoucherList kind="OTHER_RECEIPT" />
+    </PageWorkspace>
+  );
+}
 
 /**
  * Fills the pre-provisioned `/sales/payments` nav stub — mirrors
@@ -72,15 +105,16 @@ type CustomerMoneyView = "receipts" | "refunds";
  * and actions — only the service, permission prefix and detail route
  * change. Refunds are created from the Sales Return ("Refund"), not here.
  */
-function CustomerReceiptsPageContent() {
+function CustomerReceiptsPageContent({
+  view,
+  setView,
+}: {
+  view: CustomerMoneyView;
+  setView: (view: CustomerMoneyView) => void;
+}) {
   const { t } = useLocale();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { hasPermission, user } = useUserContext();
-  const [view, setView] = usePathRestorableState<CustomerMoneyView>(
-    "view",
-    searchParams.get("view") === "refunds" ? "refunds" : "receipts",
-  );
   const canViewRefunds = hasPermission("sales.refunds.view");
   const isRefunds = view === "refunds" && canViewRefunds;
   const service = isRefunds ? customerRefundsService : customerReceiptsService;
@@ -443,21 +477,14 @@ function CustomerReceiptsPageContent() {
         />
       }
     >
-      {canViewRefunds && (
-        <Tabs
-          value={isRefunds ? "refunds" : "receipts"}
-          onValueChange={(value) => {
-            setView(value as CustomerMoneyView);
-            setRowSelection({});
-            setPage(1);
-          }}
-        >
-          <TabsList>
-            <TabsTrigger value="receipts">{t("sales.refunds.tabs.receipts")}</TabsTrigger>
-            <TabsTrigger value="refunds">{t("sales.refunds.tabs.refunds")}</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      )}
+      <CustomerMoneyTabs
+        view={isRefunds ? "refunds" : "receipts"}
+        onChange={(value) => {
+          setView(value);
+          setRowSelection({});
+          setPage(1);
+        }}
+      />
 
       <EnterpriseDataTable
         filterBar={
@@ -620,10 +647,24 @@ function CustomerReceiptsPageContent() {
   );
 }
 
+function CustomerMoneyPage() {
+  const searchParams = useSearchParams();
+  const { hasPermission } = useUserContext();
+  const requested = searchParams.get("view");
+  const [view, setView] = usePathRestorableState<CustomerMoneyView>(
+    "view",
+    requested === "refunds" || requested === "other" ? requested : "receipts",
+  );
+  if (view === "other" && hasPermission(MANUAL_VOUCHER_VIEW_PERMISSION)) {
+    return <OtherReceiptsView onViewChange={setView} />;
+  }
+  return <CustomerReceiptsPageContent view={view} setView={setView} />;
+}
+
 export default function CustomerReceiptsPage() {
   return (
     <PermissionGate permission="sales.receipts.view">
-      <CustomerReceiptsPageContent />
+      <CustomerMoneyPage />
     </PermissionGate>
   );
 }

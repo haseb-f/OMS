@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { Plus } from "lucide-react";
 import { PageWorkspace } from "@/components/shared/page-workspace";
@@ -58,11 +58,63 @@ import { formatDate, toISODate } from "@/lib/date";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 import { useDataChanged } from "@/hooks/use-data-changed";
+import {
+  ManualVoucherList,
+  MANUAL_VOUCHER_VIEW_PERMISSION,
+} from "@/components/financial-transactions/manual-voucher-list";
+import {
+  SupplierMoneyTabs,
+  type SupplierMoneyView,
+} from "@/components/financial-transactions/voucher-list-tabs";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 
+/** R22 D4 — «مدفوعات أخرى» / «تحويلات بين الحسابات»: saved vouchers, opened in the one voucher card. */
+function ManualVouchersView({
+  view,
+  onViewChange,
+}: {
+  view: "other" | "transfers";
+  onViewChange: (view: SupplierMoneyView) => void;
+}) {
+  const { t } = useLocale();
+  const router = useRouter();
+  const { hasPermission } = useUserContext();
+  const isTransfer = view === "transfers";
+  return (
+    <PageWorkspace
+      dense
+      title={t(isTransfer ? "vouchers.lists.transfers" : "vouchers.lists.otherPayments")}
+      description={t(
+        isTransfer
+          ? "vouchers.lists.transfersDescription"
+          : "vouchers.lists.otherPaymentsDescription",
+      )}
+      actions={
+        <HeaderActions
+          primary={{
+            key: "add-new",
+            label: t(isTransfer ? "vouchers.lists.addTransfer" : "vouchers.lists.addOtherPayment"),
+            icon: Plus,
+            onSelect: () =>
+              router.push(`/purchasing/payments/new?purpose=${isTransfer ? "transfer" : "other"}`),
+            hidden: !hasPermission("accounting.journal-entries.create"),
+          }}
+        />
+      }
+    >
+      <SupplierMoneyTabs view={view} onChange={onViewChange} />
+      <ManualVoucherList key={view} kind={isTransfer ? "INTERNAL_TRANSFER" : "OTHER_PAYMENT"} />
+    </PageWorkspace>
+  );
+}
+
 /** Mirrors `sales/payments/page.tsx` exactly. */
-function SupplierPaymentsPageContent() {
+function SupplierPaymentsPageContent({
+  onViewChange,
+}: {
+  onViewChange: (view: SupplierMoneyView) => void;
+}) {
   const { t } = useLocale();
   const router = useRouter();
   const { hasPermission, user } = useUserContext();
@@ -364,6 +416,7 @@ function SupplierPaymentsPageContent() {
         />
       }
     >
+      <SupplierMoneyTabs view="payments" onChange={onViewChange} />
       <EnterpriseDataTable
         filterBar={
           <>
@@ -525,10 +578,24 @@ function SupplierPaymentsPageContent() {
   );
 }
 
+function SupplierMoneyPage() {
+  const searchParams = useSearchParams();
+  const { hasPermission } = useUserContext();
+  const requested = searchParams.get("view");
+  const [view, setView] = usePathRestorableState<SupplierMoneyView>(
+    "view",
+    requested === "other" || requested === "transfers" ? requested : "payments",
+  );
+  if (view !== "payments" && hasPermission(MANUAL_VOUCHER_VIEW_PERMISSION)) {
+    return <ManualVouchersView view={view} onViewChange={setView} />;
+  }
+  return <SupplierPaymentsPageContent onViewChange={setView} />;
+}
+
 export default function SupplierPaymentsPage() {
   return (
     <PermissionGate permission="purchasing.payments.view">
-      <SupplierPaymentsPageContent />
+      <SupplierMoneyPage />
     </PermissionGate>
   );
 }

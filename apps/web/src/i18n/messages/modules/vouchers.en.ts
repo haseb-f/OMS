@@ -136,6 +136,29 @@ const vouchersEn = {
     receiptAmount: "Receipt amount",
     unapplied: "Unapplied (refundable)",
   },
+  lists: {
+    otherReceipts: "Other receipts",
+    otherReceiptsDescription:
+      "Receipts against a counter-account (other income, capital, a loan) — no customer, no invoices.",
+    otherPayments: "Other payments",
+    otherPaymentsDescription:
+      "Payments against a counter-account (drawings, a loan repayment, a non-cash asset) — no supplier, no invoices.",
+    transfers: "Transfers between accounts",
+    transfersDescription:
+      "Money moved between cash and bank accounts in one currency — neither income nor expense.",
+    addOtherReceipt: "New other receipt",
+    addOtherPayment: "New other payment",
+    addTransfer: "New transfer",
+    number: "Voucher number",
+    counterAccount: "Counter-account",
+    fromTo: "From account → to account",
+    status: "Status",
+    amount: "Amount",
+    date: "Date",
+    emptyOtherReceipts: "No other receipts yet.",
+    emptyOtherPayments: "No other payments yet.",
+    emptyTransfers: "No transfers between accounts yet.",
+  },
   toasts: {
     reallocated: "Allocation amount updated.",
     reallocateFailed: "The allocation was not changed — the voucher was reloaded from the server.",
