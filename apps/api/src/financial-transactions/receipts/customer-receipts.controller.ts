@@ -84,38 +84,43 @@ export class CustomerReceiptsController {
   }
 
   @Patch(':id')
-  update(
+  async update(
     @Param('id') id: string,
     @Body() dto: UpdateCustomerReceiptDto,
     @CurrentUser() user: JwtPayload,
   ) {
+    await this.transactions.assertRouteType(TYPE, id);
     return this.transactions.update(id, dto, user.sub);
   }
 
   @Delete(':id')
   @HttpCode(200)
-  remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string) {
+    await this.transactions.assertRouteType(TYPE, id);
     return this.transactions.remove(id);
   }
 
   @Post(':id/confirm')
   @HttpCode(200)
   @PermissionAction('confirm')
-  confirm(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+  async confirm(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    await this.transactions.assertRouteType(TYPE, id);
     return this.transactions.confirm(id, user.sub);
   }
 
   @Post(':id/cancel')
   @HttpCode(200)
   @PermissionAction('cancel')
-  cancel(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+  async cancel(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    await this.transactions.assertRouteType(TYPE, id);
     return this.transactions.cancel(id, user.sub);
   }
 
   @Post(':id/archive')
   @HttpCode(200)
   @PermissionAction('delete')
-  archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+  async archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    await this.transactions.assertRouteType(TYPE, id);
     return this.transactions.archive(id, user.sub);
   }
 
@@ -123,11 +128,12 @@ export class CustomerReceiptsController {
   @Post(':id/allocate')
   @HttpCode(200)
   @PermissionAction('edit')
-  allocate(
+  async allocate(
     @Param('id') id: string,
     @Body() dto: AllocationInputDto,
     @CurrentUser() user: JwtPayload,
   ) {
+    await this.transactions.assertRouteType(TYPE, id);
     return this.transactions.allocate(id, dto, user.sub);
   }
 
@@ -137,12 +143,13 @@ export class CustomerReceiptsController {
    */
   @Patch(':id/allocations/:allocationId')
   @PermissionAction('edit')
-  updateAllocation(
+  async updateAllocation(
     @Param('id') id: string,
     @Param('allocationId') allocationId: string,
     @Body() dto: UpdateAllocationDto,
     @CurrentUser() user: JwtPayload,
   ) {
+    await this.transactions.assertRouteType(TYPE, id);
     return this.transactions.updateAllocation(
       id,
       allocationId,
@@ -154,11 +161,12 @@ export class CustomerReceiptsController {
   @Post(':id/allocations/:allocationId/unallocate')
   @HttpCode(200)
   @PermissionAction('edit')
-  unallocate(
+  async unallocate(
     @Param('id') id: string,
     @Param('allocationId') allocationId: string,
     @CurrentUser() user: JwtPayload,
   ) {
+    await this.transactions.assertRouteType(TYPE, id);
     return this.transactions.unallocate(id, allocationId, user.sub);
   }
 }

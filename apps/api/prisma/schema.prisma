@@ -7521,6 +7521,36 @@ model FinancialTransactionAllocation {
   @@map("financial_transaction_allocations")
 }
 
+/// R22 F5 / F6 — append-only history of allocation effects: CREATED /
+/// CHANGED / RELEASED with the signed amount and the day it took effect
+/// (max(voucher date, invoice posting date) for lines posted with the
+/// voucher; the day of a later Allocate / amount change / Unallocate /
+/// Cancel). Read ONLY by as-of aging (past dates agree with the ledger);
+/// current-state readers keep reading the allocation rows. Never updated or
+/// deleted; no FKs (an allocation row is deleted on Unallocate / Cancel).
+model FinancialTransactionAllocationEvent {
+  id                String   @id @default(uuid()) @db.Uuid
+  allocationId      String   @map("allocation_id") @db.Uuid
+  transactionId     String   @map("transaction_id") @db.Uuid
+  salesInvoiceId    String?  @map("sales_invoice_id") @db.Uuid
+  purchaseInvoiceId String?  @map("purchase_invoice_id") @db.Uuid
+  salesReturnId     String?  @map("sales_return_id") @db.Uuid
+  storeOrderId      String?  @map("store_order_id") @db.Uuid
+  /// CREATED | CHANGED | RELEASED
+  eventType         String   @map("event_type")
+  amountDelta       Decimal  @map("amount_delta") @db.Decimal(12, 2)
+  effectiveDate     DateTime @map("effective_date")
+  createdAt         DateTime @default(now()) @map("created_at")
+  createdBy         String?  @map("created_by") @db.Uuid
+
+  @@index([transactionId])
+  @@index([allocationId])
+  @@index([salesInvoiceId])
+  @@index([purchaseInvoiceId])
+  @@index([salesReturnId])
+  @@map("financial_transaction_allocation_events")
+}
+
 /// Timeline — same shape as every other *Activity entity in this codebase.
 model FinancialTransactionActivity {
   id String @id @default(uuid()) @db.Uuid

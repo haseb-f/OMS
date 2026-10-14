@@ -38,6 +38,7 @@ import {
 import { ALLOCATION_FX_SOURCE_TYPE } from '../accounting/posting-providers/allocation-fx-posting.provider';
 import { financialTransactionOrderBy } from './shared/find-financial-transactions-query.dto';
 import { assertFeeWithinAmount } from './shared/fee-cap';
+import { assertVoucherDateNotInFuture } from './shared/voucher-date';
 import type { AllocationInputDto } from './shared/allocation-input.dto';
 import type { FindFinancialTransactionsQueryDto } from './shared/find-financial-transactions-query.dto';
 import { prismaEnumFilter } from '../common/query/enum-list';
@@ -250,6 +251,7 @@ export class FinancialTransactionsService {
   ) {
     const replay = await this.findIdempotentReplay(type, dto, outerTx);
     if (replay) return replay;
+    assertVoucherDateNotInFuture(dto.transactionDate);
     const partyId = await this.assertActiveParty(type, dto);
     const feeAmount = dto.feeAmount ?? 0;
     if (feeAmount > 0) {
@@ -629,6 +631,26 @@ export class FinancialTransactionsService {
     return transaction;
   }
 
+  /**
+   * R22 F7 — a voucher route acts on vouchers of its own type only: a
+   * receipt route never reads or changes a supplier payment, refund or
+   * expense voucher (404, as for an unknown id). Every voucher controller
+   * calls this before an id-based operation (get, update, delete, confirm,
+   * cancel, archive, allocate, unallocate, allocation change, activities).
+   */
+  async assertRouteType(
+    type: FinancialTransactionType,
+    id: string,
+  ): Promise<void> {
+    const found = await this.prisma.financialTransaction.findFirst({
+      where: { id, type, deletedAt: null },
+      select: { id: true },
+    });
+    if (!found) {
+      throw new NotFoundException(`${this.label(type)} ${id} not found`);
+    }
+  }
+
   async update(
     id: string,
     dto: FinancialTransactionUpdateInput,
@@ -640,6 +662,7 @@ export class FinancialTransactionsService {
         `Only a Draft ${this.label(existing.type).toLowerCase()} can be edited.`,
       );
     }
+    assertVoucherDateNotInFuture(dto.transactionDate);
 
     const partyId = existing.partnerId ?? undefined;
     const isExpense = existing.type === 'EXPENSE_PAYMENT';
@@ -793,6 +816,8 @@ export class FinancialTransactionsService {
           `Cannot confirm ${this.label(existing.type)} ${existing.transactionNumber} from ${existing.status}.`,
         );
       }
+      // R22 F8 — the entry is booked on the voucher date (D1): never ahead.
+      assertVoucherDateNotInFuture(existing.transactionDate);
       if (existing.type === 'CUSTOMER_REFUND') {
         this.assertRefundFullyAllocated(
           Number(existing.amount),
