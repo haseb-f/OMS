@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import Link from "next/link";
 import { FileCheck2, Plus } from "lucide-react";
 import {
   Table,
@@ -9,10 +10,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  tableNumericCellClass,
 } from "@/components/ui/table";
 import { EnterpriseButton } from "@/components/ui/button";
 import { StatusBadge } from "@/components/business/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
+import { MoneyInput } from "@/components/shared/money-input";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useElementWidth } from "@/hooks/use-element-width";
 import { formatDate } from "@/lib/date";
@@ -28,15 +31,25 @@ import { isOtherCurrency, type SettlementCurrency } from "./settlement-currency"
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
-/** Below this width the seven columns no longer fit their figures: rows become cards. */
+/** Below this width the columns no longer fit their figures: rows become cards. */
 const TABLE_MIN_WIDTH = 720;
 
+/** One row of the table: an open invoice, or an invoice this voucher already settled in full. */
+export type VoucherInvoiceRow = OpenInvoiceRow & {
+  /** The invoice's own route (sales vs purchase) — every document reference is a real link. */
+  href?: string;
+  /** Read-only line (e.g. the part of a receipt an advance refund paid back). */
+  locked?: boolean;
+};
+
 /**
- * One open invoice as the allocation section shows it (R20): the invoice
- * total, what earlier confirmed vouchers paid, what was still open before this
- * voucher, and what this voucher applies — always `total = paid before + open`.
- * For a confirmed voucher the API's figures already include its own lines, so
- * they are taken back out. Figures only; the API derives every one of them.
+ * One invoice as the voucher's allocation table shows it (R20, R22): the
+ * invoice total, what earlier confirmed vouchers paid, credit notes applied
+ * apart from cash, what this voucher applies, and what REMAINS once this
+ * voucher counts — always `total = paid before + credit + this voucher +
+ * remaining`. For a confirmed voucher the API's figures already include its
+ * own lines, so «remaining» is the invoice's real balance (R22 §4, measured:
+ * the old table showed the balance before the voucher). Display only.
  */
 export function describeOpenInvoice(
   invoice: OpenInvoiceRow,
@@ -44,40 +57,98 @@ export function describeOpenInvoice(
   confirmedVoucher: boolean,
 ) {
   const own = confirmedVoucher ? thisVoucher : 0;
+  const credited = round2(invoice.creditedTotal ?? 0);
+  const remaining = confirmedVoucher
+    ? round2(invoice.remainingBalance)
+    : round2(invoice.remainingBalance - thisVoucher);
   return {
     paidBefore: Math.max(round2(invoice.allocatedTotal - own), 0),
+    credited,
+    /** What this invoice could take from this voucher (its balance before it). */
     openBefore: round2(invoice.remainingBalance + own),
     thisVoucher,
+    remaining,
   };
 }
 
 /**
- * Financial Transactions & Matching Engine (TASK-043) — every open (not
- * fully paid) invoice for the selected party, reused as-is for both
- * Customer Receipts (Sales Invoices) and Supplier Payments (Purchase
- * Invoices) — the rows are already domain-agnostic `OpenInvoiceRow`s by the
- * time they reach this component. Clicking a row adds/updates it in the
- * `AllocationGrid`; "Pay All Remaining" allocates every row's full
- * remaining balance in one action (capped upstream at the transaction's
- * own unallocated amount by the caller). R20: previous payments and this
- * voucher's allocation per invoice; an invoice in another currency than the
- * voucher cannot be allocated. Below the tablet breakpoint rows become cards.
+ * The rows the voucher's allocation table lists: the party's open invoices,
+ * plus every invoice this voucher already allocates that is no longer open
+ * (fully settled by it) — so a line can always be seen, changed or removed
+ * in the ONE table.
+ */
+export function mergeAllocatedInvoices(
+  openInvoices: readonly OpenInvoiceRow[],
+  lines: readonly {
+    invoiceId: string;
+    invoiceNumber: string;
+    invoiceHref?: string;
+    allocatedAmount: number;
+    grandTotal?: number | null;
+    locked?: boolean;
+  }[],
+  hrefOf: (invoiceId: string) => string,
+): VoucherInvoiceRow[] {
+  const rows: VoucherInvoiceRow[] = openInvoices.map((invoice) => ({
+    ...invoice,
+    href: hrefOf(invoice.invoiceId),
+  }));
+  const known = new Set(openInvoices.map((invoice) => invoice.invoiceId));
+  for (const line of lines) {
+    if (!line.invoiceId || known.has(line.invoiceId)) continue;
+    known.add(line.invoiceId);
+    const total = line.grandTotal ?? line.allocatedAmount;
+    rows.push({
+      invoiceId: line.invoiceId,
+      invoiceNumber: line.invoiceNumber,
+      documentDate: "",
+      currencyId: null,
+      currencyCode: null,
+      grandTotal: total,
+      allocatedTotal: total,
+      remainingBalance: 0,
+      paymentStatus: "PAID",
+      href: line.invoiceHref ?? hrefOf(line.invoiceId),
+      locked: line.locked,
+    });
+  }
+  return rows;
+}
+
+/**
+ * Financial Transactions & Matching Engine (TASK-043, R20, R22) — the
+ * party's open invoices for a receipt / supplier payment, party-agnostic
+ * (`OpenInvoiceRow`s). R22: the ONE allocation surface of the voucher card —
+ * each row carries an inline «this voucher» amount (`onAllocationChange`),
+ * replacing the separate allocation grid and summaries; "Pay all remaining"
+ * fills them oldest first. `readOnly` (profile tabs) shows the figures only.
+ * An invoice in another currency than the voucher cannot be allocated.
+ * Numeric cells use the shared `TableCell numeric` (header and figures on
+ * the same logical end edge in RTL and LTR). Below the tablet width rows
+ * become cards.
  */
 export function OpenInvoicesTable({
   invoices,
   isLoading,
   disabled,
   onAllocate,
+  onAllocationChange,
+  commitOnBlur = false,
   onPayAllRemaining,
   readOnly,
   allocations = [],
   confirmedVoucher = false,
   currency = null,
 }: {
-  invoices: OpenInvoiceRow[];
+  invoices: VoucherInvoiceRow[];
   isLoading?: boolean;
   disabled?: boolean;
+  /** Legacy row action ("+"): allocate the invoice's balance. Ignored when `onAllocationChange` is given. */
   onAllocate?: (invoice: OpenInvoiceRow) => void;
+  /** R22 — the inline «this voucher» amount changed (0 removes the line). */
+  onAllocationChange?: (invoice: VoucherInvoiceRow, amount: number) => void;
+  /** A confirmed voucher changes allocations on the server: commit an amount on blur, not per keystroke. */
+  commitOnBlur?: boolean;
   onPayAllRemaining?: () => void;
   /** Profile-tab usage (Customer/Supplier Payments tab) — shows the same rows with no allocate action and no "Pay All Remaining" button. */
   readOnly?: boolean;
@@ -105,6 +176,8 @@ export function OpenInvoicesTable({
           invoices={invoices}
           disabled={disabled}
           onAllocate={onAllocate}
+          onAllocationChange={onAllocationChange}
+          commitOnBlur={commitOnBlur}
           onPayAllRemaining={onPayAllRemaining}
           readOnly={readOnly}
           allocations={allocations}
@@ -117,10 +190,55 @@ export function OpenInvoicesTable({
   );
 }
 
+/** The inline «this voucher» amount — live while drafting, committed on blur once posted. */
+function ThisVoucherInput({
+  invoice,
+  amount,
+  disabled,
+  commitOnBlur,
+  overLimit,
+  onChange,
+}: {
+  invoice: VoucherInvoiceRow;
+  amount: number;
+  disabled?: boolean;
+  commitOnBlur: boolean;
+  overLimit: boolean;
+  onChange: (amount: number) => void;
+}) {
+  const { t } = useLocale();
+  const [pending, setPending] = useState<number | null>(null);
+  const shown = pending ?? amount;
+  return (
+    <MoneyInput
+      aria-label={`${t("vouchers.allocation.thisVoucher")} ${invoice.invoiceNumber}`}
+      aria-invalid={overLimit || undefined}
+      value={shown || ""}
+      disabled={disabled || invoice.locked}
+      onValueChange={(value) => {
+        const next = round2(value ?? 0);
+        if (commitOnBlur) setPending(next);
+        else onChange(next);
+      }}
+      onBlur={() => {
+        if (commitOnBlur && pending !== null) {
+          if (pending !== amount) onChange(pending);
+          setPending(null);
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") (event.target as HTMLInputElement).blur();
+      }}
+    />
+  );
+}
+
 function OpenInvoiceRows({
   invoices,
   disabled,
   onAllocate,
+  onAllocationChange,
+  commitOnBlur,
   onPayAllRemaining,
   readOnly,
   allocations,
@@ -128,9 +246,11 @@ function OpenInvoiceRows({
   currency,
   stacked,
 }: {
-  invoices: OpenInvoiceRow[];
+  invoices: VoucherInvoiceRow[];
   disabled?: boolean;
   onAllocate?: (invoice: OpenInvoiceRow) => void;
+  onAllocationChange?: (invoice: VoucherInvoiceRow, amount: number) => void;
+  commitOnBlur: boolean;
   onPayAllRemaining?: () => void;
   readOnly?: boolean;
   allocations: readonly { invoiceId: string; allocatedAmount: number }[];
@@ -139,6 +259,8 @@ function OpenInvoiceRows({
   stacked: boolean;
 }) {
   const { t } = useLocale();
+  const inline = Boolean(onAllocationChange) && !readOnly;
+  const showCredit = invoices.some((invoice) => (invoice.creditedTotal ?? 0) > 0);
 
   const thisVoucherBy = new Map<string, number>();
   for (const line of allocations) {
@@ -156,40 +278,69 @@ function OpenInvoiceRows({
     );
     const otherCurrency = isOtherCurrency(invoice, currency);
     const money = (value: number) => formatMoney(value, invoice.currencyCode ?? undefined);
+    const overLimit = figures.thisVoucher > figures.openBefore + 0.005;
     const status = (
       <StatusBadge
         label={t(INVOICE_PAYMENT_STATUS_LABEL_KEY[invoice.paymentStatus])}
         tone={INVOICE_PAYMENT_STATUS_TONE[invoice.paymentStatus]}
       />
     );
-    const otherCurrencyNote = otherCurrency ? (
-      <span className="text-caption text-muted-foreground">
-        {t("financialTransactions.openInvoices.otherCurrency", {
-          currency: currency?.currencyCode ?? "",
-        })}
-      </span>
-    ) : null;
-    const allocateButton = readOnly ? null : (
-      <EnterpriseButton
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        disabled={disabled || otherCurrency}
-        aria-label={`${t("financialTransactions.openInvoices.allocate")} ${invoice.invoiceNumber}`}
-        onClick={() => onAllocate?.(invoice)}
-      >
-        <Plus className="size-3.5 text-muted-foreground" />
-      </EnterpriseButton>
+    const notes = (
+      <>
+        {otherCurrency ? (
+          <span className="block text-caption text-muted-foreground">
+            {t("financialTransactions.openInvoices.otherCurrency", {
+              currency: currency?.currencyCode ?? "",
+            })}
+          </span>
+        ) : null}
+        {invoice.locked ? (
+          <span className="block text-caption text-muted-foreground">
+            {t("vouchers.allocation.locked")}
+          </span>
+        ) : null}
+        {overLimit ? (
+          <span role="alert" className="block text-caption text-destructive">
+            {t("financialTransactions.allocationGrid.overpaid")}
+          </span>
+        ) : null}
+      </>
     );
-    return { invoice, figures, otherCurrency, money, status, otherCurrencyNote, allocateButton };
+    const amountControl = inline ? (
+      <ThisVoucherInput
+        invoice={invoice}
+        amount={figures.thisVoucher}
+        disabled={disabled || otherCurrency}
+        commitOnBlur={commitOnBlur}
+        overLimit={overLimit}
+        onChange={(amount) => onAllocationChange?.(invoice, amount)}
+      />
+    ) : null;
+    const allocateButton =
+      readOnly || inline ? null : (
+        <EnterpriseButton
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          disabled={disabled || otherCurrency}
+          aria-label={`${t("financialTransactions.openInvoices.allocate")} ${invoice.invoiceNumber}`}
+          onClick={() => onAllocate?.(invoice)}
+        >
+          <Plus className="size-3.5 text-muted-foreground" />
+        </EnterpriseButton>
+      );
+    return { invoice, figures, money, status, notes, amountControl, allocateButton };
   });
 
   const header = (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-2">
       <p className="text-caption text-muted-foreground">
-        {t("financialTransactions.openInvoices.count", { count: invoices.length })}
+        {t("financialTransactions.openInvoices.count", {
+          count: invoices.filter((invoice) => invoice.remainingBalance > 0).length,
+        })}
+        {inline ? ` · ${t("vouchers.allocation.hint")}` : null}
       </p>
-      {!readOnly && (
+      {!readOnly && onPayAllRemaining ? (
         <EnterpriseButton
           type="button"
           variant="outline"
@@ -200,18 +351,30 @@ function OpenInvoiceRows({
         >
           {t("financialTransactions.openInvoices.payAllRemaining")}
         </EnterpriseButton>
-      )}
+      ) : null}
     </div>
   );
 
-  const invoiceRef = (invoice: OpenInvoiceRow) => (
+  const invoiceRef = (invoice: VoucherInvoiceRow) => (
     <div className="flex min-w-0 flex-col gap-0.5">
-      <code dir="ltr" className="w-fit rounded bg-muted px-1.5 py-0.5 text-xs">
-        {invoice.invoiceNumber}
-      </code>
-      <span className="num text-caption text-muted-foreground">
-        {formatDate(invoice.documentDate)}
-      </span>
+      {invoice.href ? (
+        <Link
+          href={invoice.href}
+          dir="ltr"
+          className="w-fit rounded bg-muted px-1.5 py-0.5 text-xs text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring focus-visible:outline-solid"
+        >
+          {invoice.invoiceNumber}
+        </Link>
+      ) : (
+        <code dir="ltr" className="w-fit rounded bg-muted px-1.5 py-0.5 text-xs">
+          {invoice.invoiceNumber}
+        </code>
+      )}
+      {invoice.documentDate ? (
+        <span className="num w-fit text-caption text-muted-foreground">
+          {formatDate(invoice.documentDate)}
+        </span>
+      ) : null}
     </div>
   );
 
@@ -219,7 +382,7 @@ function OpenInvoiceRows({
     return (
       <div className="flex flex-col gap-3">
         {header}
-        {rows.map(({ invoice, figures, money, status, otherCurrencyNote, allocateButton }) => (
+        {rows.map(({ invoice, figures, money, status, notes, amountControl, allocateButton }) => (
           <div
             key={invoice.invoiceId}
             data-testid="open-invoice"
@@ -241,20 +404,31 @@ function OpenInvoiceRows({
                 label={t("financialTransactions.openInvoices.paidBefore")}
                 value={money(figures.paidBefore)}
               />
+              {showCredit ? (
+                <Figure label={t("vouchers.allocation.credited")} value={money(figures.credited)} />
+              ) : null}
               <Figure
                 label={t("financialTransactions.openInvoices.remaining")}
-                value={money(figures.openBefore)}
+                value={money(figures.remaining)}
                 strong
               />
-              {!readOnly ? (
+              {!readOnly && !amountControl ? (
                 <Figure
-                  label={t("financialTransactions.openInvoices.thisVoucher")}
+                  label={t("vouchers.allocation.thisVoucher")}
                   value={money(figures.thisVoucher)}
                   highlight={figures.thisVoucher > 0}
                 />
               ) : null}
             </dl>
-            {otherCurrencyNote}
+            {amountControl ? (
+              <label data-testid="allocation-line" className="flex min-w-0 flex-col gap-1">
+                <span className="text-caption text-muted-foreground">
+                  {t("vouchers.allocation.thisVoucher")}
+                </span>
+                {amountControl}
+              </label>
+            ) : null}
+            {notes}
           </div>
         ))}
       </div>
@@ -269,59 +443,69 @@ function OpenInvoiceRows({
           <TableHeader className="bg-muted/50">
             <TableRow className="hover:bg-transparent">
               <TableHead>{t("financialTransactions.openInvoices.invoice")}</TableHead>
-              <TableHead className="text-end">
+              <TableHead className={tableNumericCellClass}>
                 {t("financialTransactions.openInvoices.grandTotal")}
               </TableHead>
-              <TableHead className="text-end">
+              <TableHead className={tableNumericCellClass}>
                 {t("financialTransactions.openInvoices.paidBefore")}
               </TableHead>
-              <TableHead className="text-end">
-                {t("financialTransactions.openInvoices.remaining")}
-              </TableHead>
+              {showCredit ? (
+                <TableHead className={tableNumericCellClass}>
+                  {t("vouchers.allocation.credited")}
+                </TableHead>
+              ) : null}
               {!readOnly && (
-                <TableHead className="text-end">
-                  {t("financialTransactions.openInvoices.thisVoucher")}
+                <TableHead
+                  className={cn(tableNumericCellClass, inline && "w-(--width-control-price)")}
+                >
+                  {t("vouchers.allocation.thisVoucher")}
                 </TableHead>
               )}
+              <TableHead className={tableNumericCellClass}>
+                {t("financialTransactions.openInvoices.remaining")}
+              </TableHead>
               <TableHead className="w-32">
                 {t("financialTransactions.openInvoices.status")}
               </TableHead>
-              {!readOnly && <TableHead className="w-(--width-control-actions)" />}
+              {!readOnly && !inline && <TableHead className="w-(--width-control-actions)" />}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map(({ invoice, figures, money, status, otherCurrencyNote, allocateButton }) => (
-              <TableRow key={invoice.invoiceId} data-testid="open-invoice">
-                <TableCell className="align-middle">
-                  {invoiceRef(invoice)}
-                  {otherCurrencyNote}
-                </TableCell>
-                <TableCell className="num align-middle text-end" dir="ltr">
-                  {money(invoice.grandTotal)}
-                </TableCell>
-                <TableCell className="num align-middle text-end" dir="ltr">
-                  {money(figures.paidBefore)}
-                </TableCell>
-                <TableCell className="num align-middle text-end font-medium" dir="ltr">
-                  {money(figures.openBefore)}
-                </TableCell>
-                {!readOnly && (
-                  <TableCell
-                    className={cn(
-                      "num align-middle text-end",
-                      figures.thisVoucher > 0
-                        ? "font-semibold text-primary"
-                        : "text-muted-foreground",
-                    )}
-                    dir="ltr"
-                  >
-                    {money(figures.thisVoucher)}
+            {rows.map(
+              ({ invoice, figures, money, status, notes, amountControl, allocateButton }) => (
+                <TableRow key={invoice.invoiceId} data-testid="open-invoice">
+                  <TableCell className="whitespace-normal">
+                    {invoiceRef(invoice)}
+                    {notes}
                   </TableCell>
-                )}
-                <TableCell className="align-middle">{status}</TableCell>
-                {!readOnly && <TableCell className="align-middle">{allocateButton}</TableCell>}
-              </TableRow>
-            ))}
+                  <TableCell numeric>{money(invoice.grandTotal)}</TableCell>
+                  <TableCell numeric>{money(figures.paidBefore)}</TableCell>
+                  {showCredit ? <TableCell numeric>{money(figures.credited)}</TableCell> : null}
+                  {!readOnly &&
+                    (amountControl ? (
+                      <TableCell data-testid="allocation-line" className={tableNumericCellClass}>
+                        {amountControl}
+                      </TableCell>
+                    ) : (
+                      <TableCell
+                        numeric
+                        className={cn(
+                          figures.thisVoucher > 0
+                            ? "font-semibold text-primary"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {money(figures.thisVoucher)}
+                      </TableCell>
+                    ))}
+                  <TableCell numeric className="font-medium">
+                    {money(figures.remaining)}
+                  </TableCell>
+                  <TableCell>{status}</TableCell>
+                  {!readOnly && !inline && <TableCell>{allocateButton}</TableCell>}
+                </TableRow>
+              ),
+            )}
           </TableBody>
         </Table>
       </div>
@@ -344,14 +528,13 @@ function Figure({
     <div className="flex min-w-0 flex-col gap-0.5">
       <dt className="text-muted-foreground">{label}</dt>
       <dd
-        dir="ltr"
         className={cn(
-          "num text-end",
+          tableNumericCellClass,
           strong && "font-medium",
           highlight && "font-semibold text-primary",
         )}
       >
-        {value}
+        <span className="num">{value}</span>
       </dd>
     </div>
   );

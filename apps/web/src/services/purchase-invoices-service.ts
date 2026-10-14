@@ -1,5 +1,6 @@
 import type { ChartOfAccountRow } from "@/config/master-data/entities";
 import { apiClient } from "./api-client";
+import type { InvoiceSettlement } from "./invoice-settlement-types";
 import { buildQueryString } from "@/lib/query-string";
 import type { PartnerRow } from "./partners-service";
 import type { ProductRow } from "./products-service";
@@ -87,8 +88,15 @@ export interface PurchaseInvoiceRow {
   items: PurchaseInvoiceItemRow[];
   /** TASK-060B Part 6 — Payment Status, always server-computed from `FinancialTransactionAllocation`, never editable, never re-derived by the frontend. Present on both list and detail responses. */
   paymentStatus: InvoicePaymentStatusValue;
+  /** Cash allocated by confirmed vouchers (R22: kept = `paidTotal`). */
   allocatedTotal: number;
   remainingBalance: number;
+  /** R22 contract 1 — cash paid (= `allocatedTotal`). */
+  paidTotal?: number;
+  /** R22 contract 1 — posted credit notes applied to this invoice, never cash. */
+  creditedTotal?: number;
+  /** R22 contract 1 — the invoice's currency code. */
+  currencyCode?: string | null;
   /** TASK-050 — Related Documents: only present on the single-record `get()` response. */
   returns?: { id: string; returnNumber: string; status: PurchaseDocumentStatusValue }[];
   allocations?: {
@@ -137,6 +145,9 @@ export const purchaseInvoicesService = {
       `/purchasing/invoices${buildQueryString(params as Record<string, unknown>)}`,
     ),
   get: (id: string) => apiClient.get<PurchaseInvoiceRow>(`/purchasing/invoices/${id}`),
+  /** R22 contract 2 — settlement summary + history (vouchers and credit notes, permission-scoped). */
+  settlement: (id: string) =>
+    apiClient.get<InvoiceSettlement>(`/purchasing/invoices/${id}/settlement`),
   create: (dto: PurchaseInvoiceFormPayload) =>
     apiClient.post<PurchaseInvoiceRow>("/purchasing/invoices", dto),
   update: (id: string, dto: Partial<PurchaseInvoiceFormPayload>) =>

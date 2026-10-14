@@ -18,12 +18,14 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { EnterpriseDatePicker } from "@/components/shared/date-picker";
 import { EditorHeader } from "@/components/shared/detail-workspace";
+import { FormSection } from "@/components/documents/form-section";
 import {
   FormErrorSummary,
   useFocusFirstInvalid,
   type FormErrorItem,
 } from "@/components/shared/form-error-summary";
 import { StatusBadge } from "@/components/business/status-badge";
+import { CurrencyPicker } from "@/components/business/currency-picker";
 import { AuditTimeline, type TimelineEntry } from "@/components/business/timeline";
 import { DocumentActionBar, type DocumentAction } from "@/components/documents/document-action-bar";
 import { FieldMessage, RequiredMark } from "@/components/ui/form";
@@ -31,14 +33,15 @@ import { AllocationGrid } from "./allocation-grid";
 import { PaymentSummary } from "./payment-summary";
 import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
+import { useFunctionalCurrencyCode } from "@/hooks/use-functional-currency";
 import { formatDate, formatDateTime } from "@/lib/date";
 import { formatMoney } from "@/lib/money";
 import {
-  FINANCIAL_TRANSACTION_TYPE_LABEL_KEY,
-  typesForDirection,
-} from "@/config/financial-transactions/transaction-type";
-import { financialTransactionTypesService } from "@/services/financial-transaction-types-service";
-import type { FinancialTransactionTypeRow } from "@/services/financial-transaction-types-service";
+  offersPurposeChoice,
+  purposeDefinition,
+  purposesFor,
+  type VoucherPurposeDefinition,
+} from "@/config/financial-transactions/voucher-purpose";
 import type {
   FinancialTransactionEditorConfig,
   FinancialTransactionEditorFieldErrors,
@@ -53,30 +56,33 @@ import {
   receivingAccountsService,
   type ReceivingAccountOption,
 } from "@/services/receiving-accounts-service";
+import { counterAccountsService, type CounterAccountOption } from "@/services/voucher-services";
 
 interface LookupRow {
   id: string;
   name: string;
 }
 
+/** The purposes the card offers: explicit config, else every purpose for a receipt / supplier payment. */
+function resolvePurposes(config: FinancialTransactionEditorConfig): VoucherPurposeDefinition[] {
+  if (config.purposes === false) return [];
+  if (config.purposes) return config.purposes;
+  return offersPurposeChoice(config.transactionType) ? purposesFor(config.direction) : [];
+}
+
 /**
- * Financial Transactions & Matching Engine (TASK-043, compacted TASK-056A)
- * — the ONE editor page-shell every financial transaction (Customer
- * Receipt/Supplier Payment) renders through, mirroring `SalesDocumentEditor`/
- * `PurchasingDocumentEditor`'s shape (config + state + handlers) but for a
- * genuinely different body: no product-line grid — a header (party/date/
- * amount/payment source/receiving account/reference/notes) and an allocation
- * section (`AllocationGrid`) instead. `renderPartyPicker` is a render prop
- * (not a hardcoded import) since this is the one editor shared between two
- * party types in the same component.
+ * Financial Transactions & Matching Engine (TASK-043, compacted TASK-056A,
+ * R22 voucher card) — the ONE editor shell every financial transaction
+ * (receipt, supplier payment, other receipt / payment, transfer, expense,
+ * refund) renders through: config + state + handlers, `renderPartyPicker` as
+ * a render prop (the one editor shared between party types).
  *
- * TASK-056A — Compact Enterprise Form: single primary card, same layout
- * language as the Sales/Purchasing editor shells. Payment Source and
- * Receiving Account move into the default-visible main form (previously
- * behind "More Details") since a missing Receiving Account blocks Confirm
- * (Posting Engine requirement) — burying the field a user needs to fix that
- * error behind a disclosure was a real workflow cost, not just a cosmetic
- * one.
+ * R22 §3 — receipts and supplier payments are a short progressive card:
+ * (1) purpose and party / counter-account, (2) amount, currency, method,
+ * money account and date, (3) the invoices this voucher settles — only for
+ * invoice settlement, once a party is chosen — then a review before Confirm
+ * (built by the page from the same state). Fields a purpose does not use are
+ * not shown. Expense and refund vouchers keep their single compact form.
  */
 export function FinancialTransactionEditor({
   config,
@@ -93,6 +99,7 @@ export function FinancialTransactionEditor({
   showAllocations = true,
   extraFields,
   afterMainForm,
+  purposeLocked,
 }: {
   config: FinancialTransactionEditorConfig;
   state: FinancialTransactionEditorState;
@@ -102,11 +109,16 @@ export function FinancialTransactionEditor({
   disabled?: boolean;
   isBusy?: boolean;
   renderPartyPicker: (props: { disabled: boolean; id: string }) => ReactNode;
-  /** The Open Invoices + "Pay All Remaining" section — supplied by the page, since it depends on which invoice table (Sales vs Purchase) to query. */
+  /**
+   * The invoices table of an invoice-settlement voucher (open invoices with an
+   * inline "this voucher" amount) — supplied by the page, since it depends on
+   * which invoice table (Sales vs Purchase) to query. When given it is the one
+   * allocation surface; otherwise the generic allocation grid is shown.
+   */
   allocationSection?: ReactNode;
   /** Inline validation messages, shown under their fields (entered data is never cleared). */
   fieldErrors?: FinancialTransactionEditorFieldErrors;
-  /** Currency code shown beside the amount totals. */
+  /** Currency code shown inside the amount field and beside the totals (else the base currency). */
   currencyCode?: string | null;
   /** False for a voucher that never settles documents (expense vouchers): no allocation grid / totals. */
   showAllocations?: boolean;
@@ -114,6 +126,8 @@ export function FinancialTransactionEditor({
   extraFields?: ReactNode;
   /** Shown right under the main form (notices such as open supplier invoices, posting status). */
   afterMainForm?: ReactNode;
+  /** A saved voucher keeps its type: the purpose choice is read-only. */
+  purposeLocked?: boolean;
 }) {
   const { t } = useLocale();
   const { hasPermission } = useUserContext();
@@ -122,14 +136,20 @@ export function FinancialTransactionEditor({
   const focusFirstInvalid = useFocusFirstInvalid(bodyRef);
   const [paymentSources, setPaymentSources] = useState<LookupRow[]>([]);
   const [receivingAccounts, setReceivingAccounts] = useState<ReceivingAccountOption[]>([]);
-  const [transactionTypes, setTransactionTypes] = useState<FinancialTransactionTypeRow[]>(() =>
-    typesForDirection(config.direction).map((type) => ({
-      code: type.code,
-      label: type.code,
-      direction: type.direction,
-      isSystem: true,
-    })),
-  );
+  const [counterAccounts, setCounterAccounts] = useState<CounterAccountOption[] | null>(null);
+
+  const purposes = resolvePurposes(config);
+  const hasPurposeChoice = purposes.length > 0;
+  const purpose = hasPurposeChoice
+    ? purposeDefinition(config.direction, state.purpose ?? purposes[0].purpose)
+    : null;
+  const needsParty = purpose ? purpose.needsParty : true;
+  const needsCounterAccount = purpose?.needsCounterAccount ?? false;
+  const isTransfer = purpose?.needsTargetAccount ?? false;
+  const settlesInvoices = purpose ? purpose.needsAllocation : showAllocations;
+
+  const baseCurrencyCode = useFunctionalCurrencyCode(!currencyCode);
+  const shownCurrency = currencyCode || baseCurrencyCode || null;
 
   useEffect(() => {
     paymentSourcesService
@@ -140,22 +160,25 @@ export function FinancialTransactionEditor({
       .list()
       .then(setReceivingAccounts)
       .catch(() => setReceivingAccounts([]));
-    financialTransactionTypesService
-      .list(config.direction)
-      .then(setTransactionTypes)
-      .catch(() =>
-        setTransactionTypes(
-          typesForDirection(config.direction).map((type) => ({
-            code: type.code,
-            label: type.code,
-            direction: type.direction,
-            isSystem: true,
-          })),
-        ),
-      );
-  }, [config.direction]);
+  }, []);
 
-  /** Smart default for a new voucher: the account flagged default, or the only one. */
+  useEffect(() => {
+    if (!needsCounterAccount) return;
+    let cancelled = false;
+    counterAccountsService
+      .list(config.direction)
+      .then((rows) => {
+        if (!cancelled) setCounterAccounts(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setCounterAccounts([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsCounterAccount, config.direction]);
+
+  /** Smart default for a new voucher: the account flagged default, or the only one (D7: the review names it). */
   const { document: currentDocument, receivingAccountId: currentReceivingAccountId } = state;
   const { onReceivingAccountChange } = handlers;
   useEffect(() => {
@@ -170,7 +193,7 @@ export function FinancialTransactionEditor({
 
   // The shared document action bar: one primary (legacy `variant: "default"`
   // maps to it), secondary/destructive actions in "More", confirmations
-  // (e.g. Cancel) inside the bar, pinned to the bottom on phones.
+  // (e.g. Cancel, the R22 review) inside the bar, pinned to the bottom on phones.
   const barActions = useMemo<DocumentAction<TransactionEditorActionContext>[]>(
     () =>
       config.workflowActions.map((action) => ({
@@ -187,8 +210,20 @@ export function FinancialTransactionEditor({
   );
 
   const canEdit = hasPermission(config.permissions.edit) && !disabled;
-  const receivingAccountLabel =
-    config.fieldLabels?.receivingAccount ?? t("financialTransactions.fields.receivingAccount");
+  const amountLabel =
+    config.fieldLabels?.amount ??
+    t(config.direction === "IN" ? "vouchers.fields.amountIn" : "vouchers.fields.amountOut");
+  const receivingAccountLabel = isTransfer
+    ? t("vouchers.fields.transferFrom")
+    : (config.fieldLabels?.receivingAccount ??
+      t(config.direction === "IN" ? "vouchers.fields.accountIn" : "vouchers.fields.accountOut"));
+  const paymentSourceLabel =
+    config.fieldLabels?.paymentSource ?? t("vouchers.fields.paymentMethod");
+  const counterAccountLabel = t(
+    config.direction === "IN"
+      ? "vouchers.fields.counterAccountIn"
+      : "vouchers.fields.counterAccountOut",
+  );
 
   const activityEntries: TimelineEntry[] = (activity ?? []).map((entry) => ({
     id: entry.id,
@@ -206,18 +241,28 @@ export function FinancialTransactionEditor({
       fieldErrors?.party
         ? { fieldId: "party", label: config.partyLabel, message: fieldErrors.party }
         : null,
-      fieldErrors?.amount
+      fieldErrors?.counterAccount
         ? {
-            fieldId: "amount",
-            label: t("financialTransactions.fields.amount"),
-            message: fieldErrors.amount,
+            fieldId: "counterAccount",
+            label: counterAccountLabel,
+            message: fieldErrors.counterAccount,
           }
+        : null,
+      fieldErrors?.amount
+        ? { fieldId: "amount", label: amountLabel, message: fieldErrors.amount }
         : null,
       fieldErrors?.receivingAccount
         ? {
             fieldId: "receivingAccount",
             label: receivingAccountLabel,
             message: fieldErrors.receivingAccount,
+          }
+        : null,
+      fieldErrors?.targetAccount
+        ? {
+            fieldId: "targetAccount",
+            label: t("vouchers.fields.transferTo"),
+            message: fieldErrors.targetAccount,
           }
         : null,
       fieldErrors?.allocations
@@ -246,7 +291,7 @@ export function FinancialTransactionEditor({
   // Key meta: date · amount — each part isolated so LTR values never reorder in Arabic.
   const metaParts = [
     state.transactionDate ? formatDate(state.transactionDate) : null,
-    state.amount ? `${formatMoney(state.amount)} ${currencyCode ?? ""}`.trim() : null,
+    state.amount ? `${formatMoney(state.amount)} ${shownCurrency ?? ""}`.trim() : null,
   ].filter((part): part is string => Boolean(part));
   const meta =
     metaParts.length > 0 ? (
@@ -259,6 +304,303 @@ export function FinancialTransactionEditor({
         ))}
       </>
     ) : undefined;
+
+  const accountOptions = receivingAccounts.map((account) => ({
+    value: account.id,
+    label: account.name,
+  }));
+
+  // ---------------------------------------------------------------- fields
+  const label = (id: string, text: string, required?: boolean) => (
+    <label htmlFor={`${fieldId}-${id}`} className="text-caption text-muted-foreground">
+      {text}
+      {required ? <RequiredMark className="ms-0.5" /> : null}
+    </label>
+  );
+
+  const purposeField = purpose ? (
+    <div className="flex min-w-0 flex-col gap-1 sm:col-span-2">
+      {label("type", t("financialTransactions.fields.type"))}
+      <Select
+        value={purpose.purpose}
+        disabled={!canEdit || purposeLocked}
+        onValueChange={(value) =>
+          handlers.onPurposeChange?.(value as VoucherPurposeDefinition["purpose"])
+        }
+      >
+        <SelectTrigger id={`${fieldId}-type`} size="sm" className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {purposes.map((option) => (
+            <SelectItem key={option.purpose} value={option.purpose}>
+              {t(option.labelKey)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p className="text-caption text-muted-foreground">{t(purpose.hintKey)}</p>
+    </div>
+  ) : null;
+
+  const partyField = needsParty ? (
+    <div
+      data-field-name="party"
+      data-invalid={fieldErrors?.party ? "true" : undefined}
+      className="flex min-w-0 flex-col gap-1 sm:col-span-2"
+    >
+      {label("party", config.partyLabel, true)}
+      {renderPartyPicker({ disabled: !canEdit, id: `${fieldId}-party` })}
+      <FieldMessage>{fieldErrors?.party}</FieldMessage>
+    </div>
+  ) : null;
+
+  const counterAccountField = needsCounterAccount ? (
+    <div
+      data-field-name="counterAccount"
+      data-invalid={fieldErrors?.counterAccount ? "true" : undefined}
+      className="flex min-w-0 flex-col gap-1 sm:col-span-2"
+    >
+      {label("counter", counterAccountLabel, true)}
+      <SearchableSelect
+        id={`${fieldId}-counter`}
+        value={state.counterAccountId ?? null}
+        disabled={!canEdit}
+        onValueChange={(value) => handlers.onCounterAccountChange?.(value || null)}
+        options={(counterAccounts ?? []).map((account) => ({
+          value: account.id,
+          label: `${account.code} · ${account.name}`,
+          searchText: `${account.code} ${account.name}`,
+        }))}
+        loading={counterAccounts === null}
+        placeholder={t("vouchers.counterAccounts.placeholder")}
+        searchPlaceholder={t("vouchers.counterAccounts.search")}
+        emptyText={t("vouchers.counterAccounts.empty")}
+        error={Boolean(fieldErrors?.counterAccount)}
+      />
+      <FieldMessage>{fieldErrors?.counterAccount}</FieldMessage>
+    </div>
+  ) : null;
+
+  const amountField = (
+    <div
+      data-field-name="amount"
+      data-invalid={fieldErrors?.amount ? "true" : undefined}
+      className={
+        hasPurposeChoice
+          ? "flex min-w-0 flex-col gap-1 sm:col-span-2"
+          : "flex min-w-0 flex-col gap-1"
+      }
+    >
+      {label("amount", amountLabel, true)}
+      <MoneyInput
+        id={`${fieldId}-amount`}
+        inputSize="prominent"
+        // A payment / receipt amount must be > 0: unset stays empty (placeholder), never a 0 to delete.
+        value={state.amount || ""}
+        placeholder={t("vouchers.fields.amountPlaceholder")}
+        adornment={shownCurrency ?? undefined}
+        disabled={!canEdit}
+        aria-invalid={fieldErrors?.amount ? true : undefined}
+        onValueChange={(value) => handlers.onAmountChange(value ?? 0)}
+      />
+      <FieldMessage>{fieldErrors?.amount}</FieldMessage>
+    </div>
+  );
+
+  // A settlement voucher's currency is its invoices'; other purposes choose it (empty = base).
+  const currencyField =
+    handlers.onCurrencyChange && !settlesInvoices ? (
+      <div className="flex min-w-0 flex-col gap-1">
+        {label("currency", t("vouchers.fields.currency"))}
+        <CurrencyPicker
+          id={`${fieldId}-currency`}
+          valueKey="id"
+          value={state.currencyId ?? ""}
+          disabled={!canEdit}
+          allowClear
+          placeholder={t("vouchers.fields.baseCurrency")}
+          onValueChange={(value) => handlers.onCurrencyChange?.(value || null)}
+        />
+      </div>
+    ) : null;
+
+  const dateField = (
+    <div className="flex min-w-0 flex-col gap-1">
+      {label(
+        "date",
+        config.fieldLabels?.transactionDate ?? t("financialTransactions.fields.transactionDate"),
+      )}
+      <EnterpriseDatePicker
+        id={`${fieldId}-date`}
+        value={state.transactionDate}
+        onChange={handlers.onTransactionDateChange}
+        disabled={!canEdit}
+      />
+    </div>
+  );
+
+  const paymentSourceField = isTransfer ? null : (
+    <div className="flex min-w-0 flex-col gap-1">
+      {label("source", paymentSourceLabel)}
+      <SearchableSelect
+        id={`${fieldId}-source`}
+        value={state.paymentSourceId}
+        disabled={!canEdit}
+        onValueChange={(value) => handlers.onPaymentSourceChange(value || null)}
+        options={paymentSources.map((source) => ({ value: source.id, label: source.name }))}
+        allowClear
+      />
+    </div>
+  );
+
+  const receivingAccountField = (
+    <div
+      data-field-name="receivingAccount"
+      data-invalid={fieldErrors?.receivingAccount ? "true" : undefined}
+      className="flex min-w-0 flex-col gap-1"
+    >
+      {label("receiving", receivingAccountLabel, isTransfer)}
+      <SearchableSelect
+        id={`${fieldId}-receiving`}
+        value={state.receivingAccountId}
+        disabled={!canEdit}
+        onValueChange={(value) => handlers.onReceivingAccountChange(value || null)}
+        options={accountOptions}
+        allowClear
+        error={Boolean(fieldErrors?.receivingAccount)}
+      />
+      <FieldMessage>{fieldErrors?.receivingAccount}</FieldMessage>
+    </div>
+  );
+
+  const targetAccountField = isTransfer ? (
+    <div
+      data-field-name="targetAccount"
+      data-invalid={fieldErrors?.targetAccount ? "true" : undefined}
+      className="flex min-w-0 flex-col gap-1"
+    >
+      {label("target", t("vouchers.fields.transferTo"), true)}
+      <SearchableSelect
+        id={`${fieldId}-target`}
+        value={state.targetReceivingAccountId ?? null}
+        disabled={!canEdit}
+        onValueChange={(value) => handlers.onTargetAccountChange?.(value || null)}
+        // A transfer stays in one currency (API: TRANSFER_CROSS_CURRENCY) — never offer the source
+        // itself, nor an account bound to another currency than the source's.
+        options={receivingAccounts
+          .filter((account) => {
+            if (account.id === state.receivingAccountId) return false;
+            const source = receivingAccounts.find((row) => row.id === state.receivingAccountId);
+            return (
+              !source?.currencyId || !account.currencyId || account.currencyId === source.currencyId
+            );
+          })
+          .map((account) => ({ value: account.id, label: account.name }))}
+        allowClear
+        error={Boolean(fieldErrors?.targetAccount)}
+      />
+      <FieldMessage>{fieldErrors?.targetAccount}</FieldMessage>
+    </div>
+  ) : null;
+
+  const referenceField = (
+    <div className="flex min-w-0 flex-col gap-1">
+      {label("reference", t("financialTransactions.fields.referenceNumber"))}
+      <Input
+        id={`${fieldId}-reference`}
+        dir="auto"
+        value={state.referenceNumber}
+        disabled={!canEdit}
+        onChange={(event) => handlers.onReferenceNumberChange(event.target.value)}
+      />
+    </div>
+  );
+
+  const totals = (
+    <PaymentSummary
+      amount={state.amount}
+      allocations={state.allocations}
+      currency={shownCurrency}
+    />
+  );
+
+  // ---------------------------------------------------------------- layout
+  const sectionedBody = (
+    <>
+      <FormSection title={t("vouchers.sections.purpose")}>
+        <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
+          {purposeField}
+          {partyField}
+          {counterAccountField}
+        </div>
+      </FormSection>
+      <FormSection title={t("vouchers.sections.amount")}>
+        <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
+          {amountField}
+          {currencyField}
+          {paymentSourceField}
+          {receivingAccountField}
+          {targetAccountField}
+          {dateField}
+          {referenceField}
+          {extraFields}
+        </div>
+      </FormSection>
+      {afterMainForm}
+      {settlesInvoices && allocationSection ? (
+        <FormSection
+          title={t("vouchers.sections.allocation")}
+          data-field-name="allocations"
+          data-invalid={fieldErrors?.allocations ? "true" : undefined}
+        >
+          {allocationSection}
+          <FieldMessage>{fieldErrors?.allocations}</FieldMessage>
+          {totals}
+        </FormSection>
+      ) : null}
+    </>
+  );
+
+  const compactBody = (
+    <>
+      {/* Main form — compact grid, default-visible fields only; the party takes two columns. */}
+      <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
+        {partyField}
+        {dateField}
+        {amountField}
+        {paymentSourceField}
+        {receivingAccountField}
+        {referenceField}
+        {extraFields}
+      </div>
+      {afterMainForm}
+      {showAllocations ? (
+        <>
+          {/* Allocation section — immediately below the main form, divided by a hairline */}
+          <div
+            data-field-name="allocations"
+            data-invalid={fieldErrors?.allocations ? "true" : undefined}
+            className="flex min-w-0 flex-col gap-2 border-t border-border pt-3"
+          >
+            <h2 className="text-card-title font-heading">
+              {t("financialTransactions.sections.allocations")}
+            </h2>
+            {allocationSection ?? (
+              <AllocationGrid
+                lines={state.allocations}
+                onChange={handlers.onAllocationsChange}
+                disabled={!canEdit}
+                documentLabel={config.allocationDocumentLabel}
+              />
+            )}
+            <FieldMessage>{fieldErrors?.allocations}</FieldMessage>
+          </div>
+          {totals}
+        </>
+      ) : null}
+    </>
+  );
 
   return (
     <EnterpriseCard size="sm" className="overflow-visible pb-20 md:pb-(--card-spacing)">
@@ -290,156 +632,12 @@ export function FinancialTransactionEditor({
 
         <FormErrorSummary errors={summaryItems} className="mb-0" />
 
-        {/* Main form — compact grid, default-visible fields only; the party takes two columns. */}
-        <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="flex flex-col gap-1">
-            <label htmlFor={`${fieldId}-type`} className="text-caption text-muted-foreground">
-              {t("financialTransactions.fields.type")}
-            </label>
-            <Select value={config.transactionType} disabled>
-              <SelectTrigger id={`${fieldId}-type`} size="sm" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {transactionTypes.map((type) => (
-                  <SelectItem key={type.code} value={type.code}>
-                    {t(FINANCIAL_TRANSACTION_TYPE_LABEL_KEY[type.code])}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div
-            data-field-name="party"
-            data-invalid={fieldErrors?.party ? "true" : undefined}
-            className="flex min-w-0 flex-col gap-1 lg:col-span-2"
-          >
-            <label htmlFor={`${fieldId}-party`} className="text-caption text-muted-foreground">
-              {config.partyLabel}
-              <RequiredMark className="ms-0.5" />
-            </label>
-            {renderPartyPicker({ disabled: !canEdit, id: `${fieldId}-party` })}
-            <FieldMessage>{fieldErrors?.party}</FieldMessage>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor={`${fieldId}-date`} className="text-caption text-muted-foreground">
-              {config.fieldLabels?.transactionDate ??
-                t("financialTransactions.fields.transactionDate")}
-            </label>
-            <EnterpriseDatePicker
-              id={`${fieldId}-date`}
-              value={state.transactionDate}
-              onChange={handlers.onTransactionDateChange}
-              disabled={!canEdit}
-            />
-          </div>
-          <div
-            data-field-name="amount"
-            data-invalid={fieldErrors?.amount ? "true" : undefined}
-            className="flex min-w-0 flex-col gap-1"
-          >
-            <label htmlFor={`${fieldId}-amount`} className="text-caption text-muted-foreground">
-              {t("financialTransactions.fields.amount")}
-              <RequiredMark className="ms-0.5" />
-            </label>
-            <MoneyInput
-              id={`${fieldId}-amount`}
-              // A payment / receipt amount must be > 0: unset stays empty (placeholder), never a 0 to delete.
-              value={state.amount || ""}
-              disabled={!canEdit}
-              aria-invalid={fieldErrors?.amount ? true : undefined}
-              onChange={(event) => handlers.onAmountChange(event.target.valueAsNumber || 0)}
-            />
-            <FieldMessage>{fieldErrors?.amount}</FieldMessage>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor={`${fieldId}-source`} className="text-caption text-muted-foreground">
-              {config.fieldLabels?.paymentSource ?? t("financialTransactions.fields.paymentSource")}
-            </label>
-            <SearchableSelect
-              id={`${fieldId}-source`}
-              value={state.paymentSourceId}
-              disabled={!canEdit}
-              onValueChange={(value) => handlers.onPaymentSourceChange(value || null)}
-              options={paymentSources.map((source) => ({ value: source.id, label: source.name }))}
-              allowClear
-            />
-          </div>
-          <div
-            data-field-name="receivingAccount"
-            data-invalid={fieldErrors?.receivingAccount ? "true" : undefined}
-            className="flex min-w-0 flex-col gap-1"
-          >
-            <label htmlFor={`${fieldId}-receiving`} className="text-caption text-muted-foreground">
-              {receivingAccountLabel}
-            </label>
-            <SearchableSelect
-              id={`${fieldId}-receiving`}
-              value={state.receivingAccountId}
-              disabled={!canEdit}
-              onValueChange={(value) => handlers.onReceivingAccountChange(value || null)}
-              options={receivingAccounts.map((account) => ({
-                value: account.id,
-                label: account.name,
-              }))}
-              allowClear
-              error={Boolean(fieldErrors?.receivingAccount)}
-            />
-            <FieldMessage>{fieldErrors?.receivingAccount}</FieldMessage>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor={`${fieldId}-reference`} className="text-caption text-muted-foreground">
-              {t("financialTransactions.fields.referenceNumber")}
-            </label>
-            <Input
-              id={`${fieldId}-reference`}
-              dir="auto"
-              value={state.referenceNumber}
-              disabled={!canEdit}
-              onChange={(event) => handlers.onReferenceNumberChange(event.target.value)}
-            />
-          </div>
-          {extraFields}
-        </div>
-
-        {afterMainForm}
-
-        {showAllocations ? (
-          <>
-            {/* Allocation section — immediately below the main form, divided by a hairline */}
-            <div
-              data-field-name="allocations"
-              data-invalid={fieldErrors?.allocations ? "true" : undefined}
-              className="flex min-w-0 flex-col gap-2 border-t border-border pt-3"
-            >
-              <h2 className="text-card-title font-heading">
-                {t("financialTransactions.sections.allocations")}
-              </h2>
-              {allocationSection}
-              <AllocationGrid
-                lines={state.allocations}
-                onChange={handlers.onAllocationsChange}
-                disabled={!canEdit}
-                documentLabel={config.allocationDocumentLabel}
-              />
-              <FieldMessage>{fieldErrors?.allocations}</FieldMessage>
-            </div>
-
-            {/* Totals — the shared document totals block, aligned to the numeric edge */}
-            <PaymentSummary
-              amount={state.amount}
-              allocations={state.allocations}
-              currency={currencyCode}
-            />
-          </>
-        ) : null}
+        {hasPurposeChoice ? sectionedBody : compactBody}
         <FieldMessage>{fieldErrors?.form}</FieldMessage>
 
         {/* Notes */}
         <div className="flex flex-col gap-1">
-          <label htmlFor={`${fieldId}-notes`} className="text-caption text-muted-foreground">
-            {t("sales.editor.sections.notes")}
-          </label>
+          {label("notes", t("sales.editor.sections.notes"))}
           <Textarea
             id={`${fieldId}-notes`}
             value={state.notes}

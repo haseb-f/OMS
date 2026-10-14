@@ -32,7 +32,9 @@ import storeOrderStockAr from "./modules/store-order-stock.ar";
 import agentStockAr from "./modules/agent-stock.ar";
 import storeOrderMoneyAr from "./modules/store-order-money.ar";
 import salesVisibilityAr from "./modules/sales-visibility.ar";
+import vouchersAr from "./modules/vouchers.ar";
 const ar = {
+  vouchers: vouchersAr,
   productCommission: productCommissionAr,
   agentPricing: agentPricingAr,
   orderDuplicates: orderDuplicatesAr,
@@ -219,6 +221,26 @@ const ar = {
    * backend identified one; every message still ends with what to do next.
    */
   errors: {
+    // R22 — settlement / voucher business codes (stream P / T); each says what to do next.
+    ALLOCATION_EXCEEDS_INVOICE_BALANCE:
+      "المبلغ يتجاوز المتبقي على الفاتورة — خفّض مبلغ «هذا السند» إلى المتبقي أو أقل.",
+    FEE_EXCEEDS_AMOUNT: "الرسوم أكبر من مبلغ السند — صحّح الرسوم لتكون أقل من المبلغ أو مساوية له.",
+    INVOICE_ARCHIVE_SETTLEMENT:
+      "لا يمكن أرشفة فاتورة مرحّلة عليها رصيد مفتوح أو سداد مؤكد — سوِّ الرصيد أو ألغِ التخصيصات أولًا.",
+    TRANSFER_CROSS_CURRENCY:
+      "لا يُحوَّل بين حسابين بعملتين مختلفتين — اختر حسابين بالعملة نفسها، وسجّل صرف العملات بقيد يومية.",
+    COUNTER_ACCOUNT_NOT_ALLOWED:
+      "هذا الحساب لا يصلح حسابًا مقابلًا (نقدية / بنك، ذمم، مخزون أو حساب تجميعي) — اختر حسابًا من القائمة.",
+    VOUCHER_DATE_IN_FUTURE: "تاريخ السند في المستقبل — اختر تاريخ اليوم أو تاريخًا سابقًا.",
+    REFUND_EXCEEDS_RECEIPT_UNAPPLIED:
+      "المبلغ يتجاوز الجزء غير المخصص من سند القبض — خفّض مبلغ الرد.",
+    RECEIPT_REFUNDED: "رُدّ جزء من سند القبض هذا — ألغِ سند الرد أولًا ثم ألغِ القبض.",
+    RECEIPT_REFUND_ALLOCATION: "هذا الجزء مستهلك برد دفعة مقدمة — عدّله أو ألغه من سند الرد.",
+    RECEIPT_REFUND_STORE_ORDER: "سند القبض هذا مرتبط بطلب متجر — يُرد المبلغ من صفحة الطلب.",
+    ALLOCATION_NOT_ALLOWED: "هذا النوع من السندات لا يُخصَّص لفواتير.",
+    AGENT_COLLECTION_NOT_ALLOCATABLE:
+      "تحصيل طلب وكيل لا يسدد فواتير العميل — سجّل سند قبض مستقلًا.",
+    COMPANY_MISMATCH: "الفاتورة تتبع شركة أخرى غير شركة السند — اختر فاتورة من الشركة نفسها.",
     ORDER_VERSION_CONFLICT: "تغيّر هذا الطلب في الأثناء. أعد التحميل لرؤية أحدث إصدار.",
     AMENDMENT_BLOCKED: "لا يمكن حفظ التعديل — راجع الأسباب المذكورة.",
     AMENDMENT_ACKNOWLEDGEMENT_REQUIRED: "أكّد كل الآثار المذكورة ثم احفظ مرة أخرى.",
@@ -5211,6 +5233,9 @@ const ar = {
       SUPPLIER_PAYMENT: "سداد مورد",
       EXPENSE_PAYMENT: "مصروف تشغيلي",
       CUSTOMER_REFUND: "رد مبلغ لعميل",
+      OTHER_RECEIPT: "مقبوضات أخرى",
+      OTHER_PAYMENT: "مدفوعات أخرى",
+      INTERNAL_TRANSFER: "تحويل داخلي",
     },
     direction: {
       in: "قبض",
@@ -5225,6 +5250,7 @@ const ar = {
       unpaid: "غير مدفوعة",
       partiallyPaid: "مدفوعة جزئياً",
       paid: "مدفوعة بالكامل",
+      settled: "مسوّاة",
       cancelled: "ملغاة",
     },
     paymentSummary: {
@@ -5456,6 +5482,9 @@ const ar = {
         SUPPLIER_PAYMENT: "سند صرف",
         LANDED_COST: "تكاليف الشحن",
         EXPENSE_PAYMENT: "دفع مصروف",
+        OTHER_RECEIPT: "تحصيل آخر",
+        OTHER_PAYMENT: "صرف آخر",
+        INTERNAL_TRANSFER: "تحويل بين الحسابات",
         CUSTOMER_REFUND: "رد مبلغ لعميل",
         INVENTORY_ADJUSTMENT: "تسوية مخزون",
         SHIPMENT_COST: "تكلفة الشحن",
@@ -7577,6 +7606,9 @@ const ar = {
       PURCHASE_RETURN: "مرتجع مشتريات",
       SUPPLIER_PAYMENT: "سند صرف",
       EXPENSE_PAYMENT: "سند مصروف",
+      OTHER_RECEIPT: "سند قبض آخر",
+      OTHER_PAYMENT: "سند صرف آخر",
+      INTERNAL_TRANSFER: "تحويل داخلي",
       LANDED_COST: "تكاليف الشحن والتخليص",
       STORE_ORDER: "طلب متجر",
       PAYMENT: "دفعة",

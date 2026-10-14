@@ -37,6 +37,10 @@ export interface AllocationGridLine {
   /** Read-only context shown next to the amount — how much this invoice can still take, at the moment the row was added. */
   remainingBalance: number;
   allocatedAmount: number;
+  /** R22 — the settled document's total, when the saved allocation carries it (fully settled invoices). */
+  grandTotal?: number | null;
+  /** R22 — a line the voucher card cannot change here (e.g. consumed by an advance refund). */
+  locked?: boolean;
 }
 
 /** Amount columns fit 10+ digit figures (price token × 1.5, as in the other line grids). */
@@ -124,7 +128,7 @@ export function AllocationGrid({
       className={cn(isOverpaid && "border-destructive")}
       value={line.allocatedAmount}
       disabled={disabled}
-      onChange={(event) => updateAmount(line.id, event.target.valueAsNumber || 0)}
+      onValueChange={(value) => updateAmount(line.id, value ?? 0)}
     />
   );
 

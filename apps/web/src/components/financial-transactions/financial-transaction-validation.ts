@@ -20,6 +20,14 @@ export interface FinancialTransactionValidationInput {
    * `exact` (refunds): the refund must be fully allocated to its returns.
    */
   allocationMode?: "atMost" | "exact";
+  /** R22 — the purpose needs no party (other receipt / payment, transfer). Default true. */
+  needsParty?: boolean;
+  /** R22 D4 — other receipt / payment: the authorised counter-account. */
+  needsCounterAccount?: boolean;
+  counterAccountId?: string | null;
+  /** R22 D4 — internal transfer: the destination account (must differ from the source). */
+  needsTargetAccount?: boolean;
+  targetReceivingAccountId?: string | null;
 }
 
 /**
@@ -31,7 +39,19 @@ export function financialTransactionErrorKeys(
   input: FinancialTransactionValidationInput,
 ): FinancialTransactionErrorKeys | null {
   const errors: FinancialTransactionErrorKeys = {};
-  if (!input.hasParty) errors.party = "financialTransactions.validation.partyRequired";
+  if (input.needsParty !== false && !input.hasParty) {
+    errors.party = "financialTransactions.validation.partyRequired";
+  }
+  if (input.needsCounterAccount && !input.counterAccountId) {
+    errors.counterAccount = "vouchers.validation.counterAccountRequired";
+  }
+  if (input.needsTargetAccount) {
+    if (!input.targetReceivingAccountId) {
+      errors.targetAccount = "vouchers.validation.targetAccountRequired";
+    } else if (input.targetReceivingAccountId === input.receivingAccountId) {
+      errors.targetAccount = "vouchers.validation.sameAccount";
+    }
+  }
   if (!(input.amount > 0)) {
     errors.amount = "financialTransactions.validation.amountRequired";
   } else if (

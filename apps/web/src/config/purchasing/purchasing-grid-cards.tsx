@@ -198,6 +198,12 @@ export function PurchaseInvoiceGridCard({
       }}
       extraFields={[
         {
+          key: "paid",
+          label: t("financialTransactions.paymentSummary.paid"),
+          value: <MoneyValue value={row.allocatedTotal} currency={row.currency?.code} />,
+          numeric: true,
+        },
+        {
           key: "remaining",
           label: t("financialTransactions.paymentSummary.remaining"),
           value: <MoneyValue value={row.remainingBalance} currency={row.currency?.code} />,

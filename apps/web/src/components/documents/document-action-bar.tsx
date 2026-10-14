@@ -18,6 +18,10 @@ export interface DocumentActionConfirmation {
   description: ReactNode;
   confirmLabel?: string;
   tone?: ConfirmationTone;
+  /** Block-level review content under the description (e.g. a voucher's pre-posting summary). */
+  extra?: ReactNode;
+  /** `lg` widens the dialog for a reviewable summary in `extra`. */
+  size?: "default" | "lg";
 }
 
 export interface DocumentAction<TContext = void> {
@@ -169,6 +173,8 @@ export function DocumentActionBar<TContext>({
         tone={pending?.confirm?.tone ?? (pending?.success ? "success" : "default")}
         title={pending?.confirm?.title ?? ""}
         description={pending?.confirm?.description}
+        extra={pending?.confirm?.extra}
+        size={pending?.confirm?.size}
         confirmLabel={pending?.confirm?.confirmLabel ?? pending?.label}
         cancelLabel={t("common.close")}
         onConfirm={() => {

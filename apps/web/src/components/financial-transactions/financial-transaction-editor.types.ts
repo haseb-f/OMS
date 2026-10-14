@@ -11,6 +11,10 @@ import type {
   FinancialTransactionDirection,
   FinancialTransactionTypeCode,
 } from "@/config/financial-transactions/transaction-type";
+import type {
+  VoucherPurpose,
+  VoucherPurposeDefinition,
+} from "@/config/financial-transactions/voucher-purpose";
 
 /**
  * Financial Transactions & Matching Engine (TASK-043) — the Configuration
@@ -23,7 +27,8 @@ import type {
  * Supplier) in the same component, so the picker has to be generic here
  * rather than forked.
  */
-export type TransactionWorkflowActionKey = "confirm" | "cancel" | "delete" | "print";
+/** `refund` — R22 D4: pay back the unapplied part of a confirmed customer receipt. */
+export type TransactionWorkflowActionKey = "confirm" | "cancel" | "delete" | "print" | "refund";
 
 export interface TransactionEditorActionContext {
   document: FinancialTransactionRow | null;
@@ -50,6 +55,10 @@ export interface FinancialTransactionEditorFieldErrors {
   party?: string | null;
   amount?: string | null;
   receivingAccount?: string | null;
+  /** R22 D4 — other receipt / payment. */
+  counterAccount?: string | null;
+  /** R22 D4 — internal transfer destination. */
+  targetAccount?: string | null;
   allocations?: string | null;
   /** Anything not tied to one field — shown under the totals. */
   form?: string | null;
@@ -74,7 +83,16 @@ export interface FinancialTransactionEditorConfig {
   /** Allocation grid column header when the settled documents are not invoices (Customer Refund → Sales Returns). */
   allocationDocumentLabel?: string;
   /** Voucher-specific wording of the shared fields (an expense is "paid from", by "payment method"). */
-  fieldLabels?: Partial<Record<"transactionDate" | "paymentSource" | "receivingAccount", string>>;
+  fieldLabels?: Partial<
+    Record<"transactionDate" | "paymentSource" | "receivingAccount" | "amount", string>
+  >;
+  /**
+   * R22 §2 — the purposes the card offers (receipt / supplier payment). Omitted:
+   * every purpose of the direction for a receipt / supplier payment, none for
+   * the other voucher types (expense, refund keep their single-purpose form).
+   * `false` hides the choice.
+   */
+  purposes?: VoucherPurposeDefinition[] | false;
 }
 
 export interface FinancialTransactionEditorState {
@@ -88,6 +106,14 @@ export interface FinancialTransactionEditorState {
   paymentSourceId: string | null;
   receivingAccountId: string | null;
   allocations: AllocationGridLine[];
+  /** R22 §2 — the operation purpose (receipt / supplier payment cards); defaults to invoice settlement. */
+  purpose?: VoucherPurpose;
+  /** R22 — chosen currency when the purpose does not follow invoices (null = base currency). */
+  currencyId?: string | null;
+  /** R22 D4 — OTHER_RECEIPT / OTHER_PAYMENT counter-account. */
+  counterAccountId?: string | null;
+  /** R22 D4 — INTERNAL_TRANSFER destination account. */
+  targetReceivingAccountId?: string | null;
 }
 
 export interface FinancialTransactionEditorHandlers {
@@ -97,7 +123,12 @@ export interface FinancialTransactionEditorHandlers {
   onNotesChange: (value: string) => void;
   onPaymentSourceChange: (id: string | null) => void;
   onReceivingAccountChange: (id: string | null) => void;
-  onAllocationsChange: (lines: AllocationGridLine[]) => void;
+  onAllocationsChange: (lines: AllocationGridLine[]) => void | Promise<void>;
+  onPurposeChange?: (purpose: VoucherPurpose) => void;
+  /** Shown as a currency choice when the purpose does not settle invoices. */
+  onCurrencyChange?: (currencyId: string | null) => void;
+  onCounterAccountChange?: (accountId: string | null) => void;
+  onTargetAccountChange?: (accountId: string | null) => void;
 }
 
 export type { FinancialTransactionActivityEntry };

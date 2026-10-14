@@ -13,7 +13,7 @@ import {
   type DateRangeValue,
 } from "@/components/shared/date-range-picker";
 import { StatusBadge } from "@/components/business/status-badge";
-import { MoneyValue } from "@/components/shared/money-value";
+import { BaseAwareMoneyValue } from "@/components/shared/base-aware-money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { SalesListBulkActions } from "@/components/sales";
@@ -57,6 +57,7 @@ import { reportApiError, reportDestructiveDone, toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
+import { useDataChanged } from "@/hooks/use-data-changed";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 
@@ -134,6 +135,8 @@ function SupplierPaymentsPageContent() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+  // R22 §5 — paid / remaining figures refresh after any money operation (here or in another tab) and on return.
+  useDataChanged("settlement", load);
 
   const canCreate = hasPermission("purchasing.payments.create");
 
@@ -242,25 +245,29 @@ function SupplierPaymentsPageContent() {
       },
       {
         id: "status",
-        meta: { titleKey: "purchasing.suppliers.fields.status" },
+        // R22 §5 — the status badge only (compact); the amount has its own money column.
+        meta: {
+          titleKey: "purchasing.suppliers.fields.status",
+          type: "status",
+          minWidth: 96,
+          maxWidth: 128,
+        },
         enableSorting: false,
         cell: ({ row }) => (
-          <StackedCell
-            primary={
-              <StatusBadge
-                label={t(TRANSACTION_STATUS_LABEL_KEY[row.original.status])}
-                tone={TRANSACTION_STATUS_TONE[row.original.status]}
-              />
-            }
-            secondary={<MoneyValue value={row.original.amount} />}
+          <StatusBadge
+            label={t(TRANSACTION_STATUS_LABEL_KEY[row.original.status])}
+            tone={TRANSACTION_STATUS_TONE[row.original.status]}
           />
         ),
       },
       {
         id: "amount",
-        meta: { titleKey: "purchasing.payments.fields.amount", defaultHidden: true },
-        accessorFn: (row) => row.amount,
-        cell: (info) => <MoneyValue value={info.getValue() as string} />,
+        // R22 §5 — visible by default, on the numeric end edge, with its currency.
+        meta: { titleKey: "purchasing.payments.fields.amount", type: "money" },
+        accessorFn: (row) => Number(row.amount),
+        cell: ({ row }) => (
+          <BaseAwareMoneyValue value={row.original.amount} currency={row.original.currency?.code} />
+        ),
       },
       {
         id: "createdAt",

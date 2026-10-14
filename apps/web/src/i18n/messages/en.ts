@@ -32,7 +32,9 @@ import storeOrderStockEn from "./modules/store-order-stock.en";
 import agentStockEn from "./modules/agent-stock.en";
 import storeOrderMoneyEn from "./modules/store-order-money.en";
 import salesVisibilityEn from "./modules/sales-visibility.en";
+import vouchersEn from "./modules/vouchers.en";
 const en = {
+  vouchers: vouchersEn,
   productCommission: productCommissionEn,
   agentPricing: agentPricingEn,
   orderDuplicates: orderDuplicatesEn,
@@ -215,6 +217,29 @@ const en = {
    * for the (currently unused) secondary locale.
    */
   errors: {
+    // R22 — settlement / voucher business codes (stream P / T); each says what to do next.
+    ALLOCATION_EXCEEDS_INVOICE_BALANCE:
+      "The amount is more than the invoice still owes — lower “This voucher” to the remaining balance or less.",
+    FEE_EXCEEDS_AMOUNT: "The fee is more than the voucher amount — correct the fee.",
+    INVOICE_ARCHIVE_SETTLEMENT:
+      "A posted invoice with an open balance or a confirmed payment cannot be archived — settle it or remove the allocations first.",
+    TRANSFER_CROSS_CURRENCY:
+      "A transfer needs two accounts in the same currency — record a currency exchange as a journal entry.",
+    COUNTER_ACCOUNT_NOT_ALLOWED:
+      "This account cannot be a counter-account (cash / bank, receivable / payable, inventory or a group account) — choose one from the list.",
+    VOUCHER_DATE_IN_FUTURE: "The voucher date is in the future — choose today or an earlier date.",
+    REFUND_EXCEEDS_RECEIPT_UNAPPLIED:
+      "The amount is more than the receipt's unapplied part — lower the refund.",
+    RECEIPT_REFUNDED:
+      "Part of this receipt was refunded — cancel the refund first, then the receipt.",
+    RECEIPT_REFUND_ALLOCATION:
+      "This part is consumed by an advance refund — change or cancel it on the refund.",
+    RECEIPT_REFUND_STORE_ORDER: "This receipt belongs to a store order — refund it from the order.",
+    ALLOCATION_NOT_ALLOWED: "This voucher type is never allocated to invoices.",
+    AGENT_COLLECTION_NOT_ALLOCATABLE:
+      "An agent-order collection does not settle customer invoices — record a separate receipt.",
+    COMPANY_MISMATCH:
+      "The invoice belongs to another company than the voucher — choose an invoice of the same company.",
     ORDER_VERSION_CONFLICT: "This order was changed meanwhile. Reload to see the latest version.",
     AMENDMENT_BLOCKED: "The amendment cannot be saved — review the listed reasons.",
     AMENDMENT_ACKNOWLEDGEMENT_REQUIRED: "Confirm every listed impact, then save again.",
@@ -5262,6 +5287,9 @@ const en = {
       SUPPLIER_PAYMENT: "Supplier payment",
       EXPENSE_PAYMENT: "Operating expense",
       CUSTOMER_REFUND: "Customer refund",
+      OTHER_RECEIPT: "Other receipt",
+      OTHER_PAYMENT: "Other payment",
+      INTERNAL_TRANSFER: "Internal transfer",
     },
     direction: {
       in: "Receipt",
@@ -5274,6 +5302,7 @@ const en = {
     },
     invoiceStatus: {
       unpaid: "Unpaid",
+      settled: "Settled",
       partiallyPaid: "Partially Paid",
       paid: "Fully Paid",
       cancelled: "Cancelled",
@@ -5508,6 +5537,9 @@ const en = {
         SUPPLIER_PAYMENT: "Supplier Payment",
         LANDED_COST: "Landed Cost",
         EXPENSE_PAYMENT: "Expense Payment",
+        OTHER_RECEIPT: "Other receipt",
+        OTHER_PAYMENT: "Other payment",
+        INTERNAL_TRANSFER: "Internal transfer",
         CUSTOMER_REFUND: "Customer Refund",
         INVENTORY_ADJUSTMENT: "Inventory Adjustment",
         SHIPMENT_COST: "Shipment Cost",
@@ -7650,6 +7682,9 @@ const en = {
       PURCHASE_RETURN: "Purchase return",
       SUPPLIER_PAYMENT: "Payment voucher",
       EXPENSE_PAYMENT: "Expense payment",
+      OTHER_RECEIPT: "Other receipt",
+      OTHER_PAYMENT: "Other payment",
+      INTERNAL_TRANSFER: "Internal transfer",
       LANDED_COST: "Landed cost",
       STORE_ORDER: "Store order",
       PAYMENT: "Payment",

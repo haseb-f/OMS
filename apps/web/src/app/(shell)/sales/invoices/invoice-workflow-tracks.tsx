@@ -86,6 +86,10 @@ export function invoicePaymentTrack(
   if (status === "CANCELLED") {
     return { stages, optional, current: null, currentComplete: false, stateCode: status };
   }
+  // R22 D2 — closed through credit notes: the last stage is reached, named «مسوّاة».
+  if (status === "SETTLED") {
+    return { stages, optional, current: "PAID", currentComplete: true, stateCode: status };
+  }
   return {
     stages,
     optional,

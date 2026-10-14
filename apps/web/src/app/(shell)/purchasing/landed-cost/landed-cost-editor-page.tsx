@@ -651,13 +651,9 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
                   {preview.lines.map((line) => (
                     <TableRow key={line.purchaseInvoiceItemId}>
                       <TableCell>{line.productName}</TableCell>
-                      <TableCell className="num text-end">{line.quantity}</TableCell>
-                      <TableCell className="num text-end">
-                        {formatAmount(line.purchaseValue)}
-                      </TableCell>
-                      <TableCell className="num text-end">
-                        {formatAmount(line.allocatedAmount)}
-                      </TableCell>
+                      <TableCell numeric>{line.quantity}</TableCell>
+                      <TableCell numeric>{formatAmount(line.purchaseValue)}</TableCell>
+                      <TableCell numeric>{formatAmount(line.allocatedAmount)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -666,7 +662,7 @@ export function LandedCostEditorPage({ id }: { id: string | null }) {
                     <TableCell colSpan={3} className="text-end font-medium">
                       {t("purchasing.landedCost.allocationPreview.total")}
                     </TableCell>
-                    <TableCell className="num text-end font-medium">
+                    <TableCell numeric className="font-medium">
                       {formatMoney(preview.allocatedTotal, currencyCode)}
                     </TableCell>
                   </TableRow>

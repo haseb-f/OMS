@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Archive, FileText, Pencil, Printer, ScrollText } from "lucide-react";
+import { Archive, FileText, Pencil, Printer, ScrollText, Undo2 } from "lucide-react";
 import {
   DetailField,
   DetailFieldGrid,
@@ -16,6 +16,9 @@ import { AuditTimeline, type TimelineEntry } from "@/components/business/timelin
 import { ComingSoonPanel } from "@/components/shared/coming-soon-page";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PartyPaymentsPanel } from "@/components/financial-transactions/party-payments-panel";
+import { CustomerRefundDialog } from "@/components/financial-transactions/customer-refund-dialog";
+import { IconActionButton } from "@/components/shared/icon-action-button";
+
 import { partnersService, type PartnerRow } from "@/services/partners-service";
 import {
   customerReceiptsService,
@@ -43,6 +46,7 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { MoneyValue } from "@/components/shared/money-value";
 import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
+import { useDataChanged } from "@/hooks/use-data-changed";
 
 export default function CustomerProfilePage() {
   const params = useParams<{ id: string }>();
@@ -91,6 +95,14 @@ export default function CustomerProfilePage() {
       .catch(() => setActivity([]));
   }, [params.id]);
 
+  // R22 §5 — the payments panel re-reads after any money operation (here or in another tab) and on return.
+  const [paymentsVersion, setPaymentsVersion] = useState(0);
+  /** R22 D4 — «رد دفعة مقدمة» of one confirmed receipt (unapplied part, API-capped). */
+  const [refundReceipt, setRefundReceipt] = useState<FinancialTransactionRow | null>(null);
+  const canRefundAdvance =
+    hasPermission("sales.refunds.create") && hasPermission("sales.refunds.confirm");
+  useDataChanged("settlement", () => setPaymentsVersion((version) => version + 1));
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoadingReceipts(true);
@@ -110,7 +122,7 @@ export default function CustomerProfilePage() {
       .position(params.id)
       .then(setPositions)
       .catch(() => setPositions([]));
-  }, [params.id]);
+  }, [params.id, paymentsVersion]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -521,6 +533,19 @@ export default function CustomerProfilePage() {
                   outstandingLabel={t("financialTransactions.position.outstanding")}
                   paidLabel={t("financialTransactions.position.received")}
                   documentHref={(id) => `/sales/payments/${id}`}
+                  rowAction={
+                    canRefundAdvance
+                      ? (txn) =>
+                          txn.status === "CONFIRMED" ? (
+                            <IconActionButton
+                              label={t("vouchers.refund.action")}
+                              onClick={() => setRefundReceipt(txn)}
+                            >
+                              <Undo2 className="size-3.5" />
+                            </IconActionButton>
+                          ) : null
+                      : undefined
+                  }
                   onCreateNew={
                     hasPermission("sales.receipts.create")
                       ? () => router.push(`/sales/payments/new?partnerId=${customer.id}`)
@@ -533,6 +558,22 @@ export default function CustomerProfilePage() {
           },
         ]}
       />
+      {refundReceipt ? (
+        <CustomerRefundDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setRefundReceipt(null);
+          }}
+          target={{
+            kind: "receipt",
+            receiptId: refundReceipt.id,
+            receiptNumber: refundReceipt.transactionNumber,
+            partnerId: refundReceipt.partnerId ?? params.id,
+            currencyId: refundReceipt.currencyId,
+          }}
+          currencyCode={refundReceipt.currency?.code}
+        />
+      ) : null}
     </DetailWorkspace>
   );
 }

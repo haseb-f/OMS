@@ -26,6 +26,7 @@ import {
   ledgerTextColumns,
 } from "./ledger-lines";
 import { useReportQuery } from "./use-report-query";
+import { useDataChanged } from "@/hooks/use-data-changed";
 
 /** The URL key that keeps the selected partner across reloads and shared links. */
 const PARTNER_PARAM = "partner";
@@ -100,6 +101,8 @@ export function PartnerStatementTab({ role }: { role: PartnerRoleValue }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+  // R22 §5 — paid / remaining figures refresh after any money operation (here or in another tab) and on return.
+  useDataChanged("settlement", load);
 
   const blocks = useMemo(
     () =>

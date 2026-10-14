@@ -41,6 +41,10 @@ import {
   InvoicePaymentBadge,
   InvoicePaymentSummary,
 } from "@/components/business/invoice-payment-summary";
+import {
+  InvoiceSettlementHistory,
+  useInvoiceSettlement,
+} from "@/components/financial-transactions/invoice-settlement";
 import type { CommercialDocumentFieldErrors } from "@/components/documents/commercial-document-editor";
 
 function itemToLine(item: PurchaseInvoiceItemRow): ProductLineItemsGridLine {
@@ -131,6 +135,20 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
     setTerms(data.supplierNotes ?? "");
     setLines(data.items.length > 0 ? data.items.map(itemToLine) : [createEmptyLine()]);
   }, []);
+
+  /** R22 §5 — a posted invoice re-reads its figures after any money operation (here, another tab, tab return). */
+  const reloadInvoice = useCallback(() => {
+    if (!id) return;
+    purchaseInvoicesService
+      .get(id)
+      .then(applyInvoice)
+      .catch(() => {});
+  }, [id, applyInvoice]);
+  const { settlement, partial: settlementPartial } = useInvoiceSettlement(
+    "purchase",
+    invoice,
+    reloadInvoice,
+  );
 
   useEffect(() => {
     if (!id) {
@@ -463,7 +481,7 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
               if (action.key === "confirm" && !canConfirm) return false;
               if (
                 action.key === "recordPayment" &&
-                (!canRecordPayment || invoice?.paymentStatus === "PAID")
+                (!canRecordPayment || (invoice ? invoice.remainingBalance <= 0 : false))
               )
                 return false;
               if (action.key === "print" && !invoice) return false;
@@ -485,15 +503,27 @@ export function InvoiceEditorPage({ id }: { id: string | null }) {
         paymentSummary={
           invoice && (
             <InvoicePaymentSummary
-              paymentStatus={invoice.paymentStatus}
-              grandTotal={Number(invoice.grandTotal)}
-              allocatedTotal={invoice.allocatedTotal}
-              remainingBalance={invoice.remainingBalance}
-              currencyCode={invoice.currency?.code}
+              paymentStatus={settlement?.summary.paymentStatus ?? invoice.paymentStatus}
+              grandTotal={settlement?.summary.grandTotal ?? Number(invoice.grandTotal)}
+              allocatedTotal={settlement?.summary.paidTotal ?? invoice.allocatedTotal}
+              creditedTotal={settlement?.summary.creditedTotal ?? invoice.creditedTotal ?? 0}
+              remainingBalance={settlement?.summary.remainingBalance ?? invoice.remainingBalance}
+              currencyCode={
+                invoice.currency?.code ?? settlement?.summary.currencyCode ?? invoice.currencyCode
+              }
             />
           )
         }
       />
+
+      {/* R22 §5 — linked vouchers and credit notes, with the permitted actions. */}
+      {invoice && invoice.status !== "DRAFT" ? (
+        <InvoiceSettlementHistory
+          kind="purchase"
+          settlement={settlement}
+          partial={settlementPartial}
+        />
+      ) : null}
 
       {invoice && (
         <CreateReturnDialog

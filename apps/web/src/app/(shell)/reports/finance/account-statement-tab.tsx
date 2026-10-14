@@ -23,6 +23,7 @@ import {
   ledgerTextColumns,
 } from "./ledger-lines";
 import { useReportQuery } from "./use-report-query";
+import { useDataChanged } from "@/hooks/use-data-changed";
 
 const accountsService = createMasterDataService<ChartOfAccountRow>("/chart-of-accounts");
 
@@ -89,6 +90,8 @@ export function AccountStatementTab() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+  // R22 §5 — paid / remaining figures refresh after any money operation (here or in another tab) and on return.
+  useDataChanged("settlement", load);
 
   const blocks = useMemo(
     () =>

@@ -67,6 +67,12 @@ export function InvoiceGridCard({ row, ...common }: SalesCardCommon & { row: Sal
           value: <SemanticValue kind="date">{formatDate(row.createdAt)}</SemanticValue>,
         },
         {
+          key: "paid",
+          label: t("financialTransactions.paymentSummary.paid"),
+          value: <MoneyValue value={row.allocatedTotal} currency={row.currency?.code} />,
+          numeric: true,
+        },
+        {
           key: "remaining",
           label: t("financialTransactions.paymentSummary.remaining"),
           value: <MoneyValue value={row.remainingBalance} currency={row.currency?.code} />,

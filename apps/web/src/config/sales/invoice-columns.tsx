@@ -3,7 +3,6 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { Ban, Copy, Eye, Pencil, Printer, Archive } from "lucide-react";
 import { StatusBadge } from "@/components/business/status-badge";
-import { MoneyValue } from "@/components/shared/money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { formatDate } from "@/lib/date";
@@ -12,7 +11,7 @@ import { useUserContext } from "@/providers/user-context";
 import { documentRowAccess } from "@/components/shared/data-table";
 import type { SalesInvoiceRow } from "@/services/sales-invoices-service";
 import { SalesDocumentRowActionsMenu, type SalesDocumentRowAction } from "@/components/sales";
-import { invoicePaymentColumns } from "@/config/financial-transactions/invoice-payment-columns";
+import { invoiceMoneyColumns } from "@/config/financial-transactions/invoice-payment-columns";
 import {
   INVOICE_ARCHIVABLE_STATUSES,
   INVOICE_CANCELLABLE_STATUSES,
@@ -149,22 +148,17 @@ export function buildInvoiceColumns(
     },
     {
       id: "status",
-      meta: { titleKey: "sales.customers.fields.status", type: "status" },
+      // R22 §5 — the document status only (badge, compact); the amounts have their own columns.
+      meta: {
+        titleKey: "sales.customers.fields.status",
+        type: "status",
+        minWidth: 96,
+        maxWidth: 136,
+      },
       enableSorting: false,
-      cell: ({ row }) => (
-        <StackedCell
-          primary={<StatusCell status={row.original.status} />}
-          secondary={<MoneyValue value={row.original.grandTotal} />}
-        />
-      ),
+      cell: ({ row }) => <StatusCell status={row.original.status} />,
     },
-    {
-      id: "grandTotal",
-      meta: { titleKey: "sales.invoices.fields.grandTotal", defaultHidden: true, type: "money" },
-      accessorFn: (row) => row.grandTotal,
-      cell: ({ row }) => <MoneyValue value={row.original.grandTotal} />,
-    },
-    ...invoicePaymentColumns<SalesInvoiceRow>(),
+    ...invoiceMoneyColumns<SalesInvoiceRow>("sales.invoices.fields.grandTotal"),
     {
       id: "createdAt",
       meta: { titleKey: "sales.invoices.fields.date", type: "date" },

@@ -365,7 +365,9 @@ export function RankingPanel({
                     <EnterpriseBadge variant="info">{t("docUi.dashboard.you")}</EnterpriseBadge>
                   ) : null}
                 </span>
-                <span className="num text-end text-body font-semibold">{row.orders}</span>
+                <span className="text-end text-body font-semibold tabular-nums">
+                  <span className="num">{row.orders}</span>
+                </span>
                 <span className="col-start-2 col-end-4">
                   <ShareBar
                     value={percentOf(row.orders, top)}

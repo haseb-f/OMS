@@ -338,6 +338,13 @@ await step("C stale invoice detail in a second tab", async () => {
     idempotencyKey: `r22-ib-${stamp}-2`,
   });
   await pageA.bringToFront();
+  // R22-U: headless Chromium emulates focus for every page, so bringToFront fires no
+  // focus / visibilitychange event; dispatch what a real browser fires when the
+  // person comes back to the tab (the change itself was made outside this browser).
+  await pageA.evaluate(() => {
+    document.dispatchEvent(new Event("visibilitychange"));
+    window.dispatchEvent(new Event("focus"));
+  });
   await pageA.waitForTimeout(1500);
   const afterFocus = await readPaid();
   data.staleTab = { before, afterFocus, receipt2: r2.transactionNumber };
