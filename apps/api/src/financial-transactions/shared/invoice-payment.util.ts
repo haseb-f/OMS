@@ -272,10 +272,7 @@ export async function loadReturnCredits(
         by: ['salesReturnId'],
         where: {
           salesReturnId: { in: returns.map((row) => row.id) },
-          transaction: {
-            status: FinancialTransactionStatus.CONFIRMED,
-            deletedAt: null,
-          },
+          transaction: confirmedVoucherWhere(options),
           ...(options.asOf ? { allocationDate: { lte: options.asOf } } : {}),
         },
         _sum: { allocatedAmount: true },

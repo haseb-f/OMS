@@ -8,7 +8,7 @@ import {
 } from '../inventory-valuation/inventory-valuation.service';
 import { AccountMappingService } from '../account-mapping/account-mapping.service';
 import { ExchangeRatesService } from '../fx/exchange-rates.service';
-import { snapshotDocumentExchangeRate } from '../fx/snapshot-document-rate';
+import { returnPostingRate } from '../fx/return-invoice-rate';
 import { assertPostedTaxAmountsHaveTax } from '../../taxes/document-tax';
 import {
   kitComponentValue,
@@ -94,17 +94,22 @@ export class SalesReturnPostingProvider
       },
     });
     if (Number(salesReturn.grandTotal) === 0) return null;
-    const exchangeRate = await snapshotDocumentExchangeRate(
+    // R22 F1 / F10 — a return of an invoice posts at that invoice's rate.
+    const exchangeRate = await returnPostingRate(
       this.exchangeRates,
       tx,
+      'sales',
+      {
+        invoiceId: salesReturn.salesInvoiceId,
+        currencyId: salesReturn.currencyId,
+        exchangeRate: salesReturn.exchangeRate,
+        postedAt: salesReturn.confirmedAt ?? salesReturn.createdAt,
+      },
       (rate) =>
         tx.salesReturn.update({
           where: { id: salesReturn.id },
           data: { exchangeRate: rate },
         }),
-      salesReturn.currencyId,
-      salesReturn.exchangeRate,
-      salesReturn.confirmedAt ?? salesReturn.createdAt,
     );
 
     const lines: PostingLine[] = [];

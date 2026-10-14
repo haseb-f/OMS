@@ -29,7 +29,9 @@ import {
   NOT_AGENT_COLLECTION,
   PAYABLE_PURCHASE_INVOICE_STATUSES,
   PAYABLE_SALES_INVOICE_STATUSES,
+  appliedCreditByReturn,
   loadInvoiceSettlements,
+  loadReturnCredits,
   lockInvoiceRow,
   type InvoicePaymentSummary,
 } from './shared/invoice-payment.util';
@@ -2111,21 +2113,34 @@ export class FinancialTransactionsService {
       const salesReturn = await client.salesReturn.findUniqueOrThrow({
         where: { id: invoiceId },
       });
-      const refunded = await this.sumConfirmedRefunds(
-        [invoiceId],
-        client,
-        excludeTransactionId,
-      );
+      const [refunded, applied] = await Promise.all([
+        this.sumConfirmedRefunds([invoiceId], client, excludeTransactionId),
+        this.appliedCreditOfReturns(
+          [salesReturn],
+          client,
+          excludeTransactionId,
+        ),
+      ]);
+      // R22 F4 (D2) — only the surplus is refundable: the credit its own
+      // invoice consumed settles that invoice and is never paid out again.
       const remaining = Math.max(
         this.round2(
-          Number(salesReturn.grandTotal) - (refunded.get(invoiceId) ?? 0),
+          Number(salesReturn.grandTotal) -
+            (refunded.get(invoiceId) ?? 0) -
+            (applied.get(invoiceId) ?? 0),
         ),
         0,
       );
       if (amount > remaining + 0.005) {
-        throw new BadRequestException(
-          `لا يمكن رد ${amount} — المتبقي القابل للرد على المرتجع ${salesReturn.returnNumber} هو ${remaining} فقط. — Cannot refund ${amount} against Sales Return ${salesReturn.returnNumber}: only ${remaining} of its credit remains unrefunded.`,
-        );
+        throw new BadRequestException({
+          code: 'REFUND_EXCEEDS_RETURN_SURPLUS',
+          message: `لا يمكن رد ${amount} — المتبقي القابل للرد على المرتجع ${salesReturn.returnNumber} هو ${remaining} فقط. — Cannot refund ${amount} against Sales Return ${salesReturn.returnNumber}: only ${remaining} of its credit is neither refunded nor applied to its invoice.`,
+          details: {
+            salesReturnId: invoiceId,
+            refundable: remaining,
+            appliedToInvoice: applied.get(invoiceId) ?? 0,
+          },
+        });
       }
       return;
     }
@@ -2201,11 +2216,12 @@ export class FinancialTransactionsService {
     returns: Prisma.SalesReturnGetPayload<object>[],
   ): Promise<RefundableReturnSummary[]> {
     if (returns.length === 0) return [];
-    const [refunded, balances] = await Promise.all([
+    const [refunded, applied, balances] = await Promise.all([
       this.sumConfirmedRefunds(
         returns.map((r) => r.id),
         this.prisma,
       ),
+      this.appliedCreditOfReturns(returns, this.prisma),
       partnerLedgerBalances(this.prisma, [
         ...new Set(returns.map((r) => r.partnerId)),
       ]),
@@ -2213,8 +2229,11 @@ export class FinancialTransactionsService {
     return returns.map((salesReturn) => {
       const grandTotal = this.round2(Number(salesReturn.grandTotal));
       const refundedTotal = this.round2(refunded.get(salesReturn.id) ?? 0);
+      // R22 F4 (D2) — the credit applied to its own invoice is not refundable.
       const unrefundedCredit = Math.max(
-        this.round2(grandTotal - refundedTotal),
+        this.round2(
+          grandTotal - refundedTotal - (applied.get(salesReturn.id) ?? 0),
+        ),
         0,
       );
       const receivable = balances.get(salesReturn.partnerId)?.receivable ?? 0;
@@ -2238,6 +2257,50 @@ export class FinancialTransactionsService {
           : 0,
       };
     });
+  }
+
+  /**
+   * R22 D2 / F4 — per return: the part of its credit its own posted invoice
+   * consumed (the invoice's `creditedTotal`, oldest return first). A refund
+   * being confirmed is left out of the refunded side (`excludeTransactionId`).
+   */
+  private async appliedCreditOfReturns(
+    returns: { id: string; salesInvoiceId: string | null }[],
+    client: DbClient,
+    excludeTransactionId?: string,
+  ): Promise<Map<string, number>> {
+    const invoiceIds = [
+      ...new Set(
+        returns
+          .map((row) => row.salesInvoiceId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    if (invoiceIds.length === 0) return new Map();
+    const invoices = await client.salesInvoice.findMany({
+      where: {
+        id: { in: invoiceIds },
+        deletedAt: null,
+        status: { in: PAYABLE_SALES_INVOICE_STATUSES },
+      },
+      select: { id: true, grandTotal: true },
+    });
+    const options = { excludeTransactionId };
+    const [settlements, credits] = await Promise.all([
+      loadInvoiceSettlements(client, 'salesInvoiceId', invoices, options),
+      loadReturnCredits(
+        client,
+        'salesInvoiceId',
+        invoices.map((invoice) => invoice.id),
+        options,
+      ),
+    ]);
+    return appliedCreditByReturn(
+      credits,
+      new Map(
+        [...settlements].map(([id, summary]) => [id, summary.creditedTotal]),
+      ),
+    );
   }
 
   /** CONFIRMED refund allocations per Sales Return (the "refunded" side of a credit note). */
