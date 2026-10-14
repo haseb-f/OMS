@@ -17,8 +17,10 @@ type InvoicePaymentRow = InvoicePaymentFigures & {
  * remaining (each a declared `money` column on the numeric end edge, with
  * its currency) · payment status (the badge only — the remaining amount has
  * its own column, never a clipped second line). The same figures the
- * detail, grid card and export show; all API-derived. Sorting: the ids are
- * the API's `sortBy` keys (contract 5 whitelist).
+ * detail, grid card and export show; all API-derived. Sorting only where the
+ * API sorts (contract 5 whitelist): the total is a stored column; paid and
+ * remaining are derived per invoice and not server-sortable, so their
+ * headers never offer a sort that would be refused (400).
  */
 export function invoiceMoneyColumns<T extends InvoicePaymentRow>(
   totalTitleKey: MessageKey,
@@ -34,6 +36,7 @@ export function invoiceMoneyColumns<T extends InvoicePaymentRow>(
     },
     {
       id: "allocatedTotal",
+      enableSorting: false,
       meta: { titleKey: "financialTransactions.paymentSummary.paid", type: "money" },
       accessorFn: (row) => row.allocatedTotal,
       cell: ({ row }) => (
@@ -42,6 +45,7 @@ export function invoiceMoneyColumns<T extends InvoicePaymentRow>(
     },
     {
       id: "remainingBalance",
+      enableSorting: false,
       meta: { titleKey: "financialTransactions.paymentSummary.remaining", type: "money" },
       accessorFn: (row) => row.remainingBalance,
       cell: ({ row }) => (

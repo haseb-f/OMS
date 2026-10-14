@@ -80,9 +80,22 @@ describe.each(tables)("R22 §5 — %s list columns", (_name, columns) => {
     expect(resolveColumnLayout(id, column.meta).align).toBe("end");
   });
 
-  it.each(MONEY_IDS)("%s is sortable (numeric sort on the amount itself)", (id) => {
-    expect(byId.get(id)?.enableSorting).not.toBe(false);
+  // R22 contract 5 as implemented (progress-p.md): the API sorts the stored total; paid and
+  // remaining are derived per invoice and not server-sortable — their headers must not offer
+  // a sort the API refuses (400). A sortable column always sorts on the number (accessor).
+  it("grandTotal is sortable on the amount itself", () => {
+    const column = byId.get("grandTotal")!;
+    expect(column.enableSorting).not.toBe(false);
+    const accessor = (column as { accessorFn?: (row: unknown) => unknown }).accessorFn;
+    expect(accessor?.(row)).toBe(200000);
   });
+
+  it.each(["allocatedTotal", "remainingBalance"])(
+    "%s offers no sort the API would refuse (not server-sortable)",
+    (id) => {
+      expect(byId.get(id)?.enableSorting).toBe(false);
+    },
+  );
 
   it.each(MONEY_IDS)("%s shows its currency code beside the figure", (id) => {
     expect(renderCell(byId.get(id)!)).toContain("EGP");

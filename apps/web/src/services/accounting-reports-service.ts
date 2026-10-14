@@ -362,6 +362,22 @@ export interface AgingPartnerRow {
   unapplied: number;
   /** Open invoices less unapplied credits. */
   net: number;
+  /** R22 A1 — one row per partner × currency; figures are in this currency. */
+  currencyId?: string | null;
+  currencyCode?: string | null;
+}
+
+/** R22 A1 — aging totals of one currency (never summed across currencies). */
+export interface AgingCurrencyTotals {
+  currencyId: string | null;
+  currencyCode: string | null;
+  current: number;
+  days31to60: number;
+  days61to90: number;
+  over90: number;
+  total: number;
+  unapplied: number;
+  net: number;
 }
 
 export interface AgingInvoiceRow {
@@ -375,6 +391,10 @@ export interface AgingInvoiceRow {
   grandTotal: number;
   allocated: number;
   remaining: number;
+  currencyId?: string | null;
+  currencyCode?: string | null;
+  paidTotal?: number;
+  creditedTotal?: number;
 }
 
 export interface AgingResult {
@@ -382,7 +402,11 @@ export interface AgingResult {
   asOfDate: string;
   partners: AgingPartnerRow[];
   invoices: AgingInvoiceRow[];
+  /** @deprecated R22 — functional currency only (named by `totalsCurrencyCode`); use `totalsByCurrency`. */
   totals: AgingPartnerRow & { partnerId?: string; partnerNumber?: string; partnerName?: string };
+  totalsByCurrency?: AgingCurrencyTotals[];
+  totalsCurrencyId?: string | null;
+  totalsCurrencyCode?: string | null;
 }
 
 export type PartnerStatementMovement = AccountLedgerMovement;

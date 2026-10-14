@@ -268,15 +268,14 @@ export function InvoiceSettlementHistory({
     formatMoney(entry.amount, entry.currencyCode ?? undefined);
   const status = (entry: InvoiceSettlementEntry) => {
     const code = entry.status as FinancialTransactionStatusValue;
-    return entry.kind === "PAYMENT" && TRANSACTION_STATUS_LABEL_KEY[code] ? (
-      <StatusBadge
-        label={t(TRANSACTION_STATUS_LABEL_KEY[code])}
-        tone={TRANSACTION_STATUS_TONE[code]}
-      />
+    const known = TRANSACTION_STATUS_LABEL_KEY[code];
+    return known ? (
+      <StatusBadge label={t(known)} tone={TRANSACTION_STATUS_TONE[code]} />
     ) : (
       <StatusBadge label={String(entry.status)} tone="neutral" />
     );
   };
+
   const kindLabel = (entry: InvoiceSettlementEntry) =>
     t(
       entry.kind === "CREDIT_NOTE"
