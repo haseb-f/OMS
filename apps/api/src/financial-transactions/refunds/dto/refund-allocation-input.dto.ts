@@ -9,9 +9,20 @@ import { IsNumber, IsPositive, IsUUID, ValidateIf } from 'class-validator';
  * every cap, never the client.
  */
 export class RefundAllocationInputDto {
-  @ValidateIf((line: RefundAllocationInputDto) => !line.storeOrderId)
+  @ValidateIf(
+    (line: RefundAllocationInputDto) => !line.storeOrderId && !line.receiptId,
+  )
   @IsUUID()
   invoiceId?: string;
+
+  /**
+   * R22 (D4) — OR the confirmed Customer Receipt whose unapplied amount
+   * (advance / overpayment) this line pays back (`GET
+   * financial-transactions/refunds/open-receipts?partnerId=`).
+   */
+  @ValidateIf((line: RefundAllocationInputDto) => line.receiptId !== undefined)
+  @IsUUID()
+  receiptId?: string;
 
   @ValidateIf(
     (line: RefundAllocationInputDto) => line.storeOrderId !== undefined,

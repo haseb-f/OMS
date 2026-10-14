@@ -15,6 +15,11 @@ import {
 const VOUCHER_TYPES = [
   FinancialTransactionType.CUSTOMER_RECEIPT,
   FinancialTransactionType.SUPPLIER_PAYMENT,
+  // R22-T (D4) — one entry per voucher, cash line = amount × rate (a
+  // transfer's checked line is its source account).
+  FinancialTransactionType.OTHER_RECEIPT,
+  FinancialTransactionType.OTHER_PAYMENT,
+  FinancialTransactionType.INTERNAL_TRANSFER,
 ];
 
 /**
@@ -55,6 +60,7 @@ export class VoucherIntegrityService {
           select: {
             allocatedAmount: true,
             storeOrderId: true,
+            receiptId: true,
             salesInvoice: { select: { invoiceNumber: true } },
             purchaseInvoice: { select: { invoiceNumber: true } },
           },
@@ -80,7 +86,8 @@ export class VoucherIntegrityService {
       storeOrderReceipt:
         !!row.paymentReceiptLink ||
         !!row.notes?.startsWith(STORE_ORDER_PAYMENT_NOTE_PREFIX) ||
-        row.allocations.some((line) => line.storeOrderId),
+        // R22-T — a receipt partly refunded (consumption row) keeps the rest as credit by design.
+        row.allocations.some((line) => line.storeOrderId || line.receiptId),
       allocations: row.allocations.map((line) => ({
         allocatedAmount: Number(line.allocatedAmount),
         invoiceNumber:

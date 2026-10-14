@@ -6,6 +6,13 @@ import { SupplierPaymentActivitiesController } from './payments/activities/suppl
 import { ExpensePaymentsController } from './expenses/expense-payments.controller';
 import { CustomerRefundsController } from './refunds/customer-refunds.controller';
 import { FinancialTransactionTypesController } from './financial-transaction-types.controller';
+import {
+  CounterAccountsController,
+  OtherPaymentsController,
+  OtherReceiptsController,
+  TransfersController,
+} from './other/other-vouchers.controller';
+import { OtherVouchersService } from './other/other-vouchers.service';
 import { FinancialTransactionsService } from './financial-transactions.service';
 import { FinancialTransactionActivityService } from './activities/financial-transaction-activity.service';
 import { StoreOrderRefundsService } from './refunds/store-order-refunds.service';
@@ -30,13 +37,23 @@ import { PostingEngineModule } from '../accounting/posting-engine/posting-engine
     ExpensePaymentsController,
     CustomerRefundsController,
     FinancialTransactionTypesController,
+    // R22 (D4) — other receipts / payments / transfers (journal-entry permissions).
+    OtherReceiptsController,
+    OtherPaymentsController,
+    TransfersController,
+    CounterAccountsController,
   ],
   providers: [
     FinancialTransactionsService,
     FinancialTransactionActivityService,
     // R15 (D15-11) — refunds of store orders (advance / credit notes).
     StoreOrderRefundsService,
+    OtherVouchersService,
   ],
-  exports: [FinancialTransactionsService, StoreOrderRefundsService],
+  exports: [
+    FinancialTransactionsService,
+    StoreOrderRefundsService,
+    OtherVouchersService,
+  ],
 })
 export class FinancialTransactionsModule {}
