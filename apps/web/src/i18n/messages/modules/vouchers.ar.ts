@@ -124,6 +124,12 @@ const vouchersAr = {
       cancelled: "أُلغي السند — حُدّث رصيد الفاتورة.",
     },
   },
+  refund: {
+    action: "رد دفعة مقدمة",
+    title: "رد دفعة مقدمة من {receipt}",
+    receiptAmount: "مبلغ سند القبض",
+    unapplied: "غير المخصص (قابل للرد)",
+  },
   toasts: {
     reallocated: "تم تعديل مبلغ التخصيص.",
     reallocateFailed: "لم يُعدَّل التخصيص — أُعيد تحميل السند من الخادم.",

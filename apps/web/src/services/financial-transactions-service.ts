@@ -107,7 +107,9 @@ export interface FinancialTransactionRow {
  */
 export type AllocationInputPayload =
   | { invoiceId: string; allocatedAmount: number }
-  | { storeOrderId: string; allocatedAmount: number };
+  | { storeOrderId: string; allocatedAmount: number }
+  /** R22 D4 — a Customer Refund paying back the unapplied part of a confirmed receipt. */
+  | { receiptId: string; allocatedAmount: number };
 
 export interface FinancialTransactionFormPayload {
   /** Expense vouchers: optional supplier counterparty; `null` clears it on edit. */

@@ -130,6 +130,12 @@ const vouchersEn = {
       cancelled: "Voucher cancelled — the invoice balance is updated.",
     },
   },
+  refund: {
+    action: "Refund advance",
+    title: "Refund the advance of {receipt}",
+    receiptAmount: "Receipt amount",
+    unapplied: "Unapplied (refundable)",
+  },
   toasts: {
     reallocated: "Allocation amount updated.",
     reallocateFailed: "The allocation was not changed — the voucher was reloaded from the server.",

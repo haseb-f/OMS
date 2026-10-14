@@ -486,7 +486,17 @@ export function FinancialTransactionEditor({
         value={state.targetReceivingAccountId ?? null}
         disabled={!canEdit}
         onValueChange={(value) => handlers.onTargetAccountChange?.(value || null)}
-        options={accountOptions.filter((option) => option.value !== state.receivingAccountId)}
+        // A transfer stays in one currency (API: TRANSFER_CROSS_CURRENCY) — never offer the source
+        // itself, nor an account bound to another currency than the source's.
+        options={receivingAccounts
+          .filter((account) => {
+            if (account.id === state.receivingAccountId) return false;
+            const source = receivingAccounts.find((row) => row.id === state.receivingAccountId);
+            return (
+              !source?.currencyId || !account.currencyId || account.currencyId === source.currencyId
+            );
+          })
+          .map((account) => ({ value: account.id, label: account.name }))}
         allowClear
         error={Boolean(fieldErrors?.targetAccount)}
       />

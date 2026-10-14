@@ -3,7 +3,8 @@
 import { RelatedRecordsPanel } from "@/components/shared/related-records-panel";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Ban, CheckCircle2, Printer, Save, Trash2 } from "lucide-react";
+import { Ban, CheckCircle2, Printer, Save, Trash2, Undo2 } from "lucide-react";
+import { CustomerRefundDialog } from "@/components/financial-transactions/customer-refund-dialog";
 import { EnterpriseButton } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { EditorWorkspace } from "@/components/shared/detail-workspace";
@@ -105,7 +106,7 @@ export interface VoucherPageConfig {
 }
 
 /** OTHER_* / INTERNAL_TRANSFER are authorised like a manual journal entry (D4 — no new grant). */
-const MANUAL_ENTRY_PERMISSION = "journal-entries.create";
+const MANUAL_ENTRY_PERMISSION = "accounting.journal-entries.create";
 
 let nextLineId = 1;
 const round2 = (value: number) => Math.round(value * 100) / 100;
@@ -164,6 +165,7 @@ export function VoucherEditorPage({
     undefined,
   );
   const [deleteTarget, setDeleteTarget] = useState(false);
+  const [refundOpen, setRefundOpen] = useState(false);
 
   const [party, setParty] = useState<PartnerPickerRow | null>(null);
   const [transactionDate, setTransactionDate] = useState<Date | null>(new Date());
@@ -714,6 +716,14 @@ export function VoucherEditorPage({
   };
 
   const canConfirm = hasPermission(permission("confirm"));
+  /** A confirmed customer receipt with money not applied to invoices can be paid back (D4). */
+  const canRefundAdvance =
+    direction === "IN" &&
+    voucher?.type === "CUSTOMER_RECEIPT" &&
+    voucher.status === "CONFIRMED" &&
+    hasPermission("sales.refunds.create") &&
+    hasPermission("sales.refunds.confirm") &&
+    Number(voucher.amount) - allocatedTotal > 0.005;
   const canCancel = hasPermission(permission("cancel"));
   const canEdit = isDraft;
   const canUseManualEntryTypes = hasPermission(MANUAL_ENTRY_PERMISSION);
@@ -807,6 +817,15 @@ export function VoucherEditorPage({
         onAction: () => setDeleteTarget(true),
       },
       {
+        // R22 D4 — «رد دفعة مقدمة»: the unapplied part of a confirmed customer receipt.
+        key: "refund" as const,
+        label: t("vouchers.refund.action"),
+        icon: Undo2,
+        variant: "outline" as const,
+        visibleForStatuses: ["CONFIRMED" as const],
+        onAction: () => setRefundOpen(true),
+      },
+      {
         key: "print" as const,
         label: t("table.print"),
         icon: Printer,
@@ -815,6 +834,7 @@ export function VoucherEditorPage({
       },
     ].filter((action) => {
       if (action.key === "confirm" && !canConfirm) return false;
+      if (action.key === "refund" && !canRefundAdvance) return false;
       if (action.key === "cancel" && !canCancel) return false;
       if (action.key === "delete" && (!voucher || !canEdit)) return false;
       if (action.key === "print" && !voucher) return false;
@@ -919,6 +939,24 @@ export function VoucherEditorPage({
         )}
         allocationSection={allocationSection}
       />
+
+      {refundOpen && voucher && voucher.partnerId ? (
+        <CustomerRefundDialog
+          open={refundOpen}
+          onOpenChange={setRefundOpen}
+          target={{
+            kind: "receipt",
+            receiptId: voucher.id,
+            receiptNumber: voucher.transactionNumber,
+            partnerId: voucher.partnerId,
+            currencyId: voucher.currencyId,
+          }}
+          currencyCode={currencyCode}
+          onRefunded={() => {
+            if (id) void reload(id).catch(() => {});
+          }}
+        />
+      ) : null}
 
       <ConfirmationDialog
         open={deleteTarget}

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { FileText, Plus } from "lucide-react";
 import {
   Table,
@@ -49,6 +50,7 @@ export function PartyPaymentsPanel({
   documentHref,
   onCreateNew,
   createLabel,
+  rowAction,
 }: {
   transactions: FinancialTransactionRow[];
   isLoadingTransactions: boolean;
@@ -60,6 +62,8 @@ export function PartyPaymentsPanel({
   outstandingLabel: string;
   paidLabel: string;
   documentHref: (id: string) => string;
+  /** R22 D4 — a per-voucher action (e.g. «رد دفعة مقدمة» on a confirmed receipt); null hides it for that row. */
+  rowAction?: (transaction: FinancialTransactionRow) => ReactNode;
   /** "New Receipt" / "New Payment" quick action (TASK-045) — omitted entirely when the caller has no create permission. */
   onCreateNew?: () => void;
   createLabel?: string;
@@ -123,6 +127,7 @@ export function PartyPaymentsPanel({
                     {t("financialTransactions.summary.amount")}
                   </TableHead>
                   <TableHead>{t("common.status")}</TableHead>
+                  {rowAction ? <TableHead className="w-(--width-control-actions)" /> : null}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -147,6 +152,7 @@ export function PartyPaymentsPanel({
                         tone={TRANSACTION_STATUS_TONE[txn.status]}
                       />
                     </TableCell>
+                    {rowAction ? <TableCell>{rowAction(txn)}</TableCell> : null}
                   </TableRow>
                 ))}
               </TableBody>

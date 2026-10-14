@@ -68,7 +68,8 @@ vi.mock("@/providers/locale-provider", () => ({
 vi.mock("@/providers/user-context", () => ({
   useUserContext: () => ({
     user: { id: "u1" },
-    hasPermission: (key: string) => key !== "journal-entries.create" || permissions.manualEntry,
+    hasPermission: (key: string) =>
+      !key.startsWith("accounting.journal-entries.") || permissions.manualEntry,
   }),
 }));
 vi.mock("@/providers/breadcrumb-provider", () => ({ useBreadcrumbLabel: () => undefined }));
@@ -228,5 +229,36 @@ describe("R22 voucher card — purposes route to their voucher types", () => {
       await action("confirm")!.onAction();
     });
     expect(latest().fieldErrors?.party).toBe("financialTransactions.validation.partyRequired");
+  });
+  it("a confirmed receipt with an unapplied part offers «رد دفعة مقدمة» (D4); a fully applied one does not", async () => {
+    const row = (allocated: number) => ({
+      id: "r1",
+      transactionNumber: "CR-1",
+      type: "CUSTOMER_RECEIPT",
+      status: "CONFIRMED",
+      transactionDate: "2026-10-14T00:00:00.000Z",
+      amount: "1000",
+      currencyId: null,
+      partnerId: "p1",
+      partner: { id: "p1", name: "عميل" },
+      paymentSourceId: null,
+      receivingAccountId: "cash",
+      referenceNumber: null,
+      notes: null,
+      updatedAt: "2026-10-14T00:00:00.000Z",
+      allocations: allocated
+        ? [{ id: "a1", salesInvoiceId: "inv", allocatedAmount: String(allocated) }]
+        : [],
+    });
+    settlement.get.mockResolvedValueOnce(row(0));
+    render(<VoucherEditorPage id="r1" config={config("IN")} />);
+    await waitFor(() => expect(latest().state.document?.id).toBe("r1"));
+    expect(action("refund")).toBeDefined();
+    cleanup();
+    editor.latest = null;
+    settlement.get.mockResolvedValueOnce(row(1000));
+    render(<VoucherEditorPage id="r1" config={config("IN")} />);
+    await waitFor(() => expect(latest().state.document?.id).toBe("r1"));
+    expect(action("refund")).toBeUndefined();
   });
 });

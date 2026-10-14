@@ -72,6 +72,24 @@ export const JOURNAL_SOURCE_DEFINITIONS: Record<string, JournalSourceDefinition>
     labelKey: "accounting.journalEntries.sourceTypes.EXPENSE_PAYMENT",
     generated: true,
   },
+  OTHER_RECEIPT: {
+    sourceType: "OTHER_RECEIPT",
+    href: (id) => `/sales/payments/${id}?purpose=other`,
+    labelKey: "accounting.journalEntries.sourceTypes.OTHER_RECEIPT",
+    generated: true,
+  },
+  OTHER_PAYMENT: {
+    sourceType: "OTHER_PAYMENT",
+    href: (id) => `/purchasing/payments/${id}?purpose=other`,
+    labelKey: "accounting.journalEntries.sourceTypes.OTHER_PAYMENT",
+    generated: true,
+  },
+  INTERNAL_TRANSFER: {
+    sourceType: "INTERNAL_TRANSFER",
+    href: (id) => `/purchasing/payments/${id}?purpose=transfer`,
+    labelKey: "accounting.journalEntries.sourceTypes.INTERNAL_TRANSFER",
+    generated: true,
+  },
   INVENTORY_ADJUSTMENT: {
     sourceType: "INVENTORY_ADJUSTMENT",
     href: () => `/inventory/movements`,

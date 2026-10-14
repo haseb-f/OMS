@@ -15,6 +15,10 @@ export type TraceKind =
   | "PURCHASE_RETURN"
   | "SUPPLIER_PAYMENT"
   | "EXPENSE_PAYMENT"
+  /** R22 D4 — vouchers on the same FinancialTransaction model (view: accounting.journal-entries.view). */
+  | "OTHER_RECEIPT"
+  | "OTHER_PAYMENT"
+  | "INTERNAL_TRANSFER"
   | "LANDED_COST"
   | "STORE_ORDER"
   | "PAYMENT"

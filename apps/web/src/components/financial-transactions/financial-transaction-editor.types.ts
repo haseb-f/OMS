@@ -27,7 +27,8 @@ import type {
  * Supplier) in the same component, so the picker has to be generic here
  * rather than forked.
  */
-export type TransactionWorkflowActionKey = "confirm" | "cancel" | "delete" | "print";
+/** `refund` — R22 D4: pay back the unapplied part of a confirmed customer receipt. */
+export type TransactionWorkflowActionKey = "confirm" | "cancel" | "delete" | "print" | "refund";
 
 export interface TransactionEditorActionContext {
   document: FinancialTransactionRow | null;

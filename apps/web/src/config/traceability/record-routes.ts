@@ -54,6 +54,19 @@ export const RECORD_ROUTES: Record<
     labelKey: "docFlow.kinds.EXPENSE_PAYMENT",
     href: (id) => `/finance/expenses/${id}`,
   },
+  // R22 D4 — opened in the one voucher card; the query names the voucher type.
+  OTHER_RECEIPT: {
+    labelKey: "docFlow.kinds.OTHER_RECEIPT",
+    href: (id) => `/sales/payments/${id}?purpose=other`,
+  },
+  OTHER_PAYMENT: {
+    labelKey: "docFlow.kinds.OTHER_PAYMENT",
+    href: (id) => `/purchasing/payments/${id}?purpose=other`,
+  },
+  INTERNAL_TRANSFER: {
+    labelKey: "docFlow.kinds.INTERNAL_TRANSFER",
+    href: (id) => `/purchasing/payments/${id}?purpose=transfer`,
+  },
   LANDED_COST: {
     labelKey: "docFlow.kinds.LANDED_COST",
     href: (id) => `/purchasing/landed-cost/${id}`,

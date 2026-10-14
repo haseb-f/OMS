@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import {
   customerRefundsService,
+  type RefundableReceiptRow,
   type RefundableReturnSummary,
 } from "@/services/customer-refunds-service";
 import type { FinancialTransactionRow } from "@/services/financial-transactions-service";
@@ -47,7 +48,15 @@ import { newIdempotencyKey } from "@/hooks/use-idempotency-key";
  */
 export type RefundTarget =
   | { kind: "return"; salesReturnId: string; partnerId: string; currencyId: string | null }
-  | { kind: "order"; storeOrderId: string; orderNumber: string };
+  | { kind: "order"; storeOrderId: string; orderNumber: string }
+  /** R22 D4 — «رد دفعة مقدمة»: the unapplied part of one confirmed customer receipt. */
+  | {
+      kind: "receipt";
+      receiptId: string;
+      receiptNumber: string;
+      partnerId: string;
+      currencyId: string | null;
+    };
 
 /** The dialog's read-only summary — every figure comes from the API. */
 export interface RefundSummary {
@@ -66,6 +75,23 @@ export function returnRefundSummary(summary: RefundableReturnSummary): RefundSum
       { labelKey: "sales.refunds.dialog.refundable", amount: summary.refundableAmount },
     ],
     refundable: summary.refundableAmount,
+  };
+}
+
+/** R22 D4 — what a receipt can still pay back: its unapplied part (API figure). */
+export function receiptRefundSummary(
+  row: RefundableReceiptRow | undefined,
+  title: string,
+): RefundSummary {
+  return {
+    title,
+    rows: row
+      ? [
+          { labelKey: "vouchers.refund.receiptAmount", amount: row.amount },
+          { labelKey: "vouchers.refund.unapplied", amount: row.unapplied },
+        ]
+      : [],
+    refundable: row?.unapplied ?? 0,
   };
 }
 
@@ -123,7 +149,14 @@ export function CustomerRefundDialog({
   /** One idempotency key per opening of the dialog (R13 B2) — a retried submit returns the first refund. */
   const idempotencyKeyRef = useRef<string | null>(null);
   const fieldId = useId();
-  const targetId = target.kind === "return" ? target.salesReturnId : target.storeOrderId;
+  const targetId =
+    target.kind === "return"
+      ? target.salesReturnId
+      : target.kind === "receipt"
+        ? target.receiptId
+        : target.storeOrderId;
+  const receiptPartnerId = target.kind === "receipt" ? target.partnerId : null;
+  const receiptNumber = target.kind === "receipt" ? target.receiptNumber : "";
 
   useEffect(() => {
     if (!open) return;
@@ -132,7 +165,14 @@ export function CustomerRefundDialog({
     const load =
       target.kind === "return"
         ? customerRefundsService.refundable(targetId).then(returnRefundSummary)
-        : storeOrderMoneyService.refundable(targetId).then(orderRefundSummary);
+        : target.kind === "receipt"
+          ? customerRefundsService.openReceipts(receiptPartnerId ?? "").then((rows) =>
+              receiptRefundSummary(
+                rows.find((row) => row.receiptId === targetId),
+                receiptNumber,
+              ),
+            )
+          : storeOrderMoneyService.refundable(targetId).then(orderRefundSummary);
     load
       .then((result) => {
         if (cancelled) return;
@@ -158,7 +198,7 @@ export function CustomerRefundDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, target.kind, targetId, t]);
+  }, [open, target.kind, targetId, receiptPartnerId, receiptNumber, t]);
 
   const refundable = summary?.refundable ?? 0;
   const exceeds = amount > refundable + 0.005;
@@ -171,6 +211,17 @@ export function CustomerRefundDialog({
       referenceNumber: referenceNumber || undefined,
     };
     const idempotencyKey = idempotencyKeyRef.current ?? newIdempotencyKey();
+    if (target.kind === "receipt") {
+      return customerRefundsService.createConfirmed({
+        ...common,
+        partnerId: target.partnerId,
+        currencyId: target.currencyId ?? undefined,
+        receivingAccountId: accountId,
+        amount,
+        allocations: [{ receiptId: target.receiptId, allocatedAmount: amount }],
+        idempotencyKey,
+      });
+    }
     return target.kind === "return"
       ? customerRefundsService.createConfirmed({
           ...common,
@@ -211,9 +262,9 @@ export function CustomerRefundDialog({
     try {
       const refund = await submit(receivingAccountId);
       toast.success(
-        target.kind === "return"
-          ? t("sales.returns.toasts.refunded", { number: refund.transactionNumber })
-          : t("storeOrderMoney.refundDialog.recorded", { number: refund.transactionNumber }),
+        target.kind === "order"
+          ? t("storeOrderMoney.refundDialog.recorded", { number: refund.transactionNumber })
+          : t("sales.returns.toasts.refunded", { number: refund.transactionNumber }),
       );
       onOpenChange(false);
       onRefunded?.(refund);
@@ -236,9 +287,11 @@ export function CustomerRefundDialog({
       size="md"
       icon={Undo2}
       title={
-        target.kind === "return"
-          ? t("sales.refunds.dialog.title")
-          : t("storeOrderMoney.refundDialog.title", { order: target.orderNumber })
+        target.kind === "order"
+          ? t("storeOrderMoney.refundDialog.title", { order: target.orderNumber })
+          : target.kind === "receipt"
+            ? t("vouchers.refund.title", { receipt: target.receiptNumber })
+            : t("sales.refunds.dialog.title")
       }
       description={t("sales.refunds.dialog.description")}
       footer={(requestClose) => (
