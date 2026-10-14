@@ -18,7 +18,12 @@ export type VoucherIntegrityCode =
   | 'CANCELLED_ENTRY_ACTIVE'
   | 'CASH_LINE_MISMATCH'
   | 'BANK_MATCH_AMOUNT_MISMATCH'
-  | 'PARTIAL_WITH_UNAPPLIED';
+  | 'PARTIAL_WITH_UNAPPLIED'
+  // R22 — settlement integrity.
+  | 'PARTNER_AGING_MISMATCH'
+  | 'AGENT_RECEIPT_ALLOCATED'
+  | 'CANCELLED_VOUCHER_ALLOCATED'
+  | 'DRAFT_OVER_CLAIM';
 
 export interface VoucherIntegrityIssue {
   code: VoucherIntegrityCode;
@@ -240,4 +245,124 @@ export function evaluateVoucherIntegrity(input: {
 
 function otherSide(side: 'debit' | 'credit'): 'debit' | 'credit' {
   return side === 'debit' ? 'credit' : 'debit';
+}
+
+/** R22 — one partner × currency: the ledger (functional) against the aging net (document currency). */
+export interface PartnerCurrencyBalanceView {
+  side: 'AR' | 'AP';
+  partnerId: string;
+  partnerName: string | null;
+  currencyId: string | null;
+  currencyCode: string | null;
+  /** The currency is the functional one: ledger and aging are directly comparable. */
+  functional: boolean;
+  /** Control-account balance of entries in this currency (AR debit-positive, AP credit-positive), functional amounts. */
+  ledger: number;
+  /** Aging net (open invoices − unapplied credits) in this currency. */
+  agingNet: number;
+}
+
+/** R22 — an allocation line as the settlement checks read it. */
+export interface SettlementLineView {
+  voucherId: string;
+  voucherNumber: string;
+  voucherType: string;
+  voucherStatus: string;
+  partnerName: string | null;
+  /** The receipt posts an agent order's collection (credited Agent funds payable). */
+  agentCollection: boolean;
+  invoiceNumber: string | null;
+  allocatedAmount: number;
+  /** Draft lines: what the invoice still owes without any draft (D2 summary). */
+  invoiceRemaining: number | null;
+}
+
+/**
+ * R22 settlement rules (pure):
+ * - PARTNER_AGING_MISMATCH (REVIEW) — a partner's AR / AP ledger and its
+ *   aging net disagree in one currency: in the functional currency the two
+ *   must be equal (opening balances / manual entries explain a difference);
+ *   in a foreign currency a partner with nothing open nor unapplied must
+ *   carry no ledger residue (FX / rounding left on AR / AP).
+ * - AGENT_RECEIPT_ALLOCATED (ERROR) — an agent-order collection settles a
+ *   customer invoice (the invoice reads paid while AR was never credited).
+ * - CANCELLED_VOUCHER_ALLOCATED (ERROR) — a cancelled voucher still holds
+ *   allocations (cancel frees them; an invoice would read paid by nothing).
+ * - DRAFT_OVER_CLAIM (REVIEW) — a draft allocates more to an invoice than
+ *   it owes today (it will be refused at Confirm).
+ */
+export function evaluateSettlementIntegrity(input: {
+  balances: PartnerCurrencyBalanceView[];
+  lines: SettlementLineView[];
+}): VoucherIntegrityIssue[] {
+  const issues: VoucherIntegrityIssue[] = [];
+  for (const balance of input.balances) {
+    const ledger = round2(balance.ledger);
+    const agingNet = round2(balance.agingNet);
+    const residue = balance.functional
+      ? round2(ledger - agingNet)
+      : Math.abs(agingNet) <= TOLERANCE
+        ? ledger
+        : 0;
+    if (Math.abs(residue) <= 0.01) continue;
+    issues.push({
+      code: 'PARTNER_AGING_MISMATCH',
+      severity: 'REVIEW',
+      documentType: balance.side === 'AR' ? 'CUSTOMER' : 'SUPPLIER',
+      documentId: balance.partnerId,
+      documentNumber: balance.currencyCode ?? '—',
+      partnerName: balance.partnerName,
+      detail: balance.functional
+        ? `The ${balance.side} ledger (${ledger.toFixed(2)}) differs from the aging net (${agingNet.toFixed(2)}) in ${balance.currencyCode ?? 'the functional currency'}.`
+        : `Nothing is open or unapplied in ${balance.currencyCode ?? 'this currency'}, yet ${ledger.toFixed(2)} (functional) stays on ${balance.side} — FX / rounding residue.`,
+      amounts: { ledger, agingNet, residue },
+    });
+  }
+  const draftClaims = new Map<string, SettlementLineView & { sum: number }>();
+  for (const line of input.lines) {
+    const base = {
+      documentType: line.voucherType,
+      documentId: line.voucherId,
+      documentNumber: line.voucherNumber,
+      partnerName: line.partnerName,
+    };
+    if (line.voucherStatus === 'CONFIRMED' && line.agentCollection) {
+      issues.push({
+        ...base,
+        code: 'AGENT_RECEIPT_ALLOCATED',
+        severity: 'ERROR',
+        detail: `Agent-order collection allocated ${line.allocatedAmount.toFixed(2)} to ${line.invoiceNumber ?? '—'}; its entry credited Agent funds payable, not the customer's AR.`,
+        amounts: { allocated: line.allocatedAmount },
+      });
+    }
+    if (line.voucherStatus === 'CANCELLED') {
+      issues.push({
+        ...base,
+        code: 'CANCELLED_VOUCHER_ALLOCATED',
+        severity: 'ERROR',
+        detail: `Cancelled voucher still allocates ${line.allocatedAmount.toFixed(2)} to ${line.invoiceNumber ?? '—'}.`,
+        amounts: { allocated: line.allocatedAmount },
+      });
+    }
+    if (line.voucherStatus === 'DRAFT' && line.invoiceRemaining !== null) {
+      const key = `${line.voucherId}|${line.invoiceNumber ?? ''}`;
+      const current = draftClaims.get(key) ?? { ...line, sum: 0 };
+      current.sum = round2(current.sum + line.allocatedAmount);
+      draftClaims.set(key, current);
+    }
+  }
+  for (const claim of draftClaims.values()) {
+    if (claim.sum - (claim.invoiceRemaining ?? 0) <= TOLERANCE) continue;
+    issues.push({
+      code: 'DRAFT_OVER_CLAIM',
+      severity: 'REVIEW',
+      documentType: claim.voucherType,
+      documentId: claim.voucherId,
+      documentNumber: claim.voucherNumber,
+      partnerName: claim.partnerName,
+      detail: `Draft allocates ${claim.sum.toFixed(2)} to ${claim.invoiceNumber ?? '—'}, which owes ${(claim.invoiceRemaining ?? 0).toFixed(2)}.`,
+      amounts: { allocated: claim.sum, remaining: claim.invoiceRemaining ?? 0 },
+    });
+  }
+  return issues;
 }

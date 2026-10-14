@@ -19,10 +19,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { StoreOrdersService } from '../store-orders/store-orders.service';
 import { StoreOrderPaymentSyncService } from '../store-orders/store-order-payment-sync.service';
 import { FinancialTransactionsService } from '../financial-transactions/financial-transactions.service';
-import {
-  computeInvoicePaymentSummary,
-  sumConfirmedAllocations,
-} from '../financial-transactions/shared/invoice-payment.util';
+import { loadInvoiceSettlements } from '../financial-transactions/shared/invoice-payment.util';
 import { WorkflowStatusResolverService } from '../workflow/workflow-status-resolver.service';
 import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
 import type { CompanyContext } from '../common/decorators/current-company-context.decorator';
@@ -65,6 +62,16 @@ export interface ReconciliationCandidate {
  * confirm method checks that field first — the idempotency guarantee
  * against a duplicate confirm/re-sync (spec section 4/20).
  */
+/**
+ * R22 L4 — the idempotency key of the voucher a bank line becomes: one per
+ * bank line AND per state of that line (`updatedAt`), so a retry of the same
+ * confirmation returns the voucher already posted, while a line un-matched
+ * by a correction (its voucher cancelled) gets a fresh key next time.
+ */
+function bankLineIdempotencyKey(line: { id: string; updatedAt: Date }) {
+  return `bank-line:${line.id}:${line.updatedAt.getTime()}`;
+}
+
 @Injectable()
 export class CashFlowReconciliationService {
   constructor(
@@ -284,16 +291,13 @@ export class CashFlowReconciliationService {
             !invoice.currencyId ||
             transaction.currencyId === invoice.currencyId),
       );
-      const allocatedByInvoice = await sumConfirmedAllocations(
+      const settlements = await loadInvoiceSettlements(
         this.prisma,
         'salesInvoiceId',
-        matchedInvoices.map((i) => i.id),
+        matchedInvoices,
       );
       for (const invoice of matchedInvoices) {
-        const summary = computeInvoicePaymentSummary(
-          Number(invoice.grandTotal),
-          allocatedByInvoice.get(invoice.id) ?? 0,
-        );
+        const summary = settlements.get(invoice.id)!;
         if (summary.remainingBalance <= 0) continue;
         candidates.push({
           kind: 'SALES_INVOICE',
@@ -578,7 +582,10 @@ export class CashFlowReconciliationService {
     }
     const [partnerId] = partnerIds;
 
-    const created = await this.financialTransactions.create(
+    // R22 L4 — create + confirm + post in ONE transaction (a posting
+    // failure leaves no orphan draft claiming the invoices); the key ties a
+    // retry of this bank line to the same voucher.
+    const created = await this.financialTransactions.createConfirmed(
       'CUSTOMER_RECEIPT',
       {
         partnerId,
@@ -593,11 +600,11 @@ export class CashFlowReconciliationService {
           transaction.transactionId ?? transaction.reference ?? undefined,
         notes: transaction.description ?? undefined,
         allocations: dto.allocations,
+        idempotencyKey: bankLineIdempotencyKey(transaction),
       },
       userId,
       context,
     );
-    await this.financialTransactions.confirm(created.id, userId);
 
     return this.prisma.bankTransaction.update({
       where: { id },
@@ -710,19 +717,16 @@ export class CashFlowReconciliationService {
       }
       return true;
     });
-    const allocatedByInvoice = await sumConfirmedAllocations(
+    const settlements = await loadInvoiceSettlements(
       this.prisma,
       'purchaseInvoiceId',
-      matchedInvoices.map((i) => i.id),
+      matchedInvoices,
     );
     for (const invoice of matchedInvoices) {
       const referenceMatches =
         needle && needle.includes(invoice.invoiceNumber.toLowerCase());
       const partnerMatches = transaction.partnerId === invoice.partnerId;
-      const summary = computeInvoicePaymentSummary(
-        Number(invoice.grandTotal),
-        allocatedByInvoice.get(invoice.id) ?? 0,
-      );
+      const summary = settlements.get(invoice.id)!;
       if (summary.remainingBalance <= 0) continue;
       candidates.push({
         kind: 'PURCHASE_INVOICE',
@@ -791,7 +795,8 @@ export class CashFlowReconciliationService {
     }
     const [partnerId] = partnerIds;
 
-    const created = await this.financialTransactions.create(
+    // R22 L4 — one transaction, keyed by the bank line (see the receipt path).
+    const created = await this.financialTransactions.createConfirmed(
       'SUPPLIER_PAYMENT',
       {
         partnerId,
@@ -804,11 +809,11 @@ export class CashFlowReconciliationService {
           transaction.transactionId ?? transaction.reference ?? undefined,
         notes: transaction.description ?? undefined,
         allocations: dto.allocations,
+        idempotencyKey: bankLineIdempotencyKey(transaction),
       },
       userId,
       context,
     );
-    await this.financialTransactions.confirm(created.id, userId);
 
     return this.prisma.bankTransaction.update({
       where: { id },
@@ -858,7 +863,8 @@ export class CashFlowReconciliationService {
       );
     }
 
-    const created = await this.financialTransactions.create(
+    // R22 L4 — one transaction, keyed by the bank line (see the receipt path).
+    const created = await this.financialTransactions.createConfirmed(
       'EXPENSE_PAYMENT',
       {
         expenseAccountId,
@@ -874,11 +880,11 @@ export class CashFlowReconciliationService {
         // The Expenses screen lists what was spent by its description.
         description: transaction.description?.slice(0, 500) ?? undefined,
         notes: transaction.description ?? undefined,
+        idempotencyKey: bankLineIdempotencyKey(transaction),
       },
       userId,
       context,
     );
-    await this.financialTransactions.confirm(created.id, userId);
 
     return this.prisma.bankTransaction.update({
       where: { id },

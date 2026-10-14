@@ -26,6 +26,7 @@ import { FindSalesInvoicesQueryDto } from './dto/find-sales-invoices-query.dto';
 import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { canViewInventoryCost } from '../../inventory/inventory-cost-access';
 import { redactDocumentLinesCost } from '../../inventory/inventory-cost-visibility';
+import { resolveSettlementAbilities } from '../../financial-transactions/shared/invoice-settlement-history';
 
 /** Business operations only: Create, Update, Submit, Approve, Confirm (Reduce Inventory), Cancel, Archive, Search, Details. */
 @Controller('sales/invoices')
@@ -82,6 +83,25 @@ export class SalesInvoicesController {
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.withCostRule(user.sub, this.invoicesService.findOne(id));
+  }
+
+  /**
+   * R22 contract 2 — settlement history (vouchers, allocations, credit
+   * notes): the detail's own `view` right; 404 for an invoice it cannot open.
+   */
+  @Get(':id/settlement')
+  async settlementHistory(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.invoicesService.settlementHistory(
+      id,
+      await resolveSettlementAbilities(
+        this.permissions,
+        user.sub,
+        'customer-receipts',
+      ),
+    );
   }
 
   @Get(':id/posting-preview')

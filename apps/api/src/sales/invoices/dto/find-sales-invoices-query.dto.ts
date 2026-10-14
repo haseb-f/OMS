@@ -15,6 +15,25 @@ import {
   IsOptionalUuidList,
 } from '../../../common/query/enum-list';
 
+/**
+ * R22 contract 5 — `sortBy` values the list accepts: SalesInvoice scalar
+ * columns, plus `customer` (the list's party column → partner name). Derived
+ * figures (paid / remaining) are not sortable server-side.
+ */
+export const SALES_INVOICE_SORTABLE_FIELDS = [
+  'invoiceNumber',
+  'customer',
+  'referenceNumber',
+  'status',
+  'subtotal',
+  'discountTotal',
+  'taxTotal',
+  'grandTotal',
+  'confirmedAt',
+  'createdAt',
+  'updatedAt',
+] as const;
+
 export class FindSalesInvoicesQueryDto {
   @IsOptionalUuidList()
   partnerId?: string[];
@@ -51,7 +70,8 @@ export class FindSalesInvoicesQueryDto {
   @IsOptional()
   pageSize?: number = 20;
 
-  @IsString()
+  /** Only real, sortable columns — anything else is a 400, never a Prisma 500. */
+  @IsIn(SALES_INVOICE_SORTABLE_FIELDS)
   @IsOptional()
   sortBy?: string;
 

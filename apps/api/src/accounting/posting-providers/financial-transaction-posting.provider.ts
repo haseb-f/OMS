@@ -6,6 +6,7 @@ import { AccountMappingService } from '../account-mapping/account-mapping.servic
 import { ExchangeRatesService } from '../fx/exchange-rates.service';
 import { snapshotDocumentExchangeRate } from '../fx/snapshot-document-rate';
 import { resolveAgentCollectionCredit } from './agent-collection-credit';
+import { settlementClearedFunctional } from './settlement-clearing';
 import {
   advanceRateOf,
   loadStoreOrderMoneyPosition,
@@ -103,16 +104,13 @@ export class FinancialTransactionPostingProvider
         },
       },
     });
-    // An expense voucher is recognised on its expense date (accrual basis —
-    // R13b owner decision 2: the expense belongs to the period it was
-    // incurred, not the day it was approved); other vouchers keep the
-    // confirmation date. A frozen source date (declared-claim receipts)
-    // always wins — a closed period fails clearly, never silently re-dated.
-    const documentDate =
-      transaction.rateAsOf ??
-      (sourceType === 'EXPENSE_PAYMENT'
-        ? transaction.transactionDate
-        : (transaction.confirmedAt ?? transaction.transactionDate));
+    // Every voucher is dated on its voucher date — the day the money moved
+    // (R13b for expenses; R22 D1 for receipts, payments and refunds), never
+    // the day it was confirmed; its rate is taken for that day too. A frozen
+    // source date (declared-claim receipts) always wins. The period lock
+    // applies to that date: a closed period fails clearly, never silently
+    // re-dated.
+    const documentDate = transaction.rateAsOf ?? transaction.transactionDate;
     const payRate = await snapshotDocumentExchangeRate(
       this.exchangeRates,
       tx,
@@ -212,9 +210,11 @@ export class FinancialTransactionPostingProvider
       const feeFunctional = this.round2(feeAmount * payRate);
       // AR clears the full settled value (cash + fee) exactly once; only a
       // genuine rate difference between invoice and receipt is realized FX.
-      const arFunctional = this.clearedFunctional(
-        transaction.allocations,
+      const arFunctional = await settlementClearedFunctional(
+        tx,
         'sales',
+        transaction.id,
+        transaction.allocations,
         amount + feeAmount,
         payRate,
       );
@@ -273,6 +273,7 @@ export class FinancialTransactionPostingProvider
         amount,
         payRate,
         bankAccountId,
+        entryDate,
         tx,
       );
     }
@@ -282,9 +283,11 @@ export class FinancialTransactionPostingProvider
       tx,
     );
     const cashFunctional = this.round2(amount * payRate);
-    const apFunctional = this.clearedFunctional(
-      transaction.allocations,
+    const apFunctional = await settlementClearedFunctional(
+      tx,
       'purchase',
+      transaction.id,
+      transaction.allocations,
       amount,
       payRate,
     );
@@ -321,7 +324,7 @@ export class FinancialTransactionPostingProvider
       branchId: transaction.branchId,
       costCenterId: transaction.costCenterId,
       projectId: transaction.projectId,
-      entryDate: transaction.confirmedAt ?? transaction.transactionDate,
+      entryDate,
     };
   }
 
@@ -342,6 +345,7 @@ export class FinancialTransactionPostingProvider
     amount: number,
     payRate: number,
     bankAccountId: string,
+    entryDate: Date,
     tx: Prisma.TransactionClient,
   ): Promise<PostingResult> {
     const description = `Customer Refund ${transaction.transactionNumber}`;
@@ -409,7 +413,7 @@ export class FinancialTransactionPostingProvider
       branchId: transaction.branchId,
       costCenterId: transaction.costCenterId,
       projectId: transaction.projectId,
-      entryDate: transaction.confirmedAt ?? transaction.transactionDate,
+      entryDate,
     };
   }
 
@@ -419,7 +423,7 @@ export class FinancialTransactionPostingProvider
 
   private clearedFunctional(
     allocations: AllocationRateView[],
-    side: 'sales' | 'purchase' | 'return',
+    side: 'return',
     transactionAmount: number,
     payRate: number,
   ) {
@@ -430,11 +434,7 @@ export class FinancialTransactionPostingProvider
     let allocatedTx = 0;
     for (const allocation of allocations) {
       const invoice =
-        side === 'sales'
-          ? allocation.salesInvoice
-          : side === 'purchase'
-            ? allocation.purchaseInvoice
-            : (allocation.salesReturn ?? null);
+        side === 'return' ? (allocation.salesReturn ?? null) : null;
       const invRate =
         invoice?.exchangeRate != null ? Number(invoice.exchangeRate) : payRate;
       const allocated = Number(allocation.allocatedAmount);

@@ -217,7 +217,7 @@ describeDb('R22-T — D4 operation types (local DB)', () => {
     sessions = moduleRef.get(UserSessionsService, { strict: false });
     resolver = moduleRef.get(PermissionsResolverService);
     reports = new AccountingReportsService(prisma);
-    integrity = new VoucherIntegrityService(prisma);
+    integrity = new VoucherIntegrityService(prisma, reports);
     functionalCurrencyId = await moduleRef
       .get(ExchangeRatesService)
       .requireFunctionalCurrencyId();

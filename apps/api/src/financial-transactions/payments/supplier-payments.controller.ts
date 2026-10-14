@@ -23,6 +23,7 @@ import {
 } from '../../common/decorators/current-company-context.decorator';
 import { FinancialTransactionsService } from '../financial-transactions.service';
 import { AllocationInputDto } from '../shared/allocation-input.dto';
+import { UpdateAllocationDto } from '../shared/update-allocation.dto';
 import { CreateSupplierPaymentDto } from './dto/create-supplier-payment.dto';
 import { UpdateSupplierPaymentDto } from './dto/update-supplier-payment.dto';
 import { FindSupplierPaymentsQueryDto } from './dto/find-supplier-payments-query.dto';
@@ -128,6 +129,26 @@ export class SupplierPaymentsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.transactions.allocate(id, dto, user.sub);
+  }
+
+  /**
+   * R22 contract 3 — changes one line's amount atomically (same guards as
+   * Allocate, no new cash entry); a refused change keeps the old line.
+   */
+  @Patch(':id/allocations/:allocationId')
+  @PermissionAction('edit')
+  updateAllocation(
+    @Param('id') id: string,
+    @Param('allocationId') allocationId: string,
+    @Body() dto: UpdateAllocationDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.transactions.updateAllocation(
+      id,
+      allocationId,
+      dto.allocatedAmount,
+      user.sub,
+    );
   }
 
   @Post(':id/allocations/:allocationId/unallocate')
