@@ -86,6 +86,9 @@ export class InternalTransferPostingProvider
       referenceNumber:
         outgoing.transactionId ?? outgoing.reference ?? undefined,
       currencyId: outgoing.currencyId,
+      // R22 D1 — a transfer posts on the day the money left the source
+      // account (the outgoing leg's date); the period lock applies to it.
+      entryDate: outgoing.transactionDate,
     };
   }
 }

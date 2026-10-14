@@ -26,12 +26,16 @@ import { buildDateRangeFilter } from '../sales/shared/sales-list-query.util';
 import { PostingEngineService } from '../accounting/posting-engine/posting-engine.service';
 import type { CompanyContext } from '../common/decorators/current-company-context.decorator';
 import {
+  NOT_AGENT_COLLECTION,
   PAYABLE_PURCHASE_INVOICE_STATUSES,
   PAYABLE_SALES_INVOICE_STATUSES,
-  computeInvoicePaymentSummary,
+  loadInvoiceSettlements,
   lockInvoiceRow,
-  sumConfirmedAllocations,
+  type InvoicePaymentSummary,
 } from './shared/invoice-payment.util';
+import { ALLOCATION_FX_SOURCE_TYPE } from '../accounting/posting-providers/allocation-fx-posting.provider';
+import { financialTransactionOrderBy } from './shared/find-financial-transactions-query.dto';
+import { assertFeeWithinAmount } from './shared/fee-cap';
 import type { AllocationInputDto } from './shared/allocation-input.dto';
 import type { FindFinancialTransactionsQueryDto } from './shared/find-financial-transactions-query.dto';
 import { prismaEnumFilter } from '../common/query/enum-list';
@@ -189,11 +193,13 @@ export interface OpenInvoiceRow {
   currencyId: string | null;
   currencyCode: string | null;
   grandTotal: number;
+  /** R22 D2 — cash paid (confirmed allocations); `allocatedTotal` is its compatibility alias. */
+  paidTotal: number;
   allocatedTotal: number;
+  /** R22 D2 — posted credit notes applied to the invoice (never cash). */
+  creditedTotal: number;
   remainingBalance: number;
-  paymentStatus: ReturnType<
-    typeof computeInvoicePaymentSummary
-  >['paymentStatus'];
+  paymentStatus: InvoicePaymentSummary['paymentStatus'];
 }
 
 /**
@@ -255,6 +261,7 @@ export class FinancialTransactionsService {
           'feeAccountId is required when feeAmount is set.',
         );
       }
+      assertFeeWithinAmount(feeAmount, dto.amount);
     }
     const allocations = dto.allocations ?? [];
     if (type === 'EXPENSE_PAYMENT')
@@ -274,6 +281,7 @@ export class FinancialTransactionsService {
       allocations,
       outerTx,
       currencyId ?? null,
+      { companyId: context.companyId ?? null },
     );
     // R20 — a receipt / payment is in its invoices' currency (none chosen →
     // theirs); another currency is refused, never cleared at a wrong value.
@@ -535,7 +543,7 @@ export class FinancialTransactionsService {
       this.prisma.financialTransaction.findMany({
         where,
         include: TRANSACTION_INCLUDE,
-        orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
+        orderBy: financialTransactionOrderBy(query),
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -685,6 +693,7 @@ export class FinancialTransactionsService {
             dto.allocations,
             this.prisma,
             dto.currencyId ?? existing.currencyId,
+            { companyId: existing.companyId },
           )
         : undefined;
     let currencyId = dto.currencyId;
@@ -829,6 +838,9 @@ export class FinancialTransactionsService {
           ),
         );
       }
+      if (existing.type !== 'CUSTOMER_REFUND') {
+        await this.assertSettlementScope(tx, existing, [...perDocument.keys()]);
+      }
       for (const invoiceId of [...perDocument.keys()].sort()) {
         await lockInvoiceRow(tx, existing.type, invoiceId);
         await this.assertAllocationWithinRemaining(
@@ -859,6 +871,13 @@ export class FinancialTransactionsService {
         },
         include: TRANSACTION_INCLUDE,
       });
+      // R22 A3 — the lines a voucher carries when it is posted settle on its
+      // voucher date (D1: the date its entry is booked); a later Allocate
+      // keeps its own date. As-of aging reads this date.
+      await tx.financialTransactionAllocation.updateMany({
+        where: { transactionId: id },
+        data: { allocationDate: existing.transactionDate },
+      });
       // R15 (review H1) — the advance this refund pays back leaves the
       // order's receipts: never allocatable to an invoice again.
       for (const storeOrderId of this.advanceOrders(existing.allocations)) {
@@ -872,7 +891,11 @@ export class FinancialTransactionsService {
         tx,
       );
       await this.postingEngine.post(existing.type, id, userId, tx);
-      return transaction;
+      // R22 contract 6 — the fresh voucher (posting froze its rate).
+      return tx.financialTransaction.findUniqueOrThrow({
+        where: { id },
+        include: TRANSACTION_INCLUDE,
+      });
     });
   }
 
@@ -925,6 +948,8 @@ export class FinancialTransactionsService {
     }
 
     await this.postingEngine.reverse(existing.type, id, userId, tx);
+    // R22 D6 — the FX later allocations realized goes with the voucher.
+    await this.postingEngine.reverse(ALLOCATION_FX_SOURCE_TYPE, id, userId, tx);
     await tx.financialTransactionAllocation.deleteMany({
       where: { transactionId: id },
     });
@@ -1085,11 +1110,7 @@ export class FinancialTransactionsService {
     outerTx?: Prisma.TransactionClient,
   ) {
     const existing = await this.findOneById(id, outerTx);
-    if (existing.status !== FinancialTransactionStatus.CONFIRMED) {
-      throw new BadRequestException(
-        `Cannot allocate against ${this.label(existing.type)} ${existing.transactionNumber} while it is ${existing.status}.`,
-      );
-    }
+    this.assertAllocatable(existing, 'allocate against');
     this.assertAllocationsEditable(existing);
     const partyId = existing.partnerId ?? undefined;
     const [resolved] = await this.resolveAllocations(
@@ -1097,6 +1118,8 @@ export class FinancialTransactionsService {
       partyId as string,
       [dto],
       outerTx,
+      null,
+      { companyId: existing.companyId, skipRemainingCheck: true },
     );
     // R20 — a posted voucher's currency is fixed: it settles invoices of
     // that currency only.
@@ -1116,9 +1139,8 @@ export class FinancialTransactionsService {
         await lockStoreOrderRow(tx, storeOrderId);
         await syncAdvanceRefundConsumption(tx, storeOrderId, userId);
       }
-      await tx.$queryRaw`
-        SELECT id FROM financial_transactions WHERE id = ${id}::uuid FOR UPDATE
-      `;
+      const locked = await this.lockVoucher(tx, id, 'allocate against');
+      await this.assertSettlementScope(tx, locked, [dto.invoiceId]);
       await lockInvoiceRow(tx, existing.type, dto.invoiceId);
       const [currentAllocated, sameInvoiceLine] = await Promise.all([
         tx.financialTransactionAllocation.aggregate({
@@ -1136,18 +1158,12 @@ export class FinancialTransactionsService {
           select: { id: true, allocatedAmount: true },
         }),
       ]);
-      const alreadyAllocated = Number(
-        currentAllocated._sum.allocatedAmount ?? 0,
+      this.assertWithinVoucherCapacity(
+        locked,
+        Number(currentAllocated._sum.allocatedAmount ?? 0) +
+          dto.allocatedAmount,
+        dto.allocatedAmount,
       );
-      // Same capacity rule as create(): a fee the bank kept still settles
-      // the invoice, so a receipt can clear `amount + feeAmount`.
-      const capacity =
-        Number(existing.amount) + Number(existing.feeAmount ?? 0);
-      if (alreadyAllocated + dto.allocatedAmount > capacity + 0.005) {
-        throw new BadRequestException(
-          `Cannot allocate ${dto.allocatedAmount} — only ${this.round2(capacity - alreadyAllocated)} remains unallocated on this ${this.label(existing.type).toLowerCase()}.`,
-        );
-      }
       await this.assertAllocationWithinRemaining(
         existing.type,
         dto.invoiceId,
@@ -1178,8 +1194,15 @@ export class FinancialTransactionsService {
           },
         });
       }
-      const transaction = await tx.financialTransaction.findUniqueOrThrow({
+      await this.syncAllocationFx(tx, locked, userId);
+      // R22 contract 6 — the fresh voucher, its `updatedAt` moved with the
+      // change (a system allocation keeps the last human editor).
+      const transaction = await tx.financialTransaction.update({
         where: { id },
+        data: {
+          updatedAt: new Date(),
+          ...(userId ? { updatedBy: userId } : {}),
+        },
         include: TRANSACTION_INCLUDE,
       });
       await this.activityService.log(
@@ -1193,39 +1216,136 @@ export class FinancialTransactionsService {
     });
   }
 
+  /**
+   * R22 W1 (contract 3) — changes the amount of one line of a Confirmed
+   * receipt / payment in ONE transaction: the same voucher + invoice locks
+   * and guards as Allocate, no new cash entry (only the allocation FX
+   * adjustment follows). A refused change leaves the old line untouched.
+   */
+  async updateAllocation(
+    id: string,
+    allocationId: string,
+    allocatedAmount: number,
+    userId?: string,
+  ) {
+    const existing = await this.findOneById(id);
+    this.assertAllocatable(existing, 'change an allocation on');
+    this.assertAllocationsEditable(existing);
+    if (!(allocatedAmount > 0)) {
+      throw new BadRequestException(
+        'The allocated amount must be greater than zero — remove the line to unallocate it.',
+      );
+    }
+    return this.prisma.$transaction(
+      async (tx) => {
+        const storeOrderId = await storeOrderOfReceipt(tx, id);
+        if (storeOrderId) {
+          await lockStoreOrderRow(tx, storeOrderId);
+          await syncAdvanceRefundConsumption(tx, storeOrderId, userId);
+        }
+        const locked = await this.lockVoucher(
+          tx,
+          id,
+          'change an allocation on',
+        );
+        const line = await tx.financialTransactionAllocation.findFirst({
+          where: { id: allocationId, transactionId: id },
+        });
+        if (!line) {
+          throw new NotFoundException(`Allocation ${allocationId} not found`);
+        }
+        const invoiceId = line.salesInvoiceId ?? line.purchaseInvoiceId;
+        if (!invoiceId) {
+          throw new ConflictException({
+            code: 'ADVANCE_REFUND_ALLOCATION',
+            message:
+              'هذا الجزء من سند القبض رُدّ للعميل — ألغِ سند الرد بدلاً من ذلك — This part of the receipt was paid back to the customer by an order advance refund; cancel that refund instead.',
+          });
+        }
+        await this.assertSettlementScope(tx, locked, [invoiceId]);
+        await lockInvoiceRow(tx, locked.type, invoiceId);
+        const others = await tx.financialTransactionAllocation.aggregate({
+          where: { transactionId: id, id: { not: allocationId } },
+          _sum: { allocatedAmount: true },
+        });
+        this.assertWithinVoucherCapacity(
+          locked,
+          Number(others._sum.allocatedAmount ?? 0) + allocatedAmount,
+          allocatedAmount,
+        );
+        // The invoice's open balance without this voucher, which this line
+        // may take up to (the voucher has one line per invoice).
+        await this.assertAllocationWithinRemaining(
+          locked.type,
+          invoiceId,
+          allocatedAmount,
+          id,
+          tx,
+        );
+        await tx.financialTransactionAllocation.update({
+          where: { id: allocationId },
+          data: {
+            allocatedAmount: this.round2(allocatedAmount),
+            allocationDate: new Date(),
+            updatedBy: userId ?? null,
+          },
+        });
+        await this.syncAllocationFx(tx, locked, userId);
+        const transaction = await tx.financialTransaction.update({
+          where: { id },
+          data: { updatedBy: userId ?? null },
+          include: TRANSACTION_INCLUDE,
+        });
+        await this.activityService.log(
+          id,
+          FinancialTransactionActivityType.INVOICE_ALLOCATED,
+          `Allocation changed from ${this.round2(Number(line.allocatedAmount))} to ${this.round2(allocatedAmount)} on ${transaction.transactionNumber}`,
+          {
+            allocationId,
+            previousAmount: this.round2(Number(line.allocatedAmount)),
+            allocatedAmount: this.round2(allocatedAmount),
+            changedBy: userId ?? null,
+          },
+          tx,
+        );
+        return transaction;
+      },
+      { maxWait: 10_000, timeout: 30_000 },
+    );
+  }
+
   /** Removes one allocation from a Confirmed transaction — the standalone "Unallocate" business operation. */
   async unallocate(id: string, allocationId: string, userId?: string) {
     const existing = await this.findOneById(id);
-    if (existing.status !== FinancialTransactionStatus.CONFIRMED) {
-      throw new BadRequestException(
-        `Cannot unallocate on ${this.label(existing.type)} ${existing.transactionNumber} while it is ${existing.status}.`,
-      );
-    }
+    this.assertAllocatable(existing, 'unallocate on');
     this.assertAllocationsEditable(existing);
-    const allocation =
-      await this.prisma.financialTransactionAllocation.findFirst({
-        where: { id: allocationId, transactionId: id },
-      });
-    if (!allocation) {
-      throw new NotFoundException(`Allocation ${allocationId} not found`);
-    }
-    if (
-      existing.type === FinancialTransactionType.CUSTOMER_RECEIPT &&
-      allocation.storeOrderId
-    ) {
-      throw new ConflictException({
-        code: 'ADVANCE_REFUND_ALLOCATION',
-        message:
-          'هذا الجزء من سند القبض رُدّ للعميل — ألغِ سند الرد بدلاً من ذلك — This part of the receipt was paid back to the customer by an order advance refund; cancel that refund instead.',
-      });
-    }
 
     return this.prisma.$transaction(async (tx) => {
+      const locked = await this.lockVoucher(tx, id, 'unallocate on');
+      const allocation = await tx.financialTransactionAllocation.findFirst({
+        where: { id: allocationId, transactionId: id },
+      });
+      if (!allocation) {
+        throw new NotFoundException(`Allocation ${allocationId} not found`);
+      }
+      if (
+        locked.type === FinancialTransactionType.CUSTOMER_RECEIPT &&
+        allocation.storeOrderId
+      ) {
+        throw new ConflictException({
+          code: 'ADVANCE_REFUND_ALLOCATION',
+          message:
+            'هذا الجزء من سند القبض رُدّ للعميل — ألغِ سند الرد بدلاً من ذلك — This part of the receipt was paid back to the customer by an order advance refund; cancel that refund instead.',
+        });
+      }
       await tx.financialTransactionAllocation.delete({
         where: { id: allocationId },
       });
-      const transaction = await tx.financialTransaction.findUniqueOrThrow({
+      // R22 D6 — the FX this line realized is reversed with it.
+      await this.syncAllocationFx(tx, locked, userId);
+      const transaction = await tx.financialTransaction.update({
         where: { id },
+        data: { updatedBy: userId ?? null },
         include: TRANSACTION_INCLUDE,
       });
       await this.activityService.log(
@@ -1239,6 +1359,165 @@ export class FinancialTransactionsService {
     });
   }
 
+  /** A standalone allocation change needs a Confirmed voucher (drafts are edited as a whole). */
+  private assertAllocatable(
+    voucher: {
+      status: FinancialTransactionStatus;
+      type: FinancialTransactionType;
+      transactionNumber: string;
+    },
+    verb: string,
+  ) {
+    if (voucher.status !== FinancialTransactionStatus.CONFIRMED) {
+      throw new BadRequestException(
+        `Cannot ${verb} ${this.label(voucher.type)} ${voucher.transactionNumber} while it is ${voucher.status}.`,
+      );
+    }
+  }
+
+  /**
+   * R22 L1 — locks the voucher row and re-reads it under the lock: a voucher
+   * cancelled by a concurrent request after the caller's first read never
+   * gains (or loses) an allocation.
+   */
+  private async lockVoucher(
+    tx: Prisma.TransactionClient,
+    id: string,
+    verb: string,
+  ) {
+    await tx.$queryRaw`
+      SELECT id FROM financial_transactions WHERE id = ${id}::uuid FOR UPDATE
+    `;
+    const current = await tx.financialTransaction.findUniqueOrThrow({
+      where: { id },
+    });
+    if (current.deletedAt) {
+      throw new NotFoundException(`Financial transaction ${id} not found`);
+    }
+    this.assertAllocatable(current, verb);
+    return current;
+  }
+
+  /** Same capacity rule as create(): a fee the bank kept still settles the invoice, so a receipt can clear `amount + feeAmount`. */
+  private assertWithinVoucherCapacity(
+    voucher: {
+      type: FinancialTransactionType;
+      amount: Prisma.Decimal;
+      feeAmount: Prisma.Decimal | null;
+    },
+    totalAllocated: number,
+    requested: number,
+  ) {
+    const capacity = Number(voucher.amount) + Number(voucher.feeAmount ?? 0);
+    if (totalAllocated > capacity + 0.005) {
+      throw new BadRequestException(
+        `Cannot allocate ${requested} — only ${this.round2(capacity - (totalAllocated - requested))} remains unallocated on this ${this.label(voucher.type).toLowerCase()}.`,
+      );
+    }
+  }
+
+  /**
+   * R22 L2 + L5 — who may settle these invoices: never an agent-order
+   * collection (its entry credited Agent funds payable, not the customer's
+   * AR — the customer's invoice would read paid while AR stays open), and
+   * never a voucher of another company than the invoice's.
+   */
+  private async assertSettlementScope(
+    client: DbClient,
+    voucher: {
+      id: string;
+      type: FinancialTransactionType;
+      companyId: string | null;
+      transactionNumber: string;
+    },
+    invoiceIds: string[],
+  ) {
+    if (invoiceIds.length === 0) return;
+    if (voucher.type === FinancialTransactionType.CUSTOMER_RECEIPT) {
+      const agentCollection = await client.financialTransaction.count({
+        where: {
+          id: voucher.id,
+          paymentReceiptLink: { is: { payment: { agentId: { not: null } } } },
+        },
+      });
+      if (agentCollection > 0) {
+        throw new BadRequestException({
+          code: 'AGENT_COLLECTION_NOT_ALLOCATABLE',
+          message: `سند القبض ${voucher.transactionNumber} تحصيل لطلب وكيل ويُقيد لحساب الوكيل — لا يسدد فواتير العميل — Customer Receipt ${voucher.transactionNumber} posts an agent order's collection to Agent funds payable; it never settles the customer's invoices.`,
+        });
+      }
+    }
+    if (voucher.companyId) {
+      await this.assertInvoicesInCompany(
+        client,
+        voucher.type,
+        voucher.companyId,
+        invoiceIds,
+      );
+    }
+  }
+
+  private async assertInvoicesInCompany(
+    client: DbClient,
+    type: FinancialTransactionType,
+    companyId: string,
+    invoiceIds: string[],
+  ) {
+    const where = {
+      id: { in: invoiceIds },
+      companyId: { not: null, notIn: [companyId] },
+    };
+    const foreign =
+      type === 'CUSTOMER_RECEIPT'
+        ? await client.salesInvoice.findFirst({
+            where,
+            select: { invoiceNumber: true },
+          })
+        : type === 'SUPPLIER_PAYMENT'
+          ? await client.purchaseInvoice.findFirst({
+              where,
+              select: { invoiceNumber: true },
+            })
+          : null;
+    if (foreign) {
+      throw new BadRequestException({
+        code: 'COMPANY_MISMATCH',
+        message: `الفاتورة ${foreign.invoiceNumber} تابعة لشركة أخرى — Invoice ${foreign.invoiceNumber} belongs to another company than this voucher; a voucher settles its own company's invoices only.`,
+      });
+    }
+  }
+
+  /**
+   * R22 P1 / P2 / D6 — after any allocation change on a posted receipt /
+   * payment, the allocation FX adjustment is restated through the Posting
+   * Engine: the current one (if any) reversed, the one the current lines
+   * require posted (none when the rates agree). Never a cash entry.
+   */
+  private async syncAllocationFx(
+    tx: Prisma.TransactionClient,
+    voucher: { id: string; type: FinancialTransactionType },
+    userId?: string,
+  ) {
+    if (
+      voucher.type !== FinancialTransactionType.CUSTOMER_RECEIPT &&
+      voucher.type !== FinancialTransactionType.SUPPLIER_PAYMENT
+    ) {
+      return;
+    }
+    await this.postingEngine.reverse(
+      ALLOCATION_FX_SOURCE_TYPE,
+      voucher.id,
+      userId,
+      tx,
+    );
+    await this.postingEngine.post(
+      ALLOCATION_FX_SOURCE_TYPE,
+      voucher.id,
+      userId,
+      tx,
+    );
+  }
+
   activityFor(id: string) {
     return this.activityService.findAllForTransaction(id);
   }
@@ -1247,7 +1526,8 @@ export class FinancialTransactionsService {
    * Open Invoices — every posted (confirmed) invoice for this party with a
    * remaining balance greater than zero, for the Allocation Grid / "Pay
    * All Remaining" UI. Never trusts a stored payment-status column
-   * (there isn't one) — always derives it fresh.
+   * (there isn't one) — always derives it fresh (R22 D2: cash and applied
+   * credit notes).
    */
   async getOpenInvoices(
     type: FinancialTransactionType,
@@ -1271,12 +1551,10 @@ export class FinancialTransactionsService {
         select,
         orderBy: { createdAt: 'asc' },
       });
-      const allocated = await sumConfirmedAllocations(
-        this.prisma,
-        'salesInvoiceId',
-        invoices.map((i) => i.id),
+      return this.buildOpenInvoiceRows(
+        invoices,
+        await loadInvoiceSettlements(this.prisma, 'salesInvoiceId', invoices),
       );
-      return this.buildOpenInvoiceRows(invoices, allocated);
     }
 
     const invoices = await this.prisma.purchaseInvoice.findMany({
@@ -1288,12 +1566,10 @@ export class FinancialTransactionsService {
       select,
       orderBy: { createdAt: 'asc' },
     });
-    const allocated = await sumConfirmedAllocations(
-      this.prisma,
-      'purchaseInvoiceId',
-      invoices.map((i) => i.id),
+    return this.buildOpenInvoiceRows(
+      invoices,
+      await loadInvoiceSettlements(this.prisma, 'purchaseInvoiceId', invoices),
     );
-    return this.buildOpenInvoiceRows(invoices, allocated);
   }
 
   /**
@@ -1301,7 +1577,8 @@ export class FinancialTransactionsService {
    * profile): open invoices and what they still owe (the same rows as the
    * open-invoices list), and the money its confirmed vouchers moved, split
    * into what settles invoices and what stays an unapplied advance. A
-   * voucher's money is never read as "paid" unless it is allocated.
+   * voucher's money is never read as "paid" unless it is allocated. R22 L2:
+   * an agent-order collection is the agent's money, never the customer's.
    */
   async getPartyPosition(
     type: FinancialTransactionType,
@@ -1315,6 +1592,7 @@ export class FinancialTransactionsService {
           partnerId: partyId,
           status: FinancialTransactionStatus.CONFIRMED,
           deletedAt: null,
+          ...(type === 'CUSTOMER_RECEIPT' ? NOT_AGENT_COLLECTION : {}),
         },
         select: {
           amount: true,
@@ -1397,23 +1675,17 @@ export class FinancialTransactionsService {
       currencyId: string | null;
       currency: { code: string } | null;
     }[],
-    allocated: Map<string, number>,
+    settlements: Map<string, InvoicePaymentSummary>,
   ): OpenInvoiceRow[] {
     return invoices
-      .map((invoice) => {
-        const summary = computeInvoicePaymentSummary(
-          Number(invoice.grandTotal),
-          allocated.get(invoice.id) ?? 0,
-        );
-        return {
-          invoiceId: invoice.id,
-          invoiceNumber: invoice.invoiceNumber,
-          documentDate: invoice.createdAt.toISOString(),
-          currencyId: invoice.currencyId,
-          currencyCode: invoice.currency?.code ?? null,
-          ...summary,
-        };
-      })
+      .map((invoice) => ({
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        documentDate: invoice.createdAt.toISOString(),
+        currencyId: invoice.currencyId,
+        currencyCode: invoice.currency?.code ?? null,
+        ...settlements.get(invoice.id)!,
+      }))
       .filter((row) => row.remainingBalance > 0);
   }
 
@@ -1554,6 +1826,12 @@ export class FinancialTransactionsService {
     client: DbClient = this.prisma,
     /** CUSTOMER_REFUND — the refund's currency every refunded return must share. */
     refundCurrencyId: string | null = null,
+    scope: {
+      /** R22 L5 — the voucher's company: another company's invoice is refused. */
+      companyId?: string | null;
+      /** Allocate re-checks the balance itself under the invoice lock. */
+      skipRemainingCheck?: boolean;
+    } = {},
   ): Promise<
     Prisma.FinancialTransactionAllocationUncheckedCreateWithoutTransactionInput[]
   > {
@@ -1678,6 +1956,32 @@ export class FinancialTransactionsService {
           purchaseInvoiceId: invoiceId,
           allocatedAmount: allocation.allocatedAmount,
         });
+      }
+    }
+    const invoiceIds = resolved
+      .map((line) => line.salesInvoiceId ?? line.purchaseInvoiceId)
+      .filter((value): value is string => !!value);
+    if (scope.companyId) {
+      await this.assertInvoicesInCompany(
+        client,
+        type,
+        scope.companyId,
+        invoiceIds,
+      );
+    }
+    // R22 L3 — a draft never claims more than an invoice owes (fail fast at
+    // entry; re-checked under the invoice row lock at Confirm / Allocate).
+    if (!scope.skipRemainingCheck) {
+      for (const line of resolved) {
+        const invoiceId = line.salesInvoiceId ?? line.purchaseInvoiceId;
+        if (!invoiceId) continue;
+        await this.assertAllocationWithinRemaining(
+          type,
+          invoiceId,
+          Number(line.allocatedAmount),
+          undefined,
+          client,
+        );
       }
     }
     return resolved;
@@ -1831,31 +2135,30 @@ export class FinancialTransactionsService {
       type === 'CUSTOMER_RECEIPT'
         ? await client.salesInvoice.findUniqueOrThrow({
             where: { id: invoiceId },
+            select: { id: true, invoiceNumber: true, grandTotal: true },
           })
         : await client.purchaseInvoice.findUniqueOrThrow({
             where: { id: invoiceId },
+            select: { id: true, invoiceNumber: true, grandTotal: true },
           });
-
-    const aggregate = await client.financialTransactionAllocation.aggregate({
-      where: {
-        [invoiceKey]: invoiceId,
-        transaction: {
-          status: FinancialTransactionStatus.CONFIRMED,
-          ...(excludeTransactionId
-            ? { id: { not: excludeTransactionId } }
-            : {}),
-        },
-      },
-      _sum: { allocatedAmount: true },
-    });
-    const summary = computeInvoicePaymentSummary(
-      Number(invoice.grandTotal),
-      Number(aggregate._sum.allocatedAmount ?? 0),
-    );
+    // R22 D2 — the one settlement summary: cash of the other confirmed
+    // vouchers and the credit notes already settle part of the invoice.
+    const summary = (
+      await loadInvoiceSettlements(client, invoiceKey, [invoice], {
+        excludeTransactionId,
+      })
+    ).get(invoice.id)!;
     if (amount > summary.remainingBalance + 0.005) {
-      throw new BadRequestException(
-        `Cannot allocate ${amount} to invoice ${invoiceId} — only ${summary.remainingBalance} remains unpaid.`,
-      );
+      throw new BadRequestException({
+        code: 'ALLOCATION_EXCEEDS_INVOICE_BALANCE',
+        message: `لا يمكن تخصيص ${amount} للفاتورة ${invoice.invoiceNumber} — المتبقي ${summary.remainingBalance} فقط — Cannot allocate ${amount} to invoice ${invoice.invoiceNumber}: only ${summary.remainingBalance} remains unpaid${summary.creditedTotal > 0 ? ` (${summary.creditedTotal} settled by credit note)` : ''}.`,
+        details: {
+          invoiceId,
+          remainingBalance: summary.remainingBalance,
+          paidTotal: summary.paidTotal,
+          creditedTotal: summary.creditedTotal,
+        },
+      });
     }
   }
 

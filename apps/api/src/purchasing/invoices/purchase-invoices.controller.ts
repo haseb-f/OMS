@@ -23,6 +23,8 @@ import { PurchaseInvoicesService } from './purchase-invoices.service';
 import { CreatePurchaseInvoiceDto } from './dto/create-purchase-invoice.dto';
 import { UpdatePurchaseInvoiceDto } from './dto/update-purchase-invoice.dto';
 import { FindPurchaseInvoicesQueryDto } from './dto/find-purchase-invoices-query.dto';
+import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
+import { resolveSettlementAbilities } from '../../financial-transactions/shared/invoice-settlement-history';
 
 /**
  * Business operations only: Create, Update, Submit, Approve, Cancel,
@@ -34,7 +36,10 @@ import { FindPurchaseInvoicesQueryDto } from './dto/find-purchase-invoices-query
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @PermissionModule('purchase-invoices')
 export class PurchaseInvoicesController {
-  constructor(private readonly invoicesService: PurchaseInvoicesService) {}
+  constructor(
+    private readonly invoicesService: PurchaseInvoicesService,
+    private readonly permissions: PermissionsResolverService,
+  ) {}
 
   @Post()
   create(
@@ -52,6 +57,25 @@ export class PurchaseInvoicesController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.invoicesService.findOne(id);
+  }
+
+  /**
+   * R22 contract 2 — settlement history (vouchers, allocations, debit
+   * notes): the detail's own `view` right; 404 for an invoice it cannot open.
+   */
+  @Get(':id/settlement')
+  async settlementHistory(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.invoicesService.settlementHistory(
+      id,
+      await resolveSettlementAbilities(
+        this.permissions,
+        user.sub,
+        'supplier-payments',
+      ),
+    );
   }
 
   @Patch(':id')

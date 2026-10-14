@@ -11,7 +11,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { FinancialTransactionsService } from '../../financial-transactions/financial-transactions.service';
 import { AccountMappingService } from '../account-mapping/account-mapping.service';
-import { sumConfirmedAllocations } from '../../financial-transactions/shared/invoice-payment.util';
+import { loadInvoiceSettlements } from '../../financial-transactions/shared/invoice-payment.util';
 import {
   POSTED_SALES_STATUSES,
   roundMoney,
@@ -384,20 +384,16 @@ export class StoreOrderCollectionService {
       select: { id: true, grandTotal: true },
       orderBy: [{ createdAt: 'asc' }, { invoiceNumber: 'asc' }],
     });
-    const allocated = await sumConfirmedAllocations(
+    // R22 D2 — the one settlement summary (cash + applied credit notes).
+    const settlements = await loadInvoiceSettlements(
       tx,
       'salesInvoiceId',
-      invoices.map((invoice) => invoice.id),
+      invoices,
     );
     return invoices
       .map((invoice) => ({
         id: invoice.id,
-        remaining: Math.max(
-          roundMoney(
-            Number(invoice.grandTotal) - (allocated.get(invoice.id) ?? 0),
-          ),
-          0,
-        ),
+        remaining: settlements.get(invoice.id)?.remainingBalance ?? 0,
       }))
       .filter((invoice) => invoice.remaining > EPSILON);
   }
