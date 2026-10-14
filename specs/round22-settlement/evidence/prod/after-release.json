@@ -1,0 +1,1536 @@
+{
+  "api": "https://oms.haseb.org/api",
+  "at": "2026-10-14T15:27:55.517Z",
+  "functional": "EGP",
+  "counts": {
+    "vouchers": {
+      "CUSTOMER_RECEIPT/CONFIRMED": 17,
+      "CUSTOMER_RECEIPT/CANCELLED": 1
+    },
+    "salesInvoices": 9,
+    "purchaseInvoices": 1,
+    "salesReturns": 0,
+    "purchaseReturns": 0
+  },
+  "agingTotals": {
+    "AR": {
+      "current": 435000,
+      "days31to60": 0,
+      "days61to90": 0,
+      "over90": 0,
+      "total": 435000,
+      "unapplied": 86500,
+      "net": 348500
+    },
+    "AP": {
+      "current": 448000,
+      "days31to60": 0,
+      "days61to90": 0,
+      "over90": 0,
+      "total": 448000,
+      "unapplied": 0,
+      "net": 448000
+    }
+  },
+  "agingByCurrency": {
+    "AR": {
+      "apiTotals": {
+        "current": 435000,
+        "days31to60": 0,
+        "days61to90": 0,
+        "over90": 0,
+        "total": 435000,
+        "unapplied": 86500,
+        "net": 348500
+      },
+      "perCurrency": {
+        "EGP": {
+          "open": 435000,
+          "unapplied": 86500
+        },
+        "SAR": {
+          "open": 0,
+          "unapplied": 1150
+        }
+      }
+    },
+    "AP": {
+      "apiTotals": {
+        "current": 448000,
+        "days31to60": 0,
+        "days61to90": 0,
+        "over90": 0,
+        "total": 448000,
+        "unapplied": 0,
+        "net": 448000
+      },
+      "perCurrency": {
+        "EGP": {
+          "open": 448000,
+          "unapplied": 0
+        }
+      }
+    }
+  },
+  "findingsByKind": {
+    "UNAPPLIED_MONEY": 8,
+    "ENTRY_DATE_NE_VOUCHER_DATE": 1,
+    "AGING_TOTALS_ADD_CURRENCIES": 1
+  },
+  "findings": [
+    {
+      "kind": "UNAPPLIED_MONEY",
+      "voucher": "CR-2026-000103",
+      "partner": "مكتبة النور",
+      "unapplied": 60000,
+      "currency": "EGP"
+    },
+    {
+      "kind": "UNAPPLIED_MONEY",
+      "voucher": "CR-2026-000101",
+      "partner": "مكتبة النور",
+      "unapplied": 20000,
+      "currency": "EGP"
+    },
+    {
+      "kind": "ENTRY_DATE_NE_VOUCHER_DATE",
+      "voucher": "CR-2026-000097",
+      "voucherDate": "2026-10-11",
+      "entryDate": "2026-10-12"
+    },
+    {
+      "kind": "UNAPPLIED_MONEY",
+      "voucher": "CR-2026-000094",
+      "partner": "ايه طارق عبدالجليل",
+      "unapplied": 1500,
+      "currency": "EGP"
+    },
+    {
+      "kind": "UNAPPLIED_MONEY",
+      "voucher": "CR-2026-000093",
+      "partner": "تسنيم سعيد الاحمري",
+      "unapplied": 300,
+      "currency": "SAR"
+    },
+    {
+      "kind": "UNAPPLIED_MONEY",
+      "voucher": "CR-2026-000092",
+      "partner": "تسنيم سعيد الاحمري",
+      "unapplied": 250,
+      "currency": "SAR"
+    },
+    {
+      "kind": "UNAPPLIED_MONEY",
+      "voucher": "CR-2026-000091",
+      "partner": "ايه طارق عبدالجليل",
+      "unapplied": 5000,
+      "currency": "EGP"
+    },
+    {
+      "kind": "UNAPPLIED_MONEY",
+      "voucher": "CR-2026-000089",
+      "partner": "عبدالرحمن عبدالله",
+      "unapplied": 300,
+      "currency": "SAR"
+    },
+    {
+      "kind": "UNAPPLIED_MONEY",
+      "voucher": "CR-2026-000087",
+      "partner": "شام محمود محمد الميرغنى",
+      "unapplied": 300,
+      "currency": "SAR"
+    },
+    {
+      "kind": "AGING_TOTALS_ADD_CURRENCIES",
+      "side": "AR",
+      "apiTotal": 435000,
+      "apiUnapplied": 86500,
+      "perCurrency": {
+        "EGP": {
+          "open": 435000,
+          "unapplied": 86500
+        },
+        "SAR": {
+          "open": 0,
+          "unapplied": 1150
+        }
+      }
+    }
+  ],
+  "partners": [
+    {
+      "side": "AR",
+      "partner": "مكتبة النور",
+      "currencies": ["EGP"],
+      "invoices": [
+        {
+          "number": "INV-2026-000095",
+          "currency": "EGP",
+          "total": 120000,
+          "paid": 120000,
+          "remaining": 0,
+          "status": "PAID"
+        },
+        {
+          "number": "INV-2026-000093",
+          "currency": "EGP",
+          "total": 110000,
+          "paid": 50000,
+          "remaining": 60000,
+          "status": "PARTIALLY_PAID"
+        }
+      ],
+      "creditNotes": [],
+      "openRemaining": 60000,
+      "aging": {
+        "total": 60000,
+        "unapplied": 80000,
+        "net": -20000
+      },
+      "ledgerClosingFunctional": -20000,
+      "position": [
+        {
+          "currencyId": "f176ab0e-8132-4584-b188-b2e590608212",
+          "currencyCode": "EGP",
+          "openInvoices": 1,
+          "outstanding": 60000,
+          "received": 250000,
+          "applied": 170000,
+          "unapplied": 80000
+        }
+      ],
+      "statementMovements": 6,
+      "gapLedgerVsAgingNet": 0
+    },
+    {
+      "side": "AR",
+      "partner": "صالح البقمي",
+      "currencies": ["SAR"],
+      "invoices": [
+        {
+          "number": "INV-2026-000094",
+          "currency": "SAR",
+          "total": 600,
+          "paid": 600,
+          "remaining": 0,
+          "status": "PAID"
+        }
+      ],
+      "creditNotes": [],
+      "openRemaining": 0,
+      "aging": null,
+      "ledgerClosingFunctional": 0,
+      "position": [
+        {
+          "currencyId": "feaf1dc3-7d80-4015-b31e-dd92eea8f1bb",
+          "currencyCode": "SAR",
+          "openInvoices": 0,
+          "outstanding": 0,
+          "received": 600,
+          "applied": 600,
+          "unapplied": 0
+        }
+      ],
+      "statementMovements": 2
+    },
+    {
+      "side": "AR",
+      "partner": "اسلام عبد العليم مؤمن",
+      "currencies": ["EGP"],
+      "invoices": [
+        {
+          "number": "INV-2026-000092",
+          "currency": "EGP",
+          "total": 1400,
+          "paid": 1400,
+          "remaining": 0,
+          "status": "PAID"
+        }
+      ],
+      "creditNotes": [],
+      "openRemaining": 0,
+      "aging": null,
+      "ledgerClosingFunctional": 0,
+      "position": [
+        {
+          "currencyId": "f176ab0e-8132-4584-b188-b2e590608212",
+          "currencyCode": "EGP",
+          "openInvoices": 0,
+          "outstanding": 0,
+          "received": 1400,
+          "applied": 1400,
+          "unapplied": 0
+        }
+      ],
+      "statementMovements": 2,
+      "gapLedgerVsAgingNet": 0
+    },
+    {
+      "side": "AR",
+      "partner": "دار الهدى للنشر",
+      "currencies": ["EGP"],
+      "invoices": [
+        {
+          "number": "INV-2026-000091",
+          "currency": "EGP",
+          "total": 200000,
+          "paid": 200000,
+          "remaining": 0,
+          "status": "PAID"
+        }
+      ],
+      "creditNotes": [],
+      "openRemaining": 0,
+      "aging": null,
+      "ledgerClosingFunctional": 0,
+      "position": [
+        {
+          "currencyId": "f176ab0e-8132-4584-b188-b2e590608212",
+          "currencyCode": "EGP",
+          "openInvoices": 0,
+          "outstanding": 0,
+          "received": 200000,
+          "applied": 200000,
+          "unapplied": 0
+        }
+      ],
+      "statementMovements": 5,
+      "gapLedgerVsAgingNet": 0
+    },
+    {
+      "side": "AR",
+      "partner": "سيد السيد",
+      "currencies": ["SAR"],
+      "invoices": [
+        {
+          "number": "INV-2026-000090",
+          "currency": "SAR",
+          "total": 1200,
+          "paid": 1200,
+          "remaining": 0,
+          "status": "PAID"
+        }
+      ],
+      "creditNotes": [],
+      "openRemaining": 0,
+      "aging": null,
+      "ledgerClosingFunctional": 0,
+      "position": [
+        {
+          "currencyId": "feaf1dc3-7d80-4015-b31e-dd92eea8f1bb",
+          "currencyCode": "SAR",
+          "openInvoices": 0,
+          "outstanding": 0,
+          "received": 1200,
+          "applied": 1200,
+          "unapplied": 0
+        }
+      ],
+      "statementMovements": 2
+    },
+    {
+      "side": "AR",
+      "partner": "احمد محمد منصور",
+      "currencies": ["EGP"],
+      "invoices": [
+        {
+          "number": "INV-2026-000089",
+          "currency": "EGP",
+          "total": 4000,
+          "paid": 4000,
+          "remaining": 0,
+          "status": "PAID"
+        }
+      ],
+      "creditNotes": [],
+      "openRemaining": 0,
+      "aging": null,
+      "ledgerClosingFunctional": 0,
+      "position": [
+        {
+          "currencyId": "f176ab0e-8132-4584-b188-b2e590608212",
+          "currencyCode": "EGP",
+          "openInvoices": 0,
+          "outstanding": 0,
+          "received": 4000,
+          "applied": 4000,
+          "unapplied": 0
+        }
+      ],
+      "statementMovements": 2,
+      "gapLedgerVsAgingNet": 0
+    },
+    {
+      "side": "AR",
+      "partner": "محمد رجب الديب",
+      "currencies": ["EGP"],
+      "invoices": [
+        {
+          "number": "INV-2026-000088",
+          "currency": "EGP",
+          "total": 1200,
+          "paid": 1200,
+          "remaining": 0,
+          "status": "PAID"
+        }
+      ],
+      "creditNotes": [],
+      "openRemaining": 0,
+      "aging": null,
+      "ledgerClosingFunctional": 0,
+      "position": [
+        {
+          "currencyId": "f176ab0e-8132-4584-b188-b2e590608212",
+          "currencyCode": "EGP",
+          "openInvoices": 0,
+          "outstanding": 0,
+          "received": 1200,
+          "applied": 1200,
+          "unapplied": 0
+        }
+      ],
+      "statementMovements": 2,
+      "gapLedgerVsAgingNet": 0
+    },
+    {
+      "side": "AR",
+      "partner": "دار اشراقة",
+      "currencies": ["EGP"],
+      "invoices": [
+        {
+          "number": "INV-2026-000087",
+          "currency": "EGP",
+          "total": 375000,
+          "paid": 0,
+          "remaining": 375000,
+          "status": "UNPAID"
+        }
+      ],
+      "creditNotes": [],
+      "openRemaining": 375000,
+      "aging": {
+        "total": 375000,
+        "unapplied": 0,
+        "net": 375000
+      },
+      "ledgerClosingFunctional": 375000,
+      "position": [
+        {
+          "currencyId": "f176ab0e-8132-4584-b188-b2e590608212",
+          "currencyCode": "EGP",
+          "openInvoices": 1,
+          "outstanding": 375000,
+          "received": 0,
+          "applied": 0,
+          "unapplied": 0
+        }
+      ],
+      "statementMovements": 1,
+      "gapLedgerVsAgingNet": 0
+    },
+    {
+      "side": "AP",
+      "partner": "مطابع الفهد",
+      "currencies": ["EGP"],
+      "invoices": [
+        {
+          "number": "PI-2026-000046",
+          "currency": "EGP",
+          "total": 448000,
+          "paid": 0,
+          "remaining": 448000,
+          "status": "UNPAID"
+        }
+      ],
+      "creditNotes": [],
+      "openRemaining": 448000,
+      "aging": {
+        "total": 448000,
+        "unapplied": 0,
+        "net": 448000
+      },
+      "ledgerClosingFunctional": 448000,
+      "position": [
+        {
+          "currencyId": "f176ab0e-8132-4584-b188-b2e590608212",
+          "currencyCode": "EGP",
+          "openInvoices": 1,
+          "outstanding": 448000,
+          "received": 0,
+          "applied": 0,
+          "unapplied": 0
+        }
+      ],
+      "statementMovements": 1,
+      "gapLedgerVsAgingNet": 0
+    },
+    {
+      "side": "AR",
+      "partner": "ايه طارق عبدالجليل",
+      "currencies": ["EGP"],
+      "invoices": [],
+      "creditNotes": [],
+      "openRemaining": 0,
+      "aging": {
+        "total": 0,
+        "unapplied": 6500,
+        "net": -6500
+      },
+      "ledgerClosingFunctional": -6500,
+      "position": [
+        {
+          "currencyId": "f176ab0e-8132-4584-b188-b2e590608212",
+          "currencyCode": "EGP",
+          "openInvoices": 0,
+          "outstanding": 0,
+          "received": 6500,
+          "applied": 0,
+          "unapplied": 6500
+        }
+      ],
+      "statementMovements": 2,
+      "gapLedgerVsAgingNet": 0
+    },
+    {
+      "side": "AR",
+      "partner": "تسنيم سعيد الاحمري",
+      "currencies": ["SAR"],
+      "invoices": [],
+      "creditNotes": [],
+      "openRemaining": 0,
+      "aging": {
+        "total": 0,
+        "unapplied": 550,
+        "net": -550
+      },
+      "ledgerClosingFunctional": -7675.72,
+      "position": [
+        {
+          "currencyId": "feaf1dc3-7d80-4015-b31e-dd92eea8f1bb",
+          "currencyCode": "SAR",
+          "openInvoices": 0,
+          "outstanding": 0,
+          "received": 550,
+          "applied": 0,
+          "unapplied": 550
+        }
+      ],
+      "statementMovements": 2
+    },
+    {
+      "side": "AR",
+      "partner": "عبدالرحمن عبدالله",
+      "currencies": ["SAR"],
+      "invoices": [],
+      "creditNotes": [],
+      "openRemaining": 0,
+      "aging": {
+        "total": 0,
+        "unapplied": 300,
+        "net": -300
+      },
+      "ledgerClosingFunctional": -4202.23,
+      "position": [
+        {
+          "currencyId": "feaf1dc3-7d80-4015-b31e-dd92eea8f1bb",
+          "currencyCode": "SAR",
+          "openInvoices": 0,
+          "outstanding": 0,
+          "received": 300,
+          "applied": 0,
+          "unapplied": 300
+        }
+      ],
+      "statementMovements": 1
+    },
+    {
+      "side": "AR",
+      "partner": "شام محمود محمد الميرغنى",
+      "currencies": ["SAR"],
+      "invoices": [],
+      "creditNotes": [],
+      "openRemaining": 0,
+      "aging": {
+        "total": 0,
+        "unapplied": 300,
+        "net": -300
+      },
+      "ledgerClosingFunctional": -4181.63,
+      "position": [
+        {
+          "currencyId": "feaf1dc3-7d80-4015-b31e-dd92eea8f1bb",
+          "currencyCode": "SAR",
+          "openInvoices": 0,
+          "outstanding": 0,
+          "received": 300,
+          "applied": 0,
+          "unapplied": 300
+        }
+      ],
+      "statementMovements": 1
+    }
+  ],
+  "vouchers": [
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "22638a5c-73ce-4e06-906e-fce3e1345cd3",
+      "number": "CR-2026-000103",
+      "status": "CONFIRMED",
+      "partner": "مكتبة النور",
+      "partnerId": "bf42a555-06d3-48af-b2bf-8098b8b6a3be",
+      "currency": "EGP",
+      "amount": 60000,
+      "fee": 0,
+      "allocated": 0,
+      "unapplied": 60000,
+      "allocations": [],
+      "account": "الصندوق الرئيسي",
+      "transactionDate": "2026-10-14",
+      "confirmedAt": "2026-10-14",
+      "exchangeRate": 1,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000428",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "22638a5c-73ce-4e06-906e-fce3e1345cd3",
+          "entryDate": "2026-10-14",
+          "currency": null,
+          "exchangeRate": 1,
+          "lines": [
+            {
+              "account": "111 الصندوق",
+              "partner": null,
+              "debit": 60000,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "مكتبة النور",
+              "debit": 0,
+              "credit": 60000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "445e9c03-2e61-4643-a5ea-cbcdb94418ff",
+      "number": "CR-2026-000102",
+      "status": "CONFIRMED",
+      "partner": "مكتبة النور",
+      "partnerId": "bf42a555-06d3-48af-b2bf-8098b8b6a3be",
+      "currency": "EGP",
+      "amount": 120000,
+      "fee": 0,
+      "allocated": 120000,
+      "unapplied": 0,
+      "allocations": [
+        {
+          "document": "INV-2026-000095",
+          "amount": 120000
+        }
+      ],
+      "account": "الصندوق الرئيسي",
+      "transactionDate": "2026-10-14",
+      "confirmedAt": "2026-10-14",
+      "exchangeRate": 1,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000427",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "445e9c03-2e61-4643-a5ea-cbcdb94418ff",
+          "entryDate": "2026-10-14",
+          "currency": "EGP",
+          "exchangeRate": 1,
+          "lines": [
+            {
+              "account": "111 الصندوق",
+              "partner": null,
+              "debit": 120000,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "مكتبة النور",
+              "debit": 0,
+              "credit": 120000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "e0e0ded3-567e-47dc-b081-1f77e52cdb53",
+      "number": "CR-2026-000101",
+      "status": "CONFIRMED",
+      "partner": "مكتبة النور",
+      "partnerId": "bf42a555-06d3-48af-b2bf-8098b8b6a3be",
+      "currency": "EGP",
+      "amount": 20000,
+      "fee": 0,
+      "allocated": 0,
+      "unapplied": 20000,
+      "allocations": [],
+      "account": "البنك الرئيسي",
+      "transactionDate": "2026-10-14",
+      "confirmedAt": "2026-10-14",
+      "exchangeRate": 1,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000426",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "e0e0ded3-567e-47dc-b081-1f77e52cdb53",
+          "entryDate": "2026-10-14",
+          "currency": null,
+          "exchangeRate": 1,
+          "lines": [
+            {
+              "account": "112 البنوك",
+              "partner": null,
+              "debit": 20000,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "مكتبة النور",
+              "debit": 0,
+              "credit": 20000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "5a9589b9-d1c7-44c4-8f2c-13281edc04f8",
+      "number": "CR-2026-000100",
+      "status": "CONFIRMED",
+      "partner": "صالح البقمي",
+      "partnerId": "ebe881fb-730b-4b6d-8c5a-a7e8857456d8",
+      "currency": "SAR",
+      "amount": 600,
+      "fee": 0,
+      "allocated": 600,
+      "unapplied": 0,
+      "allocations": [
+        {
+          "document": "INV-2026-000094",
+          "amount": 600
+        }
+      ],
+      "account": null,
+      "transactionDate": "2026-10-14",
+      "confirmedAt": "2026-10-14",
+      "exchangeRate": 14.06825,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000423",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "5a9589b9-d1c7-44c4-8f2c-13281edc04f8",
+          "entryDate": "2026-10-14",
+          "currency": "SAR",
+          "exchangeRate": 14.06825,
+          "lines": [
+            {
+              "account": "11104 مصرف الراجحي",
+              "partner": null,
+              "debit": 8440.95,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "صالح البقمي",
+              "debit": 0,
+              "credit": 8440.95
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "389e483a-30bd-4c0e-9f41-4e585d515b6b",
+      "number": "CR-2026-000099",
+      "status": "CONFIRMED",
+      "partner": "مكتبة النور",
+      "partnerId": "bf42a555-06d3-48af-b2bf-8098b8b6a3be",
+      "currency": "EGP",
+      "amount": 50000,
+      "fee": 0,
+      "allocated": 50000,
+      "unapplied": 0,
+      "allocations": [
+        {
+          "document": "INV-2026-000093",
+          "amount": 50000
+        }
+      ],
+      "account": "الصندوق الرئيسي",
+      "transactionDate": "2026-10-12",
+      "confirmedAt": "2026-10-12",
+      "exchangeRate": 1,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000422",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "389e483a-30bd-4c0e-9f41-4e585d515b6b",
+          "entryDate": "2026-10-12",
+          "currency": null,
+          "exchangeRate": 1,
+          "lines": [
+            {
+              "account": "111 الصندوق",
+              "partner": null,
+              "debit": 50000,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "مكتبة النور",
+              "debit": 0,
+              "credit": 50000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "71da1b00-6a71-4206-9310-cbe41ee2d053",
+      "number": "CR-2026-000098",
+      "status": "CONFIRMED",
+      "partner": "اسلام عبد العليم مؤمن",
+      "partnerId": "c6d666fc-d847-4c67-ba00-946fc8ef9d6d",
+      "currency": "EGP",
+      "amount": 1400,
+      "fee": 0,
+      "allocated": 1400,
+      "unapplied": 0,
+      "allocations": [
+        {
+          "document": "INV-2026-000092",
+          "amount": 1400
+        }
+      ],
+      "account": null,
+      "transactionDate": "2026-10-12",
+      "confirmedAt": "2026-10-12",
+      "exchangeRate": 1,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000419",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "71da1b00-6a71-4206-9310-cbe41ee2d053",
+          "entryDate": "2026-10-12",
+          "currency": "EGP",
+          "exchangeRate": 1,
+          "lines": [
+            {
+              "account": "11101 خزينة نقدية جنيه مصري",
+              "partner": null,
+              "debit": 1400,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "اسلام عبد العليم مؤمن",
+              "debit": 0,
+              "credit": 1400
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "7bc7d962-c853-4f65-8b1c-1e2c96c7b71c",
+      "number": "CR-2026-000097",
+      "status": "CONFIRMED",
+      "partner": "دار الهدى للنشر",
+      "partnerId": "cf463bc1-e803-43f1-9dce-a3ec3498729a",
+      "currency": "EGP",
+      "amount": 100000,
+      "fee": 0,
+      "allocated": 100000,
+      "unapplied": 0,
+      "allocations": [
+        {
+          "document": "INV-2026-000091",
+          "amount": 100000
+        }
+      ],
+      "account": "البنك الرئيسي",
+      "transactionDate": "2026-10-11",
+      "confirmedAt": "2026-10-12",
+      "exchangeRate": 1,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000418",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "7bc7d962-c853-4f65-8b1c-1e2c96c7b71c",
+          "entryDate": "2026-10-12",
+          "currency": null,
+          "exchangeRate": 1,
+          "lines": [
+            {
+              "account": "112 البنوك",
+              "partner": null,
+              "debit": 100000,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "دار الهدى للنشر",
+              "debit": 0,
+              "credit": 100000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "f9c8d6e4-7237-4efe-8dc1-15361267119b",
+      "number": "CR-2026-000096",
+      "status": "CONFIRMED",
+      "partner": "دار الهدى للنشر",
+      "partnerId": "cf463bc1-e803-43f1-9dce-a3ec3498729a",
+      "currency": "EGP",
+      "amount": 100000,
+      "fee": 0,
+      "allocated": 100000,
+      "unapplied": 0,
+      "allocations": [
+        {
+          "document": "INV-2026-000091",
+          "amount": 100000
+        }
+      ],
+      "account": "الصندوق الرئيسي",
+      "transactionDate": "2026-10-11",
+      "confirmedAt": "2026-10-11",
+      "exchangeRate": 1,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000416",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "f9c8d6e4-7237-4efe-8dc1-15361267119b",
+          "entryDate": "2026-10-11",
+          "currency": null,
+          "exchangeRate": 1,
+          "lines": [
+            {
+              "account": "111 الصندوق",
+              "partner": null,
+              "debit": 100000,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "دار الهدى للنشر",
+              "debit": 0,
+              "credit": 100000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "a87d89c4-2ecf-489e-a475-fdad2dbc8104",
+      "number": "CR-2026-000095",
+      "status": "CANCELLED",
+      "partner": "دار الهدى للنشر",
+      "partnerId": "cf463bc1-e803-43f1-9dce-a3ec3498729a",
+      "currency": "EGP",
+      "amount": 200000,
+      "fee": 0,
+      "allocated": 0,
+      "unapplied": 200000,
+      "allocations": [],
+      "account": "البنك الرئيسي",
+      "transactionDate": "2026-10-11",
+      "confirmedAt": "2026-10-11",
+      "exchangeRate": 1,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000417",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "a87d89c4-2ecf-489e-a475-fdad2dbc8104",
+          "entryDate": "2026-10-12",
+          "currency": null,
+          "exchangeRate": null,
+          "lines": [
+            {
+              "account": "112 البنوك",
+              "partner": null,
+              "debit": 0,
+              "credit": 200000
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "دار الهدى للنشر",
+              "debit": 200000,
+              "credit": 0
+            }
+          ]
+        },
+        {
+          "entryNumber": "JV-2026-000415",
+          "status": "REVERSED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "a87d89c4-2ecf-489e-a475-fdad2dbc8104",
+          "entryDate": "2026-10-11",
+          "currency": null,
+          "exchangeRate": 1,
+          "lines": [
+            {
+              "account": "112 البنوك",
+              "partner": null,
+              "debit": 200000,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "دار الهدى للنشر",
+              "debit": 0,
+              "credit": 200000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "328b31c2-ba4e-45e4-a5e8-7cce9693d6dc",
+      "number": "CR-2026-000094",
+      "status": "CONFIRMED",
+      "partner": "ايه طارق عبدالجليل",
+      "partnerId": "f6d638c6-fd37-4cfa-9c1a-704ee2c2eb02",
+      "currency": "EGP",
+      "amount": 1500,
+      "fee": 0,
+      "allocated": 0,
+      "unapplied": 1500,
+      "allocations": [],
+      "account": null,
+      "transactionDate": "2026-10-07",
+      "confirmedAt": "2026-10-11",
+      "exchangeRate": 1,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000413",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "328b31c2-ba4e-45e4-a5e8-7cce9693d6dc",
+          "entryDate": "2026-10-07",
+          "currency": "EGP",
+          "exchangeRate": 1,
+          "lines": [
+            {
+              "account": "11101 خزينة نقدية جنيه مصري",
+              "partner": null,
+              "debit": 1500,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "ايه طارق عبدالجليل",
+              "debit": 0,
+              "credit": 1500
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "636229f2-8162-4f60-a880-ba4a2b68e49d",
+      "number": "CR-2026-000093",
+      "status": "CONFIRMED",
+      "partner": "تسنيم سعيد الاحمري",
+      "partnerId": "d90b38c0-637c-44ec-ab13-209ab7ec5313",
+      "currency": "SAR",
+      "amount": 300,
+      "fee": 0,
+      "allocated": 0,
+      "unapplied": 300,
+      "allocations": [],
+      "account": null,
+      "transactionDate": "2026-10-07",
+      "confirmedAt": "2026-10-11",
+      "exchangeRate": 13.95585,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000412",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "636229f2-8162-4f60-a880-ba4a2b68e49d",
+          "entryDate": "2026-10-07",
+          "currency": "SAR",
+          "exchangeRate": 13.95585,
+          "lines": [
+            {
+              "account": "11104 مصرف الراجحي",
+              "partner": null,
+              "debit": 4186.76,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "تسنيم سعيد الاحمري",
+              "debit": 0,
+              "credit": 4186.76
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "97098efe-f6bf-48e1-a6b8-cc1fa0a17aa7",
+      "number": "CR-2026-000092",
+      "status": "CONFIRMED",
+      "partner": "تسنيم سعيد الاحمري",
+      "partnerId": "d90b38c0-637c-44ec-ab13-209ab7ec5313",
+      "currency": "SAR",
+      "amount": 250,
+      "fee": 0,
+      "allocated": 0,
+      "unapplied": 250,
+      "allocations": [],
+      "account": null,
+      "transactionDate": "2026-10-07",
+      "confirmedAt": "2026-10-11",
+      "exchangeRate": 13.95585,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000411",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "97098efe-f6bf-48e1-a6b8-cc1fa0a17aa7",
+          "entryDate": "2026-10-07",
+          "currency": "SAR",
+          "exchangeRate": 13.95585,
+          "lines": [
+            {
+              "account": "11104 مصرف الراجحي",
+              "partner": null,
+              "debit": 3488.96,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "تسنيم سعيد الاحمري",
+              "debit": 0,
+              "credit": 3488.96
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "69c8d78a-8bd5-4063-92d1-a17621abec87",
+      "number": "CR-2026-000091",
+      "status": "CONFIRMED",
+      "partner": "ايه طارق عبدالجليل",
+      "partnerId": "f6d638c6-fd37-4cfa-9c1a-704ee2c2eb02",
+      "currency": "EGP",
+      "amount": 5000,
+      "fee": 0,
+      "allocated": 0,
+      "unapplied": 5000,
+      "allocations": [],
+      "account": null,
+      "transactionDate": "2026-10-07",
+      "confirmedAt": "2026-10-11",
+      "exchangeRate": 1,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000410",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "69c8d78a-8bd5-4063-92d1-a17621abec87",
+          "entryDate": "2026-10-07",
+          "currency": "EGP",
+          "exchangeRate": 1,
+          "lines": [
+            {
+              "account": "11101 خزينة نقدية جنيه مصري",
+              "partner": null,
+              "debit": 5000,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "ايه طارق عبدالجليل",
+              "debit": 0,
+              "credit": 5000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "58eb668c-920e-4ed9-b13a-76888809857a",
+      "number": "CR-2026-000090",
+      "status": "CONFIRMED",
+      "partner": "سيد السيد",
+      "partnerId": "30869fc8-b6ee-4cbe-bf3c-67fb403a4350",
+      "currency": "SAR",
+      "amount": 1200,
+      "fee": 0,
+      "allocated": 1200,
+      "unapplied": 0,
+      "allocations": [
+        {
+          "document": "INV-2026-000090",
+          "amount": 1200
+        }
+      ],
+      "account": null,
+      "transactionDate": "2026-10-10",
+      "confirmedAt": "2026-10-11",
+      "exchangeRate": 13.95585,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000409",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "58eb668c-920e-4ed9-b13a-76888809857a",
+          "entryDate": "2026-10-10",
+          "currency": "SAR",
+          "exchangeRate": 13.95585,
+          "lines": [
+            {
+              "account": "11104 مصرف الراجحي",
+              "partner": null,
+              "debit": 16747.02,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "سيد السيد",
+              "debit": 0,
+              "credit": 16747.02
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "e6c28d71-255d-42d0-bad4-18a62c801e05",
+      "number": "CR-2026-000089",
+      "status": "CONFIRMED",
+      "partner": "عبدالرحمن عبدالله",
+      "partnerId": "a7b912a5-d4d9-4965-a26e-c6c2f7a23f3a",
+      "currency": "SAR",
+      "amount": 300,
+      "fee": 0,
+      "allocated": 0,
+      "unapplied": 300,
+      "allocations": [],
+      "account": null,
+      "transactionDate": "2026-10-11",
+      "confirmedAt": "2026-10-11",
+      "exchangeRate": 14.00745,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000408",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "e6c28d71-255d-42d0-bad4-18a62c801e05",
+          "entryDate": "2026-10-11",
+          "currency": "SAR",
+          "exchangeRate": 14.00745,
+          "lines": [
+            {
+              "account": "11104 مصرف الراجحي",
+              "partner": null,
+              "debit": 4202.23,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "عبدالرحمن عبدالله",
+              "debit": 0,
+              "credit": 4202.23
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "0d9b3e84-39cf-49cd-85a1-59e795c53a74",
+      "number": "CR-2026-000088",
+      "status": "CONFIRMED",
+      "partner": "محمد رجب الديب",
+      "partnerId": "b3a13421-c3af-48ee-accb-654992dc1eac",
+      "currency": "EGP",
+      "amount": 1200,
+      "fee": 0,
+      "allocated": 1200,
+      "unapplied": 0,
+      "allocations": [
+        {
+          "document": "INV-2026-000088",
+          "amount": 1200
+        }
+      ],
+      "account": null,
+      "transactionDate": "2026-10-07",
+      "confirmedAt": "2026-10-07",
+      "exchangeRate": 1,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000403",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "0d9b3e84-39cf-49cd-85a1-59e795c53a74",
+          "entryDate": "2026-10-07",
+          "currency": "EGP",
+          "exchangeRate": 1,
+          "lines": [
+            {
+              "account": "11101 خزينة نقدية جنيه مصري",
+              "partner": null,
+              "debit": 1200,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "محمد رجب الديب",
+              "debit": 0,
+              "credit": 1200
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "31073890-a499-42dc-bfc2-4d5d74d6c9be",
+      "number": "CR-2026-000087",
+      "status": "CONFIRMED",
+      "partner": "شام محمود محمد الميرغنى",
+      "partnerId": "928be092-e61e-4e2d-b791-80b5b92ee9cc",
+      "currency": "SAR",
+      "amount": 300,
+      "fee": 0,
+      "allocated": 0,
+      "unapplied": 300,
+      "allocations": [],
+      "account": null,
+      "transactionDate": "2026-10-07",
+      "confirmedAt": "2026-10-07",
+      "exchangeRate": 13.93875,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000402",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "31073890-a499-42dc-bfc2-4d5d74d6c9be",
+          "entryDate": "2026-10-07",
+          "currency": "SAR",
+          "exchangeRate": 13.93875,
+          "lines": [
+            {
+              "account": "11104 مصرف الراجحي",
+              "partner": null,
+              "debit": 4181.63,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "شام محمود محمد الميرغنى",
+              "debit": 0,
+              "credit": 4181.63
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "CUSTOMER_RECEIPT",
+      "id": "26d83f47-0bd8-4454-a15e-e522f0fc39f2",
+      "number": "CR-2026-000086",
+      "status": "CONFIRMED",
+      "partner": "احمد محمد منصور",
+      "partnerId": "1f1daf12-596f-4c91-9523-d8e3a4dc1f6a",
+      "currency": "EGP",
+      "amount": 4000,
+      "fee": 0,
+      "allocated": 4000,
+      "unapplied": 0,
+      "allocations": [
+        {
+          "document": "INV-2026-000089",
+          "amount": 4000
+        }
+      ],
+      "account": null,
+      "transactionDate": "2026-10-07",
+      "confirmedAt": "2026-10-07",
+      "exchangeRate": 1,
+      "entries": [
+        {
+          "entryNumber": "JV-2026-000401",
+          "status": "POSTED",
+          "sourceType": "CUSTOMER_RECEIPT",
+          "sourceId": "26d83f47-0bd8-4454-a15e-e522f0fc39f2",
+          "entryDate": "2026-10-07",
+          "currency": "EGP",
+          "exchangeRate": 1,
+          "lines": [
+            {
+              "account": "11103 البنك العربي الافريقي الدولي (جنيه)",
+              "partner": null,
+              "debit": 4000,
+              "credit": 0
+            },
+            {
+              "account": "121 الذمم المدينة التجارية",
+              "partner": "احمد محمد منصور",
+              "debit": 0,
+              "credit": 4000
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "integrity": {
+    "checkedAt": "2026-10-14T15:27:55.659Z",
+    "checked": {
+      "vouchers": 18,
+      "entries": 18,
+      "invoices": 8,
+      "bankMatches": 0,
+      "partnerBalances": 13
+    },
+    "errors": 0,
+    "review": 0,
+    "issues": []
+  },
+  "cashAvailability": {
+    "asOfDate": "2026-10-14",
+    "timeZone": "Africa/Cairo",
+    "formula": "availableToSpend = bookBalance − recordedHolds − committedOutgoing (DRAFT cash-out FTs)",
+    "limitations": [
+      "recordedHolds are not tracked in OMS — always 0.",
+      "bankConfirmedAvailable is not tracked — do not treat availableToSpend as guaranteed spendable cash.",
+      "Functional-currency equivalents use the latest directed rate on or before as-of; missing rates omit that account from the consolidated total."
+    ],
+    "accounts": [
+      {
+        "receivingAccountId": "bf3ed040-778d-4cdf-b34e-7d1b2f5a4864",
+        "accountCode": "BANK-01",
+        "accountName": "البنك الرئيسي",
+        "chartOfAccountId": "a8d90b7e-171c-4fc2-b1d3-fc47f8a720be",
+        "chartOfAccountCode": "112",
+        "chartOfAccountName": "البنوك",
+        "currencyId": "f176ab0e-8132-4584-b188-b2e590608212",
+        "currencyCode": "EGP",
+        "asOfDate": "2026-10-14",
+        "bookBalance": 120000,
+        "bookBalanceFunctional": 120000,
+        "native": null,
+        "recordedHolds": 0,
+        "committedOutgoing": 0,
+        "availableToSpend": 120000,
+        "availabilityKind": "ESTIMATE",
+        "bankConfirmedAvailable": null,
+        "egpEquivalent": {
+          "bookBalance": 120000,
+          "availableToSpend": 120000,
+          "rate": 1,
+          "rateEffectiveDate": null,
+          "rateSource": "IDENTITY",
+          "convention": "1 EGP = 1 EGP"
+        }
+      },
+      {
+        "receivingAccountId": "7c1c67e6-e024-448d-94db-11dbbea15d88",
+        "accountCode": "CASH-01",
+        "accountName": "الصندوق الرئيسي",
+        "chartOfAccountId": "5077fc9f-4066-4bc3-b4b5-020e972ba9c0",
+        "chartOfAccountCode": "111",
+        "chartOfAccountName": "الصندوق",
+        "currencyId": "f176ab0e-8132-4584-b188-b2e590608212",
+        "currencyCode": "EGP",
+        "asOfDate": "2026-10-14",
+        "bookBalance": 330001,
+        "bookBalanceFunctional": 330001,
+        "native": null,
+        "recordedHolds": 0,
+        "committedOutgoing": 0,
+        "availableToSpend": 330001,
+        "availabilityKind": "ESTIMATE",
+        "bankConfirmedAvailable": null,
+        "egpEquivalent": {
+          "bookBalance": 330001,
+          "availableToSpend": 330001,
+          "rate": 1,
+          "rateEffectiveDate": null,
+          "rateSource": "IDENTITY",
+          "convention": "1 EGP = 1 EGP"
+        }
+      },
+      {
+        "receivingAccountId": "295c233a-dc8a-4cd2-ae7a-6876fb70f35a",
+        "accountCode": "PDR-RA-17D95B",
+        "accountName": "DEMO-PDR-20260927 Settlement bank",
+        "chartOfAccountId": "5552541b-78f5-424b-9554-f19d50a6900d",
+        "chartOfAccountCode": "116",
+        "chartOfAccountName": "DEMO-PDR-20260927 Settlement bank",
+        "currencyId": "f176ab0e-8132-4584-b188-b2e590608212",
+        "currencyCode": "EGP",
+        "asOfDate": "2026-10-14",
+        "bookBalance": 0,
+        "bookBalanceFunctional": 0,
+        "native": null,
+        "recordedHolds": 0,
+        "committedOutgoing": 0,
+        "availableToSpend": 0,
+        "availabilityKind": "ESTIMATE",
+        "bankConfirmedAvailable": null,
+        "egpEquivalent": {
+          "bookBalance": 0,
+          "availableToSpend": 0,
+          "rate": 1,
+          "rateEffectiveDate": null,
+          "rateSource": "IDENTITY",
+          "convention": "1 EGP = 1 EGP"
+        }
+      }
+    ],
+    "totalsByCurrency": [
+      {
+        "currencyCode": "EGP",
+        "book": 450001,
+        "available": 450001
+      }
+    ],
+    "functionalCurrencyCode": "EGP",
+    "egpConsolidated": {
+      "bookBalance": 450001,
+      "availableToSpend": 450001,
+      "note": "Presentation total only — never sum unlike currencies into an unlabeled total."
+    }
+  }
+}
