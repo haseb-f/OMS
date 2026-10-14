@@ -23,6 +23,7 @@ import { FxRevaluationPostingProvider } from './fx-revaluation-posting.provider'
 import { AgentLedgerPostingProvider } from './agent-ledger-posting.provider';
 import { AssemblyOrderPostingProvider } from './assembly-order-posting.provider';
 import { AssemblyReversalVariancePostingProvider } from './assembly-reversal-variance-posting.provider';
+import { AllocationFxPostingProvider } from './allocation-fx-posting.provider';
 
 /**
  * Accounting Posting Engine (TASK-046/047, HR Milestone 1) — every default
@@ -65,6 +66,7 @@ import { AssemblyReversalVariancePostingProvider } from './assembly-reversal-var
     AgentLedgerPostingProvider,
     AssemblyOrderPostingProvider,
     AssemblyReversalVariancePostingProvider,
+    AllocationFxPostingProvider,
   ],
 })
 export class PostingProvidersModule {}

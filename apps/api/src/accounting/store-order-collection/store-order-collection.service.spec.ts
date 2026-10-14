@@ -31,6 +31,8 @@ function buildTx(overrides: Record<string, unknown> = {}) {
       }),
     },
     salesInvoice: { findMany: jest.fn().mockResolvedValue([]) },
+    // R22 D2 — the settlement summary also reads the invoices' credit notes.
+    salesReturn: { findMany: jest.fn().mockResolvedValue([]) },
     paymentReceiptLink: {
       findUnique: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue({ id: 'link-1' }),

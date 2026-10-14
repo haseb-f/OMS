@@ -7504,6 +7504,9 @@ model FinancialTransactionAllocation {
   storeOrder   StoreOrder? @relation(fields: [storeOrderId], references: [id])
 
   allocatedAmount Decimal  @map("allocated_amount") @db.Decimal(12, 2)
+  /// R22 A3 — the day this allocation took effect (as-of aging reads it):
+  /// the voucher date for lines posted with the voucher (Confirm stamps it),
+  /// the day of a later Allocate / amount change otherwise.
   allocationDate  DateTime @default(now()) @map("allocation_date")
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -7513,6 +7516,8 @@ model FinancialTransactionAllocation {
 
   @@index([salesReturnId])
   @@index([storeOrderId])
+  @@index([salesInvoiceId])
+  @@index([purchaseInvoiceId])
   @@map("financial_transaction_allocations")
 }
 
