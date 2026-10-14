@@ -1314,7 +1314,10 @@ describeDb('R22 I-A — settlement lifecycle (local DB)', () => {
     ).toBe(false);
     // The route is the detail's own permission (sales-invoices · view), and an
     // invoice the caller cannot open (unknown / archived) is a 404.
-    const route = SalesInvoicesController.prototype.settlementHistory;
+    const route = Object.getOwnPropertyDescriptor(
+      SalesInvoicesController.prototype,
+      'settlementHistory',
+    )?.value as object;
     expect(
       Reflect.getMetadata(PERMISSION_MODULE_KEY, SalesInvoicesController),
     ).toBe('sales-invoices');

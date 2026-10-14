@@ -5,8 +5,6 @@ import {
   FinancialTransactionStatus,
   JournalEntryStatus,
   Prisma,
-  PurchaseDocumentStatus,
-  SalesDocumentStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {

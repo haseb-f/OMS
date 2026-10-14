@@ -1195,8 +1195,14 @@ export class FinancialTransactionsService {
         });
       }
       await this.syncAllocationFx(tx, locked, userId);
-      const transaction = await tx.financialTransaction.findUniqueOrThrow({
+      // R22 contract 6 — the fresh voucher, its `updatedAt` moved with the
+      // change (a system allocation keeps the last human editor).
+      const transaction = await tx.financialTransaction.update({
         where: { id },
+        data: {
+          updatedAt: new Date(),
+          ...(userId ? { updatedBy: userId } : {}),
+        },
         include: TRANSACTION_INCLUDE,
       });
       await this.activityService.log(
