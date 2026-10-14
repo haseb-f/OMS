@@ -724,6 +724,9 @@ describeDb('R22-T — D4 operation types (local DB)', () => {
     it('two refunds racing for the same unapplied amount: exactly one is confirmed', async () => {
       const partnerId = await customer();
       const advance = await receipt(partnerId, 1_000);
+      // Another unapplied receipt: the customer's ledger credit (2,000) would
+      // cover both refunds — only the per-receipt cap under its lock stops one.
+      await receipt(partnerId, 1_000);
       const first = await transactions.create(
         'CUSTOMER_REFUND',
         refundDto(partnerId, advance.id, 600),

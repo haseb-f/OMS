@@ -1664,7 +1664,7 @@ export class FinancialTransactionsService {
           );
         }
         resolved.push(
-          await resolveReceiptRefundLine(client as Prisma.TransactionClient, {
+          await resolveReceiptRefundLine(client, {
             partyId,
             receiptId: allocation.receiptId,
             amount: allocation.allocatedAmount,
