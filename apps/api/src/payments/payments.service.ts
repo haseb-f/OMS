@@ -38,6 +38,7 @@ import {
 import { PaymentNotesService } from './notes/payment-notes.service';
 import { AgentCollectionHooksService } from '../agents/finance/agent-collection-hooks.service';
 import { FinancialTransactionsService } from '../financial-transactions/financial-transactions.service';
+import { assertFeeWithinAmount } from '../financial-transactions/shared/fee-cap';
 import { PaymentAttachmentsService } from './attachments/payment-attachments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { CreatePaymentNoteDto } from './dto/create-payment-note.dto';
@@ -708,7 +709,9 @@ export class PaymentsService {
    * import, not only this manual endpoint.
    */
   async setActualFee(id: string, actualFeeAmount: number, userId?: string) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
+    // R22 D5 — the provider's fee is part of the money paid, never more.
+    assertFeeWithinAmount(actualFeeAmount, Number(existing.amount));
     const payment = await this.prisma.payment.update({
       where: { id },
       data: { actualFeeAmount, updatedBy: userId ?? null },

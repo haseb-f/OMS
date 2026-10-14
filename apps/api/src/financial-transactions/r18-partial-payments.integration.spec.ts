@@ -492,7 +492,10 @@ describeDb('R18 — partial payments reconcile (local DB)', () => {
       },
       userId,
     );
-    const report = await new VoucherIntegrityService(prisma).run();
+    const report = await new VoucherIntegrityService(
+      prisma,
+      new AccountingReportsService(prisma),
+    ).run();
     const ours = report.issues.filter((issue) =>
       (issue.partnerName ?? '').startsWith(tag),
     );
