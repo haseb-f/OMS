@@ -2,7 +2,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { InvoicePaymentBadge } from "@/components/business/invoice-payment-summary";
-import { MoneyValue } from "@/components/shared/money-value";
+import { BaseAwareMoneyValue } from "@/components/shared/base-aware-money-value";
 import type { MessageKey } from "@/i18n/translate";
 import type { InvoicePaymentFigures } from "./status";
 
@@ -37,7 +37,7 @@ export function invoiceMoneyColumns<T extends InvoicePaymentRow>(
       meta: { titleKey: totalTitleKey, type: "money", ...MONEY_WIDTH },
       accessorFn: (row) => Number(row.grandTotal),
       cell: ({ row }) => (
-        <MoneyValue value={row.original.grandTotal} currency={codeOf(row.original)} />
+        <BaseAwareMoneyValue value={row.original.grandTotal} currency={codeOf(row.original)} />
       ),
     },
     {
@@ -50,7 +50,7 @@ export function invoiceMoneyColumns<T extends InvoicePaymentRow>(
       },
       accessorFn: (row) => row.allocatedTotal,
       cell: ({ row }) => (
-        <MoneyValue value={row.original.allocatedTotal} currency={codeOf(row.original)} />
+        <BaseAwareMoneyValue value={row.original.allocatedTotal} currency={codeOf(row.original)} />
       ),
     },
     {
@@ -63,7 +63,10 @@ export function invoiceMoneyColumns<T extends InvoicePaymentRow>(
       },
       accessorFn: (row) => row.remainingBalance,
       cell: ({ row }) => (
-        <MoneyValue value={row.original.remainingBalance} currency={codeOf(row.original)} />
+        <BaseAwareMoneyValue
+          value={row.original.remainingBalance}
+          currency={codeOf(row.original)}
+        />
       ),
     },
     {

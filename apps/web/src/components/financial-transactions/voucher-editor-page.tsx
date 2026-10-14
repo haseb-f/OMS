@@ -105,8 +105,18 @@ export interface VoucherPageConfig {
   buildPrint: (row: FinancialTransactionRow, options: PrintBuilderOptions) => DocumentPrintPayload;
 }
 
-/** OTHER_* / INTERNAL_TRANSFER are authorised like a manual journal entry (D4 — no new grant). */
-const MANUAL_ENTRY_PERMISSION = "accounting.journal-entries.create";
+/**
+ * OTHER_* / INTERNAL_TRANSFER are authorised like a manual journal entry (D4 — no new grant;
+ * review T2): create = create, edit a draft = edit, Confirm = post, Cancel = reverse, delete = archive.
+ */
+const MANUAL_ENTRY_PERMISSIONS = {
+  create: "accounting.journal-entries.create",
+  edit: "accounting.journal-entries.edit",
+  confirm: "accounting.journal-entries.post",
+  cancel: "accounting.journal-entries.reverse",
+  delete: "accounting.journal-entries.archive",
+} as const;
+type VoucherAction = keyof typeof MANUAL_ENTRY_PERMISSIONS;
 
 let nextLineId = 1;
 const round2 = (value: number) => Math.round(value * 100) / 100;
@@ -139,13 +149,18 @@ export function VoucherEditorPage({
   /** One key per opened form — a double submit returns the first document (R13 B2). */
   const { key: idempotencyKey } = useIdempotencyKey();
   const { direction, allocationToLine, service: settlementService, invoiceHref } = config;
-  const permission = (action: "create" | "edit" | "confirm" | "cancel") =>
-    `${config.permissionPrefix}.${action}`;
-
   const queryPurpose = purposeFromQuery(searchParams.get("purpose"));
   const currencies = useCurrencies();
   const [purpose, setPurpose] = useState<VoucherPurpose>(queryPurpose ?? "SETTLE_INVOICES");
   const definition = purposeDefinition(direction, purpose);
+  const manualEntryType = purpose === "OTHER" || purpose === "TRANSFER";
+  /** The right one action needs for this voucher's type (receipt / payment rights, or the manual-entry ones). */
+  const permission = (action: VoucherAction) =>
+    manualEntryType
+      ? MANUAL_ENTRY_PERMISSIONS[action]
+      : action === "delete"
+        ? `${config.permissionPrefix}.edit`
+        : `${config.permissionPrefix}.${action}`;
   const serviceFor = useCallback(
     (forPurpose: VoucherPurpose): VoucherService => {
       if (forPurpose === "OTHER")
@@ -715,7 +730,10 @@ export function VoucherEditorPage({
     };
   };
 
-  const canConfirm = hasPermission(permission("confirm"));
+  // A brand-new manual-entry voucher is created and posted in one step: create AND post.
+  const canConfirm =
+    hasPermission(permission("confirm")) &&
+    (!manualEntryType || !!voucher || hasPermission(permission("create")));
   /** A confirmed customer receipt with money not applied to invoices can be paid back (D4). */
   const canRefundAdvance =
     direction === "IN" &&
@@ -726,7 +744,7 @@ export function VoucherEditorPage({
     Number(voucher.amount) - allocatedTotal > 0.005;
   const canCancel = hasPermission(permission("cancel"));
   const canEdit = isDraft;
-  const canUseManualEntryTypes = hasPermission(MANUAL_ENTRY_PERMISSION);
+  const canUseManualEntryTypes = hasPermission(MANUAL_ENTRY_PERMISSIONS.create);
 
   /** New: every purpose (manual-entry types only for those who may post one); saved: its type's purposes. */
   const purposeOptions = useMemo(() => {
@@ -759,7 +777,8 @@ export function VoucherEditorPage({
     docCodePreview: config.docCodePreview,
     permissions: {
       create: permission("create"),
-      edit: permission("edit"),
+      // A new manual-entry voucher is filled under its create right, a saved draft under edit.
+      edit: manualEntryType && !voucher ? permission("create") : permission("edit"),
       confirm: permission("confirm"),
       cancel: permission("cancel"),
     },
@@ -770,7 +789,12 @@ export function VoucherEditorPage({
         type="button"
         size="sm"
         className="gap-1.5"
-        disabled={isSaving || isTransitioning || !isDraft}
+        disabled={
+          isSaving ||
+          isTransitioning ||
+          !isDraft ||
+          !hasPermission(voucher ? permission("edit") : permission("create"))
+        }
         onClick={handleSave}
       >
         <Save className="size-3.5" />
@@ -836,7 +860,8 @@ export function VoucherEditorPage({
       if (action.key === "confirm" && !canConfirm) return false;
       if (action.key === "refund" && !canRefundAdvance) return false;
       if (action.key === "cancel" && !canCancel) return false;
-      if (action.key === "delete" && (!voucher || !canEdit)) return false;
+      if (action.key === "delete" && (!voucher || !canEdit || !hasPermission(permission("delete"))))
+        return false;
       if (action.key === "print" && !voucher) return false;
       return true;
     }),

@@ -13,7 +13,7 @@ import {
   type DateRangeValue,
 } from "@/components/shared/date-range-picker";
 import { StatusBadge } from "@/components/business/status-badge";
-import { MoneyValue } from "@/components/shared/money-value";
+import { BaseAwareMoneyValue } from "@/components/shared/base-aware-money-value";
 import { SemanticValue } from "@/components/shared/semantic-value";
 import { StackedCell } from "@/components/shared/stacked-cell";
 import { ReceiptGridCard } from "@/config/sales/sales-grid-cards";
@@ -340,7 +340,7 @@ function CustomerReceiptsPageContent() {
         meta: { titleKey: "sales.receipts.fields.amount", type: "money" },
         accessorFn: (row) => Number(row.amount),
         cell: ({ row }) => (
-          <MoneyValue value={row.original.amount} currency={row.original.currency?.code} />
+          <BaseAwareMoneyValue value={row.original.amount} currency={row.original.currency?.code} />
         ),
       },
       {

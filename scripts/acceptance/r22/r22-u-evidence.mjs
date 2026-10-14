@@ -189,6 +189,67 @@ for (const locale of ["ar", "en"]) {
     }
   });
 
+  if (locale === "ar") {
+    await step("other receipt + transfer through the card (stream T endpoints)", async () => {
+      const counter = items(await call("GET", "/financial-transactions/counter-accounts?direction=IN"));
+      note("counter-accounts allow-list (IN) returns accounts", counter.length > 0, counter.length);
+      await page.goto(`${BASE}/sales/payments/new`);
+      await settle(page, 1300);
+      await choosePurpose(page, "مقبوضات أخرى بحساب مقابل");
+      await page.getByLabel(/الحساب المقابل/).first().click();
+      await page.getByRole("option").first().click();
+      await amount(page).fill("2500");
+      await page.getByRole("button", { name: "تأكيد", exact: true }).first().click();
+      const dialog = page.getByRole("alertdialog");
+      await dialog.waitFor({ timeout: 5000 });
+      await shot(page, "V8-other-receipt-review-ar-1440", false);
+      await dialog.getByRole("button").last().click();
+      await page.waitForURL((u) => /\/sales\/payments\/[0-9a-f-]{36}/.test(u.pathname) && u.search.includes("purpose=other"), { timeout: 30000 });
+      await settle(page, 1500);
+      await shot(page, "V9-other-receipt-confirmed-ar-1440");
+      note("other receipt confirmed through other-receipts", /OR-/.test(await page.evaluate(() => document.body.innerText)));
+
+      const accounts = items(await call("GET", "/receiving-accounts?pageSize=100")).filter((a) => a.isActive !== false);
+      const source = accounts[0];
+      const target = accounts.find((a) => a.id !== source?.id && (a.currencyId ?? null) === (source?.currencyId ?? null) && a.chartOfAccountId !== source?.chartOfAccountId);
+      if (source && target) {
+        const transfer = await call("POST", "/financial-transactions/transfers/confirmed", {
+          receivingAccountId: source.id,
+          targetReceivingAccountId: target.id,
+          amount: 1200,
+          idempotencyKey: `r22u-tr-${stamp}`,
+        });
+        await page.goto(`${BASE}/purchasing/payments/${transfer.id}?purpose=transfer`);
+        await settle(page, 1500);
+        await shot(page, "V10-transfer-confirmed-ar-1440");
+        note("transfer opens in the card", /TR-/.test(await page.evaluate(() => document.body.innerText)));
+      } else {
+        note("transfer: two same-currency accounts available", false, accounts.length);
+      }
+    });
+  }
+
+  if (receiptId && locale === "ar") {
+    await step("refund advance from the receipt", async () => {
+      const advance = await call("POST", "/financial-transactions/receipts/confirmed", {
+        partnerId: customer.id,
+        amount: 5000,
+        receivingAccountId: (await call("GET", `/financial-transactions/receipts/${receiptId}`)).receivingAccountId,
+        allocations: [],
+        idempotencyKey: `r22u-adv-${stamp}`,
+      });
+      await page.goto(`${BASE}/sales/payments/${advance.id}`);
+      await settle(page, 1500);
+      const more = page.getByRole("button", { name: /رد دفعة مقدمة/ });
+      if (!(await more.count())) await page.getByRole("button", { name: /المزيد/ }).first().click();
+      await page.getByText("رد دفعة مقدمة", { exact: true }).first().click();
+      await page.waitForTimeout(1200);
+      await shot(page, "V11-refund-advance-dialog-ar-1440", false);
+      note("refund-advance dialog shows the unapplied amount", /5,000\.00/.test(await page.getByRole("dialog").innerText()));
+      await page.keyboard.press("Escape");
+    });
+  }
+
   if (receiptId) {
     await step(`confirmed receipt table ${locale}`, async () => {
       await page.goto(`${BASE}/sales/payments/${receiptId}`);

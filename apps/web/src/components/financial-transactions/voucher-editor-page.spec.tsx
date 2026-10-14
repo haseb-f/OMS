@@ -60,7 +60,7 @@ vi.mock("@/components/financial-transactions/financial-transaction-editor", () =
   },
 }));
 
-const permissions = vi.hoisted(() => ({ manualEntry: true }));
+const permissions = vi.hoisted(() => ({ manualEntry: true, denied: new Set<string>() }));
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }));
 vi.mock("@/providers/locale-provider", () => ({
   useLocale: () => ({ t: (key: string) => key, locale: "ar", direction: "rtl" }),
@@ -69,7 +69,8 @@ vi.mock("@/providers/user-context", () => ({
   useUserContext: () => ({
     user: { id: "u1" },
     hasPermission: (key: string) =>
-      !key.startsWith("accounting.journal-entries.") || permissions.manualEntry,
+      !permissions.denied.has(key) &&
+      (!key.startsWith("accounting.journal-entries.") || permissions.manualEntry),
   }),
 }));
 vi.mock("@/providers/breadcrumb-provider", () => ({ useBreadcrumbLabel: () => undefined }));
@@ -128,6 +129,7 @@ async function renderCard(direction: "IN" | "OUT" = "IN") {
 describe("R22 voucher card — purposes route to their voucher types", () => {
   beforeEach(() => {
     permissions.manualEntry = true;
+    permissions.denied = new Set();
     editor.latest = null;
   });
   afterEach(() => {
@@ -260,5 +262,14 @@ describe("R22 voucher card — purposes route to their voucher types", () => {
     render(<VoucherEditorPage id="r1" config={config("IN")} />);
     await waitFor(() => expect(latest().state.document?.id).toBe("r1"));
     expect(action("refund")).toBeUndefined();
+  });
+  it("other / transfer Confirm needs the journal-entry post right (create + post when new, T2)", async () => {
+    permissions.denied = new Set(["accounting.journal-entries.post"]);
+    await renderCard("IN");
+    act(() => latest().handlers.onPurposeChange("OTHER"));
+    expect(action("confirm")).toBeUndefined();
+    // Receipts keep their own rights.
+    act(() => latest().handlers.onPurposeChange("SETTLE_INVOICES"));
+    expect(action("confirm")).toBeDefined();
   });
 });
