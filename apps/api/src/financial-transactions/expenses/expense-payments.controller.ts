@@ -118,7 +118,7 @@ export class ExpensePaymentsController {
 
   @Get(':id/activities')
   async activities(@Param('id') id: string) {
-    await this.transactions.assertRouteType(TYPE, id);
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.activityFor(id);
   }
 
@@ -128,14 +128,14 @@ export class ExpensePaymentsController {
     @Body() dto: UpdateExpensePaymentDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    await this.transactions.assertRouteType(TYPE, id);
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.update(id, dto, user.sub);
   }
 
   @Delete(':id')
   @HttpCode(200)
   async remove(@Param('id') id: string) {
-    await this.transactions.assertRouteType(TYPE, id);
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.remove(id);
   }
 
@@ -143,7 +143,7 @@ export class ExpensePaymentsController {
   @HttpCode(200)
   @PermissionAction('confirm')
   async confirm(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    await this.transactions.assertRouteType(TYPE, id);
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.confirm(id, user.sub);
   }
 
@@ -151,7 +151,7 @@ export class ExpensePaymentsController {
   @HttpCode(200)
   @PermissionAction('cancel')
   async cancel(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    await this.transactions.assertRouteType(TYPE, id);
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.cancel(id, user.sub);
   }
 
@@ -159,7 +159,7 @@ export class ExpensePaymentsController {
   @HttpCode(200)
   @PermissionAction('delete')
   async archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    await this.transactions.assertRouteType(TYPE, id);
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.archive(id, user.sub);
   }
 }

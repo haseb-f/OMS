@@ -14,6 +14,7 @@ import {
 } from '../financial-transactions.service';
 import { listCounterAccounts } from './counter-accounts';
 import { resolveOtherVoucher } from './other-voucher.rules';
+import { assertVoucherDateNotInFuture } from '../shared/voucher-date';
 import {
   OTHER_VOUCHER_LABEL,
   type CounterDirection,
@@ -96,6 +97,8 @@ export class OtherVouchersService {
       client,
     );
     if (replay) return replay;
+    // R22 F8 — posted on the voucher date (D1): never after today.
+    assertVoucherDateNotInFuture(dto.transactionDate);
     const resolved = await resolveOtherVoucher(client, type, {
       counterAccountId:
         type === 'INTERNAL_TRANSFER' ? null : (dto.counterAccountId ?? null),
@@ -217,6 +220,7 @@ export class OtherVouchersService {
   ) {
     const existing = await this.transactions.findOne(type, id);
     this.assertDraft(type, existing);
+    assertVoucherDateNotInFuture(dto.transactionDate);
     const accountsChanged =
       dto.receivingAccountId !== undefined ||
       dto.targetReceivingAccountId !== undefined;

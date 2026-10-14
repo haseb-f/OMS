@@ -12,7 +12,7 @@ export class SupplierPaymentActivitiesController {
   @Get()
   async findAll(@Param('transactionId') transactionId: string) {
     // R22 F7 — the route's own voucher type only (404 otherwise).
-    await this.transactions.assertRouteType(
+    await this.transactions.assertVoucherOfType(
       FinancialTransactionType.SUPPLIER_PAYMENT,
       transactionId,
     );

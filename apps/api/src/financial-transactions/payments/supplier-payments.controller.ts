@@ -89,14 +89,14 @@ export class SupplierPaymentsController {
     @Body() dto: UpdateSupplierPaymentDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    await this.transactions.assertRouteType(TYPE, id);
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.update(id, dto, user.sub);
   }
 
   @Delete(':id')
   @HttpCode(200)
   async remove(@Param('id') id: string) {
-    await this.transactions.assertRouteType(TYPE, id);
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.remove(id);
   }
 
@@ -104,7 +104,7 @@ export class SupplierPaymentsController {
   @HttpCode(200)
   @PermissionAction('confirm')
   async confirm(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    await this.transactions.assertRouteType(TYPE, id);
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.confirm(id, user.sub);
   }
 
@@ -112,7 +112,7 @@ export class SupplierPaymentsController {
   @HttpCode(200)
   @PermissionAction('cancel')
   async cancel(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    await this.transactions.assertRouteType(TYPE, id);
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.cancel(id, user.sub);
   }
 
@@ -120,7 +120,7 @@ export class SupplierPaymentsController {
   @HttpCode(200)
   @PermissionAction('delete')
   async archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    await this.transactions.assertRouteType(TYPE, id);
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.archive(id, user.sub);
   }
 
@@ -133,7 +133,7 @@ export class SupplierPaymentsController {
     @Body() dto: AllocationInputDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    await this.transactions.assertRouteType(TYPE, id);
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.allocate(id, dto, user.sub);
   }
 
@@ -149,7 +149,7 @@ export class SupplierPaymentsController {
     @Body() dto: UpdateAllocationDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    await this.transactions.assertRouteType(TYPE, id);
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.updateAllocation(
       id,
       allocationId,
@@ -166,7 +166,7 @@ export class SupplierPaymentsController {
     @Param('allocationId') allocationId: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    await this.transactions.assertRouteType(TYPE, id);
+    await this.transactions.assertVoucherOfType(TYPE, id);
     return this.transactions.unallocate(id, allocationId, user.sub);
   }
 }

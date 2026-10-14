@@ -39,6 +39,10 @@ import { ALLOCATION_FX_SOURCE_TYPE } from '../accounting/posting-providers/alloc
 import { financialTransactionOrderBy } from './shared/find-financial-transactions-query.dto';
 import { assertFeeWithinAmount } from './shared/fee-cap';
 import { assertVoucherDateNotInFuture } from './shared/voucher-date';
+import {
+  allocationEffectiveDates,
+  recordAllocationEvents,
+} from './shared/allocation-events';
 import type { AllocationInputDto } from './shared/allocation-input.dto';
 import type { FindFinancialTransactionsQueryDto } from './shared/find-financial-transactions-query.dto';
 import { prismaEnumFilter } from '../common/query/enum-list';
@@ -691,7 +695,7 @@ export class FinancialTransactionsService {
    * calls this before an id-based operation (get, update, delete, confirm,
    * cancel, archive, allocate, unallocate, allocation change, activities).
    */
-  async assertRouteType(
+  async assertVoucherOfType(
     type: FinancialTransactionType,
     id: string,
   ): Promise<void> {
@@ -965,13 +969,31 @@ export class FinancialTransactionsService {
         },
         include: TRANSACTION_INCLUDE,
       });
-      // R22 A3 — the lines a voucher carries when it is posted settle on its
-      // voucher date (D1: the date its entry is booked); a later Allocate
-      // keeps its own date. As-of aging reads this date.
-      await tx.financialTransactionAllocation.updateMany({
-        where: { transactionId: id },
-        data: { allocationDate: existing.transactionDate },
-      });
+      // R22 A3 / F6 — the lines a voucher carries when it is posted take
+      // effect on max(voucher date — D1, the day its entry is booked —,
+      // their invoice's posting date); a later Allocate keeps its own day.
+      // F5 — each line is recorded in the allocation history (as-of aging).
+      const effective = await allocationEffectiveDates(
+        tx,
+        existing.transactionDate,
+        existing.allocations,
+      );
+      for (const line of existing.allocations) {
+        await tx.financialTransactionAllocation.update({
+          where: { id: line.id },
+          data: { allocationDate: effective.get(line.id) },
+        });
+      }
+      await recordAllocationEvents(
+        tx,
+        existing.allocations.map((line) => ({
+          line,
+          type: 'CREATED' as const,
+          delta: Number(line.allocatedAmount),
+          effectiveDate: effective.get(line.id) ?? existing.transactionDate,
+          userId,
+        })),
+      );
       // R15 (review H1) — the advance this refund pays back leaves the
       // order's receipts: never allocatable to an invoice again.
       for (const storeOrderId of this.advanceOrders(existing.allocations)) {
@@ -1053,6 +1075,20 @@ export class FinancialTransactionsService {
     await this.postingEngine.reverse(existing.type, id, userId, tx);
     // R22 D6 — the FX later allocations realized goes with the voucher.
     await this.postingEngine.reverse(ALLOCATION_FX_SOURCE_TYPE, id, userId, tx);
+    // R22 F5 — the cancel releases every line on the day of its reversal.
+    const released = await tx.financialTransactionAllocation.findMany({
+      where: { transactionId: id },
+    });
+    await recordAllocationEvents(
+      tx,
+      released.map((line) => ({
+        line,
+        type: 'RELEASED' as const,
+        delta: -Number(line.allocatedAmount),
+        effectiveDate: new Date(),
+        userId,
+      })),
+    );
     await tx.financialTransactionAllocation.deleteMany({
       where: { transactionId: id },
     });
@@ -1291,8 +1327,10 @@ export class FinancialTransactionsService {
       // R20 — one line per invoice per voucher: more money for an invoice the
       // voucher already settles grows that line (both checks above saw the
       // combined amount), never a second line.
+      // R22 F5 / F6 — recorded in the allocation history from today.
+      const now = new Date();
       if (sameInvoiceLine) {
-        await tx.financialTransactionAllocation.update({
+        const grown = await tx.financialTransactionAllocation.update({
           where: { id: sameInvoiceLine.id },
           data: {
             allocatedAmount: this.round2(
@@ -1301,15 +1339,34 @@ export class FinancialTransactionsService {
             updatedBy: userId ?? null,
           },
         });
+        await recordAllocationEvents(tx, [
+          {
+            line: grown,
+            type: 'CHANGED',
+            delta: dto.allocatedAmount,
+            effectiveDate: now,
+            userId,
+          },
+        ]);
       } else {
-        await tx.financialTransactionAllocation.create({
+        const created = await tx.financialTransactionAllocation.create({
           data: {
             transactionId: id,
             ...resolved,
+            allocationDate: now,
             createdBy: userId ?? null,
             updatedBy: userId ?? null,
           },
         });
+        await recordAllocationEvents(tx, [
+          {
+            line: created,
+            type: 'CREATED',
+            delta: dto.allocatedAmount,
+            effectiveDate: now,
+            userId,
+          },
+        ]);
       }
       await this.syncAllocationFx(tx, locked, userId);
       // R22 contract 6 — the fresh voucher, its `updatedAt` moved with the
@@ -1401,14 +1458,24 @@ export class FinancialTransactionsService {
           id,
           tx,
         );
+        // R22 F5 — the change is recorded in the allocation history (dated
+        // today); the line keeps the day it first took effect.
         await tx.financialTransactionAllocation.update({
           where: { id: allocationId },
           data: {
             allocatedAmount: this.round2(allocatedAmount),
-            allocationDate: new Date(),
             updatedBy: userId ?? null,
           },
         });
+        await recordAllocationEvents(tx, [
+          {
+            line,
+            type: 'CHANGED',
+            delta: this.round2(allocatedAmount) - Number(line.allocatedAmount),
+            effectiveDate: new Date(),
+            userId,
+          },
+        ]);
         await this.syncAllocationFx(tx, locked, userId);
         const transaction = await tx.financialTransaction.update({
           where: { id },
@@ -1462,6 +1529,16 @@ export class FinancialTransactionsService {
       await tx.financialTransactionAllocation.delete({
         where: { id: allocationId },
       });
+      // R22 F5 — released from today in the allocation history.
+      await recordAllocationEvents(tx, [
+        {
+          line: allocation,
+          type: 'RELEASED',
+          delta: -Number(allocation.allocatedAmount),
+          effectiveDate: new Date(),
+          userId,
+        },
+      ]);
       // R22 D6 — the FX this line realized is reversed with it.
       await this.syncAllocationFx(tx, locked, userId);
       const transaction = await tx.financialTransaction.update({
