@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useDataChanged } from "@/hooks/use-data-changed";
 import { paymentsReviewService } from "@/services/payments-review-service";
 import {
   bankTransactionsService,
@@ -30,6 +31,16 @@ export function useLoad<T>(loader: () => Promise<T>) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+  // R22 §5 — after a money operation (here / another tab) or on return, refresh in place:
+  // the figures stay on screen meanwhile and a failed refresh keeps them.
+  const refresh = useCallback(async () => {
+    try {
+      setState({ status: "ready", data: await loader() });
+    } catch {
+      // Keep what is shown; the next signal or a retry reloads.
+    }
+  }, [loader]);
+  useDataChanged("settlement", refresh);
   return { state, retry: load };
 }
 

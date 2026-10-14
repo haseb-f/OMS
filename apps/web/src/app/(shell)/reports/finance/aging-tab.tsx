@@ -16,6 +16,7 @@ import { reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
 import { useReportQuery } from "./use-report-query";
 import { partnerStatementHref } from "./report-url";
+import { useDataChanged } from "@/hooks/use-data-changed";
 
 type AgingTotals = Pick<
   AgingPartnerRow,
@@ -87,6 +88,8 @@ export function AgingTab({ side }: { side: "AR" | "AP" }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+  // R22 §5 — paid / remaining figures refresh after any money operation (here or in another tab) and on return.
+  useDataChanged("settlement", load);
 
   const lines = useMemo<FinancialReportLine[]>(
     () =>

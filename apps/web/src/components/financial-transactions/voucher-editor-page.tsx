@@ -137,7 +137,7 @@ export function VoucherEditorPage({
   const { user, hasPermission } = useUserContext();
   /** One key per opened form — a double submit returns the first document (R13 B2). */
   const { key: idempotencyKey } = useIdempotencyKey();
-  const direction = config.direction;
+  const { direction, allocationToLine, service: settlementService, invoiceHref } = config;
   const permission = (action: "create" | "edit" | "confirm" | "cancel") =>
     `${config.permissionPrefix}.${action}`;
 
@@ -150,9 +150,9 @@ export function VoucherEditorPage({
       if (forPurpose === "OTHER")
         return direction === "IN" ? otherReceiptsService : otherPaymentsService;
       if (forPurpose === "TRANSFER") return internalTransfersService;
-      return config.service;
+      return settlementService;
     },
-    [config.service, direction],
+    [settlementService, direction],
   );
   const service = serviceFor(purpose);
 
@@ -218,10 +218,25 @@ export function VoucherEditorPage({
       setCurrencyId(data.currencyId);
       setCounterAccountId(data.counterAccountId ?? null);
       setTargetReceivingAccountId(data.targetReceivingAccountId ?? null);
-      setAllocations(data.allocations.map(config.allocationToLine));
+      setAllocations(data.allocations.map(allocationToLine));
       if (data.type) setPurpose(purposeOfVoucher(data));
     },
-    [setAmount, config.allocationToLine],
+    [
+      setAmount,
+      allocationToLine,
+      setVoucher,
+      setParty,
+      setTransactionDate,
+      setReferenceNumber,
+      setNotes,
+      setPaymentSourceId,
+      setReceivingAccountId,
+      setCurrencyId,
+      setCounterAccountId,
+      setTargetReceivingAccountId,
+      setAllocations,
+      setPurpose,
+    ],
   );
 
   /** The route's type (`?purpose=other|transfer`) decides which service reads the voucher. */
@@ -283,13 +298,13 @@ export function VoucherEditorPage({
   const loadOpenInvoices = useCallback(
     (partyId: string) => {
       setIsLoadingOpenInvoices(true);
-      config.service
+      settlementService
         .openInvoices(partyId)
         .then(setOpenInvoices)
         .catch(() => setOpenInvoices([]))
         .finally(() => setIsLoadingOpenInvoices(false));
     },
-    [config.service],
+    [settlementService],
   );
 
   useEffect(() => {
@@ -489,28 +504,28 @@ export function VoucherEditorPage({
       for (const prev of allocations) {
         const next = nextById.get(prev.id);
         if (!next || next.allocatedAmount <= 0) {
-          await config.service.unallocate(voucher.id, prev.id);
+          await settlementService.unallocate(voucher.id, prev.id);
         } else if (next.allocatedAmount !== prev.allocatedAmount) {
-          await config.service.updateAllocation(voucher.id, prev.id, {
+          await settlementService.updateAllocation(voucher.id, prev.id, {
             allocatedAmount: next.allocatedAmount,
           });
         }
       }
       for (const next of nextLines) {
         if (!prevIds.has(next.id) && next.allocatedAmount > 0) {
-          await config.service.allocate(voucher.id, {
+          await settlementService.allocate(voucher.id, {
             invoiceId: next.invoiceId,
             allocatedAmount: next.allocatedAmount,
           });
         }
       }
-      applyVoucher(await config.service.get(voucher.id));
+      applyVoucher(await settlementService.get(voucher.id));
       reportSuccess(t("financialTransactions.toasts.allocated"));
     } catch (error) {
       reportApiError(error, "errors.generic");
       // Whatever part was refused, show the server's lines — never a stale local copy.
       try {
-        applyVoucher(await config.service.get(voucher.id));
+        applyVoucher(await settlementService.get(voucher.id));
       } catch {
         // The error above is already reported.
       }
@@ -540,7 +555,7 @@ export function VoucherEditorPage({
           id: `row-${nextLineId++}`,
           invoiceId: invoice.invoiceId,
           invoiceNumber: invoice.invoiceNumber,
-          invoiceHref: config.invoiceHref(invoice.invoiceId),
+          invoiceHref: invoiceHref(invoice.invoiceId),
           remainingBalance: invoice.remainingBalance,
           allocatedAmount: value,
         },
@@ -570,12 +585,12 @@ export function VoucherEditorPage({
         id: `row-${nextLineId++}`,
         invoiceId: invoice.invoiceId,
         invoiceNumber: invoice.invoiceNumber,
-        invoiceHref: config.invoiceHref(invoice.invoiceId),
+        invoiceHref: invoiceHref(invoice.invoiceId),
         remainingBalance: invoice.remainingBalance,
         allocatedAmount: invoice.remainingBalance,
       },
     ]);
-  }, [id, searchParams, openInvoices, proposeAmount, config]);
+  }, [id, searchParams, openInvoices, proposeAmount, invoiceHref]);
 
   const handlePayAllRemaining = () => {
     // No amount typed yet: settle every open invoice (oldest first) and propose their total.
@@ -594,7 +609,7 @@ export function VoucherEditorPage({
         id: `row-${nextLineId++}`,
         invoiceId: invoice.invoiceId,
         invoiceNumber: invoice.invoiceNumber,
-        invoiceHref: config.invoiceHref(invoice.invoiceId),
+        invoiceHref: invoiceHref(invoice.invoiceId),
         remainingBalance: invoice.remainingBalance,
         allocatedAmount: planAmount,
       });
@@ -752,6 +767,8 @@ export function VoucherEditorPage({
         {t("common.save")}
       </EnterpriseButton>
     ),
+    // The confirm handler reads `confirmingRef` only when clicked, never during render.
+    // eslint-disable-next-line react-hooks/refs
     workflowActions: [
       {
         key: "confirm" as const,
@@ -848,7 +865,7 @@ export function VoucherEditorPage({
       grandTotal: line.grandTotal,
       locked: line.locked,
     })),
-    config.invoiceHref,
+    invoiceHref,
   );
 
   const allocationSection =

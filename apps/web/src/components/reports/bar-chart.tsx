@@ -72,8 +72,11 @@ export function BarChart({
                     style={{ inlineSize: `${(share * 100).toFixed(2)}%` }}
                   />
                 </span>
-                <span className="num text-end text-caption font-medium text-foreground" aria-hidden>
-                  {item.valueLabel}
+                <span
+                  className="text-end text-caption font-medium text-foreground tabular-nums"
+                  aria-hidden
+                >
+                  <span className="num">{item.valueLabel}</span>
                 </span>
               </li>
             );

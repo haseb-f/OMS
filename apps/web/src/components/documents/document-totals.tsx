@@ -47,8 +47,8 @@ export function DocumentTotalsBlock({
         {lines.map((line) => (
           <div key={line.key} className="flex items-baseline justify-between gap-4 text-body">
             <dt className="min-w-0 text-muted-foreground">{line.label}</dt>
-            <dd className="num shrink-0 text-end text-foreground">
-              {formatMoney(line.value, currency)}
+            <dd className="shrink-0 text-end text-foreground tabular-nums">
+              <span className="num">{formatMoney(line.value, currency)}</span>
             </dd>
           </div>
         ))}
@@ -63,8 +63,8 @@ export function DocumentTotalsBlock({
               {total.label}
               {total.flag}
             </dt>
-            <dd className="num ms-auto shrink-0 text-end text-ui-title font-semibold text-foreground">
-              {formatMoney(total.value, currency)}
+            <dd className="ms-auto shrink-0 text-end text-ui-title font-semibold text-foreground tabular-nums">
+              <span className="num">{formatMoney(total.value, currency)}</span>
             </dd>
           </div>
         ) : null}

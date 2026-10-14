@@ -33,6 +33,7 @@ import { useUserContext } from "@/providers/user-context";
 import { useLocale } from "@/providers/locale-provider";
 import { useBreadcrumbLabel } from "@/providers/breadcrumb-provider";
 import { reportApiError, reportSuccess } from "@/lib/toast";
+import { notifyDataChanged } from "@/hooks/use-data-changed";
 
 /**
  * A refund line pays back a posted Sales Return's credit, or (R15, D15-11) a
@@ -190,6 +191,7 @@ export function RefundEditorPage({ id }: { id: string }) {
     try {
       applyRefund(await action(id));
       reportSuccess(t(successKey));
+      notifyDataChanged("settlement");
       refreshActivity();
     } catch (error) {
       reportApiError(error, t("errors.generic"));
@@ -357,7 +359,7 @@ export function RefundEditorPage({ id }: { id: string }) {
 
   return (
     <EditorWorkspace>
-      <RelatedRecordsPanel kind="CUSTOMER_REFUND" id={id} refreshKey={refund?.status} />
+      <RelatedRecordsPanel kind="CUSTOMER_REFUND" id={id} refreshKey={refund?.updatedAt} />
 
       <FinancialTransactionEditor
         config={{

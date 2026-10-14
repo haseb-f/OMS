@@ -43,6 +43,7 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { MoneyValue } from "@/components/shared/money-value";
 import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
+import { useDataChanged } from "@/hooks/use-data-changed";
 
 export default function CustomerProfilePage() {
   const params = useParams<{ id: string }>();
@@ -91,6 +92,10 @@ export default function CustomerProfilePage() {
       .catch(() => setActivity([]));
   }, [params.id]);
 
+  // R22 §5 — the payments panel re-reads after any money operation (here or in another tab) and on return.
+  const [paymentsVersion, setPaymentsVersion] = useState(0);
+  useDataChanged("settlement", () => setPaymentsVersion((version) => version + 1));
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoadingReceipts(true);
@@ -110,7 +115,7 @@ export default function CustomerProfilePage() {
       .position(params.id)
       .then(setPositions)
       .catch(() => setPositions([]));
-  }, [params.id]);
+  }, [params.id, paymentsVersion]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

@@ -33,6 +33,7 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { MoneyValue } from "@/components/shared/money-value";
 import { toast, reportApiError } from "@/lib/toast";
 import type { MessageKey } from "@/i18n/translate";
+import { useDataChanged } from "@/hooks/use-data-changed";
 
 /** Mirrors `sales/customers/[id]/page.tsx` — bespoke Profile page, not `MasterDataPage`'s built-in quick-preview sheet. */
 export default function SupplierProfilePage() {
@@ -78,6 +79,10 @@ export default function SupplierProfilePage() {
       .catch(() => setActivity([]));
   }, [params.id]);
 
+  // R22 §5 — the payments panel re-reads after any money operation (here or in another tab) and on return.
+  const [paymentsVersion, setPaymentsVersion] = useState(0);
+  useDataChanged("settlement", () => setPaymentsVersion((version) => version + 1));
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoadingPayments(true);
@@ -97,7 +102,7 @@ export default function SupplierProfilePage() {
       .position(params.id)
       .then(setPositions)
       .catch(() => setPositions([]));
-  }, [params.id]);
+  }, [params.id, paymentsVersion]);
 
   if (isLoading) {
     return (

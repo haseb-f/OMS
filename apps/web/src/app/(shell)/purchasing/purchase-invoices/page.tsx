@@ -56,6 +56,7 @@ import { formatDate, toISODate } from "@/lib/date";
 import { CreateReturnDialog } from "./create-return-dialog";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
+import { useDataChanged } from "@/hooks/use-data-changed";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 
@@ -134,6 +135,8 @@ function PurchaseInvoicesPageContent() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+  // R22 §5 — paid / remaining figures refresh after any money operation (here or in another tab) and on return.
+  useDataChanged("settlement", load);
 
   const canCreate = hasPermission("purchasing.invoices.create");
 

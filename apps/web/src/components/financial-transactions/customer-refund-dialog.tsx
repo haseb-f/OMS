@@ -1,5 +1,6 @@
 "use client";
 
+import { notifyDataChanged } from "@/hooks/use-data-changed";
 import { RequiredMark } from "@/components/ui/form";
 import { useEffect, useId, useRef, useState } from "react";
 import { Info, Undo2 } from "lucide-react";
@@ -216,6 +217,8 @@ export function CustomerRefundDialog({
       );
       onOpenChange(false);
       onRefunded?.(refund);
+      // R22 §5 — the return, invoice, statement and profile views refresh (here and in other tabs).
+      notifyDataChanged("settlement");
     } catch (error) {
       reportApiError(error, t("errors.generic"));
     } finally {
@@ -279,7 +282,7 @@ export function CustomerRefundDialog({
               <MoneyInput
                 value={amount || ""}
                 aria-invalid={exceeds || undefined}
-                onChange={(event) => setAmount(event.target.valueAsNumber || 0)}
+                onValueChange={(value) => setAmount(value ?? 0)}
               />
               {exceeds && (
                 <p className="text-caption text-destructive">

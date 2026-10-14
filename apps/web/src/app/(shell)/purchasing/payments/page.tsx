@@ -57,6 +57,7 @@ import { reportApiError, reportDestructiveDone, toast } from "@/lib/toast";
 import { formatDate, toISODate } from "@/lib/date";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
+import { useDataChanged } from "@/hooks/use-data-changed";
 
 const EMPTY_DATE_RANGE: DateRangeValue = { from: null, to: null };
 
@@ -134,6 +135,8 @@ function SupplierPaymentsPageContent() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+  // R22 §5 — paid / remaining figures refresh after any money operation (here or in another tab) and on return.
+  useDataChanged("settlement", load);
 
   const canCreate = hasPermission("purchasing.payments.create");
 
