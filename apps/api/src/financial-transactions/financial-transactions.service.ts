@@ -2349,7 +2349,7 @@ export class FinancialTransactionsService {
       if (amount > remaining + 0.005) {
         throw new BadRequestException({
           code: 'REFUND_EXCEEDS_RETURN_SURPLUS',
-          message: `لا يمكن رد ${amount} — المتبقي القابل للرد على المرتجع ${salesReturn.returnNumber} هو ${remaining} فقط. — Cannot refund ${amount} against Sales Return ${salesReturn.returnNumber}: only ${remaining} of its credit is neither refunded nor applied to its invoice.`,
+          message: `لا يمكن رد ${amount} — المتبقي القابل للرد على المرتجع ${salesReturn.returnNumber} هو ${remaining} فقط. — Cannot refund ${amount} against Sales Return ${salesReturn.returnNumber}: only ${remaining} of its credit remains unrefunded and not applied to its invoice.`,
           details: {
             salesReturnId: invoiceId,
             refundable: remaining,

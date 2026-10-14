@@ -35,11 +35,13 @@ rows without posted entries, so the ledger-vs-aging review flags them by design)
 
 ## Migration
 
-`20261014100000_r22_p_allocation_effective_date` — hand-written, additive, idempotent: `UPDATE
-financial_transaction_allocations SET allocation_date = confirmed_at` for lines of CONFIRMED vouchers saved earlier than the
-posting (a re-run matches nothing; no amount / status / entry touched) + indexes on `sales_invoice_id`,
-`purchase_invoice_id` (schema `@@index`). **It updates a derived date on existing Production rows — flag for the release
-approval.** `prisma migrate diff` shows no drift from it (only the pre-existing `prepaid_expenses` FK difference).
+`20261014100000_r22_p_allocation_effective_date` (rewritten for review F9 — see "Review fixes"): new append-only table
+`financial_transaction_allocation_events` + indexes; for allocations **without an event yet** (= not migrated) the
+draft-time `allocation_date` of a CONFIRMED voucher's lines is set to the voucher's posted entry date (else `confirmed_at`),
+then one `CREATED` event per current line of a CONFIRMED voucher, effective max(allocation date, invoice posting date).
+A re-run matches nothing (verified: `BEGIN; …; ROLLBACK` on `oms_r22_review` → `UPDATE 0`, `INSERT 0 0`). No amount,
+status or journal entry is touched. **It updates a derived date on existing Production rows — flag for the release
+approval.** Independent of T's `20261014120000_r22_t_operation_types` (reads no column T adds).
 
 ## Contract as implemented (exact names)
 
@@ -96,7 +98,12 @@ src/store-orders src/common/query`): **81 suites / 714 tests passed**.
 
 - P4 closing values applied credit at the invoice rate and only absorbs a rounding residue (≤ 0.05); an invoice re-settled
   after an earlier settling line was removed can keep ≤ 1 cent, reported by `PARTNER_AGING_MISMATCH`.
-- Growing an existing line with Allocate keeps the line's first `allocationDate` (as-of aging counts the added part from it).
+- As-of aging still selects a voucher by its `transactionDate`; legacy (pre-D1) vouchers posted on `confirmed_at` can differ
+  from the ledger for a day between the two (review F9 note). Vouchers cancelled before the migration have no history
+  (their lines were deleted): as of a date before their cancel they count fully unapplied while their invoice reads open —
+  the net still equals the ledger.
+- Advance-refund consumption rows (store order / receipt refund) take effect on the day the refund is confirmed / cancelled,
+  not on a back-dated refund's voucher date.
 - Invoices have no row-level scope: "cannot open" = no `sales-invoices|purchase-invoices.view` (403 by the guard, as the
   detail) or unknown / archived (404).
 - Foreign-currency `PARTNER_AGING_MISMATCH` is only decidable when nothing is open / unapplied in that currency.

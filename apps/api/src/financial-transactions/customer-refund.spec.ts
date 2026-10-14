@@ -91,8 +91,12 @@ describe('FinancialTransactionsService — CUSTOMER_REFUND', () => {
             : [],
         ),
         findMany: jest.fn().mockResolvedValue([]),
-        // R22 A3 — Confirm stamps the lines' effective date.
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        // R22 A3 / F6 — Confirm stamps each line's effective date.
+        update: jest.fn().mockResolvedValue({}),
+      },
+      // R22 F5 — Confirm records the lines in the allocation history.
+      financialTransactionAllocationEvent: {
+        createMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       journalEntryLine: {
         groupBy: jest
