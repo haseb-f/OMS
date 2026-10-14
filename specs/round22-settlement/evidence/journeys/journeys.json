@@ -1,0 +1,3792 @@
+{
+  "summary": {
+    "api": "http://localhost:4945",
+    "ranAt": "2026-10-14T14:51:33.118Z",
+    "stamp": "MV889HGD",
+    "total": 382,
+    "passed": 382,
+    "failed": 0,
+    "byJourney": {
+      "J1 baseline 200,000 / 100,000 (customer)": {
+        "pass": 21,
+        "fail": 0
+      },
+      "J2 full payment → PAID (customer)": {
+        "pass": 7,
+        "fail": 0
+      },
+      "J3 no payment → UNPAID (customer)": {
+        "pass": 6,
+        "fail": 0
+      },
+      "J4 multiple partial payments → PAID (customer)": {
+        "pass": 22,
+        "fail": 0
+      },
+      "J5 overpayment (customer)": {
+        "pass": 15,
+        "fail": 0
+      },
+      "J6 advance then allocate / change / unallocate (customer)": {
+        "pass": 37,
+        "fail": 0
+      },
+      "J7 one voucher across two invoices (customer)": {
+        "pass": 15,
+        "fail": 0
+      },
+      "J8 cancel a confirmed voucher (customer)": {
+        "pass": 14,
+        "fail": 0
+      },
+      "J9 credit note (customer)": {
+        "pass": 15,
+        "fail": 0
+      },
+      "J1 baseline 200,000 / 100,000 (supplier)": {
+        "pass": 21,
+        "fail": 0
+      },
+      "J2 full payment → PAID (supplier)": {
+        "pass": 7,
+        "fail": 0
+      },
+      "J3 no payment → UNPAID (supplier)": {
+        "pass": 6,
+        "fail": 0
+      },
+      "J4 multiple partial payments → PAID (supplier)": {
+        "pass": 22,
+        "fail": 0
+      },
+      "J5 overpayment (supplier)": {
+        "pass": 14,
+        "fail": 0
+      },
+      "J6 advance then allocate / change / unallocate (supplier)": {
+        "pass": 37,
+        "fail": 0
+      },
+      "J7 one voucher across two invoices (supplier)": {
+        "pass": 15,
+        "fail": 0
+      },
+      "J8 cancel a confirmed voucher (supplier)": {
+        "pass": 14,
+        "fail": 0
+      },
+      "J9 credit note (supplier)": {
+        "pass": 15,
+        "fail": 0
+      },
+      "J10 refund of an unapplied customer receipt": {
+        "pass": 11,
+        "fail": 0
+      },
+      "J11 other receipt / other payment": {
+        "pass": 22,
+        "fail": 0
+      },
+      "J12 internal transfer": {
+        "pass": 9,
+        "fail": 0
+      },
+      "J13 drafts, double confirm, idempotent retry": {
+        "pass": 22,
+        "fail": 0
+      },
+      "J14 future date and fee cap": {
+        "pass": 6,
+        "fail": 0
+      },
+      "J15 permissions (D9: confirm = journal-entries.post)": {
+        "pass": 6,
+        "fail": 0
+      },
+      "J16 voucher integrity after all journeys": {
+        "pass": 3,
+        "fail": 0
+      }
+    }
+  },
+  "results": [
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "invoice posted (CONFIRMED)",
+      "ok": true,
+      "detail": "CONFIRMED"
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "invoice entry: JV-2026-000325 balanced Σdebit = Σcredit (200000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 200000,
+        "credit": 200000,
+        "totalDebit": "200000",
+        "totalCredit": "200000"
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "invoice has one posted entry",
+      "ok": true,
+      "detail": 1
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "voucher CONFIRMED",
+      "ok": true,
+      "detail": "CONFIRMED"
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "after 100,000: settlement.grandTotal = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "after 100,000: detail.grandTotal = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "after 100,000: settlement.paidTotal = 100000",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "after 100,000: detail.paidTotal = 100000",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "after 100,000: settlement.remainingBalance = 100000",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "after 100,000: detail.remainingBalance = 100000",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "after 100,000: settlement.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "after 100,000: detail.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "settlement lists the payment (voucher, 100,000)",
+      "ok": true,
+      "detail": [
+        {
+          "kind": "PAYMENT",
+          "documentId": "cebd8ba7-9ce9-4a5e-9f2a-44cc08e76eb1",
+          "documentNumber": "CR-2026-000095",
+          "documentType": "CUSTOMER_RECEIPT",
+          "date": "2026-10-14T14:51:12.994Z",
+          "status": "CONFIRMED",
+          "amount": 100000,
+          "currencyCode": null,
+          "allocationId": "df3c7e53-3c92-4d29-8213-63fbcdf08db5",
+          "canUnallocate": true,
+          "canCancel": true
+        }
+      ]
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "voucher entry: JV-2026-000326 balanced Σdebit = Σcredit (100000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 100000,
+        "credit": 100000,
+        "totalDebit": "100000",
+        "totalCredit": "100000"
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "exactly one entry linked to the voucher",
+      "ok": true,
+      "detail": ["JV-2026-000326"]
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "bank GL line of the voucher = 100,000 (Dr for receipt, Cr for payment)",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "bank ledger closing balance moved by exactly 100,000",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "partner statement shows invoice and payment",
+      "ok": true,
+      "detail": ["SALES_INVOICE", "CUSTOMER_RECEIPT"]
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "partner statement closing balance = 100,000 (abs)",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "aging: invoice remaining 100,000",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (customer)",
+      "check": "aging: partner total open 100,000",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J2 full payment → PAID (customer)",
+      "check": "voucher entry: JV-2026-000328 balanced Σdebit = Σcredit (200000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 200000,
+        "credit": 200000,
+        "totalDebit": "200000",
+        "totalCredit": "200000"
+      }
+    },
+    {
+      "journey": "J2 full payment → PAID (customer)",
+      "check": "fully paid: settlement.paidTotal = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J2 full payment → PAID (customer)",
+      "check": "fully paid: detail.paidTotal = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J2 full payment → PAID (customer)",
+      "check": "fully paid: settlement.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J2 full payment → PAID (customer)",
+      "check": "fully paid: detail.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J2 full payment → PAID (customer)",
+      "check": "fully paid: settlement.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J2 full payment → PAID (customer)",
+      "check": "fully paid: detail.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J3 no payment → UNPAID (customer)",
+      "check": "no payment: settlement.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J3 no payment → UNPAID (customer)",
+      "check": "no payment: detail.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J3 no payment → UNPAID (customer)",
+      "check": "no payment: settlement.remainingBalance = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J3 no payment → UNPAID (customer)",
+      "check": "no payment: detail.remainingBalance = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J3 no payment → UNPAID (customer)",
+      "check": "no payment: settlement.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J3 no payment → UNPAID (customer)",
+      "check": "no payment: detail.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "instalment 50000: JV-2026-000331 balanced Σdebit = Σcredit (50000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 50000,
+        "credit": 50000,
+        "totalDebit": "50000",
+        "totalCredit": "50000"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after 50000: settlement.paidTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after 50000: detail.paidTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after 50000: settlement.remainingBalance = 150000",
+      "ok": true,
+      "detail": {
+        "actual": 150000,
+        "expected": 150000
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after 50000: detail.remainingBalance = 150000",
+      "ok": true,
+      "detail": {
+        "actual": 150000,
+        "expected": 150000
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after 50000: settlement.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after 50000: detail.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "instalment 70000.5: JV-2026-000332 balanced Σdebit = Σcredit (70000.50)",
+      "ok": true,
+      "detail": {
+        "debit": 70000.5,
+        "credit": 70000.5,
+        "totalDebit": "70000.5",
+        "totalCredit": "70000.5"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after 120000.5: settlement.paidTotal = 120000.5",
+      "ok": true,
+      "detail": {
+        "actual": 120000.5,
+        "expected": 120000.5
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after 120000.5: detail.paidTotal = 120000.5",
+      "ok": true,
+      "detail": {
+        "actual": 120000.5,
+        "expected": 120000.5
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after 120000.5: settlement.remainingBalance = 79999.5",
+      "ok": true,
+      "detail": {
+        "actual": 79999.5,
+        "expected": 79999.5
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after 120000.5: detail.remainingBalance = 79999.5",
+      "ok": true,
+      "detail": {
+        "actual": 79999.5,
+        "expected": 79999.5
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after 120000.5: settlement.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after 120000.5: detail.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "instalment 79999.5: JV-2026-000333 balanced Σdebit = Σcredit (79999.50)",
+      "ok": true,
+      "detail": {
+        "debit": 79999.5,
+        "credit": 79999.5,
+        "totalDebit": "79999.5",
+        "totalCredit": "79999.5"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after the 3rd instalment: settlement.paidTotal = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after the 3rd instalment: detail.paidTotal = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after the 3rd instalment: settlement.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after the 3rd instalment: detail.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after the 3rd instalment: settlement.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "after the 3rd instalment: detail.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (customer)",
+      "check": "settlement history lists 3 payments",
+      "ok": true,
+      "detail": 3
+    },
+    {
+      "journey": "J5 overpayment (customer)",
+      "check": "allocation > remaining refused ALLOCATION_EXCEEDS_INVOICE_BALANCE",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "body": {
+          "code": "ALLOCATION_EXCEEDS_INVOICE_BALANCE",
+          "message": "لا يمكن تخصيص 250000 للفاتورة INV-2026-000067 — المتبقي 200000 فقط — Cannot allocate 250000 to invoice INV-2026-000067: only 200000 remains unpaid.",
+          "details": {
+            "invoiceId": "0e34f383-586e-404e-94ec-dbb9d4563ab1",
+            "remainingBalance": 200000,
+            "paidTotal": 0,
+            "creditedTotal": 0
+          }
+        }
+      }
+    },
+    {
+      "journey": "J5 overpayment (customer)",
+      "check": "after refused overpayment: settlement.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J5 overpayment (customer)",
+      "check": "after refused overpayment: detail.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J5 overpayment (customer)",
+      "check": "after refused overpayment: settlement.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J5 overpayment (customer)",
+      "check": "after refused overpayment: detail.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J5 overpayment (customer)",
+      "check": "voucher 250,000: JV-2026-000335 balanced Σdebit = Σcredit (250000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 250000,
+        "credit": 250000,
+        "totalDebit": "250000",
+        "totalCredit": "250000"
+      }
+    },
+    {
+      "journey": "J5 overpayment (customer)",
+      "check": "cash line is the full 250,000",
+      "ok": true,
+      "detail": {
+        "actual": 250000,
+        "expected": 250000
+      }
+    },
+    {
+      "journey": "J5 overpayment (customer)",
+      "check": "voucher larger than invoice: settlement.paidTotal = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J5 overpayment (customer)",
+      "check": "voucher larger than invoice: detail.paidTotal = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J5 overpayment (customer)",
+      "check": "voucher larger than invoice: settlement.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J5 overpayment (customer)",
+      "check": "voucher larger than invoice: detail.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J5 overpayment (customer)",
+      "check": "voucher larger than invoice: settlement.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J5 overpayment (customer)",
+      "check": "voucher larger than invoice: detail.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J5 overpayment (customer)",
+      "check": "aging: 50,000 excess stays unapplied",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J5 overpayment (customer)",
+      "check": "receipt position reports 50,000 unapplied",
+      "ok": true,
+      "detail": [
+        {
+          "currencyId": "eb307863-a75f-4313-8a0f-33470063a7cc",
+          "currencyCode": "EGP",
+          "openInvoices": 0,
+          "outstanding": 0,
+          "received": 250000,
+          "applied": 200000,
+          "unapplied": 50000
+        }
+      ]
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "advance entry: JV-2026-000337 balanced Σdebit = Σcredit (80000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 80000,
+        "credit": 80000,
+        "totalDebit": "80000",
+        "totalCredit": "80000"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "advance posts one entry",
+      "ok": true,
+      "detail": 1
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "advance moved the bank by 80,000",
+      "ok": true,
+      "detail": {
+        "actual": 80000,
+        "expected": 80000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "advance not yet allocated: settlement.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "advance not yet allocated: detail.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "advance not yet allocated: settlement.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "advance not yet allocated: detail.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "allocate returns the fresh voucher with the line",
+      "ok": true,
+      "detail": [
+        {
+          "id": "09cf6da5-935b-416e-b4a8-8e9840593281",
+          "transactionId": "c56f12da-223e-41eb-add1-d6fd1cb21fc5",
+          "salesInvoiceId": "47a36e46-3146-48c6-9d57-a45d97980c2b",
+          "purchaseInvoiceId": null,
+          "salesReturnId": null,
+          "storeOrderId": null,
+          "receiptId": null,
+          "allocatedAmount": "50000",
+          "allocationDate": "2026-10-14T14:51:16.948Z",
+          "createdAt": "2026-10-14T14:51:16.948Z",
+          "updatedAt": "2026-10-14T14:51:16.948Z",
+          "createdBy": "af642c7a-c6ca-48b9-96d9-e226ee84be96",
+          "updatedBy": "af642c7a-c6ca-48b9-96d9-e226ee84be96",
+          "salesInvoice": {
+            "id": "47a36e46-3146-48c6-9d57-a45d97980c2b",
+            "invoiceNumber": "INV-2026-000068",
+            "grandTotal": "200000"
+          },
+          "purchaseInvoice": null,
+          "salesReturn": null,
+          "storeOrder": null,
+          "receipt": null
+        }
+      ]
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after allocate 50,000: settlement.paidTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after allocate 50,000: detail.paidTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after allocate 50,000: settlement.remainingBalance = 150000",
+      "ok": true,
+      "detail": {
+        "actual": 150000,
+        "expected": 150000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after allocate 50,000: detail.remainingBalance = 150000",
+      "ok": true,
+      "detail": {
+        "actual": 150000,
+        "expected": 150000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after allocate 50,000: settlement.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after allocate 50,000: detail.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "allocation adds NO second cash entry",
+      "ok": true,
+      "detail": ["JV-2026-000337"]
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "bank ledger unchanged by the allocation",
+      "ok": true,
+      "detail": {
+        "actual": 1114580,
+        "expected": 1114580
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "PATCH returns the voucher with updatedAt",
+      "ok": true,
+      "detail": [
+        "id",
+        "transactionNumber",
+        "type",
+        "partnerId",
+        "expenseAccountId",
+        "currencyId",
+        "exchangeRate",
+        "companyId",
+        "branchId",
+        "costCenterId",
+        "projectId",
+        "transactionDate",
+        "paymentSourceId",
+        "receivingAccountId",
+        "debitAccountId",
+        "rateAsOf",
+        "rateSource",
+        "amount",
+        "feeAmount",
+        "feeAccountId",
+        "counterAccountId",
+        "targetReceivingAccountId",
+        "referenceNumber",
+        "description",
+        "notes",
+        "status",
+        "confirmedAt",
+        "confirmedBy",
+        "cancelledAt",
+        "cancelledBy",
+        "postedToAccounting",
+        "accountingPostedAt",
+        "createdAt",
+        "updatedAt",
+        "createdBy",
+        "updatedBy",
+        "deletedAt",
+        "idempotencyKey",
+        "partner",
+        "expenseAccount",
+        "counterAccount",
+        "targetReceivingAccount",
+        "currency",
+        "paymentSource",
+        "receivingAccount",
+        "costCenter",
+        "project",
+        "allocations"
+      ]
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after PATCH 70,000: settlement.paidTotal = 70000",
+      "ok": true,
+      "detail": {
+        "actual": 70000,
+        "expected": 70000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after PATCH 70,000: detail.paidTotal = 70000",
+      "ok": true,
+      "detail": {
+        "actual": 70000,
+        "expected": 70000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after PATCH 70,000: settlement.remainingBalance = 130000",
+      "ok": true,
+      "detail": {
+        "actual": 130000,
+        "expected": 130000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after PATCH 70,000: detail.remainingBalance = 130000",
+      "ok": true,
+      "detail": {
+        "actual": 130000,
+        "expected": 130000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after PATCH 70,000: settlement.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after PATCH 70,000: detail.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "PATCH above the voucher amount refused (old line kept)",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "body": {
+          "code": "VALIDATION_ERROR",
+          "message": "Cannot allocate 90000 — only 80000 remains unallocated on this customer receipt voucher."
+        }
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after refused PATCH: settlement.paidTotal = 70000",
+      "ok": true,
+      "detail": {
+        "actual": 70000,
+        "expected": 70000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after refused PATCH: detail.paidTotal = 70000",
+      "ok": true,
+      "detail": {
+        "actual": 70000,
+        "expected": 70000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "PATCH adds no entry",
+      "ok": true
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "bank ledger unchanged by PATCH",
+      "ok": true,
+      "detail": {
+        "actual": 1114580,
+        "expected": 1114580
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after unallocate: settlement.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after unallocate: detail.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after unallocate: settlement.remainingBalance = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after unallocate: detail.remainingBalance = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after unallocate: settlement.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "after unallocate: detail.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "unallocate adds no entry (same currency)",
+      "ok": true
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "bank ledger unchanged by unallocate",
+      "ok": true,
+      "detail": {
+        "actual": 1114580,
+        "expected": 1114580
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (customer)",
+      "check": "aging: 80,000 unapplied again",
+      "ok": true,
+      "detail": {
+        "actual": 80000,
+        "expected": 80000
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (customer)",
+      "check": "voucher entry: JV-2026-000340 balanced Σdebit = Σcredit (150000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 150000,
+        "credit": 150000,
+        "totalDebit": "150000",
+        "totalCredit": "150000"
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (customer)",
+      "check": "one entry for the multi-invoice voucher",
+      "ok": true,
+      "detail": 1
+    },
+    {
+      "journey": "J7 one voucher across two invoices (customer)",
+      "check": "invoice A: settlement.paidTotal = 120000",
+      "ok": true,
+      "detail": {
+        "actual": 120000,
+        "expected": 120000
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (customer)",
+      "check": "invoice A: detail.paidTotal = 120000",
+      "ok": true,
+      "detail": {
+        "actual": 120000,
+        "expected": 120000
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (customer)",
+      "check": "invoice A: settlement.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (customer)",
+      "check": "invoice A: detail.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (customer)",
+      "check": "invoice A: settlement.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (customer)",
+      "check": "invoice A: detail.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (customer)",
+      "check": "invoice B: settlement.paidTotal = 30000",
+      "ok": true,
+      "detail": {
+        "actual": 30000,
+        "expected": 30000
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (customer)",
+      "check": "invoice B: detail.paidTotal = 30000",
+      "ok": true,
+      "detail": {
+        "actual": 30000,
+        "expected": 30000
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (customer)",
+      "check": "invoice B: settlement.remainingBalance = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (customer)",
+      "check": "invoice B: detail.remainingBalance = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (customer)",
+      "check": "invoice B: settlement.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (customer)",
+      "check": "invoice B: detail.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (customer)",
+      "check": "invoice B settlement lists the same voucher",
+      "ok": true,
+      "detail": [
+        {
+          "kind": "PAYMENT",
+          "documentId": "98264c0d-d036-4bf4-9e80-92d4a21f538f",
+          "documentNumber": "CR-2026-000102",
+          "documentType": "CUSTOMER_RECEIPT",
+          "date": "2026-10-14T14:51:18.204Z",
+          "status": "CONFIRMED",
+          "amount": 30000,
+          "currencyCode": null,
+          "allocationId": "7afdec2b-e1cd-4640-8f1b-1f438a4a10c7",
+          "canUnallocate": true,
+          "canCancel": true
+        }
+      ]
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (customer)",
+      "check": "before cancel: settlement.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (customer)",
+      "check": "before cancel: detail.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (customer)",
+      "check": "voucher CANCELLED",
+      "ok": true,
+      "detail": "CANCELLED"
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (customer)",
+      "check": "original entry is reversed",
+      "ok": true,
+      "detail": {
+        "status": "REVERSED",
+        "reversedByEntry": "JV-2026-000344"
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (customer)",
+      "check": "reversing entry: JV-2026-000344 balanced Σdebit = Σcredit (150000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 150000,
+        "credit": 150000,
+        "totalDebit": "150000",
+        "totalCredit": "150000"
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (customer)",
+      "check": "reversal mirrors the bank line",
+      "ok": true,
+      "detail": {
+        "actual": -150000,
+        "expected": -150000
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (customer)",
+      "check": "bank ledger back by 150,000",
+      "ok": true,
+      "detail": {
+        "actual": -150000,
+        "expected": -150000
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (customer)",
+      "check": "after cancel: settlement.paidTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (customer)",
+      "check": "after cancel: detail.paidTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (customer)",
+      "check": "after cancel: settlement.remainingBalance = 150000",
+      "ok": true,
+      "detail": {
+        "actual": 150000,
+        "expected": 150000
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (customer)",
+      "check": "after cancel: detail.remainingBalance = 150000",
+      "ok": true,
+      "detail": {
+        "actual": 150000,
+        "expected": 150000
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (customer)",
+      "check": "after cancel: settlement.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (customer)",
+      "check": "after cancel: detail.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (customer)",
+      "check": "second cancel does not reverse twice",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "code": "VALIDATION_ERROR"
+      }
+    },
+    {
+      "journey": "J9 credit note (customer)",
+      "check": "return CONFIRMED (posted)",
+      "ok": true,
+      "detail": "CONFIRMED"
+    },
+    {
+      "journey": "J9 credit note (customer)",
+      "check": "return entry: JV-2026-000347 balanced Σdebit = Σcredit (50000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 50000,
+        "credit": 50000,
+        "totalDebit": "50000",
+        "totalCredit": "50000"
+      }
+    },
+    {
+      "journey": "J9 credit note (customer)",
+      "check": "cash 50,000 + credit 50,000: settlement.grandTotal = 100000",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J9 credit note (customer)",
+      "check": "cash 50,000 + credit 50,000: detail.grandTotal = 100000",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J9 credit note (customer)",
+      "check": "cash 50,000 + credit 50,000: settlement.paidTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J9 credit note (customer)",
+      "check": "cash 50,000 + credit 50,000: detail.paidTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J9 credit note (customer)",
+      "check": "cash 50,000 + credit 50,000: settlement.creditedTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J9 credit note (customer)",
+      "check": "cash 50,000 + credit 50,000: detail.creditedTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J9 credit note (customer)",
+      "check": "cash 50,000 + credit 50,000: settlement.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J9 credit note (customer)",
+      "check": "cash 50,000 + credit 50,000: detail.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J9 credit note (customer)",
+      "check": "cash 50,000 + credit 50,000: settlement.paymentStatus = SETTLED",
+      "ok": true,
+      "detail": {
+        "actual": "SETTLED",
+        "expected": "SETTLED"
+      }
+    },
+    {
+      "journey": "J9 credit note (customer)",
+      "check": "cash 50,000 + credit 50,000: detail.paymentStatus = SETTLED",
+      "ok": true,
+      "detail": {
+        "actual": "SETTLED",
+        "expected": "SETTLED"
+      }
+    },
+    {
+      "journey": "J9 credit note (customer)",
+      "check": "settlement lists the credit note apart from the payment",
+      "ok": true,
+      "detail": [
+        {
+          "kind": "PAYMENT",
+          "documentId": "7c48f3e4-cb91-4b64-8df2-5b4028d499a7",
+          "documentNumber": "CR-2026-000105",
+          "documentType": "CUSTOMER_RECEIPT",
+          "date": "2026-10-14T14:51:19.841Z",
+          "status": "CONFIRMED",
+          "amount": 50000,
+          "currencyCode": null,
+          "allocationId": "2932ded4-a745-4166-a6ae-0815b1a8766a",
+          "canUnallocate": true,
+          "canCancel": true
+        },
+        {
+          "kind": "CREDIT_NOTE",
+          "documentId": "d782de0e-513d-4dfc-94b3-06c06e3ae9a8",
+          "documentNumber": "SR-2026-000006",
+          "documentType": "SALES_RETURN",
+          "date": "2026-10-14T14:51:20.278Z",
+          "status": "CONFIRMED",
+          "amount": 50000,
+          "currencyCode": null,
+          "canUnallocate": false,
+          "canCancel": false
+        }
+      ]
+    },
+    {
+      "journey": "J9 credit note (customer)",
+      "check": "a settled invoice refuses a further collection",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "body": {
+          "code": "ALLOCATION_EXCEEDS_INVOICE_BALANCE",
+          "message": "لا يمكن تخصيص 1000 للفاتورة INV-2026-000072 — المتبقي 0 فقط — Cannot allocate 1000 to invoice INV-2026-000072: only 0 remains unpaid (50000 settled by credit note).",
+          "details": {
+            "invoiceId": "98467821-3340-4a58-b4c3-7a76c7994610",
+            "remainingBalance": 0,
+            "paidTotal": 50000,
+            "creditedTotal": 50000
+          }
+        }
+      }
+    },
+    {
+      "journey": "J9 credit note (customer)",
+      "check": "aging: settled invoice not open",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "invoice posted (CONFIRMED)",
+      "ok": true,
+      "detail": "CONFIRMED"
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "invoice entry: JV-2026-000348 balanced Σdebit = Σcredit (200000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 200000,
+        "credit": 200000,
+        "totalDebit": "200000",
+        "totalCredit": "200000"
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "invoice has one posted entry",
+      "ok": true,
+      "detail": 1
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "voucher CONFIRMED",
+      "ok": true,
+      "detail": "CONFIRMED"
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "after 100,000: settlement.grandTotal = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "after 100,000: detail.grandTotal = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "after 100,000: settlement.paidTotal = 100000",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "after 100,000: detail.paidTotal = 100000",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "after 100,000: settlement.remainingBalance = 100000",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "after 100,000: detail.remainingBalance = 100000",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "after 100,000: settlement.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "after 100,000: detail.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "settlement lists the payment (voucher, 100,000)",
+      "ok": true,
+      "detail": [
+        {
+          "kind": "PAYMENT",
+          "documentId": "6f056a45-d673-4154-8d87-c7a9c15bbdd5",
+          "documentNumber": "SP-2026-000023",
+          "documentType": "SUPPLIER_PAYMENT",
+          "date": "2026-10-14T14:51:20.884Z",
+          "status": "CONFIRMED",
+          "amount": 100000,
+          "currencyCode": null,
+          "allocationId": "7a7e1c0b-4ba7-4fb7-bb7e-f752cd494a7c",
+          "canUnallocate": true,
+          "canCancel": true
+        }
+      ]
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "voucher entry: JV-2026-000349 balanced Σdebit = Σcredit (100000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 100000,
+        "credit": 100000,
+        "totalDebit": "100000",
+        "totalCredit": "100000"
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "exactly one entry linked to the voucher",
+      "ok": true,
+      "detail": ["JV-2026-000349"]
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "bank GL line of the voucher = 100,000 (Dr for receipt, Cr for payment)",
+      "ok": true,
+      "detail": {
+        "actual": -100000,
+        "expected": -100000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "bank ledger closing balance moved by exactly 100,000",
+      "ok": true,
+      "detail": {
+        "actual": -100000,
+        "expected": -100000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "partner statement shows invoice and payment",
+      "ok": true,
+      "detail": ["PURCHASE_INVOICE", "SUPPLIER_PAYMENT"]
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "partner statement closing balance = 100,000 (abs)",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "aging: invoice remaining 100,000",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J1 baseline 200,000 / 100,000 (supplier)",
+      "check": "aging: partner total open 100,000",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J2 full payment → PAID (supplier)",
+      "check": "voucher entry: JV-2026-000351 balanced Σdebit = Σcredit (200000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 200000,
+        "credit": 200000,
+        "totalDebit": "200000",
+        "totalCredit": "200000"
+      }
+    },
+    {
+      "journey": "J2 full payment → PAID (supplier)",
+      "check": "fully paid: settlement.paidTotal = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J2 full payment → PAID (supplier)",
+      "check": "fully paid: detail.paidTotal = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J2 full payment → PAID (supplier)",
+      "check": "fully paid: settlement.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J2 full payment → PAID (supplier)",
+      "check": "fully paid: detail.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J2 full payment → PAID (supplier)",
+      "check": "fully paid: settlement.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J2 full payment → PAID (supplier)",
+      "check": "fully paid: detail.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J3 no payment → UNPAID (supplier)",
+      "check": "no payment: settlement.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J3 no payment → UNPAID (supplier)",
+      "check": "no payment: detail.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J3 no payment → UNPAID (supplier)",
+      "check": "no payment: settlement.remainingBalance = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J3 no payment → UNPAID (supplier)",
+      "check": "no payment: detail.remainingBalance = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J3 no payment → UNPAID (supplier)",
+      "check": "no payment: settlement.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J3 no payment → UNPAID (supplier)",
+      "check": "no payment: detail.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "instalment 50000: JV-2026-000354 balanced Σdebit = Σcredit (50000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 50000,
+        "credit": 50000,
+        "totalDebit": "50000",
+        "totalCredit": "50000"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after 50000: settlement.paidTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after 50000: detail.paidTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after 50000: settlement.remainingBalance = 150000",
+      "ok": true,
+      "detail": {
+        "actual": 150000,
+        "expected": 150000
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after 50000: detail.remainingBalance = 150000",
+      "ok": true,
+      "detail": {
+        "actual": 150000,
+        "expected": 150000
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after 50000: settlement.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after 50000: detail.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "instalment 70000.5: JV-2026-000355 balanced Σdebit = Σcredit (70000.50)",
+      "ok": true,
+      "detail": {
+        "debit": 70000.5,
+        "credit": 70000.5,
+        "totalDebit": "70000.5",
+        "totalCredit": "70000.5"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after 120000.5: settlement.paidTotal = 120000.5",
+      "ok": true,
+      "detail": {
+        "actual": 120000.5,
+        "expected": 120000.5
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after 120000.5: detail.paidTotal = 120000.5",
+      "ok": true,
+      "detail": {
+        "actual": 120000.5,
+        "expected": 120000.5
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after 120000.5: settlement.remainingBalance = 79999.5",
+      "ok": true,
+      "detail": {
+        "actual": 79999.5,
+        "expected": 79999.5
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after 120000.5: detail.remainingBalance = 79999.5",
+      "ok": true,
+      "detail": {
+        "actual": 79999.5,
+        "expected": 79999.5
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after 120000.5: settlement.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after 120000.5: detail.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "instalment 79999.5: JV-2026-000356 balanced Σdebit = Σcredit (79999.50)",
+      "ok": true,
+      "detail": {
+        "debit": 79999.5,
+        "credit": 79999.5,
+        "totalDebit": "79999.5",
+        "totalCredit": "79999.5"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after the 3rd instalment: settlement.paidTotal = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after the 3rd instalment: detail.paidTotal = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after the 3rd instalment: settlement.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after the 3rd instalment: detail.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after the 3rd instalment: settlement.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "after the 3rd instalment: detail.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J4 multiple partial payments → PAID (supplier)",
+      "check": "settlement history lists 3 payments",
+      "ok": true,
+      "detail": 3
+    },
+    {
+      "journey": "J5 overpayment (supplier)",
+      "check": "allocation > remaining refused ALLOCATION_EXCEEDS_INVOICE_BALANCE",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "body": {
+          "code": "ALLOCATION_EXCEEDS_INVOICE_BALANCE",
+          "message": "لا يمكن تخصيص 250000 للفاتورة PI-2026-000035 — المتبقي 200000 فقط — Cannot allocate 250000 to invoice PI-2026-000035: only 200000 remains unpaid.",
+          "details": {
+            "invoiceId": "414db8f7-cfa7-4a7a-967e-4b824e24cdf4",
+            "remainingBalance": 200000,
+            "paidTotal": 0,
+            "creditedTotal": 0
+          }
+        }
+      }
+    },
+    {
+      "journey": "J5 overpayment (supplier)",
+      "check": "after refused overpayment: settlement.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J5 overpayment (supplier)",
+      "check": "after refused overpayment: detail.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J5 overpayment (supplier)",
+      "check": "after refused overpayment: settlement.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J5 overpayment (supplier)",
+      "check": "after refused overpayment: detail.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J5 overpayment (supplier)",
+      "check": "voucher 250,000: JV-2026-000358 balanced Σdebit = Σcredit (250000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 250000,
+        "credit": 250000,
+        "totalDebit": "250000",
+        "totalCredit": "250000"
+      }
+    },
+    {
+      "journey": "J5 overpayment (supplier)",
+      "check": "cash line is the full 250,000",
+      "ok": true,
+      "detail": {
+        "actual": 250000,
+        "expected": 250000
+      }
+    },
+    {
+      "journey": "J5 overpayment (supplier)",
+      "check": "voucher larger than invoice: settlement.paidTotal = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J5 overpayment (supplier)",
+      "check": "voucher larger than invoice: detail.paidTotal = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J5 overpayment (supplier)",
+      "check": "voucher larger than invoice: settlement.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J5 overpayment (supplier)",
+      "check": "voucher larger than invoice: detail.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J5 overpayment (supplier)",
+      "check": "voucher larger than invoice: settlement.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J5 overpayment (supplier)",
+      "check": "voucher larger than invoice: detail.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J5 overpayment (supplier)",
+      "check": "aging: 50,000 excess stays unapplied",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "advance entry: JV-2026-000360 balanced Σdebit = Σcredit (80000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 80000,
+        "credit": 80000,
+        "totalDebit": "80000",
+        "totalCredit": "80000"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "advance posts one entry",
+      "ok": true,
+      "detail": 1
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "advance moved the bank by 80,000",
+      "ok": true,
+      "detail": {
+        "actual": -80000,
+        "expected": -80000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "advance not yet allocated: settlement.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "advance not yet allocated: detail.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "advance not yet allocated: settlement.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "advance not yet allocated: detail.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "allocate returns the fresh voucher with the line",
+      "ok": true,
+      "detail": [
+        {
+          "id": "3f69aa8b-5715-4333-9872-05f76d129977",
+          "transactionId": "24513d4a-27ab-4ede-8006-790e81b168b8",
+          "salesInvoiceId": null,
+          "purchaseInvoiceId": "c26f0c3f-2922-4ecc-8557-2f87e24b937d",
+          "salesReturnId": null,
+          "storeOrderId": null,
+          "receiptId": null,
+          "allocatedAmount": "50000",
+          "allocationDate": "2026-10-14T14:51:24.689Z",
+          "createdAt": "2026-10-14T14:51:24.689Z",
+          "updatedAt": "2026-10-14T14:51:24.689Z",
+          "createdBy": "af642c7a-c6ca-48b9-96d9-e226ee84be96",
+          "updatedBy": "af642c7a-c6ca-48b9-96d9-e226ee84be96",
+          "salesInvoice": null,
+          "purchaseInvoice": {
+            "id": "c26f0c3f-2922-4ecc-8557-2f87e24b937d",
+            "invoiceNumber": "PI-2026-000036",
+            "grandTotal": "200000"
+          },
+          "salesReturn": null,
+          "storeOrder": null,
+          "receipt": null
+        }
+      ]
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after allocate 50,000: settlement.paidTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after allocate 50,000: detail.paidTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after allocate 50,000: settlement.remainingBalance = 150000",
+      "ok": true,
+      "detail": {
+        "actual": 150000,
+        "expected": 150000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after allocate 50,000: detail.remainingBalance = 150000",
+      "ok": true,
+      "detail": {
+        "actual": 150000,
+        "expected": 150000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after allocate 50,000: settlement.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after allocate 50,000: detail.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "allocation adds NO second cash entry",
+      "ok": true,
+      "detail": ["JV-2026-000360"]
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "bank ledger unchanged by the allocation",
+      "ok": true,
+      "detail": {
+        "actual": 534580,
+        "expected": 534580
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "PATCH returns the voucher with updatedAt",
+      "ok": true,
+      "detail": [
+        "id",
+        "transactionNumber",
+        "type",
+        "partnerId",
+        "expenseAccountId",
+        "currencyId",
+        "exchangeRate",
+        "companyId",
+        "branchId",
+        "costCenterId",
+        "projectId",
+        "transactionDate",
+        "paymentSourceId",
+        "receivingAccountId",
+        "debitAccountId",
+        "rateAsOf",
+        "rateSource",
+        "amount",
+        "feeAmount",
+        "feeAccountId",
+        "counterAccountId",
+        "targetReceivingAccountId",
+        "referenceNumber",
+        "description",
+        "notes",
+        "status",
+        "confirmedAt",
+        "confirmedBy",
+        "cancelledAt",
+        "cancelledBy",
+        "postedToAccounting",
+        "accountingPostedAt",
+        "createdAt",
+        "updatedAt",
+        "createdBy",
+        "updatedBy",
+        "deletedAt",
+        "idempotencyKey",
+        "partner",
+        "expenseAccount",
+        "counterAccount",
+        "targetReceivingAccount",
+        "currency",
+        "paymentSource",
+        "receivingAccount",
+        "costCenter",
+        "project",
+        "allocations"
+      ]
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after PATCH 70,000: settlement.paidTotal = 70000",
+      "ok": true,
+      "detail": {
+        "actual": 70000,
+        "expected": 70000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after PATCH 70,000: detail.paidTotal = 70000",
+      "ok": true,
+      "detail": {
+        "actual": 70000,
+        "expected": 70000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after PATCH 70,000: settlement.remainingBalance = 130000",
+      "ok": true,
+      "detail": {
+        "actual": 130000,
+        "expected": 130000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after PATCH 70,000: detail.remainingBalance = 130000",
+      "ok": true,
+      "detail": {
+        "actual": 130000,
+        "expected": 130000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after PATCH 70,000: settlement.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after PATCH 70,000: detail.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "PATCH above the voucher amount refused (old line kept)",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "body": {
+          "code": "VALIDATION_ERROR",
+          "message": "Cannot allocate 90000 — only 80000 remains unallocated on this supplier payment voucher."
+        }
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after refused PATCH: settlement.paidTotal = 70000",
+      "ok": true,
+      "detail": {
+        "actual": 70000,
+        "expected": 70000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after refused PATCH: detail.paidTotal = 70000",
+      "ok": true,
+      "detail": {
+        "actual": 70000,
+        "expected": 70000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "PATCH adds no entry",
+      "ok": true
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "bank ledger unchanged by PATCH",
+      "ok": true,
+      "detail": {
+        "actual": 534580,
+        "expected": 534580
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after unallocate: settlement.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after unallocate: detail.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after unallocate: settlement.remainingBalance = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after unallocate: detail.remainingBalance = 200000",
+      "ok": true,
+      "detail": {
+        "actual": 200000,
+        "expected": 200000
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after unallocate: settlement.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "after unallocate: detail.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "unallocate adds no entry (same currency)",
+      "ok": true
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "bank ledger unchanged by unallocate",
+      "ok": true,
+      "detail": {
+        "actual": 534580,
+        "expected": 534580
+      }
+    },
+    {
+      "journey": "J6 advance then allocate / change / unallocate (supplier)",
+      "check": "aging: 80,000 unapplied again",
+      "ok": true,
+      "detail": {
+        "actual": 80000,
+        "expected": 80000
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (supplier)",
+      "check": "voucher entry: JV-2026-000363 balanced Σdebit = Σcredit (150000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 150000,
+        "credit": 150000,
+        "totalDebit": "150000",
+        "totalCredit": "150000"
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (supplier)",
+      "check": "one entry for the multi-invoice voucher",
+      "ok": true,
+      "detail": 1
+    },
+    {
+      "journey": "J7 one voucher across two invoices (supplier)",
+      "check": "invoice A: settlement.paidTotal = 120000",
+      "ok": true,
+      "detail": {
+        "actual": 120000,
+        "expected": 120000
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (supplier)",
+      "check": "invoice A: detail.paidTotal = 120000",
+      "ok": true,
+      "detail": {
+        "actual": 120000,
+        "expected": 120000
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (supplier)",
+      "check": "invoice A: settlement.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (supplier)",
+      "check": "invoice A: detail.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (supplier)",
+      "check": "invoice A: settlement.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (supplier)",
+      "check": "invoice A: detail.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (supplier)",
+      "check": "invoice B: settlement.paidTotal = 30000",
+      "ok": true,
+      "detail": {
+        "actual": 30000,
+        "expected": 30000
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (supplier)",
+      "check": "invoice B: detail.paidTotal = 30000",
+      "ok": true,
+      "detail": {
+        "actual": 30000,
+        "expected": 30000
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (supplier)",
+      "check": "invoice B: settlement.remainingBalance = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (supplier)",
+      "check": "invoice B: detail.remainingBalance = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (supplier)",
+      "check": "invoice B: settlement.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (supplier)",
+      "check": "invoice B: detail.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J7 one voucher across two invoices (supplier)",
+      "check": "invoice B settlement lists the same voucher",
+      "ok": true,
+      "detail": [
+        {
+          "kind": "PAYMENT",
+          "documentId": "048687f8-9c10-4c4b-8693-b00f3b2be880",
+          "documentNumber": "SP-2026-000030",
+          "documentType": "SUPPLIER_PAYMENT",
+          "date": "2026-10-14T14:51:25.516Z",
+          "status": "CONFIRMED",
+          "amount": 30000,
+          "currencyCode": null,
+          "allocationId": "01de9543-0729-4fe6-b59f-9288429ca434",
+          "canUnallocate": true,
+          "canCancel": true
+        }
+      ]
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (supplier)",
+      "check": "before cancel: settlement.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (supplier)",
+      "check": "before cancel: detail.paymentStatus = PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PAID",
+        "expected": "PAID"
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (supplier)",
+      "check": "voucher CANCELLED",
+      "ok": true,
+      "detail": "CANCELLED"
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (supplier)",
+      "check": "original entry is reversed",
+      "ok": true,
+      "detail": {
+        "status": "REVERSED",
+        "reversedByEntry": "JV-2026-000367"
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (supplier)",
+      "check": "reversing entry: JV-2026-000367 balanced Σdebit = Σcredit (150000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 150000,
+        "credit": 150000,
+        "totalDebit": "150000",
+        "totalCredit": "150000"
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (supplier)",
+      "check": "reversal mirrors the bank line",
+      "ok": true,
+      "detail": {
+        "actual": 150000,
+        "expected": 150000
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (supplier)",
+      "check": "bank ledger back by 150,000",
+      "ok": true,
+      "detail": {
+        "actual": 150000,
+        "expected": 150000
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (supplier)",
+      "check": "after cancel: settlement.paidTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (supplier)",
+      "check": "after cancel: detail.paidTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (supplier)",
+      "check": "after cancel: settlement.remainingBalance = 150000",
+      "ok": true,
+      "detail": {
+        "actual": 150000,
+        "expected": 150000
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (supplier)",
+      "check": "after cancel: detail.remainingBalance = 150000",
+      "ok": true,
+      "detail": {
+        "actual": 150000,
+        "expected": 150000
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (supplier)",
+      "check": "after cancel: settlement.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (supplier)",
+      "check": "after cancel: detail.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J8 cancel a confirmed voucher (supplier)",
+      "check": "second cancel does not reverse twice",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "code": "VALIDATION_ERROR"
+      }
+    },
+    {
+      "journey": "J9 credit note (supplier)",
+      "check": "return CONFIRMED (posted)",
+      "ok": true,
+      "detail": "CONFIRMED"
+    },
+    {
+      "journey": "J9 credit note (supplier)",
+      "check": "return entry: JV-2026-000370 balanced Σdebit = Σcredit (50000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 50000,
+        "credit": 50000,
+        "totalDebit": "50000",
+        "totalCredit": "50000"
+      }
+    },
+    {
+      "journey": "J9 credit note (supplier)",
+      "check": "cash 50,000 + credit 50,000: settlement.grandTotal = 100000",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J9 credit note (supplier)",
+      "check": "cash 50,000 + credit 50,000: detail.grandTotal = 100000",
+      "ok": true,
+      "detail": {
+        "actual": 100000,
+        "expected": 100000
+      }
+    },
+    {
+      "journey": "J9 credit note (supplier)",
+      "check": "cash 50,000 + credit 50,000: settlement.paidTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J9 credit note (supplier)",
+      "check": "cash 50,000 + credit 50,000: detail.paidTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J9 credit note (supplier)",
+      "check": "cash 50,000 + credit 50,000: settlement.creditedTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J9 credit note (supplier)",
+      "check": "cash 50,000 + credit 50,000: detail.creditedTotal = 50000",
+      "ok": true,
+      "detail": {
+        "actual": 50000,
+        "expected": 50000
+      }
+    },
+    {
+      "journey": "J9 credit note (supplier)",
+      "check": "cash 50,000 + credit 50,000: settlement.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J9 credit note (supplier)",
+      "check": "cash 50,000 + credit 50,000: detail.remainingBalance = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J9 credit note (supplier)",
+      "check": "cash 50,000 + credit 50,000: settlement.paymentStatus = SETTLED",
+      "ok": true,
+      "detail": {
+        "actual": "SETTLED",
+        "expected": "SETTLED"
+      }
+    },
+    {
+      "journey": "J9 credit note (supplier)",
+      "check": "cash 50,000 + credit 50,000: detail.paymentStatus = SETTLED",
+      "ok": true,
+      "detail": {
+        "actual": "SETTLED",
+        "expected": "SETTLED"
+      }
+    },
+    {
+      "journey": "J9 credit note (supplier)",
+      "check": "settlement lists the credit note apart from the payment",
+      "ok": true,
+      "detail": [
+        {
+          "kind": "PAYMENT",
+          "documentId": "9124b8ad-4715-4abb-9052-04ea03abdd3d",
+          "documentNumber": "SP-2026-000033",
+          "documentType": "SUPPLIER_PAYMENT",
+          "date": "2026-10-14T14:51:26.859Z",
+          "status": "CONFIRMED",
+          "amount": 50000,
+          "currencyCode": null,
+          "allocationId": "c212fb8f-b426-4ca4-b831-96f78614e7a7",
+          "canUnallocate": true,
+          "canCancel": true
+        },
+        {
+          "kind": "CREDIT_NOTE",
+          "documentId": "8fa2a96a-d621-46e4-b4d2-fb957da94da4",
+          "documentNumber": "PR-2026-000003",
+          "documentType": "PURCHASE_RETURN",
+          "date": "2026-10-14T14:51:27.420Z",
+          "status": "CONFIRMED",
+          "amount": 50000,
+          "currencyCode": null,
+          "canUnallocate": false,
+          "canCancel": false
+        }
+      ]
+    },
+    {
+      "journey": "J9 credit note (supplier)",
+      "check": "a settled invoice refuses a further collection",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "body": {
+          "code": "ALLOCATION_EXCEEDS_INVOICE_BALANCE",
+          "message": "لا يمكن تخصيص 1000 للفاتورة PI-2026-000040 — المتبقي 0 فقط — Cannot allocate 1000 to invoice PI-2026-000040: only 0 remains unpaid (50000 settled by credit note).",
+          "details": {
+            "invoiceId": "b27d479f-2082-4651-9c3c-40b71edee3ed",
+            "remainingBalance": 0,
+            "paidTotal": 50000,
+            "creditedTotal": 50000
+          }
+        }
+      }
+    },
+    {
+      "journey": "J9 credit note (supplier)",
+      "check": "aging: settled invoice not open",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "journey": "J10 refund of an unapplied customer receipt",
+      "check": "open-receipts: 30,000 unapplied",
+      "ok": true,
+      "detail": {
+        "actual": 30000,
+        "expected": 30000
+      }
+    },
+    {
+      "journey": "J10 refund of an unapplied customer receipt",
+      "check": "refund above the unapplied amount refused",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "code": "REFUND_EXCEEDS_RECEIPT_UNAPPLIED",
+        "body": {
+          "code": "REFUND_EXCEEDS_RECEIPT_UNAPPLIED",
+          "message": "لا يمكن رد 30001 من سند القبض CR-2026-000106 — غير المخصص 30000.00 فقط — Cannot refund 30001 from Customer Receipt CR-2026-000106: only 30000.00 of it is unapplied.",
+          "details": {
+            "receiptId": "2d95c6cc-d8b3-4a15-b6f5-99318a04dd37",
+            "unapplied": 30000
+          }
+        }
+      }
+    },
+    {
+      "journey": "J10 refund of an unapplied customer receipt",
+      "check": "refund CONFIRMED",
+      "ok": true,
+      "detail": "CONFIRMED"
+    },
+    {
+      "journey": "J10 refund of an unapplied customer receipt",
+      "check": "refund entry: JV-2026-000372 balanced Σdebit = Σcredit (10000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 10000,
+        "credit": 10000,
+        "totalDebit": "10000",
+        "totalCredit": "10000"
+      }
+    },
+    {
+      "journey": "J10 refund of an unapplied customer receipt",
+      "check": "refund: Cr bank 10,000",
+      "ok": true,
+      "detail": {
+        "actual": -10000,
+        "expected": -10000
+      }
+    },
+    {
+      "journey": "J10 refund of an unapplied customer receipt",
+      "check": "refund: Dr AR 10,000 (partner line)",
+      "ok": true,
+      "detail": {
+        "actual": 10000,
+        "expected": 10000
+      }
+    },
+    {
+      "journey": "J10 refund of an unapplied customer receipt",
+      "check": "refund AR line carries the partner",
+      "ok": true
+    },
+    {
+      "journey": "J10 refund of an unapplied customer receipt",
+      "check": "bank ledger −10,000",
+      "ok": true,
+      "detail": {
+        "actual": -10000,
+        "expected": -10000
+      }
+    },
+    {
+      "journey": "J10 refund of an unapplied customer receipt",
+      "check": "receipt unapplied reduced to 20,000",
+      "ok": true,
+      "detail": {
+        "actual": 20000,
+        "expected": 20000
+      }
+    },
+    {
+      "journey": "J10 refund of an unapplied customer receipt",
+      "check": "aging unapplied 20,000",
+      "ok": true,
+      "detail": {
+        "actual": 20000,
+        "expected": 20000
+      }
+    },
+    {
+      "journey": "J10 refund of an unapplied customer receipt",
+      "check": "refunded receipt cannot be cancelled (RECEIPT_REFUNDED)",
+      "ok": true,
+      "detail": {
+        "status": 409,
+        "body": {
+          "code": "RECEIPT_REFUNDED",
+          "message": "رُدّ 10000.00 من سند القبض CR-2026-000106 للعميل — ألغِ سند الرد أولاً — 10000.00 of Customer Receipt CR-2026-000106 was paid back to the customer by an order advance refund: cancel that refund first, then cancel or reverse the receipt."
+        }
+      }
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "counter-accounts IN list is non-empty and excludes cash / bank / AR / AP",
+      "ok": true,
+      "detail": 20
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "counter-accounts OUT list excludes cash / bank / AR / AP",
+      "ok": true,
+      "detail": 8
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "VAT output (module-owned) is not in the IN list",
+      "ok": true
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "other receipt CONFIRMED with OR- number",
+      "ok": true,
+      "detail": "OR-2026-000009"
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "other receipt has no partner",
+      "ok": true
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "other receipt entry: JV-2026-000373 balanced Σdebit = Σcredit (7500.00)",
+      "ok": true,
+      "detail": {
+        "debit": 7500,
+        "credit": 7500,
+        "totalDebit": "7500",
+        "totalCredit": "7500"
+      }
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "other receipt: Dr bank 7,500",
+      "ok": true,
+      "detail": {
+        "actual": 7500,
+        "expected": 7500
+      }
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "other receipt: Cr counter 311 7,500",
+      "ok": true,
+      "detail": {
+        "actual": -7500,
+        "expected": -7500
+      }
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "other receipt lines: only bank + counter, no partner",
+      "ok": true
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "other payment CONFIRMED with OP- number",
+      "ok": true,
+      "detail": "OP-2026-000003"
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "other payment entry: JV-2026-000374 balanced Σdebit = Σcredit (2500.00)",
+      "ok": true,
+      "detail": {
+        "debit": 2500,
+        "credit": 2500,
+        "totalDebit": "2500",
+        "totalCredit": "2500"
+      }
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "other payment: Dr counter 311 2,500",
+      "ok": true,
+      "detail": {
+        "actual": 2500,
+        "expected": 2500
+      }
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "other payment: Cr bank 2,500",
+      "ok": true,
+      "detail": {
+        "actual": -2500,
+        "expected": -2500
+      }
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "other payment lines: no partner",
+      "ok": true
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "bank ledger +7,500 − 2,500",
+      "ok": true,
+      "detail": {
+        "actual": 5000,
+        "expected": 5000
+      }
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "VAT output counter-account refused COUNTER_ACCOUNT_NOT_ALLOWED",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "body": {
+          "code": "COUNTER_ACCOUNT_NOT_ALLOWED",
+          "message": "الحساب المقابل غير مسموح — \"221 ضريبة القيمة المضافة - مخرجات\" is owned by another module (mapped in Posting Settings, a payment method, a tax, a product category or a payroll component) — it moves only through that module.",
+          "fields": [
+            {
+              "field": "counterAccountId",
+              "constraints": ["module_owned"]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "AR control counter-account refused COUNTER_ACCOUNT_NOT_ALLOWED",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "body": {
+          "code": "COUNTER_ACCOUNT_NOT_ALLOWED",
+          "message": "الحساب المقابل غير مسموح — \"121 الذمم المدينة التجارية\" is a receivable / payable control account — settle customers and suppliers with a receipt, payment or refund.",
+          "fields": [
+            {
+              "field": "counterAccountId",
+              "constraints": ["receivable_payable_control"]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "cash ledger as counter-account refused COUNTER_ACCOUNT_NOT_ALLOWED",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "body": {
+          "code": "COUNTER_ACCOUNT_NOT_ALLOWED",
+          "message": "نوع الحساب المقابل غير مسموح في التحصيل — \"111 الصندوق\" is a ASSET account; an other receipt credits an equity, liability or revenue account (record an expense refund against the expense voucher instead).",
+          "fields": [
+            {
+              "field": "counterAccountId",
+              "constraints": ["account_type"]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "other receipt refuses allocations",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "code": "VALIDATION_ERROR"
+      }
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "other receipt cancel → CANCELLED",
+      "ok": true,
+      "detail": "CANCELLED"
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "other receipt entry reversed by the engine",
+      "ok": true,
+      "detail": "REVERSED"
+    },
+    {
+      "journey": "J11 other receipt / other payment",
+      "check": "other receipt reversal: JV-2026-000375 balanced Σdebit = Σcredit (7500.00)",
+      "ok": true,
+      "detail": {
+        "debit": 7500,
+        "credit": 7500,
+        "totalDebit": "7500",
+        "totalCredit": "7500"
+      }
+    },
+    {
+      "journey": "J12 internal transfer",
+      "check": "transfer CONFIRMED with TR- number",
+      "ok": true,
+      "detail": "TR-2026-000007"
+    },
+    {
+      "journey": "J12 internal transfer",
+      "check": "transfer entry: JV-2026-000376 balanced Σdebit = Σcredit (3000.00)",
+      "ok": true,
+      "detail": {
+        "debit": 3000,
+        "credit": 3000,
+        "totalDebit": "3000",
+        "totalCredit": "3000"
+      }
+    },
+    {
+      "journey": "J12 internal transfer",
+      "check": "transfer: Dr destination (cash) 3,000",
+      "ok": true,
+      "detail": {
+        "actual": 3000,
+        "expected": 3000
+      }
+    },
+    {
+      "journey": "J12 internal transfer",
+      "check": "transfer: Cr source (bank) 3,000",
+      "ok": true,
+      "detail": {
+        "actual": -3000,
+        "expected": -3000
+      }
+    },
+    {
+      "journey": "J12 internal transfer",
+      "check": "transfer: no income / expense / partner line",
+      "ok": true,
+      "detail": ["111:ASSET", "112:ASSET"]
+    },
+    {
+      "journey": "J12 internal transfer",
+      "check": "bank ledger −3,000",
+      "ok": true,
+      "detail": {
+        "actual": -3000,
+        "expected": -3000
+      }
+    },
+    {
+      "journey": "J12 internal transfer",
+      "check": "cash ledger +3,000",
+      "ok": true,
+      "detail": {
+        "actual": 3000,
+        "expected": 3000
+      }
+    },
+    {
+      "journey": "J12 internal transfer",
+      "check": "same account refused TRANSFER_SAME_ACCOUNT",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "body": {
+          "code": "TRANSFER_SAME_ACCOUNT",
+          "message": "التحويل يكون بين حسابين مختلفين — An internal transfer moves money between two different cash / bank accounts.",
+          "fields": [
+            {
+              "field": "targetReceivingAccountId",
+              "constraints": ["same_account"]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "journey": "J12 internal transfer",
+      "check": "cross-currency refused 422 TRANSFER_CROSS_CURRENCY",
+      "ok": true,
+      "detail": {
+        "status": 422,
+        "body": {
+          "code": "TRANSFER_CROSS_CURRENCY",
+          "message": "التحويل بين عملتين غير مدعوم كسند تحويل — سجّله كقيد يومية — البنك الرئيسي and R22J SAR bank are in different currencies: an exchange between currencies is not an internal transfer voucher; record it as a manual journal entry.",
+          "fields": [
+            {
+              "field": "targetReceivingAccountId",
+              "constraints": ["currency_mismatch"]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "receipt draft is DRAFT",
+      "ok": true,
+      "detail": "DRAFT"
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "draft receipt has no journal entry",
+      "ok": true
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "draft does not settle: settlement.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "draft does not settle: detail.paidTotal = 0",
+      "ok": true,
+      "detail": {
+        "actual": 0,
+        "expected": 0
+      }
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "draft does not settle: settlement.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "draft does not settle: detail.paymentStatus = UNPAID",
+      "ok": true,
+      "detail": {
+        "actual": "UNPAID",
+        "expected": "UNPAID"
+      }
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "confirm → CONFIRMED",
+      "ok": true,
+      "detail": "CONFIRMED"
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "one entry after confirm",
+      "ok": true
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "second confirm refused or idempotent",
+      "ok": true,
+      "detail": {
+        "status": 200
+      }
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "still exactly one entry after double confirm",
+      "ok": true
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "after confirm: settlement.paidTotal = 4000",
+      "ok": true,
+      "detail": {
+        "actual": 4000,
+        "expected": 4000
+      }
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "after confirm: detail.paidTotal = 4000",
+      "ok": true,
+      "detail": {
+        "actual": 4000,
+        "expected": 4000
+      }
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "after confirm: settlement.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "after confirm: detail.paymentStatus = PARTIALLY_PAID",
+      "ok": true,
+      "detail": {
+        "actual": "PARTIALLY_PAID",
+        "expected": "PARTIALLY_PAID"
+      }
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "other receipt draft has no entry",
+      "ok": true,
+      "detail": "DRAFT"
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "other receipt double confirm → one entry",
+      "ok": true,
+      "detail": {
+        "second": 200
+      }
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "createConfirmed retry (concurrent + later) returns the same voucher",
+      "ok": true,
+      "detail": ["CR-2026-000108", "CR-2026-000108", "CR-2026-000108"]
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "idempotent voucher has one entry",
+      "ok": true
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "after idempotent retries: settlement.paidTotal = 5000",
+      "ok": true,
+      "detail": {
+        "actual": 5000,
+        "expected": 5000
+      }
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "after idempotent retries: detail.paidTotal = 5000",
+      "ok": true,
+      "detail": {
+        "actual": 5000,
+        "expected": 5000
+      }
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "same key with a different body refused (409)",
+      "ok": true,
+      "detail": {
+        "status": 409,
+        "code": "IDEMPOTENCY_KEY_REUSED"
+      }
+    },
+    {
+      "journey": "J13 drafts, double confirm, idempotent retry",
+      "check": "transfer createConfirmed retry returns the same voucher",
+      "ok": true
+    },
+    {
+      "journey": "J14 future date and fee cap",
+      "check": "future receipt refused VOUCHER_DATE_IN_FUTURE",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "body": {
+          "code": "VOUCHER_DATE_IN_FUTURE",
+          "message": "تاريخ السند (2026-10-17) بعد اليوم (2026-10-14) — The voucher date 2026-10-17 is after today (2026-10-14); a receipt / payment is dated on the day the money moved.",
+          "fields": [
+            {
+              "field": "transactionDate",
+              "constraints": ["in_future"]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "journey": "J14 future date and fee cap",
+      "check": "future other receipt refused VOUCHER_DATE_IN_FUTURE",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "body": {
+          "code": "VOUCHER_DATE_IN_FUTURE",
+          "message": "تاريخ السند (2026-10-17) بعد اليوم (2026-10-14) — The voucher date 2026-10-17 is after today (2026-10-14); a receipt / payment is dated on the day the money moved.",
+          "fields": [
+            {
+              "field": "transactionDate",
+              "constraints": ["in_future"]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "journey": "J14 future date and fee cap",
+      "check": "future transfer refused VOUCHER_DATE_IN_FUTURE",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "body": {
+          "code": "VOUCHER_DATE_IN_FUTURE",
+          "message": "تاريخ السند (2026-10-17) بعد اليوم (2026-10-14) — The voucher date 2026-10-17 is after today (2026-10-14); a receipt / payment is dated on the day the money moved.",
+          "fields": [
+            {
+              "field": "transactionDate",
+              "constraints": ["in_future"]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "journey": "J14 future date and fee cap",
+      "check": "D1: entry dated on the voucher date (not today)",
+      "ok": true,
+      "detail": {
+        "entryDate": "2026-10-12T00:00:00.000Z",
+        "back": "2026-10-12"
+      }
+    },
+    {
+      "journey": "J14 future date and fee cap",
+      "check": "payment actual fee > amount refused FEE_EXCEEDS_AMOUNT",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "body": {
+          "code": "FEE_EXCEEDS_AMOUNT",
+          "message": "الرسوم (1061.00) لا يمكن أن تتجاوز المبلغ (1060.00) — The fee (1061.00) cannot exceed the amount it was deducted from (1060.00).",
+          "fields": [
+            {
+              "field": "feeAmount",
+              "constraints": ["fee_exceeds_amount"]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "journey": "J14 future date and fee cap",
+      "check": "refused fee left the payment unchanged",
+      "ok": true,
+      "detail": {
+        "before": null,
+        "after": null
+      }
+    },
+    {
+      "journey": "J15 permissions (D9: confirm = journal-entries.post)",
+      "check": "view+create user can create an other-receipt draft",
+      "ok": true,
+      "detail": {
+        "status": 201
+      }
+    },
+    {
+      "journey": "J15 permissions (D9: confirm = journal-entries.post)",
+      "check": "view+create user: confirm other receipt → 403",
+      "ok": true,
+      "detail": {
+        "status": 403,
+        "body": {
+          "code": "PERMISSION_ERROR",
+          "message": "Missing permission \"accounting.journal-entries.post\"."
+        }
+      }
+    },
+    {
+      "journey": "J15 permissions (D9: confirm = journal-entries.post)",
+      "check": "no entry posted by the refused confirm",
+      "ok": true
+    },
+    {
+      "journey": "J15 permissions (D9: confirm = journal-entries.post)",
+      "check": "view+create user: create+confirm → 403",
+      "ok": true,
+      "detail": {
+        "status": 403,
+        "code": "PERMISSION_ERROR"
+      }
+    },
+    {
+      "journey": "J15 permissions (D9: confirm = journal-entries.post)",
+      "check": "view+create user: transfer create+confirm → 403",
+      "ok": true,
+      "detail": {
+        "status": 403,
+        "code": "PERMISSION_ERROR"
+      }
+    },
+    {
+      "journey": "J15 permissions (D9: confirm = journal-entries.post)",
+      "check": "view+create user: customer receipts list → 403 (no receipts grant)",
+      "ok": true,
+      "detail": {
+        "status": 403
+      }
+    },
+    {
+      "journey": "J16 voucher integrity after all journeys",
+      "check": "voucher-integrity: 0 errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "journey": "J16 voucher integrity after all journeys",
+      "check": "only REVIEW items from this run are the two intended overpayment advances (J5)",
+      "ok": true,
+      "detail": ["PARTIAL_WITH_UNAPPLIED:CR-2026-000100", "PARTIAL_WITH_UNAPPLIED:SP-2026-000028"]
+    },
+    {
+      "journey": "J16 voucher integrity after all journeys",
+      "check": "all 59 entries created by this run are balanced",
+      "ok": true,
+      "detail": []
+    }
+  ]
+}
