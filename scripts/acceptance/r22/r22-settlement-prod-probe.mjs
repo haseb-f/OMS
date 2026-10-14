@@ -119,18 +119,22 @@ for (const v of vouchers) {
     const cr = n(e.lines.reduce((s, l) => s + l.credit, 0));
     if (Math.abs(dr - cr) > 0.005) flag("UNBALANCED_ENTRY", { voucher: v.number, entry: e.entryNumber, dr, cr });
   }
-  if (v.status === "CONFIRMED" && v.transactionDate && v.confirmedAt && v.transactionDate !== v.confirmedAt) {
-    flag("ENTRY_DATED_AT_CONFIRM_NOT_VOUCHER_DATE", {
+  const original = v.entries.find((e) => e.status === "POSTED" || e.status === "REVERSED");
+  if (v.status === "CONFIRMED" && original && v.transactionDate && original.entryDate !== v.transactionDate) {
+    flag("ENTRY_DATE_NE_VOUCHER_DATE", {
       voucher: v.number,
       voucherDate: v.transactionDate,
-      entryDates: v.entries.map((e) => e.entryDate),
+      entryDate: original.entryDate,
     });
   }
   if (v.status === "CONFIRMED" && v.unapplied > 0.005 && v.type !== "EXPENSE_PAYMENT" && v.type !== "CUSTOMER_REFUND")
     flag("UNAPPLIED_MONEY", { voucher: v.number, partner: v.partner, unapplied: v.unapplied, currency: v.currency });
   if (v.status === "CANCELLED" && v.allocations.length > 0)
     flag("ALLOCATIONS_ON_CANCELLED_VOUCHER", { voucher: v.number });
-  const fx = v.entries.flatMap((e) => e.lines.filter((l) => /FX|فروق|صرف/i.test(l.account)));
+  // Realized FX lines: neither the cash / bank line nor the partner (AR / AP) line.
+  const fx = v.entries.flatMap((e) =>
+    e.lines.filter((l) => !l.partner && /FX|فروق|فرق/i.test(l.account) && !/مصرف|بنك|صندوق|خزين/.test(l.account)),
+  );
   if (fx.length) flag("FX_LINES", { voucher: v.number, currency: v.currency, fx });
 }
 
@@ -167,7 +171,12 @@ for (const p of partners.values()) {
     `/financial-transactions/${isAR ? "receipts" : "payments"}/position?partnerId=${p.partnerId}`,
   );
   const aging = (isAR ? arAging : apAging)?.partners?.find((r) => r.partnerId === p.partnerId) ?? null;
-  const currencies = [...new Set(invoices.map((i) => i.currency?.code ?? functional))];
+  const partnerVouchers = vouchers.filter(
+    (v) => v.partnerId === p.partnerId && v.status === "CONFIRMED" && (isAR ? v.type !== "SUPPLIER_PAYMENT" : v.type === "SUPPLIER_PAYMENT"),
+  );
+  const currencies = [
+    ...new Set([...invoices.map((i) => i.currency?.code ?? functional), ...partnerVouchers.map((v) => v.currency)]),
+  ];
   const posted = invoices.filter((i) => ["CONFIRMED", "CLOSED"].includes(i.status));
   const openRemaining = n(posted.reduce((s, i) => s + Number(i.remainingBalance ?? 0), 0));
   const postedReturns = returns.filter((r) => ["CONFIRMED", "CLOSED"].includes(r.status));
@@ -219,6 +228,26 @@ for (const p of partners.values()) {
   partnerRows.push(row);
 }
 
+// Aging totals per currency (the API adds them into one figure).
+const agingByCurrency = {};
+for (const [side, aging, docs, type] of [
+  ["AR", arAging, sales, "CUSTOMER_RECEIPT"],
+  ["AP", apAging, purchases, "SUPPLIER_PAYMENT"],
+]) {
+  const byNumber = new Map(docs.map((d) => [d.invoiceNumber, d.currency?.code ?? functional]));
+  const per = {};
+  const bump = (cur, key, value) => {
+    per[cur] ??= { open: 0, unapplied: 0 };
+    per[cur][key] = n(per[cur][key] + value);
+  };
+  for (const row of aging?.invoices ?? []) bump(byNumber.get(row.invoiceNumber) ?? "?", "open", Number(row.remaining));
+  for (const v of vouchers.filter((x) => x.type === type && x.status === "CONFIRMED" && x.unapplied > 0.005))
+    bump(v.currency, "unapplied", v.unapplied);
+  agingByCurrency[side] = { apiTotals: aging?.totals ?? null, perCurrency: per };
+  if (Object.keys(per).length > 1)
+    flag("AGING_TOTALS_ADD_CURRENCIES", { side, apiTotal: aging?.totals?.total, apiUnapplied: aging?.totals?.unapplied, perCurrency: per });
+}
+
 const integrity = await safe("/accounting/reports/voucher-integrity");
 const cash = await safe("/accounting/reports/cash-availability");
 await session.logout();
@@ -235,6 +264,7 @@ const report = {
     purchaseReturns: purchaseReturns.length,
   },
   agingTotals: { AR: arAging?.totals ?? null, AP: apAging?.totals ?? null },
+  agingByCurrency,
   findingsByKind: findings.reduce((m, f) => ({ ...m, [f.kind]: (m[f.kind] ?? 0) + 1 }), {}),
   findings,
   partners: partnerRows,

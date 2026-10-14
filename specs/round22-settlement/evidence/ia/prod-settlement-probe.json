@@ -1,6 +1,6 @@
 {
   "api": "https://oms.haseb.org/api",
-  "at": "2026-10-14T07:36:39.304Z",
+  "at": "2026-10-14T09:08:16.810Z",
   "functional": "EGP",
   "counts": {
     "vouchers": {
@@ -32,11 +32,50 @@
       "net": 448000
     }
   },
+  "agingByCurrency": {
+    "AR": {
+      "apiTotals": {
+        "current": 435000,
+        "days31to60": 0,
+        "days61to90": 0,
+        "over90": 0,
+        "total": 435000,
+        "unapplied": 87650,
+        "net": 347350
+      },
+      "perCurrency": {
+        "EGP": {
+          "open": 435000,
+          "unapplied": 86500
+        },
+        "SAR": {
+          "open": 0,
+          "unapplied": 1150
+        }
+      }
+    },
+    "AP": {
+      "apiTotals": {
+        "current": 448000,
+        "days31to60": 0,
+        "days61to90": 0,
+        "over90": 0,
+        "total": 448000,
+        "unapplied": 0,
+        "net": 448000
+      },
+      "perCurrency": {
+        "EGP": {
+          "open": 448000,
+          "unapplied": 0
+        }
+      }
+    }
+  },
   "findingsByKind": {
     "UNAPPLIED_MONEY": 8,
-    "FX_LINES": 6,
-    "ENTRY_DATED_AT_CONFIRM_NOT_VOUCHER_DATE": 6,
-    "LEDGER_NE_AGING_NET": 3
+    "ENTRY_DATE_NE_VOUCHER_DATE": 1,
+    "AGING_TOTALS_ADD_CURRENCIES": 1
   },
   "findings": [
     {
@@ -54,29 +93,10 @@
       "currency": "EGP"
     },
     {
-      "kind": "FX_LINES",
-      "voucher": "CR-2026-000100",
-      "currency": "SAR",
-      "fx": [
-        {
-          "account": "11104 مصرف الراجحي",
-          "partner": null,
-          "debit": 8440.95,
-          "credit": 0
-        }
-      ]
-    },
-    {
-      "kind": "ENTRY_DATED_AT_CONFIRM_NOT_VOUCHER_DATE",
+      "kind": "ENTRY_DATE_NE_VOUCHER_DATE",
       "voucher": "CR-2026-000097",
       "voucherDate": "2026-10-11",
-      "entryDates": ["2026-10-12"]
-    },
-    {
-      "kind": "ENTRY_DATED_AT_CONFIRM_NOT_VOUCHER_DATE",
-      "voucher": "CR-2026-000094",
-      "voucherDate": "2026-10-07",
-      "entryDates": ["2026-10-07"]
+      "entryDate": "2026-10-12"
     },
     {
       "kind": "UNAPPLIED_MONEY",
@@ -86,36 +106,11 @@
       "currency": "EGP"
     },
     {
-      "kind": "ENTRY_DATED_AT_CONFIRM_NOT_VOUCHER_DATE",
-      "voucher": "CR-2026-000093",
-      "voucherDate": "2026-10-07",
-      "entryDates": ["2026-10-07"]
-    },
-    {
       "kind": "UNAPPLIED_MONEY",
       "voucher": "CR-2026-000093",
       "partner": "تسنيم سعيد الاحمري",
       "unapplied": 300,
       "currency": "SAR"
-    },
-    {
-      "kind": "FX_LINES",
-      "voucher": "CR-2026-000093",
-      "currency": "SAR",
-      "fx": [
-        {
-          "account": "11104 مصرف الراجحي",
-          "partner": null,
-          "debit": 4186.76,
-          "credit": 0
-        }
-      ]
-    },
-    {
-      "kind": "ENTRY_DATED_AT_CONFIRM_NOT_VOUCHER_DATE",
-      "voucher": "CR-2026-000092",
-      "voucherDate": "2026-10-07",
-      "entryDates": ["2026-10-07"]
     },
     {
       "kind": "UNAPPLIED_MONEY",
@@ -125,25 +120,6 @@
       "currency": "SAR"
     },
     {
-      "kind": "FX_LINES",
-      "voucher": "CR-2026-000092",
-      "currency": "SAR",
-      "fx": [
-        {
-          "account": "11104 مصرف الراجحي",
-          "partner": null,
-          "debit": 3488.96,
-          "credit": 0
-        }
-      ]
-    },
-    {
-      "kind": "ENTRY_DATED_AT_CONFIRM_NOT_VOUCHER_DATE",
-      "voucher": "CR-2026-000091",
-      "voucherDate": "2026-10-07",
-      "entryDates": ["2026-10-07"]
-    },
-    {
       "kind": "UNAPPLIED_MONEY",
       "voucher": "CR-2026-000091",
       "partner": "ايه طارق عبدالجليل",
@@ -151,43 +127,11 @@
       "currency": "EGP"
     },
     {
-      "kind": "ENTRY_DATED_AT_CONFIRM_NOT_VOUCHER_DATE",
-      "voucher": "CR-2026-000090",
-      "voucherDate": "2026-10-10",
-      "entryDates": ["2026-10-10"]
-    },
-    {
-      "kind": "FX_LINES",
-      "voucher": "CR-2026-000090",
-      "currency": "SAR",
-      "fx": [
-        {
-          "account": "11104 مصرف الراجحي",
-          "partner": null,
-          "debit": 16747.02,
-          "credit": 0
-        }
-      ]
-    },
-    {
       "kind": "UNAPPLIED_MONEY",
       "voucher": "CR-2026-000089",
       "partner": "عبدالرحمن عبدالله",
       "unapplied": 300,
       "currency": "SAR"
-    },
-    {
-      "kind": "FX_LINES",
-      "voucher": "CR-2026-000089",
-      "currency": "SAR",
-      "fx": [
-        {
-          "account": "11104 مصرف الراجحي",
-          "partner": null,
-          "debit": 4202.23,
-          "credit": 0
-        }
-      ]
     },
     {
       "kind": "UNAPPLIED_MONEY",
@@ -197,38 +141,20 @@
       "currency": "SAR"
     },
     {
-      "kind": "FX_LINES",
-      "voucher": "CR-2026-000087",
-      "currency": "SAR",
-      "fx": [
-        {
-          "account": "11104 مصرف الراجحي",
-          "partner": null,
-          "debit": 4181.63,
-          "credit": 0
+      "kind": "AGING_TOTALS_ADD_CURRENCIES",
+      "side": "AR",
+      "apiTotal": 435000,
+      "apiUnapplied": 87650,
+      "perCurrency": {
+        "EGP": {
+          "open": 435000,
+          "unapplied": 86500
+        },
+        "SAR": {
+          "open": 0,
+          "unapplied": 1150
         }
-      ]
-    },
-    {
-      "kind": "LEDGER_NE_AGING_NET",
-      "partner": "تسنيم سعيد الاحمري",
-      "side": "AR",
-      "ledger": -7675.72,
-      "agingNet": -550
-    },
-    {
-      "kind": "LEDGER_NE_AGING_NET",
-      "partner": "عبدالرحمن عبدالله",
-      "side": "AR",
-      "ledger": -4202.23,
-      "agingNet": -300
-    },
-    {
-      "kind": "LEDGER_NE_AGING_NET",
-      "partner": "شام محمود محمد الميرغنى",
-      "side": "AR",
-      "ledger": -4181.63,
-      "agingNet": -300
+      }
     }
   ],
   "partners": [
@@ -541,7 +467,7 @@
     {
       "side": "AR",
       "partner": "ايه طارق عبدالجليل",
-      "currencies": [],
+      "currencies": ["EGP"],
       "invoices": [],
       "creditNotes": [],
       "openRemaining": 0,
@@ -568,7 +494,7 @@
     {
       "side": "AR",
       "partner": "تسنيم سعيد الاحمري",
-      "currencies": [],
+      "currencies": ["SAR"],
       "invoices": [],
       "creditNotes": [],
       "openRemaining": 0,
@@ -589,13 +515,12 @@
           "unapplied": 550
         }
       ],
-      "statementMovements": 2,
-      "gapLedgerVsAgingNet": -7125.72
+      "statementMovements": 2
     },
     {
       "side": "AR",
       "partner": "عبدالرحمن عبدالله",
-      "currencies": [],
+      "currencies": ["SAR"],
       "invoices": [],
       "creditNotes": [],
       "openRemaining": 0,
@@ -616,13 +541,12 @@
           "unapplied": 300
         }
       ],
-      "statementMovements": 1,
-      "gapLedgerVsAgingNet": -3902.23
+      "statementMovements": 1
     },
     {
       "side": "AR",
       "partner": "شام محمود محمد الميرغنى",
-      "currencies": [],
+      "currencies": ["SAR"],
       "invoices": [],
       "creditNotes": [],
       "openRemaining": 0,
@@ -643,8 +567,7 @@
           "unapplied": 300
         }
       ],
-      "statementMovements": 1,
-      "gapLedgerVsAgingNet": -3881.63
+      "statementMovements": 1
     }
   ],
   "vouchers": [
@@ -1492,7 +1415,7 @@
     }
   ],
   "integrity": {
-    "checkedAt": "2026-10-14T07:36:38.430Z",
+    "checkedAt": "2026-10-14T09:08:16.612Z",
     "checked": {
       "vouchers": 18,
       "entries": 18,
