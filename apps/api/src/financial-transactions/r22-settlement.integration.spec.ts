@@ -664,6 +664,46 @@ describeDb('R22 I-A — settlement lifecycle (local DB)', () => {
     );
   });
 
+  it('DEFECT R22-A3 — aging as of a past date counts an allocation from the day it was made, not from its voucher date', async () => {
+    const partnerId = await customer();
+    const day = 86_400_000;
+    const invoice = await postedSalesInvoice(partnerId, 1_000);
+    await prisma.salesInvoice.update({
+      where: { id: invoice.id },
+      data: { confirmedAt: new Date(Date.now() - 10 * day) },
+    });
+    // Advance received 5 days ago, applied to the invoice only today.
+    const advance = await transactions.createConfirmed(
+      'CUSTOMER_RECEIPT',
+      {
+        partnerId,
+        receivingAccountId,
+        amount: 1_000,
+        transactionDate: new Date(Date.now() - 5 * day).toISOString(),
+      },
+      userId,
+    );
+    await transactions.allocate(
+      advance.id,
+      { invoiceId: invoice.id, allocatedAmount: 1_000 },
+      userId,
+    );
+    const asOf = new Date(Date.now() - 3 * day).toISOString().slice(0, 10);
+    const report = await reports.arAging({ partnerId, dateTo: asOf });
+    // Three days ago the invoice was still open and the advance unapplied;
+    // today the past aging already reads it settled (nothing open, nothing unapplied).
+    expect(
+      report.invoices.find((row) => row.invoiceId === invoice.id),
+    ).toMatchObject({
+      remaining: 1_000,
+    });
+    expect(report.partners[0]).toMatchObject({
+      total: 1_000,
+      unapplied: 1_000,
+      net: 0,
+    });
+  });
+
   it('DEFECT R22-A2 — a posted invoice with an open balance cannot be archived out of aging and open invoices (sales + purchase)', async () => {
     const customerId = await customer();
     const sales = await postedSalesInvoice(customerId, 70_000);
