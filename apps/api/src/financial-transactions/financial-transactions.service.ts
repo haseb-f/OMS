@@ -996,12 +996,23 @@ export class FinancialTransactionsService {
       );
       // R15 (review H1) — the advance this refund pays back leaves the
       // order's receipts: never allocatable to an invoice again.
+      // R22 review R1 — dated on the refund's voucher (entry) date.
       for (const storeOrderId of this.advanceOrders(existing.allocations)) {
-        await syncAdvanceRefundConsumption(tx, storeOrderId, userId);
+        await syncAdvanceRefundConsumption(
+          tx,
+          storeOrderId,
+          userId,
+          existing.transactionDate,
+        );
       }
       // R22-T — the refunded part of a receipt leaves its unapplied amount.
       for (const receiptId of refundedReceipts(existing.allocations)) {
-        await syncReceiptRefundConsumption(tx, receiptId, userId);
+        await syncReceiptRefundConsumption(
+          tx,
+          receiptId,
+          userId,
+          existing.transactionDate,
+        );
       }
       await this.activityService.log(
         id,

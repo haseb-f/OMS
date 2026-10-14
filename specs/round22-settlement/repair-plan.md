@@ -75,3 +75,13 @@ financial-transactions/counter-accounts?direction=IN|OUT` = the allow-list. Cust
   status columns badge-only), settlement history + credit-note line on invoice details; numeric RTL alignment fix;
   data-changed signal; atomic reallocation call. Makes I-B's failing tests + measurement pass.
 - Then: merge → independent accounting review → integrated gates → journeys → release → live checks → handoff.
+
+## Re-review follow-ups (APPROVED WITH FINDINGS → fixed with the reviewer's recommendation; owner may override)
+
+- D9 (T2) Other receipt / payment / transfer use the manual journal entry's rights action for action: create =
+  `.create`, edit = `.edit`, Confirm = `.post`, Cancel = `.reverse`, Create + Confirm = `.create` AND `.post`.
+- D10 (T1) The counter-account list also excludes every account mapped in Posting Settings (except the generic
+  other income / other expense buckets), payment-method clearing, tax, product-category and payroll-component
+  accounts (`MODULE_OWNED`).
+- R1 A refund's consumption of a receipt / store-order advance is dated on the refund's voucher date at Confirm (the
+  cancel day on release), so as-of aging matches the ledger.

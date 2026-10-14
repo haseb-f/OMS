@@ -22,6 +22,10 @@ type Reader = Pick<
   | 'customerGroup'
   | 'supplierProfile'
   | 'supplierGroup'
+  | 'paymentMethod'
+  | 'tax'
+  | 'productCategory'
+  | 'payrollComponent'
 >;
 
 /** The voucher fields the D4 rules read (stored row or merged draft edit). */

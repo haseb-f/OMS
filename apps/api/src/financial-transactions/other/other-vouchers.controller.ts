@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   Param,
@@ -21,6 +22,7 @@ import {
   CurrentCompanyContext,
   type CompanyContext,
 } from '../../common/decorators/current-company-context.decorator';
+import { PermissionsResolverService } from '../../permissions/permissions-resolver.service';
 import { OtherVouchersService } from './other-vouchers.service';
 import type { CounterVoucherType } from './other-voucher-types';
 import {
@@ -33,14 +35,28 @@ import {
 } from './dto/other-voucher.dto';
 
 /**
- * R22 (decision D4) — authorisation: the manual journal-entry permissions.
- * Whoever may create a manual journal entry can already post the same
- * Dr / Cr by hand, so `accounting.journal-entries.create` creates, edits,
- * confirms and cancels these vouchers, `accounting.journal-entries.view`
- * lists / reads them and `accounting.journal-entries.archive` deletes a
- * draft / archives a cancelled one. No new permission, no new grant.
+ * R22 (decision D4, review T2) — authorisation: the rights of the manual
+ * journal entry these vouchers replace, action for action (separation of
+ * duties): `accounting.journal-entries.create` creates a draft, `.edit`
+ * edits it, `.post` confirms (posts) it, `.reverse` cancels (reverses) it,
+ * `.view` lists / reads, `.archive` deletes a draft / archives a cancelled
+ * one. Create + Confirm in one step needs `.create` AND `.post`. No new
+ * permission, no new grant.
  */
 const JOURNAL_ENTRIES = 'journal-entries';
+const JOURNAL_ENTRIES_CREATE = 'accounting.journal-entries.create';
+
+/** Create + Confirm in one step: the guard checks `.post`; this adds `.create`. */
+async function assertMayCreate(
+  permissions: PermissionsResolverService,
+  userId: string,
+) {
+  if (!(await permissions.hasPermission(userId, JOURNAL_ENTRIES_CREATE))) {
+    throw new ForbiddenException(
+      `Missing permission "${JOURNAL_ENTRIES_CREATE}".`,
+    );
+  }
+}
 
 /** `GET financial-transactions/counter-accounts?direction=IN|OUT` — the counter-account allow-list. */
 @Controller('financial-transactions/counter-accounts')
@@ -63,7 +79,10 @@ export class CounterAccountsController {
 abstract class CounterVoucherRoutes {
   protected abstract readonly type: CounterVoucherType;
 
-  constructor(protected readonly vouchers: OtherVouchersService) {}
+  constructor(
+    protected readonly vouchers: OtherVouchersService,
+    protected readonly permissions: PermissionsResolverService,
+  ) {}
 
   @Post()
   create(
@@ -76,11 +95,13 @@ abstract class CounterVoucherRoutes {
 
   /** Create + Confirm + Post in one transaction, idempotent by key. */
   @Post('confirmed')
-  createConfirmed(
+  @PermissionAction('post')
+  async createConfirmed(
     @Body() dto: CreateCounterVoucherDto,
     @CurrentUser() user: JwtPayload,
     @CurrentCompanyContext() context: CompanyContext,
   ) {
+    await assertMayCreate(this.permissions, user.sub);
     return this.vouchers.createConfirmed(this.type, dto, user.sub, context);
   }
 
@@ -100,7 +121,7 @@ abstract class CounterVoucherRoutes {
   }
 
   @Patch(':id')
-  @PermissionAction('create')
+  @PermissionAction('edit')
   update(
     @Param('id') id: string,
     @Body() dto: UpdateCounterVoucherDto,
@@ -117,14 +138,14 @@ abstract class CounterVoucherRoutes {
 
   @Post(':id/confirm')
   @HttpCode(200)
-  @PermissionAction('create')
+  @PermissionAction('post')
   confirm(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.vouchers.confirm(this.type, id, user.sub);
   }
 
   @Post(':id/cancel')
   @HttpCode(200)
-  @PermissionAction('create')
+  @PermissionAction('reverse')
   cancel(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.vouchers.cancel(this.type, id, user.sub);
   }
@@ -145,8 +166,11 @@ export class OtherReceiptsController extends CounterVoucherRoutes {
   protected readonly type = FinancialTransactionType.OTHER_RECEIPT;
 
   // Explicit so Nest's DI reads this class's own constructor metadata.
-  constructor(vouchers: OtherVouchersService) {
-    super(vouchers);
+  constructor(
+    vouchers: OtherVouchersService,
+    permissions: PermissionsResolverService,
+  ) {
+    super(vouchers, permissions);
   }
 }
 
@@ -158,8 +182,11 @@ export class OtherPaymentsController extends CounterVoucherRoutes {
   protected readonly type = FinancialTransactionType.OTHER_PAYMENT;
 
   // Explicit so Nest's DI reads this class's own constructor metadata.
-  constructor(vouchers: OtherVouchersService) {
-    super(vouchers);
+  constructor(
+    vouchers: OtherVouchersService,
+    permissions: PermissionsResolverService,
+  ) {
+    super(vouchers, permissions);
   }
 }
 
@@ -170,7 +197,10 @@ export class OtherPaymentsController extends CounterVoucherRoutes {
 export class TransfersController {
   private readonly type = FinancialTransactionType.INTERNAL_TRANSFER;
 
-  constructor(private readonly vouchers: OtherVouchersService) {}
+  constructor(
+    private readonly vouchers: OtherVouchersService,
+    private readonly permissions: PermissionsResolverService,
+  ) {}
 
   @Post()
   create(
@@ -182,11 +212,13 @@ export class TransfersController {
   }
 
   @Post('confirmed')
-  createConfirmed(
+  @PermissionAction('post')
+  async createConfirmed(
     @Body() dto: CreateTransferDto,
     @CurrentUser() user: JwtPayload,
     @CurrentCompanyContext() context: CompanyContext,
   ) {
+    await assertMayCreate(this.permissions, user.sub);
     return this.vouchers.createConfirmed(this.type, dto, user.sub, context);
   }
 
@@ -206,7 +238,7 @@ export class TransfersController {
   }
 
   @Patch(':id')
-  @PermissionAction('create')
+  @PermissionAction('edit')
   update(
     @Param('id') id: string,
     @Body() dto: UpdateTransferDto,
@@ -223,14 +255,14 @@ export class TransfersController {
 
   @Post(':id/confirm')
   @HttpCode(200)
-  @PermissionAction('create')
+  @PermissionAction('post')
   confirm(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.vouchers.confirm(this.type, id, user.sub);
   }
 
   @Post(':id/cancel')
   @HttpCode(200)
-  @PermissionAction('create')
+  @PermissionAction('reverse')
   cancel(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.vouchers.cancel(this.type, id, user.sub);
   }

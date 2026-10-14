@@ -192,6 +192,11 @@ export async function syncReceiptRefundConsumption(
   tx: Client,
   receiptId: string,
   userId?: string,
+  /**
+   * R22 review R1 — when the consumption change takes effect: the refund's
+   * voucher (entry) date at Confirm; omitted = now (cancel day / release).
+   */
+  effectiveDate?: Date,
 ): Promise<void> {
   await tx.$queryRaw`
     SELECT id FROM financial_transactions WHERE id = ${receiptId}::uuid FOR UPDATE
@@ -214,7 +219,7 @@ export async function syncReceiptRefundConsumption(
     }),
   ]);
   const total = round2(Number(refunded._sum.allocatedAmount ?? 0));
-  const now = new Date();
+  const now = effectiveDate ?? new Date();
   // R22 F5 — every change of the consumption row is in the allocation history.
   const event = (
     line: { id: string },

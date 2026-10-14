@@ -95,6 +95,11 @@ export async function syncAdvanceRefundConsumption(
   tx: Client,
   storeOrderId: string,
   userId?: string,
+  /**
+   * R22 review R1 — when the consumption change takes effect: the refund's
+   * voucher (entry) date at Confirm; omitted = now (cancel day / release).
+   */
+  effectiveDate?: Date,
 ): Promise<void> {
   const [refunded, rows] = await Promise.all([
     tx.financialTransactionAllocation.aggregate({
@@ -122,7 +127,7 @@ export async function syncAdvanceRefundConsumption(
       rows.reduce((sum, row) => sum + Number(row.allocatedAmount), 0),
   );
   if (Math.abs(missing) <= EPSILON) return;
-  const now = new Date();
+  const now = effectiveDate ?? new Date();
 
   if (missing < 0) {
     for (const row of rows) {
