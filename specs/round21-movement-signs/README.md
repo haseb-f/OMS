@@ -34,3 +34,10 @@ preview (type-only tone). Presentation only — no balance or historical record 
       reservations, 44 releases): `r21-movement-signs-shots.mjs` 15 / 15 (ar light 1440, en dark 1440, ar 375);
       transfer filter red / green per warehouse; sales returns green.
 - [x] Web typecheck, lint 0 errors, vitest 186 files / 1337, next build.
+
+## Release
+
+`5d9167a7` → Production deployment 7055871711 **success** (web only, no migration). Live check
+(`r21-movement-signs-shots.mjs` as the QA admin, read-only): 15 / 15 — receipts green +, issues red −,
+reservations blue «المتاح −100», releases blue «المتاح +100», transfers red / green per warehouse, no overflow
+(ar 1440, en dark 1440, ar 375). Evidence `evidence/{after,live}/`.
