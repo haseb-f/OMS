@@ -10,6 +10,7 @@ import { PurchaseReturnPostingProvider } from './purchase-return-posting.provide
 import { FinancialTransactionPostingProvider } from './financial-transaction-posting.provider';
 import { InventoryAdjustmentPostingProvider } from './inventory-adjustment-posting.provider';
 import { InternalTransferPostingProvider } from './internal-transfer-posting.provider';
+import { OtherVoucherPostingProvider } from './other-voucher-posting.provider';
 import { PayrollRunPostingProvider } from './payroll-run-posting.provider';
 import { PayrollPaymentPostingProvider } from './payroll-payment-posting.provider';
 import { InvestorPostingProvider } from './investor-posting.provider';
@@ -53,6 +54,8 @@ import { AllocationFxPostingProvider } from './allocation-fx-posting.provider';
     FinancialTransactionPostingProvider,
     InventoryAdjustmentPostingProvider,
     InternalTransferPostingProvider,
+    // R22 (D4) — other receipt / other payment / internal transfer vouchers.
+    OtherVoucherPostingProvider,
     PayrollRunPostingProvider,
     PayrollPaymentPostingProvider,
     InvestorPostingProvider,

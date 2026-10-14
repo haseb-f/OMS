@@ -6,6 +6,7 @@ import type {
   PostingProvider,
   PostingResult,
 } from '../posting-engine/posting-provider.interface';
+import { internalTransferLines } from './internal-transfer-rule';
 
 /**
  * Internal Transfer Posting Provider (Reconciliation Part H) — a movement
@@ -70,18 +71,12 @@ export class InternalTransferPostingProvider
     if (amount === 0) return null;
 
     return {
-      lines: [
-        {
-          accountId: incoming.cashSource.chartOfAccountId,
-          debit: amount,
-          description: `Internal Transfer — ${outgoing.transactionId ?? outgoing.reference ?? outgoing.id}`,
-        },
-        {
-          accountId: outgoing.cashSource.chartOfAccountId,
-          credit: amount,
-          description: `Internal Transfer — ${outgoing.transactionId ?? outgoing.reference ?? outgoing.id}`,
-        },
-      ],
+      lines: internalTransferLines({
+        destinationAccountId: incoming.cashSource.chartOfAccountId,
+        sourceAccountId: outgoing.cashSource.chartOfAccountId,
+        amount,
+        description: `Internal Transfer — ${outgoing.transactionId ?? outgoing.reference ?? outgoing.id}`,
+      }),
       description: 'Internal Transfer between Financial Accounts',
       referenceNumber:
         outgoing.transactionId ?? outgoing.reference ?? undefined,

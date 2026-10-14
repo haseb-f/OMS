@@ -42,6 +42,30 @@ export const FINANCIAL_TRANSACTION_TYPE_CATALOG = [
     // sheet row), so it is not offered in the List Sheet import column.
     importable: false,
   },
+  // R22 (D4) — money in / out against an authorised counter-account, and a
+  // move between two of the company's own cash / bank accounts. Entered on
+  // their own vouchers (journal-entry permissions), never imported.
+  {
+    code: 'OTHER_RECEIPT',
+    label: 'تحصيل آخر',
+    direction: 'IN',
+    isSystem: true,
+    importable: false,
+  },
+  {
+    code: 'OTHER_PAYMENT',
+    label: 'صرف آخر',
+    direction: 'OUT',
+    isSystem: true,
+    importable: false,
+  },
+  {
+    code: 'INTERNAL_TRANSFER',
+    label: 'تحويل بين الحسابات',
+    direction: 'TRANSFER',
+    isSystem: true,
+    importable: false,
+  },
 ] as const;
 
 export type FinancialTransactionTypeCode =

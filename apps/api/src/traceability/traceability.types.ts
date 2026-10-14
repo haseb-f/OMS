@@ -18,6 +18,10 @@ export type TraceKind =
   | 'PURCHASE_RETURN'
   | 'SUPPLIER_PAYMENT'
   | 'EXPENSE_PAYMENT'
+  // R22-T (D4) — linked records only (journal-entry permissions).
+  | 'OTHER_RECEIPT'
+  | 'OTHER_PAYMENT'
+  | 'INTERNAL_TRANSFER'
   | 'LANDED_COST'
   | 'STORE_ORDER'
   | 'PAYMENT'
