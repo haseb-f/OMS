@@ -1,6 +1,6 @@
 # R22 stream U — web (progress)
 
-Branch `feat/r22-u` from `feat/r22` (`51e047c5`), `feat/r22` merged in after stream P (`fdcea86d`). apps/web only (+ the
+Branch `feat/r22-u` from `feat/r22` (`51e047c5`); `feat/r22` merged in after stream P (`fdcea86d`), stream T (`6eae7524`) and the review fixes (`4b51d3c7`). apps/web only (+ the
 I-B measurement script and a new evidence script). Local preview: API :4935 / web :4931, DB `oms_r22_ui` (P migration
 `20261014100000_r22_p_allocation_effective_date` applied), admin@oms-demo.local. Never `oms` / Production.
 
@@ -33,7 +33,7 @@ I-B measurement script and a new evidence script). Local preview: API :4935 / we
 | Internal transfer         | INTERNAL_TRANSFER — `transfers`                                    | from account (`receivingAccountId`), to account (`targetReceivingAccountId`, ≠ from), amount, currency, date | none; no party / method                                                         |
 | Direct expense (OUT)      | opens `/finance/expenses/new` (existing editor)                    | —                                                                                                            | —                                                                               |
 
-Other / transfer are offered only with `journal-entries.create` (D4: the manual-entry right, no new grant). A saved voucher
+Other / transfer are offered only with `accounting.journal-entries.create`; per action (review T2, API 4b51d3c7): edit a draft = `.edit`, Confirm = `.post` (a new voucher confirmed in one step needs `.create` AND `.post`), Cancel = `.reverse`, delete = `.archive`; Save needs create (new) / edit (draft). A saved voucher
 keeps its type (settle ↔ advance only on a draft; locked once confirmed). Routes: `/sales|purchasing/payments/new?purpose=other|transfer`, saved `…/:id?purpose=…` (the query picks the service).
 
 ## Contract usage
@@ -43,29 +43,40 @@ keeps its type (settle ↔ advance only on a draft; locked once confirmed). Rout
   (voucher card + history), contract 5 (paid / remaining NOT server-sortable → `enableSorting: false`; the I-B column spec
   assertion updated accordingly — the I-B measure's two `sortBy=allocatedTotal|remainingBalance` API probes therefore stay
   400 by design), contract 6 `updatedAt` (RelatedRecordsPanel `refreshKey`), aging `totalsByCurrency`.
-- **Awaited from stream T** (built against contract 4, untested live): `financial-transactions/other-receipts`,
-  `/other-payments`, `/transfers` (same shape as receipts), `GET financial-transactions/counter-accounts?direction=IN|OUT`
-  (array or `{items}` of `{id, code, name}`), voucher fields `counterAccountId`, `targetReceivingAccountId`. Until then the
-  counter-account picker is empty and those purposes fail with the API's error (toast); nothing else depends on them.
-  Customer advance refund (`receiptId` target) is not wired in the card (no UI entry point in scope).
-- Error codes (`ALLOCATION_EXCEEDS_INVOICE_BALANCE`, `FEE_EXCEEDS_AMOUNT`, `INVOICE_ARCHIVE_SETTLEMENT`) surface through the
-  API message in the shared error toast; after a refused reallocation the card reloads the server's lines.
+- Live (stream T merged, `6eae7524`): `financial-transactions/other-receipts`, `/other-payments`, `/transfers`
+  (create / createConfirmed + idempotencyKey / get / activities / update / confirm / cancel / delete through the shared
+  service factory), `counterAccountId` / `targetReceivingAccountId`, `GET financial-transactions/counter-accounts?direction=`
+  (`code · name`), trace kinds OTHER_RECEIPT / OTHER_PAYMENT / INTERNAL_TRANSFER → `record-routes.ts` +
+  `journal-source.ts` (`/sales/payments/:id?purpose=other`, `/purchasing/payments/:id?purpose=other|transfer`). The
+  transfer destination list hides the source and accounts bound to another currency (API: 422 `TRANSFER_CROSS_CURRENCY`).
+- Receipt advance refund: «رد دفعة مقدمة» on a confirmed customer receipt with an unapplied part (action bar; needs
+  `sales.refunds.create` + `.confirm`) and per confirmed receipt in the customer profile payments panel — the existing
+  `CustomerRefundDialog` with a new `receipt` target (`GET refunds/open-receipts` → unapplied; refund line `{ receiptId }`).
+- Error codes → actionable sentences (ar / en) through the shared `errors.<CODE>` path in `api-client`:
+  `ALLOCATION_EXCEEDS_INVOICE_BALANCE`, `FEE_EXCEEDS_AMOUNT`, `INVOICE_ARCHIVE_SETTLEMENT`, `TRANSFER_CROSS_CURRENCY`,
+  `COUNTER_ACCOUNT_NOT_ALLOWED`, `VOUCHER_DATE_IN_FUTURE`, `REFUND_EXCEEDS_RECEIPT_UNAPPLIED`, `RECEIPT_REFUNDED`,
+  `RECEIPT_REFUND_ALLOCATION`, `RECEIPT_REFUND_STORE_ORDER`, `ALLOCATION_NOT_ALLOWED`, `AGENT_COLLECTION_NOT_ALLOCATABLE`,
+  `COMPANY_MISMATCH`. After a refused reallocation the card reloads the server's lines.
+- Not done: saved other receipts / payments / transfers have no list tab of their own yet (reached via journal entry,
+  related records, traceability); bank-line ↔ transfer-voucher matching (T limitation).
 
 ## Tests
 
 - I-B failing specs now pass: `r22-amount-entry` 9/9, `r22-voucher-purpose-and-tables` 4/4, `r22-invoice-columns` 28/28
   (sortable assertion aligned with contract 5 as implemented), `receipt-editor-reallocation` (W1) 1/1.
-- New: `lib/numeric-input.spec.ts` 15, `money-input.spec.tsx` +6, `voucher-editor-page.spec.tsx` 6,
+- New: `lib/numeric-input.spec.ts` 15, `money-input.spec.tsx` +6, `voucher-editor-page.spec.tsx` 7,
   `invoice-settlement.spec.tsx` 4, `hooks/use-data-changed.spec.tsx` 4, `ui/numeric-alignment.guard.spec.ts` 3,
-  `reports/finance/aging-currency.spec.ts` 2; R20 `settlement-currency.spec.ts` updated (remaining-after figure).
-- Full web vitest: see final counts below. Typecheck clean; ESLint 0 errors (9 pre-existing warnings); `next build` OK.
-- Browser (one pass, local build): `r22-u-evidence.mjs` 26/26; I-B `r22-ib-ui-measure.mjs` 102 → see `evidence/u/measure/measure.log`.
+  `reports/finance/aging-currency.spec.ts` 2, `services/api-client.r22-codes.spec.ts` 9; R20 `settlement-currency.spec.ts`
+  updated (remaining-after figure).
+- Full web vitest: 196 files / 1,427 tests pass after the final feat/r22 merge (4b51d3c7); `report-card-consumers.spec.ts` times out once in some full runs under load and passes alone (pre-existing). Typecheck clean; ESLint 0 errors (9 pre-existing warnings); `next build` OK.
+- Browser (local build, after the T merge): `r22-u-evidence.mjs` 30/30 (incl. other receipt confirmed through the card →
+  OR-… + JE, transfer TR-…, refund-advance dialog); I-B `r22-ib-ui-measure.mjs` baseline 198/300 → 268/294 on this build (remaining: party names truncated at 1440 — pre-existing, expenses all-columns clipping, invoice line warehouse / «الخصم %» addon, and the two sortBy=allocatedTotal|remainingBalance probes that contract 5 answers 400 by design).
 
 ## Evidence (`specs/round22-settlement/evidence/u/`)
 
 `after/` — V1 receipt new (settle), V2 other receipt, V3 transfer, V4 payment new, V5 receipt from invoice with inline
 allocation, V6 review dialog, V7 confirmed receipt, T1 confirmed receipt RTL table, A1–A3 amount hover / Arabic digits /
-validation, L1–L2 sales + purchase invoice lists, D1–D2 invoice details (summary + history), R1 AR aging, M-* 375 px;
+validation, V8–V11 other receipt review / confirmed, transfer, refund advance, L1–L2 sales + purchase invoice lists, D1–D2 invoice details (summary + history), R1 AR aging, M-* 375 px;
 each in ar + en; `evidence.json`. `measure/` — the I-B measurement re-run on this build (`measure.json`, `measure.log`,
 screenshots).
 
@@ -75,4 +86,3 @@ screenshots).
   in the I-B measure — document line grid, not part of this stream.
 - I-B check C dispatches the focus / visibilitychange a real browser fires on tab return (headless Chromium emulates focus
   for every page, so `bringToFront` fires none); the cross-tab BroadcastChannel signal covers changes made in the app.
-- Stream T endpoints untested live (above).
