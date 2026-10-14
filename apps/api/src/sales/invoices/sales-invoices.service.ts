@@ -38,10 +38,11 @@ import {
 } from '../shared/sales-totals.util';
 import { buildDateRangeFilter } from '../shared/sales-list-query.util';
 import {
-  computeInvoicePaymentSummary,
-  resolveInvoicePaymentStatus,
-  sumConfirmedAllocations,
+  PAYABLE_SALES_INVOICE_STATUSES,
+  loadInvoiceSettlements,
 } from '../../financial-transactions/shared/invoice-payment.util';
+import { listOrderBy } from '../../common/query/list-order-by';
+import { loadInvoiceSettlementHistory } from '../../financial-transactions/shared/invoice-settlement-history';
 import type { CompanyContext } from '../../common/decorators/current-company-context.decorator';
 import { CreateSalesInvoiceDto } from './dto/create-sales-invoice.dto';
 import { UpdateSalesInvoiceDto } from './dto/update-sales-invoice.dto';
@@ -69,6 +70,21 @@ const INVOICE_REFERENCE_TYPE = 'SALES_INVOICE';
 interface ComputedInvoiceLines {
   lines: Prisma.SalesInvoiceItemUncheckedCreateWithoutSalesInvoiceInput[];
   totals: ReturnType<typeof computeSalesDocumentTotals>;
+}
+
+/**
+ * R22 contract 5 — the list order: `customer` sorts by the partner's name,
+ * every other whitelisted value is a column; ties break by id. Unknown
+ * values never reach here (DTO whitelist → 400).
+ */
+function salesInvoiceOrderBy(
+  query: Pick<FindSalesInvoicesQueryDto, 'sortBy' | 'sortOrder'>,
+): Prisma.SalesInvoiceOrderByWithRelationInput[] {
+  if (query.sortBy === 'customer') {
+    const direction = query.sortOrder ?? 'desc';
+    return [{ partner: { name: direction } }, { id: direction }];
+  }
+  return listOrderBy(query);
 }
 
 @Injectable()
@@ -220,27 +236,23 @@ export class SalesInvoicesService {
           partner: true,
           currency: true,
         },
-        orderBy: { [query.sortBy || 'createdAt']: query.sortOrder ?? 'desc' },
+        orderBy: salesInvoiceOrderBy(query),
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
       this.prisma.salesInvoice.count({ where }),
     ]);
 
-    const allocated = await sumConfirmedAllocations(
+    // R22 D2 — the one settlement summary (paid, credited, remaining, status).
+    const settlements = await loadInvoiceSettlements(
       this.prisma,
       'salesInvoiceId',
-      items.map((invoice) => invoice.id),
+      items,
     );
     const itemsWithPaymentStatus = items.map((invoice) => ({
       ...invoice,
-      ...resolveInvoicePaymentStatus(
-        computeInvoicePaymentSummary(
-          Number(invoice.grandTotal),
-          allocated.get(invoice.id) ?? 0,
-        ),
-        invoice.status,
-      ),
+      currencyCode: invoice.currency?.code ?? null,
+      ...settlements.get(invoice.id)!,
     }));
 
     return { items: itemsWithPaymentStatus, total, page, pageSize };
@@ -287,20 +299,47 @@ export class SalesInvoicesService {
     if (!invoice) {
       throw new NotFoundException(`Sales Invoice ${id} not found`);
     }
-    // TASK-060B Part 6 — Payment Status, independent from Workflow Status.
-    const confirmedAllocatedTotal = invoice.allocations
-      .filter((allocation) => allocation.transaction.status === 'CONFIRMED')
-      .reduce((sum, allocation) => sum + Number(allocation.allocatedAmount), 0);
+    // TASK-060B Part 6 / R22 D2 — Payment Status, independent from Workflow
+    // Status, from the one settlement summary.
+    const settlements = await loadInvoiceSettlements(
+      this.prisma,
+      'salesInvoiceId',
+      [invoice],
+    );
     return {
       ...invoice,
-      ...resolveInvoicePaymentStatus(
-        computeInvoicePaymentSummary(
-          Number(invoice.grandTotal),
-          confirmedAllocatedTotal,
-        ),
-        invoice.status,
-      ),
+      currencyCode: invoice.currency?.code ?? null,
+      ...settlements.get(invoice.id)!,
     };
+  }
+
+  /**
+   * R22 contract 2 — the invoice's settlement history: every confirmed
+   * voucher allocation and posted credit note, with what the caller may do
+   * about each. Same scope as the detail (404 when it cannot be opened).
+   */
+  async settlementHistory(
+    id: string,
+    abilities: { canEditVouchers: boolean; canCancelVouchers: boolean },
+  ) {
+    const invoice = await this.prisma.salesInvoice.findFirst({
+      where: { id, deletedAt: null },
+      select: {
+        id: true,
+        grandTotal: true,
+        status: true,
+        currency: { select: { code: true } },
+      },
+    });
+    if (!invoice) {
+      throw new NotFoundException(`Sales Invoice ${id} not found`);
+    }
+    return loadInvoiceSettlementHistory(
+      this.prisma,
+      'salesInvoiceId',
+      invoice,
+      abilities,
+    );
   }
 
   async update(id: string, dto: UpdateSalesInvoiceDto) {
@@ -707,6 +746,17 @@ export class SalesInvoicesService {
       throw new BadRequestException(
         `Cannot archive Sales Invoice ${invoice.invoiceNumber} while it is ${invoice.status}.`,
       );
+    }
+    // R22 D3 — a posted invoice still owing money, or settled by vouchers,
+    // stays visible to aging, open invoices and allocation.
+    if (
+      PAYABLE_SALES_INVOICE_STATUSES.includes(invoice.status) &&
+      (invoice.remainingBalance > 0 || invoice.paidTotal > 0)
+    ) {
+      throw new BadRequestException({
+        code: 'INVOICE_ARCHIVE_SETTLEMENT',
+        message: `لا يمكن أرشفة فاتورة مرحّلة عليها رصيد مفتوح أو سندات مخصصة — Sales Invoice ${invoice.invoiceNumber} is posted with ${invoice.remainingBalance > 0 ? `${invoice.remainingBalance} still open` : `${invoice.paidTotal} settled by vouchers`}; archiving it would hide its receivable from aging and allocation.`,
+      });
     }
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.salesInvoice.update({
