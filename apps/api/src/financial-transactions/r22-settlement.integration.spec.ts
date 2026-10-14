@@ -823,6 +823,59 @@ describeDb('R22 I-A — settlement lifecycle (local DB)', () => {
     expect(await accountNet(fxAccountId, [voucher.id])).toBe(-100);
   });
 
+  it('DEFECT R22-P3 — a receipt / payment posts on its voucher date (the day the money moved), not on the day it was confirmed', async () => {
+    const customerId = await customer();
+    const supplierId = await supplier();
+    const moved = new Date(Date.now() - 3 * 86_400_000); // entered three days later
+    const asDay = (date: Date) => date.toISOString().slice(0, 10);
+    for (const [type, partnerId] of [
+      ['CUSTOMER_RECEIPT', customerId],
+      ['SUPPLIER_PAYMENT', supplierId],
+    ] as const) {
+      const voucher = await transactions.createConfirmed(
+        type,
+        {
+          partnerId,
+          receivingAccountId,
+          amount: 1_000,
+          transactionDate: moved.toISOString(),
+        },
+        userId,
+      );
+      const entry = await prisma.journalEntry.findFirstOrThrow({
+        where: { sourceId: voucher.id, deletedAt: null },
+        select: { entryDate: true },
+      });
+      // Today the entry is dated at confirmation (Prod: CR-2026-000097
+      // voucher 2026-10-11, entry JV-2026-000418 2026-10-12).
+      expect(asDay(entry.entryDate)).toBe(asDay(moved));
+    }
+  });
+
+  it('DEFECT R22-P4 — installments of a foreign invoice clear exactly its carrying amount: a paid invoice leaves no rounding cent on AR', async () => {
+    const currency = await foreignCurrency();
+    const partnerId = await customer();
+    const rate = 0.33333333;
+    // 3 units at 0.33333333 → AR 1.00; three receipts of 1 unit at the same rate
+    // each clear round2(0.33333333) = 0.33 → 0.99 cleared, 0.01 stays on AR.
+    const invoice = await postedSalesInvoice(partnerId, 3, {
+      currencyId: currency.id,
+      rate,
+    });
+    for (let i = 0; i < 3; i += 1) {
+      await foreignVoucher(
+        'CUSTOMER_RECEIPT',
+        partnerId,
+        1,
+        currency.id,
+        rate,
+        [{ invoiceId: invoice.id, allocatedAmount: 1 }],
+      );
+    }
+    expect((await salesView(partnerId, invoice.id)).status).toBe('PAID');
+    expect(await ledger(partnerId, 'AR')).toBe(0);
+  });
+
   it('DEFECT R22-L1 — Allocate re-reads the voucher status under its row lock: a voucher cancelled meanwhile never gains an allocation', async () => {
     const partnerId = await customer();
     const invoice = await postedSalesInvoice(partnerId, 10_000);
