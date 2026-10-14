@@ -1,0 +1,183 @@
+{
+  "api": "https://oms.haseb.org/api",
+  "at": "2026-10-14T02:02:27.863Z",
+  "mode": "dry-run",
+  "verdict": "NOTHING_TO_REPAIR — every invoice's payment status on list, detail, open invoices and aging equals its confirmed allocations; no allocation needs a correction.",
+  "counts": {
+    "invoices": {
+      "AR": 7,
+      "AP": 1
+    },
+    "derived": 0,
+    "repairable": 0,
+    "review": 0,
+    "info": 2,
+    "plannedAllocations": 2,
+    "applied": 0
+  },
+  "integrity": {
+    "checkedAt": "2026-10-14T02:02:23.052Z",
+    "checked": {
+      "vouchers": 14,
+      "entries": 14,
+      "invoices": 5,
+      "bankMatches": 0
+    },
+    "errors": 0,
+    "review": 0,
+    "issues": []
+  },
+  "derived": [],
+  "repairable": [],
+  "review": [],
+  "info": [
+    {
+      "kind": "UNAPPLIED_WHILE_INVOICES_OPEN",
+      "side": "AR",
+      "voucher": "CR-2026-000099",
+      "partner": "مكتبة النور",
+      "unapplied": 50000,
+      "openInvoices": ["INV-2026-000093 110000"]
+    },
+    {
+      "kind": "UNAPPLIED_WHILE_INVOICES_OPEN",
+      "side": "AR",
+      "voucher": "CR-2026-000096",
+      "partner": "دار الهدى للنشر",
+      "unapplied": 100000,
+      "openInvoices": ["INV-2026-000091 100000"]
+    }
+  ],
+  "plannedAllocations": [
+    {
+      "voucher": "CR-2026-000099",
+      "invoice": "INV-2026-000093",
+      "amount": 50000,
+      "voucherId": "389e483a-30bd-4c0e-9f41-4e585d515b6b",
+      "voucherStatus": "CONFIRMED",
+      "invoiceOpen": true,
+      "unapplied": 50000,
+      "invoiceRemaining": 110000,
+      "action": "ALLOCATE 50000"
+    },
+    {
+      "voucher": "CR-2026-000096",
+      "invoice": "INV-2026-000091",
+      "amount": 100000,
+      "voucherId": "f9c8d6e4-7237-4efe-8dc1-15361267119b",
+      "voucherStatus": "CONFIRMED",
+      "invoiceOpen": true,
+      "unapplied": 100000,
+      "invoiceRemaining": 100000,
+      "action": "ALLOCATE 100000"
+    }
+  ],
+  "applied": [],
+  "after": null,
+  "invoices": [
+    {
+      "side": "AR",
+      "invoice": "INV-2026-000093",
+      "partner": "مكتبة النور",
+      "currency": "EGP",
+      "documentStatus": "CONFIRMED",
+      "grandTotal": 110000,
+      "allocatedTotal": 0,
+      "remainingBalance": 110000,
+      "paymentStatus": "UNPAID",
+      "recomputedPaid": 0,
+      "recomputedStatus": "UNPAID"
+    },
+    {
+      "side": "AR",
+      "invoice": "INV-2026-000092",
+      "partner": "اسلام عبد العليم مؤمن",
+      "currency": "EGP",
+      "documentStatus": "CONFIRMED",
+      "grandTotal": 1400,
+      "allocatedTotal": 1400,
+      "remainingBalance": 0,
+      "paymentStatus": "PAID",
+      "recomputedPaid": 1400,
+      "recomputedStatus": "PAID"
+    },
+    {
+      "side": "AR",
+      "invoice": "INV-2026-000091",
+      "partner": "دار الهدى للنشر",
+      "currency": "EGP",
+      "documentStatus": "CONFIRMED",
+      "grandTotal": 200000,
+      "allocatedTotal": 100000,
+      "remainingBalance": 100000,
+      "paymentStatus": "PARTIALLY_PAID",
+      "recomputedPaid": 100000,
+      "recomputedStatus": "PARTIALLY_PAID"
+    },
+    {
+      "side": "AR",
+      "invoice": "INV-2026-000090",
+      "partner": "سيد السيد",
+      "currency": "SAR",
+      "documentStatus": "CONFIRMED",
+      "grandTotal": 1200,
+      "allocatedTotal": 1200,
+      "remainingBalance": 0,
+      "paymentStatus": "PAID",
+      "recomputedPaid": 1200,
+      "recomputedStatus": "PAID"
+    },
+    {
+      "side": "AR",
+      "invoice": "INV-2026-000089",
+      "partner": "احمد محمد منصور",
+      "currency": "EGP",
+      "documentStatus": "CONFIRMED",
+      "grandTotal": 4000,
+      "allocatedTotal": 4000,
+      "remainingBalance": 0,
+      "paymentStatus": "PAID",
+      "recomputedPaid": 4000,
+      "recomputedStatus": "PAID"
+    },
+    {
+      "side": "AR",
+      "invoice": "INV-2026-000088",
+      "partner": "محمد رجب الديب",
+      "currency": "EGP",
+      "documentStatus": "CONFIRMED",
+      "grandTotal": 1200,
+      "allocatedTotal": 1200,
+      "remainingBalance": 0,
+      "paymentStatus": "PAID",
+      "recomputedPaid": 1200,
+      "recomputedStatus": "PAID"
+    },
+    {
+      "side": "AR",
+      "invoice": "INV-2026-000087",
+      "partner": "دار اشراقة",
+      "currency": "EGP",
+      "documentStatus": "CONFIRMED",
+      "grandTotal": 375000,
+      "allocatedTotal": 0,
+      "remainingBalance": 375000,
+      "paymentStatus": "UNPAID",
+      "recomputedPaid": 0,
+      "recomputedStatus": "UNPAID"
+    },
+    {
+      "side": "AP",
+      "invoice": "PI-2026-000046",
+      "partner": "مطابع الفهد",
+      "currency": "EGP",
+      "documentStatus": "CONFIRMED",
+      "grandTotal": 448000,
+      "allocatedTotal": 0,
+      "remainingBalance": 448000,
+      "paymentStatus": "UNPAID",
+      "recomputedPaid": 0,
+      "recomputedStatus": "UNPAID"
+    }
+  ]
+}

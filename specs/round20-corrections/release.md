@@ -38,3 +38,19 @@ lead-eligibility 16 / 16 on the demo-based DB), local journeys A 38 / 38, C 23 /
 
 Currency colours on every report card: EGP teal, SAR sky, USD blue, AED indigo, EUR violet, KWD orchid, others a stable
 hue; the code is always written; negative amounts keep the danger colour. Demo orders «R20B2 demo» exist only locally.
+
+## Owner-approved allocations (2026-10-14)
+
+`r20-repair-payment-status.mjs --apply --allocate CR-2026-000099=INV-2026-000093 --allocate CR-2026-000096=INV-2026-000091`
+(business operation "allocate" on the confirmed receipts — no new cash entry, one journal entry per receipt unchanged).
+
+| Record                            | Before                                  | After                                                 |
+| --------------------------------- | --------------------------------------- | ----------------------------------------------------- |
+| INV-2026-000091 (دار الهدى للنشر) | 200,000 · paid 100,000 · PARTIALLY_PAID | paid 200,000 · outstanding 0 · **PAID**               |
+| INV-2026-000093 (مكتبة النور)     | 110,000 · paid 0 · UNPAID               | paid 50,000 · outstanding 60,000 · **PARTIALLY_PAID** |
+| CR-2026-000096                    | 100,000 unapplied                       | 100,000 → INV-2026-000091                             |
+| CR-2026-000099                    | 50,000 unapplied                        | 50,000 → INV-2026-000093                              |
+
+Customer positions: دار الهدى received 200,000 = applied 200,000, unapplied 0; مكتبة النور received 50,000 = applied,
+outstanding 60,000. Voucher integrity 0 errors / 0 review. Re-run: both SKIP (already applied). Evidence:
+`evidence/c/prod-allocate-{dry-run,applied,rerun}.json`.
