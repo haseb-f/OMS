@@ -970,6 +970,40 @@ describeDb('R22 I-A — settlement lifecycle (local DB)', () => {
     expect(agingRow.unapplied).toBe(0);
   });
 
+  it('DEFECT R22-L5 — a voucher of one company never settles another company’s invoice', async () => {
+    const n = next();
+    const [companyA, companyB] = await Promise.all(
+      ['A', 'B'].map((suffix) =>
+        prisma.company.create({
+          data: {
+            name: `${tag} Co ${suffix}${n}`,
+            code: `${tag}-CO${suffix}${n}`,
+          },
+        }),
+      ),
+    );
+    const partnerId = await customer();
+    const invoice = await postedSalesInvoice(partnerId, 5_000);
+    await prisma.salesInvoice.update({
+      where: { id: invoice.id },
+      data: { companyId: companyB.id },
+    });
+    await expect(
+      transactions.createConfirmed(
+        'CUSTOMER_RECEIPT',
+        {
+          partnerId,
+          receivingAccountId,
+          amount: 5_000,
+          allocations: [{ invoiceId: invoice.id, allocatedAmount: 5_000 }],
+        },
+        userId,
+        { companyId: companyA.id, branchId: null },
+      ),
+    ).rejects.toThrow();
+    expect((await salesView(partnerId, invoice.id)).status).toBe('UNPAID');
+  });
+
   it('DEFECT R22-V1 — a receipt fee can never exceed the money received (fee > amount refused at entry)', async () => {
     const partnerId = await customer();
     const invoice = await postedSalesInvoice(partnerId, 1_100);
