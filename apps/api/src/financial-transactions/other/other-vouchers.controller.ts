@@ -143,6 +143,11 @@ abstract class CounterVoucherRoutes {
 @PermissionModule(JOURNAL_ENTRIES)
 export class OtherReceiptsController extends CounterVoucherRoutes {
   protected readonly type = FinancialTransactionType.OTHER_RECEIPT;
+
+  // Explicit so Nest's DI reads this class's own constructor metadata.
+  constructor(vouchers: OtherVouchersService) {
+    super(vouchers);
+  }
 }
 
 /** Other Payment (صرف آخر): Dr the counter-account, Cr cash / bank. */
@@ -151,6 +156,11 @@ export class OtherReceiptsController extends CounterVoucherRoutes {
 @PermissionModule(JOURNAL_ENTRIES)
 export class OtherPaymentsController extends CounterVoucherRoutes {
   protected readonly type = FinancialTransactionType.OTHER_PAYMENT;
+
+  // Explicit so Nest's DI reads this class's own constructor metadata.
+  constructor(vouchers: OtherVouchersService) {
+    super(vouchers);
+  }
 }
 
 /** Internal Transfer (تحويل بين الحسابات): Dr destination, Cr source — never income / expense. */
