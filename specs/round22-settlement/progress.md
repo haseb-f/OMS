@@ -11,3 +11,4 @@ implement → independent accounting review → integrated gates → release →
 | 2026-10-14 | I-A (accounting) on `feat/r22-ia`, I-B (UI / types / tables) on `feat/r22-ib` running in worktrees.                                                                                                 |
 | 2026-10-14 | I-A WIP failing cases so far: P3 entry date, P4 FX rounding residue, L5 company boundary, A3 as-of aging. I-B WIP: amount field, money columns, Playwright measurement.                             |
 | 2026-10-14 | Phase 1 done + merged (`42bea83a`): baseline 15 API + 29 web regression tests fail. Repair plan + decisions D1–D8 + API contract written. Next: streams P (API settlement), T (API types), U (web). |
+| 2026-10-14 | Phase 2 launched: P `feat/r22-p` (API settlement core, DB oms_r22_int_p), T `feat/r22-t` (API types, oms_r22_int_t), U `feat/r22-u` (web, oms_r22_ui).                                              |
