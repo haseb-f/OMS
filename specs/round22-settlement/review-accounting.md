@@ -65,10 +65,76 @@ cd apps/api && DATABASE_URL=postgresql://oms:oms@localhost:5434/oms_r22_review J
   both land, one active FX entry, FX −300 exact (VERIFY); allocate vs cancel re-read under lock (L1); bank-line vouchers
   `createConfirmed` with `bank-line:<id>:<updatedAt>` (replay returns the same voucher; payload compared).
 
-## Sign-off
+## Sign-off (first pass — superseded by the final sign-off below)
 
 **BLOCKED** — on F2 only (High: a posted credit note can be hidden by Archive, the invoice re-opens and the customer can
 be collected twice while the ledger keeps the credit; R22's S1 guarantee is bypassable). Unblock: refuse archiving posted
 sales / purchase returns (+ regression test `REVIEW-F2` passing). F3 is recommended in the same change (one-line D3
 extension). With F2 fixed the round is **APPROVED WITH FINDINGS**: F1, F4 (owner decision), F5, F7, F8, F10 as tracked
 follow-ups (F8 and F7 are small and advisable before release); F6, F9, F11 low / informational.
+
+## Re-review (feat/r22 @ 3eb7bbb9 — stream P fixes F1–F10 + stream T merged)
+
+`review/r22-accounting` merged with `feat/r22`. `oms_r22_review` recreated from `oms_r17_int` (the applied P migration
+carried an outdated checksum) and migrated (P `20261014100000` rewritten + T `20261014120000`). Run: review + R22 P +
+R22 T + R18 + R20 suites → **87 tests, 84 passed, 3 failed = REVIEW-R1 / T1 / T2 (by design)**; every REVIEW-F1…F8 now
+passes. Typecheck / lint clean.
+
+### Fixes verified
+
+| Id     | Decision as implemented                                                                                                                                                                                                                                                                | Evidence                                                                                                                                                    | Result                                                                                                                                                                                      |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F1 F10 | A return linked to an invoice is in the invoice's currency (`RETURN_CURRENCY_MISMATCH` at create / update / posting) and posts at the invoice's frozen rate (`returnPostingRate`)                                                                                                      | `accounting/fx/return-invoice-rate.ts`, both return posting providers; `REVIEW-F1` (adjusted by P for the decision: fixture books the rule's rate, 12 → 10) | Correct: the credit reverses exactly what the invoice booked, no FX residue; a legacy draft in another currency fails closed at posting; a return without invoice keeps its own date's rate |
+| F2     | Posted returns are never archived (`RETURN_ARCHIVE_POSTED`)                                                                                                                                                                                                                            | `common/workflow/posted-return-archive.ts`; `REVIEW-F2` passes unchanged                                                                                    | Fixed — **blocker cleared**                                                                                                                                                                 |
+| F3     | D3 also refuses an invoice with applied credit                                                                                                                                                                                                                                         | invoice `archive`; `REVIEW-F3` (adjusted: archive refused; aging = ledger)                                                                                  | Fixed                                                                                                                                                                                       |
+| F4     | Refundable = unrefunded − credit applied to its own invoice (surplus only), at draft and Confirm                                                                                                                                                                                       | service `appliedCreditOfReturns`; `REVIEW-F4` unchanged                                                                                                     | Fixed                                                                                                                                                                                       |
+| F5 F6  | Append-only `financial_transaction_allocation_events` (CREATED / CHANGED / RELEASED from Confirm, Allocate, PATCH, Unallocate, Cancel, consumption rows), read only by as-of aging; effective = max(voucher date, invoice posting date); vouchers cancelled after the date still count | `shared/allocation-events.ts`, aging `invoiceAging` / `unappliedCredits`; `REVIEW-F5`, `REVIEW-F6`, P's F5 case                                             | Fixed, except R1 (consumption rows of back-dated refunds)                                                                                                                                   |
+| F7     | Every mutating voucher route checks the voucher type (`assertVoucherOfType`, 404); generic routes refuse T's types                                                                                                                                                                     | all four voucher controllers; `REVIEW-F7`                                                                                                                   | Fixed                                                                                                                                                                                       |
+| F8     | `VOUCHER_DATE_IN_FUTURE` (Cairo business day) at create / update / Confirm, T's vouchers included                                                                                                                                                                                      | `shared/voucher-date.ts`; `REVIEW-F8`                                                                                                                       | Fixed                                                                                                                                                                                       |
+| F9     | Backfill from the voucher's posted entry date; idempotent through "line already has an event"                                                                                                                                                                                          | migration SQL; dry runs below                                                                                                                               | Fixed. Residual (Low, unchanged): legacy vouchers posted on `confirmed_at` are still selected by `transactionDate` in as-of aging                                                           |
+
+**Migration safety (Production data).** P: additive — one new table (no FK, by design: events outlive deleted
+allocation rows) + `IF NOT EXISTS` indexes; the data statements only set `allocation_date` and insert events, never an
+amount, status or entry. Whole file inside `BEGIN … ROLLBACK` on the template `oms_r17_int`: `UPDATE 128`,
+`INSERT 158` events, Σ events 451,397.50 = Σ confirmed allocations, **0** events whose effective day differs from the
+voucher entry's day. Data steps re-run on the migrated, used `oms_r22_review`: `UPDATE 0`, `INSERT 0` (idempotent).
+Needs `gen_random_uuid()` (PG 13+; Supabase OK). By construction, history before the migration starts from the current
+lines (earlier unallocations / cancels are not reconstructed). T: three enum values, nullable columns with
+`ON DELETE SET NULL` FKs, number series `ON CONFLICT DO NOTHING` — additive, idempotent.
+
+### Stream T reviewed
+
+- **OtherVoucherPostingProvider** — other receipt Dr receiving account's ledger / Cr counter-account; other payment the
+  reverse; internal transfer Dr destination / Cr source through `internal-transfer-rule.ts` (the bank-line pairing uses
+  the same function); no partner, allocations refused (also in the provider); allow-list and money accounts re-checked
+  inside the posting transaction; entry on the voucher date at that day's rate, lines converted by the engine. VERIFY:
+  foreign other receipt 100 @12 → Dr 1,200 / Cr 1,200; transfer 40 @12 → 480 / −480, cancel reverses once, a second
+  cancel is refused; every entry balanced. Cross-currency transfer refused (T test).
+- **Receipt refund** — Dr AR at the receipt's rate / Cr cash ± FX. VERIFY: receipt 100 X @12 (AR −1,200), refund
+  100 X @11 → AR 0, bank −1,100, FX −100 (gain). Capped by the receipt's unapplied amount under its row lock;
+  store-order / agent receipts refused; a refunded receipt cannot be cancelled (T tests).
+- **Cash flow** — classified by counterpart account (IAS 7: equity / non-current liability → financing, non-current
+  asset → investing, the rest → operating); transfers between cash items excluded (`statement-classification.ts`
+  `classifyCashFlowAccount`; T cash-flow case).
+- **Permissions** — `@PermissionModule('journal-entries')`, no new grant; generic receipt / payment routes refuse D4
+  vouchers. See T2.
+
+### New findings
+
+| Id  | Sev    | Finding                                                                                                                                                                                                                                                                                                                                                                                         | Evidence                                                                                                                                   | Recommendation                                                                                                                                                                                                                         |
+| --- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T2  | Medium | Other receipt / payment / transfer **Confirm and Cancel need only `accounting.journal-entries.create`**, while a manual journal entry needs `.post` to post and `.reverse` to reverse. A maker who may only draft entries can post and reverse cash movements; D4's "they can already post the same entry by hand" holds only for `.post` holders (separation of duties)                        | `REVIEW-T2`; `other/other-vouchers.controller.ts` (confirm / cancel `@PermissionAction('create')`); `journal-entries.controller.ts:95-109` | Owner decision; recommended Confirm = `post`, Cancel = `reverse`, PATCH = `edit` — the rights of the manual entry they replace                                                                                                         |
+| T1  | Medium | The counter-account allow-list offers **module-owned accounts**: retained earnings 321, VAT output / input, fixed assets 151, payroll payable 234. An other voucher then moves them outside their module (retained earnings outside year closing, VAT outside the return, an asset without a register line, payroll without a run) — within D4's type rule, but the subledgers stop reconciling | `REVIEW-T1`; `other/counter-accounts.ts` `counterAccountExclusions` (cash / bank, AR / AP, inventory only)                                 | Also exclude every account mapped in Posting Settings (VAT, retained earnings, FX difference, payroll, fixed assets / accumulated depreciation, prepaid, landed-cost clearing, investor accounts) and payment-method clearing accounts |
+| R1  | Low    | A **back-dated** refund of an unapplied receipt: the receipt's consumption row and its event are dated on the confirm day, not on the refund's voucher date (where its entry is booked); as-of aging in between reads −1,000 against a ledger of −600. The store-order advance-refund consumption follows the same pattern                                                                      | `REVIEW-R1`; `refunds/receipt-refund.ts` `syncReceiptRefundConsumption` (`now`)                                                            | Date the consumption change on the refund's entry date (the cancel day for a release)                                                                                                                                                  |
+
+Unchanged: F11 (a)–(d) informational; T's own limitation — an imported bank line cannot yet be matched to a recorded
+transfer voucher.
+
+## Final sign-off
+
+**APPROVED WITH FINDINGS.** F2 (the only blocker) and F1, F3–F10 are fixed and proven by the review tests. Every
+posting reviewed — receipts, payments, refunds incl. receipt refunds, allocation FX, returns at the invoice rate, other
+receipt / payment, internal transfer — is balanced, linked to its voucher, dated on the voucher date in an open period,
+and reverses exactly once. The P and T migrations are safe for Production data. Open: **T2** and **T1** need an owner
+decision before the new voucher types reach users (T2 preferably before release); **R1** and the F9 residual are
+low-risk follow-ups that only affect back-dated as-of aging.

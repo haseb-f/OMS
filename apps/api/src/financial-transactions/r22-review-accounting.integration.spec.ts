@@ -31,6 +31,10 @@ import { SalesReturnsService } from '../sales/returns/sales-returns.service';
 import { FinancialTransactionsModule } from './financial-transactions.module';
 import { FinancialTransactionsService } from './financial-transactions.service';
 import { CustomerReceiptsController } from './receipts/customer-receipts.controller';
+import { OtherVouchersService } from './other/other-vouchers.service';
+import { OtherReceiptsController } from './other/other-vouchers.controller';
+import { listCounterAccounts } from './other/counter-accounts';
+import { PERMISSION_ACTION_KEY } from '../auth/decorators/permission-action.decorator';
 
 /**
  * R22 independent accounting review (review/r22-accounting).
@@ -62,6 +66,7 @@ describeDb('R22 accounting review (local DB)', () => {
   let salesInvoices: SalesInvoicesService;
   let salesReturns: SalesReturnsService;
   let receiptsController: CustomerReceiptsController;
+  let otherVouchers: OtherVouchersService;
   let reports: AccountingReportsService;
 
   const tag = `R22V-${randomUUID().slice(0, 6).toUpperCase()}`;
@@ -375,6 +380,7 @@ describeDb('R22 accounting review (local DB)', () => {
     salesInvoices = moduleRef.get(SalesInvoicesService);
     salesReturns = moduleRef.get(SalesReturnsService);
     receiptsController = moduleRef.get(CustomerReceiptsController);
+    otherVouchers = moduleRef.get(OtherVouchersService);
     reports = new AccountingReportsService(prisma);
 
     userId = (
@@ -645,6 +651,164 @@ describeDb('R22 accounting review (local DB)', () => {
       entryDay = null; // refused — the expected outcome
     }
     expect(entryDay).toBeNull();
+  });
+
+  // -------------------------------------------------------------------
+  // Re-review (after the F1–F10 fixes + stream T) — new findings
+  // -------------------------------------------------------------------
+
+  it('REVIEW-R1 — a back-dated refund of an unapplied receipt: the receipt consumption event is effective on the confirm day, not on the refund voucher date, so as-of aging disagrees with the ledger in between', async () => {
+    const partnerId = await customer();
+    const advance = await receipt(partnerId, 1_000, [], {
+      transactionDate: daysAgo(6).toISOString(),
+    });
+    await transactions.createConfirmed(
+      'CUSTOMER_REFUND',
+      {
+        partnerId,
+        receivingAccountId,
+        amount: 400,
+        transactionDate: daysAgo(4).toISOString(),
+        allocations: [{ receiptId: advance.id, allocatedAmount: 400 }],
+      },
+      userId,
+    );
+    const asOf = isoDay(daysAgo(2));
+    const ledgerAsOf = await ledger(partnerId, asOf);
+    expect(ledgerAsOf).toBe(-600); // the refund entry is dated 4 days ago
+    const aging = (await reports.arAging({ partnerId, dateTo: asOf })).partners;
+    expect(aging.reduce((sum, row) => sum + row.net, 0)).toBe(ledgerAsOf);
+  });
+
+  it('REVIEW-T1 — the counter-account allow-list offers module-owned accounts (retained earnings, VAT, fixed assets, accumulated depreciation, payroll payable): an other receipt / payment moves them outside their module', async () => {
+    const settings = await prisma.postingSettings.findFirstOrThrow({
+      select: {
+        retainedEarningsAccountId: true,
+        vatOutputAccountId: true,
+        vatInputAccountId: true,
+        fixedAssetsAccountId: true,
+        accumDepreciationAccountId: true,
+        payrollPayableAccountId: true,
+      },
+    });
+    const moduleOwned = new Set(
+      Object.values(settings).filter((id): id is string => !!id),
+    );
+    const offered = [
+      ...(await listCounterAccounts(prisma, 'IN')),
+      ...(await listCounterAccounts(prisma, 'OUT')),
+    ]
+      .filter((row) => moduleOwned.has(row.id))
+      .map((row) => `${row.code} ${row.accountType}`);
+    expect(offered).toEqual([]);
+  });
+
+  it('REVIEW-T2 — other vouchers post / reverse cash with accounting.journal-entries.create, while a manual journal entry needs .post / .reverse (the maker posts without a checker)', () => {
+    const action = (name: 'confirm' | 'cancel') =>
+      Reflect.getMetadata(
+        PERMISSION_ACTION_KEY,
+        Object.getOwnPropertyDescriptor(
+          Object.getPrototypeOf(OtherReceiptsController.prototype),
+          name,
+        )?.value as object,
+      ) as string;
+    expect({ confirm: action('confirm'), cancel: action('cancel') }).toEqual({
+      confirm: 'post',
+      cancel: 'reverse',
+    });
+  });
+
+  it('VERIFY — stream T: foreign other receipt converts at the voucher rate; transfer is Dr destination / Cr source and reverses once; a foreign receipt refund clears AR at the receipt rate with FX on the difference', async () => {
+    const currency = await foreignCurrency();
+    const ledgerX = await newAccount(AccountType.ASSET);
+    const ledgerY = await newAccount(AccountType.ASSET);
+    const raX = await prisma.receivingAccount.create({
+      data: {
+        name: `${tag} X bank`,
+        code: `${tag}-RAX`,
+        chartOfAccountId: ledgerX.id,
+        currencyId: currency.id,
+      },
+    });
+    const raY = await prisma.receivingAccount.create({
+      data: {
+        name: `${tag} Y bank`,
+        code: `${tag}-RAY`,
+        chartOfAccountId: ledgerY.id,
+        currencyId: currency.id,
+      },
+    });
+    const loan = await newAccount(AccountType.LIABILITY);
+    const draft = await otherVouchers.create(
+      'OTHER_RECEIPT',
+      {
+        counterAccountId: loan.id,
+        receivingAccountId: raX.id,
+        amount: 100,
+      },
+      userId,
+    );
+    await prisma.financialTransaction.update({
+      where: { id: draft.id },
+      data: { exchangeRate: 12 },
+    });
+    const other = await otherVouchers.confirm(
+      'OTHER_RECEIPT',
+      draft.id,
+      userId,
+    );
+    expect(await accountNet(ledgerX.id, [other.id])).toBe(1_200);
+    expect(await accountNet(loan.id, [other.id])).toBe(-1_200);
+    const tDraft = await otherVouchers.create(
+      'INTERNAL_TRANSFER',
+      {
+        receivingAccountId: raX.id,
+        targetReceivingAccountId: raY.id,
+        amount: 40,
+      },
+      userId,
+    );
+    await prisma.financialTransaction.update({
+      where: { id: tDraft.id },
+      data: { exchangeRate: 12 },
+    });
+    const transfer = await otherVouchers.confirm(
+      'INTERNAL_TRANSFER',
+      tDraft.id,
+      userId,
+    );
+    expect(await accountNet(ledgerY.id, [transfer.id])).toBe(480);
+    expect(await accountNet(ledgerX.id, [transfer.id])).toBe(-480);
+    await otherVouchers.cancel('INTERNAL_TRANSFER', transfer.id, userId);
+    expect(await accountNet(ledgerY.id, [transfer.id])).toBe(0);
+    await expect(
+      otherVouchers.cancel('INTERNAL_TRANSFER', transfer.id, userId),
+    ).rejects.toThrow();
+    await assertBalanced([other.id, transfer.id]);
+
+    const partnerId = await customer();
+    const advance = await foreignReceipt(partnerId, 100, currency.id, 12);
+    expect(await ledger(partnerId)).toBe(-1_200);
+    const refundDraft = await transactions.create(
+      'CUSTOMER_REFUND',
+      {
+        partnerId,
+        receivingAccountId,
+        amount: 100,
+        currencyId: currency.id,
+        allocations: [{ receiptId: advance.id, allocatedAmount: 100 }],
+      },
+      userId,
+    );
+    await prisma.financialTransaction.update({
+      where: { id: refundDraft.id },
+      data: { exchangeRate: 11 },
+    });
+    const refund = await transactions.confirm(refundDraft.id, userId);
+    expect(await ledger(partnerId)).toBe(0);
+    expect(await accountNet(bankAccountId, [refund.id])).toBe(-1_100);
+    expect(await accountNet(fxAccountId, [refund.id])).toBe(-100);
+    await assertBalanced([refund.id, advance.id]);
   });
 
   // -------------------------------------------------------------------
