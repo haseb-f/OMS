@@ -79,7 +79,18 @@ All restored (`git checkout` of the file), tree clean after each.
 
 ## Test counts
 
-See the final section (filled at the end of the stream).
+DB `oms_r22_int_p`, `DATABASE_URL` + dummy `JWT_SECRET`:
+
+- `r22-settlement.integration.spec.ts`: **29 / 29** (4 trace + 15 DEFECT, all now passing + 10 stream-P cases); baseline
+  before the repair 4 pass / 15 fail.
+- Unit: `invoice-payment.util.spec.ts` 5, `settlement-integrity.spec.ts` 4, `sort-whitelist.spec.ts` +14 cases.
+- Related suites (`src/financial-transactions src/accounting src/sales src/purchasing src/payments src/bank-transactions
+src/store-orders src/common/query`): **81 suites / 714 tests passed**.
+- Full API jest once: 230 suites, 2,717 / 2,721 passed. The 4 failures: `lead-eligibility.integration.spec.ts` (2 —
+  leads / permissions only, imports nothing this stream changed; fails the same in isolation on this DB clone) and
+  `r22-settlement` P1 + `store-orders-import.handler.spec.ts` (1 + 1, timing under the full parallel run — both pass when
+  re-run together with lead-eligibility: 80 / 82, only the 2 lead-eligibility cases failing).
+- API typecheck (`tsc --noEmit`) clean; ESLint clean on every changed file.
 
 ## Limitations
 
