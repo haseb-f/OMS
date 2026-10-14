@@ -1,6 +1,6 @@
 {
   "base": "http://localhost:4931",
-  "at": "2026-10-14T11:18:34.390Z",
+  "at": "2026-10-14T14:01:07.544Z",
   "log": [
     {
       "name": "ar: Arabic-Indic digits kept while typing",
@@ -29,6 +29,26 @@
     },
     {
       "name": "ar: review names the account and invoice",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "counter-accounts allow-list (IN) returns accounts",
+      "ok": true,
+      "detail": 33
+    },
+    {
+      "name": "other receipt confirmed through other-receipts",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "transfer opens in the card",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "refund-advance dialog shows the unapplied amount",
       "ok": true,
       "detail": ""
     },

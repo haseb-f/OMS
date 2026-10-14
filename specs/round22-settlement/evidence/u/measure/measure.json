@@ -1,13 +1,13 @@
 {
   "base": "http://localhost:4931",
-  "at": "2026-10-14T11:21:59.115Z",
-  "salesInvoice": "INV-2026-000032",
-  "purchaseInvoice": "PI-2026-000006",
+  "at": "2026-10-14T13:01:48.983Z",
+  "salesInvoice": "INV-2026-000036",
+  "purchaseInvoice": "PI-2026-000009",
   "results": [
     {
       "name": "setup: sales invoice 200,000 confirmed (+ purchase invoice 200,000)",
       "ok": true,
-      "detail": "INV-2026-000032 200000 · PI-2026-000006 CONFIRMED"
+      "detail": "INV-2026-000036 200000 · PI-2026-000009 CONFIRMED"
     },
     {
       "name": "A receipt: amount starts empty",
@@ -31,8 +31,8 @@
     },
     {
       "name": "A receipt: amount border ≥ 1.5px (substantial)",
-      "ok": false,
-      "detail": "1px rgb(209, 209, 209) h=44"
+      "ok": true,
+      "detail": "2px rgb(209, 209, 209) h=44"
     },
     {
       "name": "A receipt: hover changes the border",
@@ -91,8 +91,8 @@
     },
     {
       "name": "A payment: amount border ≥ 1.5px (substantial)",
-      "ok": false,
-      "detail": "1px rgb(209, 209, 209) h=44"
+      "ok": true,
+      "detail": "2px rgb(209, 209, 209) h=44"
     },
     {
       "name": "A payment: hover changes the border",
@@ -151,8 +151,8 @@
     },
     {
       "name": "A expense: amount border ≥ 1.5px (substantial)",
-      "ok": false,
-      "detail": "1px rgb(209, 209, 209) h=44"
+      "ok": true,
+      "detail": "2px rgb(209, 209, 209) h=44"
     },
     {
       "name": "A expense: hover changes the border",
@@ -212,14 +212,14 @@
     {
       "name": "B a review / summary (where the money goes, which invoices) is shown before Confirm",
       "ok": true,
-      "detail": "مراجعة السند قبل التأكيد المبلغ 100,000.00 الطرف عميل R22 MV80OLZ9 يُودَع في الصندوق الرئيسي الفواتير التي ستُسدَّد INV-2026-000032 100,000.00 يُرحَّل قيد اليومية بتاريخ السند 14 Oct 2026، ويظهر في كشف الحساب فوراً. إغلاق تأكيد وترحيل 100,000.00"
+      "detail": "مراجعة السند قبل التأكيد المبلغ 100,000.00 الطرف عميل R22 MV849EK4 يُودَع في الصندوق الرئيسي الفواتير التي ستُسدَّد INV-2026-000036 100,000.00 يُرحَّل قيد اليومية بتاريخ السند 14 Oct 2026، ويظهر في كشف الحساب فوراً. إغلاق تأكيد وترحيل 100,000.00"
     },
     {
       "name": "B double-click Confirm creates one voucher",
       "ok": true,
       "detail": {
         "posts": ["http://localhost:4935/financial-transactions/receipts/confirmed"],
-        "vouchers": ["CR-2026-000057 CONFIRMED 100000"]
+        "vouchers": ["CR-2026-000061 CONFIRMED 100000"]
       }
     },
     {
@@ -234,24 +234,24 @@
     },
     {
       "name": "C invoice open in another tab refreshes remaining on return (focus)",
-      "ok": false,
+      "ok": true,
       "detail": {
         "before": "100,000.00",
-        "afterFocus": "100,000.00",
-        "receipt2": "CR-2026-000058",
+        "afterFocus": "60,000.00",
+        "receipt2": "CR-2026-000062",
         "afterReload": "60,000.00"
       }
     },
     {
       "name": "C invoice detail lists the linked receipt",
       "ok": true,
-      "detail": "CR-2026-000057"
+      "detail": "CR-2026-000061"
     },
     {
       "name": "C invoice settlement history shows the allocated amount per voucher",
       "ok": true,
       "detail": {
-        "voucherNo": "CR-2026-000057",
+        "voucherNo": "CR-2026-000061",
         "hasVoucher": true,
         "hasAllocatedAmount": true
       }
@@ -264,7 +264,7 @@
     {
       "name": "D sales-invoices ar default: «رقم الفاتورة» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":99,\"right\":12},\"b\":[{\"left\":27,\"right\":12},{\"left\":20,\"right\":12},{\"left\":28,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":99,\"right\":12},\"b\":[{\"left\":27,\"right\":12},{\"left\":24,\"right\":12},{\"left\":31,\"right\":12}]}"
     },
     {
       "name": "D sales-invoices ar default: «العميل» header aligned with body",
@@ -274,7 +274,7 @@
     {
       "name": "D sales-invoices ar default: «العميل» not clipped",
       "ok": false,
-      "detail": ["عميل R22 MV80OLZ9", "عميل R22U MV80LNLW", "عميل R22 MV7T3C1D"]
+      "detail": ["عميل R22 MV849EK4", "عميل R22U MV846IDN", "عميل R22 MV816MEZ"]
     },
     {
       "name": "D sales-invoices ar default: «الحالة» header aligned with body",
@@ -284,7 +284,7 @@
     {
       "name": "D sales-invoices ar default: «الإجمالي الكلي» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":73},\"b\":[{\"left\":12,\"right\":67},{\"left\":12,\"right\":75},{\"left\":12,\"right\":67}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":56},\"b\":[{\"left\":12,\"right\":50},{\"left\":12,\"right\":58},{\"left\":12,\"right\":50}]}"
     },
     {
       "name": "D sales-invoices ar default: «الإجمالي الكلي» amounts on the numeric end edge",
@@ -294,7 +294,7 @@
     {
       "name": "D sales-invoices ar default: «المبلغ المدفوع» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":67},\"b\":[{\"left\":12,\"right\":67},{\"left\":12,\"right\":109},{\"left\":12,\"right\":67}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":43},\"b\":[{\"left\":12,\"right\":43},{\"left\":12,\"right\":85},{\"left\":12,\"right\":43}]}"
     },
     {
       "name": "D sales-invoices ar default: «المبلغ المدفوع» amounts on the numeric end edge",
@@ -304,7 +304,7 @@
     {
       "name": "D sales-invoices ar default: «المبلغ المتبقي» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":71},\"b\":[{\"left\":12,\"right\":75},{\"left\":12,\"right\":75},{\"left\":12,\"right\":67}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":47},\"b\":[{\"left\":12,\"right\":51},{\"left\":12,\"right\":51},{\"left\":12,\"right\":43}]}"
     },
     {
       "name": "D sales-invoices ar default: «المبلغ المتبقي» amounts on the numeric end edge",
@@ -313,13 +313,8 @@
     },
     {
       "name": "D sales-invoices ar default: «حالة الدفع» header aligned with body",
-      "ok": false,
-      "detail": "right vs center/right/left {\"h\":{\"left\":43,\"right\":12},\"b\":[{\"left\":24,\"right\":19},{\"left\":33,\"right\":19},{\"left\":24,\"right\":19}]}"
-    },
-    {
-      "name": "D sales-invoices ar default: «حالة الدفع» not clipped",
-      "ok": false,
-      "detail": ["مدفوعة بالكامل"]
+      "ok": true,
+      "detail": "right vs right {\"h\":{\"left\":59,\"right\":12},\"b\":[{\"left\":40,\"right\":19},{\"left\":49,\"right\":19},{\"left\":40,\"right\":19}]}"
     },
     {
       "name": "D sales-invoices ar default: «التاريخ» header aligned with body",
@@ -329,7 +324,7 @@
     {
       "name": "D sales-invoices ar all-columns: «رقم الفاتورة» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":99,\"right\":12},\"b\":[{\"left\":27,\"right\":12},{\"left\":20,\"right\":12},{\"left\":28,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":99,\"right\":12},\"b\":[{\"left\":27,\"right\":12},{\"left\":24,\"right\":12},{\"left\":31,\"right\":12}]}"
     },
     {
       "name": "D sales-invoices ar all-columns: «العميل» header aligned with body",
@@ -339,7 +334,7 @@
     {
       "name": "D sales-invoices ar all-columns: «العميل» not clipped",
       "ok": false,
-      "detail": ["عميل R22 MV80OLZ9", "عميل R22U MV80LNLW", "عميل R22 MV7T3C1D"]
+      "detail": ["عميل R22 MV849EK4", "عميل R22U MV846IDN", "عميل R22 MV816MEZ"]
     },
     {
       "name": "D sales-invoices ar all-columns: «الحالة» header aligned with body",
@@ -349,7 +344,7 @@
     {
       "name": "D sales-invoices ar all-columns: «الإجمالي الكلي» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":73},\"b\":[{\"left\":12,\"right\":67},{\"left\":12,\"right\":75},{\"left\":12,\"right\":67}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":56},\"b\":[{\"left\":12,\"right\":50},{\"left\":12,\"right\":58},{\"left\":12,\"right\":50}]}"
     },
     {
       "name": "D sales-invoices ar all-columns: «الإجمالي الكلي» amounts on the numeric end edge",
@@ -359,7 +354,7 @@
     {
       "name": "D sales-invoices ar all-columns: «المبلغ المدفوع» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":67},\"b\":[{\"left\":12,\"right\":67},{\"left\":12,\"right\":109},{\"left\":12,\"right\":67}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":43},\"b\":[{\"left\":12,\"right\":43},{\"left\":12,\"right\":85},{\"left\":12,\"right\":43}]}"
     },
     {
       "name": "D sales-invoices ar all-columns: «المبلغ المدفوع» amounts on the numeric end edge",
@@ -369,7 +364,7 @@
     {
       "name": "D sales-invoices ar all-columns: «المبلغ المتبقي» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":71},\"b\":[{\"left\":12,\"right\":75},{\"left\":12,\"right\":75},{\"left\":12,\"right\":67}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":47},\"b\":[{\"left\":12,\"right\":51},{\"left\":12,\"right\":51},{\"left\":12,\"right\":43}]}"
     },
     {
       "name": "D sales-invoices ar all-columns: «المبلغ المتبقي» amounts on the numeric end edge",
@@ -378,13 +373,8 @@
     },
     {
       "name": "D sales-invoices ar all-columns: «حالة الدفع» header aligned with body",
-      "ok": false,
-      "detail": "right vs center/right/left {\"h\":{\"left\":43,\"right\":12},\"b\":[{\"left\":24,\"right\":19},{\"left\":33,\"right\":19},{\"left\":24,\"right\":19}]}"
-    },
-    {
-      "name": "D sales-invoices ar all-columns: «حالة الدفع» not clipped",
-      "ok": false,
-      "detail": ["مدفوعة بالكامل"]
+      "ok": true,
+      "detail": "right vs right {\"h\":{\"left\":59,\"right\":12},\"b\":[{\"left\":40,\"right\":19},{\"left\":49,\"right\":19},{\"left\":40,\"right\":19}]}"
     },
     {
       "name": "D sales-invoices ar all-columns: «التاريخ» header aligned with body",
@@ -394,7 +384,7 @@
     {
       "name": "D purchase-invoices ar default: «رقم الفاتورة» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":99,\"right\":12},\"b\":[{\"left\":28,\"right\":12},{\"left\":28,\"right\":12},{\"left\":26,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":99,\"right\":12},\"b\":[{\"left\":27,\"right\":12},{\"left\":33,\"right\":12},{\"left\":25,\"right\":12}]}"
     },
     {
       "name": "D purchase-invoices ar default: «المورد» header aligned with body",
@@ -404,7 +394,7 @@
     {
       "name": "D purchase-invoices ar default: «المورد» not clipped",
       "ok": false,
-      "detail": ["مورد R22 MV80OLZ9", "مورد R22U MV80LNLW", "مورد R22 MV7T3C1D"]
+      "detail": ["مورد R22 MV849EK4", "مورد R22U MV846IDN", "مورد R22 MV816MEZ"]
     },
     {
       "name": "D purchase-invoices ar default: «الحالة» header aligned with body",
@@ -414,7 +404,7 @@
     {
       "name": "D purchase-invoices ar default: «الإجمالي الكلي» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":73},\"b\":[{\"left\":12,\"right\":67},{\"left\":12,\"right\":67},{\"left\":12,\"right\":67}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":56},\"b\":[{\"left\":12,\"right\":50},{\"left\":12,\"right\":50},{\"left\":12,\"right\":50}]}"
     },
     {
       "name": "D purchase-invoices ar default: «الإجمالي الكلي» amounts on the numeric end edge",
@@ -424,7 +414,7 @@
     {
       "name": "D purchase-invoices ar default: «المبلغ المدفوع» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":67},\"b\":[{\"left\":12,\"right\":109},{\"left\":12,\"right\":109},{\"left\":12,\"right\":109}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":43},\"b\":[{\"left\":12,\"right\":85},{\"left\":12,\"right\":85},{\"left\":12,\"right\":85}]}"
     },
     {
       "name": "D purchase-invoices ar default: «المبلغ المدفوع» amounts on the numeric end edge",
@@ -434,7 +424,7 @@
     {
       "name": "D purchase-invoices ar default: «المبلغ المتبقي» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":71},\"b\":[{\"left\":12,\"right\":67},{\"left\":12,\"right\":67},{\"left\":12,\"right\":67}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":47},\"b\":[{\"left\":12,\"right\":43},{\"left\":12,\"right\":43},{\"left\":12,\"right\":43}]}"
     },
     {
       "name": "D purchase-invoices ar default: «المبلغ المتبقي» amounts on the numeric end edge",
@@ -444,7 +434,7 @@
     {
       "name": "D purchase-invoices ar default: «حالة الدفع» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":43,\"right\":12},\"b\":[{\"left\":33,\"right\":19},{\"left\":33,\"right\":19},{\"left\":33,\"right\":19}]}"
+      "detail": "right vs right {\"h\":{\"left\":59,\"right\":12},\"b\":[{\"left\":49,\"right\":19},{\"left\":49,\"right\":19},{\"left\":49,\"right\":19}]}"
     },
     {
       "name": "D purchase-invoices ar default: «التاريخ» header aligned with body",
@@ -454,7 +444,7 @@
     {
       "name": "D purchase-invoices ar all-columns: «رقم الفاتورة» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":99,\"right\":12},\"b\":[{\"left\":28,\"right\":12},{\"left\":28,\"right\":12},{\"left\":26,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":99,\"right\":12},\"b\":[{\"left\":27,\"right\":12},{\"left\":33,\"right\":12},{\"left\":25,\"right\":12}]}"
     },
     {
       "name": "D purchase-invoices ar all-columns: «المورد» header aligned with body",
@@ -464,7 +454,7 @@
     {
       "name": "D purchase-invoices ar all-columns: «المورد» not clipped",
       "ok": false,
-      "detail": ["مورد R22 MV80OLZ9", "مورد R22U MV80LNLW", "مورد R22 MV7T3C1D"]
+      "detail": ["مورد R22 MV849EK4", "مورد R22U MV846IDN", "مورد R22 MV816MEZ"]
     },
     {
       "name": "D purchase-invoices ar all-columns: «الحالة» header aligned with body",
@@ -474,7 +464,7 @@
     {
       "name": "D purchase-invoices ar all-columns: «الإجمالي الكلي» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":73},\"b\":[{\"left\":12,\"right\":67},{\"left\":12,\"right\":67},{\"left\":12,\"right\":67}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":56},\"b\":[{\"left\":12,\"right\":50},{\"left\":12,\"right\":50},{\"left\":12,\"right\":50}]}"
     },
     {
       "name": "D purchase-invoices ar all-columns: «الإجمالي الكلي» amounts on the numeric end edge",
@@ -484,7 +474,7 @@
     {
       "name": "D purchase-invoices ar all-columns: «المبلغ المدفوع» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":67},\"b\":[{\"left\":12,\"right\":109},{\"left\":12,\"right\":109},{\"left\":12,\"right\":109}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":43},\"b\":[{\"left\":12,\"right\":85},{\"left\":12,\"right\":85},{\"left\":12,\"right\":85}]}"
     },
     {
       "name": "D purchase-invoices ar all-columns: «المبلغ المدفوع» amounts on the numeric end edge",
@@ -494,7 +484,7 @@
     {
       "name": "D purchase-invoices ar all-columns: «المبلغ المتبقي» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":71},\"b\":[{\"left\":12,\"right\":67},{\"left\":12,\"right\":67},{\"left\":12,\"right\":67}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":47},\"b\":[{\"left\":12,\"right\":43},{\"left\":12,\"right\":43},{\"left\":12,\"right\":43}]}"
     },
     {
       "name": "D purchase-invoices ar all-columns: «المبلغ المتبقي» amounts on the numeric end edge",
@@ -504,7 +494,7 @@
     {
       "name": "D purchase-invoices ar all-columns: «حالة الدفع» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":43,\"right\":12},\"b\":[{\"left\":33,\"right\":19},{\"left\":33,\"right\":19},{\"left\":33,\"right\":19}]}"
+      "detail": "right vs right {\"h\":{\"left\":59,\"right\":12},\"b\":[{\"left\":49,\"right\":19},{\"left\":49,\"right\":19},{\"left\":49,\"right\":19}]}"
     },
     {
       "name": "D purchase-invoices ar all-columns: «التاريخ» header aligned with body",
@@ -514,52 +504,52 @@
     {
       "name": "D receipts ar default: «رقم السند» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":244,\"right\":12},\"b\":[{\"left\":182,\"right\":12},{\"left\":182,\"right\":12},{\"left\":182,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":192,\"right\":12},\"b\":[{\"left\":130,\"right\":12},{\"left\":130,\"right\":12},{\"left\":130,\"right\":12}]}"
     },
     {
       "name": "D receipts ar default: «العميل» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":442,\"right\":12},\"b\":[{\"left\":345,\"right\":12},{\"left\":345,\"right\":12},{\"left\":333,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":339,\"right\":12},\"b\":[{\"left\":242,\"right\":12},{\"left\":242,\"right\":12},{\"left\":236,\"right\":12}]}"
     },
     {
       "name": "D receipts ar default: «الحالة» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":176,\"right\":12},\"b\":[{\"left\":141,\"right\":12},{\"left\":133,\"right\":12},{\"left\":133,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":110,\"right\":12},\"b\":[{\"left\":107,\"right\":19},{\"left\":107,\"right\":19},{\"left\":107,\"right\":19}]}"
     },
     {
-      "name": "D receipts ar default: «الحالة» amounts on the numeric end edge",
-      "ok": false,
-      "detail": "right (end=left)"
+      "name": "D receipts ar default: «المبلغ» header aligned with body",
+      "ok": true,
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":181},\"b\":[{\"left\":12,\"right\":147},{\"left\":12,\"right\":139},{\"left\":12,\"right\":155}]}"
+    },
+    {
+      "name": "D receipts ar default: «المبلغ» amounts on the numeric end edge",
+      "ok": true,
+      "detail": "left (end=left)"
     },
     {
       "name": "D receipts ar all-columns: «رقم السند» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":120,\"right\":12},\"b\":[{\"left\":58,\"right\":12},{\"left\":58,\"right\":12},{\"left\":58,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":123,\"right\":12},\"b\":[{\"left\":61,\"right\":12},{\"left\":61,\"right\":12},{\"left\":61,\"right\":12}]}"
     },
     {
       "name": "D receipts ar all-columns: «العميل» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":147,\"right\":12},\"b\":[{\"left\":50,\"right\":12},{\"left\":50,\"right\":12},{\"left\":38,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":152,\"right\":12},\"b\":[{\"left\":55,\"right\":12},{\"left\":55,\"right\":12},{\"left\":48,\"right\":12}]}"
     },
     {
       "name": "D receipts ar all-columns: «المرجع» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":60,\"right\":12},\"b\":[{\"left\":80,\"right\":12},{\"left\":80,\"right\":12},{\"left\":80,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":61,\"right\":12},\"b\":[{\"left\":81,\"right\":12},{\"left\":81,\"right\":12},{\"left\":81,\"right\":12}]}"
     },
     {
       "name": "D receipts ar all-columns: «الحالة» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":83,\"right\":12},\"b\":[{\"left\":48,\"right\":12},{\"left\":40,\"right\":12},{\"left\":40,\"right\":12}]}"
-    },
-    {
-      "name": "D receipts ar all-columns: «الحالة» amounts on the numeric end edge",
-      "ok": false,
-      "detail": "right (end=left)"
+      "detail": "right vs right {\"h\":{\"left\":69,\"right\":12},\"b\":[{\"left\":66,\"right\":19},{\"left\":66,\"right\":19},{\"left\":66,\"right\":19}]}"
     },
     {
       "name": "D receipts ar all-columns: «المبلغ» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":118},\"b\":[{\"left\":12,\"right\":84},{\"left\":12,\"right\":76},{\"left\":12,\"right\":76}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":120},\"b\":[{\"left\":12,\"right\":86},{\"left\":12,\"right\":78},{\"left\":12,\"right\":94}]}"
     },
     {
       "name": "D receipts ar all-columns: «المبلغ» amounts on the numeric end edge",
@@ -569,12 +559,12 @@
     {
       "name": "D receipts ar all-columns: «التاريخ» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":79,\"right\":12},\"b\":[{\"left\":33,\"right\":12},{\"left\":33,\"right\":12},{\"left\":33,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":81,\"right\":12},\"b\":[{\"left\":35,\"right\":12},{\"left\":35,\"right\":12},{\"left\":35,\"right\":12}]}"
     },
     {
       "name": "D receipts ar all-columns: «أُنشئ بواسطة» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":58,\"right\":12},\"b\":[{\"left\":66,\"right\":12},{\"left\":66,\"right\":12},{\"left\":66,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":59,\"right\":12},\"b\":[{\"left\":67,\"right\":12},{\"left\":67,\"right\":12},{\"left\":67,\"right\":12}]}"
     },
     {
       "name": "D expenses ar default: «رقم المصروف» header aligned with body",
@@ -673,7 +663,7 @@
     {
       "name": "D receipt-confirmed table#0 ar: «الفاتورة» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":168,\"right\":12},\"b\":[{\"left\":88,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":168,\"right\":12},\"b\":[{\"left\":89,\"right\":12}]}"
     },
     {
       "name": "D receipt-confirmed table#0 ar: «الإجمالي الكلي» header aligned with body",
@@ -718,7 +708,7 @@
     {
       "name": "D receipt-from-invoice table#0 ar: «الفاتورة» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":168,\"right\":12},\"b\":[{\"left\":88,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":168,\"right\":12},\"b\":[{\"left\":89,\"right\":12}]}"
     },
     {
       "name": "D receipt-from-invoice table#0 ar: «الإجمالي الكلي» header aligned with body",
@@ -828,7 +818,7 @@
     {
       "name": "D sales-invoices en default: «Invoice No.» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":91},\"b\":[{\"left\":12,\"right\":27},{\"left\":12,\"right\":20},{\"left\":12,\"right\":28}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":91},\"b\":[{\"left\":12,\"right\":27},{\"left\":12,\"right\":24},{\"left\":12,\"right\":31}]}"
     },
     {
       "name": "D sales-invoices en default: «Customer» header aligned with body",
@@ -838,7 +828,7 @@
     {
       "name": "D sales-invoices en default: «Customer» not clipped",
       "ok": false,
-      "detail": ["عميل R22 MV80OLZ9", "عميل R22U MV80LNLW", "عميل R22 MV7T3C1D"]
+      "detail": ["عميل R22 MV849EK4", "عميل R22U MV846IDN", "عميل R22 MV816MEZ"]
     },
     {
       "name": "D sales-invoices en default: «Status» header aligned with body",
@@ -848,7 +838,7 @@
     {
       "name": "D sales-invoices en default: «Grand Total» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":72,\"right\":12},\"b\":[{\"left\":67,\"right\":12},{\"left\":75,\"right\":12},{\"left\":67,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":56,\"right\":12},\"b\":[{\"left\":51,\"right\":12},{\"left\":59,\"right\":12},{\"left\":51,\"right\":12}]}"
     },
     {
       "name": "D sales-invoices en default: «Grand Total» amounts on the numeric end edge",
@@ -858,7 +848,7 @@
     {
       "name": "D sales-invoices en default: «Paid Amount» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":65,\"right\":12},\"b\":[{\"left\":67,\"right\":12},{\"left\":109,\"right\":12},{\"left\":67,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":41,\"right\":12},\"b\":[{\"left\":43,\"right\":12},{\"left\":85,\"right\":12},{\"left\":43,\"right\":12}]}"
     },
     {
       "name": "D sales-invoices en default: «Paid Amount» amounts on the numeric end edge",
@@ -888,7 +878,7 @@
     {
       "name": "D sales-invoices en all-columns: «Invoice No.» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":91},\"b\":[{\"left\":12,\"right\":27},{\"left\":12,\"right\":20},{\"left\":12,\"right\":28}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":91},\"b\":[{\"left\":12,\"right\":27},{\"left\":12,\"right\":24},{\"left\":12,\"right\":31}]}"
     },
     {
       "name": "D sales-invoices en all-columns: «Customer» header aligned with body",
@@ -898,7 +888,7 @@
     {
       "name": "D sales-invoices en all-columns: «Customer» not clipped",
       "ok": false,
-      "detail": ["عميل R22 MV80OLZ9", "عميل R22U MV80LNLW", "عميل R22 MV7T3C1D"]
+      "detail": ["عميل R22 MV849EK4", "عميل R22U MV846IDN", "عميل R22 MV816MEZ"]
     },
     {
       "name": "D sales-invoices en all-columns: «Status» header aligned with body",
@@ -908,7 +898,7 @@
     {
       "name": "D sales-invoices en all-columns: «Grand Total» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":72,\"right\":12},\"b\":[{\"left\":67,\"right\":12},{\"left\":75,\"right\":12},{\"left\":67,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":56,\"right\":12},\"b\":[{\"left\":51,\"right\":12},{\"left\":59,\"right\":12},{\"left\":51,\"right\":12}]}"
     },
     {
       "name": "D sales-invoices en all-columns: «Grand Total» amounts on the numeric end edge",
@@ -918,7 +908,7 @@
     {
       "name": "D sales-invoices en all-columns: «Paid Amount» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":65,\"right\":12},\"b\":[{\"left\":67,\"right\":12},{\"left\":109,\"right\":12},{\"left\":67,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":41,\"right\":12},\"b\":[{\"left\":43,\"right\":12},{\"left\":85,\"right\":12},{\"left\":43,\"right\":12}]}"
     },
     {
       "name": "D sales-invoices en all-columns: «Paid Amount» amounts on the numeric end edge",
@@ -948,7 +938,7 @@
     {
       "name": "D purchase-invoices en default: «Invoice No.» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":91},\"b\":[{\"left\":12,\"right\":28},{\"left\":12,\"right\":28},{\"left\":12,\"right\":26}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":91},\"b\":[{\"left\":12,\"right\":27},{\"left\":12,\"right\":33},{\"left\":12,\"right\":25}]}"
     },
     {
       "name": "D purchase-invoices en default: «Supplier» header aligned with body",
@@ -958,7 +948,7 @@
     {
       "name": "D purchase-invoices en default: «Supplier» not clipped",
       "ok": false,
-      "detail": ["مورد R22 MV80OLZ9", "مورد R22U MV80LNLW", "مورد R22 MV7T3C1D"]
+      "detail": ["مورد R22 MV849EK4", "مورد R22U MV846IDN", "مورد R22 MV816MEZ"]
     },
     {
       "name": "D purchase-invoices en default: «Status» header aligned with body",
@@ -968,7 +958,7 @@
     {
       "name": "D purchase-invoices en default: «Grand Total» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":72,\"right\":12},\"b\":[{\"left\":67,\"right\":12},{\"left\":67,\"right\":12},{\"left\":67,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":56,\"right\":12},\"b\":[{\"left\":51,\"right\":12},{\"left\":51,\"right\":12},{\"left\":51,\"right\":12}]}"
     },
     {
       "name": "D purchase-invoices en default: «Grand Total» amounts on the numeric end edge",
@@ -978,7 +968,7 @@
     {
       "name": "D purchase-invoices en default: «Paid Amount» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":65,\"right\":12},\"b\":[{\"left\":109,\"right\":12},{\"left\":109,\"right\":12},{\"left\":109,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":41,\"right\":12},\"b\":[{\"left\":85,\"right\":12},{\"left\":85,\"right\":12},{\"left\":85,\"right\":12}]}"
     },
     {
       "name": "D purchase-invoices en default: «Paid Amount» amounts on the numeric end edge",
@@ -1008,7 +998,7 @@
     {
       "name": "D purchase-invoices en all-columns: «Invoice No.» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":91},\"b\":[{\"left\":12,\"right\":28},{\"left\":12,\"right\":28},{\"left\":12,\"right\":26}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":91},\"b\":[{\"left\":12,\"right\":27},{\"left\":12,\"right\":33},{\"left\":12,\"right\":25}]}"
     },
     {
       "name": "D purchase-invoices en all-columns: «Supplier» header aligned with body",
@@ -1018,7 +1008,7 @@
     {
       "name": "D purchase-invoices en all-columns: «Supplier» not clipped",
       "ok": false,
-      "detail": ["مورد R22 MV80OLZ9", "مورد R22U MV80LNLW", "مورد R22 MV7T3C1D"]
+      "detail": ["مورد R22 MV849EK4", "مورد R22U MV846IDN", "مورد R22 MV816MEZ"]
     },
     {
       "name": "D purchase-invoices en all-columns: «Status» header aligned with body",
@@ -1028,7 +1018,7 @@
     {
       "name": "D purchase-invoices en all-columns: «Grand Total» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":72,\"right\":12},\"b\":[{\"left\":67,\"right\":12},{\"left\":67,\"right\":12},{\"left\":67,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":56,\"right\":12},\"b\":[{\"left\":51,\"right\":12},{\"left\":51,\"right\":12},{\"left\":51,\"right\":12}]}"
     },
     {
       "name": "D purchase-invoices en all-columns: «Grand Total» amounts on the numeric end edge",
@@ -1038,7 +1028,7 @@
     {
       "name": "D purchase-invoices en all-columns: «Paid Amount» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":65,\"right\":12},\"b\":[{\"left\":109,\"right\":12},{\"left\":109,\"right\":12},{\"left\":109,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":41,\"right\":12},\"b\":[{\"left\":85,\"right\":12},{\"left\":85,\"right\":12},{\"left\":85,\"right\":12}]}"
     },
     {
       "name": "D purchase-invoices en all-columns: «Paid Amount» amounts on the numeric end edge",
@@ -1068,52 +1058,52 @@
     {
       "name": "D receipts en default: «Voucher No.» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":222},\"b\":[{\"left\":12,\"right\":182},{\"left\":12,\"right\":182},{\"left\":12,\"right\":182}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":171},\"b\":[{\"left\":12,\"right\":130},{\"left\":12,\"right\":130},{\"left\":12,\"right\":130}]}"
     },
     {
       "name": "D receipts en default: «Customer» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":418},\"b\":[{\"left\":12,\"right\":345},{\"left\":12,\"right\":345},{\"left\":12,\"right\":333}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":315},\"b\":[{\"left\":12,\"right\":242},{\"left\":12,\"right\":242},{\"left\":12,\"right\":236}]}"
     },
     {
       "name": "D receipts en default: «Status» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":166},\"b\":[{\"left\":12,\"right\":137},{\"left\":12,\"right\":133},{\"left\":12,\"right\":133}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":100},\"b\":[{\"left\":19,\"right\":71},{\"left\":19,\"right\":71},{\"left\":19,\"right\":71}]}"
     },
     {
-      "name": "D receipts en default: «Status» amounts on the numeric end edge",
-      "ok": false,
-      "detail": "left (end=right)"
+      "name": "D receipts en default: «Amount» header aligned with body",
+      "ok": true,
+      "detail": "right vs right {\"h\":{\"left\":165,\"right\":12},\"b\":[{\"left\":147,\"right\":12},{\"left\":139,\"right\":12},{\"left\":155,\"right\":12}]}"
+    },
+    {
+      "name": "D receipts en default: «Amount» amounts on the numeric end edge",
+      "ok": true,
+      "detail": "right (end=right)"
     },
     {
       "name": "D receipts en all-columns: «Voucher No.» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":97},\"b\":[{\"left\":12,\"right\":56},{\"left\":12,\"right\":56},{\"left\":12,\"right\":56}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":99},\"b\":[{\"left\":12,\"right\":59},{\"left\":12,\"right\":59},{\"left\":12,\"right\":59}]}"
     },
     {
       "name": "D receipts en all-columns: «Customer» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":119},\"b\":[{\"left\":12,\"right\":46},{\"left\":12,\"right\":46},{\"left\":12,\"right\":34}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":124},\"b\":[{\"left\":12,\"right\":52},{\"left\":12,\"right\":52},{\"left\":12,\"right\":45}]}"
     },
     {
       "name": "D receipts en all-columns: «Reference» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":44},\"b\":[{\"left\":12,\"right\":90},{\"left\":12,\"right\":90},{\"left\":12,\"right\":90}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":45},\"b\":[{\"left\":12,\"right\":91},{\"left\":12,\"right\":91},{\"left\":12,\"right\":91}]}"
     },
     {
       "name": "D receipts en all-columns: «Status» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":72},\"b\":[{\"left\":12,\"right\":43},{\"left\":12,\"right\":39},{\"left\":12,\"right\":39}]}"
-    },
-    {
-      "name": "D receipts en all-columns: «Status» amounts on the numeric end edge",
-      "ok": false,
-      "detail": "left (end=right)"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":57},\"b\":[{\"left\":19,\"right\":29},{\"left\":19,\"right\":29},{\"left\":19,\"right\":29}]}"
     },
     {
       "name": "D receipts en all-columns: «Amount» header aligned with body",
       "ok": true,
-      "detail": "right vs right {\"h\":{\"left\":101,\"right\":12},\"b\":[{\"left\":83,\"right\":12},{\"left\":75,\"right\":12},{\"left\":75,\"right\":12}]}"
+      "detail": "right vs right {\"h\":{\"left\":102,\"right\":12},\"b\":[{\"left\":85,\"right\":12},{\"left\":77,\"right\":12},{\"left\":93,\"right\":12}]}"
     },
     {
       "name": "D receipts en all-columns: «Amount» amounts on the numeric end edge",
@@ -1123,12 +1113,12 @@
     {
       "name": "D receipts en all-columns: «Date» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":80},\"b\":[{\"left\":12,\"right\":32},{\"left\":12,\"right\":32},{\"left\":12,\"right\":32}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":82},\"b\":[{\"left\":12,\"right\":33},{\"left\":12,\"right\":33},{\"left\":12,\"right\":33}]}"
     },
     {
       "name": "D receipts en all-columns: «Created By» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":56},\"b\":[{\"left\":12,\"right\":64},{\"left\":12,\"right\":64},{\"left\":12,\"right\":64}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":57},\"b\":[{\"left\":12,\"right\":66},{\"left\":12,\"right\":66},{\"left\":12,\"right\":66}]}"
     },
     {
       "name": "D expenses en default: «Expense #» header aligned with body",
@@ -1213,7 +1203,7 @@
     {
       "name": "D receipt-confirmed table#0 en: «Invoice» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":161},\"b\":[{\"left\":12,\"right\":88}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":161},\"b\":[{\"left\":12,\"right\":89}]}"
     },
     {
       "name": "D receipt-confirmed table#0 en: «Grand Total» header aligned with body",
@@ -1258,7 +1248,7 @@
     {
       "name": "D receipt-from-invoice table#0 en: «Invoice» header aligned with body",
       "ok": true,
-      "detail": "left vs left {\"h\":{\"left\":12,\"right\":161},\"b\":[{\"left\":12,\"right\":88}]}"
+      "detail": "left vs left {\"h\":{\"left\":12,\"right\":161},\"b\":[{\"left\":12,\"right\":89}]}"
     },
     {
       "name": "D receipt-from-invoice table#0 en: «Grand Total» header aligned with body",
@@ -1564,7 +1554,7 @@
       "value": "",
       "label": "المبلغ المقبوض*",
       "groupText": "المبلغ المقبوض*EGP",
-      "borderWidth": "1px",
+      "borderWidth": "2px",
       "borderColor": "rgb(209, 209, 209)",
       "outline": "none 3px rgb(0, 114, 245)",
       "boxShadow": "none",
@@ -1581,7 +1571,7 @@
         "value": "",
         "label": "المبلغ المقبوض*",
         "groupText": "المبلغ المقبوض*EGP",
-        "borderWidth": "1px",
+        "borderWidth": "2px",
         "borderColor": "rgb(209, 209, 209)",
         "outline": "none 3px rgb(0, 114, 245)",
         "boxShadow": "none",
@@ -1597,7 +1587,7 @@
         "value": "",
         "label": "المبلغ المقبوض*",
         "groupText": "المبلغ المقبوض*EGP",
-        "borderWidth": "1px",
+        "borderWidth": "2px",
         "borderColor": "rgb(168, 168, 168)",
         "outline": "none 3px rgb(0, 114, 245)",
         "boxShadow": "none",
@@ -1613,7 +1603,7 @@
         "value": "",
         "label": "المبلغ المقبوض*",
         "groupText": "المبلغ المقبوض*EGP",
-        "borderWidth": "1px",
+        "borderWidth": "2px",
         "borderColor": "rgb(0, 114, 245)",
         "outline": "none 1px rgb(0, 114, 245)",
         "boxShadow": "lab(49.0052 13.5129 -74.3602 / 0.18) 0px 0px 0px 3px",
@@ -1681,7 +1671,7 @@
       "value": "",
       "label": "المبلغ المدفوع*",
       "groupText": "المبلغ المدفوع*EGP",
-      "borderWidth": "1px",
+      "borderWidth": "2px",
       "borderColor": "rgb(209, 209, 209)",
       "outline": "none 3px rgb(0, 114, 245)",
       "boxShadow": "none",
@@ -1698,7 +1688,7 @@
         "value": "",
         "label": "المبلغ المدفوع*",
         "groupText": "المبلغ المدفوع*EGP",
-        "borderWidth": "1px",
+        "borderWidth": "2px",
         "borderColor": "rgb(209, 209, 209)",
         "outline": "none 3px rgb(0, 114, 245)",
         "boxShadow": "none",
@@ -1714,7 +1704,7 @@
         "value": "",
         "label": "المبلغ المدفوع*",
         "groupText": "المبلغ المدفوع*EGP",
-        "borderWidth": "1px",
+        "borderWidth": "2px",
         "borderColor": "rgb(168, 168, 168)",
         "outline": "none 3px rgb(0, 114, 245)",
         "boxShadow": "none",
@@ -1730,7 +1720,7 @@
         "value": "",
         "label": "المبلغ المدفوع*",
         "groupText": "المبلغ المدفوع*EGP",
-        "borderWidth": "1px",
+        "borderWidth": "2px",
         "borderColor": "rgb(0, 114, 245)",
         "outline": "none 1px rgb(0, 114, 245)",
         "boxShadow": "lab(49.0052 13.5129 -74.3602 / 0.18) 0px 0px 0px 3px",
@@ -1822,7 +1812,7 @@
       "value": "",
       "label": "المبلغ المدفوع*",
       "groupText": "المبلغ المدفوع*EGP",
-      "borderWidth": "1px",
+      "borderWidth": "2px",
       "borderColor": "rgb(209, 209, 209)",
       "outline": "none 3px rgb(0, 114, 245)",
       "boxShadow": "none",
@@ -1839,7 +1829,7 @@
         "value": "",
         "label": "المبلغ المدفوع*",
         "groupText": "المبلغ المدفوع*EGP",
-        "borderWidth": "1px",
+        "borderWidth": "2px",
         "borderColor": "rgb(209, 209, 209)",
         "outline": "none 3px rgb(0, 114, 245)",
         "boxShadow": "none",
@@ -1855,7 +1845,7 @@
         "value": "",
         "label": "المبلغ المدفوع*",
         "groupText": "المبلغ المدفوع*EGP",
-        "borderWidth": "1px",
+        "borderWidth": "2px",
         "borderColor": "rgb(168, 168, 168)",
         "outline": "none 3px rgb(0, 114, 245)",
         "boxShadow": "none",
@@ -1871,7 +1861,7 @@
         "value": "",
         "label": "المبلغ المدفوع*",
         "groupText": "المبلغ المدفوع*EGP",
-        "borderWidth": "1px",
+        "borderWidth": "2px",
         "borderColor": "rgb(0, 114, 245)",
         "outline": "none 1px rgb(0, 114, 245)",
         "boxShadow": "lab(49.0052 13.5129 -74.3602 / 0.18) 0px 0px 0px 3px",
@@ -1886,19 +1876,19 @@
       "after": "750",
       "messages": ["العميل*اختر عميلاًاختر طرفاً قبل الحفظ.", "اختر طرفاً قبل الحفظ."]
     },
-    "preConfirmSummary": "مراجعة السند قبل التأكيد المبلغ 100,000.00 الطرف عميل R22 MV80OLZ9 يُودَع في الصندوق الرئيسي الفواتير التي ستُسدَّد INV-2026-000032 100,000.00 يُرحَّل قيد اليومية بتاريخ السند 14 Oct 2026، ويظهر في كشف الحساب فوراً. إغلاق تأكيد وترحيل 100,000.00",
+    "preConfirmSummary": "مراجعة السند قبل التأكيد المبلغ 100,000.00 الطرف عميل R22 MV849EK4 يُودَع في الصندوق الرئيسي الفواتير التي ستُسدَّد INV-2026-000036 100,000.00 يُرحَّل قيد اليومية بتاريخ السند 14 Oct 2026، ويظهر في كشف الحساب فوراً. إغلاق تأكيد وترحيل 100,000.00",
     "doubleClick": {
       "posts": ["http://localhost:4935/financial-transactions/receipts/confirmed"],
-      "vouchers": ["CR-2026-000057 CONFIRMED 100000"]
+      "vouchers": ["CR-2026-000061 CONFIRMED 100000"]
     },
     "staleTab": {
       "before": "100,000.00",
-      "afterFocus": "100,000.00",
-      "receipt2": "CR-2026-000058",
+      "afterFocus": "60,000.00",
+      "receipt2": "CR-2026-000062",
       "afterReload": "60,000.00"
     },
     "settlementHistory": {
-      "voucherNo": "CR-2026-000057",
+      "voucherNo": "CR-2026-000061",
       "hasVoucher": true,
       "hasAllocatedAmount": true
     },
@@ -1906,7 +1896,7 @@
       "defaults": {
         "dir": "rtl",
         "tableScroll": {
-          "scrollWidth": 1209,
+          "scrollWidth": 1160,
           "clientWidth": 1150
         },
         "columns": [
@@ -1957,16 +1947,16 @@
                 "right": 12
               },
               {
-                "left": 20,
+                "left": 24,
                 "right": 12
               },
               {
-                "left": 28,
+                "left": 31,
                 "right": 12
               }
             ],
             "widthPx": 164,
-            "sample": ["INV-2026-000032 R22IB-S-MV80OLZ9", "INV-2026-000031 R22U-S2-MV80LNLW"]
+            "sample": ["INV-2026-000036 R22IB-S-MV849EK4", "INV-2026-000035 R22U-S2-MV846IDN"]
           },
           {
             "header": "العميل",
@@ -1976,7 +1966,7 @@
             "numeric": false,
             "hasMoney": false,
             "sortable": true,
-            "clipped": ["عميل R22 MV80OLZ9", "عميل R22U MV80LNLW", "عميل R22 MV7T3C1D"],
+            "clipped": ["عميل R22 MV849EK4", "عميل R22U MV846IDN", "عميل R22 MV816MEZ"],
             "headerGap": {
               "left": 56,
               "right": 12
@@ -1996,7 +1986,7 @@
               }
             ],
             "widthPx": 99,
-            "sample": ["عميل R22 MV80OLZ9", "عميل R22U MV80LNLW"]
+            "sample": ["عميل R22 MV849EK4", "عميل R22U MV846IDN"]
           },
           {
             "header": "الحالة",
@@ -2039,23 +2029,23 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 73
+              "right": 56
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 67
+                "right": 50
               },
               {
                 "left": 12,
-                "right": 75
+                "right": 58
               },
               {
                 "left": 12,
-                "right": 67
+                "right": 50
               }
             ],
-            "widthPx": 148,
+            "widthPx": 131,
             "sample": ["200,000.00", "35,000.00"]
           },
           {
@@ -2069,23 +2059,23 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 67
+              "right": 43
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 67
+                "right": 43
               },
               {
                 "left": 12,
-                "right": 109
+                "right": 85
               },
               {
                 "left": 12,
-                "right": 67
+                "right": 43
               }
             ],
-            "widthPx": 148,
+            "widthPx": 124,
             "sample": ["140,000.00", "0.00"]
           },
           {
@@ -2099,53 +2089,53 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 71
+              "right": 47
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 75
+                "right": 51
               },
               {
                 "left": 12,
-                "right": 75
+                "right": 51
               },
               {
                 "left": 12,
-                "right": 67
+                "right": 43
               }
             ],
-            "widthPx": 148,
+            "widthPx": 124,
             "sample": ["60,000.00", "35,000.00"]
           },
           {
             "header": "حالة الدفع",
             "headerAlign": "start",
             "headerSide": "right",
-            "bodySides": ["center", "right", "left"],
+            "bodySides": ["right"],
             "numeric": false,
             "hasMoney": false,
             "sortable": true,
-            "clipped": ["مدفوعة بالكامل"],
+            "clipped": [],
             "headerGap": {
-              "left": 43,
+              "left": 59,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 24,
+                "left": 40,
                 "right": 19
               },
               {
-                "left": 33,
+                "left": 49,
                 "right": 19
               },
               {
-                "left": 24,
+                "left": 40,
                 "right": 19
               }
             ],
-            "widthPx": 104,
+            "widthPx": 120,
             "sample": ["مدفوعة جزئياً", "غير مدفوعة"]
           },
           {
@@ -2200,7 +2190,7 @@
       "all": {
         "dir": "rtl",
         "tableScroll": {
-          "scrollWidth": 1209,
+          "scrollWidth": 1160,
           "clientWidth": 1150
         },
         "columns": [
@@ -2251,16 +2241,16 @@
                 "right": 12
               },
               {
-                "left": 20,
+                "left": 24,
                 "right": 12
               },
               {
-                "left": 28,
+                "left": 31,
                 "right": 12
               }
             ],
             "widthPx": 164,
-            "sample": ["INV-2026-000032 R22IB-S-MV80OLZ9", "INV-2026-000031 R22U-S2-MV80LNLW"]
+            "sample": ["INV-2026-000036 R22IB-S-MV849EK4", "INV-2026-000035 R22U-S2-MV846IDN"]
           },
           {
             "header": "العميل",
@@ -2270,7 +2260,7 @@
             "numeric": false,
             "hasMoney": false,
             "sortable": true,
-            "clipped": ["عميل R22 MV80OLZ9", "عميل R22U MV80LNLW", "عميل R22 MV7T3C1D"],
+            "clipped": ["عميل R22 MV849EK4", "عميل R22U MV846IDN", "عميل R22 MV816MEZ"],
             "headerGap": {
               "left": 56,
               "right": 12
@@ -2290,7 +2280,7 @@
               }
             ],
             "widthPx": 99,
-            "sample": ["عميل R22 MV80OLZ9", "عميل R22U MV80LNLW"]
+            "sample": ["عميل R22 MV849EK4", "عميل R22U MV846IDN"]
           },
           {
             "header": "المرجع",
@@ -2304,7 +2294,7 @@
             "headerGap": null,
             "bodyGap": null,
             "widthPx": 0,
-            "sample": ["R22IB-S-MV80OLZ9", "R22U-S2-MV80LNLW"]
+            "sample": ["R22IB-S-MV849EK4", "R22U-S2-MV846IDN"]
           },
           {
             "header": "الحالة",
@@ -2347,23 +2337,23 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 73
+              "right": 56
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 67
+                "right": 50
               },
               {
                 "left": 12,
-                "right": 75
+                "right": 58
               },
               {
                 "left": 12,
-                "right": 67
+                "right": 50
               }
             ],
-            "widthPx": 148,
+            "widthPx": 131,
             "sample": ["200,000.00", "35,000.00"]
           },
           {
@@ -2377,23 +2367,23 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 67
+              "right": 43
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 67
+                "right": 43
               },
               {
                 "left": 12,
-                "right": 109
+                "right": 85
               },
               {
                 "left": 12,
-                "right": 67
+                "right": 43
               }
             ],
-            "widthPx": 148,
+            "widthPx": 124,
             "sample": ["140,000.00", "0.00"]
           },
           {
@@ -2407,53 +2397,53 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 71
+              "right": 47
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 75
+                "right": 51
               },
               {
                 "left": 12,
-                "right": 75
+                "right": 51
               },
               {
                 "left": 12,
-                "right": 67
+                "right": 43
               }
             ],
-            "widthPx": 148,
+            "widthPx": 124,
             "sample": ["60,000.00", "35,000.00"]
           },
           {
             "header": "حالة الدفع",
             "headerAlign": "start",
             "headerSide": "right",
-            "bodySides": ["center", "right", "left"],
+            "bodySides": ["right"],
             "numeric": false,
             "hasMoney": false,
             "sortable": true,
-            "clipped": ["مدفوعة بالكامل"],
+            "clipped": [],
             "headerGap": {
-              "left": 43,
+              "left": 59,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 24,
+                "left": 40,
                 "right": 19
               },
               {
-                "left": 33,
+                "left": 49,
                 "right": 19
               },
               {
-                "left": 24,
+                "left": 40,
                 "right": 19
               }
             ],
-            "widthPx": 104,
+            "widthPx": 120,
             "sample": ["مدفوعة جزئياً", "غير مدفوعة"]
           },
           {
@@ -2537,7 +2527,7 @@
       "defaults": {
         "dir": "rtl",
         "tableScroll": {
-          "scrollWidth": 1206,
+          "scrollWidth": 1157,
           "clientWidth": 1150
         },
         "columns": [
@@ -2584,20 +2574,20 @@
             },
             "bodyGap": [
               {
-                "left": 28,
+                "left": 27,
                 "right": 12
               },
               {
-                "left": 28,
+                "left": 33,
                 "right": 12
               },
               {
-                "left": 26,
+                "left": 25,
                 "right": 12
               }
             ],
             "widthPx": 164,
-            "sample": ["PI-2026-000006 R22IB-P-MV80OLZ9", "PI-2026-000005 R22U-P-MV80LNLW"]
+            "sample": ["PI-2026-000009 R22IB-P-MV849EK4", "PI-2026-000008 R22U-P-MV846IDN"]
           },
           {
             "header": "المورد",
@@ -2607,7 +2597,7 @@
             "numeric": false,
             "hasMoney": false,
             "sortable": true,
-            "clipped": ["مورد R22 MV80OLZ9", "مورد R22U MV80LNLW", "مورد R22 MV7T3C1D"],
+            "clipped": ["مورد R22 MV849EK4", "مورد R22U MV846IDN", "مورد R22 MV816MEZ"],
             "headerGap": {
               "left": 56,
               "right": 12
@@ -2627,7 +2617,7 @@
               }
             ],
             "widthPx": 96,
-            "sample": ["مورد R22 MV80OLZ9", "مورد R22U MV80LNLW"]
+            "sample": ["مورد R22 MV849EK4", "مورد R22U MV846IDN"]
           },
           {
             "header": "الحالة",
@@ -2670,23 +2660,23 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 73
+              "right": 56
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 67
+                "right": 50
               },
               {
                 "left": 12,
-                "right": 67
+                "right": 50
               },
               {
                 "left": 12,
-                "right": 67
+                "right": 50
               }
             ],
-            "widthPx": 148,
+            "widthPx": 131,
             "sample": ["200,000.00", "200,000.00"]
           },
           {
@@ -2700,23 +2690,23 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 67
+              "right": 43
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 109
+                "right": 85
               },
               {
                 "left": 12,
-                "right": 109
+                "right": 85
               },
               {
                 "left": 12,
-                "right": 109
+                "right": 85
               }
             ],
-            "widthPx": 148,
+            "widthPx": 124,
             "sample": ["0.00", "0.00"]
           },
           {
@@ -2730,23 +2720,23 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 71
+              "right": 47
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 67
+                "right": 43
               },
               {
                 "left": 12,
-                "right": 67
+                "right": 43
               },
               {
                 "left": 12,
-                "right": 67
+                "right": 43
               }
             ],
-            "widthPx": 148,
+            "widthPx": 124,
             "sample": ["200,000.00", "200,000.00"]
           },
           {
@@ -2759,24 +2749,24 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 43,
+              "left": 59,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 33,
+                "left": 49,
                 "right": 19
               },
               {
-                "left": 33,
+                "left": 49,
                 "right": 19
               },
               {
-                "left": 33,
+                "left": 49,
                 "right": 19
               }
             ],
-            "widthPx": 104,
+            "widthPx": 120,
             "sample": ["غير مدفوعة", "غير مدفوعة"]
           },
           {
@@ -2831,7 +2821,7 @@
       "all": {
         "dir": "rtl",
         "tableScroll": {
-          "scrollWidth": 1206,
+          "scrollWidth": 1157,
           "clientWidth": 1150
         },
         "columns": [
@@ -2878,20 +2868,20 @@
             },
             "bodyGap": [
               {
-                "left": 28,
+                "left": 27,
                 "right": 12
               },
               {
-                "left": 28,
+                "left": 33,
                 "right": 12
               },
               {
-                "left": 26,
+                "left": 25,
                 "right": 12
               }
             ],
             "widthPx": 164,
-            "sample": ["PI-2026-000006 R22IB-P-MV80OLZ9", "PI-2026-000005 R22U-P-MV80LNLW"]
+            "sample": ["PI-2026-000009 R22IB-P-MV849EK4", "PI-2026-000008 R22U-P-MV846IDN"]
           },
           {
             "header": "المورد",
@@ -2901,7 +2891,7 @@
             "numeric": false,
             "hasMoney": false,
             "sortable": true,
-            "clipped": ["مورد R22 MV80OLZ9", "مورد R22U MV80LNLW", "مورد R22 MV7T3C1D"],
+            "clipped": ["مورد R22 MV849EK4", "مورد R22U MV846IDN", "مورد R22 MV816MEZ"],
             "headerGap": {
               "left": 56,
               "right": 12
@@ -2921,7 +2911,7 @@
               }
             ],
             "widthPx": 96,
-            "sample": ["مورد R22 MV80OLZ9", "مورد R22U MV80LNLW"]
+            "sample": ["مورد R22 MV849EK4", "مورد R22U MV846IDN"]
           },
           {
             "header": "المرجع",
@@ -2935,7 +2925,7 @@
             "headerGap": null,
             "bodyGap": null,
             "widthPx": 0,
-            "sample": ["R22IB-P-MV80OLZ9", "R22U-P-MV80LNLW"]
+            "sample": ["R22IB-P-MV849EK4", "R22U-P-MV846IDN"]
           },
           {
             "header": "الحالة",
@@ -2978,23 +2968,23 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 73
+              "right": 56
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 67
+                "right": 50
               },
               {
                 "left": 12,
-                "right": 67
+                "right": 50
               },
               {
                 "left": 12,
-                "right": 67
+                "right": 50
               }
             ],
-            "widthPx": 148,
+            "widthPx": 131,
             "sample": ["200,000.00", "200,000.00"]
           },
           {
@@ -3008,23 +2998,23 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 67
+              "right": 43
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 109
+                "right": 85
               },
               {
                 "left": 12,
-                "right": 109
+                "right": 85
               },
               {
                 "left": 12,
-                "right": 109
+                "right": 85
               }
             ],
-            "widthPx": 148,
+            "widthPx": 124,
             "sample": ["0.00", "0.00"]
           },
           {
@@ -3038,23 +3028,23 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 71
+              "right": 47
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 67
+                "right": 43
               },
               {
                 "left": 12,
-                "right": 67
+                "right": 43
               },
               {
                 "left": 12,
-                "right": 67
+                "right": 43
               }
             ],
-            "widthPx": 148,
+            "widthPx": 124,
             "sample": ["200,000.00", "200,000.00"]
           },
           {
@@ -3067,24 +3057,24 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 43,
+              "left": 59,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 33,
+                "left": 49,
                 "right": 19
               },
               {
-                "left": 33,
+                "left": 49,
                 "right": 19
               },
               {
-                "left": 33,
+                "left": 49,
                 "right": 19
               }
             ],
-            "widthPx": 104,
+            "widthPx": 120,
             "sample": ["غير مدفوعة", "غير مدفوعة"]
           },
           {
@@ -3196,25 +3186,25 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 244,
+              "left": 192,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 182,
+                "left": 130,
                 "right": 12
               },
               {
-                "left": 182,
+                "left": 130,
                 "right": 12
               },
               {
-                "left": 182,
+                "left": 130,
                 "right": 12
               }
             ],
-            "widthPx": 303,
-            "sample": ["CR-2026-000058 14 Oct 2026", "CR-2026-000057 14 Oct 2026"]
+            "widthPx": 251,
+            "sample": ["CR-2026-000062 14 Oct 2026", "CR-2026-000061 14 Oct 2026"]
           },
           {
             "header": "العميل",
@@ -3226,55 +3216,85 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 442,
+              "left": 339,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 345,
+                "left": 242,
                 "right": 12
               },
               {
-                "left": 345,
+                "left": 242,
                 "right": 12
               },
               {
-                "left": 333,
+                "left": 236,
                 "right": 12
               }
             ],
-            "widthPx": 485,
-            "sample": ["عميل R22 MV80OLZ9", "عميل R22 MV80OLZ9"]
+            "widthPx": 382,
+            "sample": ["عميل R22 MV849EK4", "عميل R22 MV849EK4"]
           },
           {
             "header": "الحالة",
             "headerAlign": "start",
             "headerSide": "right",
             "bodySides": ["right"],
+            "numeric": false,
+            "hasMoney": false,
+            "sortable": true,
+            "clipped": [],
+            "headerGap": {
+              "left": 110,
+              "right": 12
+            },
+            "bodyGap": [
+              {
+                "left": 107,
+                "right": 19
+              },
+              {
+                "left": 107,
+                "right": 19
+              },
+              {
+                "left": 107,
+                "right": 19
+              }
+            ],
+            "widthPx": 148,
+            "sample": ["مؤكد", "مؤكد"]
+          },
+          {
+            "header": "المبلغ",
+            "headerAlign": "end",
+            "headerSide": "left",
+            "bodySides": ["left"],
             "numeric": true,
             "hasMoney": true,
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 176,
-              "right": 12
+              "left": 12,
+              "right": 181
             },
             "bodyGap": [
               {
-                "left": 141,
-                "right": 12
+                "left": 12,
+                "right": 147
               },
               {
-                "left": 133,
-                "right": 12
+                "left": 12,
+                "right": 139
               },
               {
-                "left": 133,
-                "right": 12
+                "left": 12,
+                "right": 155
               }
             ],
-            "widthPx": 214,
-            "sample": ["مؤكد 40,000.00", "مؤكد 100,000.00"]
+            "widthPx": 221,
+            "sample": ["40,000.00", "100,000.00"]
           },
           {
             "header": "إجراءات",
@@ -3326,25 +3346,25 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 120,
+              "left": 123,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 58,
+                "left": 61,
                 "right": 12
               },
               {
-                "left": 58,
+                "left": 61,
                 "right": 12
               },
               {
-                "left": 58,
+                "left": 61,
                 "right": 12
               }
             ],
-            "widthPx": 179,
-            "sample": ["CR-2026-000058 14 Oct 2026", "CR-2026-000057 14 Oct 2026"]
+            "widthPx": 182,
+            "sample": ["CR-2026-000062 14 Oct 2026", "CR-2026-000061 14 Oct 2026"]
           },
           {
             "header": "العميل",
@@ -3356,25 +3376,25 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 147,
+              "left": 152,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 50,
+                "left": 55,
                 "right": 12
               },
               {
-                "left": 50,
+                "left": 55,
                 "right": 12
               },
               {
-                "left": 38,
+                "left": 48,
                 "right": 12
               }
             ],
-            "widthPx": 190,
-            "sample": ["عميل R22 MV80OLZ9", "عميل R22 MV80OLZ9"]
+            "widthPx": 195,
+            "sample": ["عميل R22 MV849EK4", "عميل R22 MV849EK4"]
           },
           {
             "header": "المرجع",
@@ -3386,24 +3406,24 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 60,
+              "left": 61,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 80,
+                "left": 81,
                 "right": 12
               },
               {
-                "left": 80,
+                "left": 81,
                 "right": 12
               },
               {
-                "left": 80,
+                "left": 81,
                 "right": 12
               }
             ],
-            "widthPx": 103,
+            "widthPx": 104,
             "sample": ["—", "—"]
           },
           {
@@ -3411,30 +3431,30 @@
             "headerAlign": "start",
             "headerSide": "right",
             "bodySides": ["right"],
-            "numeric": true,
-            "hasMoney": true,
+            "numeric": false,
+            "hasMoney": false,
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 83,
+              "left": 69,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 48,
-                "right": 12
+                "left": 66,
+                "right": 19
               },
               {
-                "left": 40,
-                "right": 12
+                "left": 66,
+                "right": 19
               },
               {
-                "left": 40,
-                "right": 12
+                "left": 66,
+                "right": 19
               }
             ],
-            "widthPx": 121,
-            "sample": ["مؤكد 40,000.00", "مؤكد 100,000.00"]
+            "widthPx": 107,
+            "sample": ["مؤكد", "مؤكد"]
           },
           {
             "header": "المبلغ",
@@ -3447,23 +3467,23 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 118
+              "right": 120
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 84
+                "right": 86
               },
               {
                 "left": 12,
-                "right": 76
+                "right": 78
               },
               {
                 "left": 12,
-                "right": 76
+                "right": 94
               }
             ],
-            "widthPx": 158,
+            "widthPx": 160,
             "sample": ["40,000.00", "100,000.00"]
           },
           {
@@ -3476,24 +3496,24 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 79,
+              "left": 81,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 33,
+                "left": 35,
                 "right": 12
               },
               {
-                "left": 33,
+                "left": 35,
                 "right": 12
               },
               {
-                "left": 33,
+                "left": 35,
                 "right": 12
               }
             ],
-            "widthPx": 119,
+            "widthPx": 121,
             "sample": ["14 Oct 2026", "14 Oct 2026"]
           },
           {
@@ -3506,24 +3526,24 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 58,
+              "left": 59,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 66,
+                "left": 67,
                 "right": 12
               },
               {
-                "left": 66,
+                "left": 67,
                 "right": 12
               },
               {
-                "left": 66,
+                "left": 67,
                 "right": 12
               }
             ],
-            "widthPx": 131,
+            "widthPx": 132,
             "sample": ["أحمد سالم", "أحمد سالم"]
           },
           {
@@ -3545,7 +3565,7 @@
           }
         ]
       },
-      "visibleDefault": ["", "رقم السند", "العميل", "الحالة", "إجراءات"]
+      "visibleDefault": ["", "رقم السند", "العميل", "الحالة", "المبلغ", "إجراءات"]
     },
     "table:supplier-payments:ar": {
       "defaults": {
@@ -3579,11 +3599,11 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 317,
+              "left": 268,
               "right": 12
             },
             "bodyGap": null,
-            "widthPx": 375,
+            "widthPx": 327,
             "sample": []
           },
           {
@@ -3596,11 +3616,11 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 391,
+              "left": 297,
               "right": 12
             },
             "bodyGap": null,
-            "widthPx": 430,
+            "widthPx": 337,
             "sample": []
           },
           {
@@ -3613,11 +3633,28 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 157,
+              "left": 94,
               "right": 12
             },
             "bodyGap": null,
-            "widthPx": 196,
+            "widthPx": 133,
+            "sample": []
+          },
+          {
+            "header": "المبلغ",
+            "headerAlign": "end",
+            "headerSide": "left",
+            "bodySides": [],
+            "numeric": false,
+            "hasMoney": false,
+            "sortable": true,
+            "clipped": [],
+            "headerGap": {
+              "left": 12,
+              "right": 166
+            },
+            "bodyGap": null,
+            "widthPx": 205,
             "sample": []
           },
           {
@@ -3670,11 +3707,11 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 261,
+              "left": 259,
               "right": 12
             },
             "bodyGap": null,
-            "widthPx": 320,
+            "widthPx": 318,
             "sample": []
           },
           {
@@ -3687,11 +3724,11 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 65,
+              "left": 83,
               "right": 12
             },
             "bodyGap": null,
-            "widthPx": 105,
+            "widthPx": 123,
             "sample": []
           },
           {
@@ -3721,11 +3758,11 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 73,
+              "left": 57,
               "right": 12
             },
             "bodyGap": null,
-            "widthPx": 112,
+            "widthPx": 96,
             "sample": []
           },
           {
@@ -3798,7 +3835,7 @@
           }
         ]
       },
-      "visibleDefault": ["", "رقم السند", "المورد", "الحالة", "إجراءات"]
+      "visibleDefault": ["", "رقم السند", "المورد", "الحالة", "المبلغ", "إجراءات"]
     },
     "table:expenses:ar": {
       "defaults": {
@@ -4319,12 +4356,12 @@
           },
           "bodyGap": [
             {
-              "left": 88,
+              "left": 89,
               "right": 12
             }
           ],
           "widthPx": 213,
-          "sample": ["INV-2026-000032 14 Oct 2026"]
+          "sample": ["INV-2026-000036 14 Oct 2026"]
         },
         {
           "header": "الإجمالي الكلي",
@@ -4455,12 +4492,12 @@
           },
           "bodyGap": [
             {
-              "left": 88,
+              "left": 89,
               "right": 12
             }
           ],
           "widthPx": 213,
-          "sample": ["INV-2026-000032 14 Oct 2026"]
+          "sample": ["INV-2026-000036 14 Oct 2026"]
         },
         {
           "header": "الإجمالي الكلي",
@@ -4789,7 +4826,7 @@
             }
           ],
           "widthPx": 317,
-          "sample": ["CR-2026-000057", "CR-2026-000058"]
+          "sample": ["CR-2026-000061", "CR-2026-000062"]
         },
         {
           "header": "التاريخ",
@@ -4915,7 +4952,7 @@
       "defaults": {
         "dir": "ltr",
         "tableScroll": {
-          "scrollWidth": 1276,
+          "scrollWidth": 1236,
           "clientWidth": 1150
         },
         "columns": [
@@ -4967,15 +5004,15 @@
               },
               {
                 "left": 12,
-                "right": 20
+                "right": 24
               },
               {
                 "left": 12,
-                "right": 28
+                "right": 31
               }
             ],
             "widthPx": 164,
-            "sample": ["INV-2026-000032 R22IB-S-MV80OLZ9", "INV-2026-000031 R22U-S2-MV80LNLW"]
+            "sample": ["INV-2026-000036 R22IB-S-MV849EK4", "INV-2026-000035 R22U-S2-MV846IDN"]
           },
           {
             "header": "Customer",
@@ -4985,7 +5022,7 @@
             "numeric": false,
             "hasMoney": false,
             "sortable": true,
-            "clipped": ["عميل R22 MV80OLZ9", "عميل R22U MV80LNLW", "عميل R22 MV7T3C1D"],
+            "clipped": ["عميل R22 MV849EK4", "عميل R22U MV846IDN", "عميل R22 MV816MEZ"],
             "headerGap": {
               "left": 12,
               "right": 56
@@ -5005,7 +5042,7 @@
               }
             ],
             "widthPx": 123,
-            "sample": ["عميل R22 MV80OLZ9", "عميل R22U MV80LNLW"]
+            "sample": ["عميل R22 MV849EK4", "عميل R22U MV846IDN"]
           },
           {
             "header": "Status",
@@ -5047,24 +5084,24 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 72,
+              "left": 56,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 67,
+                "left": 51,
                 "right": 12
               },
               {
-                "left": 75,
+                "left": 59,
                 "right": 12
               },
               {
-                "left": 67,
+                "left": 51,
                 "right": 12
               }
             ],
-            "widthPx": 148,
+            "widthPx": 132,
             "sample": ["200,000.00", "35,000.00"]
           },
           {
@@ -5077,24 +5114,24 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 65,
+              "left": 41,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 67,
+                "left": 43,
                 "right": 12
               },
               {
-                "left": 109,
+                "left": 85,
                 "right": 12
               },
               {
-                "left": 67,
+                "left": 43,
                 "right": 12
               }
             ],
-            "widthPx": 148,
+            "widthPx": 124,
             "sample": ["140,000.00", "0.00"]
           },
           {
@@ -5209,7 +5246,7 @@
       "all": {
         "dir": "ltr",
         "tableScroll": {
-          "scrollWidth": 1276,
+          "scrollWidth": 1236,
           "clientWidth": 1150
         },
         "columns": [
@@ -5261,15 +5298,15 @@
               },
               {
                 "left": 12,
-                "right": 20
+                "right": 24
               },
               {
                 "left": 12,
-                "right": 28
+                "right": 31
               }
             ],
             "widthPx": 164,
-            "sample": ["INV-2026-000032 R22IB-S-MV80OLZ9", "INV-2026-000031 R22U-S2-MV80LNLW"]
+            "sample": ["INV-2026-000036 R22IB-S-MV849EK4", "INV-2026-000035 R22U-S2-MV846IDN"]
           },
           {
             "header": "Customer",
@@ -5279,7 +5316,7 @@
             "numeric": false,
             "hasMoney": false,
             "sortable": true,
-            "clipped": ["عميل R22 MV80OLZ9", "عميل R22U MV80LNLW", "عميل R22 MV7T3C1D"],
+            "clipped": ["عميل R22 MV849EK4", "عميل R22U MV846IDN", "عميل R22 MV816MEZ"],
             "headerGap": {
               "left": 12,
               "right": 56
@@ -5299,7 +5336,7 @@
               }
             ],
             "widthPx": 123,
-            "sample": ["عميل R22 MV80OLZ9", "عميل R22U MV80LNLW"]
+            "sample": ["عميل R22 MV849EK4", "عميل R22U MV846IDN"]
           },
           {
             "header": "Reference",
@@ -5313,7 +5350,7 @@
             "headerGap": null,
             "bodyGap": null,
             "widthPx": 0,
-            "sample": ["R22IB-S-MV80OLZ9", "R22U-S2-MV80LNLW"]
+            "sample": ["R22IB-S-MV849EK4", "R22U-S2-MV846IDN"]
           },
           {
             "header": "Status",
@@ -5355,24 +5392,24 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 72,
+              "left": 56,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 67,
+                "left": 51,
                 "right": 12
               },
               {
-                "left": 75,
+                "left": 59,
                 "right": 12
               },
               {
-                "left": 67,
+                "left": 51,
                 "right": 12
               }
             ],
-            "widthPx": 148,
+            "widthPx": 132,
             "sample": ["200,000.00", "35,000.00"]
           },
           {
@@ -5385,24 +5422,24 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 65,
+              "left": 41,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 67,
+                "left": 43,
                 "right": 12
               },
               {
-                "left": 109,
+                "left": 85,
                 "right": 12
               },
               {
-                "left": 67,
+                "left": 43,
                 "right": 12
               }
             ],
-            "widthPx": 148,
+            "widthPx": 124,
             "sample": ["140,000.00", "0.00"]
           },
           {
@@ -5546,7 +5583,7 @@
       "defaults": {
         "dir": "ltr",
         "tableScroll": {
-          "scrollWidth": 1268,
+          "scrollWidth": 1228,
           "clientWidth": 1150
         },
         "columns": [
@@ -5594,19 +5631,19 @@
             "bodyGap": [
               {
                 "left": 12,
-                "right": 28
+                "right": 27
               },
               {
                 "left": 12,
-                "right": 28
+                "right": 33
               },
               {
                 "left": 12,
-                "right": 26
+                "right": 25
               }
             ],
             "widthPx": 164,
-            "sample": ["PI-2026-000006 R22IB-P-MV80OLZ9", "PI-2026-000005 R22U-P-MV80LNLW"]
+            "sample": ["PI-2026-000009 R22IB-P-MV849EK4", "PI-2026-000008 R22U-P-MV846IDN"]
           },
           {
             "header": "Supplier",
@@ -5616,7 +5653,7 @@
             "numeric": false,
             "hasMoney": false,
             "sortable": true,
-            "clipped": ["مورد R22 MV80OLZ9", "مورد R22U MV80LNLW", "مورد R22 MV7T3C1D"],
+            "clipped": ["مورد R22 MV849EK4", "مورد R22U MV846IDN", "مورد R22 MV816MEZ"],
             "headerGap": {
               "left": 12,
               "right": 56
@@ -5636,7 +5673,7 @@
               }
             ],
             "widthPx": 115,
-            "sample": ["مورد R22 MV80OLZ9", "مورد R22U MV80LNLW"]
+            "sample": ["مورد R22 MV849EK4", "مورد R22U MV846IDN"]
           },
           {
             "header": "Status",
@@ -5678,24 +5715,24 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 72,
+              "left": 56,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 67,
+                "left": 51,
                 "right": 12
               },
               {
-                "left": 67,
+                "left": 51,
                 "right": 12
               },
               {
-                "left": 67,
+                "left": 51,
                 "right": 12
               }
             ],
-            "widthPx": 148,
+            "widthPx": 132,
             "sample": ["200,000.00", "200,000.00"]
           },
           {
@@ -5708,24 +5745,24 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 65,
+              "left": 41,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 109,
+                "left": 85,
                 "right": 12
               },
               {
-                "left": 109,
+                "left": 85,
                 "right": 12
               },
               {
-                "left": 109,
+                "left": 85,
                 "right": 12
               }
             ],
-            "widthPx": 148,
+            "widthPx": 124,
             "sample": ["0.00", "0.00"]
           },
           {
@@ -5840,7 +5877,7 @@
       "all": {
         "dir": "ltr",
         "tableScroll": {
-          "scrollWidth": 1268,
+          "scrollWidth": 1228,
           "clientWidth": 1150
         },
         "columns": [
@@ -5888,19 +5925,19 @@
             "bodyGap": [
               {
                 "left": 12,
-                "right": 28
+                "right": 27
               },
               {
                 "left": 12,
-                "right": 28
+                "right": 33
               },
               {
                 "left": 12,
-                "right": 26
+                "right": 25
               }
             ],
             "widthPx": 164,
-            "sample": ["PI-2026-000006 R22IB-P-MV80OLZ9", "PI-2026-000005 R22U-P-MV80LNLW"]
+            "sample": ["PI-2026-000009 R22IB-P-MV849EK4", "PI-2026-000008 R22U-P-MV846IDN"]
           },
           {
             "header": "Supplier",
@@ -5910,7 +5947,7 @@
             "numeric": false,
             "hasMoney": false,
             "sortable": true,
-            "clipped": ["مورد R22 MV80OLZ9", "مورد R22U MV80LNLW", "مورد R22 MV7T3C1D"],
+            "clipped": ["مورد R22 MV849EK4", "مورد R22U MV846IDN", "مورد R22 MV816MEZ"],
             "headerGap": {
               "left": 12,
               "right": 56
@@ -5930,7 +5967,7 @@
               }
             ],
             "widthPx": 115,
-            "sample": ["مورد R22 MV80OLZ9", "مورد R22U MV80LNLW"]
+            "sample": ["مورد R22 MV849EK4", "مورد R22U MV846IDN"]
           },
           {
             "header": "Reference",
@@ -5944,7 +5981,7 @@
             "headerGap": null,
             "bodyGap": null,
             "widthPx": 0,
-            "sample": ["R22IB-P-MV80OLZ9", "R22U-P-MV80LNLW"]
+            "sample": ["R22IB-P-MV849EK4", "R22U-P-MV846IDN"]
           },
           {
             "header": "Status",
@@ -5986,24 +6023,24 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 72,
+              "left": 56,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 67,
+                "left": 51,
                 "right": 12
               },
               {
-                "left": 67,
+                "left": 51,
                 "right": 12
               },
               {
-                "left": 67,
+                "left": 51,
                 "right": 12
               }
             ],
-            "widthPx": 148,
+            "widthPx": 132,
             "sample": ["200,000.00", "200,000.00"]
           },
           {
@@ -6016,24 +6053,24 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 65,
+              "left": 41,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 109,
+                "left": 85,
                 "right": 12
               },
               {
-                "left": 109,
+                "left": 85,
                 "right": 12
               },
               {
-                "left": 109,
+                "left": 85,
                 "right": 12
               }
             ],
-            "widthPx": 148,
+            "widthPx": 124,
             "sample": ["0.00", "0.00"]
           },
           {
@@ -6206,24 +6243,24 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 222
+              "right": 171
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 182
+                "right": 130
               },
               {
                 "left": 12,
-                "right": 182
+                "right": 130
               },
               {
                 "left": 12,
-                "right": 182
+                "right": 130
               }
             ],
-            "widthPx": 303,
-            "sample": ["CR-2026-000058 14 Oct 2026", "CR-2026-000057 14 Oct 2026"]
+            "widthPx": 251,
+            "sample": ["CR-2026-000062 14 Oct 2026", "CR-2026-000061 14 Oct 2026"]
           },
           {
             "header": "Customer",
@@ -6236,54 +6273,84 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 418
+              "right": 315
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 345
+                "right": 242
               },
               {
                 "left": 12,
-                "right": 345
+                "right": 242
               },
               {
                 "left": 12,
-                "right": 333
+                "right": 236
               }
             ],
-            "widthPx": 485,
-            "sample": ["عميل R22 MV80OLZ9", "عميل R22 MV80OLZ9"]
+            "widthPx": 382,
+            "sample": ["عميل R22 MV849EK4", "عميل R22 MV849EK4"]
           },
           {
             "header": "Status",
             "headerAlign": "start",
             "headerSide": "left",
             "bodySides": ["left"],
+            "numeric": false,
+            "hasMoney": false,
+            "sortable": true,
+            "clipped": [],
+            "headerGap": {
+              "left": 12,
+              "right": 100
+            },
+            "bodyGap": [
+              {
+                "left": 19,
+                "right": 71
+              },
+              {
+                "left": 19,
+                "right": 71
+              },
+              {
+                "left": 19,
+                "right": 71
+              }
+            ],
+            "widthPx": 148,
+            "sample": ["Confirmed", "Confirmed"]
+          },
+          {
+            "header": "Amount",
+            "headerAlign": "end",
+            "headerSide": "right",
+            "bodySides": ["right"],
             "numeric": true,
             "hasMoney": true,
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 12,
-              "right": 166
+              "left": 165,
+              "right": 12
             },
             "bodyGap": [
               {
-                "left": 12,
-                "right": 137
+                "left": 147,
+                "right": 12
               },
               {
-                "left": 12,
-                "right": 133
+                "left": 139,
+                "right": 12
               },
               {
-                "left": 12,
-                "right": 133
+                "left": 155,
+                "right": 12
               }
             ],
-            "widthPx": 214,
-            "sample": ["Confirmed 40,000.00", "Confirmed 100,000.00"]
+            "widthPx": 221,
+            "sample": ["40,000.00", "100,000.00"]
           },
           {
             "header": "Actions",
@@ -6336,24 +6403,24 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 97
+              "right": 99
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 56
+                "right": 59
               },
               {
                 "left": 12,
-                "right": 56
+                "right": 59
               },
               {
                 "left": 12,
-                "right": 56
+                "right": 59
               }
             ],
-            "widthPx": 177,
-            "sample": ["CR-2026-000058 14 Oct 2026", "CR-2026-000057 14 Oct 2026"]
+            "widthPx": 179,
+            "sample": ["CR-2026-000062 14 Oct 2026", "CR-2026-000061 14 Oct 2026"]
           },
           {
             "header": "Customer",
@@ -6366,24 +6433,24 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 119
+              "right": 124
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 46
+                "right": 52
               },
               {
                 "left": 12,
-                "right": 46
+                "right": 52
               },
               {
                 "left": 12,
-                "right": 34
+                "right": 45
               }
             ],
-            "widthPx": 186,
-            "sample": ["عميل R22 MV80OLZ9", "عميل R22 MV80OLZ9"]
+            "widthPx": 191,
+            "sample": ["عميل R22 MV849EK4", "عميل R22 MV849EK4"]
           },
           {
             "header": "Reference",
@@ -6396,23 +6463,23 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 44
+              "right": 45
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 90
+                "right": 91
               },
               {
                 "left": 12,
-                "right": 90
+                "right": 91
               },
               {
                 "left": 12,
-                "right": 90
+                "right": 91
               }
             ],
-            "widthPx": 113,
+            "widthPx": 114,
             "sample": ["—", "—"]
           },
           {
@@ -6420,30 +6487,30 @@
             "headerAlign": "start",
             "headerSide": "left",
             "bodySides": ["left"],
-            "numeric": true,
-            "hasMoney": true,
+            "numeric": false,
+            "hasMoney": false,
             "sortable": true,
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 72
+              "right": 57
             },
             "bodyGap": [
               {
-                "left": 12,
-                "right": 43
+                "left": 19,
+                "right": 29
               },
               {
-                "left": 12,
-                "right": 39
+                "left": 19,
+                "right": 29
               },
               {
-                "left": 12,
-                "right": 39
+                "left": 19,
+                "right": 29
               }
             ],
-            "widthPx": 121,
-            "sample": ["Confirmed 40,000.00", "Confirmed 100,000.00"]
+            "widthPx": 106,
+            "sample": ["Confirmed", "Confirmed"]
           },
           {
             "header": "Amount",
@@ -6455,24 +6522,24 @@
             "sortable": true,
             "clipped": [],
             "headerGap": {
-              "left": 101,
+              "left": 102,
               "right": 12
             },
             "bodyGap": [
               {
-                "left": 83,
+                "left": 85,
                 "right": 12
               },
               {
-                "left": 75,
+                "left": 77,
                 "right": 12
               },
               {
-                "left": 75,
+                "left": 93,
                 "right": 12
               }
             ],
-            "widthPx": 157,
+            "widthPx": 158,
             "sample": ["40,000.00", "100,000.00"]
           },
           {
@@ -6486,23 +6553,23 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 80
+              "right": 82
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 32
+                "right": 33
               },
               {
                 "left": 12,
-                "right": 32
+                "right": 33
               },
               {
                 "left": 12,
-                "right": 32
+                "right": 33
               }
             ],
-            "widthPx": 119,
+            "widthPx": 120,
             "sample": ["14 Oct 2026", "14 Oct 2026"]
           },
           {
@@ -6516,23 +6583,23 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 56
+              "right": 57
             },
             "bodyGap": [
               {
                 "left": 12,
-                "right": 64
+                "right": 66
               },
               {
                 "left": 12,
-                "right": 64
+                "right": 66
               },
               {
                 "left": 12,
-                "right": 64
+                "right": 66
               }
             ],
-            "widthPx": 130,
+            "widthPx": 131,
             "sample": ["أحمد سالم", "أحمد سالم"]
           },
           {
@@ -6554,7 +6621,7 @@
           }
         ]
       },
-      "visibleDefault": ["", "Voucher No.", "Customer", "Status", "Actions"]
+      "visibleDefault": ["", "Voucher No.", "Customer", "Status", "Amount", "Actions"]
     },
     "table:supplier-payments:en": {
       "defaults": {
@@ -6589,10 +6656,10 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 295
+              "right": 247
             },
             "bodyGap": null,
-            "widthPx": 375,
+            "widthPx": 327,
             "sample": []
           },
           {
@@ -6606,10 +6673,10 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 371
+              "right": 278
             },
             "bodyGap": null,
-            "widthPx": 430,
+            "widthPx": 337,
             "sample": []
           },
           {
@@ -6623,10 +6690,27 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 147
+              "right": 84
             },
             "bodyGap": null,
-            "widthPx": 196,
+            "widthPx": 133,
+            "sample": []
+          },
+          {
+            "header": "Amount",
+            "headerAlign": "end",
+            "headerSide": "right",
+            "bodySides": [],
+            "numeric": false,
+            "hasMoney": false,
+            "sortable": true,
+            "clipped": [],
+            "headerGap": {
+              "left": 149,
+              "right": 12
+            },
+            "bodyGap": null,
+            "widthPx": 205,
             "sample": []
           },
           {
@@ -6680,10 +6764,10 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 218
+              "right": 234
             },
             "bodyGap": null,
-            "widthPx": 298,
+            "widthPx": 314,
             "sample": []
           },
           {
@@ -6731,10 +6815,10 @@
             "clipped": [],
             "headerGap": {
               "left": 12,
-              "right": 63
+              "right": 47
             },
             "bodyGap": null,
-            "widthPx": 112,
+            "widthPx": 96,
             "sample": []
           },
           {
@@ -6807,7 +6891,7 @@
           }
         ]
       },
-      "visibleDefault": ["", "Voucher No.", "Supplier", "Status", "Actions"]
+      "visibleDefault": ["", "Voucher No.", "Supplier", "Status", "Amount", "Actions"]
     },
     "table:expenses:en": {
       "defaults": {
@@ -7309,11 +7393,11 @@
           "bodyGap": [
             {
               "left": 12,
-              "right": 88
+              "right": 89
             }
           ],
           "widthPx": 213,
-          "sample": ["INV-2026-000032 14 Oct 2026"]
+          "sample": ["INV-2026-000036 14 Oct 2026"]
         },
         {
           "header": "Grand Total",
@@ -7445,11 +7529,11 @@
           "bodyGap": [
             {
               "left": 12,
-              "right": 88
+              "right": 89
             }
           ],
           "widthPx": 213,
-          "sample": ["INV-2026-000032 14 Oct 2026"]
+          "sample": ["INV-2026-000036 14 Oct 2026"]
         },
         {
           "header": "Grand Total",
@@ -7778,7 +7862,7 @@
             }
           ],
           "widthPx": 297,
-          "sample": ["CR-2026-000057", "CR-2026-000058"]
+          "sample": ["CR-2026-000061", "CR-2026-000062"]
         },
         {
           "header": "Date",
@@ -7903,22 +7987,22 @@
     "sort": {
       "/sales/invoices:invoiceNumber": {
         "status": 200,
-        "rows": 36,
+        "rows": 40,
         "numericOk": null
       },
       "/sales/invoices:customer": {
         "status": 200,
-        "rows": 36,
+        "rows": 40,
         "numericOk": null
       },
       "/sales/invoices:grandTotal": {
         "status": 200,
-        "rows": 36,
+        "rows": 40,
         "numericOk": true
       },
       "/sales/invoices:createdAt": {
         "status": 200,
-        "rows": 36,
+        "rows": 40,
         "numericOk": null
       },
       "/sales/invoices:allocatedTotal": {
@@ -7933,22 +8017,22 @@
       },
       "/purchasing/invoices:invoiceNumber": {
         "status": 200,
-        "rows": 6,
+        "rows": 9,
         "numericOk": null
       },
       "/purchasing/invoices:supplier": {
         "status": 200,
-        "rows": 6,
+        "rows": 9,
         "numericOk": null
       },
       "/purchasing/invoices:grandTotal": {
         "status": 200,
-        "rows": 6,
+        "rows": 9,
         "numericOk": true
       },
       "/purchasing/invoices:createdAt": {
         "status": 200,
-        "rows": 6,
+        "rows": 9,
         "numericOk": null
       },
       "/financial-transactions/receipts:transactionNumber": {
@@ -7999,7 +8083,7 @@
       "value": "",
       "label": "المبلغ المقبوض*",
       "groupText": "المبلغ المقبوض*EGP",
-      "borderWidth": "1px",
+      "borderWidth": "2px",
       "borderColor": "rgb(209, 209, 209)",
       "outline": "none 3px rgb(0, 114, 245)",
       "boxShadow": "none",
@@ -8015,7 +8099,7 @@
       "value": "",
       "label": "Amount received*",
       "groupText": "Amount received*EGP",
-      "borderWidth": "1px",
+      "borderWidth": "2px",
       "borderColor": "rgb(209, 209, 209)",
       "outline": "none 3px rgb(0, 114, 245)",
       "boxShadow": "none",
@@ -8031,7 +8115,7 @@
       "value": "",
       "label": "Amount received*",
       "groupText": "Amount received*EGP",
-      "borderWidth": "1px",
+      "borderWidth": "2px",
       "borderColor": "rgb(209, 209, 209)",
       "outline": "none 3px rgb(0, 114, 245)",
       "boxShadow": "none",
@@ -8047,7 +8131,7 @@
       "value": "",
       "label": "Amount paid*",
       "groupText": "Amount paid*EGP",
-      "borderWidth": "1px",
+      "borderWidth": "2px",
       "borderColor": "rgb(209, 209, 209)",
       "outline": "none 3px rgb(0, 114, 245)",
       "boxShadow": "none",
@@ -8063,7 +8147,7 @@
       "value": "",
       "label": "Amount paid*",
       "groupText": "Amount paid*EGP",
-      "borderWidth": "1px",
+      "borderWidth": "2px",
       "borderColor": "rgb(209, 209, 209)",
       "outline": "none 3px rgb(0, 114, 245)",
       "boxShadow": "none",
