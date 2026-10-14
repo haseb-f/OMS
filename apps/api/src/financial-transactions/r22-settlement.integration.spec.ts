@@ -82,7 +82,8 @@ describeDb('R22 I-A — settlement lifecycle (local DB)', () => {
     seq += 1;
     return seq;
   };
-  const round2 = (value: number) => Math.round(value * 100) / 100;
+  /** Rounded to cents; never −0 (a settled balance reads 0). */
+  const round2 = (value: number) => Math.round(value * 100) / 100 + 0;
 
   async function newAccount(
     accountType: AccountType,
@@ -301,7 +302,7 @@ describeDb('R22 I-A — settlement lifecycle (local DB)', () => {
           : PartnerControlAccountType.PAYABLE,
     });
     return side === 'AR'
-      ? statement.closingBalance
+      ? round2(statement.closingBalance)
       : round2(-statement.closingBalance);
   }
 
@@ -692,17 +693,17 @@ describeDb('R22 I-A — settlement lifecycle (local DB)', () => {
     // Ledger: 200,000 − 50,000 − 150,000 = 0 — the customer owes nothing.
     expect(await ledger(partnerId, 'AR')).toBe(0);
 
-    const detail = (await salesInvoices.findOne(invoice.id)) as Awaited<
-      ReturnType<SalesInvoicesService['findOne']>
-    > & { creditedTotal?: number };
-    expect(detail.allocatedTotal).toBe(150_000); // cash paid only
-    expect(detail.creditedTotal).toBe(50_000); // settled by credit note, never "paid"
-    expect(detail.remainingBalance).toBe(0);
+    // Today: remaining 50,000 / PARTIALLY_PAID, listed open and in aging.
     expect(await salesView(partnerId, invoice.id)).toMatchObject({
+      paid: 150_000, // cash paid only — the credit note is never "paid"
       remaining: 0,
       open: null,
       aging: null,
     });
+    const detail = (await salesInvoices.findOne(invoice.id)) as Awaited<
+      ReturnType<SalesInvoicesService['findOne']>
+    > & { creditedTotal?: number };
+    expect(detail.creditedTotal).toBe(50_000); // settled by credit note, shown apart
     // Aging net agrees with the ledger (the applied credit is not also "unapplied").
     const agingRow = (await reports.arAging({ partnerId })).partners.find(
       (row) => row.partnerId === partnerId,
@@ -936,10 +937,11 @@ describeDb('R22 I-A — settlement lifecycle (local DB)', () => {
     expect((await salesView(partnerId, invoice.id)).status).toBe('UNPAID');
   });
 
-  it('DEFECT R22-L3 — a draft never claims more than the invoice owes, and a failed bank-line receipt leaves no orphan draft', async () => {
+  it('DEFECT R22-L3 — a draft never claims more than the invoice owes (refused at entry, not only at Confirm)', async () => {
     const partnerId = await customer();
     const invoice = await postedSalesInvoice(partnerId, 100);
-    // Entry layer: the draft allocation above the invoice balance is accepted today.
+    // Today the draft is saved with 500 allocated to an invoice owing 100 and
+    // reads as a settlement until Confirm refuses it.
     await expect(
       transactions.create(
         'CUSTOMER_RECEIPT',
@@ -952,8 +954,11 @@ describeDb('R22 I-A — settlement lifecycle (local DB)', () => {
         userId,
       ),
     ).rejects.toThrow();
+  });
 
-    // Bank reconciliation path: create + confirm are two transactions.
+  it('DEFECT R22-L4 — a bank-line invoice receipt is created and posted atomically: a posting failure leaves no orphan draft behind', async () => {
+    const partnerId = await customer();
+    const invoice = await postedSalesInvoice(partnerId, 500);
     const reconciliation = new CashFlowReconciliationService(
       prisma,
       null as never,
@@ -965,6 +970,8 @@ describeDb('R22 I-A — settlement lifecycle (local DB)', () => {
       postingEngine,
     );
     const n = next();
+    // An imported line not yet mapped to a cash / bank account: the receipt
+    // can be created but never posted (no account to debit).
     const line = await prisma.bankTransaction.create({
       data: {
         fingerprint: `${tag}-BT${n}`,
@@ -972,11 +979,7 @@ describeDb('R22 I-A — settlement lifecycle (local DB)', () => {
         transactionDate: new Date(),
         amount: 500,
         direction: CashFlowDirection.INCOMING,
-        cashSourceId: receivingAccountId,
       },
-    });
-    const before = await prisma.financialTransaction.count({
-      where: { partnerId, deletedAt: null },
     });
     await expect(
       reconciliation.confirmSalesInvoiceReceipt(
@@ -986,10 +989,11 @@ describeDb('R22 I-A — settlement lifecycle (local DB)', () => {
         { companyId: null, branchId: null },
       ),
     ).rejects.toThrow();
+    // Today a DRAFT receipt claiming the invoice stays behind; each retry adds one.
     expect(
       await prisma.financialTransaction.count({
         where: { partnerId, deletedAt: null },
       }),
-    ).toBe(before);
+    ).toBe(0);
   });
 });
