@@ -17,6 +17,11 @@ import { PhoneModule } from '../common/phone/phone.module';
 import { AuthModule } from '../auth/auth.module';
 import { PostingProvidersModule } from '../accounting/posting-providers/posting-providers.module';
 import { FxModule } from '../accounting/fx/fx.module';
+import { ExchangeRatesService } from '../accounting/fx/exchange-rates.service';
+import {
+  assertReturnCurrency,
+  returnPostingRate,
+} from '../accounting/fx/return-invoice-rate';
 import { AccountingReportsService } from '../accounting/reports/accounting-reports.service';
 import { SalesInvoicesModule } from '../sales/invoices/sales-invoices.module';
 import { SalesInvoicesService } from '../sales/invoices/sales-invoices.service';
@@ -423,9 +428,34 @@ describeDb('R22 accounting review (local DB)', () => {
       currencyId: currency.id,
       rate: 10,
     });
+    // Decision F1 + F10 (coordinator): a return of an invoice is in the
+    // invoice's currency (another one is refused) and posts at the INVOICE's
+    // rate — it reverses the invoice. The fixture therefore books the return
+    // at the rate the real posting rule returns for it (`returnPostingRate`,
+    // used by SalesReturnPostingProvider): its own day's rate 12 is replaced
+    // by the invoice's 10. (Test adjusted for the decision; the original
+    // fixture booked the return at 12, a posting the code no longer makes.)
+    await expect(
+      assertReturnCurrency(prisma, 'sales', invoice.id, null),
+    ).rejects.toMatchObject({ response: { code: 'RETURN_CURRENCY_MISMATCH' } });
+    const rate = await prisma.$transaction((tx) =>
+      returnPostingRate(
+        moduleRef.get(ExchangeRatesService),
+        tx,
+        'sales',
+        {
+          invoiceId: invoice.id,
+          currencyId: currency.id,
+          exchangeRate: 12,
+          postedAt: new Date(),
+        },
+        () => Promise.resolve(),
+      ),
+    );
+    expect(rate).toBe(10);
     await postedSalesReturn(partnerId, invoice.id, 40, {
       currencyId: currency.id,
-      rate: 12,
+      rate,
     });
     await foreignReceipt(partnerId, 60, currency.id, 10, [
       { invoiceId: invoice.id, allocatedAmount: 60 },
@@ -482,7 +512,14 @@ describeDb('R22 accounting review (local DB)', () => {
     const partnerId = await customer();
     const invoice = await postedSalesInvoice(partnerId, 200);
     await postedSalesReturn(partnerId, invoice.id, 200);
-    await salesInvoices.archive(invoice.id, userId);
+    // Decision F3 (coordinator): D3 also refuses an invoice with an applied
+    // credit note — the archive is refused, so aging and ledger keep
+    // agreeing. (Test adjusted for the decision: it archived unguarded.)
+    await expect(
+      salesInvoices.archive(invoice.id, userId),
+    ).rejects.toMatchObject({
+      response: { code: 'INVOICE_ARCHIVE_SETTLEMENT' },
+    });
     const aging = (await reports.arAging({ partnerId })).partners;
     expect({
       ledgerAR: await ledger(partnerId),
