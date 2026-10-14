@@ -1,0 +1,156 @@
+{
+  "base": "http://localhost:3001",
+  "at": "2026-10-14T15:18:34.172Z",
+  "log": [
+    {
+      "name": "ar: Arabic-Indic digits kept while typing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ar: canonical figure after blur",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ar: other receipt hides the party",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ar: payment card has no «حساب الاستلام»",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ar: amount follows the allocation",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ar: review names the account and invoice",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "counter-accounts allow-list (IN) returns accounts",
+      "ok": true,
+      "detail": 16
+    },
+    {
+      "name": "other receipt confirmed through other-receipts",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "transfer opens in the card",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "refund-advance dialog shows the unapplied amount",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ar: confirmed receipt table headers over their figures",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "ar: settlement history lists the receipt with its amount",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ar 375 receipt-new: no horizontal scroll",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ar 375: amount ≥ 44px / ≥ 16px",
+      "ok": true,
+      "detail": "44 16px"
+    },
+    {
+      "name": "ar 375 receipt-from-invoice: no horizontal scroll",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ar 375 sales-invoices: no horizontal scroll",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ar 375 invoice-detail: no horizontal scroll",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "en: Arabic-Indic digits kept while typing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "en: canonical figure after blur",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "en: other receipt hides the party",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "en: payment card has no «حساب الاستلام»",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "en: amount follows the allocation",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "en: review names the account and invoice",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "en: confirmed receipt table headers over their figures",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "en: settlement history lists the receipt with its amount",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "en 375 receipt-new: no horizontal scroll",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "en 375: amount ≥ 44px / ≥ 16px",
+      "ok": true,
+      "detail": "44 16px"
+    },
+    {
+      "name": "en 375 receipt-from-invoice: no horizontal scroll",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "en 375 sales-invoices: no horizontal scroll",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "en 375 invoice-detail: no horizontal scroll",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}
