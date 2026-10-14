@@ -224,9 +224,12 @@ describeDb('R18 — partial payments reconcile (local DB)', () => {
       userId,
     );
 
+    // R22 D2 — the summary also names cash paid and credit applied apart.
     expect(await summary('salesInvoiceId', invoice)).toEqual({
       grandTotal: 200_000,
+      paidTotal: 100_000,
       allocatedTotal: 100_000,
+      creditedTotal: 0,
       remainingBalance: 100_000,
       paymentStatus: 'PARTIALLY_PAID',
     });
@@ -496,8 +499,13 @@ describeDb('R18 — partial payments reconcile (local DB)', () => {
       prisma,
       new AccountingReportsService(prisma),
     ).run();
-    const ours = report.issues.filter((issue) =>
-      (issue.partnerName ?? '').startsWith(tag),
+    // This spec's invoices are document rows without their posted entry, so
+    // the R22 ledger-vs-aging review (PARTNER_AGING_MISMATCH) flags its
+    // partners by design; the voucher rules are what this case checks.
+    const ours = report.issues.filter(
+      (issue) =>
+        (issue.partnerName ?? '').startsWith(tag) &&
+        issue.code !== 'PARTNER_AGING_MISMATCH',
     );
     expect(ours.filter((issue) => issue.severity === 'ERROR')).toEqual([]);
     expect(ours).toEqual([

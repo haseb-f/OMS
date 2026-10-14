@@ -475,15 +475,18 @@ describeDb('R20 — invoice payment status on every surface (local DB)', () => {
         grandTotal: 40_000,
       },
     });
-    expectSurfaces(
-      await salesSurfaces(partnerId, invoice.id),
-      0,
-      40_000,
-      'UNPAID',
-    );
+    // R22 D2 (updated from R20): a posted credit note against its invoice
+    // SETTLES it — remaining 0, status SETTLED — but it is still never a
+    // payment: paid / allocated stay 0 and the credit is shown apart as
+    // `creditedTotal`; no voucher money is received or applied.
+    expectSurfaces(await salesSurfaces(partnerId, invoice.id), 0, 0, 'SETTLED');
+    expect(await salesInvoices.findOne(invoice.id)).toMatchObject({
+      paidTotal: 0,
+      creditedTotal: 40_000,
+    });
     expect(
-      (await transactions.getPartyPosition('CUSTOMER_RECEIPT', partnerId))[0],
-    ).toMatchObject({ received: 0, applied: 0 });
+      await transactions.getPartyPosition('CUSTOMER_RECEIPT', partnerId),
+    ).toEqual([]);
   });
 
   it('only posted invoices of the same customer can be paid', async () => {

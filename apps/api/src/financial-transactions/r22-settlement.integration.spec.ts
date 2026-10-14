@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'crypto';
 import {
@@ -26,6 +27,10 @@ import { SalesInvoicesService } from '../sales/invoices/sales-invoices.service';
 import { PurchaseInvoicesModule } from '../purchasing/invoices/purchase-invoices.module';
 import { PurchaseInvoicesService } from '../purchasing/invoices/purchase-invoices.service';
 import { CashFlowReconciliationService } from '../bank-transactions/cash-flow-reconciliation.service';
+import { VoucherIntegrityService } from '../accounting/reports/voucher-integrity.service';
+import { SalesInvoicesController } from '../sales/invoices/sales-invoices.controller';
+import { PERMISSION_MODULE_KEY } from '../auth/decorators/permission-module.decorator';
+import { PERMISSION_ACTION_KEY } from '../auth/decorators/permission-action.decorator';
 import { FinancialTransactionsModule } from './financial-transactions.module';
 import { FinancialTransactionsService } from './financial-transactions.service';
 
@@ -1122,5 +1127,471 @@ describeDb('R22 I-A — settlement lifecycle (local DB)', () => {
         where: { partnerId, deletedAt: null },
       }),
     ).toBe(0);
+  });
+
+  // ---------------------------------------------------------------------
+  // Stream P — repair cases (R22 decisions D1 / D2 / D3 / D5 / D6, contract 2 / 3 / 5)
+  // ---------------------------------------------------------------------
+
+  it('R22 P — D2: PAID (cash alone) vs SETTLED (credit contributed); credit alone is never "paid"; a surplus credit stays unapplied', async () => {
+    const partnerId = await customer();
+    const cash = await postedSalesInvoice(partnerId, 1_000);
+    const mixed = await postedSalesInvoice(partnerId, 1_000);
+    const creditOnly = await postedSalesInvoice(partnerId, 1_000);
+    const surplus = await postedSalesInvoice(partnerId, 500);
+    await postedSalesReturn(partnerId, mixed.id, 400);
+    await postedSalesReturn(partnerId, creditOnly.id, 300);
+    await postedSalesReturn(partnerId, surplus.id, 800);
+    await receipt(partnerId, 1_600, [
+      { invoiceId: cash.id, allocatedAmount: 1_000 },
+      { invoiceId: mixed.id, allocatedAmount: 600 },
+    ]);
+    const read = async (id: string) => {
+      const detail = await salesInvoices.findOne(id);
+      return {
+        paidTotal: detail.paidTotal,
+        allocatedTotal: detail.allocatedTotal,
+        creditedTotal: detail.creditedTotal,
+        remainingBalance: detail.remainingBalance,
+        paymentStatus: detail.paymentStatus,
+      };
+    };
+    expect(await read(cash.id)).toEqual({
+      paidTotal: 1_000,
+      allocatedTotal: 1_000,
+      creditedTotal: 0,
+      remainingBalance: 0,
+      paymentStatus: 'PAID',
+    });
+    expect(await read(mixed.id)).toEqual({
+      paidTotal: 600,
+      allocatedTotal: 600,
+      creditedTotal: 400,
+      remainingBalance: 0,
+      paymentStatus: 'SETTLED',
+    });
+    expect(await read(creditOnly.id)).toEqual({
+      paidTotal: 0,
+      allocatedTotal: 0,
+      creditedTotal: 300,
+      remainingBalance: 700,
+      paymentStatus: 'UNPAID',
+    });
+    expect(await read(surplus.id)).toMatchObject({
+      creditedTotal: 500,
+      remainingBalance: 0,
+      paymentStatus: 'SETTLED',
+    });
+    // The list and the open-invoices list read the same summary.
+    const list = (
+      await salesInvoices.findAll({ partnerId: [partnerId] })
+    ).items.find((row) => row.id === mixed.id)!;
+    expect(list).toMatchObject({
+      paidTotal: 600,
+      creditedTotal: 400,
+      paymentStatus: 'SETTLED',
+    });
+    const open = await transactions.getOpenInvoices(
+      'CUSTOMER_RECEIPT',
+      partnerId,
+    );
+    expect(open.map((row) => [row.invoiceId, row.remainingBalance])).toEqual([
+      [creditOnly.id, 700],
+    ]);
+    // Aging: 700 open; only the 300 surplus of the 800 return is unapplied —
+    // net 400 = the ledger (3,500 − 1,500 returns − 1,600 cash).
+    const aging = (await reports.arAging({ partnerId })).partners;
+    expect(aging).toEqual([
+      expect.objectContaining({ total: 700, unapplied: 300, net: 400 }),
+    ]);
+    expect(await ledger(partnerId, 'AR')).toBe(400);
+  });
+
+  it('R22 P — D3: a posted invoice settled by vouchers cannot be archived even when nothing remains; one closed by credit notes only can', async () => {
+    const partnerId = await customer();
+    const paid = await postedSalesInvoice(partnerId, 300);
+    await receipt(partnerId, 300, [
+      { invoiceId: paid.id, allocatedAmount: 300 },
+    ]);
+    await expect(salesInvoices.archive(paid.id, userId)).rejects.toMatchObject({
+      response: { code: 'INVOICE_ARCHIVE_SETTLEMENT' },
+    });
+    const credited = await postedSalesInvoice(partnerId, 200);
+    await postedSalesReturn(partnerId, credited.id, 200);
+    await expect(
+      salesInvoices.archive(credited.id, userId),
+    ).resolves.toMatchObject({ id: credited.id });
+  });
+
+  it('R22 P — A1: aging rows and invoice lines carry their currency; `totals` is the functional currency only, never a sum', async () => {
+    const currency = await foreignCurrency();
+    const partnerId = await customer();
+    await postedSalesInvoice(partnerId, 1_000);
+    await postedSalesInvoice(partnerId, 100, {
+      currencyId: currency.id,
+      rate: 10,
+    });
+    const report = await reports.arAging({ partnerId });
+    expect(
+      report.partners
+        .map((row) => [row.currencyCode, row.total])
+        .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+    ).toEqual(
+      [
+        [currency.code, 100],
+        [report.totalsCurrencyCode, 1_000],
+      ].sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+    );
+    expect(report.invoices.map((row) => row.currencyCode).sort()).toEqual(
+      [currency.code, report.totalsCurrencyCode].sort(),
+    );
+    expect(report.totals.total).toBe(1_000);
+    expect(report.totalsCurrencyId).toBe(functionalCurrencyId);
+  });
+
+  it('R22 P — contract 2: settlement history lists the voucher allocations and the applied credit note, with permission-scoped actions; an invoice it cannot open is a 404', async () => {
+    const partnerId = await customer();
+    const invoice = await postedSalesInvoice(partnerId, 1_000);
+    await postedSalesReturn(partnerId, invoice.id, 250);
+    const voucher = await receipt(partnerId, 500, [
+      { invoiceId: invoice.id, allocatedAmount: 500 },
+    ]);
+    const draft = await transactions.create(
+      'CUSTOMER_RECEIPT',
+      {
+        partnerId,
+        receivingAccountId,
+        amount: 100,
+        allocations: [{ invoiceId: invoice.id, allocatedAmount: 100 }],
+      },
+      userId,
+    );
+    const full = await salesInvoices.settlementHistory(invoice.id, {
+      canEditVouchers: true,
+      canCancelVouchers: true,
+    });
+    expect(full.summary).toMatchObject({
+      grandTotal: 1_000,
+      paidTotal: 500,
+      creditedTotal: 250,
+      remainingBalance: 250,
+      paymentStatus: 'PARTIALLY_PAID',
+    });
+    const byDocument = new Map(
+      full.entries.map((entry) => [entry.documentId, entry]),
+    );
+    expect(byDocument.get(voucher.id)).toMatchObject({
+      kind: 'PAYMENT',
+      documentType: 'CUSTOMER_RECEIPT',
+      status: 'CONFIRMED',
+      amount: 500,
+      allocationId: voucher.allocations[0].id,
+      canUnallocate: true,
+      canCancel: true,
+    });
+    expect(byDocument.get(draft.id)).toMatchObject({
+      status: 'DRAFT',
+      amount: 100,
+      canUnallocate: false,
+      canCancel: false,
+    });
+    expect(
+      full.entries.filter((entry) => entry.kind === 'CREDIT_NOTE'),
+    ).toEqual([
+      expect.objectContaining({
+        documentType: 'SALES_RETURN',
+        amount: 250,
+        canUnallocate: false,
+      }),
+    ]);
+    // Without the voucher rights the same lines are listed read-only.
+    const readOnly = await salesInvoices.settlementHistory(invoice.id, {
+      canEditVouchers: false,
+      canCancelVouchers: false,
+    });
+    expect(
+      readOnly.entries.some((entry) => entry.canUnallocate || entry.canCancel),
+    ).toBe(false);
+    // The route is the detail's own permission (sales-invoices · view), and an
+    // invoice the caller cannot open (unknown / archived) is a 404.
+    const route = SalesInvoicesController.prototype.settlementHistory;
+    expect(
+      Reflect.getMetadata(PERMISSION_MODULE_KEY, SalesInvoicesController),
+    ).toBe('sales-invoices');
+    expect(Reflect.getMetadata(PERMISSION_ACTION_KEY, route)).toBeUndefined();
+    await expect(
+      salesInvoices.settlementHistory(randomUUID(), {
+        canEditVouchers: true,
+        canCancelVouchers: true,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    const archived = await postedSalesInvoice(partnerId, 10);
+    await prisma.salesInvoice.update({
+      where: { id: archived.id },
+      data: { deletedAt: new Date() },
+    });
+    await expect(
+      salesInvoices.settlementHistory(archived.id, {
+        canEditVouchers: true,
+        canCancelVouchers: true,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    // Supplier side: same shape.
+    const supplierId = await supplier();
+    const bill = await postedPurchaseInvoice(supplierId, 400);
+    await postedPurchaseReturn(supplierId, bill.id, 100);
+    await payment(supplierId, 300, [
+      { invoiceId: bill.id, allocatedAmount: 300 },
+    ]);
+    const purchase = await purchaseInvoices.settlementHistory(bill.id, {
+      canEditVouchers: false,
+      canCancelVouchers: false,
+    });
+    expect(purchase.summary).toMatchObject({
+      paidTotal: 300,
+      creditedTotal: 100,
+      remainingBalance: 0,
+      paymentStatus: 'SETTLED',
+    });
+    expect(purchase.entries.map((entry) => entry.kind).sort()).toEqual([
+      'CREDIT_NOTE',
+      'PAYMENT',
+    ]);
+  });
+
+  it('R22 P — contract 3 (W1): changing a posted line is atomic — a refused change leaves the old line, no second cash entry', async () => {
+    const partnerId = await customer();
+    const invoice = await postedSalesInvoice(partnerId, 1_000);
+    const voucher = await receipt(partnerId, 1_000, [
+      { invoiceId: invoice.id, allocatedAmount: 600 },
+    ]);
+    const lineId = voucher.allocations[0].id;
+    const changed = await transactions.updateAllocation(
+      voucher.id,
+      lineId,
+      900,
+      userId,
+    );
+    expect(Number(changed.allocations[0].allocatedAmount)).toBe(900);
+    expect(changed.updatedAt).toBeInstanceOf(Date);
+    expect((await salesView(partnerId, invoice.id)).remaining).toBe(100);
+
+    // Above the voucher's money: refused, the line keeps 900.
+    await expect(
+      transactions.updateAllocation(voucher.id, lineId, 1_200, userId),
+    ).rejects.toThrow(/remains unallocated/);
+    // Another receipt takes the last 100: 950 now exceeds the invoice.
+    await receipt(partnerId, 100, [
+      { invoiceId: invoice.id, allocatedAmount: 100 },
+    ]);
+    await expect(
+      transactions.updateAllocation(voucher.id, lineId, 950, userId),
+    ).rejects.toMatchObject({
+      response: { code: 'ALLOCATION_EXCEEDS_INVOICE_BALANCE' },
+    });
+    const line = await prisma.financialTransactionAllocation.findUniqueOrThrow({
+      where: { id: lineId },
+    });
+    expect(Number(line.allocatedAmount)).toBe(900);
+    expect(await salesView(partnerId, invoice.id)).toMatchObject({
+      paid: 1_000,
+      remaining: 0,
+      status: 'PAID',
+    });
+    // One entry for the voucher, the bank moved 1,000 once.
+    expect(await entries(voucher.id)).toHaveLength(1);
+    expect(await accountNet(bankAccountId, [voucher.id])).toBe(1_000);
+    // A cancelled voucher's line can no longer change.
+    await transactions.cancel(voucher.id, userId);
+    await expect(
+      transactions.updateAllocation(voucher.id, lineId, 100, userId),
+    ).rejects.toThrow();
+  });
+
+  it('R22 P — D6: foreign receipt — allocate, change, unallocate and cancel keep AR / AP and FX exact', async () => {
+    const currency = await foreignCurrency();
+    const partnerId = await customer();
+    // Invoice 100 at 10 (AR 1,000); receipt 100 at 12 (bank 1,200), 50 allocated at confirm.
+    const invoice = await postedSalesInvoice(partnerId, 100, {
+      currencyId: currency.id,
+      rate: 10,
+    });
+    const voucher = await foreignVoucher(
+      'CUSTOMER_RECEIPT',
+      partnerId,
+      100,
+      currency.id,
+      12,
+      [{ invoiceId: invoice.id, allocatedAmount: 50 }],
+    );
+    // AR 1,000 − (50×10 + 50×12) = −100; realized gain 50×(12−10) = 100.
+    expect(await ledger(partnerId, 'AR')).toBe(-100);
+    expect(await accountNet(fxAccountId, [voucher.id])).toBe(-100);
+    const lineId = voucher.allocations[0].id;
+    await transactions.updateAllocation(voucher.id, lineId, 100, userId);
+    expect((await salesView(partnerId, invoice.id)).status).toBe('PAID');
+    expect(await ledger(partnerId, 'AR')).toBe(0);
+    expect(await accountNet(fxAccountId, [voucher.id])).toBe(-200);
+    await transactions.unallocate(voucher.id, lineId, userId);
+    // Nothing applied: AR 1,000 − 1,200 (advance at its own rate); no FX.
+    expect(await ledger(partnerId, 'AR')).toBe(-200);
+    expect(await accountNet(fxAccountId, [voucher.id])).toBe(0);
+    await transactions.cancel(voucher.id, userId);
+    expect(await ledger(partnerId, 'AR')).toBe(1_000);
+    expect(await accountNet(fxAccountId, [voucher.id])).toBe(0);
+    expect(await accountNet(bankAccountId, [voucher.id])).toBe(0);
+    // The adjustment entries are linked to the voucher and fully reversed.
+    const adjustments = await prisma.journalEntry.findMany({
+      where: { sourceType: 'FT_ALLOCATION_FX', sourceId: voucher.id },
+      select: { status: true, reversalOfEntryId: true },
+    });
+    expect(
+      adjustments.filter(
+        (entry) =>
+          entry.status === JournalEntryStatus.POSTED &&
+          !entry.reversalOfEntryId,
+      ),
+    ).toEqual([]);
+  });
+
+  it('R22 P — D1: a voucher dated in a closed accounting period is refused at Confirm (nothing posted)', async () => {
+    const partnerId = await customer();
+    const n = next();
+    const year = await prisma.fiscalYear.create({
+      data: {
+        name: `${tag} FY${n}`,
+        startDate: new Date('1999-01-01T00:00:00Z'),
+        endDate: new Date('1999-12-31T23:59:59Z'),
+      },
+    });
+    const period = await prisma.accountingPeriod.create({
+      data: {
+        name: `${tag} P${n}`,
+        startDate: new Date('1999-03-01T00:00:00Z'),
+        endDate: new Date('1999-03-31T23:59:59Z'),
+        status: 'CLOSED',
+        fiscalYearId: year.id,
+      },
+    });
+    try {
+      const draft = await transactions.create(
+        'CUSTOMER_RECEIPT',
+        {
+          partnerId,
+          receivingAccountId,
+          amount: 100,
+          transactionDate: '1999-03-15T10:00:00.000Z',
+        },
+        userId,
+      );
+      await expect(transactions.confirm(draft.id, userId)).rejects.toThrow(
+        /Accounting Period/,
+      );
+      expect(await entries(draft.id)).toEqual([]);
+      expect(
+        (
+          await prisma.financialTransaction.findUniqueOrThrow({
+            where: { id: draft.id },
+          })
+        ).status,
+      ).toBe(FinancialTransactionStatus.DRAFT);
+    } finally {
+      await prisma.accountingPeriod.delete({ where: { id: period.id } });
+      await prisma.fiscalYear.delete({ where: { id: year.id } });
+    }
+  });
+
+  it('R22 P — contract 5: party columns sort through their relation; an unknown sortBy is a 400 (DTO), never a Prisma 500', async () => {
+    const partnerId = await customer();
+    await postedSalesInvoice(partnerId, 10);
+    await expect(
+      salesInvoices.findAll({ sortBy: 'customer', sortOrder: 'asc' }),
+    ).resolves.toMatchObject({ page: 1 });
+    await expect(
+      purchaseInvoices.findAll({ sortBy: 'supplier', sortOrder: 'asc' }),
+    ).resolves.toMatchObject({ page: 1 });
+    await expect(
+      transactions.findAll('CUSTOMER_RECEIPT', { sortBy: 'customer' }),
+    ).resolves.toMatchObject({ page: 1 });
+    await expect(
+      transactions.findAll('SUPPLIER_PAYMENT', { sortBy: 'supplier' }),
+    ).resolves.toMatchObject({ page: 1 });
+  });
+
+  it('R22 P — D5: fee caps — a bank-line receipt fee above the line amount is refused; a fee equal to the amount is allowed', async () => {
+    const partnerId = await customer();
+    const invoice = await postedSalesInvoice(partnerId, 200);
+    await expect(
+      transactions.createConfirmed(
+        'CUSTOMER_RECEIPT',
+        {
+          partnerId,
+          receivingAccountId,
+          amount: 100,
+          feeAmount: 100.01,
+          feeAccountId,
+          allocations: [{ invoiceId: invoice.id, allocatedAmount: 200 }],
+        },
+        userId,
+      ),
+    ).rejects.toMatchObject({ response: { code: 'FEE_EXCEEDS_AMOUNT' } });
+    const voucher = await transactions.createConfirmed(
+      'CUSTOMER_RECEIPT',
+      {
+        partnerId,
+        receivingAccountId,
+        amount: 100,
+        feeAmount: 100,
+        feeAccountId,
+        allocations: [{ invoiceId: invoice.id, allocatedAmount: 200 }],
+      },
+      userId,
+    );
+    expect((await salesView(partnerId, invoice.id)).status).toBe('PAID');
+    expect(await accountNet(feeAccountId, [voucher.id])).toBe(100);
+  });
+
+  it('R22 P — voucher integrity: agent receipt allocated, allocation on a cancelled voucher and an over-claiming draft are reported', async () => {
+    const customerId = await customer();
+    const invoice = await postedSalesInvoice(customerId, 1_000);
+    // A draft claiming 600, then a confirmed receipt taking 700 of the 1,000.
+    const draft = await transactions.create(
+      'CUSTOMER_RECEIPT',
+      {
+        partnerId: customerId,
+        receivingAccountId,
+        amount: 600,
+        allocations: [{ invoiceId: invoice.id, allocatedAmount: 600 }],
+      },
+      userId,
+    );
+    await receipt(customerId, 700, [
+      { invoiceId: invoice.id, allocatedAmount: 700 },
+    ]);
+    // Legacy shapes written directly (the services refuse them now).
+    const n = next();
+    const cancelled = await prisma.financialTransaction.create({
+      data: {
+        transactionNumber: `${tag}-CX${n}`,
+        type: FinancialTransactionType.CUSTOMER_RECEIPT,
+        status: FinancialTransactionStatus.CANCELLED,
+        partnerId: customerId,
+        receivingAccountId,
+        amount: 50,
+        allocations: {
+          create: { salesInvoiceId: invoice.id, allocatedAmount: 50 },
+        },
+      },
+    });
+    const report = await new VoucherIntegrityService(prisma, reports).run();
+    const codes = report.issues
+      .filter((issue) => [draft.id, cancelled.id].includes(issue.documentId))
+      .map((issue) => [issue.code, issue.severity])
+      .sort();
+    expect(codes).toEqual([
+      ['CANCELLED_VOUCHER_ALLOCATED', 'ERROR'],
+      ['DRAFT_OVER_CLAIM', 'REVIEW'],
+    ]);
   });
 });
