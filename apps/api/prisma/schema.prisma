@@ -2605,6 +2605,8 @@ model ChartOfAccount {
   bankTransactionsExpense      BankTransaction[]      @relation("BankTransactionExpenseAccount")
   /// Net-receipt / bank-fee settlement — accounts used as the fee debit target.
   financialTransactionsFee     FinancialTransaction[] @relation("FinancialTransactionFeeAccount")
+  /// R22 (D4) — other receipts / payments booked against this account.
+  financialTransactionsCounter FinancialTransaction[] @relation("FinancialTransactionCounterAccount")
 
   /// Transaction Types Registry — a type's configured default posting account.
   transactionTypesDefault TransactionType[] @relation("TransactionTypeDefaultAccount")
@@ -2850,6 +2852,8 @@ model ReceivingAccount {
 
   payments                   Payment[]
   financialTransactions      FinancialTransaction[]
+  /// R22 (D4) — internal transfers whose destination is this account.
+  financialTransactionsIn    FinancialTransaction[] @relation("FinancialTransactionTargetReceivingAccount")
   /// Cash Flow module — the master-data "Cash Source" every imported Bank/
   /// Cash Flow transaction maps to (never a free-text bank name for a new
   /// import — see BankTransaction.cashSourceId).
@@ -7340,6 +7344,17 @@ enum FinancialTransactionType {
   /// (partner-tagged) / Cr Cash-Bank. Allocations target `salesReturnId`,
   /// never an invoice, and must cover the full amount (no unallocated refund).
   CUSTOMER_REFUND
+  /// R22 (D4) — money in with an authorised accounting counterpart (owner
+  /// capital, loan received, other income): Dr Cash-Bank / Cr `counterAccountId`.
+  /// No party, no invoice allocation.
+  OTHER_RECEIPT
+  /// R22 (D4) — money out to an authorised counterpart (drawings, loan
+  /// repayment, deposit paid): Dr `counterAccountId` / Cr Cash-Bank.
+  OTHER_PAYMENT
+  /// R22 (D4) — between two of the company's own cash / bank accounts
+  /// (`receivingAccountId` = source, `targetReceivingAccountId` = destination):
+  /// Dr destination / Cr source, never income or expense.
+  INTERNAL_TRANSFER
 }
 
 /// Deliberately minimal — no Submit/Approve step was requested for
@@ -7428,6 +7443,16 @@ model FinancialTransaction {
   feeAccountId String?         @map("fee_account_id") @db.Uuid
   feeAccount   ChartOfAccount? @relation("FinancialTransactionFeeAccount", fields: [feeAccountId], references: [id])
 
+  /// R22 (D4) — OTHER_RECEIPT / OTHER_PAYMENT only: the authorised posting
+  /// account on the other side of the cash line (counter-account allow-list).
+  counterAccountId String?         @map("counter_account_id") @db.Uuid
+  counterAccount   ChartOfAccount? @relation("FinancialTransactionCounterAccount", fields: [counterAccountId], references: [id])
+
+  /// R22 (D4) — INTERNAL_TRANSFER only: the destination cash / bank account
+  /// (`receivingAccountId` is the source).
+  targetReceivingAccountId String?           @map("target_receiving_account_id") @db.Uuid
+  targetReceivingAccount   ReceivingAccount? @relation("FinancialTransactionTargetReceivingAccount", fields: [targetReceivingAccountId], references: [id])
+
   referenceNumber String? @map("reference_number")
   /// R13 (owner decision 2) — what was spent (expense vouchers); carried
   /// onto the journal line description.
@@ -7453,6 +7478,9 @@ model FinancialTransaction {
   deletedAt DateTime? @map("deleted_at")
 
   allocations               FinancialTransactionAllocation[]
+  /// R22 — refund lines paying back this receipt's unapplied amount, and the
+  /// receipt's own consumption rows (see FinancialTransactionAllocation.receiptId).
+  receiptRefundAllocations  FinancialTransactionAllocation[] @relation("FinancialTransactionAllocationReceipt")
   activities                FinancialTransactionActivity[]
   /// Cash Flow module — the Bank/Cash Flow Transaction(s) this voucher was
   /// generated/matched from, if any (never set for a manually-created
@@ -7503,6 +7531,14 @@ model FinancialTransactionAllocation {
   storeOrderId String?     @map("store_order_id") @db.Uuid
   storeOrder   StoreOrder? @relation(fields: [storeOrderId], references: [id])
 
+  /// R22 (D4) — refund of an unapplied customer receipt. On a CUSTOMER_REFUND
+  /// line: the confirmed Customer Receipt whose unapplied amount it pays back.
+  /// On that Customer Receipt itself (receiptId = its own id, no invoice): the
+  /// refunded part, so every matching path reads `amount + fee − Σ allocations`
+  /// and refunded money is never allocated again (same shape as storeOrderId).
+  receiptId String?               @map("receipt_id") @db.Uuid
+  receipt   FinancialTransaction? @relation("FinancialTransactionAllocationReceipt", fields: [receiptId], references: [id])
+
   allocatedAmount Decimal  @map("allocated_amount") @db.Decimal(12, 2)
   /// R22 A3 — the day this allocation took effect (as-of aging reads it):
   /// the voucher date for lines posted with the voucher (Confirm stamps it),
@@ -7516,6 +7552,7 @@ model FinancialTransactionAllocation {
 
   @@index([salesReturnId])
   @@index([storeOrderId])
+  @@index([receiptId])
   @@index([salesInvoiceId])
   @@index([purchaseInvoiceId])
   @@map("financial_transaction_allocations")

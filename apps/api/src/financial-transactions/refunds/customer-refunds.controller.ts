@@ -30,6 +30,8 @@ import { UpdateCustomerRefundDto } from './dto/update-customer-refund.dto';
 import { FindCustomerRefundsQueryDto } from './dto/find-customer-refunds-query.dto';
 import { RecordStoreOrderRefundDto } from './dto/record-store-order-refund.dto';
 import { StoreOrderRefundsService } from './store-order-refunds.service';
+import { listRefundableReceipts } from './receipt-refund';
+import { PrismaService } from '../../prisma/prisma.service';
 
 const TYPE = FinancialTransactionType.CUSTOMER_REFUND;
 
@@ -49,7 +51,14 @@ export class CustomerRefundsController {
     private readonly transactions: FinancialTransactionsService,
     private readonly storeOrderRefunds: StoreOrderRefundsService,
     private readonly permissions: PermissionsResolverService,
+    private readonly prisma: PrismaService,
   ) {}
+
+  /** R22 (D4) — the customer's confirmed receipts with an unapplied amount to refund. */
+  @Get('open-receipts')
+  getOpenReceipts(@Query('partnerId', ParseUUIDPipe) partnerId: string) {
+    return listRefundableReceipts(this.prisma, partnerId);
+  }
 
   /** R15 — the customer's store orders (cancelled ones included) with money to refund now. */
   @Get('open-orders')

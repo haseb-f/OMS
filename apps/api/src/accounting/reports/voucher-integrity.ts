@@ -39,7 +39,13 @@ export interface VoucherIntegrityIssue {
 export interface VoucherView {
   id: string;
   transactionNumber: string;
-  type: 'CUSTOMER_RECEIPT' | 'SUPPLIER_PAYMENT';
+  /** R22-T — other receipts / payments / transfers are checked too (no allocations). */
+  type:
+    | 'CUSTOMER_RECEIPT'
+    | 'SUPPLIER_PAYMENT'
+    | 'OTHER_RECEIPT'
+    | 'OTHER_PAYMENT'
+    | 'INTERNAL_TRANSFER';
   status: 'CONFIRMED' | 'CANCELLED';
   amount: number;
   feeAmount: number;
@@ -156,7 +162,11 @@ export function evaluateVoucherIntegrity(input: {
         )
       : [];
     if (active.length === 1 && cashLines.length > 0) {
-      const cashSide = voucher.type === 'CUSTOMER_RECEIPT' ? 'debit' : 'credit';
+      // Money in debits the cash line; money out (and a transfer's source) credits it.
+      const cashSide =
+        voucher.type === 'CUSTOMER_RECEIPT' || voucher.type === 'OTHER_RECEIPT'
+          ? 'debit'
+          : 'credit';
       const posted = round2(
         cashLines.reduce(
           (sum, line) => sum + line[cashSide] - line[otherSide(cashSide)],
