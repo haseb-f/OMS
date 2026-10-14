@@ -52,7 +52,8 @@ import { movementReferenceLink } from "@/config/traceability/record-routes";
 import { hasMovementTrace, movementTrace } from "@/config/inventory/movement-trace";
 import { useProductNames } from "@/hooks/use-product-names";
 import { useRecipeVersions } from "@/hooks/use-recipe-versions";
-import { movementTypeTone } from "@/config/inventory/movement-type";
+import { movementEffect, movementEffectTone } from "@/config/inventory/movement-effect";
+import { MovementQuantity } from "@/components/inventory/movement-quantity";
 import { InventoryMovementGridCard } from "@/config/inventory/inventory-grid-cards";
 import { canViewInventoryCost, omitInventoryCostColumns } from "@/config/inventory/cost-visibility";
 import { ModuleImportButtons } from "@/components/shared/module-import-buttons";
@@ -168,7 +169,7 @@ function InventoryMovementsPageContent() {
           const type = info.getValue() as string;
           return (
             <StatusBadge
-              tone={movementTypeTone(type)}
+              tone={movementEffectTone(movementEffect(info.row.original))}
               label={t(`inventory.movementType.${type}` as MessageKey)}
             />
           );
@@ -302,14 +303,7 @@ function InventoryMovementsPageContent() {
         header: t("inventory.fields.quantity"),
         meta: { titleKey: "inventory.fields.quantity" },
         accessorFn: (row) => row.quantity,
-        cell: (info) => {
-          const value = info.getValue() as number;
-          return (
-            <span className={value < 0 ? "text-destructive" : "text-success"}>
-              {value > 0 ? `+${value}` : value}
-            </span>
-          );
-        },
+        cell: (info) => <MovementQuantity row={info.row.original} />,
       },
       {
         id: "quantityBefore",

@@ -10,13 +10,14 @@ import { SemanticValue } from "@/components/shared/semantic-value";
 import { movementReferenceLink } from "@/config/traceability/record-routes";
 import { formatDate, formatDateTime } from "@/lib/date";
 import { formatAmount } from "@/lib/money";
-import { cn } from "@/lib/utils";
 import { useLocale } from "@/providers/locale-provider";
 import type { MessageKey } from "@/i18n/translate";
 import type { InventoryMovementRow, StockCard } from "@/services/inventory-service";
 import type { PhysicalCountListRow } from "@/services/physical-count-service";
 import type { AssemblyOrder } from "@/services/assembly-service";
-import { movementTypeTone, PHYSICAL_COUNT_STATUS_TONE } from "./movement-type";
+import { PHYSICAL_COUNT_STATUS_TONE } from "./movement-type";
+import { movementEffect, movementEffectTone } from "./movement-effect";
+import { MovementQuantity } from "@/components/inventory/movement-quantity";
 import { ASSEMBLY_STATUS_TONE, assemblyHref } from "./assembly";
 import { stockOwnerLabel } from "./stock-owner";
 
@@ -30,18 +31,6 @@ import { stockOwnerLabel } from "./stock-owner";
 interface SelectableChrome {
   selected: boolean;
   onToggleSelected: () => void;
-}
-
-/** Signed movement quantity: gains green, losses red - always with the +/- sign too. */
-function SignedQuantity({ value }: { value: number }) {
-  return (
-    <span
-      dir="ltr"
-      className={cn("num font-medium", value < 0 ? "text-destructive" : "text-success")}
-    >
-      {value > 0 ? `+${value}` : value}
-    </span>
-  );
 }
 
 export function InventoryMovementGridCard({
@@ -92,11 +81,11 @@ export function InventoryMovementGridCard({
           {row.movementNumber}
         </SemanticValue>
       }
-      meta={<SignedQuantity value={row.quantity} />}
+      meta={<MovementQuantity row={row} />}
       fields={fields}
       badges={
         <StatusBadge
-          tone={movementTypeTone(row.type)}
+          tone={movementEffectTone(movementEffect(row))}
           label={t(`inventory.movementType.${row.type}` as MessageKey)}
         />
       }

@@ -1,0 +1,80 @@
+{
+  "base": "http://localhost:3001",
+  "results": [
+    {
+      "name": "ar-light-1440: receipts green +",
+      "ok": true,
+      "detail": "1 rows"
+    },
+    {
+      "name": "ar-light-1440: issues red −",
+      "ok": true,
+      "detail": "1 rows"
+    },
+    {
+      "name": "ar-light-1440: reservations blue, available −",
+      "ok": true,
+      "detail": "16 rows · المتاح−1حجز — يغيّر الكمية المحجوزة والمتاحة فقط — لا يغيّر الرصيد الفعلي في المستودع"
+    },
+    {
+      "name": "ar-light-1440: releases blue, available +",
+      "ok": true,
+      "detail": "2 rows · المتاح+1إلغاء حجز — يغيّر الكمية المحجوزة والمتاحة فقط — لا يغيّر الرصيد الفعلي في المستودع"
+    },
+    {
+      "name": "ar-light-1440: no horizontal overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "en-dark-1440: receipts green +",
+      "ok": true,
+      "detail": "1 rows"
+    },
+    {
+      "name": "en-dark-1440: issues red −",
+      "ok": true,
+      "detail": "1 rows"
+    },
+    {
+      "name": "en-dark-1440: reservations blue, available −",
+      "ok": true,
+      "detail": "16 rows · Available−1Reservation — Changes reserved and available quantities only — physical on-hand stock is unchanged"
+    },
+    {
+      "name": "en-dark-1440: releases blue, available +",
+      "ok": true,
+      "detail": "2 rows · Available+1Reservation release — Changes reserved and available quantities only — physical on-hand stock is unchanged"
+    },
+    {
+      "name": "en-dark-1440: no horizontal overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ar-light-375: receipts green +",
+      "ok": true,
+      "detail": "1 rows"
+    },
+    {
+      "name": "ar-light-375: issues red −",
+      "ok": true,
+      "detail": "1 rows"
+    },
+    {
+      "name": "ar-light-375: reservations blue, available −",
+      "ok": true,
+      "detail": "16 rows · المتاح−1حجز — يغيّر الكمية المحجوزة والمتاحة فقط — لا يغيّر الرصيد الفعلي في المستودع"
+    },
+    {
+      "name": "ar-light-375: releases blue, available +",
+      "ok": true,
+      "detail": "2 rows · المتاح+1إلغاء حجز — يغيّر الكمية المحجوزة والمتاحة فقط — لا يغيّر الرصيد الفعلي في المستودع"
+    },
+    {
+      "name": "ar-light-375: no horizontal overflow",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

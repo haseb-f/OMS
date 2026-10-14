@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { MovementQuantity } from "@/components/inventory/movement-quantity";
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 import { EnterpriseDataTable } from "@/components/master-data/enterprise-data-table";
@@ -149,12 +150,7 @@ function buildColumns(
       },
       enableSorting: false,
       accessorFn: (row) => row.quantity,
-      cell: ({ row }) => (
-        <span className="num">
-          {row.original.quantity > 0 ? "+" : ""}
-          {formatNumber(row.original.quantity)}
-        </span>
-      ),
+      cell: ({ row }) => <MovementQuantity row={row.original} format={formatNumber} />,
     },
     {
       id: "document",

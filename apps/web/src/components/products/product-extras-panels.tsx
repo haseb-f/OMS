@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MovementQuantity } from "@/components/inventory/movement-quantity";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Plus, Trash2 } from "lucide-react";
 import { EnterpriseButton } from "@/components/ui/button";
@@ -187,7 +188,7 @@ export function ProductStockMovements({ productId }: { productId: string }) {
       id: "quantity",
       meta: { titleKey: "inventory.fields.quantity" },
       accessorFn: (row) => row.quantity,
-      cell: ({ row }) => <span dir="ltr">{row.original.quantity}</span>,
+      cell: ({ row }) => <MovementQuantity row={row.original} />,
     },
     {
       id: "quantityAfter",

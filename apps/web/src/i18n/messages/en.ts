@@ -2769,6 +2769,16 @@ const en = {
       reference: "Reference",
       runningCost: "Running Cost",
     },
+    effect: {
+      available: "Available",
+      reserve: "Reservation",
+      release: "Reservation release",
+      reservationHint:
+        "Changes reserved and available quantities only — physical on-hand stock is unchanged",
+      in: "Received into the warehouse",
+      out: "Issued from the warehouse",
+      none: "No change in stock",
+    },
     movementType: {
       OPENING_BALANCE: "Opening Balance",
       ADJUSTMENT: "Inventory Adjustment",

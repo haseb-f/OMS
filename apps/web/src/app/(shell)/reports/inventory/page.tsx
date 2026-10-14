@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { MovementQuantity } from "@/components/inventory/movement-quantity";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageWorkspace } from "@/components/shared/page-workspace";
@@ -180,6 +181,7 @@ function ReportsInventoryPageContent() {
         header: t("inventory.fields.quantity"),
         meta: { titleKey: "inventory.fields.quantity" },
         accessorFn: (row) => row.quantity,
+        cell: (info) => <MovementQuantity row={info.row.original} />,
       },
       {
         id: "createdAt",

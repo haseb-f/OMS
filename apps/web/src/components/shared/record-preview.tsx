@@ -15,7 +15,7 @@ import {
 } from "@/config/traceability/record-previews";
 import { pushOrigin } from "@/lib/navigation-origin";
 import { claimTerm, paymentTerm } from "@/config/payments/payment-vocabulary";
-import { movementTypeTone } from "@/config/inventory/movement-type";
+import { movementTypeOnlyTone } from "@/config/inventory/movement-effect";
 import { formatAmount, formatMoney } from "@/lib/money";
 import {
   Table,
@@ -106,7 +106,7 @@ function RecordStatus({
   const label = recordStatusLabel(t, status, kind);
   const tone =
     kind === "INVENTORY_MOVEMENT" && status
-      ? movementTypeTone(status)
+      ? movementTypeOnlyTone(status)
       : (RECORD_STATUS_TONE[status ?? ""] ?? "neutral");
   return label ? <StatusBadge label={label} tone={tone} /> : null;
 }
